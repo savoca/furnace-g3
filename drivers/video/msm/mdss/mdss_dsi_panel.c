@@ -141,6 +141,11 @@ u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 	return 0;
 }
 
+#ifdef CONFIG_LGE_SHARPENING
+static struct dsi_panel_cmds sharpening_on;
+static struct dsi_panel_cmds sharpening_off;
+#endif
+
 #ifdef CONFIG_MACH_LGE_G3_KDDI_LGD_FHD
 void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
                        struct dsi_panel_cmds *pcmds)
@@ -165,6 +170,25 @@ static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
+
+#ifdef CONFIG_LGE_SHARPENING
+bool sharpening_enabled = true;
+
+static int mdss_dsi_update_sharpening(struct mdss_panel_data *pdata,
+                       bool enabled)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata, panel_data);
+
+	if (enabled)
+		mdss_dsi_panel_cmds_send(ctrl_pdata, &sharpening_on);
+	else
+		mdss_dsi_panel_cmds_send(ctrl_pdata, &sharpening_off);
+
+	return 0;
+}
+#endif
 
 static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
 static struct dsi_cmd_desc backlight_cmd = {
@@ -543,6 +567,12 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	}
 #else
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
+#endif
+
+#ifdef CONFIG_LGE_SHARPENING
+	pr_info("%s: panel sharpening: %s\n", __func__,
+		sharpening_enabled ? "true" : "false");
+	mdss_dsi_update_sharpening(pdata, sharpening_enabled);
 #endif
 
 	pr_info("%s-:\n", __func__);
@@ -1265,6 +1295,13 @@ static int mdss_panel_parse_dt(struct device_node *np,
         mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->set_address_mode_cmds,
             "lge,mdss-set-address-mode-command", "qcom,mdss-dsi-off-command-state");
 #endif
+#ifdef CONFIG_LGE_SHARPENING
+	mdss_dsi_parse_dcs_cmds(np, &sharpening_on,
+		"qcom,mdss-dsi-sharpening-on", "qcom,mdss-dsi-off-command-state");
+	mdss_dsi_parse_dcs_cmds(np, &sharpening_off,
+		"qcom,mdss-dsi-sharpening-off", "qcom,mdss-dsi-off-command-state");
+#endif
+
 	return 0;
 
 error:

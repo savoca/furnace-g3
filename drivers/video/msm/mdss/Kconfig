@@ -44,3 +44,8 @@ config LGE_VSYNC_SKIP
 	bool "MDSS VSYNC Skip scheme"
 	---help---
 	This feature provides VSYNC skip scheme.
+
+config LGE_SHARPENING
+	bool "LGE sharpening control"
+	---help---
+	  Allow control of LGE panel sharpening via sysfs node.
