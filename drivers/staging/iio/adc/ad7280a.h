@@ -10,7 +10,7 @@
 #define IIO_ADC_AD7280_H_
 
 /*
-                                                                       
+ * TODO: struct ad7280_platform_data needs to go into include/linux/iio
  */
 
 #define AD7280A_ACQ_TIME_400ns			0
@@ -35,4 +35,4 @@ struct ad7280_platform_data {
 	bool thermistor_term_en;
 };
 
-#endif /*                   */
+#endif /* IIO_ADC_AD7280_H_ */

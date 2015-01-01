@@ -1,5 +1,5 @@
 /*
-                                     
+ * Stowaway keyboard driver for Linux
  */
 
 /*

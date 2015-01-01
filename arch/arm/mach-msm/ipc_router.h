@@ -23,11 +23,11 @@
 
 #include <net/sock.h>
 
-/*                                      */
+/* definitions for the R2R wire protcol */
 #define IPC_ROUTER_V1		1
 /*
-                                                                          
-                                                                 
+ * Ambiguous definition but will enable multiplexing IPC_ROUTER_V2 packets
+ * with an existing alternate transport in user-space, if needed.
  */
 #define IPC_ROUTER_V2		3
 
@@ -78,12 +78,12 @@ enum {
 	MULTI_LINK_MODE,
 };
 
-/* 
-                                             
-                                                           
-                                                            
-                                                               
-                                                   
+/**
+ * rr_control_msg - Control message structure
+ * @cmd: Command identifier for HELLO message in Version 1.
+ * @hello: Message structure for HELLO message in Version 2.
+ * @srv: Message structure for NEW_SERVER/REMOVE_SERVER events.
+ * @cli: Message structure for REMOVE_CLIENT event.
  */
 union rr_control_msg {
 	uint32_t cmd;
@@ -106,16 +106,16 @@ union rr_control_msg {
 	} cli;
 };
 
-/* 
-                                             
-                                 
-                                  
-                                               
-                                               
-                                                
-                                         
-                                                    
-                                                    
+/**
+ * rr_header_v1 - IPC Router header version 1
+ * @version: Version information.
+ * @type: IPC Router Message Type.
+ * @src_node_id: Source Node ID of the message.
+ * @src_port_id: Source Port ID of the message.
+ * @control_flag: Flag to indicate flow control.
+ * @size: Size of the IPC Router payload.
+ * @dst_node_id: Destination Node ID of the message.
+ * @dst_port_id: Destination Port ID of the message.
  */
 struct rr_header_v1 {
 	uint32_t version;
@@ -128,16 +128,16 @@ struct rr_header_v1 {
 	uint32_t dst_port_id;
 };
 
-/* 
-                                             
-                                 
-                                  
-                                                                      
-                                         
-                                               
-                                               
-                                                    
-                                                    
+/**
+ * rr_header_v2 - IPC Router header version 2
+ * @version: Version information.
+ * @type: IPC Router Message Type.
+ * @control_flag: Flags to indicate flow control, optional header etc.
+ * @size: Size of the IPC Router payload.
+ * @src_node_id: Source Node ID of the message.
+ * @src_port_id: Source Port ID of the message.
+ * @dst_node_id: Destination Node ID of the message.
+ * @dst_port_id: Destination Port ID of the message.
  */
 struct rr_header_v2 {
 	uint8_t version;
@@ -157,12 +157,12 @@ union rr_header {
 
 #define IPC_ROUTER_HDR_SIZE sizeof(union rr_header)
 
-/* 
-                                                
-                                                             
-                                                                    
-                                                     
-                                               
+/**
+ * rr_packet - Router to Router packet structure
+ * @list: Pointer to prev & next packets in a port's rx list.
+ * @hdr: Header information extracted from or prepended to a packet.
+ * @pkt_fragment_q: Queue of SKBs containing payload.
+ * @length: Length of data in the chain of SKBs
  */
 struct rr_packet {
 	struct list_head list;
@@ -177,20 +177,20 @@ struct msm_ipc_sock {
 	void *default_pil;
 };
 
-/* 
-                                                                    
-                           
-                                                             
-                              
-                                                                    
-                                                    
-                                                                           
-                                            
-                                                                 
-                                            
-                                    
-                                                                         
-                                      
+/**
+ * msm_ipc_router_xprt - Structure to hold XPRT specific information
+ * @name: Name of the XPRT.
+ * @link_id: Network cluster ID to which the XPRT belongs to.
+ * @priv: XPRT's private data.
+ * @get_version: Method to get header version supported by the XPRT.
+ * @get_option: Method to get XPRT specific options.
+ * @read_avail: Method to get data size available to be read from the XPRT.
+ * @read: Method to read data from the XPRT.
+ * @write_avail: Method to get write space available in the XPRT.
+ * @write: Method to write data to the XPRT.
+ * @close: Method to close the XPRT.
+ * @sft_close_done: Method to indicate to the XPRT that handling of reset
+ *                  event is complete.
  */
 struct msm_ipc_router_xprt {
 	char *name;

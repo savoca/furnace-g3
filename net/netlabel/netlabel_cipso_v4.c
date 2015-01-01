@@ -1,12 +1,12 @@
 /*
-                              
-  
-                                                                           
-                                                                        
-                                     
-  
-                                           
-  
+ * NetLabel CIPSO/IPv4 Support
+ *
+ * This file defines the CIPSO/IPv4 functions for the NetLabel system.  The
+ * NetLabel system manages static and dynamic label mappings for network
+ * protocols such as CIPSO and RIPSO.
+ *
+ * Author: Paul Moore <paul@paul-moore.com>
+ *
  */
 
 /*
@@ -46,20 +46,20 @@
 #include "netlabel_mgmt.h"
 #include "netlabel_domainhash.h"
 
-/*                                         */
+/* Argument struct for cipso_v4_doi_walk() */
 struct netlbl_cipsov4_doiwalk_arg {
 	struct netlink_callback *nl_cb;
 	struct sk_buff *skb;
 	u32 seq;
 };
 
-/*                                          */
+/* Argument struct for netlbl_domhsh_walk() */
 struct netlbl_domhsh_walk_arg {
 	struct netlbl_audit *audit_info;
 	u32 doi;
 };
 
-/*                                         */
+/* NetLabel Generic NETLINK CIPSOv4 family */
 static struct genl_family netlbl_cipsov4_gnl_family = {
 	.id = GENL_ID_GENERATE,
 	.hdrsize = 0,
@@ -68,7 +68,7 @@ static struct genl_family netlbl_cipsov4_gnl_family = {
 	.maxattr = NLBL_CIPSOV4_A_MAX,
 };
 
-/*                                   */
+/* NetLabel Netlink attribute policy */
 static const struct nla_policy netlbl_cipsov4_genl_policy[NLBL_CIPSOV4_A_MAX + 1] = {
 	[NLBL_CIPSOV4_A_DOI] = { .type = NLA_U32 },
 	[NLBL_CIPSOV4_A_MTYPE] = { .type = NLA_U32 },
@@ -85,18 +85,18 @@ static const struct nla_policy netlbl_cipsov4_genl_policy[NLBL_CIPSOV4_A_MAX + 1
 };
 
 /*
-                   
+ * Helper Functions
  */
 
-/* 
-                                                                         
-                                        
-                                        
-  
-               
-                                                                            
-                                                                     
-  
+/**
+ * netlbl_cipsov4_add_common - Parse the common sections of a ADD message
+ * @info: the Generic NETLINK info block
+ * @doi_def: the CIPSO V4 DOI definition
+ *
+ * Description:
+ * Parse the common sections of a ADD message and fill in the related values
+ * in @doi_def.  Returns zero on success, negative values on failure.
+ *
  */
 static int netlbl_cipsov4_add_common(struct genl_info *info,
 				     struct cipso_v4_doi *doi_def)
@@ -125,19 +125,19 @@ static int netlbl_cipsov4_add_common(struct genl_info *info,
 }
 
 /*
-                            
+ * NetLabel Command Handlers
  */
 
-/* 
-                                                          
-                                        
-                                          
-  
-               
-                                                                        
-                                                                         
-                     
-  
+/**
+ * netlbl_cipsov4_add_std - Adds a CIPSO V4 DOI definition
+ * @info: the Generic NETLINK info block
+ * @audit_info: NetLabel audit information
+ *
+ * Description:
+ * Create a new CIPSO_V4_MAP_TRANS DOI definition based on the given ADD
+ * message and add it to the CIPSO V4 engine.  Return zero on success and
+ * non-zero on error.
+ *
  */
 static int netlbl_cipsov4_add_std(struct genl_info *info,
 				  struct netlbl_audit *audit_info)
@@ -330,16 +330,16 @@ add_std_failure:
 	return ret_val;
 }
 
-/* 
-                                                           
-                                        
-                                          
-  
-               
-                                                                               
-                                                                             
-         
-  
+/**
+ * netlbl_cipsov4_add_pass - Adds a CIPSO V4 DOI definition
+ * @info: the Generic NETLINK info block
+ * @audit_info: NetLabel audit information
+ *
+ * Description:
+ * Create a new CIPSO_V4_MAP_PASS DOI definition based on the given ADD message
+ * and add it to the CIPSO V4 engine.  Return zero on success and non-zero on
+ * error.
+ *
  */
 static int netlbl_cipsov4_add_pass(struct genl_info *info,
 				   struct netlbl_audit *audit_info)
@@ -369,16 +369,16 @@ add_pass_failure:
 	return ret_val;
 }
 
-/* 
-                                                            
-                                        
-                                          
-  
-               
-                                                                        
-                                                                         
-                     
-  
+/**
+ * netlbl_cipsov4_add_local - Adds a CIPSO V4 DOI definition
+ * @info: the Generic NETLINK info block
+ * @audit_info: NetLabel audit information
+ *
+ * Description:
+ * Create a new CIPSO_V4_MAP_LOCAL DOI definition based on the given ADD
+ * message and add it to the CIPSO V4 engine.  Return zero on success and
+ * non-zero on error.
+ *
  */
 static int netlbl_cipsov4_add_local(struct genl_info *info,
 				    struct netlbl_audit *audit_info)
@@ -408,15 +408,15 @@ add_local_failure:
 	return ret_val;
 }
 
-/* 
-                                             
-                           
-                                        
-  
-               
-                                                                               
-                                                                         
-  
+/**
+ * netlbl_cipsov4_add - Handle an ADD message
+ * @skb: the NETLINK buffer
+ * @info: the Generic NETLINK info block
+ *
+ * Description:
+ * Create a new DOI definition based on the given ADD message and add it to the
+ * CIPSO V4 engine.  Returns zero on success, negative values on failure.
+ *
  */
 static int netlbl_cipsov4_add(struct sk_buff *skb, struct genl_info *info)
 
@@ -446,22 +446,22 @@ static int netlbl_cipsov4_add(struct sk_buff *skb, struct genl_info *info)
 	return ret_val;
 }
 
-/* 
-                                              
-                           
-                                        
-  
-               
-                                                                            
-                                                                           
-                                                                             
-                                                                              
-                                                                           
-                                                                            
-                                                                             
-                                                                       
-                            
-  
+/**
+ * netlbl_cipsov4_list - Handle a LIST message
+ * @skb: the NETLINK buffer
+ * @info: the Generic NETLINK info block
+ *
+ * Description:
+ * Process a user generated LIST message and respond accordingly.  While the
+ * response message generated by the kernel is straightforward, determining
+ * before hand the size of the buffer to allocate is not (we have to generate
+ * the message to know the size).  In order to keep this function sane what we
+ * do is allocate a buffer of NLMSG_GOODSIZE and try to fit the response in
+ * that size, if we fail then we restart with a larger buffer and try again.
+ * We continue in this manner until we hit a limit of failed attempts then we
+ * give up and just send an error message.  Returns zero on success and
+ * negative values on error.
+ *
  */
 static int netlbl_cipsov4_list(struct sk_buff *skb, struct genl_info *info)
 {
@@ -595,7 +595,7 @@ list_start:
 	return genlmsg_reply(ans_skb, info);
 
 list_retry:
-	/*                                   */
+	/* XXX - this limit is a guesstimate */
 	if (nlsze_mult < 4) {
 		rcu_read_unlock();
 		kfree_skb(ans_skb);
@@ -609,17 +609,17 @@ list_failure:
 	return ret_val;
 }
 
-/* 
-                                                                       
-                                       
-                                                 
-  
-               
-                                                            
-                                                                              
-                                                                           
-           
-  
+/**
+ * netlbl_cipsov4_listall_cb - cipso_v4_doi_walk() callback for LISTALL
+ * @doi_def: the CIPSOv4 DOI definition
+ * @arg: the netlbl_cipsov4_doiwalk_arg structure
+ *
+ * Description:
+ * This function is designed to be used as a callback to the
+ * cipso_v4_doi_walk() function for use in generating a response for a LISTALL
+ * message.  Returns the size of the message on success, negative values on
+ * failure.
+ *
  */
 static int netlbl_cipsov4_listall_cb(struct cipso_v4_doi *doi_def, void *arg)
 {
@@ -649,15 +649,15 @@ listall_cb_failure:
 	return ret_val;
 }
 
-/* 
-                                                    
-                           
-                            
-  
-               
-                                                                             
-                                                
-  
+/**
+ * netlbl_cipsov4_listall - Handle a LISTALL message
+ * @skb: the NETLINK buffer
+ * @cb: the NETLINK callback
+ *
+ * Description:
+ * Process a user generated LISTALL message and respond accordingly.  Returns
+ * zero on success and negative values on error.
+ *
  */
 static int netlbl_cipsov4_listall(struct sk_buff *skb,
 				  struct netlink_callback *cb)
@@ -675,17 +675,17 @@ static int netlbl_cipsov4_listall(struct sk_buff *skb,
 	return skb->len;
 }
 
-/* 
-                                                                         
-                                   
-                                             
-  
-               
-                                                                               
-                                                                           
-                                                                              
-                                       
-  
+/**
+ * netlbl_cipsov4_remove_cb - netlbl_cipsov4_remove() callback for REMOVE
+ * @entry: LSM domain mapping entry
+ * @arg: the netlbl_domhsh_walk_arg structure
+ *
+ * Description:
+ * This function is intended for use by netlbl_cipsov4_remove() as the callback
+ * for the netlbl_domhsh_walk() function; it removes LSM domain map entries
+ * which are associated with the CIPSO DOI specified in @arg.  Returns zero on
+ * success, negative values on failure.
+ *
  */
 static int netlbl_cipsov4_remove_cb(struct netlbl_dom_map *entry, void *arg)
 {
@@ -698,15 +698,15 @@ static int netlbl_cipsov4_remove_cb(struct netlbl_dom_map *entry, void *arg)
 	return 0;
 }
 
-/* 
-                                                  
-                           
-                                        
-  
-               
-                                                                            
-                                               
-  
+/**
+ * netlbl_cipsov4_remove - Handle a REMOVE message
+ * @skb: the NETLINK buffer
+ * @info: the Generic NETLINK info block
+ *
+ * Description:
+ * Process a user generated REMOVE message and respond accordingly.  Returns
+ * zero on success, negative values on failure.
+ *
  */
 static int netlbl_cipsov4_remove(struct sk_buff *skb, struct genl_info *info)
 {
@@ -734,7 +734,7 @@ static int netlbl_cipsov4_remove(struct sk_buff *skb, struct genl_info *info)
 }
 
 /*
-                                               
+ * NetLabel Generic NETLINK Command Definitions
  */
 
 static struct genl_ops netlbl_cipsov4_ops[] = {
@@ -769,16 +769,16 @@ static struct genl_ops netlbl_cipsov4_ops[] = {
 };
 
 /*
-                                              
+ * NetLabel Generic NETLINK Protocol Functions
  */
 
-/* 
-                                                                     
-  
-               
-                                                                          
-                                                                   
-  
+/**
+ * netlbl_cipsov4_genl_init - Register the CIPSOv4 NetLabel component
+ *
+ * Description:
+ * Register the CIPSOv4 packet NetLabel component with the Generic NETLINK
+ * mechanism.  Returns zero on success, negative values on failure.
+ *
  */
 int __init netlbl_cipsov4_genl_init(void)
 {

@@ -10,10 +10,10 @@
 #include "internal.h"
 
 /*
-                                                                   
-                                                                  
-                                                          
-              
+ * Logic: we've got two memory sums for each process, "shared", and
+ * "non-shared". Shared memory may get counted more than once, for
+ * each process that owns it. Non-shared memory is counted
+ * accurately.
  */
 void task_mem(struct seq_file *m, struct mm_struct *mm)
 {
@@ -66,7 +66,7 @@ void task_mem(struct seq_file *m, struct mm_struct *mm)
 	else
 		bytes += kobjsize(current->sighand);
 
-	bytes += kobjsize(current); /*                       */
+	bytes += kobjsize(current); /* includes kernel stack */
 
 	seq_printf(m,
 		"Mem:\t%8lu bytes\n"
@@ -132,7 +132,7 @@ static void pad_len_spaces(struct seq_file *m, int len)
 }
 
 /*
-                                           
+ * display a single VMA to a sequenced file
  */
 static int nommu_vma_show(struct seq_file *m, struct vm_area_struct *vma,
 			  int is_pid)
@@ -175,9 +175,9 @@ static int nommu_vma_show(struct seq_file *m, struct vm_area_struct *vma,
 		if (tid != 0) {
 			pad_len_spaces(m, len);
 			/*
-                                                
-                             
-    */
+			 * Thread stack in /proc/PID/task/TID/maps or
+			 * the main process stack.
+			 */
 			if (!is_pid || (vma->vm_start <= mm->start_stack &&
 			    vma->vm_end >= mm->start_stack))
 				seq_printf(m, "[stack]");
@@ -191,7 +191,7 @@ static int nommu_vma_show(struct seq_file *m, struct vm_area_struct *vma,
 }
 
 /*
-                                                                  
+ * display mapping lines for a particular process's /proc/pid/maps
  */
 static int show_map(struct seq_file *m, void *_p, int is_pid)
 {
@@ -218,7 +218,7 @@ static void *m_start(struct seq_file *m, loff_t *pos)
 	struct rb_node *p;
 	loff_t n = *pos;
 
-	/*                                              */
+	/* pin the task and mm whilst we play with them */
 	priv->task = get_pid_task(priv->pid, PIDTYPE_PID);
 	if (!priv->task)
 		return ERR_PTR(-ESRCH);
@@ -231,7 +231,7 @@ static void *m_start(struct seq_file *m, loff_t *pos)
 	}
 	down_read(&mm->mmap_sem);
 
-	/*                        */
+	/* start from the Nth VMA */
 	for (p = rb_first(&mm->mm_rb); p; p = rb_next(p))
 		if (n-- == 0)
 			return p;

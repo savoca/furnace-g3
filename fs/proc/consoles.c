@@ -11,7 +11,7 @@
 #include <linux/tty_driver.h>
 
 /*
-                                     
+ * This is handler for /proc/consoles
  */
 static int show_console_dev(struct seq_file *m, void *v)
 {

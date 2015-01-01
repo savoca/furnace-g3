@@ -151,7 +151,7 @@ static ssize_t sensors_delay_store(struct device *dev,
 	ret = kstrtoul(buf, 10, &data);
 	if (ret)
 		return ret;
-	/*                                                                   */
+	/* The data unit is millisecond, the min_delay unit is microseconds. */
 	if ((data * 1000) < sensors_cdev->min_delay) {
 		dev_err(dev, "Invalid value of delay, delay=%ld\n", data);
 		return -EINVAL;
@@ -194,10 +194,10 @@ static struct device_attribute sensors_class_attrs[] = {
 	__ATTR_NULL,
 };
 
-/* 
-                                                                               
-                                   
-                                                                 
+/**
+ * sensors_classdev_register - register a new object of sensors_classdev class.
+ * @parent: The device to register.
+ * @sensors_cdev: the sensors_classdev structure for this device.
 */
 int sensors_classdev_register(struct device *parent,
 				struct sensors_classdev *sensors_cdev)
@@ -217,10 +217,10 @@ int sensors_classdev_register(struct device *parent,
 }
 EXPORT_SYMBOL(sensors_classdev_register);
 
-/* 
-                                                                      
-                                                 
-                                                                           
+/**
+ * sensors_classdev_unregister - unregister a object of sensors class.
+ * @sensors_cdev: the sensor device to unregister
+ * Unregister a previously registered via sensors_classdev_register object.
 */
 void sensors_classdev_unregister(struct sensors_classdev *sensors_cdev)
 {

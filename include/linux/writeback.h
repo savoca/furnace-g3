@@ -1,5 +1,5 @@
 /*
-                            
+ * include/linux/writeback.h
  */
 #ifndef WRITEBACK_H
 #define WRITEBACK_H
@@ -10,17 +10,17 @@
 DECLARE_PER_CPU(int, dirty_throttle_leaks);
 
 /*
-                                                                               
-  
-                                             
-  
-                                                                             
-                                                                  
-  
-                                                                          
-                                                                          
-                                                                           
-                                                                                
+ * The 1/4 region under the global dirty thresh is for smooth dirty throttling:
+ *
+ *	(thresh - thresh/DIRTY_FULL_SCOPE, thresh)
+ *
+ * Further beyond, all dirtier tasks will enter a loop waiting (possibly long
+ * time) for the dirty pages to drop, unless written enough pages.
+ *
+ * The global dirty threshold is normally equal to the global dirty limit,
+ * except when the system suddenly allocates a lot of anonymous memory and
+ * knocks down the global dirty threshold quickly, in which case the global
+ * dirty limit will follow down slowly to prevent livelocking all dirtier tasks.
  */
 #define DIRTY_SCOPE		8
 #define DIRTY_FULL_SCOPE	(DIRTY_SCOPE / 2)
@@ -28,15 +28,15 @@ DECLARE_PER_CPU(int, dirty_throttle_leaks);
 struct backing_dev_info;
 
 /*
-                    
+ * fs/fs-writeback.c
  */
 enum writeback_sync_modes {
-	WB_SYNC_NONE,	/*                        */
-	WB_SYNC_ALL,	/*                       */
+	WB_SYNC_NONE,	/* Don't wait on anything */
+	WB_SYNC_ALL,	/* Wait on every mapping */
 };
 
 /*
-                                        
+ * why some writeback work was initiated
  */
 enum wb_reason {
 	WB_REASON_BACKGROUND,
@@ -53,33 +53,33 @@ enum wb_reason {
 extern const char *wb_reason_name[];
 
 /*
-                                                                            
-                                                                               
-                                                            
+ * A control structure which tells the writeback code what to do.  These are
+ * always on the stack, and hence need no locking.  They are always initialised
+ * in a manner such that unspecified fields are set to zero.
  */
 struct writeback_control {
 	enum writeback_sync_modes sync_mode;
-	long nr_to_write;		/*                                     
-                                   */
-	long pages_skipped;		/*                              */
+	long nr_to_write;		/* Write this many pages, and decrement
+					   this for each page written */
+	long pages_skipped;		/* Pages which were not written */
 
 	/*
-                                                                      
-                                                                        
-                                                                      
-  */
+	 * For a_ops->writepages(): if start or end are non-zero then this is
+	 * a hint that the filesystem need only write out the pages inside that
+	 * byterange.  The byte at `end' is included in the writeout request.
+	 */
 	loff_t range_start;
 	loff_t range_end;
 
-	unsigned for_kupdate:1;		/*                     */
-	unsigned for_background:1;	/*                        */
-	unsigned tagged_writepages:1;	/*                                 */
-	unsigned for_reclaim:1;		/*                                 */
-	unsigned range_cyclic:1;	/*                       */
+	unsigned for_kupdate:1;		/* A kupdate writeback */
+	unsigned for_background:1;	/* A background writeback */
+	unsigned tagged_writepages:1;	/* tag-and-write to avoid livelock */
+	unsigned for_reclaim:1;		/* Invoked from the page allocator */
+	unsigned range_cyclic:1;	/* range_start is cyclic */
 };
 
 /*
-                    
+ * fs/fs-writeback.c
  */	
 struct bdi_writeback;
 int inode_wait(void *);
@@ -95,7 +95,7 @@ long writeback_inodes_wb(struct bdi_writeback *wb, long nr_pages,
 long wb_do_writeback(struct bdi_writeback *wb, int force_wait);
 void wakeup_flusher_threads(long nr_pages, enum wb_reason reason);
 
-/*                                                                */
+/* writeback.h requires fs.h; it, too, is not included from here. */
 static inline void wait_on_inode(struct inode *inode)
 {
 	might_sleep();
@@ -110,7 +110,7 @@ static inline void inode_sync_wait(struct inode *inode)
 
 
 /*
-                      
+ * mm/page-writeback.c
  */
 #ifdef CONFIG_BLOCK
 void laptop_io_completion(struct backing_dev_info *info);
@@ -125,7 +125,7 @@ bool zone_dirty_ok(struct zone *zone);
 
 extern unsigned long global_dirty_limit;
 
-/*                               */
+/* These are exported to sysctl. */
 extern int dirty_background_ratio;
 extern unsigned long dirty_background_bytes;
 extern int vm_dirty_ratio;
@@ -193,9 +193,9 @@ void tag_pages_for_writeback(struct address_space *mapping,
 
 void account_page_redirty(struct page *page);
 
-/*           */
-extern int nr_pdflush_threads;	/*                                       
-                  */
+/* pdflush.c */
+extern int nr_pdflush_threads;	/* Global so it can be exported to sysctl
+				   read-only. */
 
 
-#endif		/*             */
+#endif		/* WRITEBACK_H */

@@ -22,7 +22,7 @@
 #define PMBUS_H
 
 /*
-            
+ * Registers
  */
 #define PMBUS_PAGE			0x00
 #define PMBUS_OPERATION			0x01
@@ -126,24 +126,24 @@
 #define PMBUS_MFR_SERIAL		0x9E
 
 /*
-                     
-                                                                         
-                                                                              
-                                                            
-  
-             
-                                       
-                                                                              
-                                                                       
-                                                                              
-         
-                                                                            
-                                                                            
-                                                                         
-                                                                            
-                                                                             
-                                                                             
-                                                  
+ * Virtual registers.
+ * Useful to support attributes which are not supported by standard PMBus
+ * registers but exist as manufacturer specific registers on individual chips.
+ * Must be mapped to real registers in device specific code.
+ *
+ * Semantics:
+ * Virtual registers are all word size.
+ * READ registers are read-only; writes are either ignored or return an error.
+ * RESET registers are read/write. Reading reset registers returns zero
+ * (used for detection), writing any value causes the associated history to be
+ * reset.
+ * Virtual registers have to be handled in device specific driver code. Chip
+ * driver code returns non-negative register values if a virtual register is
+ * supported, or a negative error code if not. The chip driver may return
+ * -ENODATA or any other error code in this case, though an error code other
+ * than -ENODATA is handled more efficiently and thus preferred. Either case,
+ * the calling PMBus core code will abort if the chip driver returns an error
+ * code when reading or writing virtual registers.
  */
 #define PMBUS_VIRT_BASE			0x100
 #define PMBUS_VIRT_READ_TEMP_AVG	(PMBUS_VIRT_BASE + 0)
@@ -178,13 +178,13 @@
 #define PMBUS_VIRT_RESET_TEMP2_HISTORY	(PMBUS_VIRT_BASE + 29)
 
 /*
-             
+ * CAPABILITY
  */
 #define PB_CAPABILITY_SMBALERT		(1<<4)
 #define PB_CAPABILITY_ERROR_CHECK	(1<<7)
 
 /*
-            
+ * VOUT_MODE
  */
 #define PB_VOUT_MODE_MODE_MASK		0xe0
 #define PB_VOUT_MODE_PARAM_MASK		0x1f
@@ -194,7 +194,7 @@
 #define PB_VOUT_MODE_DIRECT		0x40
 
 /*
-                    
+ * Fan configuration
  */
 #define PB_FAN_2_PULSE_MASK		((1 << 0) | (1 << 1))
 #define PB_FAN_2_RPM			(1 << 2)
@@ -204,7 +204,7 @@
 #define PB_FAN_1_INSTALLED		(1 << 7)
 
 /*
-                                   
+ * STATUS_BYTE, STATUS_WORD (lower)
  */
 #define PB_STATUS_NONE_ABOVE		(1<<0)
 #define PB_STATUS_CML			(1<<1)
@@ -216,7 +216,7 @@
 #define PB_STATUS_BUSY			(1<<7)
 
 /*
-                      
+ * STATUS_WORD (upper)
  */
 #define PB_STATUS_UNKNOWN		(1<<8)
 #define PB_STATUS_OTHER			(1<<9)
@@ -228,7 +228,7 @@
 #define PB_STATUS_VOUT			(1<<15)
 
 /*
-              
+ * STATUS_IOUT
  */
 #define PB_POUT_OP_WARNING		(1<<0)
 #define PB_POUT_OP_FAULT		(1<<1)
@@ -240,7 +240,7 @@
 #define PB_IOUT_OC_FAULT		(1<<7)
 
 /*
-                            
+ * STATUS_VOUT, STATUS_INPUT
  */
 #define PB_VOLTAGE_UV_FAULT		(1<<4)
 #define PB_VOLTAGE_UV_WARNING		(1<<5)
@@ -248,14 +248,14 @@
 #define PB_VOLTAGE_OV_FAULT		(1<<7)
 
 /*
-               
+ * STATUS_INPUT
  */
 #define PB_PIN_OP_WARNING		(1<<0)
 #define PB_IIN_OC_WARNING		(1<<1)
 #define PB_IIN_OC_FAULT			(1<<2)
 
 /*
-                     
+ * STATUS_TEMPERATURE
  */
 #define PB_TEMP_UT_FAULT		(1<<4)
 #define PB_TEMP_UT_WARNING		(1<<5)
@@ -263,7 +263,7 @@
 #define PB_TEMP_OT_FAULT		(1<<7)
 
 /*
-             
+ * STATUS_FAN
  */
 #define PB_FAN_AIRFLOW_WARNING		(1<<0)
 #define PB_FAN_AIRFLOW_FAULT		(1<<1)
@@ -275,7 +275,7 @@
 #define PB_FAN_FAN1_FAULT		(1<<7)
 
 /*
-                   
+ * CML_FAULT_STATUS
  */
 #define PB_CML_FAULT_OTHER_MEM_LOGIC	(1<<0)
 #define PB_CML_FAULT_OTHER_COMM		(1<<1)
@@ -293,12 +293,12 @@ enum pmbus_sensor_classes {
 	PSC_POWER,
 	PSC_TEMPERATURE,
 	PSC_FAN,
-	PSC_NUM_CLASSES		/*                                */
+	PSC_NUM_CLASSES		/* Number of power sensor classes */
 };
 
-#define PMBUS_PAGES	32	/*                         */
+#define PMBUS_PAGES	32	/* Per PMBus specification */
 
-/*                        */
+/* Functionality bit mask */
 #define PMBUS_HAVE_VIN		(1 << 0)
 #define PMBUS_HAVE_VCAP		(1 << 1)
 #define PMBUS_HAVE_VOUT		(1 << 2)
@@ -321,43 +321,43 @@ enum pmbus_sensor_classes {
 enum pmbus_data_format { linear = 0, direct, vid };
 
 struct pmbus_driver_info {
-	int pages;		/*                       */
+	int pages;		/* Total number of pages */
 	enum pmbus_data_format format[PSC_NUM_CLASSES];
 	/*
-                                                        
-                                                 
-  */
-	int m[PSC_NUM_CLASSES];	/*                                 */
-	int b[PSC_NUM_CLASSES];	/*        */
-	int R[PSC_NUM_CLASSES];	/*          */
+	 * Support one set of coefficients for each sensor type
+	 * Used for chips providing data in direct mode.
+	 */
+	int m[PSC_NUM_CLASSES];	/* mantissa for direct data format */
+	int b[PSC_NUM_CLASSES];	/* offset */
+	int R[PSC_NUM_CLASSES];	/* exponent */
 
-	u32 func[PMBUS_PAGES];	/*                         */
+	u32 func[PMBUS_PAGES];	/* Functionality, per page */
 	/*
-                                                                      
-                                                                 
-              
-                                                                 
-                                                                     
-                                                                      
-                                                                 
-                                                                       
-                          
-  */
+	 * The following functions map manufacturing specific register values
+	 * to PMBus standard register values. Specify only if mapping is
+	 * necessary.
+	 * Functions return the register value (read) or zero (write) if
+	 * successful. A return value of -ENODATA indicates that there is no
+	 * manufacturer specific register, but that a standard PMBus register
+	 * may exist. Any other negative return value indicates that the
+	 * register does not exist, and that no attempt should be made to read
+	 * the standard register.
+	 */
 	int (*read_byte_data)(struct i2c_client *client, int page, int reg);
 	int (*read_word_data)(struct i2c_client *client, int page, int reg);
 	int (*write_word_data)(struct i2c_client *client, int page, int reg,
 			       u16 word);
 	int (*write_byte)(struct i2c_client *client, int page, u8 value);
 	/*
-                                                                   
-                                                                      
-                                                            
-  */
+	 * The identify function determines supported PMBus functionality.
+	 * This function is only necessary if a chip driver supports multiple
+	 * chips, and the chip functionality is not pre-determined.
+	 */
 	int (*identify)(struct i2c_client *client,
 			struct pmbus_driver_info *info);
 };
 
-/*                       */
+/* Function declarations */
 
 int pmbus_set_page(struct i2c_client *client, u8 page);
 int pmbus_read_word_data(struct i2c_client *client, u8 page, u8 reg);
@@ -373,4 +373,4 @@ int pmbus_do_remove(struct i2c_client *client);
 const struct pmbus_driver_info *pmbus_get_driver_info(struct i2c_client
 						      *client);
 
-#endif /*         */
+#endif /* PMBUS_H */

@@ -91,7 +91,7 @@ static struct irqaction footbridge_timer_irq = {
 };
 
 /*
-                          
+ * Set up timer interrupt.
  */
 static void __init footbridge_timer_init(void)
 {

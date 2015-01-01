@@ -4,7 +4,7 @@
 #include "lmc_var.h"
 
 /*
-                          
+ * prototypes for everyone
  */
 int lmc_probe(struct net_device * dev);
 unsigned lmc_mii_readreg(lmc_softc_t * const sc, unsigned

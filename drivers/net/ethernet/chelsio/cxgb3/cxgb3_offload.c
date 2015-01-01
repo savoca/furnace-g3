@@ -71,12 +71,12 @@ static inline int offload_activated(struct t3cdev *tdev)
 	return test_bit(OFFLOAD_DEVMAP_BIT, &adapter->open_device_map);
 }
 
-/* 
-                                                     
-                      
-  
-                                     
-                                                              
+/**
+ *	cxgb3_register_client - register an offload client
+ *	@client: the client
+ *
+ *	Add the client to the client list,
+ *	and call backs the client for each activated offload device
  */
 void cxgb3_register_client(struct cxgb3_client *client)
 {
@@ -96,12 +96,12 @@ void cxgb3_register_client(struct cxgb3_client *client)
 
 EXPORT_SYMBOL(cxgb3_register_client);
 
-/* 
-                                                         
-                      
-  
-                                        
-                                                               
+/**
+ *	cxgb3_unregister_client - unregister an offload client
+ *	@client: the client
+ *
+ *	Remove the client to the client list,
+ *	and call backs the client for each activated offload device.
  */
 void cxgb3_unregister_client(struct cxgb3_client *client)
 {
@@ -121,11 +121,11 @@ void cxgb3_unregister_client(struct cxgb3_client *client)
 
 EXPORT_SYMBOL(cxgb3_unregister_client);
 
-/* 
-                                                                        
-                            
-  
-                                                                       
+/**
+ *	cxgb3_add_clients - activate registered clients for an offload device
+ *	@tdev: the offload device
+ *
+ *	Call backs all registered clients once a offload device is activated
  */
 void cxgb3_add_clients(struct t3cdev *tdev)
 {
@@ -139,12 +139,12 @@ void cxgb3_add_clients(struct t3cdev *tdev)
 	mutex_unlock(&cxgb3_db_lock);
 }
 
-/* 
-                                                        
-                                 
-                            
-  
-                                                                         
+/**
+ *	cxgb3_remove_clients - deactivates registered clients
+ *			       for an offload device
+ *	@tdev: the offload device
+ *
+ *	Call backs all registered clients once a offload device is deactivated
  */
 void cxgb3_remove_clients(struct t3cdev *tdev)
 {
@@ -218,14 +218,14 @@ static int cxgb_ulp_iscsi_ctl(struct adapter *adapter, unsigned int req,
 		uiip->max_rxsz = min((val >> S_PMMAXXFERLEN0)&M_PMMAXXFERLEN0,
 				     (val >> S_PMMAXXFERLEN1)&M_PMMAXXFERLEN1);
 		/*
-                                                              
-                             
-   */
+		 * On tx, the iscsi pdu has to be <= tx page size and has to
+		 * fit into the Tx PM FIFO.
+		 */
 		val = min(adapter->params.tp.tx_pg_size,
 			  t3_read_reg(adapter, A_PM1_TX_CFG) >> 17);
 		uiip->max_txsz = min(val, uiip->max_txsz);
 
-		/*                        */
+		/* set MaxRxData to 16224 */
 		val = t3_read_reg(adapter, A_TP_PARA_REG2);
 		if ((val >> S_MAXRXDATA) != 0x3f60) {
 			val &= (M_RXCOALESCESIZE << S_RXCOALESCESIZE);
@@ -237,9 +237,9 @@ static int cxgb_ulp_iscsi_ctl(struct adapter *adapter, unsigned int req,
 		}
 
 		/*
-                                                          
-                                            
-   */
+		 * on rx, the iscsi pdu has to be < rx page size and the
+		 * the max rx data length programmed in TP
+		 */
 		val = min(adapter->params.tp.rx_pg_size,
 			  ((t3_read_reg(adapter, A_TP_PARA_REG2)) >>
 				S_MAXRXDATA) & M_MAXRXDATA);
@@ -247,7 +247,7 @@ static int cxgb_ulp_iscsi_ctl(struct adapter *adapter, unsigned int req,
 		break;
 	case ULP_ISCSI_SET_PARAMS:
 		t3_write_reg(adapter, A_ULPRX_ISCSI_TAGMASK, uiip->tagmask);
-		/*                            */
+		/* program the ddp page sizes */
 		for (i = 0; i < 4; i++)
 			val |= (uiip->pgsz_factor[i] & 0xF) << (8 * i);
 		if (val && (val != t3_read_reg(adapter, A_ULPRX_ISCSI_PSZ))) {
@@ -265,7 +265,7 @@ static int cxgb_ulp_iscsi_ctl(struct adapter *adapter, unsigned int req,
 	return ret;
 }
 
-/*                                      */
+/* Response queue used for RDMA events. */
 #define ASYNC_NOTIF_RSPQ 0
 
 static int cxgb_rdma_ctl(struct adapter *adapter, unsigned int req, void *data)
@@ -295,7 +295,7 @@ static int cxgb_rdma_ctl(struct adapter *adapter, unsigned int req, void *data)
 		unsigned long flags;
 		struct rdma_cq_op *rdma = data;
 
-		/*                              */
+		/* may be called in any context */
 		spin_lock_irqsave(&adapter->sge.reg_lock, flags);
 		ret = t3_sge_cqcntxt_op(adapter, rdma->id, rdma->op,
 					rdma->credits);
@@ -386,7 +386,7 @@ static int cxgb_offload_ctl(struct t3cdev *tdev, unsigned int req, void *data)
 		*(unsigned int *)data = WR_FLITS;
 		break;
 	case GET_TX_MAX_CHUNK:
-		*(unsigned int *)data = 1 << 20;	/*     */
+		*(unsigned int *)data = 1 << 20;	/* 1MB */
 		break;
 	case GET_TID_RANGE:
 		tid = data;
@@ -469,9 +469,9 @@ static int cxgb_offload_ctl(struct t3cdev *tdev, unsigned int req, void *data)
 }
 
 /*
-                                                                               
-                                                                               
-                                               
+ * Dummy handler for Rx offload packets in case we get an offload packet before
+ * proper processing is setup.  This complains and drops the packet as it isn't
+ * normal to get offload packets at this stage.
  */
 static int rx_offload_blackhole(struct t3cdev *dev, struct sk_buff **skbs,
 				int n)
@@ -492,7 +492,7 @@ void cxgb3_set_dummy_ops(struct t3cdev *dev)
 }
 
 /*
-                           
+ * Free an active-open TID.
  */
 void *cxgb3_free_atid(struct t3cdev *tdev, int atid)
 {
@@ -512,7 +512,7 @@ void *cxgb3_free_atid(struct t3cdev *tdev, int atid)
 EXPORT_SYMBOL(cxgb3_free_atid);
 
 /*
-                                                    
+ * Free a server TID and return it to the free pool.
  */
 void cxgb3_free_stid(struct t3cdev *tdev, int stid)
 {
@@ -541,7 +541,7 @@ void cxgb3_insert_tid(struct t3cdev *tdev, struct cxgb3_client *client,
 EXPORT_SYMBOL(cxgb3_insert_tid);
 
 /*
-                                                                     
+ * Populate a TID_RELEASE WR.  The skb must be already propely sized.
  */
 static inline void mk_tid_release(struct sk_buff *skb, unsigned int tid)
 {
@@ -596,7 +596,7 @@ static void t3_process_tid_release_list(struct work_struct *work)
 				GFP_KERNEL);
 }
 
-/*                                                   */
+/* use ctx as a next pointer in the tid release list */
 void cxgb3_queue_tid_release(struct t3cdev *tdev, unsigned int tid)
 {
 	struct t3c_data *td = T3C_DATA(tdev);
@@ -614,11 +614,11 @@ void cxgb3_queue_tid_release(struct t3cdev *tdev, unsigned int tid)
 EXPORT_SYMBOL(cxgb3_queue_tid_release);
 
 /*
-                                                                           
-                                                                            
-                                                                             
-                                                                             
-                                  
+ * Remove a tid from the TID table.  A client may defer processing its last
+ * CPL message if it is locked at the time it arrives, and while the message
+ * sits in the client's backlog the TID may be reused for another connection.
+ * To handle this we atomically switch the TID association if it still points
+ * to the original client context.
  */
 void cxgb3_remove_tid(struct t3cdev *tdev, void *ctx, unsigned int tid)
 {
@@ -689,7 +689,7 @@ int cxgb3_alloc_stid(struct t3cdev *tdev, struct cxgb3_client *client,
 
 EXPORT_SYMBOL(cxgb3_alloc_stid);
 
-/*                                             */
+/* Get the t3cdev associated with a net_device */
 struct t3cdev *dev2t3cdev(struct net_device *dev)
 {
 	const struct port_info *pi = netdev_priv(dev);
@@ -819,11 +819,11 @@ static int do_cr(struct t3cdev *dev, struct sk_buff *skb)
 }
 
 /*
-                                                                        
-                                                                              
-                                                                             
-                                                                               
-              
+ * Returns an sk_buff for a reply CPL message of size len.  If the input
+ * sk_buff has no other users it is trimmed and reused, otherwise a new buffer
+ * is allocated.  The input skb must be of size at least len.  Note that this
+ * operation does not destroy the original skb data even if it decides to reuse
+ * the buffer.
  */
 static struct sk_buff *cxgb3_get_cpl_reply_skb(struct sk_buff *skb, size_t len,
 					       gfp_t gfp)
@@ -925,9 +925,9 @@ static int do_trace(struct t3cdev *dev, struct sk_buff *skb)
 }
 
 /*
-                                                                          
-                                                                      
-                                                        
+ * That skb would better have come from process_responses() where we abuse
+ * ->priority and ->csum to carry our data.  NB: if we get to per-arch
+ * ->csum, the things might get really interesting here.
  */
 
 static inline u32 get_hwtid(struct sk_buff *skb)
@@ -983,7 +983,7 @@ static struct notifier_block nb = {
 };
 
 /*
-                                                                   
+ * Process a received packet with an unknown/unexpected CPL opcode.
  */
 static int do_bad_cpl(struct t3cdev *dev, struct sk_buff *skb)
 {
@@ -993,13 +993,13 @@ static int do_bad_cpl(struct t3cdev *dev, struct sk_buff *skb)
 }
 
 /*
-                               
+ * Handlers for each CPL opcode
  */
 static cpl_handler_func cpl_handlers[NUM_CPL_CMDS];
 
 /*
-                                                                               
-                                     
+ * Add a new handler to the CPL dispatch table.  A NULL handler may be supplied
+ * to unregister an existing handler.
  */
 void t3_register_cpl_handler(unsigned int opcode, cpl_handler_func h)
 {
@@ -1013,7 +1013,7 @@ void t3_register_cpl_handler(unsigned int opcode, cpl_handler_func h)
 EXPORT_SYMBOL(t3_register_cpl_handler);
 
 /*
-                           
+ * T3CDEV's receive method.
  */
 static int process_rx(struct t3cdev *dev, struct sk_buff **skbs, int n)
 {
@@ -1038,7 +1038,7 @@ static int process_rx(struct t3cdev *dev, struct sk_buff **skbs, int n)
 }
 
 /*
-                                                                               
+ * Sends an sk_buff to a T3C driver after dealing with any active network taps.
  */
 int cxgb3_ofld_send(struct t3cdev *dev, struct sk_buff *skb)
 {
@@ -1143,7 +1143,7 @@ static void cxgb_redirect(struct dst_entry *old, struct dst_entry *new)
 		return;
 	}
 
-	/*                   */
+	/* Add new L2T entry */
 	e = t3_l2t_get(tdev, new, newdev);
 	if (!e) {
 		printk(KERN_ERR "%s: couldn't allocate new l2t entry!\n",
@@ -1151,7 +1151,7 @@ static void cxgb_redirect(struct dst_entry *old, struct dst_entry *new)
 		return;
 	}
 
-	/*                                                  */
+	/* Walk tid table and notify clients of dst change. */
 	ti = &(T3C_DATA(tdev))->tid_maps;
 	for (tid = 0; tid < ti->ntids; tid++) {
 		te = lookup_tid(ti, tid);
@@ -1170,8 +1170,8 @@ static void cxgb_redirect(struct dst_entry *old, struct dst_entry *new)
 }
 
 /*
-                                                                       
-                                   
+ * Allocate a chunk of memory using kmalloc or, if that fails, vmalloc.
+ * The allocated memory is cleared.
  */
 void *cxgb_alloc_mem(unsigned long size)
 {
@@ -1183,7 +1183,7 @@ void *cxgb_alloc_mem(unsigned long size)
 }
 
 /*
-                                                
+ * Free memory allocated through t3_alloc_mem().
  */
 void cxgb_free_mem(void *addr)
 {
@@ -1194,7 +1194,7 @@ void cxgb_free_mem(void *addr)
 }
 
 /*
-                                                                 
+ * Allocate and initialize the TID tables.  Returns 0 on success.
  */
 static int init_tid_tabs(struct tid_info *t, unsigned int ntids,
 			 unsigned int natids, unsigned int nstids,
@@ -1222,8 +1222,8 @@ static int init_tid_tabs(struct tid_info *t, unsigned int ntids,
 	spin_lock_init(&t->atid_lock);
 
 	/*
-                                                   
-  */
+	 * Setup the free lists for stid_tab and atid_tab.
+	 */
 	if (nstids) {
 		while (--nstids)
 			t->stid_tab[nstids - 1].next = &t->stid_tab[nstids];
@@ -1301,7 +1301,7 @@ int cxgb3_offload_activate(struct adapter *adapter)
 	dev->recv = process_rx;
 	dev->neigh_update = t3_l2t_update;
 
-	/*                                */
+	/* Register netevent handler once */
 	if (list_empty(&adapter_list))
 		register_netevent_notifier(&nb);
 

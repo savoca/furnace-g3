@@ -22,7 +22,7 @@
 #define EXT2_NAME_LEN 255
 
 /*
-                                   
+ * Maximal count of links to a file
  */
 #define EXT2_LINK_MAX		32000
 
@@ -39,4 +39,4 @@ static inline u64 ext2_image_size(void *ext2_sb)
 		le32_to_cpup((__le32 *)(p + EXT2_SB_BSIZE_OFFSET));
 }
 
-#endif	/*                  */
+#endif	/* _LINUX_EXT2_FS_H */

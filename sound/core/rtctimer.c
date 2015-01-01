@@ -31,11 +31,11 @@
 
 #include <linux/mc146818rtc.h>
 
-#define RTC_FREQ	1024		/*                   */
-#define NANO_SEC	1000000000L	/*             */
+#define RTC_FREQ	1024		/* default frequency */
+#define NANO_SEC	1000000000L	/* 10^9 in sec */
 
 /*
-             
+ * prototypes
  */
 static int rtctimer_open(struct snd_timer *t);
 static int rtctimer_close(struct snd_timer *t);
@@ -44,20 +44,20 @@ static int rtctimer_stop(struct snd_timer *t);
 
 
 /*
-                                                     
+ * The hardware dependent description for this timer.
  */
 static struct snd_timer_hardware rtc_hw = {
 	.flags =	SNDRV_TIMER_HW_AUTO |
 			SNDRV_TIMER_HW_FIRST |
 			SNDRV_TIMER_HW_TASKLET,
-	.ticks =	100000000L,		/*            */
+	.ticks =	100000000L,		/* FIXME: XXX */
 	.open =		rtctimer_open,
 	.close =	rtctimer_close,
 	.start =	rtctimer_start,
 	.stop =		rtctimer_stop,
 };
 
-static int rtctimer_freq = RTC_FREQ;		/*           */
+static int rtctimer_freq = RTC_FREQ;		/* frequency */
 static struct snd_timer *rtctimer;
 static struct tasklet_struct rtc_tasklet;
 static rtc_task_t rtc_task;
@@ -114,7 +114,7 @@ static void rtctimer_tasklet(unsigned long data)
 }
 
 /*
-            
+ * interrupt
  */
 static void rtctimer_interrupt(void *private_data)
 {
@@ -123,7 +123,7 @@ static void rtctimer_interrupt(void *private_data)
 
 
 /*
-                   
+ *  ENTRY functions
  */
 static int __init rtctimer_init(void)
 {
@@ -137,7 +137,7 @@ static int __init rtctimer_init(void)
 		return -EINVAL;
 	}
 
-	/*                                          */
+	/* Create a new timer and set up the fields */
 	err = snd_timer_global_new("rtc", SNDRV_TIMER_GLOBAL_RTC, &timer);
 	if (err < 0)
 		return err;
@@ -149,7 +149,7 @@ static int __init rtctimer_init(void)
 
 	tasklet_init(&rtc_tasklet, rtctimer_tasklet, (unsigned long)timer);
 
-	/*                     */
+	/* set up RTC callback */
 	rtc_task.func = rtctimer_interrupt;
 	rtc_task.private_data = &rtc_tasklet;
 
@@ -158,7 +158,7 @@ static int __init rtctimer_init(void)
 		snd_timer_global_free(timer);
 		return err;
 	}
-	rtctimer = timer; /*               */
+	rtctimer = timer; /* remember this */
 
 	return 0;
 }
@@ -173,7 +173,7 @@ static void __exit rtctimer_exit(void)
 
 
 /*
-                 
+ * exported stuff
  */
 module_init(rtctimer_init)
 module_exit(rtctimer_exit)
@@ -185,4 +185,4 @@ MODULE_LICENSE("GPL");
 
 MODULE_ALIAS("snd-timer-" __stringify(SNDRV_TIMER_GLOBAL_RTC));
 
-#endif /*                                 */
+#endif /* CONFIG_RTC || CONFIG_RTC_MODULE */

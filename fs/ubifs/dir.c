@@ -22,39 +22,39 @@
  */
 
 /*
-                                             
-  
-                                                                                
-                                                                      
-                                                                              
-                                                                              
-                                                                              
-                                     
-  
-                                                                          
-                                                                           
-                                                                            
-                                                                           
-                                                                              
-                                                                          
-                                        
+ * This file implements directory operations.
+ *
+ * All FS operations in this file allocate budget before writing anything to the
+ * media. If they fail to allocate it, the error is returned. The only
+ * exceptions are 'ubifs_unlink()' and 'ubifs_rmdir()' which keep working even
+ * if they unable to allocate the budget, because deletion %-ENOSPC failure is
+ * not what users are usually ready to get. UBIFS budgeting subsystem has some
+ * space reserved for these purposes.
+ *
+ * All operations in this file write all inodes which they change straight
+ * away, instead of marking them dirty. For example, 'ubifs_link()' changes
+ * @i_size of the parent inode and writes the parent inode together with the
+ * target inode. This was done to simplify file-system recovery which would
+ * otherwise be very difficult to do. The only exception is rename which marks
+ * the re-named inode dirty (because its @i_ctime is updated) but does not
+ * write it, but just marks it as dirty.
  */
 
 #include "ubifs.h"
 
-/* 
-                                                     
-                     
-                              
-  
-                                                                               
-                                                                         
-                                                                    
-                         
-                                                  
-                                                                   
-  
-                                             
+/**
+ * inherit_flags - inherit flags of the parent inode.
+ * @dir: parent inode
+ * @mode: new inode mode flags
+ *
+ * This is a helper function for 'ubifs_new_inode()' which inherits flag of the
+ * parent directory inode @dir. UBIFS inodes inherit the following flags:
+ * o %UBIFS_COMPR_FL, which is useful to switch compression on/of on
+ *   sub-directory basis;
+ * o %UBIFS_SYNC_FL - useful for the same reasons;
+ * o %UBIFS_DIRSYNC_FL - similar, but relevant only to directories.
+ *
+ * This function returns the inherited flags.
  */
 static int inherit_flags(const struct inode *dir, umode_t mode)
 {
@@ -63,27 +63,27 @@ static int inherit_flags(const struct inode *dir, umode_t mode)
 
 	if (!S_ISDIR(dir->i_mode))
 		/*
-                                                                
-                                                
-   */
+		 * The parent is not a directory, which means that an extended
+		 * attribute inode is being created. No flags.
+		 */
 		return 0;
 
 	flags = ui->flags & (UBIFS_COMPR_FL | UBIFS_SYNC_FL | UBIFS_DIRSYNC_FL);
 	if (!S_ISDIR(mode))
-		/*                                                */
+		/* The "DIRSYNC" flag only applies to directories */
 		flags &= ~UBIFS_DIRSYNC_FL;
 	return flags;
 }
 
-/* 
-                                                     
-                                           
-                               
-                          
-  
-                                                                      
-                                                                            
-                   
+/**
+ * ubifs_new_inode - allocate new UBIFS inode object.
+ * @c: UBIFS file-system description object
+ * @dir: parent directory inode
+ * @mode: inode mode flags
+ *
+ * This function finds an unused inode number, allocates new inode and
+ * initializes it. Returns new inode in case of success and an error code in
+ * case of failure.
  */
 struct inode *ubifs_new_inode(struct ubifs_info *c, const struct inode *dir,
 			      umode_t mode)
@@ -97,18 +97,18 @@ struct inode *ubifs_new_inode(struct ubifs_info *c, const struct inode *dir,
 		return ERR_PTR(-ENOMEM);
 
 	/*
-                                                                        
-                                                                     
-                                                                      
-                           
-  */
+	 * Set 'S_NOCMTIME' to prevent VFS form updating [mc]time of inodes and
+	 * marking them dirty in file write path (see 'file_update_time()').
+	 * UBIFS has to fully control "clean <-> dirty" transitions of inodes
+	 * to make budgeting work.
+	 */
 	inode->i_flags |= S_NOCMTIME;
 
 	inode_init_owner(inode, dir, mode);
 	inode->i_mtime = inode->i_atime = inode->i_ctime =
 			 ubifs_current_time(inode);
 	inode->i_mapping->nrpages = 0;
-	/*                   */
+	/* Disable readahead */
 	inode->i_mapping->backing_dev_info = &c->bdi;
 
 	switch (mode & S_IFMT) {
@@ -144,7 +144,7 @@ struct inode *ubifs_new_inode(struct ubifs_info *c, const struct inode *dir,
 	ui->synced_i_size = 0;
 
 	spin_lock(&c->cnt_lock);
-	/*                                                  */
+	/* Inode number overflow is currently not supported */
 	if (c->highest_inum >= INUM_WARN_WATERMARK) {
 		if (c->highest_inum >= INUM_WATERMARK) {
 			spin_unlock(&c->cnt_lock);
@@ -159,12 +159,12 @@ struct inode *ubifs_new_inode(struct ubifs_info *c, const struct inode *dir,
 
 	inode->i_ino = ++c->highest_inum;
 	/*
-                                                                
-                                                                      
-                                                                      
-                                                                        
-                                    
-  */
+	 * The creation sequence number remains with this inode for its
+	 * lifetime. All nodes for this inode have a greater sequence number,
+	 * and so it is possible to distinguish obsolete nodes belonging to a
+	 * previous incarnation of the same inode number - for example, for the
+	 * purpose of rebuilding the index.
+	 */
 	ui->creat_sqnum = ++c->max_sqnum;
 	spin_unlock(&c->cnt_lock);
 	return inode;
@@ -229,9 +229,9 @@ static struct dentry *ubifs_lookup(struct inode *dir, struct dentry *dentry,
 	inode = ubifs_iget(dir->i_sb, le64_to_cpu(dent->inum));
 	if (IS_ERR(inode)) {
 		/*
-                                                           
-              
-   */
+		 * This should not happen. Probably the file-system needs
+		 * checking.
+		 */
 		err = PTR_ERR(inode);
 		ubifs_err("dead directory entry '%.*s', error %d",
 			  dentry->d_name.len, dentry->d_name.name, err);
@@ -242,9 +242,9 @@ static struct dentry *ubifs_lookup(struct inode *dir, struct dentry *dentry,
 done:
 	kfree(dent);
 	/*
-                                                                    
-        
-  */
+	 * Note, d_splice_alias() would be required instead if we supported
+	 * NFS.
+	 */
 	d_add(dentry, inode);
 	return NULL;
 
@@ -264,9 +264,9 @@ static int ubifs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	struct ubifs_inode *dir_ui = ubifs_inode(dir);
 
 	/*
-                                                                  
-                           
-  */
+	 * Budget request settings: new inode, new direntry, changing the
+	 * parent directory inode.
+	 */
 
 	dbg_gen("dent '%.*s', mode %#hx in dir ino %lu",
 		dentry->d_name.len, dentry->d_name.name, mode, dir->i_ino);
@@ -307,12 +307,12 @@ out_budg:
 	return err;
 }
 
-/* 
-                                                
-                                    
-  
-                                                                             
-        
+/**
+ * vfs_dent_type - get VFS directory entry type.
+ * @type: UBIFS directory entry type
+ *
+ * This function converts UBIFS directory entry type into VFS directory entry
+ * type.
  */
 static unsigned int vfs_dent_type(uint8_t type)
 {
@@ -338,21 +338,21 @@ static unsigned int vfs_dent_type(uint8_t type)
 }
 
 /*
-                                                                        
-                                                                      
-                                                                             
-                                                                         
-                                                                               
-                                                                             
-  
-                                                                  
-                                                                      
-                                                                           
-                                                                             
-                                  
-  
-                                                               
-                                   
+ * The classical Unix view for directory is that it is a linear array of
+ * (name, inode number) entries. Linux/VFS assumes this model as well.
+ * Particularly, 'readdir()' call wants us to return a directory entry offset
+ * which later may be used to continue 'readdir()'ing the directory or to
+ * 'seek()' to that specific direntry. Obviously UBIFS does not really fit this
+ * model because directory entries are identified by keys, which may collide.
+ *
+ * UBIFS uses directory entry hash value for directory offsets, so
+ * 'seekdir()'/'telldir()' may not always work because of possible key
+ * collisions. But UBIFS guarantees that consecutive 'readdir()' calls work
+ * properly by means of saving full directory entry name in the private field
+ * of the file description object.
+ *
+ * This means that UBIFS cannot support NFS which requires full
+ * 'seekdir()'/'telldir()' support.
  */
 static int ubifs_readdir(struct file *file, void *dirent, filldir_t filldir)
 {
@@ -367,12 +367,12 @@ static int ubifs_readdir(struct file *file, void *dirent, filldir_t filldir)
 
 	if (file->f_pos > UBIFS_S_KEY_HASH_MASK || file->f_pos == 2)
 		/*
-                                                               
-                         
-   */
+		 * The directory was seek'ed to a senseless position or there
+		 * are no more entries.
+		 */
 		return 0;
 
-	/*                                                   */
+	/* File positions 0 and 1 correspond to "." and ".." */
 	if (file->f_pos == 0) {
 		ubifs_assert(!file->private_data);
 		over = filldir(dirent, ".", 1, 0, dir->i_ino, DT_DIR);
@@ -388,7 +388,7 @@ static int ubifs_readdir(struct file *file, void *dirent, filldir_t filldir)
 		if (over)
 			return 0;
 
-		/*                                         */
+		/* Find the first entry in TNC and save it */
 		lowest_dent_key(c, &key, dir->i_ino);
 		nm.name = NULL;
 		dent = ubifs_tnc_next_ent(c, &key, &nm);
@@ -404,10 +404,10 @@ static int ubifs_readdir(struct file *file, void *dirent, filldir_t filldir)
 	dent = file->private_data;
 	if (!dent) {
 		/*
-                                                        
-                                                        
-                 
-   */
+		 * The directory was seek'ed to and is now readdir'ed.
+		 * Find the entry corresponding to @file->f_pos or the
+		 * closest one.
+		 */
 		dent_key_init_hash(c, &key, dir->i_ino, file->f_pos);
 		nm.name = NULL;
 		dent = ubifs_tnc_next_ent(c, &key, &nm);
@@ -433,7 +433,7 @@ static int ubifs_readdir(struct file *file, void *dirent, filldir_t filldir)
 		if (over)
 			return 0;
 
-		/*                          */
+		/* Switch to the next entry */
 		key_read(c, &dent->key, &key);
 		nm.name = dent->name;
 		dent = ubifs_tnc_next_ent(c, &key, &nm);
@@ -460,7 +460,7 @@ out:
 	return 0;
 }
 
-/*                                                                 */
+/* If a directory is seeked, we have to free saved readdir() state */
 static loff_t ubifs_dir_llseek(struct file *file, loff_t offset, int origin)
 {
 	kfree(file->private_data);
@@ -468,7 +468,7 @@ static loff_t ubifs_dir_llseek(struct file *file, loff_t offset, int origin)
 	return generic_file_llseek(file, offset, origin);
 }
 
-/*                                                         */
+/* Free saved readdir() state when the directory is closed */
 static int ubifs_dir_release(struct inode *dir, struct file *file)
 {
 	kfree(file->private_data);
@@ -476,14 +476,14 @@ static int ubifs_dir_release(struct inode *dir, struct file *file)
 	return 0;
 }
 
-/* 
-                                                          
-                       
-                        
-  
-                                                                            
-                                                                           
-                    
+/**
+ * lock_2_inodes - a wrapper for locking two UBIFS inodes.
+ * @inode1: first inode
+ * @inode2: second inode
+ *
+ * We do not implement any tricks to guarantee strict lock ordering, because
+ * VFS has already done it for us on the @i_mutex. So this is just a simple
+ * wrapper function.
  */
 static void lock_2_inodes(struct inode *inode1, struct inode *inode2)
 {
@@ -491,10 +491,10 @@ static void lock_2_inodes(struct inode *inode1, struct inode *inode2)
 	mutex_lock_nested(&ubifs_inode(inode2)->ui_mutex, WB_MUTEX_2);
 }
 
-/* 
-                                                              
-                       
-                        
+/**
+ * unlock_2_inodes - a wrapper for unlocking two UBIFS inodes.
+ * @inode1: first inode
+ * @inode2: second inode
  */
 static void unlock_2_inodes(struct inode *inode1, struct inode *inode2)
 {
@@ -514,9 +514,9 @@ static int ubifs_link(struct dentry *old_dentry, struct inode *dir,
 				.dirtied_ino_d = ALIGN(ui->data_len, 8) };
 
 	/*
-                                                                     
-                              
-  */
+	 * Budget request settings: new direntry, changing the target inode,
+	 * changing the parent inode.
+	 */
 
 	dbg_gen("dent '%.*s' to ino %lu (nlink %d) in dir ino %lu",
 		dentry->d_name.len, dentry->d_name.name, inode->i_ino,
@@ -569,11 +569,11 @@ static int ubifs_unlink(struct inode *dir, struct dentry *dentry)
 	unsigned int saved_nlink = inode->i_nlink;
 
 	/*
-                                                                      
-                                                                    
-                                                                   
-              
-  */
+	 * Budget request settings: deletion direntry, deletion inode (+1 for
+	 * @dirtied_ino), changing the parent directory inode. If budgeting
+	 * fails, go ahead anyway because we have extra space reserved for
+	 * deletions.
+	 */
 
 	dbg_gen("dent '%.*s' from ino %lu (nlink %d) in dir ino %lu",
 		dentry->d_name.len, dentry->d_name.name, inode->i_ino,
@@ -605,7 +605,7 @@ static int ubifs_unlink(struct inode *dir, struct dentry *dentry)
 	if (budgeted)
 		ubifs_release_budget(c, &req);
 	else {
-		/*                                                      */
+		/* We've deleted something - clean the "no space" flags */
 		c->bi.nospace = c->bi.nospace_rp = 0;
 		smp_wmb();
 	}
@@ -621,14 +621,14 @@ out_cancel:
 	return err;
 }
 
-/* 
-                                                          
-                                           
-                                                   
-  
-                                                                       
-                                                                               
-                        
+/**
+ * check_dir_empty - check if a directory is empty or not.
+ * @c: UBIFS file-system description object
+ * @dir: VFS inode object of the directory to check
+ *
+ * This function checks if directory @dir is empty. Returns zero if the
+ * directory is empty, %-ENOTEMPTY if it is not, and other negative error codes
+ * in case of of errors.
  */
 static int check_dir_empty(struct ubifs_info *c, struct inode *dir)
 {
@@ -660,10 +660,10 @@ static int ubifs_rmdir(struct inode *dir, struct dentry *dentry)
 	struct ubifs_budget_req req = { .mod_dent = 1, .dirtied_ino = 2 };
 
 	/*
-                                                                  
-                                                                  
-                                                       
-  */
+	 * Budget request settings: deletion direntry, deletion inode and
+	 * changing the parent inode. If budgeting fails, go ahead anyway
+	 * because we have extra space reserved for deletions.
+	 */
 
 	dbg_gen("directory '%.*s', ino %lu in dir ino %lu", dentry->d_name.len,
 		dentry->d_name.name, inode->i_ino, dir->i_ino);
@@ -695,7 +695,7 @@ static int ubifs_rmdir(struct inode *dir, struct dentry *dentry)
 	if (budgeted)
 		ubifs_release_budget(c, &req);
 	else {
-		/*                                                      */
+		/* We've deleted something - clean the "no space" flags */
 		c->bi.nospace = c->bi.nospace_rp = 0;
 		smp_wmb();
 	}
@@ -721,9 +721,9 @@ static int ubifs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	struct ubifs_budget_req req = { .new_ino = 1, .new_dent = 1 };
 
 	/*
-                                                                        
-                    
-  */
+	 * Budget request settings: new inode, new direntry and changing parent
+	 * directory inode.
+	 */
 
 	dbg_gen("dent '%.*s', mode %#hx in dir ino %lu",
 		dentry->d_name.len, dentry->d_name.name, mode, dir->i_ino);
@@ -783,9 +783,9 @@ static int ubifs_mknod(struct inode *dir, struct dentry *dentry,
 					.dirtied_ino = 1 };
 
 	/*
-                                                                        
-                    
-  */
+	 * Budget request settings: new inode, new direntry and changing parent
+	 * directory inode.
+	 */
 
 	dbg_gen("dent '%.*s' in dir ino %lu",
 		dentry->d_name.len, dentry->d_name.name, dir->i_ino);
@@ -858,9 +858,9 @@ static int ubifs_symlink(struct inode *dir, struct dentry *dentry,
 					.dirtied_ino = 1 };
 
 	/*
-                                                                        
-                    
-  */
+	 * Budget request settings: new inode, new direntry and changing parent
+	 * directory inode.
+	 */
 
 	dbg_gen("dent '%.*s', target '%s' in dir ino %lu", dentry->d_name.len,
 		dentry->d_name.name, symname, dir->i_ino);
@@ -888,10 +888,10 @@ static int ubifs_symlink(struct inode *dir, struct dentry *dentry,
 	memcpy(ui->data, symname, len);
 	((char *)ui->data)[len] = '\0';
 	/*
-                                                                      
-                                                                        
-                                       
-  */
+	 * The terminating zero byte is not written to the flash media and it
+	 * is put just to make later in-memory string processing simpler. Thus,
+	 * data length is @len, not @len + %1.
+	 */
 	ui->data_len = len;
 	inode->i_size = ubifs_inode(inode)->ui_size = len;
 
@@ -921,18 +921,18 @@ out_budg:
 	return err;
 }
 
-/* 
-                                                            
-                       
-                        
-                       
-  
-                                                                            
-                                        
-  
-                                                                            
-                                                                           
-                    
+/**
+ * lock_3_inodes - a wrapper for locking three UBIFS inodes.
+ * @inode1: first inode
+ * @inode2: second inode
+ * @inode3: third inode
+ *
+ * This function is used for 'ubifs_rename()' and @inode1 may be the same as
+ * @inode2 whereas @inode3 may be %NULL.
+ *
+ * We do not implement any tricks to guarantee strict lock ordering, because
+ * VFS has already done it for us on the @i_mutex. So this is just a simple
+ * wrapper function.
  */
 static void lock_3_inodes(struct inode *inode1, struct inode *inode2,
 			  struct inode *inode3)
@@ -944,11 +944,11 @@ static void lock_3_inodes(struct inode *inode1, struct inode *inode2,
 		mutex_lock_nested(&ubifs_inode(inode3)->ui_mutex, WB_MUTEX_3);
 }
 
-/* 
-                                                                           
-                       
-                        
-                       
+/**
+ * unlock_3_inodes - a wrapper for unlocking three UBIFS inodes for rename.
+ * @inode1: first inode
+ * @inode2: second inode
+ * @inode3: third inode
  */
 static void unlock_3_inodes(struct inode *inode1, struct inode *inode2,
 			    struct inode *inode3)
@@ -980,13 +980,13 @@ static int ubifs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	unsigned int saved_nlink = 0;
 
 	/*
-                                                                      
-                                                                    
-   
-                                                                    
-                                                                 
-               
-  */
+	 * Budget request settings: deletion direntry, new direntry, removing
+	 * the old inode, and changing old and new parent directory inodes.
+	 *
+	 * However, this operation also marks the target inode as dirty and
+	 * does not write it, so we allocate budget for the target inode
+	 * separately.
+	 */
 
 	dbg_gen("dent '%.*s' ino %lu in dir ino %lu to dent '%.*s' in "
 		"dir ino %lu", old_dentry->d_name.len, old_dentry->d_name.name,
@@ -1016,32 +1016,32 @@ static int ubifs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	lock_3_inodes(old_dir, new_dir, new_inode);
 
 	/*
-                                                                  
-           
-  */
+	 * Like most other Unix systems, set the @i_ctime for inodes on a
+	 * rename.
+	 */
 	time = ubifs_current_time(old_dir);
 	old_inode->i_ctime = time;
 
-	/*                                                            */
+	/* We must adjust parent link count when renaming directories */
 	if (is_dir) {
 		if (move) {
 			/*
-                                                 
-                                          
-    */
+			 * @old_dir loses a link because we are moving
+			 * @old_inode to a different directory.
+			 */
 			drop_nlink(old_dir);
 			/*
-                                                   
-                                        
-    */
+			 * @new_dir only gains a link if we are not also
+			 * overwriting an existing directory.
+			 */
 			if (!unlink)
 				inc_nlink(new_dir);
 		} else {
 			/*
-                                                        
-                                               
-                                        
-    */
+			 * @old_inode is not moving to a different directory,
+			 * but @old_dir still loses a link if we are
+			 * overwriting an existing directory.
+			 */
 			if (unlink)
 				drop_nlink(old_dir);
 		}
@@ -1053,15 +1053,15 @@ static int ubifs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	new_dir->i_mtime = new_dir->i_ctime = time;
 
 	/*
-                                                                     
-                                                                     
-                                            
-  */
+	 * And finally, if we unlinked a direntry which happened to have the
+	 * same name as the moved direntry, we have to decrement @i_nlink of
+	 * the unlinked inode and change its ctime.
+	 */
 	if (unlink) {
 		/*
-                                                        
-                                    
-   */
+		 * Directories cannot have hard-links, so if this is a
+		 * directory, just clear @i_nlink.
+		 */
 		saved_nlink = new_inode->i_nlink;
 		if (is_dir)
 			clear_nlink(new_inode);
@@ -1074,10 +1074,10 @@ static int ubifs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	}
 
 	/*
-                                                                       
-                                                              
-                     
-  */
+	 * Do not ask 'ubifs_jnl_rename()' to flush write-buffer if @old_inode
+	 * is dirty, because this will be done later on at the end of
+	 * 'ubifs_rename()'.
+	 */
 	if (IS_SYNC(old_inode)) {
 		sync = IS_DIRSYNC(old_dir) || IS_DIRSYNC(new_dir);
 		if (unlink && IS_SYNC(new_inode))
@@ -1149,25 +1149,25 @@ int ubifs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	stat->size = ui->ui_size;
 
 	/*
-                                                                  
-                                                                   
-                                                                     
-                                                                    
-                                                                     
-                                                                     
-                                                                     
-                                                                      
-                                                                       
-                
-  */
+	 * Unfortunately, the 'stat()' system call was designed for block
+	 * device based file systems, and it is not appropriate for UBIFS,
+	 * because UBIFS does not have notion of "block". For example, it is
+	 * difficult to tell how many block a directory takes - it actually
+	 * takes less than 300 bytes, but we have to round it to block size,
+	 * which introduces large mistake. This makes utilities like 'du' to
+	 * report completely senseless numbers. This is the reason why UBIFS
+	 * goes the same way as JFFS2 - it reports zero blocks for everything
+	 * but regular files, which makes more sense than reporting completely
+	 * wrong sizes.
+	 */
 	if (S_ISREG(inode->i_mode)) {
 		size = ui->xattr_size;
 		size += stat->size;
 		size = ALIGN(size, UBIFS_BLOCK_SIZE);
 		/*
-                                                                  
-                                         
-   */
+		 * Note, user-space expects 512-byte blocks count irrespectively
+		 * of what was reported in @stat->size.
+		 */
 		stat->blocks = size >> 9;
 	} else
 		stat->blocks = 0;

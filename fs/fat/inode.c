@@ -1,13 +1,13 @@
 /*
-                        
-  
-                                           
-                                                                             
-                                                          
-  
-          
-  
-                                                               
+ *  linux/fs/fat/inode.c
+ *
+ *  Written 1992,1993 by Werner Almesberger
+ *  VFAT extensions by Gordon Chaffee, merged with msdos fs by Henrik Storner
+ *  Rewritten for the constant inumbers support by Al Viro
+ *
+ *  Fixes:
+ *
+ *	Max Cohan: Fixed invalid FSINFO offset when info_sector is 0
  */
 
 #include <linux/module.h>
@@ -30,7 +30,7 @@
 #include "fat.h"
 
 #ifndef CONFIG_FAT_DEFAULT_IOCHARSET
-/*                                               */
+/* if user don't select VFAT, this is undefined. */
 #define CONFIG_FAT_DEFAULT_IOCHARSET	""
 #endif
 
@@ -45,8 +45,8 @@ static int fat_add_cluster(struct inode *inode)
 	err = fat_alloc_clusters(inode, &cluster, 1);
 	if (err)
 		return err;
-	/*                                                       
-                      */
+	/* FIXME: this cluster should be added after data of this
+	 * cluster is writed */
 	err = fat_chain_add(inode, cluster, 1);
 	if (err)
 		fat_free_clusters(inode, cluster);
@@ -82,12 +82,12 @@ static inline int __fat_get_block(struct inode *inode, sector_t iblock,
 
 	offset = (unsigned long)iblock & (sbi->sec_per_clus - 1);
 	if (!offset) {
-		/*                                                       */
+		/* TODO: multiple cluster allocation would be desirable. */
 		err = fat_add_cluster(inode);
 		if (err)
 			return err;
 	}
-	/*                                  */
+	/* available blocks on this cluster */
 	mapped_blocks = sbi->sec_per_clus - offset;
 
 	*max_blocks = min(mapped_blocks, *max_blocks);
@@ -194,23 +194,23 @@ static ssize_t fat_direct_IO(int rw, struct kiocb *iocb,
 
 	if (rw == WRITE) {
 		/*
-                                                             
-                                                              
-    
-                                                           
-                            
-    
-                                                     
-   */
+		 * FIXME: blockdev_direct_IO() doesn't use ->write_begin(),
+		 * so we need to update the ->mmu_private to block boundary.
+		 *
+		 * But we must fill the remaining area or hole by nul for
+		 * updating ->mmu_private.
+		 *
+		 * Return 0, and fallback to normal buffered write.
+		 */
 		loff_t size = offset + iov_length(iov, nr_segs);
 		if (MSDOS_I(inode)->mmu_private < size)
 			return 0;
 	}
 
 	/*
-                                                         
-                                                  
-  */
+	 * FAT need to use the DIO_LOCKING for avoiding the race
+	 * condition of fat_get_block() and ->truncate().
+	 */
 	ret = blockdev_direct_IO(rw, iocb, inode, iov, offset, nr_segs,
 				 fat_get_block);
 	if (ret < 0 && (rw & WRITE))
@@ -223,7 +223,7 @@ static sector_t _fat_bmap(struct address_space *mapping, sector_t block)
 {
 	sector_t blocknr;
 
-	/*                                                                  */
+	/* fat_get_cluster() assumes the requested blocknr isn't truncated. */
 	down_read(&MSDOS_I(mapping->host)->truncate_lock);
 	blocknr = generic_block_bmap(mapping, block, fat_get_block);
 	up_read(&MSDOS_I(mapping->host)->truncate_lock);
@@ -262,7 +262,7 @@ int _fat_fallocate(struct inode *inode, loff_t len)
 
 	mutex_lock(&inode->i_mutex);
 
-	/*                            */
+	/* file is already big enough */
 	if (len <= i_size_read(inode)) {
 		mutex_unlock(&inode->i_mutex);
 		return 0;
@@ -271,21 +271,21 @@ int _fat_fallocate(struct inode *inode, loff_t len)
 	nblocks = (len + sb->s_blocksize - 1) >> sb->s_blocksize_bits;
 	iblock = (MSDOS_I(inode)->mmu_private + sb->s_blocksize - 1) >> sb->s_blocksize_bits;
 
-	/*                   */
+	/* validate new size */
 	err = inode_newsize_ok(inode, len);
 	if (err) {
 		mutex_unlock(&inode->i_mutex);
 		return err;
 	}
 
-	/*                                            */
+	/* check for available blocks on last cluster */
 	offset = (unsigned long)iblock & (sbi->sec_per_clus - 1);
 	if (offset) {
 		iblock += min((unsigned long) (sbi->sec_per_clus - offset),
 				(unsigned long) (nblocks - iblock));
 	}
 
-	/*                           */
+	/* now allocate new clusters */
 	while (iblock < nblocks) {
 		err = fat_add_cluster(inode);
 		if (err) {
@@ -296,7 +296,7 @@ int _fat_fallocate(struct inode *inode, loff_t len)
 				(unsigned long) (nblocks - iblock));
 	}
 
-	/*                           */
+	/* update inode informations */
 	len = min(len, (loff_t)(iblock << sb->s_blocksize_bits));
 	i_size_write(inode, len);
 	MSDOS_I(inode)->mmu_private = len;
@@ -310,27 +310,27 @@ int _fat_fallocate(struct inode *inode, loff_t len)
 #endif
 
 /*
-                                            
-                                                              
-                                                     
-                                                  
-                                                             
-                       
-                                                                   
-           
-                                              
-                                                      
-                                                           
-                 
-                                               
-                                                              
-                                                            
-                                                         
-                                    
-                                                                    
-                                                  
-                                                                   
-                                                
+ * New FAT inode stuff. We do the following:
+ *	a) i_ino is constant and has nothing with on-disk location.
+ *	b) FAT manages its own cache of directory entries.
+ *	c) *This* cache is indexed by on-disk location.
+ *	d) inode has an associated directory entry, all right, but
+ *		it may be unhashed.
+ *	e) currently entries are stored within struct inode. That should
+ *		change.
+ *	f) we deal with races in the following way:
+ *		1. readdir() and lookup() do FAT-dir-cache lookup.
+ *		2. rename() unhashes the F-d-c entry and rehashes it in
+ *			a new place.
+ *		3. unlink() and rmdir() unhash F-d-c entry.
+ *		4. fat_write_inode() checks whether the thing is unhashed.
+ *			If it is we silently return. If it isn't we do bread(),
+ *			check if the location is still valid and retry if it
+ *			isn't. Otherwise we do changes.
+ *		5. Spinlock is used to protect hash/unhash/location check/lookup
+ *		6. fat_evict_inode() unhashes the F-d-c entry.
+ *		7. lookup() and readdir() do igrab() if they find a F-d-c entry
+ *			and consider negative result as cache miss.
  */
 
 static void fat_hash_init(struct super_block *sb)
@@ -418,7 +418,7 @@ static int fat_calc_dir_size(struct inode *inode)
 	return 0;
 }
 
-/*                              */
+/* doesn't deal with root inode */
 static int fat_fill_inode(struct inode *inode, struct msdos_dir_entry *de)
 {
 	struct msdos_sb_info *sbi = MSDOS_SB(inode->i_sb);
@@ -447,7 +447,7 @@ static int fat_fill_inode(struct inode *inode, struct msdos_dir_entry *de)
 		MSDOS_I(inode)->mmu_private = inode->i_size;
 
 		set_nlink(inode, fat_subdirs(inode));
-	} else { /*                 */
+	} else { /* not a directory */
 		inode->i_generation |= 1;
 		inode->i_mode = fat_make_mode(sbi, de->attr,
 			((sbi->options.showexec && !is_exec(de->name + 8))
@@ -620,9 +620,9 @@ static int __init fat_init_inodecache(void)
 static void __exit fat_destroy_inodecache(void)
 {
 	/*
-                                                               
-                  
-  */
+	 * Make sure all delayed rcu free inodes are flushed before we
+	 * destroy cache.
+	 */
 	rcu_barrier();
 	kmem_cache_destroy(fat_inode_cachep);
 }
@@ -640,7 +640,7 @@ static int fat_statfs(struct dentry *dentry, struct kstatfs *buf)
 	struct msdos_sb_info *sbi = MSDOS_SB(sb);
 	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
 
-	/*                                                                */
+	/* If the count of free cluster is still unknown, counts it here. */
 	if (sbi->free_clusters == -1 || !sbi->free_clus_valid) {
 		int err = fat_count_free_clusters(dentry->d_sb);
 		if (err)
@@ -759,17 +759,17 @@ static const struct super_operations fat_sops = {
 };
 
 /*
-                                     
-                                                               
-                                                     
-                                    
-                                                            
-                                                                   
-                                                                               
-  
-                                                                 
-                                                              
-                                                             
+ * a FAT file handle with fhtype 3 is
+ *  0/  i_ino - for fast, reliable lookup if still in the cache
+ *  1/  i_generation - to see if i_ino is still valid
+ *          bit 0 == 0 iff directory
+ *  2/  i_pos(8-39) - if ino has changed, but still in cache
+ *  3/  i_pos(4-7)|i_logstart - to semi-verify inode found at i_pos
+ *  4/  i_pos(0-3)|parent->i_logstart - maybe used to hunt for the file on disc
+ *
+ * Hack for NFSv2: Maximum FAT entry number is 28bits and maximum
+ * i_pos is 40bits (blocknr(32) + dir offset(8)), so two 4bits
+ * of i_logstart is used to store the directory entry offset.
  */
 
 static struct dentry *fat_fh_to_dentry(struct super_block *sb,
@@ -794,10 +794,10 @@ static struct dentry *fat_fh_to_dentry(struct super_block *sb,
 		i_pos = (loff_t)fh[2] << 8;
 		i_pos |= ((fh[3] >> 24) & 0xf0) | (fh[4] >> 28);
 
-		/*                                 
-                                      
-                                                
-   */
+		/* try 2 - see if i_pos is in F-d-c
+		 * require i_logstart to be the same
+		 * Will fail if you truncate and then re-write
+		 */
 
 		inode = fat_iget(sb, i_pos);
 		if (inode && MSDOS_I(inode)->i_logstart != i_logstart) {
@@ -807,19 +807,19 @@ static struct dentry *fat_fh_to_dentry(struct super_block *sb,
 	}
 
 	/*
-                                                  
-   
-                        
-   
-                                                                   
-                                      
-                                                         
-   
-                                                                       
-                                                                      
-                                                                      
-                                             
-  */
+	 * For now, do nothing if the inode is not found.
+	 *
+	 * What we could do is:
+	 *
+	 *	- follow the file starting at fh[4], and record the ".." entry,
+	 *	  and the name of the fh[2] entry.
+	 *	- then follow the ".." file finding the next step up.
+	 *
+	 * This way we build a path to the root of the tree. If this works, we
+	 * lookup the path and so get this inode into the cache.  Finally try
+	 * the fat_iget lookup again.  If that fails, then we are totally out
+	 * of luck.  But all that is for another day
+	 */
 	return d_obtain_alias(inode);
 }
 
@@ -832,7 +832,7 @@ fat_encode_fh(struct dentry *de, __u32 *fh, int *lenp, int connectable)
 
 	if (len < 5) {
 		*lenp = 5;
-		return 255; /*         */
+		return 255; /* no room */
 	}
 
 	ipos_h = MSDOS_I(inode)->i_pos >> 8;
@@ -1025,24 +1025,24 @@ static const match_table_t vfat_tokens = {
 	{Opt_shortname_win95, "shortname=win95"},
 	{Opt_shortname_winnt, "shortname=winnt"},
 	{Opt_shortname_mixed, "shortname=mixed"},
-	{Opt_utf8_no, "utf8=0"},		/*                  */
+	{Opt_utf8_no, "utf8=0"},		/* 0 or no or false */
 	{Opt_utf8_no, "utf8=no"},
 	{Opt_utf8_no, "utf8=false"},
-	{Opt_utf8_yes, "utf8=1"},		/*                           */
+	{Opt_utf8_yes, "utf8=1"},		/* empty or 1 or yes or true */
 	{Opt_utf8_yes, "utf8=yes"},
 	{Opt_utf8_yes, "utf8=true"},
 	{Opt_utf8_yes, "utf8"},
-	{Opt_uni_xl_no, "uni_xlate=0"},		/*                  */
+	{Opt_uni_xl_no, "uni_xlate=0"},		/* 0 or no or false */
 	{Opt_uni_xl_no, "uni_xlate=no"},
 	{Opt_uni_xl_no, "uni_xlate=false"},
-	{Opt_uni_xl_yes, "uni_xlate=1"},	/*                           */
+	{Opt_uni_xl_yes, "uni_xlate=1"},	/* empty or 1 or yes or true */
 	{Opt_uni_xl_yes, "uni_xlate=yes"},
 	{Opt_uni_xl_yes, "uni_xlate=true"},
 	{Opt_uni_xl_yes, "uni_xlate"},
-	{Opt_nonumtail_no, "nonumtail=0"},	/*                  */
+	{Opt_nonumtail_no, "nonumtail=0"},	/* 0 or no or false */
 	{Opt_nonumtail_no, "nonumtail=no"},
 	{Opt_nonumtail_no, "nonumtail=false"},
-	{Opt_nonumtail_yes, "nonumtail=1"},	/*                           */
+	{Opt_nonumtail_yes, "nonumtail=1"},	/* empty or 1 or yes or true */
 	{Opt_nonumtail_yes, "nonumtail=yes"},
 	{Opt_nonumtail_yes, "nonumtail=true"},
 	{Opt_nonumtail_yes, "nonumtail"},
@@ -1114,7 +1114,7 @@ static int parse_options(struct super_block *sb, char *options, int is_vfat,
 			if (!is_vfat)
 				opts->nocase = 1;
 			else {
-				/*                            */
+				/* for backward compatibility */
 				opts->shortname = VFAT_SFN_DISPLAY_WIN95
 					| VFAT_SFN_CREATE_WIN95;
 			}
@@ -1182,7 +1182,7 @@ static int parse_options(struct super_block *sb, char *options, int is_vfat,
 			opts->errors = FAT_ERRORS_RO;
 			break;
 
-		/*                */
+		/* msdos specific */
 		case Opt_dots:
 			opts->dotsOK = 1;
 			break;
@@ -1190,7 +1190,7 @@ static int parse_options(struct super_block *sb, char *options, int is_vfat,
 			opts->dotsOK = 0;
 			break;
 
-		/*               */
+		/* vfat specific */
 		case Opt_charset:
 			if (opts->iocharset != fat_default_iocharset)
 				kfree(opts->iocharset);
@@ -1215,23 +1215,23 @@ static int parse_options(struct super_block *sb, char *options, int is_vfat,
 			opts->shortname = VFAT_SFN_DISPLAY_WINNT
 					| VFAT_SFN_CREATE_WIN95;
 			break;
-		case Opt_utf8_no:		/*                  */
+		case Opt_utf8_no:		/* 0 or no or false */
 			opts->utf8 = 0;
 			break;
-		case Opt_utf8_yes:		/*                           */
+		case Opt_utf8_yes:		/* empty or 1 or yes or true */
 			opts->utf8 = 1;
 			break;
-		case Opt_uni_xl_no:		/*                  */
+		case Opt_uni_xl_no:		/* 0 or no or false */
 			opts->unicode_xlate = 0;
 			break;
-		case Opt_uni_xl_yes:		/*                           */
+		case Opt_uni_xl_yes:		/* empty or 1 or yes or true */
 			opts->unicode_xlate = 1;
 			break;
-		case Opt_nonumtail_no:		/*                  */
-			opts->numtail = 1;	/*                */
+		case Opt_nonumtail_no:		/* 0 or no or false */
+			opts->numtail = 1;	/* negated option */
 			break;
-		case Opt_nonumtail_yes:		/*                           */
-			opts->numtail = 0;	/*                */
+		case Opt_nonumtail_yes:		/* empty or 1 or yes or true */
+			opts->numtail = 0;	/* negated option */
 			break;
 		case Opt_rodir:
 			opts->rodir = 1;
@@ -1240,12 +1240,12 @@ static int parse_options(struct super_block *sb, char *options, int is_vfat,
 			opts->discard = 1;
 			break;
 
-		/*                        */
+		/* obsolete mount options */
 		case Opt_obsolete:
 			fat_msg(sb, KERN_INFO, "\"%s\" option is obsolete, "
 			       "not supported now", p);
 			break;
-		/*                */
+		/* unknown option */
 		default:
 			if (!silent) {
 				fat_msg(sb, KERN_ERR,
@@ -1257,14 +1257,14 @@ static int parse_options(struct super_block *sb, char *options, int is_vfat,
 	}
 
 out:
-	/*                                     */
+	/* UTF-8 doesn't provide FAT semantics */
 	if (!strcmp(opts->iocharset, "utf8")) {
 		fat_msg(sb, KERN_WARNING, "utf8 is not a recommended IO charset"
 		       " for FAT filesystems, filesystem will be "
 		       "case sensitive!");
 	}
 
-	/*                                                                   */
+	/* If user doesn't specify allow_utime, it's initialized from dmask. */
 	if (opts->allow_utime == (unsigned short)-1)
 		opts->allow_utime = ~opts->fs_dmask & (S_IWGRP | S_IWOTH);
 	if (opts->unicode_xlate)
@@ -1310,7 +1310,7 @@ static int fat_read_root(struct inode *inode)
 }
 
 /*
-                                        
+ * Read the super block of an MS-DOS FS.
  */
 int fat_fill_super(struct super_block *sb, void *data, int silent, int isvfat,
 		   void (*setup)(struct super_block *))
@@ -1328,11 +1328,11 @@ int fat_fill_super(struct super_block *sb, void *data, int silent, int isvfat,
 	char buf[50];
 
 	/*
-                                                       
-                                                        
-                                                        
-                                     
-  */
+	 * GFP_KERNEL is ok here, because while we do hold the
+	 * supeblock lock, memory pressure can't call back into
+	 * the filesystem, since we're only just about to mount
+	 * it and have no inodes etc active!
+	 */
 	sbi = kzalloc(sizeof(struct msdos_sb_info), GFP_KERNEL);
 	if (!sbi)
 		return -ENOMEM;
@@ -1349,7 +1349,7 @@ int fat_fill_super(struct super_block *sb, void *data, int silent, int isvfat,
 	if (error)
 		goto out_fail;
 
-	setup(sb); /*                                           */
+	setup(sb); /* flavour-specific stuff that needs options */
 
 	error = -EIO;
 	sb_min_blocksize(sb, 512);
@@ -1374,9 +1374,9 @@ int fat_fill_super(struct super_block *sb, void *data, int silent, int isvfat,
 	}
 
 	/*
-                                                                       
-                                                               
-  */
+	 * Earlier we checked here that b->secs_track and b->head are nonzero,
+	 * but it turns out valid FAT filesystems can have zero there.
+	 */
 
 	media = b->media;
 	if (!fat_valid_media(media)) {
@@ -1432,11 +1432,11 @@ int fat_fill_super(struct super_block *sb, void *data, int silent, int isvfat,
 	sbi->cluster_size = sb->s_blocksize * sbi->sec_per_clus;
 	sbi->cluster_bits = ffs(sbi->cluster_size) - 1;
 	sbi->fats = b->fats;
-	sbi->fat_bits = 0;		/*                */
+	sbi->fat_bits = 0;		/* Don't know yet */
 	sbi->fat_start = le16_to_cpu(b->reserved);
 	sbi->fat_length = le16_to_cpu(b->fat_length);
 	sbi->root_cluster = 0;
-	sbi->free_clusters = -1;	/*                */
+	sbi->free_clusters = -1;	/* Don't know yet */
 	sbi->free_clus_valid = 0;
 	sbi->prev_free = FAT_START_ENT;
 	sb->s_maxbytes = 0xffffffff;
@@ -1445,12 +1445,12 @@ int fat_fill_super(struct super_block *sb, void *data, int silent, int isvfat,
 		struct fat_boot_fsinfo *fsinfo;
 		struct buffer_head *fsinfo_bh;
 
-		/*               */
+		/* Must be FAT32 */
 		sbi->fat_bits = 32;
 		sbi->fat_length = le32_to_cpu(b->fat32_length);
 		sbi->root_cluster = le32_to_cpu(b->root_cluster);
 
-		/*                                               */
+		/* MC - if info_sector is 0, don't multiply by 0 */
 		sbi->fsinfo_sector = le16_to_cpu(b->info_sector);
 		if (sbi->fsinfo_sector == 0)
 			sbi->fsinfo_sector = 1;
@@ -1484,7 +1484,7 @@ int fat_fill_super(struct super_block *sb, void *data, int silent, int isvfat,
 		bsx = (struct fat_boot_bsx *)(bh->b_data + FAT16_BSX_OFFSET);
 	}
 
-	/*                                                       */
+	/* interpret volume ID as a little endian 32 bit integer */
 	sbi->vol_id = (((u32)bsx->vol_id[0]) | ((u32)bsx->vol_id[1] << 8) |
 		((u32)bsx->vol_id[2] << 16) | ((u32)bsx->vol_id[3] << 24));
 
@@ -1513,7 +1513,7 @@ int fat_fill_super(struct super_block *sb, void *data, int silent, int isvfat,
 	if (sbi->fat_bits != 32)
 		sbi->fat_bits = (total_clusters > MAX_FAT12) ? 16 : 12;
 
-	/*                                        */
+	/* check that FAT table does not overflow */
 	fat_clusters = sbi->fat_length * sb->s_blocksize * 8 / sbi->fat_bits;
 	total_clusters = min(total_clusters, fat_clusters - FAT_START_ENT);
 	if (total_clusters > MAX_FAT(sb)) {
@@ -1525,27 +1525,27 @@ int fat_fill_super(struct super_block *sb, void *data, int silent, int isvfat,
 	}
 
 	sbi->max_cluster = total_clusters + FAT_START_ENT;
-	/*                                                       */
+	/* check the free_clusters, it's not necessarily correct */
 	if (sbi->free_clusters != -1 && sbi->free_clusters > total_clusters)
 		sbi->free_clusters = -1;
-	/*                                                   */
+	/* check the prev_free, it's not necessarily correct */
 	sbi->prev_free %= sbi->max_cluster;
 	if (sbi->prev_free < FAT_START_ENT)
 		sbi->prev_free = FAT_START_ENT;
 
 	brelse(bh);
 
-	/*                                            */
+	/* set up enough so that it can read an inode */
 	fat_hash_init(sb);
 	fat_ent_access_init(sb);
 
 	/*
-                                                               
-                                                        
-                                                          
-   
-                                          
-  */
+	 * The low byte of FAT's first entry must have same value with
+	 * media-field.  But in real world, too many devices is
+	 * writing wrong value.  So, removed that validity check.
+	 *
+	 * if (FAT_FIRST_ENT(sb, media) != first)
+	 */
 
 	error = -EINVAL;
 	sprintf(buf, "cp%d", sbi->options.codepage);
@@ -1555,7 +1555,7 @@ int fat_fill_super(struct super_block *sb, void *data, int silent, int isvfat,
 		goto out_fail;
 	}
 
-	/*                                                           */
+	/* FIXME: utf8 is using iocharset for upper/lower conversion */
 	if (sbi->options.isvfat) {
 		sbi->nls_io = load_nls(sbi->options.iocharset);
 		if (!sbi->nls_io) {
@@ -1611,10 +1611,10 @@ out_fail:
 EXPORT_SYMBOL_GPL(fat_fill_super);
 
 /*
-                                                                    
-                                                                     
-                                                              
-                  
+ * helper function for fat_flush_inodes.  This writes both the inode
+ * and the file data blocks, waiting for in flight data blocks before
+ * the start of the call.  It does not wait for any io started
+ * during the call
  */
 static int writeback_inode(struct inode *inode)
 {
@@ -1625,10 +1625,10 @@ static int writeback_inode(struct inode *inode)
 	       .sync_mode = WB_SYNC_NONE,
 	      .nr_to_write = 0,
 	};
-	/*                                                            
-                                                               
-                                                     
- */
+	/* if we used WB_SYNC_ALL, sync_inode waits for the io for the
+	* inode to finish.  So WB_SYNC_NONE is sent down to sync_inode
+	* and filemap_fdatawrite is used for the data blocks
+	*/
 	ret = sync_inode(inode, &wbc);
 	if (!ret)
 	       ret = filemap_fdatawrite(mapping);
@@ -1636,12 +1636,12 @@ static int writeback_inode(struct inode *inode)
 }
 
 /*
-                                                                 
-                                                      
-  
-                                                                     
-                                                                     
-                
+ * write data and metadata corresponding to i1 and i2.  The io is
+ * started but we do not wait for any of it to finish.
+ *
+ * filemap_flush is used for the block device, so if there is a dirty
+ * page for a block already in flight, we will not wait and start the
+ * io over again
  */
 int fat_flush_inodes(struct super_block *sb, struct inode *i1, struct inode *i2)
 {

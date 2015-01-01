@@ -73,8 +73,8 @@ enum vidc_core_state {
 	VIDC_CORE_INVALID
 };
 
-/*                                   
-                              */
+/*Donot change the enum values unless
+ * you know what you are doing*/
 enum instance_state {
 	MSM_VIDC_CORE_UNINIT_DONE = 0x0001,
 	MSM_VIDC_CORE_INIT,

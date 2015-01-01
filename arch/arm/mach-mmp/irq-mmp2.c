@@ -106,7 +106,7 @@ static void init_mux_irq(struct irq_chip *chip, int start, int num)
 	for (irq = start; num > 0; irq++, num--) {
 		struct irq_data *d = irq_get_irq_data(irq);
 
-		/*                        */
+		/* mask and clear the IRQ */
 		chip->irq_mask(d);
 		if (chip->irq_ack)
 			chip->irq_ack(d);
@@ -139,9 +139,9 @@ void __init mmp2_init_icu(void)
 		}
 	}
 
-	/*                                                    
-                                        
-  */
+	/* NOTE: IRQ_MMP2_PMIC requires the PMIC MFPR register
+	 * to be written to clear the interrupt
+	 */
 	pmic_irq_chip.irq_ack = pmic_irq_ack;
 
 	init_mux_irq(&pmic_irq_chip, IRQ_MMP2_PMIC_BASE, 2);

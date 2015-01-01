@@ -35,8 +35,8 @@ typedef struct _diva_trace_ie {
 } diva_trace_ie_t;
 
 /*
-                                                          
-          
+  Structure used to represent "State\\BX\\Modem" directory
+  to user.
 */
 typedef struct _diva_trace_modem_state {
 	dword	ChannelNumber;
@@ -45,7 +45,7 @@ typedef struct _diva_trace_modem_state {
 
 	dword	Norm;
 
-	dword Options; /*                                   */
+	dword Options; /* Options received from Application */
 
 	dword	TxSpeed;
 	dword	RxSpeed;
@@ -70,7 +70,7 @@ typedef struct _diva_trace_modem_state {
 } diva_trace_modem_state_t;
 
 /*
-                                              
+  Representation of "State\\BX\\FAX" directory
 */
 typedef struct _diva_trace_fax_state {
 	dword	ChannelNumber;
@@ -90,8 +90,8 @@ typedef struct _diva_trace_fax_state {
 } diva_trace_fax_state_t;
 
 /*
-                                                             
-                                                    
+  Structure used to represent Interface State in the abstract
+  and interface/D-channel protocol independent form.
 */
 typedef struct _diva_trace_interface_state {
 	char Layer1[DIVA_TRACE_LINE_TYPE_LEN];
@@ -173,8 +173,8 @@ typedef struct _diva_ifc_statistics {
 } diva_ifc_statistics_t;
 
 /*
-                                                   
-          
+  Structure used to represent "State\\BX" directory
+  to user.
 */
 typedef struct _diva_trace_line_state {
 	dword	ChannelNumber;
@@ -235,7 +235,7 @@ typedef void (*diva_trace_error_proc_t)(void *user_context,
 					int error, const char *file, int line);
 
 /*
-                                                       
+  This structure creates interface from user to library
 */
 typedef struct _diva_trace_library_user_interface {
 	void *user_context;
@@ -245,7 +245,7 @@ typedef struct _diva_trace_library_user_interface {
 } diva_trace_library_user_interface_t;
 
 /*
-                                
+  Interface from Library to User
 */
 typedef int (*DivaSTraceLibraryStart_proc_t)(void *hLib);
 typedef int (*DivaSTraceLibraryFinit_proc_t)(void *hLib);
@@ -253,29 +253,29 @@ typedef int (*DivaSTraceMessageInput_proc_t)(void *hLib);
 typedef void* (*DivaSTraceGetHandle_proc_t)(void *hLib);
 
 /*
-                             
-                                                         
+  Turn Audio Tap trace on/off
+  Channel should be in the range 1 ... Number of Channels
 */
 typedef int (*DivaSTraceSetAudioTap_proc_t)(void *hLib, int Channel, int on);
 
 /*
-                             
-                                                         
+  Turn B-channel trace on/off
+  Channel should be in the range 1 ... Number of Channels
 */
 typedef int (*DivaSTraceSetBChannel_proc_t)(void *hLib, int Channel, int on);
 
 /*
-                                                    
-                                                                
-                                                                     
-                                                                              
-                                                                         
-                                                              
+  Turn	D-channel (Layer1/Layer2/Layer3) trace on/off
+  Layer1 - All D-channel frames received/sent over the interface
+  inclusive Layer 2 headers, Layer 2 frames and TEI management frames
+  Layer2 - Events from LAPD protocol instance with SAPI of signalling protocol
+  Layer3 - All D-channel frames addressed to assigned to the card TEI and
+  SAPI of signalling protocol, and signalling protocol events.
 */
 typedef int (*DivaSTraceSetDChannel_proc_t)(void *hLib, int on);
 
 /*
-                             
+  Get overall card statistics
 */
 typedef int (*DivaSTraceGetOutgoingCallStatistics_proc_t)(void *hLib);
 typedef int (*DivaSTraceGetIncomingCallStatistics_proc_t)(void *hLib);
@@ -287,7 +287,7 @@ typedef int (*DivaSTraceGetDLayer1Statistics_proc_t)(void *hLib);
 typedef int (*DivaSTraceGetDLayer2Statistics_proc_t)(void *hLib);
 
 /*
-              
+  Call control
 */
 typedef int (*DivaSTraceClearCall_proc_t)(void *hLib, int Channel);
 
@@ -322,7 +322,7 @@ typedef struct _diva_strace_library_interface {
 } diva_strace_library_interface_t;
 
 /*
-                                     
+  Create and return Library interface
 */
 diva_strace_library_interface_t *DivaSTraceLibraryCreateInstance(int Adapter,
 								 const diva_trace_library_user_interface_t *user_proc,

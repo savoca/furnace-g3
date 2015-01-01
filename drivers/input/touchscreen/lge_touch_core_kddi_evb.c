@@ -56,16 +56,16 @@ static struct mutex i2c_suspend_lock;
 static void touch_double_tap_wakeup_enable(struct lge_touch_data *ts);
 #endif
 #ifdef CUST_G2_TOUCH
-//                                 
+//static int f54_show_raw_data = 0;
 struct i2c_client *ds4_i2c_client;
-//                           
-//                              
-//                               
+//extern void SCAN_PDT(void);
+//extern int F54Test(int input);
+//extern char f54_wlog_buf[6000];
 int f54_window_crack_check_mode = 0;
 int f54_window_crack = 0;
 static int ts_suspend = 0;
 int thermal_status = 0;
-//                                             
+//extern int touch_thermal_mode; rangkast.jeong
 #if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI) && !defined(CONFIG_MACH_MSM8974_G2_OPEN_COM))  || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 int ime_drumming_status = 0;
 int keyguard_status = 0;
@@ -84,21 +84,21 @@ struct lge_touch_attribute {
 #define LGE_TOUCH_ATTR(_name, _mode, _show, _store)	\
 struct lge_touch_attribute lge_touch_attr_##_name = __ATTR(_name, _mode, _show, _store)
 
-/*                 
-                                                                              
+/* Debug mask value
+ * usage: echo [debug_mask] > /sys/module/lge_touch_core/parameters/debug_mask
  */
 u32 touch_debug_mask = DEBUG_BASE_INFO;
 module_param_named(debug_mask, touch_debug_mask, int, S_IRUGO|S_IWUSR|S_IWGRP);
 
 #ifdef LGE_TOUCH_TIME_DEBUG
-/*                 
-                                                                                   
+/* Debug mask value
+ * usage: echo [debug_mask] > /sys/module/lge_touch_core/parameters/time_debug_mask
  */
 u32 touch_time_debug_mask = DEBUG_TIME_PROFILE_NONE;
 module_param_named(time_debug_mask, touch_time_debug_mask, int, S_IRUGO|S_IWUSR|S_IWGRP);
 
 #ifdef CUST_G_TOUCH
-//          
+//do nothing
 #else
 #define get_time_interval(a,b) a>=b ? a-b : 1000000+a-b
 #endif
@@ -107,10 +107,10 @@ struct timeval t_debug[TIME_PROFILE_MAX];
 
 #ifdef CUST_G_TOUCH
 #define get_time_interval(a,b) a>=b ? a-b : 1000000+a-b
-//                                         
-//                                                           
-//                                                         
-//                                                      
+//static u8 resume_flag = 0; rangkast.jeong
+//static unsigned int ta_debouncing_count = 0; rangkast.jeong
+//static unsigned int button_press_count =0; rangkast.jeong
+//static unsigned int ts_rebase_count =0; rangkast.jeong
 struct timeval t_ex_debug[TIME_EX_PROFILE_MAX];
 struct t_data	 ts_prev_finger_press_data;
 int force_continuous_mode = 0;
@@ -120,7 +120,7 @@ int finger_subtraction_check_count = 0;
 bool ghost_detection = 0;
 int ghost_detection_count = 0;
 #if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)|| defined(CONFIG_MACH_APQ8064_GKGLOBAL) || defined(CONFIG_MACH_MSM8974_G3_KDDI_EVB)
-/*                       */
+/* keygaurd state rebase */
 int multi_touch_detection = 0;
 bool first_int_check = false;
 #endif
@@ -141,14 +141,14 @@ static void touch_early_suspend(struct early_suspend *h);
 static void touch_late_resume(struct early_suspend *h);
 #endif
 
-/*                                    */
+/* Auto Test interface for some model */
 struct lge_touch_data *touch_test_dev = NULL;
 EXPORT_SYMBOL(touch_test_dev);
 
 
 static void release_all_ts_event(struct lge_touch_data *ts);
-/*              
-  
+/* Jitter Filter
+ *
  */
 #define jitter_abs(x)		(x > 0 ? x : -x)
 #define jitter_sub(x, y)	(x > y ? x - y : y - x)
@@ -380,9 +380,9 @@ void trigger_baseline_state_machine(int plug_in, int type)
 }
 
 #ifdef PRESSURE_DIFF
-/*                          */
-/*                                                                                                                           
-                                                         */
+/* pressure_diff_detection  */
+/* if two fingers pressed, compare their pressure and then if  the difference in pressure between the two fingers is over 10,
+    run baseline rebase algorithm when finger released.  */
 int pressure_diff_detection(struct lge_touch_data *ts)
 {
 	int id = 0;
@@ -396,7 +396,7 @@ int pressure_diff_detection(struct lge_touch_data *ts)
 					ts->pressure_diff.z30_set_check, id, ts->ts_data.curr_data[id].pressure, ts->ts_data.prev_data[id].status?"PRESSED":"RELEASED",ts->ts_data.curr_data[id].status?"PRESSED":"RELEASED");
 			}
 
-			/*                                                          */
+			/* pressure 30 but pressure 30 is already pressed one time  */
 			if (ts->pressure_diff.z30_set_check && ts->ts_data.curr_data[id].pressure == 30 && ts->ts_data.prev_data[id].status == FINGER_RELEASED){
 				memset(&ts->pressure_diff, 0, sizeof(ts->pressure_diff));
 				ts->pressure_diff.z30_id = -1;
@@ -405,14 +405,14 @@ int pressure_diff_detection(struct lge_touch_data *ts)
 				return false;
 			}
 
-			/*                                 */
+			/* pressure 30  ( just enter once )*/
 			if (!ts->pressure_diff.z30_set_check && ts->ts_data.curr_data[id].pressure == 30 && ts->ts_data.prev_data[id].status == FINGER_PRESSED){
 				ts->pressure_diff.z30_set_check = true;
 				ts->pressure_diff.z30_id = id;
 				TOUCH_INFO_MSG("[z_diff] pressure 30 is pressed 1st, set z30_id[ %d]\n", ts->pressure_diff.z30_id);
 			}
 
-			/*                 */
+			/* finger pressure */
 			if (ts->pressure_diff.z30_set_check  && ts->ts_data.curr_data[id].pressure > 30 && ts->ts_data.prev_data[id].status == FINGER_RELEASED){
 				z_more_30 = ts->ts_data.curr_data[id].pressure;
 				ts->pressure_diff.z_more30_id = id;
@@ -429,7 +429,7 @@ int pressure_diff_detection(struct lge_touch_data *ts)
 	}
 
 	if(ts->pressure_diff.z30_id > -1){
-		 /*                                                                                                       */
+		 /* if position between first_press position and curr position is under 5, set pen or ghost pressure (30) */
 		if(ABS_DIFF_Z(ts->pressure_diff.z30_x_pos_1st - ts->ts_data.curr_data[ts->pressure_diff.z30_id].x_position) < 5 &&
 			ABS_DIFF_Z(ts->pressure_diff.z30_y_pos_1st - ts->ts_data.curr_data[ts->pressure_diff.z30_id].y_position) < 5){
 				z_less_30 = ts->ts_data.curr_data[ts->pressure_diff.z30_id].pressure;
@@ -448,7 +448,7 @@ int pressure_diff_detection(struct lge_touch_data *ts)
 	}
 
 	if((z_less_30 == 30) && (z_more_30 > 30)){
-		 /*                                                                                                                                              */
+		 /* if pressure between the two fingers is over 10, add pressure different count. if pressure different count is more than 2, we need to rebase. */
 		if((z_more_30 - z_less_30) > 10){
 			ts->pressure_diff.z_diff_cnt++;
 			TOUCH_INFO_MSG("[z_diff] z_diff_cnt[ %d]\n", ts->pressure_diff.z_diff_cnt);
@@ -465,7 +465,7 @@ int pressure_diff_detection(struct lge_touch_data *ts)
 
 
 
-//                 
+//g2 rangkast.jeong
 bool chk_time_interval(struct timeval t_aft, struct timeval t_bef, int t_val)
 {
 	if( t_aft.tv_sec - t_bef.tv_sec == 0 ) {
@@ -714,7 +714,7 @@ int ghost_detect_solution(struct lge_touch_data *ts)
 					{
 						 ts->gd_ctrl.init_data.ghost_detection = 1;
 					}
-					else; //               
+					else; //do not anything
 
 					memcpy(&ts->gd_ctrl.init_data.ts_prev_finger_press_data, &ts->ts_data.curr_data[i], sizeof(ts->gd_ctrl.init_data.ts_prev_finger_press_data));
 				}
@@ -731,8 +731,8 @@ int ghost_detect_solution(struct lge_touch_data *ts)
 					if(4<ts->gd_ctrl.init_data.finger_subtraction_check_count){
 						ts->gd_ctrl.init_data.finger_subtraction_check_count = 0;
 						TOUCH_INFO_MSG("need_to_rebase finger_subtraction!!! \n");
-						/*                                 */
-						//                        
+						/* rebase is disabled. see TD 41871*/
+						//goto out_need_to_rebase;
 					}
 			}
 		}
@@ -745,7 +745,7 @@ int ghost_detect_solution(struct lge_touch_data *ts)
 		if (ts->ts_data.state != TOUCH_BUTTON_LOCK) {
 			if (ts->work_sync_err_cnt > 0
 					&& ts->ts_data.prev_button.state == BUTTON_RELEASED) {
-				/*            */
+				/* Do nothing */
 			} else {
 				if (ts->gd_ctrl.init_data.button_press_count ==0)
 					do_gettimeofday(&t_ex_debug[TIME_EX_BUTTON_PRESS_START_TIME]);
@@ -784,7 +784,7 @@ int ghost_detect_solution(struct lge_touch_data *ts)
 					ts->gd_ctrl.init_data.in_edge_zone_id = i;
 					ts->gd_ctrl.init_data.in_edge_zone_x_pos= ts->ts_data.curr_data[i].x_position;
 					ts->gd_ctrl.init_data.in_edge_zone_y_pos= ts->ts_data.curr_data[i].y_position;
-					//                                             
+					//TOUCH_INFO_MSG("GHOST_in_EDGE_ZONE_START\n");
 					break;
 				}
 			}
@@ -811,7 +811,7 @@ int ghost_detect_solution(struct lge_touch_data *ts)
 							ts->gd_ctrl.init_data.in_edge_zone_id = -1;
 							ts->gd_ctrl.init_data.in_edge_zone_x_pos= -1;
 							ts->gd_ctrl.init_data.in_edge_zone_y_pos= -1;
-							//                                       
+							//TOUCH_INFO_MSG("NOT_in_EDGE_ZONE_2\n");
 							break;
 						}
 					}
@@ -822,7 +822,7 @@ int ghost_detect_solution(struct lge_touch_data *ts)
 				ts->gd_ctrl.init_data.in_edge_zone_id = -1;
 				ts->gd_ctrl.init_data.in_edge_zone_x_pos= -1;
 				ts->gd_ctrl.init_data.in_edge_zone_y_pos= -1;
-				//                                       
+				//TOUCH_INFO_MSG("NOT_in_EDGE_ZONE_1\n");
 			}
 		}
 	}
@@ -885,18 +885,18 @@ out_need_to_rebase:
 		}
 	}
 	return -EAGAIN;
-} //                 
+} //g2 rangkast.jeong
 
 
 void Send_Touch( unsigned int x, unsigned int y)
 {
 	if (touch_test_dev)
 	{
-		/*       */
+		/* press */
 #if !defined(MT_PROTOCOL_A)
 		input_mt_slot(touch_test_dev->input_dev, 0);
 		input_mt_report_slot_state(touch_test_dev->input_dev, MT_TOOL_FINGER, true);
-#endif	/*                         */
+#endif	/* !defined(MT_PROTOCOL_A) */
 		input_report_abs(touch_test_dev->input_dev, ABS_MT_POSITION_X, x);
 		input_report_abs(touch_test_dev->input_dev, ABS_MT_POSITION_Y, y);
 		input_report_abs(touch_test_dev->input_dev, ABS_MT_PRESSURE, 1);
@@ -904,16 +904,16 @@ void Send_Touch( unsigned int x, unsigned int y)
 		input_report_abs(touch_test_dev->input_dev, ABS_MT_WIDTH_MINOR, 1);
 #if defined(MT_PROTOCOL_A)
 		input_mt_sync(touch_test_dev->input_dev);
-#endif	/*                        */
+#endif	/* defined(MT_PROTOCOL_A) */
 		input_sync(touch_test_dev->input_dev);
 
-		/*         */
+		/* release */
 #if !defined(MT_PROTOCOL_A)
 		input_mt_slot(touch_test_dev->input_dev, 0);
 		input_mt_report_slot_state(touch_test_dev->input_dev, MT_TOOL_FINGER, false);
 #else
 		input_mt_sync(touch_test_dev->input_dev);
-#endif	/*                         */
+#endif	/* !defined(MT_PROTOCOL_A) */
 		input_sync(touch_test_dev->input_dev);
 	}
 	else
@@ -938,10 +938,10 @@ int get_touch_ts_fw_version(char *fw_ver)
 EXPORT_SYMBOL(get_touch_ts_fw_version);
 
 
-/*                                    
-  
-                                                            
-                                                        
+/* set_touch_handle / get_touch_handle
+ *
+ * Developer can save their object using 'set_touch_handle'.
+ * Also, they can restore that using 'get_touch_handle'.
  */
 void set_touch_handle(struct i2c_client *client, void* h_touch)
 {
@@ -955,9 +955,9 @@ void* get_touch_handle(struct i2c_client *client)
 	return ts->h_touch;
 }
 
-/*                                 
-  
-                                                                                 
+/* touch_i2c_read / touch_i2c_write
+ *
+ * Developer can use these fuctions to communicate with touch_device through I2C.
  */
 int touch_i2c_read(struct i2c_client *client, u8 reg, int len, u8 *buf)
 {
@@ -1090,9 +1090,9 @@ static void time_profile_result(struct lge_touch_data *ts)
 }
 #endif
 
-/*                       
-  
-                       
+/* touch_asb_input_report
+ *
+ * finger status report
  */
 static int touch_asb_input_report(struct lge_touch_data *ts, int status)
 {
@@ -1127,12 +1127,12 @@ static int touch_asb_input_report(struct lge_touch_data *ts, int status)
 						break;
 				}
 #endif
-#endif	/*                         */
+#endif	/* !defined(MT_PROTOCOL_A) */
 				input_report_abs(ts->input_dev, ABS_MT_POSITION_X,
 						ts->ts_data.curr_data[id].x_position);
 
-				/*                                                           
-                                                                             */
+				/* When a user's finger cross the boundary (from key to LCD),
+				    a ABS-event will change its y-position to edge of LCD, automatically.*/
 				if(ts->pdata->role->key_type == TOUCH_SOFT_KEY
 						&& ts->ts_data.curr_data[id].y_position < ts->pdata->caps->y_button_boundary
 						&& ts->ts_data.prev_data[id].y_position > ts->pdata->caps->y_button_boundary
@@ -1158,7 +1158,7 @@ static int touch_asb_input_report(struct lge_touch_data *ts, int status)
 
 #if defined(MT_PROTOCOL_A)
 				input_mt_sync(ts->input_dev);
-#endif	/*                        */
+#endif	/* defined(MT_PROTOCOL_A) */
 
 				total++;
 
@@ -1177,8 +1177,8 @@ static int touch_asb_input_report(struct lge_touch_data *ts, int status)
 							ts->pdata->caps->is_pressure_supported ?
 							ts->ts_data.curr_data[id].pressure : 0);
 			} else {
-#if !defined(MT_PROTOCOL_A)	/*                      */
-				/*                  */
+#if !defined(MT_PROTOCOL_A)	/* Protocol B type only */
+				/* release handling */
 				if (ts->pdata->role->key_type != TOUCH_SOFT_KEY
 						&& ts->ts_data.prev_data[id].status == FINGER_PRESSED) {
 					input_mt_slot(ts->input_dev, id);
@@ -1202,7 +1202,7 @@ static int touch_asb_input_report(struct lge_touch_data *ts, int status)
 	} else if (status == FINGER_RELEASED) {
 #if defined(MT_PROTOCOL_A)
 		input_mt_sync(ts->input_dev);
-#else	/*               */
+#else	/* MT_PROTOCOL_B */
 		for (id = 0; id < ts->pdata->caps->max_id; id++) {
 			if (ts->ts_data.prev_data[id].status == FINGER_PRESSED) {
 				input_mt_slot(ts->input_dev, id);
@@ -1221,16 +1221,16 @@ static int touch_asb_input_report(struct lge_touch_data *ts, int status)
 #endif
 			}
 		}
-#endif	/*                        */
+#endif	/* defined(MT_PROTOCOL_A) */
 	}
 
 	return total;
 }
 
-/*                     
-  
-                                    
-                                                         
+/* release_all_ts_event
+ *
+ * When system enters suspend-state,
+ * if user press touch-panel, release them automatically.
  */
 static void release_all_ts_event(struct lge_touch_data *ts)
 {
@@ -1285,12 +1285,12 @@ static void release_all_ts_event(struct lge_touch_data *ts)
 	input_sync(ts->input_dev);
 }
 
-/*                 
-  
-              
-               
-                 
-                
+/* touch_power_cntl
+ *
+ * 1. POWER_ON
+ * 2. POWER_OFF
+ * 3. POWER_SLEEP
+ * 4. POWER_WAKE
  */
 static int touch_power_cntl(struct lge_touch_data *ts, int onoff)
 {
@@ -1351,15 +1351,15 @@ static int touch_power_cntl(struct lge_touch_data *ts, int onoff)
 	return ret;
 }
 
-/*             
-  
-                        
-                         
-                        
-                                                        
-                       
-  
-                                                     
+/* safety_reset
+ *
+ * 1. disable irq/timer.
+ * 2. turn off the power.
+ * 3. turn on the power.
+ * 4. sleep (booting_delay)ms, usually 400ms(synaptics).
+ * 5. enable irq/timer.
+ *
+ * After 'safety_reset', we should call 'touch_init'.
  */
 static void safety_reset(struct lge_touch_data *ts)
 {
@@ -1384,9 +1384,9 @@ static void safety_reset(struct lge_touch_data *ts)
 	return;
 }
 
-/*              
-  
-                                          
+/* touch_ic_init
+ *
+ * initialize the device_IC and variables.
  */
 static int touch_ic_init(struct lge_touch_data *ts)
 {
@@ -1417,7 +1417,7 @@ static int touch_ic_init(struct lge_touch_data *ts)
 	}
 #endif
 
-	/*                                                        */
+	/* Interrupt pin check after IC init - avoid Touch lockup */
 	if(ts->pdata->role->operation_mode == INTERRUPT_MODE){
 		ts->int_pin_state = gpio_get_value(ts->pdata->int_pin);
 		next_work = atomic_read(&ts->next_work);
@@ -1528,22 +1528,22 @@ err_out_critical:
 	return -1;
 }
 
-/*                      
-  
-                
-               
-                                                                                          
-                                                                 
-  
-                
-                 
-                                                               
-                                          
-                                                              
-  
-                
-                                                                 
-                                                                         
+/* ghost_finger_solution
+ *
+ * GHOST_STAGE_1
+ * - melt_mode.
+ * - If user press and release their finger in 1 sec, STAGE_1 will be cleared. --> STAGE_2
+ * - If there is no key-guard, ghost_finger_solution is finished.
+ *
+ * GHOST_STAGE_2
+ * - no_melt_mode
+ * - if user use multi-finger, stage will be changed to STAGE_1
+ *   (We assume that ghost-finger occured)
+ * - if key-guard is unlocked, STAGE_2 is cleared. --> STAGE_3
+ *
+ * GHOST_STAGE_3
+ * - when user release their finger, device re-scan the baseline.
+ * - Then, GHOST_STAGE3 is cleared and ghost_finger_solution is finished.
  */
 #define ghost_sub(x, y)	(x > y ? x - y : y - x)
 
@@ -1697,11 +1697,11 @@ int ghost_finger_solution(struct lge_touch_data *ts)
 	return 0;
 }
 
-/*              
-  
+/* Jitter Filter
+ *
  */
 #ifdef CUST_G2_TOUCH
-//          
+//do nothing
 #else
 #define jitter_abs(x)		(x > 0 ? x : -x)
 #define jitter_sub(x, y)	(x > y ? x - y : y - x)
@@ -1740,7 +1740,7 @@ int accuracy_filter_func(struct lge_touch_data *ts)
 	delta_x = (int)ts->accuracy_filter.his_data.x - (int)ts->ts_data.curr_data[0].x_position;
 	delta_y = (int)ts->accuracy_filter.his_data.y - (int)ts->ts_data.curr_data[0].y_position;
 
-	//               
+	// main algorithm
 	if (ts->accuracy_filter.finish_filter){
 		if(delta_x || delta_y){
 			ts->accuracy_filter.his_data.axis_x += check_direction(delta_x);
@@ -1759,7 +1759,7 @@ int accuracy_filter_func(struct lge_touch_data *ts)
 		}
 	}
 
-	//                           
+	// finish the accuracy_filter
 	if(ts->accuracy_filter.finish_filter == 1 &&
 	   (ts->accuracy_filter.his_data.count > ts->accuracy_filter.touch_max_count || ts->ts_data.total_num != 1 || id != 0
 	   || jitter_abs(delta_x) > ts->accuracy_filter.delta_max || jitter_abs(delta_y) > ts->accuracy_filter.delta_max
@@ -1768,7 +1768,7 @@ int accuracy_filter_func(struct lge_touch_data *ts)
 		memset(&ts->accuracy_filter.his_data, 0, sizeof(ts->accuracy_filter.his_data));
 	}
 
-	//                          
+	// start the accuracy_filter
 	if(ts->accuracy_filter.finish_filter == 0 && ts->ts_data.total_num == 1
 	   && ts->accuracy_filter.prev_total_num == 0 && id == 0){
 		ts->accuracy_filter.finish_filter = 1;
@@ -1929,10 +1929,10 @@ int jitter_filter_func(struct lge_touch_data *ts)
 }
 EXPORT_SYMBOL(jitter_filter_func);
 
-/*                
-  
-                                       
-                                                          
+/* touch_init_func
+ *
+ * In order to reduce the booting-time,
+ * we used delayed_work_queue instead of msleep or mdelay.
  */
 static void touch_init_func(struct work_struct *work_init)
 {
@@ -1942,12 +1942,12 @@ static void touch_init_func(struct work_struct *work_init)
 	if (unlikely(touch_debug_mask & DEBUG_TRACE))
 		TOUCH_DEBUG_MSG("\n");
 
-	/*                                */
+	/* Specific device initialization */
 	touch_ic_init(ts);
 }
 
 #ifdef CUST_G2_TOUCH
-//                                                              
+//static ssize_t show_f54(struct lge_touch_data *ts, char *buf);
 
 static struct sys_device lge_touch_sys_device;
 
@@ -1970,7 +1970,7 @@ static void touch_gesture_wakeup_func(struct work_struct *work_gesture_wakeup)
 		mutex_unlock(&ts->irq_work_mutex);
 		TOUCH_ERR_MSG("INTERRUPT_STATUS_REG read fail\n");
 		wake_unlock(&touch_wake_lock);
-		return ; //     
+		return ; // fail
 	}
 	mutex_unlock(&i2c_suspend_lock);
 	mutex_unlock(&ts->irq_work_mutex);
@@ -1987,7 +1987,7 @@ static void touch_f54_func(struct work_struct *work_f54)
 	struct lge_touch_data *ts =
 		container_of(to_delayed_work(work_f54), struct lge_touch_data, work_f54);
 
-//                       
+//	char buf[1000]= {0,}; 
 
 	if (ts->fw_info.fw_upgrade.is_downloading == UNDER_DOWNLOADING){
 		TOUCH_INFO_MSG("touch_f54_func is not executed\n");
@@ -1995,7 +1995,7 @@ static void touch_f54_func(struct work_struct *work_f54)
 	}
 	f54_window_crack_check_mode = 1;
 	TOUCH_INFO_MSG("touch_f54_func start\n");
-//                   
+//	show_f54(ts,buf); 
 	if ((ts->curr_pwr_state == POWER_ON || ts->curr_pwr_state == POWER_WAKE) && !touch_test_dev->fw_info.fw_upgrade.is_downloading) {
     if (ts_suspend) {
 	touch_power_cntl(ts, POWER_OFF);
@@ -2021,9 +2021,9 @@ static void touch_lock_func(struct work_struct *work_touch_lock)
 	ts->ts_data.state = DO_NOT_ANYTHING;
 }
 
-/*                         
-  
-                                      
+/* check_log_finger_changed
+ *
+ * Check finger state change for Debug
  */
 static void check_log_finger_changed(struct lge_touch_data *ts, u8 total_num)
 {
@@ -2032,7 +2032,7 @@ static void check_log_finger_changed(struct lge_touch_data *ts, u8 total_num)
 	u16 id = 0;
 
 	if (ts->ts_data.prev_total_num != total_num) {
-		/*              */
+		/* Finger added */
 		if (ts->ts_data.prev_total_num <= total_num) {
 			for(id=0; id < ts->pdata->caps->max_id; id++){
 				if (ts->ts_data.curr_data[id].status == FINGER_PRESSED
@@ -2046,9 +2046,9 @@ static void check_log_finger_changed(struct lge_touch_data *ts, u8 total_num)
 					ts->ts_data.curr_data[id].y_position,
 					ts->ts_data.curr_data[id].pressure);
 		} else {
-		/*                   */
+		/* Finger subtracted */
 #if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT)|| defined(CONFIG_MACH_APQ8064_GKGLOBAL) || defined(CONFIG_MACH_MSM8974_G3_KDDI_EVB)
-			first_int_check = false; /*                       */
+			first_int_check = false; /* keygaurd state rebase */
 #endif
 #ifdef PRESSURE_DIFF
 			ts->pressure_diff.z_more30_id = -1;
@@ -2064,14 +2064,14 @@ static void check_log_finger_changed(struct lge_touch_data *ts, u8 total_num)
 			TOUCH_INFO_MSG("%d finger pressed\n", total_num);
 		}
 	} if (ts->ts_data.prev_total_num == total_num && total_num == 1) {
-		/*                                                    */
+		/* Finger changed at one finger status - IC bug check */
 		for (id = 0, tmp_p = 0; id < ts->pdata->caps->max_id; id++){
-			/*              */
+			/* find pressed */
 			if (ts->ts_data.curr_data[id].status == FINGER_PRESSED
 					&& ts->ts_data.prev_data[id].status == FINGER_RELEASED) {
 				tmp_p = id;
 			}
-			/*               */
+			/* find released */
 			if (ts->ts_data.curr_data[id].status == FINGER_RELEASED
 					&& ts->ts_data.prev_data[id].status == FINGER_PRESSED) {
 				tmp_r = id;
@@ -2090,9 +2090,9 @@ static void check_log_finger_changed(struct lge_touch_data *ts, u8 total_num)
 	}
 }
 
-/*                          
-  
-                                      
+/* check_log_finger_released
+ *
+ * Check finger state change for Debug
  */
 static void check_log_finger_released(struct lge_touch_data *ts)
 {
@@ -2110,9 +2110,9 @@ static void check_log_finger_released(struct lge_touch_data *ts)
 			ts->ts_data.prev_data[id].y_position);
 }
 
-/*                    
-  
-                                 
+/* touch_work_pre_proc
+ *
+ * Pre-process work at touch_work
  */
 static int touch_work_pre_proc(struct lge_touch_data *ts)
 {
@@ -2151,7 +2151,7 @@ static int touch_work_pre_proc(struct lge_touch_data *ts)
 	if(likely(ts->pdata->role->operation_mode == INTERRUPT_MODE))
 		ts->int_pin_state = gpio_get_value(ts->pdata->int_pin);
 
-	/*                       */
+	/* Ghost finger solution */
 	if (likely(ts->pdata->role->ghost_finger_solution_enable) && unlikely(ts->gf_ctrl.stage)){
 		if(ghost_finger_solution(ts)){
 			TOUCH_ERR_MSG("ghost_finger_solution was failed\n");
@@ -2159,19 +2159,19 @@ static int touch_work_pre_proc(struct lge_touch_data *ts)
 		}
 	}
 
-	/*                       */
+	/* Ghost Detect Solution */
 	if (ts->pdata->role->ghost_detection_enable){
 		if((ret = ghost_detect_solution(ts)) < 0)
 			return ret;
 	}
 
-	/*                   */
+	/* Accuracy Solution */
 	if (likely(ts->pdata->role->accuracy_filter_enable)){
 		if (accuracy_filter_func(ts) < 0)
 			return -EAGAIN;;
 	}
 
-	/*                 */
+	/* Jitter Solution */
 	if (likely(ts->pdata->role->jitter_filter_enable)){
 		if (jitter_filter_func(ts) < 0)
 			return -EAGAIN;;
@@ -2180,9 +2180,9 @@ static int touch_work_pre_proc(struct lge_touch_data *ts)
 	return 0;
 }
 
-/*                     
-  
-                                  
+/* touch_work_post_proc
+ *
+ * Post-process work at touch_work
  */
 static void touch_work_post_proc(struct lge_touch_data *ts, int post_proc)
 {
@@ -2238,9 +2238,9 @@ static void touch_work_post_proc(struct lge_touch_data *ts, int post_proc)
 		touch_work_post_proc(ts, post_proc);
 }
 
-/*                  
-  
-                 
+/* touch_work_func_a
+ *
+ * HARD_TOUCH_KEY
  */
 static void touch_work_func_a(struct work_struct *work)
 {
@@ -2259,7 +2259,7 @@ static void touch_work_func_a(struct work_struct *work)
 		goto out;
 
 
-	/*               */
+	/* Finger handle */
 	if (ts->ts_data.state != TOUCH_ABS_LOCK) {
 		if (!ts->ts_data.total_num) {
 			touch_asb_input_report(ts, FINGER_RELEASED);
@@ -2274,7 +2274,7 @@ static void touch_work_func_a(struct work_struct *work)
 
 			ts->ts_data.prev_total_num = 0;
 
-			/*                                     */
+			/* Reset previous finger position data */
 			memset(&ts->ts_data.prev_data, 0x0, sizeof(ts->ts_data.prev_data));
 		} else if (ts->ts_data.total_num <= ts->pdata->caps->max_id) {
 			cancel_delayed_work_sync(&ts->work_touch_lock);
@@ -2283,7 +2283,7 @@ static void touch_work_func_a(struct work_struct *work)
 					ts->ts_data.state = TOUCH_BUTTON_LOCK;
 
 			}
-			/*                   */
+			/* key button cancel */
 			if(ts->ts_data.prev_button.state == BUTTON_PRESSED && ts->ts_data.state == TOUCH_BUTTON_LOCK) {
 				input_report_key(ts->input_dev, ts->ts_data.prev_button.key_code, BUTTON_CANCLED);
 
@@ -2305,21 +2305,21 @@ static void touch_work_func_a(struct work_struct *work)
 			memcpy(ts->ts_data.prev_data, ts->ts_data.curr_data, sizeof(ts->ts_data.curr_data));
 		}
 
-		/*                            */
+		/* Reset finger position data */
 		memset(&ts->ts_data.curr_data, 0x0, sizeof(ts->ts_data.curr_data));
 
 		if (report_enable)
 			input_sync(ts->input_dev);
 	}
 
-	/*               */
+	/* Button handle */
 	if (ts->ts_data.state != TOUCH_BUTTON_LOCK) {
-		/*                                                           
-                                                                                       
-   */
+		/* do not check when there is no pressed button at error case
+		 * 	- if you check it, sometimes touch is locked becuase button pressed via IC error.
+		 */
 		if (ts->work_sync_err_cnt > 0
 				&& ts->ts_data.prev_button.state == BUTTON_RELEASED) {
-			/*            */
+			/* Do nothing */
 		} else {
 			report_enable = 0;
 
@@ -2332,7 +2332,7 @@ static void touch_work_func_a(struct work_struct *work)
 
 			if (ts->ts_data.curr_button.state == BUTTON_PRESSED
 					&& ts->ts_data.prev_button.state == BUTTON_RELEASED) {
-				/*                */
+				/* button pressed */
 				cancel_delayed_work_sync(&ts->work_touch_lock);
 
 				input_report_key(ts->input_dev, ts->ts_data.curr_button.key_code, BUTTON_PRESSED);
@@ -2348,10 +2348,10 @@ static void touch_work_func_a(struct work_struct *work)
 			}else if (ts->ts_data.curr_button.state == BUTTON_PRESSED
 					&& ts->ts_data.prev_button.state == BUTTON_PRESSED
 					&& ts->ts_data.prev_button.key_code != ts->ts_data.curr_button.key_code) {
-				/*                                            */
+				/* exception case - multi press button handle */
 				queue_delayed_work(touch_wq, &ts->work_touch_lock, msecs_to_jiffies(200));
 
-				/*                                 */
+				/* release previous pressed button */
 				input_report_key(ts->input_dev, ts->ts_data.prev_button.key_code, BUTTON_RELEASED);
 
 				ts->ts_data.prev_button.state = BUTTON_RELEASED;
@@ -2361,10 +2361,10 @@ static void touch_work_func_a(struct work_struct *work)
 							ts->ts_data.prev_button.key_code);
 
 				report_enable = 1;
-			} else if (ts->ts_data.curr_button.state == BUTTON_RELEASED /*                 */
+			} else if (ts->ts_data.curr_button.state == BUTTON_RELEASED /* button released */
 					&& ts->ts_data.prev_button.state == BUTTON_PRESSED
 					&& ts->ts_data.prev_button.key_code == ts->ts_data.curr_button.key_code) {
-				/*                */
+				/* button release */
 				input_report_key(ts->input_dev, ts->ts_data.prev_button.key_code, BUTTON_RELEASED);
 
 				if (likely(touch_debug_mask & (DEBUG_BUTTON | DEBUG_BASE_INFO)))
@@ -2431,9 +2431,9 @@ static bool check_cancel(u16 button, u16 x, u16 y, const struct section_info sc)
 	return true;
 }
 
-/*                  
-  
-                 
+/* touch_work_func_b
+ *
+ * SOFT_TOUCH_KEY
  */
 static void touch_work_func_b(struct work_struct *work)
 {
@@ -2648,7 +2648,7 @@ static void touch_work_func_c(struct work_struct *work)
 		ts->ts_data.prev_total_num = 0;
 
 #ifdef CUST_G2_TOUCH
-		/*                                     */
+		/* Reset previous finger position data */
 		memset(&ts->ts_data.prev_data, 0x0, sizeof(ts->ts_data.prev_data));
 #endif
 	} else if (ts->ts_data.total_num <= ts->pdata->caps->max_id) {
@@ -2663,7 +2663,7 @@ static void touch_work_func_c(struct work_struct *work)
 		memcpy(ts->ts_data.prev_data, ts->ts_data.curr_data, sizeof(ts->ts_data.curr_data));
 	}
 
-	/*                            */
+	/* Reset finger position data */
 	memset(&ts->ts_data.curr_data, 0x0, sizeof(ts->ts_data.curr_data));
 
 	if (report_enable)
@@ -2682,9 +2682,9 @@ err_out_critical:
 }
 
 
-/*                      
-  
-                                               
+/* touch_fw_upgrade_func
+ *
+ * it used to upgrade the firmware of touch IC.
  */
 static void touch_fw_upgrade_func(struct work_struct *work_fw_upgrade)
 {
@@ -2708,7 +2708,7 @@ static void touch_fw_upgrade_func(struct work_struct *work_fw_upgrade)
 	ts->fw_info.fw_upgrade.is_downloading = UNDER_DOWNLOADING;
 
 #ifdef CUST_G_TOUCH
-	if(!strncmp(ts->fw_info.ic_fw_identifier, "DS4 R3.0", 8) && !ts->fw_info.fw_upgrade.fw_force_upgrade) {	//                  
+	if(!strncmp(ts->fw_info.ic_fw_identifier, "DS4 R3.0", 8) && !ts->fw_info.fw_upgrade.fw_force_upgrade) {	//G's Obsolete PANEL
 		TOUCH_INFO_MSG("DO NOT UPDATE 7020 gff, 7020 g2, 3203 g2 FW-upgrade is not executed\n");
 		goto out;
 	} else {
@@ -2818,7 +2818,7 @@ err_out:
 
 out:
 #ifdef CUST_G_TOUCH
-	/*                            */
+	/* Specific device resolution */
 	if (touch_device_func->resolution) {
 		if (touch_device_func->resolution(ts->client) < 0) {
 			TOUCH_ERR_MSG("specific device resolution fail\n");
@@ -2832,13 +2832,13 @@ out:
 	return;
 }
 
-/*                  
-  
-                                                                            
-  
-         
-                                                            
-                                                            
+/* touch_irq_handler
+ *
+ * When Interrupt occurs, it will be called before touch_thread_irq_handler.
+ *
+ * return
+ * IRQ_HANDLED: touch_thread_irq_handler will not be called.
+ * IRQ_WAKE_THREAD: touch_thread_irq_handler will be called.
  */
 static irqreturn_t touch_irq_handler(int irq, void *dev_id)
 {
@@ -2855,11 +2855,11 @@ static irqreturn_t touch_irq_handler(int irq, void *dev_id)
 	return IRQ_WAKE_THREAD;
 }
 
-/*                         
-  
-                  
-                           
-                 
+/* touch_thread_irq_handler
+ *
+ * 1. disable irq.
+ * 2. enqueue the new work.
+ * 3. enalbe irq.
  */
 static irqreturn_t touch_thread_irq_handler(int irq, void *dev_id)
 {
@@ -2883,9 +2883,9 @@ static irqreturn_t touch_thread_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-/*                    
-  
-                                                 
+/* touch_timer_handler
+ *
+ * it will be called when timer interrupt occurs.
  */
 static enum hrtimer_restart touch_timer_handler(struct hrtimer *timer)
 {
@@ -2900,15 +2900,15 @@ static enum hrtimer_restart touch_timer_handler(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
-/*                    
-  
-             
-                  
-                            
-                    
-                    
-                  
-                   
+/* check_platform_data
+ *
+ * check-list
+ * 1. Null Pointer
+ * 2. lcd, touch screen size
+ * 3. button support
+ * 4. operation mode
+ * 5. power module
+ * 6. report period
  */
 static int check_platform_data(struct touch_platform_data *pdata)
 {
@@ -2985,9 +2985,9 @@ static int check_platform_data(struct touch_platform_data *pdata)
 	return 0;
 }
 
-/*            
-  
-                                                      
+/* get_section
+ *
+ * it calculates the area of touch-key, automatically.
  */
 void get_section(struct section_info* sc, struct touch_platform_data *pdata)
 {
@@ -3021,9 +3021,9 @@ void get_section(struct section_info* sc, struct touch_platform_data *pdata)
 	}
 }
 
-/*      
-  
-                                             
+/* Sysfs
+ *
+ * For debugging easily, we added some sysfs.
  */
 static ssize_t show_platform_data(struct lge_touch_data *ts, char *buf)
 {
@@ -3084,9 +3084,9 @@ static ssize_t show_platform_data(struct lge_touch_data *ts, char *buf)
 	return ret;
 }
 
-/*             
-  
-                                     
+/* show_fw_info
+ *
+ * show only the firmware information
  */
 static ssize_t show_fw_info(struct lge_touch_data *ts, char *buf)
 {
@@ -3100,17 +3100,17 @@ static ssize_t show_fw_info(struct lge_touch_data *ts, char *buf)
 	ret += sprintf(buf+ret, "img_fw_version      = %s\n", ts->fw_info.syna_img_fw_version);
 	ret += sprintf(buf+ret, "ic_chip_rev                = %u\n", ts->fw_info.fw_setting.ic_chip_rev);
 	ret += sprintf(buf+ret, "bootloader_fw_ver          = %d\n", ts->fw_info.fw_setting.bootloader_fw_ver);
-//                                                                                                              
-//                                                                                                              
+//	ret += sprintf(buf+ret, "lcd_panel_type(boot)       = %d\n", lge_get_panel_maker()); rangkast.jeong not ready
+//	ret += sprintf(buf+ret, "lcd_panel_type(current)    = %d\n", get_panel_maker_id());  rangkast.jeong not ready
 #endif
 
 	return ret;
 }
 
-/*                 
-  
-                                                         
-                                                                            
+/* store_fw_upgrade
+ *
+ * User can upgrade firmware, anytime, using this module.
+ * Also, user can use both binary-img(SDcard) and header-file(Kernel image).
  */
 static ssize_t store_fw_upgrade(struct lge_touch_data *ts, const char *buf, size_t count)
 {
@@ -3125,34 +3125,34 @@ static ssize_t store_fw_upgrade(struct lge_touch_data *ts, const char *buf, size
 
 	if (value) {
 		for(repeat = 0; repeat < value; repeat++) {
-			/*                           */
+			/* sync for n-th repeat test */
 			while(ts->fw_info.fw_upgrade.is_downloading);
 
 			msleep(ts->pdata->role->booting_delay * 2);
 			printk(KERN_INFO "\n");
 			TOUCH_INFO_MSG("Firmware image upgrade: No.%d", repeat+1);
 
-			/*                                                                                    */
+			/* for n-th repeat test - because ts->fw_info.fw_upgrade is setted 0 after FW upgrade */
 			memcpy(ts->fw_info.fw_upgrade.fw_path, path, sizeof(ts->fw_info.fw_upgrade.fw_path)-1);
 
-			/*                                             */
+			/* set downloading flag for sync for n-th test */
 			ts->fw_info.fw_upgrade.is_downloading = UNDER_DOWNLOADING;
 			ts->fw_info.fw_upgrade.fw_force_upgrade = 1;
 
 			queue_work(touch_wq, &ts->work_fw_upgrade);
 		}
 
-		/*                          */
+		/* sync for fw_upgrade test */
 		while(ts->fw_info.fw_upgrade.is_downloading);
 	}
 
 	return count;
 }
 
-/*            
-  
-                              
-                                 
+/* show_fw_ver
+ *
+ * show only firmware version.
+ * It will be used for AT-COMMAND
  */
 static ssize_t show_fw_ver(struct lge_touch_data *ts, char *buf)
 {
@@ -3162,9 +3162,9 @@ static ssize_t show_fw_ver(struct lge_touch_data *ts, char *buf)
 	return ret;
 }
 
-/*                  
-  
-                                                                       
+/* show_section_info
+ *
+ * User can check the information of touch-key-area, using this module.
  */
 static ssize_t show_section_info(struct lge_touch_data *ts, char *buf)
 {
@@ -3198,9 +3198,9 @@ static ssize_t show_section_info(struct lge_touch_data *ts, char *buf)
 	return ret;
 }
 
-/*               
-  
-                      
+/* store_ts_reset
+ *
+ * Reset the touch IC.
  */
 static ssize_t store_ts_reset(struct lge_touch_data *ts, const char *buf, size_t count)
 {
@@ -3282,9 +3282,9 @@ static ssize_t store_ts_reset(struct lge_touch_data *ts, const char *buf, size_t
 	return count;
 }
 
-/*                 
-  
-                                        
+/* ic_register_ctrl
+ *
+ * User can see any register of touch_IC
  */
 static ssize_t ic_register_ctrl(struct lge_touch_data *ts, const char *buf, size_t count)
 {
@@ -3386,11 +3386,11 @@ static ssize_t ic_register_ctrl(struct lge_touch_data *ts, const char *buf, size
 	return count;
 }
 
-/*                    
-  
-                                                       
-                                                                
-                                                                          
+/* store_keyguard_info
+ *
+ * This function is related with Keyguard in framework.
+ * We can prevent the ghost-finger problem, using this function.
+ * If you need more information, see the 'ghost_finger_solution' function.
  */
 static ssize_t store_keyguard_info(struct lge_touch_data *ts, const char *buf, size_t count)
 {
@@ -3411,13 +3411,13 @@ static ssize_t store_keyguard_info(struct lge_touch_data *ts, const char *buf, s
 	return count;
 }
 
-/*                 
-  
-                                         
-                                              
-  
-                                                  
-                     
+/* show_virtual_key
+ *
+ * /sys/devices/virtual/input/virtualkeys
+ * for use the virtual_key supported by Google
+ *
+ * 0x01:key_code:center_x:center_y:x_width:y_width
+ * 0x01 = start_point
  */
 static ssize_t show_virtual_key(struct lge_touch_data *ts, char *buf)
 {
@@ -3427,7 +3427,7 @@ static ssize_t show_virtual_key(struct lge_touch_data *ts, char *buf)
 	u32 center_x = (ts->pdata->caps->x_max / (ts->pdata->caps->number_of_button * 2));
 	u32 center_y = (ts->pdata->caps->y_button_boundary + (ts->st_info.b_height / 2));
 
-	/*                               */
+	/* Register sysfs for virtualkeys*/
 	if (ts->pdata->caps->button_support && ts->pdata->role->key_type == VIRTUAL_KEY) {
 
 		for(i=0; i<ts->pdata->caps->number_of_button; i++) {
@@ -3477,9 +3477,9 @@ static ssize_t store_accuracy_solution(struct lge_touch_data *ts, const char *bu
 }
 
 #ifdef CUST_G_TOUCH
-/*                  
-  
-                                                                     
+/* show_show_touches
+ *
+ * User can check the information of show_touches, using this module.
  */
 static ssize_t show_show_touches(struct lge_touch_data *ts, char *buf)
 {
@@ -3490,9 +3490,9 @@ static ssize_t show_show_touches(struct lge_touch_data *ts, char *buf)
 	return ret;
 }
 
-/*                   
-  
-                                                           
+/* store_show_touches
+ *
+ * This function is related with show_touches in framework.
  */
 static ssize_t store_show_touches(struct lge_touch_data *ts, const char *buf, size_t count)
 {
@@ -3504,9 +3504,9 @@ static ssize_t store_show_touches(struct lge_touch_data *ts, const char *buf, si
 	return count;
 }
 
-/*                      
-  
-                                                                         
+/* show_pointer_location
+ *
+ * User can check the information of pointer_location, using this module.
  */
 static ssize_t show_pointer_location(struct lge_touch_data *ts, char *buf)
 {
@@ -3517,9 +3517,9 @@ static ssize_t show_pointer_location(struct lge_touch_data *ts, char *buf)
 	return ret;
 }
 
-/*                       
-  
-                                                               
+/* store_pointer_location
+ *
+ * This function is related with pointer_location in framework.
  */
 static ssize_t store_pointer_location(struct lge_touch_data *ts, const char *buf, size_t count)
 {
@@ -3531,11 +3531,11 @@ static ssize_t store_pointer_location(struct lge_touch_data *ts, const char *buf
 	return count;
 }
 
-/*                    
-  
-                                                       
-                                                                
-                                                                          
+/* store_incoming_call
+ *
+ * This function is related with Keyguard in framework.
+ * We can prevent the ghost-finger problem, using this function.
+ * If you need more information, see the 'ghost_finger_solution' function.
  */
 static ssize_t store_incoming_call(struct lge_touch_data *ts, const char *buf, size_t count)
 {
@@ -3558,89 +3558,89 @@ static ssize_t store_incoming_call(struct lge_touch_data *ts, const char *buf, s
 
 
 
-/*         
-  
-                         
+/* show_f54
+ *
+ * Synaptics F54 function
 */
-/*                 
-                                                             
- 
-             
+/* for DS5 function
+static ssize_t show_f54(struct lge_touch_data *ts, char *buf)
+{
+	int ret = 0;
 
-                                                                                                                                  
+	if ((ts->curr_pwr_state == POWER_ON || ts->curr_pwr_state == POWER_WAKE) && !touch_test_dev->fw_info.fw_upgrade.is_downloading) {
 
-                                                                                         
+//		SCAN_PDT();   //rangkast.jeong not ready !! irq retry error occurred!!!, on boot time
 
-                                                          
+		ret = sprintf(buf, "====== F54 Function Info ======\n");
 
-                    
-                       
-                 
-      
-   
-                                        
-                               
-   
-                                  
-                                                                                                       
+#ifdef CUST_G2_TOUCH
+		f54_window_crack = 0;
+		if(!ts_suspend)
+#endif
+		{
+			if (!ts->pdata->role->operation_mode)
+				hrtimer_cancel(&ts->timer);
+		}
+		mutex_lock(&ts->irq_work_mutex);
+		ret += sprintf(buf+ret, "F54_FullRawCap Test Result: %s", (F54Test('a') > 0) ? "Pass\n" : "Fail\n" );
 
-                         
-                                                
-   
+		if(f54_show_raw_data) {
+		ret += sprintf(buf+ret, "%s\n", f54_wlog_buf);
+		}
 
-                    
-                                    
-      
+#ifdef CUST_G2_TOUCH
+		if(!f54_window_crack_check_mode) {
+#endif
 
-                                                                                                    
-                                                                       
+			ret += sprintf(buf+ret, "TRex Short Test Result: %s", (F54Test('f') > 0) ? "Pass\n" : "Fail\n" );
+			if(f54_show_raw_data) ret += sprintf(buf+ret, "%s\n", f54_wlog_buf);
 
-                                                                                                  
-                                                                       
+			ret += sprintf(buf+ret, "TRex Gnd Test Result: %s", (F54Test('e') > 0) ? "Pass\n" : "Fail\n" );
+			if(f54_show_raw_data) ret += sprintf(buf+ret, "%s\n", f54_wlog_buf);
 
-                                                                 
-                                                                                                         
-                                                                       
+			//High Resistance always return fail, you should see raw data.
+			ret += sprintf(buf+ret, "High Resistance Test Result: %s", (F54Test('g') > 0) ? "Pass\n" : "Fail\n" );
+			if(f54_show_raw_data) ret += sprintf(buf+ret, "%s\n", f54_wlog_buf);
 
-                    
-   
-      
-                     
-                                   
-   
-      
-   
-                                          
-                                                                                              
-    
-                                                
+#ifdef CUST_G2_TOUCH
+		}
+#endif
+		if(ts_suspend) {			
+			touch_power_cntl(ts, POWER_OFF);
+		}
+		else
+		{
+			if (!ts->pdata->role->operation_mode) {
+				hrtimer_start(&ts->timer, ktime_set(0, ts->pdata->role->report_period), HRTIMER_MODE_REL);
+			}
+        	msleep(ts->pdata->role->booting_delay);
 
-                      
+			touch_ic_init(ts); 
 
-   
-                                    
-         
-                                                                                         
-  
+		}
+		mutex_unlock(&ts->irq_work_mutex);
+	} else {
+		ret = sprintf(buf+ret, "state=[suspend]. we cannot use I2C, now. Test Result: Fail\n");
+	}
 
-            
- 
+	return ret;
+}
 
 */
 
-/*          
-  
-                         
+/* store_f54
+ *
+ * Synaptics F54 function
 *//*
 
-                                                                                  
- 
-             
+static ssize_t store_f54(struct lge_touch_data *ts, const char *buf, size_t count)
+{
+	int ret = 0;
 
-                                               
+	ret = sscanf(buf, "%d", &f54_fullrawcap_mode);
 
-              
- 
+	return count;
+}
 */
 static ssize_t store_report_mode(struct lge_touch_data *ts, const char *buf, size_t count)
 {
@@ -3767,7 +3767,7 @@ static ssize_t show_mfts(struct lge_touch_data *ts, char *buf)
 		}
 		TOUCH_INFO_MSG("fw_version = %s\n", fw_version);
 
-		if(ts->fw_info.fw_setting.curr_touch_vendor != 0/*                    */) //              
+		if(ts->fw_info.fw_setting.curr_touch_vendor != 0/*get_panel_maker_id()*/) //rangkast.jeong
 			ret = sprintf(buf, "1");
 		else if((int)simple_strtoul(&fw_version[1], NULL, 10) < (int)simple_strtoul(&ts->fw_info.syna_img_fw_version[1], NULL, 10))
 			ret = sprintf(buf, "1");
@@ -3789,22 +3789,22 @@ static ssize_t show_mfts_fw(struct lge_touch_data *ts, char *buf)
 	TOUCH_INFO_MSG("Firmware image path: Internal\n");
 
 	ts->fw_info.fw_setting.prev_touch_vendor = ts->fw_info.fw_setting.curr_touch_vendor;
-	ts->fw_info.fw_setting.curr_touch_vendor = 0/*                    */; //                        
+	ts->fw_info.fw_setting.curr_touch_vendor = 0/*get_panel_maker_id()*/; //rangkast.jeong not ready
 	TOUCH_INFO_MSG("lcd_maker_id = %d, func: %s\n", ts->fw_info.fw_setting.curr_touch_vendor, __func__);
 
-	/*                           */
+	/* sync for n-th repeat test */
 	while(ts->fw_info.fw_upgrade.is_downloading);
 
 	msleep(ts->pdata->role->booting_delay * 2);
 	printk(KERN_INFO "\n");
 
-	/*                                             */
+	/* set downloading flag for sync for n-th test */
 	ts->fw_info.fw_upgrade.is_downloading = UNDER_DOWNLOADING;
 	ts->fw_info.fw_upgrade.fw_force_upgrade = 1;
 
 	queue_work(touch_wq, &ts->work_fw_upgrade);
 
-	/*                          */
+	/* sync for fw_upgrade test */
 	while(ts->fw_info.fw_upgrade.is_downloading);
 
 	touch_power_cntl(ts, POWER_ON);
@@ -4085,7 +4085,7 @@ static struct attribute *lge_touch_attribute_list[] = {
 	&lge_touch_attr_show_touches.attr,
 	&lge_touch_attr_pointer_location.attr,
 	&lge_touch_attr_incoming_call.attr,
-//                          
+//	&lge_touch_attr_f54.attr,
 	&lge_touch_attr_report_mode.attr,
 	&lge_touch_attr_ta_debouncing_count.attr,
 	&lge_touch_attr_ta_debouncing_finger_num.attr,
@@ -4103,9 +4103,9 @@ static struct attribute *lge_touch_attribute_list[] = {
 	NULL,
 };
 
-/*                                           
-  
-                               
+/* lge_touch_attr_show / lge_touch_attr_store
+ *
+ * sysfs bindings for lge_touch
  */
 static ssize_t lge_touch_attr_show(struct kobject *lge_touch_kobj, struct attribute *attr,
 			     char *buf)
@@ -4161,7 +4161,7 @@ int synaptics_power_on(struct i2c_client *client, int on)
 	static struct regulator *vreg_l22;
 	static struct regulator *vreg_lvs3;
 
-		/*                                      */
+		/* 3.3V_TOUCH_VDD, VREG_L15: 2.75 ~ 3.3 */
 		if (!vreg_l22) {
 			vreg_l22 = regulator_get(&client->dev, "vdd_ana");
 			if (IS_ERR(vreg_l22)) {
@@ -4173,7 +4173,7 @@ int synaptics_power_on(struct i2c_client *client, int on)
 				return rc;
 			}
 		}
-		/*                                     */
+		/* 1.8V_TOUCH_IO, VREG_L22: 1.7 ~ 2.85 */
 		if (!vreg_lvs3) {
 			vreg_lvs3 = regulator_get(&client->dev, "vcc_i2c");
 			if (IS_ERR(vreg_lvs3)) {
@@ -4223,7 +4223,7 @@ static int synaptics_parse_dt(struct device *dev, struct touch_platform_data *pd
 	const char *reg_string = node->name;
 	u32 temp_val;
 
-	/*                      */
+	/* reset, irq gpio info */
 	if (node == NULL)
 		return -ENODEV;
 
@@ -4251,7 +4251,7 @@ static int synaptics_parse_dt(struct device *dev, struct touch_platform_data *pd
 
 	memcpy(pdata->fw_version, temp_string, len);
 
-	/*      */
+	/* Caps */
 	pdata->num_caps = 0;
 	pp = NULL;
 	while ((pp = of_get_next_child(node, pp)))
@@ -4375,7 +4375,7 @@ static int synaptics_parse_dt(struct device *dev, struct touch_platform_data *pd
 			caps_info++;
 	}
 
-	/*      */
+	/* Role */
 		pdata->num_role = 0;
 		pp = NULL;
 		while ((pp = of_get_next_child(node, pp)))
@@ -4538,7 +4538,7 @@ static int synaptics_parse_dt(struct device *dev, struct touch_platform_data *pd
 				role_info++;
 			}
 
-	/*     */
+	/* pwr */
 		pdata->num_pwr = 0;
 		pp = NULL;
 		while ((pp = of_get_next_child(node, pp)))
@@ -4694,9 +4694,9 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 	ts->ic_init_err_cnt = 0;
 	ts->work_sync_err_cnt = 0;
 
-	/*                      
-                                                                                  
-  */
+	/* Ghost-Finger solution
+	 * max_count : if melt-time > 7-sec, max_count should be changed to 'one_sec * 3'
+	 */
 	ts->gf_ctrl.min_count = one_sec / 12;
 	ts->gf_ctrl.max_count = one_sec * 3;
 	ts->gf_ctrl.saved_x = -1;
@@ -4708,7 +4708,7 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 
 	get_section(&ts->st_info, ts->pdata);
 
-	/*                       */
+	/* Specific device probe */
 	if (touch_device_func->probe) {
 		ret = touch_device_func->probe(ts);
 		if (ret < 0) {
@@ -4718,7 +4718,7 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 	}
 
 
-	/*                   */
+	/* reset pin setting */
 	if (ts->pdata->reset_pin > 0){
 		ret = gpio_request(ts->pdata->reset_pin, "touch_reset");
 		if (ret < 0) {
@@ -4732,13 +4732,13 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 	atomic_set(&ts->device_init, 0);
 
 
-	/*          */
+	/* Power on */
 	if (touch_power_cntl(ts, POWER_ON) < 0)
 		goto err_power_failed;
 
 	msleep(ts->pdata->role->booting_delay);
 
-	/*                 */
+	/* init work_queue */
 	if (ts->pdata->role->key_type == TOUCH_HARD_KEY) {
 		INIT_WORK(&ts->work, touch_work_func_a);
 		INIT_DELAYED_WORK(&ts->work_touch_lock, touch_lock_func);
@@ -4765,7 +4765,7 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 #endif
 #endif
 
-	/*                   */
+	/* input dev setting */
 	ts->input_dev = input_allocate_device();
 	if (ts->input_dev == NULL) {
 		TOUCH_ERR_MSG("Failed to allocate input device\n");
@@ -4773,9 +4773,9 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 		goto err_input_dev_alloc_failed;
 	}
 
-	/*                     */
+	/* Auto Test interface */
 	touch_test_dev = ts;
-	input_set_drvdata(ts->input_dev, ts); //              
+	input_set_drvdata(ts->input_dev, ts); //rangkast.jeong
 
 	ts->input_dev->name = "touch_dev";
 
@@ -4823,7 +4823,7 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 		goto err_input_register_device_failed;
 	}
 
-	/*                */
+	/* interrupt mode */
 	if (ts->pdata->role->operation_mode) {
 		TOUCH_INFO_MSG("Interrupt mode !!!\n");
 		ret = gpio_request(ts->pdata->int_pin, "touch_int");
@@ -4842,7 +4842,7 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 			goto err_interrupt_failed;
 		}
 	}
-	/*              */
+	/* polling mode */
 	else{
 		hrtimer_init(&ts->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 		ts->timer.function = touch_timer_handler;
@@ -4856,14 +4856,14 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 	}
 #endif
 
-	/*                       */
+	/* ghost-finger solution */
 	ts->gf_ctrl.probe = 1;
-	/*                                               */
-	ts->fw_info.fw_setting.curr_touch_vendor = 0; //                                               
+	/* get current lcd info from kernel command line */
+	ts->fw_info.fw_setting.curr_touch_vendor = 0; //lge_get_panel_maker(); rangkast.jeong not ready
 	ts->fw_info.fw_setting.prev_touch_vendor = ts->fw_info.fw_setting.curr_touch_vendor;
 	TOUCH_INFO_MSG("lcd_maker_id = %d, func: %s\n", ts->fw_info.fw_setting.curr_touch_vendor, __func__);
 	mutex_init(&ts->irq_work_mutex); 
-	/*                                */
+	/* Specific device initialization */
 #ifdef CUST_G2_TOUCH
 	disable_irq(ts->client->irq);
 	TOUCH_INFO_MSG("%s : disable_irq !!\n", __func__);
@@ -4898,17 +4898,17 @@ TOUCH_INFO_MSG("ic_chip_rev = %d\n", ts->fw_info.fw_setting.ic_chip_rev);
   
 */
 #endif
-	/*                                                                */
+	/* Firmware Upgrade Check - use thread for booting time reduction */
 	if (touch_device_func->fw_upgrade) {
 		queue_work(touch_wq, &ts->work_fw_upgrade);
 	}
 
-	/*                 */
+	/* jitter solution */
 	if (ts->pdata->role->jitter_filter_enable){
 		ts->jitter_filter.adjust_margin = 50;
 	}
 
-	/*                   */
+	/* accuracy solution */
 	if (ts->pdata->role->accuracy_filter_enable){
 		ts->accuracy_filter.ignore_pressure_gap = 5;
 		ts->accuracy_filter.delta_max = 30;
@@ -4929,7 +4929,7 @@ TOUCH_INFO_MSG("ic_chip_rev = %d\n", ts->fw_info.fw_setting.ic_chip_rev);
 	register_early_suspend(&ts->early_suspend);
 #endif
 
-	/*                                                                       */
+	/* Register sysfs for making fixed communication path to framework layer */
 	ret = sysdev_class_register(&lge_touch_sys_class);
 	if (ret < 0) {
 		TOUCH_ERR_MSG("sysdev_class_register is failed\n");
@@ -5015,11 +5015,11 @@ static int touch_remove(struct i2c_client *client)
 	if (unlikely(touch_debug_mask & DEBUG_TRACE))
 		TOUCH_DEBUG_MSG("\n");
 
-	/*                        */
+	/* Specific device remove */
 	if (touch_device_func->remove)
 		touch_device_func->remove(ts->client);
 
-	/*           */
+	/* Power off */
 	touch_power_cntl(ts, POWER_OFF);
 
 	kobject_del(&ts->lge_touch_kobj);
@@ -5190,7 +5190,7 @@ static int touch_fb_resume(struct device *device)
 		}
 	} 
 
-	if(ts->fw_info.fw_setting.ic_chip_rev == TOUCH_CHIP_UNKNOWN_REV) {  //                                                      
+	if(ts->fw_info.fw_setting.ic_chip_rev == TOUCH_CHIP_UNKNOWN_REV) {  //rangkast.jeong original2, bug fix when suspend->resume
 	touch_power_cntl(ts, ts->pdata->role->resume_pwr);
 	}
 	

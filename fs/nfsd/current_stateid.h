@@ -6,7 +6,7 @@
 
 extern void clear_current_stateid(struct nfsd4_compound_state *cstate);
 /*
-                                    
+ * functions to set current state id
  */
 extern void nfsd4_set_opendowngradestateid(struct nfsd4_compound_state *cstate, struct nfsd4_open_downgrade *);
 extern void nfsd4_set_openstateid(struct nfsd4_compound_state *, struct nfsd4_open *);
@@ -14,7 +14,7 @@ extern void nfsd4_set_lockstateid(struct nfsd4_compound_state *, struct nfsd4_lo
 extern void nfsd4_set_closestateid(struct nfsd4_compound_state *, struct nfsd4_close *);
 
 /*
-                                        
+ * functions to consume current state id
  */
 extern void nfsd4_get_opendowngradestateid(struct nfsd4_compound_state *cstate, struct nfsd4_open_downgrade *);
 extern void nfsd4_get_delegreturnstateid(struct nfsd4_compound_state *, struct nfsd4_delegreturn *);
@@ -25,4 +25,4 @@ extern void nfsd4_get_lockustateid(struct nfsd4_compound_state *, struct nfsd4_l
 extern void nfsd4_get_readstateid(struct nfsd4_compound_state *, struct nfsd4_read *);
 extern void nfsd4_get_writestateid(struct nfsd4_compound_state *, struct nfsd4_write *);
 
-#endif   /*                        */
+#endif   /* _NFSD4_CURRENT_STATE_H */

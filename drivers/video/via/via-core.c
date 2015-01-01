@@ -5,7 +5,7 @@
  */
 
 /*
-                                                          
+ * Core code for the Via multifunction framebuffer device.
  */
 #include <linux/via-core.h>
 #include <linux/via_i2c.h>
@@ -20,7 +20,7 @@
 #include <asm/olpc.h>
 
 /*
-                           
+ * The default port config.
  */
 static struct via_port_cfg adap_configs[] = {
 	[VIA_PORT_26]	= { VIA_PORT_I2C,  VIA_MODE_I2C, VIASR, 0x26 },
@@ -32,8 +32,8 @@ static struct via_port_cfg adap_configs[] = {
 };
 
 /*
-                                                             
-           
+ * The OLPC XO-1.5 puts the camera power and reset lines onto
+ * GPIO 2C.
  */
 static struct via_port_cfg olpc_adap_configs[] = {
 	[VIA_PORT_26]	= { VIA_PORT_I2C,  VIA_MODE_I2C, VIASR, 0x26 },
@@ -45,14 +45,14 @@ static struct via_port_cfg olpc_adap_configs[] = {
 };
 
 /*
-                                                                 
-                                                     
+ * We currently only support one viafb device (will there ever be
+ * more than one?), so just declare it globally here.
  */
 static struct viafb_dev global_dev;
 
 
 /*
-                                            
+ * Basic register access; spinlock required.
  */
 static inline void viafb_mmio_write(int reg, u32 v)
 {
@@ -64,19 +64,19 @@ static inline int viafb_mmio_read(int reg)
 	return ioread32(global_dev.engine_mmio + reg);
 }
 
-/*                                                                        */
+/* ---------------------------------------------------------------------- */
 /*
-                                                                
-                                                                
-                                                                 
-                                                                       
-                                                             
-                                                                 
-                                                    
+ * Interrupt management.  We have a single IRQ line for a lot of
+ * different functions, so we need to share it.  The design here
+ * is that we don't want to reimplement the shared IRQ code here;
+ * we also want to avoid having contention for a single handler thread.
+ * So each subdev driver which needs interrupts just requests
+ * them directly from the kernel.  We just have what's needed for
+ * overall access to the interrupt control register.
  */
 
 /*
-                                    
+ * Which interrupts are enabled now?
  */
 static u32 viafb_enabled_ints;
 
@@ -88,8 +88,8 @@ static void __devinit viafb_int_init(void)
 }
 
 /*
-                                                                     
-                                              
+ * Allow subdevs to ask for specific interrupts to be enabled.  These
+ * functions must be called with reg_lock held
  */
 void viafb_irq_enable(u32 mask)
 {
@@ -102,65 +102,65 @@ void viafb_irq_disable(u32 mask)
 {
 	viafb_enabled_ints &= ~mask;
 	if (viafb_enabled_ints == 0)
-		viafb_mmio_write(VDE_INTERRUPT, 0);  /*                  */
+		viafb_mmio_write(VDE_INTERRUPT, 0);  /* Disable entirely */
 	else
 		viafb_mmio_write(VDE_INTERRUPT,
 				viafb_enabled_ints | VDE_I_ENABLE);
 }
 EXPORT_SYMBOL_GPL(viafb_irq_disable);
 
-/*                                                                        */
+/* ---------------------------------------------------------------------- */
 /*
-                                                                       
-                                                                        
-                                                                        
-                                                                
+ * Currently, the camera driver is the only user of the DMA code, so we
+ * only compile it in if the camera driver is being built.  Chances are,
+ * most viafb systems will not need to have this extra code for a while.
+ * As soon as another user comes long, the ifdef can be removed.
  */
 #if defined(CONFIG_VIDEO_VIA_CAMERA) || defined(CONFIG_VIDEO_VIA_CAMERA_MODULE)
 /*
-                                                                     
-                                                                     
-      
+ * Access to the DMA engine.  This currently provides what the camera
+ * driver needs (i.e. outgoing only) but is easily expandable if need
+ * be.
  */
 
 /*
-                                                              
-                                                              
-                                                               
-                                                 
+ * There are four DMA channels in the vx855.  For now, we only
+ * use one of them, though.  Most of the time, the DMA channel
+ * will be idle, so we keep the IRQ handler unregistered except
+ * when some subsystem has indicated an interest.
  */
 static int viafb_dma_users;
 static DECLARE_COMPLETION(viafb_dma_completion);
 /*
-                                                               
-                                                           
-          
+ * This mutex protects viafb_dma_users and our global interrupt
+ * registration state; it also serializes access to the DMA
+ * engine.
  */
 static DEFINE_MUTEX(viafb_dma_lock);
 
 /*
-                                                          
-             
+ * The VX855 DMA descriptor (used for s/g transfers) looks
+ * like this.
  */
 struct viafb_vx855_dma_descr {
-	u32	addr_low;	/*                       */
-	u32	addr_high;	/*                      */
-	u32	fb_offset;	/*                       */
-	u32	seg_size;	/*                     */
-	u32	tile_mode;	/*                     */
-	u32	next_desc_low;	/*                      */
+	u32	addr_low;	/* Low part of phys addr */
+	u32	addr_high;	/* High 12 bits of addr */
+	u32	fb_offset;	/* Offset into FB memory */
+	u32	seg_size;	/* Size, 16-byte units */
+	u32	tile_mode;	/* "tile mode" setting */
+	u32	next_desc_low;	/* Next descriptor addr */
 	u32	next_desc_high;
-	u32	pad;		/*                      */
+	u32	pad;		/* Fill out to 64 bytes */
 };
 
 /*
-                                                    
+ * Flags added to the "next descriptor low" pointers
  */
-#define VIAFB_DMA_MAGIC		0x01  /*                          */
-#define VIAFB_DMA_FINAL_SEGMENT 0x02  /*               */
+#define VIAFB_DMA_MAGIC		0x01  /* ??? Just has to be there */
+#define VIAFB_DMA_FINAL_SEGMENT 0x02  /* Final segment */
 
 /*
-                              
+ * The completion IRQ handler.
  */
 static irqreturn_t viafb_dma_irq(int irq, void *data)
 {
@@ -179,21 +179,21 @@ static irqreturn_t viafb_dma_irq(int irq, void *data)
 }
 
 /*
-                                         
+ * Indicate a need for DMA functionality.
  */
 int viafb_request_dma(void)
 {
 	int ret = 0;
 
 	/*
-                                      
-  */
+	 * Only VX855 is supported currently.
+	 */
 	if (global_dev.chip_type != UNICHROME_VX855)
 		return -ENODEV;
 	/*
-                                                      
-               
-  */
+	 * Note the new user and set up our interrupt handler
+	 * if need be.
+	 */
 	mutex_lock(&viafb_dma_lock);
 	viafb_dma_users++;
 	if (viafb_dma_users == 1) {
@@ -224,8 +224,8 @@ EXPORT_SYMBOL_GPL(viafb_release_dma);
 
 #if 0
 /*
-                                                                       
-                             
+ * Copy a single buffer from FB memory, synchronously.  This code works
+ * but is not currently used.
  */
 void viafb_dma_copy_out(unsigned int offset, dma_addr_t paddr, int len)
 {
@@ -235,15 +235,15 @@ void viafb_dma_copy_out(unsigned int offset, dma_addr_t paddr, int len)
 	mutex_lock(&viafb_dma_lock);
 	init_completion(&viafb_dma_completion);
 	/*
-                           
-  */
+	 * Program the controller.
+	 */
 	spin_lock_irqsave(&global_dev.reg_lock, flags);
 	viafb_mmio_write(VDMA_CSR0, VDMA_C_ENABLE|VDMA_C_DONE);
-	/*                                            */
+	/* Enable ints; must happen after CSR0 write! */
 	viafb_mmio_write(VDMA_MR0, VDMA_MR_TDIE);
 	viafb_mmio_write(VDMA_MARL0, (int) (paddr & 0xfffffff0));
 	viafb_mmio_write(VDMA_MARH0, (int) ((paddr >> 28) & 0xfff));
-	/*                                                     */
+	/* Data sheet suggests DAR0 should be <<4, but it lies */
 	viafb_mmio_write(VDMA_DAR0, offset);
 	viafb_mmio_write(VDMA_DQWCR0, len >> 4);
 	viafb_mmio_write(VDMA_TMR0, 0);
@@ -254,19 +254,19 @@ void viafb_dma_copy_out(unsigned int offset, dma_addr_t paddr, int len)
 	viafb_mmio_write(VDMA_CSR0, VDMA_C_ENABLE|VDMA_C_START);
 	spin_unlock_irqrestore(&global_dev.reg_lock, flags);
 	/*
-                                                     
-               
-  */
+	 * Now we just wait until the interrupt handler says
+	 * we're done.
+	 */
 	wait_for_completion_interruptible(&viafb_dma_completion);
-	viafb_mmio_write(VDMA_MR0, 0); /*                  */
+	viafb_mmio_write(VDMA_MR0, 0); /* Reset int enable */
 	mutex_unlock(&viafb_dma_lock);
 }
 EXPORT_SYMBOL_GPL(viafb_dma_copy_out);
 #endif
 
 /*
-                                                                   
-                                                  
+ * Do a scatter/gather DMA copy from FB memory.  You must have done
+ * a successful call to viafb_request_dma() first.
  */
 int viafb_dma_copy_out_sg(unsigned int offset, struct scatterlist *sg, int nsg)
 {
@@ -279,8 +279,8 @@ int viafb_dma_copy_out_sg(unsigned int offset, struct scatterlist *sg, int nsg)
 	dma_addr_t nextdesc;
 
 	/*
-                                       
-  */
+	 * Get a place to put the descriptors.
+	 */
 	descrpages = dma_alloc_coherent(&global_dev.pdev->dev,
 			nsg*sizeof(struct viafb_vx855_dma_descr),
 			&descr_handle, GFP_KERNEL);
@@ -290,8 +290,8 @@ int viafb_dma_copy_out_sg(unsigned int offset, struct scatterlist *sg, int nsg)
 	}
 	mutex_lock(&viafb_dma_lock);
 	/*
-                 
-  */
+	 * Fill them in.
+	 */
 	descr = descrpages;
 	nextdesc = descr_handle + sizeof(struct viafb_vx855_dma_descr);
 	for_each_sg(sg, sgentry, nsg, i) {
@@ -303,15 +303,15 @@ int viafb_dma_copy_out_sg(unsigned int offset, struct scatterlist *sg, int nsg)
 		descr->tile_mode = 0;
 		descr->next_desc_low = (nextdesc&0xfffffff0) | VIAFB_DMA_MAGIC;
 		descr->next_desc_high = ((u64) nextdesc >> 32) & 0x0fff;
-		descr->pad = 0xffffffff;  /*                      */
+		descr->pad = 0xffffffff;  /* VIA driver does this */
 		offset += sg_dma_len(sgentry);
 		nextdesc += sizeof(struct viafb_vx855_dma_descr);
 		descr++;
 	}
 	descr[-1].next_desc_low = VIAFB_DMA_FINAL_SEGMENT|VIAFB_DMA_MAGIC;
 	/*
-                       
-  */
+	 * Program the engine.
+	 */
 	spin_lock_irqsave(&global_dev.reg_lock, flags);
 	init_completion(&viafb_dma_completion);
 	viafb_mmio_write(VDMA_DQWCR0, 0);
@@ -324,20 +324,20 @@ int viafb_dma_copy_out_sg(unsigned int offset, struct scatterlist *sg, int nsg)
 	viafb_mmio_write(VDMA_CSR0, VDMA_C_ENABLE|VDMA_C_START);
 	spin_unlock_irqrestore(&global_dev.reg_lock, flags);
 	/*
-                                                     
-                                                                
-                                                               
-                                   
-  */
+	 * Now we just wait until the interrupt handler says
+	 * we're done.  Except that, actually, we need to wait a little
+	 * longer: the interrupts seem to jump the gun a little and we
+	 * get corrupted frames sometimes.
+	 */
 	wait_for_completion_timeout(&viafb_dma_completion, 1);
 	msleep(1);
 	if ((viafb_mmio_read(VDMA_CSR0)&VDMA_C_DONE) == 0)
 		printk(KERN_ERR "VIA DMA timeout!\n");
 	/*
-                            
-  */
+	 * Clean up and we're done.
+	 */
 	viafb_mmio_write(VDMA_CSR0, VDMA_C_DONE);
-	viafb_mmio_write(VDMA_MR0, 0); /*                  */
+	viafb_mmio_write(VDMA_MR0, 0); /* Reset int enable */
 	mutex_unlock(&viafb_dma_lock);
 	dma_free_coherent(&global_dev.pdev->dev,
 			nsg*sizeof(struct viafb_vx855_dma_descr), descrpages,
@@ -345,13 +345,13 @@ int viafb_dma_copy_out_sg(unsigned int offset, struct scatterlist *sg, int nsg)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(viafb_dma_copy_out_sg);
-#endif /*                         */
+#endif /* CONFIG_VIDEO_VIA_CAMERA */
 
-/*                                                                        */
+/* ---------------------------------------------------------------------- */
 /*
-                                                               
-                                                            
-                            
+ * Figure out how big our framebuffer memory is.  Kind of ugly,
+ * but evidently we can't trust the information found in the
+ * fbdev configuration area.
  */
 static u16 via_function3[] = {
 	CLE266_FUNCTION3, KM400_FUNCTION3, CN400_FUNCTION3, CN700_FUNCTION3,
@@ -359,8 +359,8 @@ static u16 via_function3[] = {
 	P4M900_FUNCTION3, VX800_FUNCTION3, VX855_FUNCTION3, VX900_FUNCTION3,
 };
 
-/*                                                                      
-                                           */
+/* Get the BIOS-configured framebuffer size from PCI configuration space
+ * of function 3 in the respective chipset */
 static int viafb_get_fb_size_from_pci(int chip_type)
 {
 	int i;
@@ -368,7 +368,7 @@ static int viafb_get_fb_size_from_pci(int chip_type)
 	u32 FBSize;
 	u32 VideoMemSize;
 
-	/*                                                   */
+	/* search for the "FUNCTION3" device in this chipset */
 	for (i = 0; i < ARRAY_SIZE(via_function3); i++) {
 		struct pci_dev *pdev;
 
@@ -394,7 +394,7 @@ static int viafb_get_fb_size_from_pci(int chip_type)
 		case VX800_FUNCTION3:
 		case VX855_FUNCTION3:
 		case VX900_FUNCTION3:
-		/*                      */
+		/*case CN750_FUNCTION3: */
 			offset = 0xA0;
 			break;
 		}
@@ -417,53 +417,53 @@ static int viafb_get_fb_size_from_pci(int chip_type)
 	if (chip_type < UNICHROME_CX700) {
 		switch (FBSize) {
 		case 0x00004000:
-			VideoMemSize = (16 << 20);	/*    */
+			VideoMemSize = (16 << 20);	/*16M */
 			break;
 
 		case 0x00005000:
-			VideoMemSize = (32 << 20);	/*    */
+			VideoMemSize = (32 << 20);	/*32M */
 			break;
 
 		case 0x00006000:
-			VideoMemSize = (64 << 20);	/*    */
+			VideoMemSize = (64 << 20);	/*64M */
 			break;
 
 		default:
-			VideoMemSize = (32 << 20);	/*    */
+			VideoMemSize = (32 << 20);	/*32M */
 			break;
 		}
 	} else {
 		switch (FBSize) {
 		case 0x00001000:
-			VideoMemSize = (8 << 20);	/*   */
+			VideoMemSize = (8 << 20);	/*8M */
 			break;
 
 		case 0x00002000:
-			VideoMemSize = (16 << 20);	/*    */
+			VideoMemSize = (16 << 20);	/*16M */
 			break;
 
 		case 0x00003000:
-			VideoMemSize = (32 << 20);	/*    */
+			VideoMemSize = (32 << 20);	/*32M */
 			break;
 
 		case 0x00004000:
-			VideoMemSize = (64 << 20);	/*    */
+			VideoMemSize = (64 << 20);	/*64M */
 			break;
 
 		case 0x00005000:
-			VideoMemSize = (128 << 20);	/*     */
+			VideoMemSize = (128 << 20);	/*128M */
 			break;
 
 		case 0x00006000:
-			VideoMemSize = (256 << 20);	/*     */
+			VideoMemSize = (256 << 20);	/*256M */
 			break;
 
-		case 0x00007000:	/*                   */
-			VideoMemSize = (512 << 20);	/*     */
+		case 0x00007000:	/* Only on VX855/875 */
+			VideoMemSize = (512 << 20);	/*512M */
 			break;
 
 		default:
-			VideoMemSize = (32 << 20);	/*    */
+			VideoMemSize = (32 << 20);	/*32M */
 			break;
 		}
 	}
@@ -473,16 +473,16 @@ static int viafb_get_fb_size_from_pci(int chip_type)
 
 
 /*
-                                       
+ * Figure out and map our MMIO regions.
  */
 static int __devinit via_pci_setup_mmio(struct viafb_dev *vdev)
 {
 	int ret;
 	/*
-                                                          
-                                                        
-                                      
-  */
+	 * Hook up to the device registers.  Note that we soldier
+	 * on if it fails; the framebuffer can operate (without
+	 * acceleration) without this region.
+	 */
 	vdev->engine_start = pci_resource_start(vdev->pdev, 1);
 	vdev->engine_len = pci_resource_len(vdev->pdev, 1);
 	vdev->engine_mmio = ioremap_nocache(vdev->engine_start,
@@ -492,12 +492,12 @@ static int __devinit via_pci_setup_mmio(struct viafb_dev *vdev)
 				"Unable to map engine MMIO; operation will be "
 				"slow and crippled.\n");
 	/*
-                                                        
-                                                        
-                                                           
-                                                     
-                  
-  */
+	 * Map in framebuffer memory.  For now, failure here is
+	 * fatal.  Unfortunately, in the absence of significant
+	 * vmalloc space, failure here is also entirely plausible.
+	 * Eventually we want to move away from mapping this
+	 * entire region.
+	 */
 	if (vdev->chip_type == UNICHROME_VX900)
 		vdev->fbmem_start = pci_resource_start(vdev->pdev, 2);
 	else
@@ -506,7 +506,7 @@ static int __devinit via_pci_setup_mmio(struct viafb_dev *vdev)
 	if (ret < 0)
 		goto out_unmap;
 
-	/*                                                                */
+	/* try to map less memory on failure, 8 MB should be still enough */
 	for (; vdev->fbmem_len >= 8 << 20; vdev->fbmem_len /= 2) {
 		vdev->fbmem = ioremap_wc(vdev->fbmem_start, vdev->fbmem_len);
 		if (vdev->fbmem)
@@ -530,7 +530,7 @@ static void via_pci_teardown_mmio(struct viafb_dev *vdev)
 }
 
 /*
-                                 
+ * Create our subsidiary devices.
  */
 static struct viafb_subdev_info {
 	char *name;
@@ -578,10 +578,10 @@ static int __devinit via_setup_subdevs(struct viafb_dev *vdev)
 	int i;
 
 	/*
-                                                      
-                                                       
-                
-  */
+	 * Ignore return values.  Even if some of the devices
+	 * fail to be created, we'll still be able to use some
+	 * of the rest.
+	 */
 	for (i = 0; i < N_SUBDEVS; i++)
 		via_create_subdev(vdev, viafb_subdevs + i);
 	return 0;
@@ -599,7 +599,7 @@ static void via_teardown_subdevs(void)
 }
 
 /*
-                             
+ * Power management functions
  */
 #ifdef CONFIG_PM
 static LIST_HEAD(viafb_pm_hooks);
@@ -630,14 +630,14 @@ static int via_suspend(struct pci_dev *pdev, pm_message_t state)
 	if (state.event != PM_EVENT_SUSPEND)
 		return 0;
 	/*
-                                                            
-                                                              
-                                                                  
-                                                                   
-                                                            
-                    
-                                   
-  */
+	 * "I've occasionally hit a few drivers that caused suspend
+	 * failures, and each and every time it was a driver bug, and
+	 * the right thing to do was to just ignore the error and suspend
+	 * anyway - returning an error code and trying to undo the suspend
+	 * is not what anybody ever really wants, even if our model
+	 *_allows_ for it."
+	 * -- Linus Torvalds, Dec. 7, 2009
+	 */
 	mutex_lock(&viafb_pm_hooks_lock);
 	list_for_each_entry_reverse(hooks, &viafb_pm_hooks, list)
 		hooks->suspend(hooks->private);
@@ -653,7 +653,7 @@ static int via_resume(struct pci_dev *pdev)
 {
 	struct viafb_pm_hooks *hooks;
 
-	/*                             */
+	/* Get the bus side powered up */
 	pci_set_power_state(pdev, PCI_D0);
 	pci_restore_state(pdev);
 	if (pci_enable_device(pdev))
@@ -661,7 +661,7 @@ static int via_resume(struct pci_dev *pdev)
 
 	pci_set_master(pdev);
 
-	/*                            */
+	/* Now bring back any subdevs */
 	mutex_lock(&viafb_pm_hooks_lock);
 	list_for_each_entry(hooks, &viafb_pm_hooks, list)
 		hooks->resume(hooks->private);
@@ -669,7 +669,7 @@ static int via_resume(struct pci_dev *pdev)
 
 	return 0;
 }
-#endif /*           */
+#endif /* CONFIG_PM */
 
 static int __devinit via_pci_probe(struct pci_dev *pdev,
 		const struct pci_device_id *ent)
@@ -681,8 +681,8 @@ static int __devinit via_pci_probe(struct pci_dev *pdev,
 		return ret;
 
 	/*
-                                 
-  */
+	 * Global device initialization.
+	 */
 	memset(&global_dev, 0, sizeof(global_dev));
 	global_dev.pdev = pdev;
 	global_dev.chip_type = ent->driver_data;
@@ -695,14 +695,14 @@ static int __devinit via_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		goto out_disable;
 	/*
-                                                                  
-                     
-  */
+	 * Set up interrupts and create our subdevices.  Continue even if
+	 * some things fail.
+	 */
 	viafb_int_init();
 	via_setup_subdevs(&global_dev);
 	/*
-                                 
-  */
+	 * Set up the framebuffer device
+	 */
 	ret = via_fb_pci_probe(&global_dev);
 	if (ret)
 		goto out_subdevs;

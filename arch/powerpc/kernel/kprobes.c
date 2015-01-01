@@ -60,8 +60,8 @@ int __kprobes arch_prepare_kprobe(struct kprobe *p)
 		ret = -EINVAL;
 	}
 
-	/*                                                             
-                                                                      */
+	/* insn must be on a special executable page on ppc64.  This is
+	 * not explicitly required on ppc32 (right now), but it doesn't hurt */
 	if (!ret) {
 		p->ainsn.insn = get_insn_slot();
 		if (!p->ainsn.insn)
@@ -104,10 +104,10 @@ void __kprobes arch_remove_kprobe(struct kprobe *p)
 
 static void __kprobes prepare_singlestep(struct kprobe *p, struct pt_regs *regs)
 {
-	/*                                                                 
-                                                                
-                                                                       
-                                           */
+	/* We turn off async exceptions to ensure that the single step will
+	 * be for the instruction we have the kprobe on, if we dont its
+	 * possible we'd get the single step reported for an exception handler
+	 * like Decrementer or External Interrupt */
 	regs->msr &= ~MSR_EE;
 	regs->msr |= MSR_SINGLESTEP;
 #ifdef CONFIG_PPC_ADV_DEBUG_REGS
@@ -119,11 +119,11 @@ static void __kprobes prepare_singlestep(struct kprobe *p, struct pt_regs *regs)
 #endif
 
 	/*
-                                                    
-                                                 
-                                                  
-                               
-  */
+	 * On powerpc we should single step on the original
+	 * instruction even if the probed insn is a trap
+	 * variant as values in regs could play a part in
+	 * if the trap is taken or not
+	 */
 	regs->nip = (unsigned long)p->ainsn.insn;
 }
 
@@ -153,7 +153,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
 {
 	ri->ret_addr = (kprobe_opcode_t *)regs->link;
 
-	/*                                              */
+	/* Replace the return addr with trampoline addr */
 	regs->link = (unsigned long)kretprobe_trampoline;
 }
 
@@ -165,30 +165,30 @@ static int __kprobes kprobe_handler(struct pt_regs *regs)
 	struct kprobe_ctlblk *kcb;
 
 	/*
-                                                
-                                 
-  */
+	 * We don't want to be preempted for the entire
+	 * duration of kprobe processing
+	 */
 	preempt_disable();
 	kcb = get_kprobe_ctlblk();
 
-	/*                                    */
+	/* Check we're not actually recursing */
 	if (kprobe_running()) {
 		p = get_kprobe(addr);
 		if (p) {
 			kprobe_opcode_t insn = *p->ainsn.insn;
 			if (kcb->kprobe_status == KPROBE_HIT_SS &&
 					is_trap(insn)) {
-				/*                       */
+				/* Turn off 'trace' bits */
 				regs->msr &= ~MSR_SINGLESTEP;
 				regs->msr |= kcb->kprobe_saved_msr;
 				goto no_kprobe;
 			}
-			/*                                              
-                                                     
-                                                     
-                                                          
-                                        
-    */
+			/* We have reentered the kprobe_handler(), since
+			 * another probe was hit while within the handler.
+			 * We here save the original kprobes variables and
+			 * just single step on the instruction of the new probe
+			 * without calling any user handlers.
+			 */
 			save_previous_kprobe(kcb);
 			set_current_kprobe(p, regs, kcb);
 			kcb->kprobe_saved_msr = regs->msr;
@@ -198,14 +198,14 @@ static int __kprobes kprobe_handler(struct pt_regs *regs)
 			return 1;
 		} else {
 			if (*addr != BREAKPOINT_INSTRUCTION) {
-				/*                                            */
+				/* If trap variant, then it belongs not to us */
 				kprobe_opcode_t cur_insn = *addr;
 				if (is_trap(cur_insn))
 		       			goto no_kprobe;
-				/*                                          
-                                                 
-                                                
-     */
+				/* The breakpoint instruction was removed by
+				 * another cpu right after we hit, no further
+				 * handling of this interrupt is appropriate
+				 */
 				ret = 1;
 				goto no_kprobe;
 			}
@@ -221,43 +221,43 @@ static int __kprobes kprobe_handler(struct pt_regs *regs)
 	if (!p) {
 		if (*addr != BREAKPOINT_INSTRUCTION) {
 			/*
-                                                 
-                                                  
-                                                   
-    */
+			 * PowerPC has multiple variants of the "trap"
+			 * instruction. If the current instruction is a
+			 * trap variant, it could belong to someone else
+			 */
 			kprobe_opcode_t cur_insn = *addr;
 			if (is_trap(cur_insn))
 		       		goto no_kprobe;
 			/*
-                                                  
-                                               
-                                                  
-                                                  
-                                                
-    */
+			 * The breakpoint instruction was removed right
+			 * after we hit it.  Another cpu has removed
+			 * either a probepoint or a debugger breakpoint
+			 * at this address.  In either case, no further
+			 * handling of this interrupt is appropriate.
+			 */
 			ret = 1;
 		}
-		/*                                       */
+		/* Not one of ours: let kernel handle it */
 		goto no_kprobe;
 	}
 
 	kcb->kprobe_status = KPROBE_HIT_ACTIVE;
 	set_current_kprobe(p, regs, kcb);
 	if (p->pre_handler && p->pre_handler(p, regs))
-		/*                                                     */
+		/* handler has already set things up, so skip ss setup */
 		return 1;
 
 ss_probe:
 	if (p->ainsn.boostable >= 0) {
 		unsigned int insn = *p->ainsn.insn;
 
-		/*                                                      */
+		/* regs->nip is also adjusted if emulate_step returns 1 */
 		ret = emulate_step(regs, insn);
 		if (ret > 0) {
 			/*
-                                            
-                                          
-    */
+			 * Once this instruction has been boosted
+			 * successfully, set the boostable flag
+			 */
 			if (unlikely(p->ainsn.boostable == 0))
 				p->ainsn.boostable = 1;
 
@@ -270,14 +270,14 @@ ss_probe:
 			return 1;
 		} else if (ret < 0) {
 			/*
-                                                     
-                                                    
-                                         
-    */
+			 * We don't allow kprobes on mtmsr(d)/rfi(d), etc.
+			 * So, we should never get here... but, its still
+			 * good to catch them, just in case...
+			 */
 			printk("Can't step on instruction %x\n", insn);
 			BUG();
 		} else if (ret == 0)
-			/*                                   */
+			/* This instruction can't be boosted */
 			p->ainsn.boostable = -1;
 	}
 	prepare_singlestep(p, regs);
@@ -290,10 +290,10 @@ no_kprobe:
 }
 
 /*
-                                    
-                                                  
-                                                  
-                                
+ * Function return probe trampoline:
+ * 	- init_kprobes() establishes a probepoint here
+ * 	- When the probed function returns, this probe
+ * 		causes the handlers to fire
  */
 static void __used kretprobe_trampoline_holder(void)
 {
@@ -303,7 +303,7 @@ static void __used kretprobe_trampoline_holder(void)
 }
 
 /*
-                                                       
+ * Called when the probe at kretprobe trampoline is hit
  */
 static int __kprobes trampoline_probe_handler(struct kprobe *p,
 						struct pt_regs *regs)
@@ -318,21 +318,21 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
 	kretprobe_hash_lock(current, &head, &flags);
 
 	/*
-                                                                     
-                                                              
-                                                                      
-                                                      
-   
-                               
-                                                               
-                                                                 
-                                                                   
-                                                             
-                              
-  */
+	 * It is possible to have multiple instances associated with a given
+	 * task either because an multiple functions in the call path
+	 * have a return probe installed on them, and/or more than one return
+	 * return probe was registered for a target function.
+	 *
+	 * We can handle this because:
+	 *     - instances are always inserted at the head of the list
+	 *     - when multiple return probes are registered for the same
+	 *       function, the first instance's ret_addr will point to the
+	 *       real return address, and all the rest will point to
+	 *       kretprobe_trampoline
+	 */
 	hlist_for_each_entry_safe(ri, node, tmp, head, hlist) {
 		if (ri->task != current)
-			/*                                         */
+			/* another task is sharing our hash bucket */
 			continue;
 
 		if (ri->rp && ri->rp->handler)
@@ -343,10 +343,10 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
 
 		if (orig_ret_address != trampoline_address)
 			/*
-                                                
-                                                 
-                                          
-    */
+			 * This is the real return address. Any other
+			 * instances associated with this task are for
+			 * other calls deeper on the call stack
+			 */
 			break;
 	}
 
@@ -362,20 +362,20 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
 		kfree(ri);
 	}
 	/*
-                                                 
-                                                        
-                                           
-  */
+	 * By returning a non-zero value, we are telling
+	 * kprobe_handler() that we don't want the post_handler
+	 * to run (and have re-enabled preemption)
+	 */
 	return 1;
 }
 
 /*
-                                                               
-                                                                     
-                                                                 
-                                                              
-                                                                 
-                         
+ * Called after single-stepping.  p->addr is the address of the
+ * instruction whose first byte has been replaced by the "breakpoint"
+ * instruction.  To avoid the SMP problems that can occur when we
+ * temporarily put back the original opcode to single-step, we
+ * single-stepped a copy of the instruction.  The address of this
+ * copy is p->ainsn.insn.
  */
 static int __kprobes post_kprobe_handler(struct pt_regs *regs)
 {
@@ -385,7 +385,7 @@ static int __kprobes post_kprobe_handler(struct pt_regs *regs)
 	if (!cur)
 		return 0;
 
-	/*                                                           */
+	/* make sure we got here for instruction we have a kprobe on */
 	if (((unsigned long)cur->ainsn.insn + 4) != regs->nip)
 		return 0;
 
@@ -394,11 +394,11 @@ static int __kprobes post_kprobe_handler(struct pt_regs *regs)
 		cur->post_handler(cur, regs, 0);
 	}
 
-	/*                                                    */
+	/* Adjust nip to after the single-stepped instruction */
 	regs->nip = (unsigned long)cur->addr + 4;
 	regs->msr |= kcb->kprobe_saved_msr;
 
-	/*                                                                */
+	/*Restore back the original saved kprobes variables and continue. */
 	if (kcb->kprobe_status == KPROBE_REENTER) {
 		restore_previous_kprobe(kcb);
 		goto out;
@@ -408,10 +408,10 @@ out:
 	preempt_enable_no_resched();
 
 	/*
-                                                                
-                                                                         
-                                               
-  */
+	 * if somebody else is singlestepping across a probe point, msr
+	 * will have DE/SE set, in which case, continue the remaining processing
+	 * of do_debug, as if this is not a probe hit.
+	 */
 	if (regs->msr & MSR_SINGLESTEP)
 		return 0;
 
@@ -428,14 +428,14 @@ int __kprobes kprobe_fault_handler(struct pt_regs *regs, int trapnr)
 	case KPROBE_HIT_SS:
 	case KPROBE_REENTER:
 		/*
-                                                     
-                                                      
-                                                        
-                                                      
-                       
-   */
+		 * We are here because the instruction being single
+		 * stepped caused a page fault. We reset the current
+		 * kprobe and the nip points back to the probe address
+		 * and allow the page fault handler to continue as a
+		 * normal page fault.
+		 */
 		regs->nip = (unsigned long)cur->addr;
-		regs->msr &= ~MSR_SINGLESTEP; /*                       */
+		regs->msr &= ~MSR_SINGLESTEP; /* Turn off 'trace' bits */
 		regs->msr |= kcb->kprobe_saved_msr;
 		if (kcb->kprobe_status == KPROBE_REENTER)
 			restore_previous_kprobe(kcb);
@@ -446,35 +446,35 @@ int __kprobes kprobe_fault_handler(struct pt_regs *regs, int trapnr)
 	case KPROBE_HIT_ACTIVE:
 	case KPROBE_HIT_SSDONE:
 		/*
-                                                   
-                                                        
-                                
-   */
+		 * We increment the nmissed count for accounting,
+		 * we can also use npre/npostfault count for accouting
+		 * these specific fault cases.
+		 */
 		kprobes_inc_nmissed_count(cur);
 
 		/*
-                                                      
-                                                     
-                                             
-                                              
-                                                
-   */
+		 * We come here because instructions in the pre/post
+		 * handler caused the page_fault, this could happen
+		 * if handler tries to access user space by
+		 * copy_from_user(), get_user() etc. Let the
+		 * user-specified handler try to fix it first.
+		 */
 		if (cur->fault_handler && cur->fault_handler(cur, regs, trapnr))
 			return 1;
 
 		/*
-                                                      
-                         
-   */
+		 * In case the user-specified fault handler returned
+		 * zero, try to fix up.
+		 */
 		if ((entry = search_exception_tables(regs->nip)) != NULL) {
 			regs->nip = entry->fixup;
 			return 1;
 		}
 
 		/*
-                                           
-                                
-   */
+		 * fixup_exception() could not handle it,
+		 * Let do_page_fault() fix it.
+		 */
 		break;
 	default:
 		break;
@@ -483,7 +483,7 @@ int __kprobes kprobe_fault_handler(struct pt_regs *regs, int trapnr)
 }
 
 /*
-                                              
+ * Wrapper routine to for handling exceptions.
  */
 int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
 				       unsigned long val, void *data)
@@ -523,7 +523,7 @@ int __kprobes setjmp_pre_handler(struct kprobe *p, struct pt_regs *regs)
 
 	memcpy(&kcb->jprobe_saved_regs, regs, sizeof(struct pt_regs));
 
-	/*                                                 */
+	/* setup return addr to the jprobe handler routine */
 	regs->nip = arch_deref_entry_point(jp->entry);
 #ifdef CONFIG_PPC64
 	regs->gpr[2] = (unsigned long)(((func_descr_t *)jp->entry)->toc);
@@ -546,10 +546,10 @@ int __kprobes longjmp_break_handler(struct kprobe *p, struct pt_regs *regs)
 	struct kprobe_ctlblk *kcb = get_kprobe_ctlblk();
 
 	/*
-                                                                 
-                                                                
-                 
-  */
+	 * FIXME - we should ideally be validating that we got here 'cos
+	 * of the "trap" in jprobe_return() above, before restoring the
+	 * saved regs...
+	 */
 	memcpy(regs, &kcb->jprobe_saved_regs, sizeof(struct pt_regs));
 	preempt_enable_no_resched();
 	return 1;

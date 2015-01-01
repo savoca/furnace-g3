@@ -69,9 +69,9 @@ static int __init parse_direct_gbpages_on(char *arg)
 early_param("gbpages", parse_direct_gbpages_on);
 
 /*
-                                                                         
-                                                                     
-                                              
+ * NOTE: pagetable_init alloc all the fixmap pagetables contiguous on the
+ * physical space so we can cache the place of the first one and move
+ * around without checking the pgd every time.
  */
 
 pteval_t __supported_pte_mask __read_mostly = ~_PAGE_IOMAP;
@@ -80,12 +80,12 @@ EXPORT_SYMBOL_GPL(__supported_pte_mask);
 int force_personality32;
 
 /*
-                  
-                                                   
-                                          
-  
-                                                                       
-                                  
+ * noexec32=on|off
+ * Control non executable heap for 32bit processes.
+ * To control the stack too use noexec=off
+ *
+ * on	PROT_READ does not imply PROT_EXEC for 32-bit processes (default)
+ * off	PROT_READ implies PROT_EXEC
  */
 static int __init nonx32_setup(char *str)
 {
@@ -98,8 +98,8 @@ static int __init nonx32_setup(char *str)
 __setup("noexec32=", nonx32_setup);
 
 /*
-                                                                    
-                                                    
+ * When memory was added/removed make sure all the processes MM have
+ * suitable PGD entries in the local PGD level page.
  */
 void sync_global_pgds(unsigned long start, unsigned long end)
 {
@@ -118,7 +118,7 @@ void sync_global_pgds(unsigned long start, unsigned long end)
 			spinlock_t *pgt_lock;
 
 			pgd = (pgd_t *)page_address(page) + pgd_index(address);
-			/*                           */
+			/* the pgt_lock only for Xen */
 			pgt_lock = &pgd_page_get_mm(page)->page_table_lock;
 			spin_lock(pgt_lock);
 
@@ -135,8 +135,8 @@ void sync_global_pgds(unsigned long start, unsigned long end)
 }
 
 /*
-                                                                       
-                                                                          
+ * NOTE: This function is marked __ref because it calls __init function
+ * (alloc_bootmem_pages). It's safe to do it ONLY when after_bootmem == 0.
  */
 static __ref void *spp_getpage(void)
 {
@@ -205,9 +205,9 @@ void set_pte_vaddr_pud(pud_t *pud_page, unsigned long vaddr, pte_t new_pte)
 	set_pte(pte, new_pte);
 
 	/*
-                                          
-                                      
-  */
+	 * It's enough to flush this one mapping.
+	 * (PGE mappings get flushed as well)
+	 */
 	__flush_tlb_one(vaddr);
 }
 
@@ -247,7 +247,7 @@ pte_t * __init populate_extra_pte(unsigned long vaddr)
 }
 
 /*
-                                                                      
+ * Create large page table mappings for a range of physical addresses.
  */
 static void __init __init_extra_mapping(unsigned long phys, unsigned long size,
 						pgprot_t prot)
@@ -287,17 +287,17 @@ void __init init_extra_mapping_uc(unsigned long phys, unsigned long size)
 }
 
 /*
-                                                   
-  
-                                                                         
-  
-                                                                    
-                                                                      
-                                                    
-  
-                                                                        
-                                                                      
-                                          
+ * The head.S code sets up the kernel high mapping:
+ *
+ *   from __START_KERNEL_map to __START_KERNEL_map + size (== _end-_text)
+ *
+ * phys_addr holds the negative offset to the kernel, which is added
+ * to the compile time generated pmds. This results in invalid pmds up
+ * to the point where we hit the physaddr 0 mapping.
+ *
+ * We limit the mappings to the region from _text to _brk_end.  _brk_end
+ * is rounded up to the 2MB boundary. This catches the invalid pmds as
+ * well, as they are located before _text:
  */
 void __init cleanup_highmap(void)
 {
@@ -380,11 +380,11 @@ phys_pte_init(pte_t *pte_page, unsigned long addr, unsigned long end,
 		}
 
 		/*
-                                         
-                                                                
-                                                           
-                                         
-   */
+		 * We will re-use the existing mapping.
+		 * Xen for example has some special requirements, like mapping
+		 * pagetable pages as RO. So assume someone who pre-setup
+		 * these mappings are more intelligent.
+		 */
 		if (pte_val(*pte)) {
 			pages++;
 			continue;
@@ -437,17 +437,17 @@ phys_pmd_init(pmd_t *pmd_page, unsigned long address, unsigned long end,
 				continue;
 			}
 			/*
-                                                         
-                               
-     
-                                                         
-                                                      
-                                                      
-                                                          
-                                                     
-                                               
-                 
-    */
+			 * If we are ok with PG_LEVEL_2M mapping, then we will
+			 * use the existing mapping,
+			 *
+			 * Otherwise, we will split the large page mapping but
+			 * use the same existing protection bits except for
+			 * large page, so that we don't violate Intel's TLB
+			 * Application note (317080) which says, while changing
+			 * the page sizes, new and old translations should
+			 * not differ with respect to page frame and
+			 * attributes.
+			 */
 			if (page_size_mask & (1 << PG_LEVEL_2M)) {
 				pages++;
 				continue;
@@ -511,17 +511,17 @@ phys_pud_init(pud_t *pud_page, unsigned long addr, unsigned long end,
 				continue;
 			}
 			/*
-                                                         
-                               
-     
-                                                         
-                                                         
-                                                
-                                                          
-                                                     
-                                               
-                 
-    */
+			 * If we are ok with PG_LEVEL_1G mapping, then we will
+			 * use the existing mapping.
+			 *
+			 * Otherwise, we will split the gbpage mapping but use
+			 * the same existing protection  bits except for large
+			 * page, so that we don't violate Intel's TLB
+			 * Application note (317080) which says, while changing
+			 * the page sizes, new and old translations should
+			 * not differ with respect to page frame and
+			 * attributes.
+			 */
 			if (page_size_mask & (1 << PG_LEVEL_1G)) {
 				pages++;
 				continue;
@@ -617,23 +617,23 @@ void __init paging_init(void)
 	sparse_init();
 
 	/*
-                                         
-                                                                  
-                                                              
-                          
-  */
+	 * clear the default setting with node 0
+	 * note: don't use nodes_clear here, that is really clearing when
+	 *	 numa support is not compiled in, and later node_set_state
+	 *	 will not set it back.
+	 */
 	node_clear_state(0, N_NORMAL_MEMORY);
 
 	zone_sizes_init();
 }
 
 /*
-                                    
+ * Memory hotplug specific functions
  */
 #ifdef CONFIG_MEMORY_HOTPLUG
 /*
-                                                                               
-            
+ * After memory hotplug the variables max_pfn, max_low_pfn and high_memory need
+ * updating.
  */
 static void  update_end_of_memory_vars(u64 start, u64 size)
 {
@@ -647,8 +647,8 @@ static void  update_end_of_memory_vars(u64 start, u64 size)
 }
 
 /*
-                                                                       
-                               
+ * Memory is added always to NORMAL zone. This means you will never get
+ * additional DMA/DMA32 memory.
  */
 int arch_add_memory(int nid, u64 start, u64 size)
 {
@@ -665,14 +665,14 @@ int arch_add_memory(int nid, u64 start, u64 size)
 	ret = __add_pages(nid, zone, start_pfn, nr_pages);
 	WARN_ON_ONCE(ret);
 
-	/*                                             */
+	/* update max_pfn, max_low_pfn and high_memory */
 	update_end_of_memory_vars(start, size);
 
 	return ret;
 }
 EXPORT_SYMBOL_GPL(arch_add_memory);
 
-#endif /*                       */
+#endif /* CONFIG_MEMORY_HOTPLUG */
 
 static struct kcore_list kcore_vsyscall;
 
@@ -683,11 +683,11 @@ void __init mem_init(void)
 
 	pci_iommu_alloc();
 
-	/*                                               */
+	/* clear_bss() already clear the empty_zero_page */
 
 	reservedpages = 0;
 
-	/*                                                 */
+	/* this will put all low memory onto the freelists */
 #ifdef CONFIG_NUMA
 	totalram_pages = numa_free_all_bootmem();
 #else
@@ -702,7 +702,7 @@ void __init mem_init(void)
 	datasize =  (unsigned long) &_edata - (unsigned long) &_etext;
 	initsize =  (unsigned long) &__init_end - (unsigned long) &__init_begin;
 
-	/*                                       */
+	/* Register memory areas for /proc/kcore */
 	kclist_add(&kcore_vsyscall, (void *)VSYSCALL_START,
 			 VSYSCALL_END - VSYSCALL_START, KCORE_OTHER);
 
@@ -735,10 +735,10 @@ void set_kernel_text_rw(void)
 		 start, end);
 
 	/*
-                                                             
-                                                      
-                                      
-  */
+	 * Make the kernel identity mapping for text RW. Kernel text
+	 * mapping will always be RO. Refer to the comment in
+	 * static_protections() in pageattr.c
+	 */
 	set_memory_rw(start, (end - start) >> PAGE_SHIFT);
 }
 
@@ -754,8 +754,8 @@ void set_kernel_text_ro(void)
 		 start, end);
 
 	/*
-                                                
-  */
+	 * Set the kernel identity mapping for text RO.
+	 */
 	set_memory_ro(start, (end - start) >> PAGE_SHIFT);
 }
 
@@ -776,9 +776,9 @@ void mark_rodata_ro(void)
 	kernel_set_to_readonly = 1;
 
 	/*
-                                                                
-                   
-  */
+	 * The rodata section (but not the kernel text!) should also be
+	 * not-executable.
+	 */
 	set_memory_nx(rodata_start, (end - rodata_start) >> PAGE_SHIFT);
 
 	rodata_test();
@@ -836,9 +836,9 @@ int kern_addr_valid(unsigned long addr)
 }
 
 /*
-                                                                        
-                                                                        
-                                     
+ * A pseudo VMA to allow ptrace access for the vsyscall page.  This only
+ * covers the 64bit vsyscall page now. 32bit has a real VMA now and does
+ * not need special handling anymore:
  */
 static struct vm_area_struct gate_vma = {
 	.vm_start	= VSYSCALL_START,
@@ -867,9 +867,9 @@ int in_gate_area(struct mm_struct *mm, unsigned long addr)
 }
 
 /*
-                                                                  
-                                                                   
-                   
+ * Use this when you have no reliable mm, typically from interrupt
+ * context. It is less reliable than using a task's mm and may give
+ * false positives.
  */
 int in_gate_area_no_mm(unsigned long addr)
 {
@@ -898,7 +898,7 @@ unsigned long memory_block_size_bytes(void)
 
 #ifdef CONFIG_SPARSEMEM_VMEMMAP
 /*
-                                                                      
+ * Initialise the sparsemem vmemmap using huge-pages at the PMD level.
  */
 static long __meminitdata addr_start, addr_end;
 static void __meminitdata *p_start, *p_end;
@@ -954,7 +954,7 @@ vmemmap_populate(struct page *start_page, unsigned long size, int node)
 						PAGE_KERNEL_LARGE);
 				set_pmd(pmd, __pmd(pte_val(entry)));
 
-				/*                                           */
+				/* check to see if we have contiguous blocks */
 				if (p_end != p || node_start != node) {
 					if (p_start)
 						printk(KERN_DEBUG " [%lx-%lx] PMD -> [%p-%p] on node %d\n",

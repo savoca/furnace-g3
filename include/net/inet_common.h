@@ -5,7 +5,7 @@ extern const struct proto_ops inet_stream_ops;
 extern const struct proto_ops inet_dgram_ops;
 
 /*
-                                 
+ *	INET4 prototypes used by INET6
  */
 
 struct msghdr;

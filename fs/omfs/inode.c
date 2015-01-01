@@ -74,9 +74,9 @@ fail:
 }
 
 /*
-                                                                       
-                                                                       
-         
+ * Update the header checksums for a dirty inode based on its contents.
+ * Caller is expected to hold the buffer head underlying oi and mark it
+ * dirty.
  */
 static void omfs_update_checksums(struct omfs_inode *oi)
 {
@@ -107,7 +107,7 @@ static int __omfs_write_inode(struct inode *inode, int wait)
 	int ret = -EIO;
 	int sync_failed = 0;
 
-	/*                                                               */
+	/* get current inode since we may have written sibling ptrs etc. */
 	bh = omfs_bread(inode->i_sb, inode->i_ino);
 	if (!bh)
 		goto out;
@@ -145,7 +145,7 @@ static int __omfs_write_inode(struct inode *inode, int wait)
 			sync_failed = 1;
 	}
 
-	/*                                           */
+	/* if mirroring writes, copy to next fsblock */
 	for (i = 1; i < sbi->s_mirrors; i++) {
 		bh2 = omfs_bread(inode->i_sb, inode->i_ino + i);
 		if (!bh2)
@@ -178,8 +178,8 @@ int omfs_sync_inode(struct inode *inode)
 }
 
 /*
-                                                                 
-           
+ * called when an entry is deleted, need to clear the bits in the
+ * bitmaps.
  */
 static void omfs_evict_inode(struct inode *inode)
 {
@@ -218,7 +218,7 @@ struct inode *omfs_iget(struct super_block *sb, ino_t ino)
 
 	oi = (struct omfs_inode *)bh->b_data;
 
-	/*            */
+	/* check self */
 	if (ino != be64_to_cpu(oi->i_head.h_self))
 		goto fail_bh;
 
@@ -298,11 +298,11 @@ static const struct super_operations omfs_sops = {
 };
 
 /*
-                                                                   
-                                                                        
-                                                                        
-                                                                  
-                             
+ * For Rio Karma, there is an on-disk free bitmap whose location is
+ * stored in the root block.  For ReplayTV, there is no such free bitmap
+ * so we have to walk the tree.  Both inodes and file data are allocated
+ * from the same map.  This array can be big (300k) so we allocate
+ * in units of the blocksize.
  */
 static int omfs_get_imap(struct super_block *sb)
 {
@@ -483,15 +483,15 @@ static int omfs_fill_super(struct super_block *sb, void *data, int silent)
 	}
 
 	/*
-                                                                
-                                              
-  */
+	 * Use sys_blocksize as the fs block since it is smaller than a
+	 * page while the fs blocksize can be larger.
+	 */
 	sb_set_blocksize(sb, sbi->s_sys_blocksize);
 
 	/*
-                                                                     
-                                       
-  */
+	 * ...and the difference goes into a shift.  sys_blocksize is always
+	 * a power of two factor of blocksize.
+	 */
 	sbi->s_block_shift = get_bitmask_order(sbi->s_blocksize) -
 		get_bitmask_order(sbi->s_sys_blocksize);
 

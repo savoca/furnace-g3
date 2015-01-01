@@ -1,5 +1,5 @@
 
-/*               */
+/* snfc_driver.h */
 #ifndef __SNFC_DRIVER_H__
 #define __SNFC_DRIVER_H__
 
@@ -11,4 +11,4 @@
 #include "snfc_rfs.h"
 #include "snfc_intu_poll.h"
 
-#endif //                 
+#endif //__SNFC_DRIVER_H__

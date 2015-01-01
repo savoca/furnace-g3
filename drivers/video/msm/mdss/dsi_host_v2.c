@@ -79,7 +79,7 @@ void msm_dsi_ack_err_status(unsigned char *ctrl_base)
 	if (status) {
 		MIPI_OUTP(ctrl_base + DSI_ACK_ERR_STATUS, status);
 
-		/*                                                  */
+		/* Writing of an extra 0 needed to clear error bits */
 		MIPI_OUTP(ctrl_base + DSI_ACK_ERR_STATUS, 0);
 		pr_err("%s: status=%x\n", __func__, status);
 	}
@@ -351,7 +351,7 @@ static int msm_dsi_wait4video_eng_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (dsi_status & 0x08) {
 		pr_debug("dsi command in video mode wait for active region\n");
 		rc = msm_dsi_wait4video_done(ctrl);
-		/*                           */
+		/* delay 4-5 ms to skip BLLP */
 		if (!rc)
 			usleep_range(4000, 5000);
 	}
@@ -381,7 +381,7 @@ void msm_dsi_host_init(struct mipi_panel_info *pinfo)
 		if (pinfo->bllp_power_stop)
 			data |= BIT(12);
 		data |= ((pinfo->traffic_mode & 0x03) << 8);
-		data |= ((pinfo->dst_format & 0x03) << 4); /*        */
+		data |= ((pinfo->dst_format & 0x03) << 4); /* 2 bits */
 		data |= (pinfo->vc & 0x03);
 		MIPI_OUTP(ctrl_base + DSI_VIDEO_MODE_CTRL, data);
 
@@ -404,10 +404,10 @@ void msm_dsi_host_init(struct mipi_panel_info *pinfo)
 			data |= BIT(8);
 		if (pinfo->r_sel)
 			data |= BIT(4);
-		data |= (pinfo->dst_format & 0x0f); /*        */
+		data |= (pinfo->dst_format & 0x0f); /* 4 bits */
 		MIPI_OUTP(ctrl_base + DSI_COMMAND_MODE_MDP_CTRL, data);
 
-		/*                                   */
+		/* DSI_COMMAND_MODE_MDP_DCS_CMD_CTRL */
 		data = pinfo->wr_mem_continue & 0x0ff;
 		data <<= 8;
 		data |= (pinfo->wr_mem_start & 0x0ff);
@@ -418,7 +418,7 @@ void msm_dsi_host_init(struct mipi_panel_info *pinfo)
 	} else
 		pr_err("%s: Unknown DSI mode=%d\n", __func__, pinfo->mode);
 
-	dsi_ctrl = BIT(8) | BIT(2); /*                         */
+	dsi_ctrl = BIT(8) | BIT(2); /* clock enable & cmd mode */
 
 	if (pinfo->crc_check)
 		dsi_ctrl |= BIT(24);
@@ -433,26 +433,26 @@ void msm_dsi_host_init(struct mipi_panel_info *pinfo)
 	if (pinfo->data_lane0)
 		dsi_ctrl |= BIT(4);
 
-	/*                                   */
-	/*                           */
+	/* from frame buffer, low power mode */
+	/* DSI_COMMAND_MODE_DMA_CTRL */
 	MIPI_OUTP(ctrl_base + DSI_COMMAND_MODE_DMA_CTRL, 0x14000000);
 
 	data = 0;
 	if (pinfo->te_sel)
 		data |= BIT(31);
-	data |= pinfo->mdp_trigger << 4;/*                 */
-	data |= pinfo->dma_trigger;	/*                 */
+	data |= pinfo->mdp_trigger << 4;/* cmd mdp trigger */
+	data |= pinfo->dma_trigger;	/* cmd dma trigger */
 	data |= (pinfo->stream & 0x01) << 8;
 	MIPI_OUTP(ctrl_base + DSI_TRIG_CTRL, data);
 
-	/*                   */
+	/* DSI_LAN_SWAP_CTRL */
 	MIPI_OUTP(ctrl_base + DSI_LANE_SWAP_CTRL, pinfo->dlane_swap);
 
-	/*                */
-	data = pinfo->t_clk_post & 0x3f;	/*        */
+	/* clock out ctrl */
+	data = pinfo->t_clk_post & 0x3f;	/* 6 bits */
 	data <<= 8;
-	data |= pinfo->t_clk_pre & 0x3f;	/*         */
-	/*                        */
+	data |= pinfo->t_clk_pre & 0x3f;	/*  6 bits */
+	/* DSI_CLKOUT_TIMING_CTRL */
 	MIPI_OUTP(ctrl_base + DSI_CLKOUT_TIMING_CTRL, data);
 
 	data = 0;
@@ -463,14 +463,14 @@ void msm_dsi_host_init(struct mipi_panel_info *pinfo)
 	MIPI_OUTP(ctrl_base + DSI_EOT_PACKET_CTRL, data);
 
 
-	/*                                                  */
-	/*                   */
+	/* allow only ack-err-status  to generate interrupt */
+	/* DSI_ERR_INT_MASK0 */
 	MIPI_OUTP(ctrl_base + DSI_ERR_INT_MASK0, 0x13ff3fe0);
 
-	/*                                          */
+	/* turn esc, byte, dsi, pclk, sclk, hclk on */
 	MIPI_OUTP(ctrl_base + DSI_CLK_CTRL, 0x23f);
 
-	dsi_ctrl |= BIT(0);	/*            */
+	dsi_ctrl |= BIT(0);	/* enable dsi */
 	MIPI_OUTP(ctrl_base + DSI_CTRL, dsi_ctrl);
 
 	wmb();
@@ -503,7 +503,7 @@ void msm_dsi_sw_reset(void)
 	MIPI_OUTP(ctrl_base + DSI_CTRL, dsi_ctrl);
 	wmb();
 
-	/*                                          */
+	/* turn esc, byte, dsi, pclk, sclk, hclk on */
 	MIPI_OUTP(ctrl_base + DSI_CLK_CTRL, 0x23f);
 	wmb();
 
@@ -520,21 +520,21 @@ void msm_dsi_controller_cfg(int enable)
 
 	pr_debug("msm_dsi_controller_cfg\n");
 
-	/*                             */
+	/* Check for CMD_MODE_DMA_BUSY */
 	if (readl_poll_timeout((ctrl_base + DSI_STATUS),
 				status,
 				((status & 0x02) == 0),
 				DSI_POLL_SLEEP_US, DSI_POLL_TIMEOUT_US))
 		pr_err("%s: DSI status=%x failed\n", __func__, status);
 
-	/*                           */
+	/* Check for x_HS_FIFO_EMPTY */
 	if (readl_poll_timeout((ctrl_base + DSI_FIFO_STATUS),
 				status,
 				((status & 0x11111000) == 0x11111000),
 				DSI_POLL_SLEEP_US, DSI_POLL_TIMEOUT_US))
 		pr_err("%s: FIFO status=%x failed\n", __func__, status);
 
-	/*                                  */
+	/* Check for VIDEO_MODE_ENGINE_BUSY */
 	if (readl_poll_timeout((ctrl_base + DSI_STATUS),
 				status,
 				((status & 0x08) == 0),
@@ -562,7 +562,7 @@ void msm_dsi_op_mode_config(int mode, struct mdss_panel_data *pdata)
 	pr_debug("msm_dsi_op_mode_config\n");
 
 	dsi_ctrl = MIPI_INP(ctrl_base + DSI_CTRL);
-	/*                                             */
+	/*If Video enabled, Keep Video and Cmd mode ON */
 
 
 	dsi_ctrl &= ~0x06;
@@ -645,14 +645,14 @@ int msm_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	cnt >>= 2;
 
 	if (cnt > 4)
-		cnt = 4; /*                            */
+		cnt = 4; /* 4 x 32 bits registers only */
 
 	off = DSI_RDBK_DATA0;
 	off += ((cnt - 1) * 4);
 
 	for (i = 0; i < cnt; i++) {
 		data = (u32)MIPI_INP(ctrl_base + off);
-		*lp++ = ntohl(data); /*                       */
+		*lp++ = ntohl(data); /* to network byte order */
 		pr_debug("%s: data = 0x%x and ntohl(data) = 0x%x\n",
 					 __func__, data, ntohl(data));
 		off -= 4;
@@ -688,7 +688,7 @@ static int msm_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		}
 
 		if (dchdr->last) {
-			tp->data = tp->start; /*              */
+			tp->data = tp->start; /* begin of buf */
 			rc = msm_dsi_wait4video_eng_busy(ctrl);
 			if (rc) {
 				pr_err("%s: wait4video_eng failed\n", __func__);
@@ -748,8 +748,8 @@ static int msm_dsi_parse_rx_response(struct dsi_buf *rp)
 	return rc;
 }
 
-/*                                           */
-static char max_pktsize[2] = {0x00, 0x00}; /*                        */
+/* MIPI_DSI_MRPS, Maximum Return Packet Size */
+static char max_pktsize[2] = {0x00, 0x00}; /* LSB tx first, 10 bytes */
 
 static struct dsi_cmd_desc pkt_size_cmd = {
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0, sizeof(max_pktsize)},
@@ -787,7 +787,7 @@ static int msm_dsi_set_max_packet_size(struct mdss_dsi_ctrl_pdata *ctrl,
 	return rc;
 }
 
-/*                                                   */
+/* read data length is less than or equal to 10 bytes*/
 static int msm_dsi_cmds_rx_1(struct mdss_dsi_ctrl_pdata *ctrl,
 				struct dsi_cmd_desc *cmds, int rlen)
 {
@@ -833,7 +833,7 @@ dsi_cmds_rx_1_error:
 	return rc;
 }
 
-/*                                                                         */
+/* read data length is more than 10 bytes, which requires multiple DSI read*/
 static int msm_dsi_cmds_rx_2(struct mdss_dsi_ctrl_pdata *ctrl,
 				struct dsi_cmd_desc *cmds, int rlen)
 {
@@ -1100,7 +1100,7 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 		MIPI_OUTP(ctrl_base + DSI_VIDEO_MODE_VSYNC_VPOS,
 				(vspw << 16));
 
-	} else {		/*              */
+	} else {		/* command mode */
 		if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB888)
 			bpp = 3;
 		else if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB666)
@@ -1108,7 +1108,7 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 		else if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB565)
 			bpp = 2;
 		else
-			bpp = 3;	/*                              */
+			bpp = 3;	/* Default format set to RGB888 */
 
 		ystride = width * bpp + 1;
 
@@ -1239,7 +1239,7 @@ int msm_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	msm_dsi_set_irq(ctrl_pdata, DSI_INTR_BTA_DONE_MASK);
 	INIT_COMPLETION(ctrl_pdata->bta_comp);
 
-	/*             */
+	/* BTA trigger */
 	MIPI_OUTP(dsi_host_private->dsi_base + DSI_CMD_MODE_BTA_SW_TRIGGER,
 									0x01);
 	wmb();
@@ -1326,19 +1326,19 @@ static struct device_node *dsi_pref_prim_panel(
 	return dsi_pan_node;
 }
 
-/* 
-                                                          
-                                              
-                                                          
-  
-                                                           
-                                                          
-                                                        
-                                                         
-                                                             
-                      
-  
-                                                           
+/**
+ * dsi_find_panel_of_node(): find device node of dsi panel
+ * @pdev: platform_device of the dsi ctrl node
+ * @panel_cfg: string containing intf specific config data
+ *
+ * Function finds the panel device node using the interface
+ * specific configuration data. This configuration data is
+ * could be derived from the result of bootloader's GCDB
+ * panel detection mechanism. If such config data doesn't
+ * exist then this panel returns the default panel configured
+ * in the device tree.
+ *
+ * returns pointer to panel node on success, NULL on error.
  */
 static struct device_node *dsi_find_panel_of_node(
 		struct platform_device *pdev, char *panel_cfg)
@@ -1352,7 +1352,7 @@ static struct device_node *dsi_find_panel_of_node(
 
 	l = strlen(panel_cfg);
 	if (!l) {
-		/*                            */
+		/* no panel cfg chg, parse dt */
 		pr_debug("%s:%d: no cmd line cfg present\n",
 			 __func__, __LINE__);
 		dsi_pan_node = dsi_pref_prim_panel(pdev);
@@ -1363,9 +1363,9 @@ static struct device_node *dsi_find_panel_of_node(
 			return NULL;
 		}
 		/*
-                                             
-                                 
-   */
+		 * skip first two chars '<dsi_ctrl_id>' and
+		 * ':' to get to the panel name
+		 */
 		panel_name = panel_cfg + 2;
 		pr_debug("%s:%d:%s:%s\n", __func__, __LINE__,
 			 panel_cfg, panel_name);
@@ -1517,14 +1517,14 @@ static int __devinit msm_dsi_probe(struct platform_device *pdev)
 		goto error_platform_pop;
 	}
 
-	/*                                                 */
+	/* DSI panels can be different between controllers */
 	rc = dsi_get_panel_cfg(panel_cfg);
 	if (!rc)
-		/*                           */
+		/* dsi panel cfg not present */
 		pr_warn("%s:%d:dsi specific cfg not present\n",
 							 __func__, __LINE__);
 
-	/*                        */
+	/* find panel device node */
 	dsi_pan_node = dsi_find_panel_of_node(pdev, panel_cfg);
 	if (!dsi_pan_node) {
 		pr_err("%s: can't find panel node %s\n", __func__,

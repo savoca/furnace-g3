@@ -46,13 +46,13 @@ bfa_port_stats_swap(struct bfa_port_s *port, union bfa_port_stats_u *stats)
 }
 
 /*
-                        
-  
-  
-                                               
-                                                 
-  
-               
+ * bfa_port_enable_isr()
+ *
+ *
+ * @param[in] port - Pointer to the port module
+ *            status - Return status from the f/w
+ *
+ * @return void
  */
 static void
 bfa_port_enable_isr(struct bfa_port_s *port, bfa_status_t status)
@@ -63,13 +63,13 @@ bfa_port_enable_isr(struct bfa_port_s *port, bfa_status_t status)
 }
 
 /*
-                         
-  
-  
-                                               
-                                                 
-  
-               
+ * bfa_port_disable_isr()
+ *
+ *
+ * @param[in] port - Pointer to the port module
+ *            status - Return status from the f/w
+ *
+ * @return void
  */
 static void
 bfa_port_disable_isr(struct bfa_port_s *port, bfa_status_t status)
@@ -80,13 +80,13 @@ bfa_port_disable_isr(struct bfa_port_s *port, bfa_status_t status)
 }
 
 /*
-                           
-  
-  
-                                               
-                                                 
-  
-               
+ * bfa_port_get_stats_isr()
+ *
+ *
+ * @param[in] port - Pointer to the Port module
+ *            status - Return status from the f/w
+ *
+ * @return void
  */
 static void
 bfa_port_get_stats_isr(struct bfa_port_s *port, bfa_status_t status)
@@ -112,13 +112,13 @@ bfa_port_get_stats_isr(struct bfa_port_s *port, bfa_status_t status)
 }
 
 /*
-                             
-  
-  
-                                               
-                                                 
-  
-               
+ * bfa_port_clear_stats_isr()
+ *
+ *
+ * @param[in] port - Pointer to the Port module
+ *            status - Return status from the f/w
+ *
+ * @return void
  */
 static void
 bfa_port_clear_stats_isr(struct bfa_port_s *port, bfa_status_t status)
@@ -129,8 +129,8 @@ bfa_port_clear_stats_isr(struct bfa_port_s *port, bfa_status_t status)
 	port->stats_busy   = BFA_FALSE;
 
 	/*
-                                           
- */
+	* re-initialize time stamp for stats reset
+	*/
 	do_gettimeofday(&tv);
 	port->stats_reset_time = tv.tv_sec;
 
@@ -141,12 +141,12 @@ bfa_port_clear_stats_isr(struct bfa_port_s *port, bfa_status_t status)
 }
 
 /*
-                 
-  
-  
-                                                        
-  
-               
+ * bfa_port_isr()
+ *
+ *
+ * @param[in] Pointer to the Port module data structure.
+ *
+ * @return void
  */
 static void
 bfa_port_isr(void *cbarg, struct bfi_mbmsg_s *m)
@@ -171,7 +171,7 @@ bfa_port_isr(void *cbarg, struct bfi_mbmsg_s *m)
 		break;
 
 	case BFI_PORT_I2H_GET_STATS_RSP:
-		/*                                                      */
+		/* Stats busy flag is still set? (may be cmd timed out) */
 		if (port->stats_busy == BFA_FALSE)
 			break;
 		bfa_port_get_stats_isr(port, i2hmsg->getstats_rsp.status);
@@ -189,12 +189,12 @@ bfa_port_isr(void *cbarg, struct bfi_mbmsg_s *m)
 }
 
 /*
-                     
-  
-  
-                  
-  
-                             
+ * bfa_port_meminfo()
+ *
+ *
+ * @param[in] void
+ *
+ * @return Size of DMA region
  */
 u32
 bfa_port_meminfo(void)
@@ -203,14 +203,14 @@ bfa_port_meminfo(void)
 }
 
 /*
-                       
-  
-  
-                                      
-                                                          
-                                                    
-  
-               
+ * bfa_port_mem_claim()
+ *
+ *
+ * @param[in] port Port module pointer
+ *	      dma_kva Kernel Virtual Address of Port DMA Memory
+ *	      dma_pa  Physical Address of Port DMA Memory
+ *
+ * @return void
  */
 void
 bfa_port_mem_claim(struct bfa_port_s *port, u8 *dma_kva, u64 dma_pa)
@@ -220,13 +220,13 @@ bfa_port_mem_claim(struct bfa_port_s *port, u8 *dma_kva, u64 dma_pa)
 }
 
 /*
-                    
-  
-                                            
-  
-                                                        
-  
-                 
+ * bfa_port_enable()
+ *
+ *   Send the Port enable request to the f/w
+ *
+ * @param[in] Pointer to the Port module data structure.
+ *
+ * @return Status
  */
 bfa_status_t
 bfa_port_enable(struct bfa_port_s *port, bfa_port_endis_cbfn_t cbfn,
@@ -234,7 +234,7 @@ bfa_port_enable(struct bfa_port_s *port, bfa_port_endis_cbfn_t cbfn,
 {
 	struct bfi_port_generic_req_s *m;
 
-	/*                                       */
+	/* If port is PBC disabled, return error */
 	if (port->pbc_disabled) {
 		bfa_trc(port, BFA_STATUS_PBC);
 		return BFA_STATUS_PBC;
@@ -270,13 +270,13 @@ bfa_port_enable(struct bfa_port_s *port, bfa_port_endis_cbfn_t cbfn,
 }
 
 /*
-                     
-  
-                                             
-  
-                                                        
-  
-                 
+ * bfa_port_disable()
+ *
+ *   Send the Port disable request to the f/w
+ *
+ * @param[in] Pointer to the Port module data structure.
+ *
+ * @return Status
  */
 bfa_status_t
 bfa_port_disable(struct bfa_port_s *port, bfa_port_endis_cbfn_t cbfn,
@@ -284,7 +284,7 @@ bfa_port_disable(struct bfa_port_s *port, bfa_port_endis_cbfn_t cbfn,
 {
 	struct bfi_port_generic_req_s *m;
 
-	/*                                       */
+	/* If port is PBC disabled, return error */
 	if (port->pbc_disabled) {
 		bfa_trc(port, BFA_STATUS_PBC);
 		return BFA_STATUS_PBC;
@@ -320,13 +320,13 @@ bfa_port_disable(struct bfa_port_s *port, bfa_port_endis_cbfn_t cbfn,
 }
 
 /*
-                       
-  
-                                                          
-  
-                                                        
-  
-                 
+ * bfa_port_get_stats()
+ *
+ *   Send the request to the f/w to fetch Port statistics.
+ *
+ * @param[in] Pointer to the Port module data structure.
+ *
+ * @return Status
  */
 bfa_status_t
 bfa_port_get_stats(struct bfa_port_s *port, union bfa_port_stats_u *stats,
@@ -360,12 +360,12 @@ bfa_port_get_stats(struct bfa_port_s *port, union bfa_port_stats_u *stats,
 }
 
 /*
-                         
-  
-  
-                                                        
-  
-                 
+ * bfa_port_clear_stats()
+ *
+ *
+ * @param[in] Pointer to the Port module data structure.
+ *
+ * @return Status
  */
 bfa_status_t
 bfa_port_clear_stats(struct bfa_port_s *port, bfa_port_stats_cbfn_t cbfn,
@@ -397,14 +397,14 @@ bfa_port_clear_stats(struct bfa_port_s *port, bfa_port_stats_cbfn_t cbfn,
 }
 
 /*
-                    
-  
-                                
-  
-                                                        
-                                 
-  
-               
+ * bfa_port_notify()
+ *
+ * Port module IOC event handler
+ *
+ * @param[in] Pointer to the Port module data structure.
+ * @param[in] IOC event structure
+ *
+ * @return void
  */
 void
 bfa_port_notify(void *arg, enum bfa_ioc_event_e event)
@@ -414,7 +414,7 @@ bfa_port_notify(void *arg, enum bfa_ioc_event_e event)
 	switch (event) {
 	case BFA_IOC_E_DISABLED:
 	case BFA_IOC_E_FAILED:
-		/*                                                 */
+		/* Fail any pending get_stats/clear_stats requests */
 		if (port->stats_busy) {
 			if (port->stats_cbfn)
 				port->stats_cbfn(port->stats_cbarg,
@@ -423,7 +423,7 @@ bfa_port_notify(void *arg, enum bfa_ioc_event_e event)
 			port->stats_busy = BFA_FALSE;
 		}
 
-		/*                                     */
+		/* Clear any enable/disable is pending */
 		if (port->endis_pending) {
 			if (port->endis_cbfn)
 				port->endis_cbfn(port->endis_cbarg,
@@ -438,17 +438,17 @@ bfa_port_notify(void *arg, enum bfa_ioc_event_e event)
 }
 
 /*
-                    
-  
-  
-                                                              
-                                                             
-                                                                       
-                                                                       
-                                                           
-                      
-  
-               
+ * bfa_port_attach()
+ *
+ *
+ * @param[in] port - Pointer to the Port module data structure
+ *            ioc  - Pointer to the ioc module data structure
+ *            dev  - Pointer to the device driver module data structure
+ *                   The device driver specific mbox ISR functions have
+ *                   this pointer as one of the parameters.
+ *            trcmod -
+ *
+ * @return void
  */
 void
 bfa_port_attach(struct bfa_port_s *port, struct bfa_ioc_s *ioc,
@@ -474,8 +474,8 @@ bfa_port_attach(struct bfa_port_s *port, struct bfa_ioc_s *ioc,
 	list_add_tail(&port->ioc_notify.qe, &port->ioc->notify_q);
 
 	/*
-                                         
-  */
+	 * initialize time stamp for stats reset
+	 */
 	do_gettimeofday(&tv);
 	port->stats_reset_time = tv.tv_sec;
 
@@ -483,18 +483,18 @@ bfa_port_attach(struct bfa_port_s *port, struct bfa_ioc_s *ioc,
 }
 
 /*
-                                  
+ *	CEE module specific definitions
  */
 
 /*
-                         
-  
-                                                       
-  
-                                             
-                                           
-  
-               
+ * bfa_cee_get_attr_isr()
+ *
+ * @brief CEE ISR for get-attributes responses from f/w
+ *
+ * @param[in] cee - Pointer to the CEE module
+ *		    status - Return status from the f/w
+ *
+ * @return void
  */
 static void
 bfa_cee_get_attr_isr(struct bfa_cee_s *cee, bfa_status_t status)
@@ -519,14 +519,14 @@ bfa_cee_get_attr_isr(struct bfa_cee_s *cee, bfa_status_t status)
 }
 
 /*
-                          
-  
-                                                  
-  
-                                             
-                                            
-  
-               
+ * bfa_cee_get_stats_isr()
+ *
+ * @brief CEE ISR for get-stats responses from f/w
+ *
+ * @param[in] cee - Pointer to the CEE module
+ *	      status - Return status from the f/w
+ *
+ * @return void
  */
 static void
 bfa_cee_get_stats_isr(struct bfa_cee_s *cee, bfa_status_t status)
@@ -540,7 +540,7 @@ bfa_cee_get_stats_isr(struct bfa_cee_s *cee, bfa_status_t status)
 		bfa_trc(cee, 0);
 		memcpy(cee->stats, cee->stats_dma.kva,
 			sizeof(struct bfa_cee_stats_s));
-		/*                    */
+		/* swap the cee stats */
 		buffer = (u32 *)cee->stats;
 		for (i = 0; i < (sizeof(struct bfa_cee_stats_s) /
 				 sizeof(u32)); i++)
@@ -555,14 +555,14 @@ bfa_cee_get_stats_isr(struct bfa_cee_s *cee, bfa_status_t status)
 }
 
 /*
-                            
-  
-                                                    
-  
-                                             
-                                                 
-  
-               
+ * bfa_cee_reset_stats_isr()
+ *
+ * @brief CEE ISR for reset-stats responses from f/w
+ *
+ * @param[in] cee - Pointer to the CEE module
+ *            status - Return status from the f/w
+ *
+ * @return void
  */
 static void
 bfa_cee_reset_stats_isr(struct bfa_cee_s *cee, bfa_status_t status)
@@ -574,13 +574,13 @@ bfa_cee_reset_stats_isr(struct bfa_cee_s *cee, bfa_status_t status)
 }
 
 /*
-                    
-  
-                                                                 
-  
-                  
-  
-                             
+ * bfa_cee_meminfo()
+ *
+ * @brief Returns the size of the DMA memory needed by CEE module
+ *
+ * @param[in] void
+ *
+ * @return Size of DMA region
  */
 u32
 bfa_cee_meminfo(void)
@@ -590,15 +590,15 @@ bfa_cee_meminfo(void)
 }
 
 /*
-                      
-  
-                                    
-  
-                                    
-                                                              
-                                                        
-  
-               
+ * bfa_cee_mem_claim()
+ *
+ * @brief Initialized CEE DMA Memory
+ *
+ * @param[in] cee CEE module pointer
+ *            dma_kva Kernel Virtual Address of CEE DMA Memory
+ *            dma_pa  Physical Address of CEE DMA Memory
+ *
+ * @return void
  */
 void
 bfa_cee_mem_claim(struct bfa_cee_s *cee, u8 *dma_kva, u64 dma_pa)
@@ -615,14 +615,14 @@ bfa_cee_mem_claim(struct bfa_cee_s *cee, u8 *dma_kva, u64 dma_pa)
 }
 
 /*
-                     
-  
-         
-                                                         
-  
-                                                       
-  
-                 
+ * bfa_cee_get_attr()
+ *
+ * @brief
+ *   Send the request to the f/w to fetch CEE attributes.
+ *
+ * @param[in] Pointer to the CEE module data structure.
+ *
+ * @return Status
  */
 
 bfa_status_t
@@ -655,14 +655,14 @@ bfa_cee_get_attr(struct bfa_cee_s *cee, struct bfa_cee_attr_s *attr,
 }
 
 /*
-                      
-  
-         
-                                                         
-  
-                                                       
-  
-                 
+ * bfa_cee_get_stats()
+ *
+ * @brief
+ *   Send the request to the f/w to fetch CEE statistics.
+ *
+ * @param[in] Pointer to the CEE module data structure.
+ *
+ * @return Status
  */
 
 bfa_status_t
@@ -695,13 +695,13 @@ bfa_cee_get_stats(struct bfa_cee_s *cee, struct bfa_cee_stats_s *stats,
 }
 
 /*
-                        
-  
-                                      
-  
-                                                       
-  
-                 
+ * bfa_cee_reset_stats()
+ *
+ * @brief Clears CEE Stats in the f/w.
+ *
+ * @param[in] Pointer to the CEE module data structure.
+ *
+ * @return Status
  */
 
 bfa_status_t
@@ -731,13 +731,13 @@ bfa_cee_reset_stats(struct bfa_cee_s *cee,
 }
 
 /*
-                 
-  
-                                                     
-  
-                                                       
-  
-               
+ * bfa_cee_isrs()
+ *
+ * @brief Handles Mail-box interrupts for CEE module.
+ *
+ * @param[in] Pointer to the CEE module data structure.
+ *
+ * @return void
  */
 
 void
@@ -766,14 +766,14 @@ bfa_cee_isr(void *cbarg, struct bfi_mbmsg_s *m)
 }
 
 /*
-                   
-  
-                                       
-  
-                                                       
-                            
-  
-               
+ * bfa_cee_notify()
+ *
+ * @brief CEE module IOC event handler.
+ *
+ * @param[in] Pointer to the CEE module data structure.
+ * @param[in] IOC event type
+ *
+ * @return void
  */
 
 void
@@ -821,17 +821,17 @@ bfa_cee_notify(void *arg, enum bfa_ioc_event_e event)
 }
 
 /*
-                   
-  
-                               
-  
-                                                            
-                                                            
-                                                                      
-                                                                      
-                                                          
-  
-               
+ * bfa_cee_attach()
+ *
+ * @brief CEE module-attach API
+ *
+ * @param[in] cee - Pointer to the CEE module data structure
+ *            ioc - Pointer to the ioc module data structure
+ *            dev - Pointer to the device driver module data structure
+ *                  The device driver specific mbox ISR functions have
+ *                  this pointer as one of the parameters.
+ *
+ * @return void
  */
 void
 bfa_cee_attach(struct bfa_cee_s *cee, struct bfa_ioc_s *ioc,

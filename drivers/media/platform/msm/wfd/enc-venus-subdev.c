@@ -35,7 +35,7 @@ static long venc_secure(struct v4l2_subdev *sd);
 struct index_bitmap {
 	unsigned long *bitmap;
 	int size;
-	int size_bits; /*                                     */
+	int size_bits; /*Size in bits, not necessarily size/8 */
 };
 
 struct venc_inst {
@@ -66,7 +66,7 @@ static const int subscribed_events[] = {
 
 int venc_load_fw(struct v4l2_subdev *sd)
 {
-	/*                                  */
+	/*No need to explicitly load the fw */
 	return 0;
 }
 
@@ -257,14 +257,14 @@ static int venc_vidc_callback_thread(void *data)
 				vb->v4l2_planes[0].bytesused =
 					buffer.m.planes[0].bytesused;
 
-				/*                                      
-                            */
+				/* Buffer is on its way to userspace, so
+				 * invalidate the cache */
 				rc = invalidate_cache(venc_ion_client, mregion);
 				if (rc) {
 					WFD_MSG_WARN(
 						"Failed to invalidate cache %d\n",
 						rc);
-					/*                    */
+					/* Not fatal, move on */
 				}
 
 				inst->vmops.op_buffer_done(
@@ -297,8 +297,8 @@ static long set_default_properties(struct venc_inst *inst)
 {
 	struct v4l2_control ctrl = {0};
 
-	/*                                                      
-                                        */
+	/* Set the IDR period as 1.  The venus core doesn't give
+	 * the sps/pps for I-frames, only IDR. */
 	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD;
 	ctrl.value = 1;
 
@@ -331,7 +331,7 @@ static void unsubscribe_events(struct venc_inst *inst)
 		event.type = subscribed_events[c];
 		rc = msm_vidc_unsubscribe_event(inst->vidc_context, &event);
 		if (rc) {
-			/*                               */
+			/* Just log and ignore failiures */
 			WFD_MSG_WARN("Failed to unsubscribe to event 0x%x\n",
 					subscribed_events[c]);
 		}
@@ -362,8 +362,8 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 	}
 
 	inst->vmops = *vmops;
-	inst->secure = vmops->secure; /*                                  
-                          */
+	inst->secure = vmops->secure; /* We need to inform vidc, but defer
+					 until after s_fmt() */
 	INIT_LIST_HEAD(&inst->registered_output_bufs.list);
 	INIT_LIST_HEAD(&inst->registered_input_bufs.list);
 	init_completion(&inst->dq_complete);
@@ -469,7 +469,7 @@ static long venc_get_buffer_req(struct v4l2_subdev *sd, void *arg)
 	}
 
 	inst = (struct venc_inst *)sd->dev_priv;
-	/*                  */
+	/* Get buffer count */
 	v4l2_bufreq = (struct v4l2_requestbuffers) {
 		.count = bufreq->count,
 		.type = BUF_TYPE_OUTPUT,
@@ -482,7 +482,7 @@ static long venc_get_buffer_req(struct v4l2_subdev *sd, void *arg)
 		goto venc_buf_req_fail;
 	}
 
-	/*                 */
+	/* Get buffer size */
 	v4l2_format.type = BUF_TYPE_OUTPUT;
 	rc = msm_vidc_g_fmt(inst->vidc_context, &v4l2_format);
 	if (rc) {
@@ -522,7 +522,7 @@ static long venc_set_buffer_req(struct v4l2_subdev *sd, void *arg)
 
 	inst = (struct venc_inst *)sd->dev_priv;
 
-	/*                             */
+	/* Attempt to set buffer count */
 	v4l2_bufreq = (struct v4l2_requestbuffers) {
 		.count = bufreq->count,
 		.type = BUF_TYPE_INPUT,
@@ -535,7 +535,7 @@ static long venc_set_buffer_req(struct v4l2_subdev *sd, void *arg)
 		goto venc_buf_req_fail;
 	}
 
-	/*                 */
+	/* Get buffer size */
 	v4l2_format.type = BUF_TYPE_INPUT;
 	rc = msm_vidc_g_fmt(inst->vidc_context, &v4l2_format);
 	if (rc) {
@@ -862,7 +862,7 @@ static long venc_set_output_buffer(struct v4l2_subdev *sd, void *arg)
 
 	inst = (struct venc_inst *)sd->dev_priv;
 
-	/*                                 */
+	/* Check if buf already registered */
 	if (get_registered_mregion(&inst->registered_output_bufs, mregion)) {
 		WFD_MSG_ERR("Duplicate output buffer\n");
 		rc = -EEXIST;
@@ -975,7 +975,7 @@ static long venc_set_format(struct v4l2_subdev *sd, void *arg)
 		goto venc_set_format_fail;
 	}
 
-	/*                                                                    */
+	/* If the device was secured previously, we need to inform vidc _now_ */
 	if (inst->secure) {
 		rc = venc_secure(sd);
 		if (rc) {
@@ -1106,17 +1106,17 @@ static long venc_fill_outbuf(struct v4l2_subdev *sd, void *arg)
 	INIT_WORK(&fbw->work, fill_outbuf_helper);
 	fbw->inst = inst;
 	fbw->mregion = mregion;
-	/*                                                            
-                                                                
-                                                                  
-                                                               
-                                                               
-                                                            
-              
-   
-                                                                   
-                                                 
-  */
+	/* XXX: The need for a wq to qbuf to vidc is necessitated as a
+	 * workaround for a bug in the v4l2 framework. VIDIOC_QBUF from
+	 * triggers a down_read(current->mm->mmap_sem).  There is another
+	 * _read(..) as msm_vidc_qbuf() depends on videobuf2 framework
+	 * as well. However, a _write(..) after the first _read() by a
+	 * different driver will prevent the second _read(...) from
+	 * suceeding.
+	 *
+	 * As we can't modify the framework, we're working around by issue
+	 * by queuing in a different thread effectively.
+	 */
 	queue_work(inst->fill_buf_wq, &fbw->work);
 
 	return 0;
@@ -1181,7 +1181,7 @@ static long venc_encode_frame(struct v4l2_subdev *sd, void *arg)
 
 static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 {
-	/*                                              */
+	/* vidc driver allocates internally on streamon */
 	return 0;
 }
 
@@ -1286,7 +1286,7 @@ venc_free_input_buffer_fail:
 
 static long venc_free_recon_buffers(struct v4l2_subdev *sd, void *arg)
 {
-	/*                                */
+	/* vidc driver takes care of this */
 	return 0;
 }
 
@@ -1440,9 +1440,9 @@ long venc_munmap(struct v4l2_subdev *sd, void *arg)
 static long venc_set_framerate_mode(struct v4l2_subdev *sd,
 				void *arg)
 {
-	/*                                                    
-                                                       
-                   */
+	/* TODO: Unsupported for now, but return false success
+	 * to preserve binary compatibility for userspace apps
+	 * across targets */
 	return 0;
 }
 

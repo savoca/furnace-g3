@@ -8,13 +8,13 @@
 #ifdef __KERNEL__
 
 /*
-                                                         
-                                                
-                                        
+ * R/W semaphores for PPC using the stuff in lib/rwsem.c.
+ * Adapted largely from include/asm-i386/rwsem.h
+ * by Paul Mackerras <paulus@samba.org>.
  */
 
 /*
-                           
+ * the semaphore definition
  */
 #ifdef CONFIG_PPC64
 # define RWSEM_ACTIVE_MASK		0xffffffffL
@@ -29,7 +29,7 @@
 #define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
 
 /*
-                   
+ * lock for reading
  */
 static inline void __down_read(struct rw_semaphore *sem)
 {
@@ -51,7 +51,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
 }
 
 /*
-                   
+ * lock for writing
  */
 static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
 {
@@ -78,7 +78,7 @@ static inline int __down_write_trylock(struct rw_semaphore *sem)
 }
 
 /*
-                       
+ * unlock after reading
  */
 static inline void __up_read(struct rw_semaphore *sem)
 {
@@ -90,7 +90,7 @@ static inline void __up_read(struct rw_semaphore *sem)
 }
 
 /*
-                       
+ * unlock after writing
  */
 static inline void __up_write(struct rw_semaphore *sem)
 {
@@ -100,7 +100,7 @@ static inline void __up_write(struct rw_semaphore *sem)
 }
 
 /*
-                                     
+ * implement atomic add functionality
  */
 static inline void rwsem_atomic_add(long delta, struct rw_semaphore *sem)
 {
@@ -108,7 +108,7 @@ static inline void rwsem_atomic_add(long delta, struct rw_semaphore *sem)
 }
 
 /*
-                                    
+ * downgrade write lock to read lock
  */
 static inline void __downgrade_write(struct rw_semaphore *sem)
 {
@@ -121,12 +121,12 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
 }
 
 /*
-                                           
+ * implement exchange and add functionality
  */
 static inline long rwsem_atomic_update(long delta, struct rw_semaphore *sem)
 {
 	return atomic_long_add_return(delta, (atomic_long_t *)&sem->count);
 }
 
-#endif	/*            */
-#endif	/*                      */
+#endif	/* __KERNEL__ */
+#endif	/* _ASM_POWERPC_RWSEM_H */

@@ -37,8 +37,8 @@
 #define user_mode(r) UPT_IS_USER(&(r)->regs)
 
 /*
-                                                                      
-                                              
+ * Forward declaration to avoid including sysdep/tls.h, which causes a
+ * circular include, and compilation failures.
  */
 struct user_desc;
 

@@ -23,9 +23,9 @@
  */
 
 /*
-                           
-                           
-                           
+ * ------------------------
+ * start of cfag12864b code
+ * ------------------------
  */
 
 #include <string.h>
@@ -56,11 +56,11 @@ unsigned char * cfag12864b_mem;
 unsigned char cfag12864b_buffer[CFAG12864B_SIZE];
 
 /*
-                                       
-  
-                             
-                              
-                              
+ * init a cfag12864b framebuffer device
+ *
+ * No error:       return = 0
+ * Unable to open: return = -1
+ * Unable to mmap: return = -2
  */
 static int cfag12864b_init(char *path)
 {
@@ -79,7 +79,7 @@ static int cfag12864b_init(char *path)
 }
 
 /*
-                                       
+ * exit a cfag12864b framebuffer device
  */
 static void cfag12864b_exit(void)
 {
@@ -88,7 +88,7 @@ static void cfag12864b_exit(void)
 }
 
 /*
-                   
+ * set (x, y) pixel
  */
 static void cfag12864b_set(unsigned char x, unsigned char y)
 {
@@ -98,7 +98,7 @@ static void cfag12864b_set(unsigned char x, unsigned char y)
 }
 
 /*
-                     
+ * unset (x, y) pixel
  */
 static void cfag12864b_unset(unsigned char x, unsigned char y)
 {
@@ -108,10 +108,10 @@ static void cfag12864b_unset(unsigned char x, unsigned char y)
 }
 
 /*
-                       
-  
-                        
-                        
+ * is set (x, y) pixel?
+ *
+ * Pixel off: return = 0
+ * Pixel on:  return = 1
  */
 static unsigned char cfag12864b_isset(unsigned char x, unsigned char y)
 {
@@ -124,7 +124,7 @@ static unsigned char cfag12864b_isset(unsigned char x, unsigned char y)
 }
 
 /*
-                   
+ * not (x, y) pixel
  */
 static void cfag12864b_not(unsigned char x, unsigned char y)
 {
@@ -135,7 +135,7 @@ static void cfag12864b_not(unsigned char x, unsigned char y)
 }
 
 /*
-                        
+ * fill (set all pixels)
  */
 static void cfag12864b_fill(void)
 {
@@ -146,7 +146,7 @@ static void cfag12864b_fill(void)
 }
 
 /*
-                           
+ * clear (unset all pixels)
  */
 static void cfag12864b_clear(void)
 {
@@ -157,10 +157,10 @@ static void cfag12864b_clear(void)
 }
 
 /*
-                           
-  
-                        
-                        
+ * format a [128*64] matrix
+ *
+ * Pixel off: src[i] = 0
+ * Pixel on:  src[i] > 0
  */
 static void cfag12864b_format(unsigned char * matrix)
 {
@@ -180,7 +180,7 @@ static void cfag12864b_format(unsigned char * matrix)
 }
 
 /*
-                     
+ * blit buffer to lcd
  */
 static void cfag12864b_blit(void)
 {
@@ -188,9 +188,9 @@ static void cfag12864b_blit(void)
 }
 
 /*
-                         
-                         
-                         
+ * ----------------------
+ * end of cfag12864b code
+ * ----------------------
  */
 
 #include <stdio.h>

@@ -27,4 +27,4 @@ debug_outputf(const char *level,
 #endif
     ;
 
-#endif				/*                 */
+#endif				/* DEBUG_OUTPUTF_H */

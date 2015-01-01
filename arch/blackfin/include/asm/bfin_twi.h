@@ -12,13 +12,13 @@
 #include <linux/types.h>
 
 /*
-                                                                     
-                                                                    
+ * All Blackfin system MMRs are padded to 32bits even if the register
+ * itself is only 16bits.  So use a helper macro to streamline this.
  */
 #define __BFP(m) u16 m; u16 __pad_##m
 
 /*
-                            
+ * bfin twi registers layout
  */
 struct bfin_twi_regs {
 	__BFP(clkdiv);

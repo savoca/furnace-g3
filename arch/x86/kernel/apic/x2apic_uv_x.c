@@ -39,7 +39,7 @@
 #include <asm/emergency-restart.h>
 #include <asm/nmi.h>
 
-/*                                                        */
+/* BMC sets a bit this MMR non-zero before sending an NMI */
 #define UVH_NMI_MMR				UVH_SCRATCH5
 #define UVH_NMI_MMR_CLEAR			(UVH_NMI_MMR + 8)
 #define UV_NMI_PENDING_MASK			(1UL << 63)
@@ -86,7 +86,7 @@ static int __init early_get_pnodeid(void)
 	union uvh_rh_gam_config_mmr_u  m_n_config;
 	int pnode;
 
-	/*                                                 */
+	/* Currently, all blades have same revision number */
 	node_id.v = uv_early_read_mmr(UVH_NODE_ID);
 	m_n_config.v = uv_early_read_mmr(UVH_RH_GAM_CONFIG_MMR);
 	uv_min_hub_revision_id = node_id.s.revision;
@@ -106,15 +106,15 @@ static void __init early_get_apic_pnode_shift(void)
 	uvh_apicid.v = uv_early_read_mmr(UVH_APICID);
 	if (!uvh_apicid.v)
 		/*
-                                
-   */
+		 * Old bios, use default value
+		 */
 		uvh_apicid.s.pnode_shift = UV_APIC_PNODE_SHIFT;
 }
 
 /*
-                                                                    
-                                                                    
-                                                        
+ * Add an extra bit as dictated by bios to the destination apicid of
+ * interrupts potentially passing through the UV HUB.  This prevents
+ * a deadlock between interrupts and IO port operations.
  */
 static void __init uv_set_apicid_hibit(void)
 {
@@ -283,9 +283,9 @@ static void uv_init_apic_ldr(void)
 static unsigned int uv_cpu_mask_to_apicid(const struct cpumask *cpumask)
 {
 	/*
-                                                                     
-                             
-  */
+	 * We're using fixed IRQ delivery, can only return one phys APIC ID.
+	 * May as well be the first.
+	 */
 	int cpu = cpumask_first(cpumask);
 
 	if ((unsigned)cpu < nr_cpu_ids)
@@ -301,9 +301,9 @@ uv_cpu_mask_to_apicid_and(const struct cpumask *cpumask,
 	int cpu;
 
 	/*
-                                                                     
-                             
-  */
+	 * We're using fixed IRQ delivery, can only return one phys APIC ID.
+	 * May as well be the first.
+	 */
 	for_each_cpu_and(cpu, cpumask, andmask) {
 		if (cpumask_test_cpu(cpu, cpu_online_mask))
 			break;
@@ -325,7 +325,7 @@ static unsigned long set_apic_id(unsigned int id)
 {
 	unsigned long x;
 
-	/*                             */
+	/* maskout x2apic_extra_bits ? */
 	x = id;
 	return x;
 }
@@ -360,7 +360,7 @@ static struct apic __refdata apic_x2apic_uv_x = {
 	.apic_id_registered		= uv_apic_id_registered,
 
 	.irq_delivery_mode		= dest_Fixed,
-	.irq_dest_mode			= 0, /*          */
+	.irq_dest_mode			= 0, /* physical */
 
 	.target_cpus			= uv_target_cpus,
 	.disable_esr			= 0,
@@ -416,7 +416,7 @@ static __cpuinit void set_x2apic_extra_bits(int pnode)
 }
 
 /*
-                      
+ * Called on boot cpu.
  */
 static __init int boot_pnode_to_blade(int pnode)
 {
@@ -535,33 +535,33 @@ static __init void uv_rtc_init(void)
 		printk(KERN_WARNING
 			"unable to determine platform RTC clock frequency, "
 			"guessing.\n");
-		/*                                                 */
+		/* BIOS gives wrong value for clock freq. so guess */
 		sn_rtc_cycles_per_second = 1000000000000UL / 30000UL;
 	} else
 		sn_rtc_cycles_per_second = ticks_per_sec;
 }
 
 /*
-                         
+ * percpu heartbeat timer
  */
 static void uv_heartbeat(unsigned long ignored)
 {
 	struct timer_list *timer = &uv_hub_info->scir.timer;
 	unsigned char bits = uv_hub_info->scir.state;
 
-	/*                    */
+	/* flip heartbeat bit */
 	bits ^= SCIR_CPU_HEARTBEAT;
 
-	/*                   */
+	/* is this cpu idle? */
 	if (idle_cpu(raw_smp_processor_id()))
 		bits &= ~SCIR_CPU_ACTIVITY;
 	else
 		bits |= SCIR_CPU_ACTIVITY;
 
-	/*                                        */
+	/* update system controller interface reg */
 	uv_set_scir_bits(bits);
 
-	/*                          */
+	/* enable next timer period */
 	mod_timer_pinned(timer, jiffies + SCIR_CPU_HB_INTERVAL);
 }
 
@@ -576,7 +576,7 @@ static void __cpuinit uv_heartbeat_enable(int cpu)
 		add_timer_on(timer, cpu);
 		uv_cpu_hub_info(cpu)->scir.enabled = 1;
 
-		/*                                      */
+		/* also ensure that boot cpu is enabled */
 		cpu = 0;
 	}
 }
@@ -592,7 +592,7 @@ static void __cpuinit uv_heartbeat_disable(int cpu)
 }
 
 /*
-                       
+ * cpu hotplug notifier
  */
 static __cpuinit int uv_scir_cpu_notify(struct notifier_block *self,
 				       unsigned long action, void *hcpu)
@@ -617,7 +617,7 @@ static __init void uv_scir_register_cpu_notifier(void)
 	hotcpu_notifier(uv_scir_cpu_notify, 0);
 }
 
-#else /*                     */
+#else /* !CONFIG_HOTPLUG_CPU */
 
 static __init void uv_scir_register_cpu_notifier(void)
 {
@@ -635,9 +635,9 @@ static __init int uv_init_heartbeat(void)
 
 late_initcall(uv_init_heartbeat);
 
-#endif /*                     */
+#endif /* !CONFIG_HOTPLUG_CPU */
 
-/*                                                 */
+/* Direct Legacy VGA I/O traffic to designated IOH */
 int uv_set_vga_state(struct pci_dev *pdev, bool decode,
 		      unsigned int command_bits, u32 flags)
 {
@@ -662,12 +662,12 @@ int uv_set_vga_state(struct pci_dev *pdev, bool decode,
 }
 
 /*
-                                                             
-                                   
+ * Called on each cpu to initialize the per_cpu UV data area.
+ * FIXME: hotplug not supported yet
  */
 void __cpuinit uv_cpu_init(void)
 {
-	/*                                                      */
+	/* CPU 0 initilization will be done via uv_system_init. */
 	if (!uv_blade_info)
 		return;
 
@@ -678,7 +678,7 @@ void __cpuinit uv_cpu_init(void)
 }
 
 /*
-                                             
+ * When NMI is received, print a stack trace.
  */
 int uv_handle_nmi(unsigned int reason, struct pt_regs *regs)
 {
@@ -686,11 +686,11 @@ int uv_handle_nmi(unsigned int reason, struct pt_regs *regs)
 	int bid;
 
 	/*
-                                                                  
-                                                           
-                                                          
-                                                    
-  */
+	 * Each blade has an MMR that indicates when an NMI has been sent
+	 * to cpus on the blade. If an NMI is detected, atomically
+	 * clear the MMR and update a per-blade NMI count used to
+	 * cause each cpu on the blade to notice a new NMI.
+	 */
 	bid = uv_numa_blade_id();
 	real_uv_nmi = (uv_read_local_mmr(UVH_NMI_MMR) & UV_NMI_PENDING_MASK);
 
@@ -710,9 +710,9 @@ int uv_handle_nmi(unsigned int reason, struct pt_regs *regs)
 	__get_cpu_var(cpu_last_nmi_count) = uv_blade_info[bid].nmi_count;
 
 	/*
-                                                
-                                    
-  */
+	 * Use a lock so only one cpu prints at a time.
+	 * This prevents intermixed output.
+	 */
 	spin_lock(&uv_nmi_lock);
 	pr_info("UV NMI stack dump cpu %u:\n", smp_processor_id());
 	dump_stack();
@@ -732,8 +732,8 @@ void uv_nmi_init(void)
 	unsigned int value;
 
 	/*
-                          
-  */
+	 * Unmask NMI on all cpus
+	 */
 	value = apic_read(APIC_LVT1) | APIC_DM_NMI;
 	value &= ~APIC_LVT_MASKED;
 	apic_write(APIC_LVT1, value);
@@ -776,7 +776,7 @@ void __init uv_system_init(void)
 		uv_possible_blades +=
 		  hweight64(uv_read_local_mmr( UVH_NODE_PRESENT_TABLE + i * 8));
 
-	/*                                                  */
+	/* uv_num_possible_blades() is really the hub count */
 	printk(KERN_INFO "UV: Found %d blades, %d hubs\n",
 			is_uv1_hub() ? uv_num_possible_blades() :
 			(uv_num_possible_blades() + 1) / 2,
@@ -827,8 +827,8 @@ void __init uv_system_init(void)
 
 		nid = cpu_to_node(cpu);
 		/*
-                                                                      
-   */
+		 * apic_pnode_shift must be set before calling uv_apicid_to_pnode();
+		 */
 		uv_cpu_hub_info(cpu)->pnode_mask = pnode_mask;
 		uv_cpu_hub_info(cpu)->apic_pnode_shift = uvh_apicid.s.pnode_shift;
 		uv_cpu_hub_info(cpu)->hub_revision = uv_hub_info->hub_revision;
@@ -842,7 +842,7 @@ void __init uv_system_init(void)
 		lcpu = uv_blade_info[blade].nr_possible_cpus;
 		uv_blade_info[blade].nr_possible_cpus++;
 
-		/*                                              */
+		/* Any node on the blade, else will contain -1. */
 		uv_blade_info[blade].memory_nid = nid;
 
 		uv_cpu_hub_info(cpu)->lowmem_remap_base = lowmem_redir_base;
@@ -862,7 +862,7 @@ void __init uv_system_init(void)
 		uv_cpu_to_blade[cpu] = blade;
 	}
 
-	/*                                             */
+	/* Add blade/pnode info for nodes without cpus */
 	for_each_online_node(nid) {
 		if (uv_node_to_blade[nid] >= 0)
 			continue;
@@ -881,13 +881,13 @@ void __init uv_system_init(void)
 	uv_register_nmi_notifier();
 	proc_mkdir("sgi_uv", NULL);
 
-	/*                                             */
+	/* register Legacy VGA I/O redirection handler */
 	pci_register_set_vga_state(uv_set_vga_state);
 
 	/*
-                                                                    
-                                           
-  */
+	 * For a kdump kernel the reset must be BOOT_ACPI, not BOOT_EFI, as
+	 * EFI is not enabled in the kdump kernel.
+	 */
 	if (is_kdump_kernel())
 		reboot_type = BOOT_ACPI;
 }

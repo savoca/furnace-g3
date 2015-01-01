@@ -62,7 +62,7 @@ static void __init socrates_pic_init(void)
 }
 
 /*
-                         
+ * Setup the architecture
  */
 static void __init socrates_setup_arch(void)
 {
@@ -82,7 +82,7 @@ static void __init socrates_setup_arch(void)
 machine_device_initcall(socrates, mpc85xx_common_publish_devices);
 
 /*
-                                                   
+ * Called very early, device-tree isn't unflattened
  */
 static int __init socrates_probe(void)
 {

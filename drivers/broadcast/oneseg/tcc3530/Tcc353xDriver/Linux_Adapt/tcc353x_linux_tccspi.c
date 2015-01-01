@@ -9,7 +9,7 @@
 #include "tcpal_os.h"
 
 /*
-                            
+#define _USE_FF_FOR_ALL_DMA_
 */
 
 I32S Tcc353xTccspiClose(I32S _moduleIndex);
@@ -53,7 +53,7 @@ I32S Tcc353xTccspiOpen(I32S _moduleIndex)
 	I32S ret;
 	ret = TCC353X_RETURN_FAIL;
 	
-	/*                    */
+	/* exception handling */
 	if (_moduleIndex == 0) {
 		if (gTccSpiHanleInit0 != 0 && gTccSpiHanleInit1 == 0)
 			Tcc353xTccspiClose(_moduleIndex);
@@ -62,7 +62,7 @@ I32S Tcc353xTccspiOpen(I32S _moduleIndex)
 			Tcc353xTccspiClose(_moduleIndex);
 	}
 
-	/*                */
+	/* normal process */
 	if (_moduleIndex == 0)
 		gTccSpiHanleInit0 = 1;
 	else
@@ -78,7 +78,7 @@ I32S Tcc353xTccspiOpen(I32S _moduleIndex)
 
 	ret = Tcc353xTccspiSetup(_moduleIndex);
 
-	/*            */
+	/* need reset */
 
 	return ret;
 }

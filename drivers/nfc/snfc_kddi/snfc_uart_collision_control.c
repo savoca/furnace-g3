@@ -1,26 +1,26 @@
 /*
-                                
-    
+ *  snfc_uart_collsion_control.c
+ *  
  */
  /*
-                           
+  *    Include header files
   */
 #include "snfc_uart_collision_control.h"
 #include <mach/board_lge.h>
 
 /*
-        
+*	Define
 */
 #define KOTO_STATE_AVAILABLE_POLL_SLEEP_VALUE_NORMAL 11
 #define KOTO_STATE_AVAILABLE_POLL_SLEEP_VALUE_FASTER 12
 
 /*
-                      
+*	Internal definitions
 */
 /*
-                    
+*	Internal variables
 */
-static int isopen_snfcuartcontrol = 0; //                      
+static int isopen_snfcuartcontrol = 0; // 0 : No open 1 : Opend
 _e_snfc_uart_status g_uartcollisoncontrol = UART_STATUS_KOTO_OFF;
 static int gpio_init = 0;
 static int forced_hsel_up_flag=0;
@@ -34,13 +34,13 @@ extern struct snfc_gp snfc_gpios;
 extern struct snfc_i2c_dev snfc_i2c_dev;
 
 /* 
-                       
+ *	Function definitions
  */
 
 /*
-                                           
-          
-           
+* Description : open uart collision control
+* Input : 
+* Output : 
 */
 void __snfc_uart_control_set_uart_status(_e_snfc_uart_status uart_status)
 {
@@ -60,9 +60,9 @@ void __snfc_uart_control_set_uart_status(_e_snfc_uart_status uart_status)
 
 EXPORT_SYMBOL(__snfc_uart_control_set_uart_status);
 /*
-                                           
-          
-           
+* Description : open uart collision control
+* Input : 
+* Output : 
 */
 _e_snfc_uart_status __snfc_uart_control_get_uart_status(void)
 {
@@ -70,9 +70,9 @@ _e_snfc_uart_status __snfc_uart_control_get_uart_status(void)
 }
 EXPORT_SYMBOL(__snfc_uart_control_get_uart_status);
 /*
-                                           
-          
-           
+* Description : open uart collision control
+* Input : 
+* Output : 
 */
 static int snfc_uart_control_open(struct inode *inode, struct file *fp)
 {
@@ -105,9 +105,9 @@ static int snfc_uart_control_open(struct inode *inode, struct file *fp)
 }
 
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 static int snfc_uart_control_release (struct inode *inode, struct file *fp)
 {
@@ -126,19 +126,19 @@ static int snfc_uart_control_release (struct inode *inode, struct file *fp)
 	return 0;
 }
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 {
-	//                 
-	//          
+	//ioctl_buf *k_buf;
+	//int i,err;
 	int size;
 	_e_snfc_uart_status current_status;
        int break_cnt;
 	int autopoll_wait_cnt;
-	unsigned char write_buf = 0x00/*                 */;
+	unsigned char write_buf = 0x00/*, read_buf = 0x00*/;
 	int rc =0;
 	int snfcbootmode;
     
@@ -148,7 +148,7 @@ static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigne
 	if(cmd == IOCTL_SNFC_READ_BOOTMODE){
 	        snfcbootmode = lge_get_boot_mode();
 	        SNFC_DEBUG_MSG("[snfc_uart_control] read boot mode %d \n",snfcbootmode);
-	         //                                                                                                           
+	         // 0 : NORMAL, 1 : CHARGER, 2 : CHARGERLOGO, 3 : FACTORY, 4 : FACTORY2, 5 : PIFBOOT, 6 : PIFBOOT2, 7 : MINIOS
 	        return snfcbootmode;
 	}         
 	current_status = __snfc_uart_control_get_uart_status();
@@ -186,7 +186,7 @@ static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigne
 			snfc_gpio_write(snfc_gpios.gpio_pon, GPIO_HIGH_VALUE);
 
 			#ifndef CONFIG_CXD2235AGG_GJ_KDDI	
-				//                                                                    
+				//SNFC_DEBUG_MSG("[snfc_uart_control] !!!! RFS disable start !!!!\n");
 				disable_irq(gpio_to_irq(snfc_gpios.gpio_rfs));
 			#endif
 			
@@ -222,7 +222,7 @@ static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigne
 				break;
 			snfc_gpio_write(snfc_gpios.gpio_hsel, GPIO_HIGH_VALUE);				
 			snfc_gpio_write(snfc_gpios.gpio_pon, GPIO_HIGH_VALUE);
-			//           
+			//mdelay(10);
 			SNFC_DEBUG_MSG_LOW("[snfc_uart_control] IOCTL_SNFC_START_INTU - end\n");
 			break;
 			
@@ -265,22 +265,22 @@ static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigne
 				__snfc_uart_control_set_uart_status(UART_STATUS_READY);
 			break;
 
-		case IOCTL_SNFC_BOOT_CEN_HI:		//                
+		case IOCTL_SNFC_BOOT_CEN_HI:		//Kernel init only
 			SNFC_DEBUG_MSG_LOW("[snfc_uart_control] ioctl_snfc_boot_hi\n");
 			SNFC_DEBUG_MSG_MIDDLE("[snfc_uart_control] CEN = High (UNLOCK) \n");
-			write_buf = 0x81; //             
-			//                            
+			write_buf = 0x81; // set unlock  
+			//mutex_lock(&nfc_cen_mutex);	
 			rc = snfc_i2c_write(0x02, &write_buf, 1, snfc_i2c_dev.client);
-			//                                
+			//mutex_unlock(&nfc_cen_mutex);   
 			break;
 			
-		case IOCTL_SNFC_BOOT_CEN_LO:	//                
+		case IOCTL_SNFC_BOOT_CEN_LO:	//Kernel init only
 			SNFC_DEBUG_MSG_LOW("[snfc_uart_control] ioctl_snfc_boot_low\n");
 			SNFC_DEBUG_MSG_MIDDLE("[snfc_uart_control] CEN = Low (LOCK) \n");
-			write_buf = 0x80; //         
-			//                           
+			write_buf = 0x80; // set lock
+			//mutex_lock(&nfc_cen_mutex);
 			rc = snfc_i2c_write(0x02, &write_buf, 1, snfc_i2c_dev.client);
-			//                                  
+			//mutex_unlock(&nfc_cen_mutex);  			
 			break;
             
 	       case IOCTL_SNFC_HVDD_DOWN_SET:
@@ -298,7 +298,7 @@ static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigne
 			if(current_status != UART_STATUS_FOR_NFC)
 			{
 				SNFC_DEBUG_MSG("[snfc_uart_control] IOCTL_SNFC_END, UART is not used to NFC\n");
-				//          
+				//return -2;
 			}				
 			snfc_gpio_write(snfc_gpios.gpio_hsel, GPIO_LOW_VALUE);
 			snfc_gpio_write(snfc_gpios.gpio_pon, GPIO_LOW_VALUE);	
@@ -307,7 +307,7 @@ static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigne
 			#ifndef CONFIG_CXD2235AGG_GJ_KDDI	
 				if(autopoll_status == 1) 
 				{
-					//                                                                  
+					//SNFC_DEBUG_MSG("[snfc_uart_control] !!!! RFS disable end !!!!\n");
 					enable_irq(gpio_to_irq(snfc_gpios.gpio_rfs));
 				}
 			#endif
@@ -322,9 +322,9 @@ static long snfc_uart_control_ioctl(struct file *flip, unsigned int cmd, unsigne
 	return 0;
 }
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 int snfc_temp_flag = 0;
 static int snfc_uart_control_read(struct file *pf, char *pbuf, size_t size, loff_t *pos)
@@ -348,9 +348,9 @@ static int snfc_uart_control_read(struct file *pf, char *pbuf, size_t size, loff
 	return size;
 }
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 static int snfc_uart_control_write(struct file *pf, const char *pbuf, size_t size, loff_t *pos)
 {
@@ -366,7 +366,7 @@ static int snfc_uart_control_write(struct file *pf, const char *pbuf, size_t siz
 		return rc;
 	}
 	
-	//                        
+	//if(autopoll_status == 1)
 		koto_state = new_status;	
         
 	SNFC_DEBUG_MSG_LOW("[snfc_uart_control] snfc_uart_control_write - end:koto_abnormal=%d \n",koto_state);
@@ -425,7 +425,7 @@ int snfc_uart_control_probe(struct device_node *np)
 	
     snfc_gpio_open(snfc_gpios.gpio_uicc_con,GPIO_DIRECTION_OUT,GPIO_LOW_VALUE);
 
-    /*                          */
+    /* register the device file */
     rc = misc_register(&snfc_uart_control_device);
     if (rc)
     {
@@ -436,19 +436,19 @@ int snfc_uart_control_probe(struct device_node *np)
 }
 void snfc_uart_control_remove(void)
 {
-    /*                            */
+    /* deregister the device file */
     misc_deregister(&snfc_uart_control_device);
 }
 
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 #if 0
 static int snfc_uart_control_init(void)
 {
-//          
+//	int rc=0;
 
 	SNFC_DEBUG_MSG_LOW("[snfc_uart_control] snfc_uart_control_init - start \n");
 
@@ -458,9 +458,9 @@ static int snfc_uart_control_init(void)
 }
 
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 static void snfc_uart_control_exit(void)
 {

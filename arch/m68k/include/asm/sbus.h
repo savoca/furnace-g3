@@ -1,5 +1,5 @@
 /*
-                                                                         
+ * some sbus structures and macros to make usage of sbus drivers possible
  */
 
 #ifndef __M68K_SBUS_H
@@ -12,8 +12,8 @@ struct sbus_dev {
 	} reg_addrs[1];
 };
 
-/*                                                                            */
-/*                                    */
+/* sbus IO functions stolen from include/asm-sparc/io.h for the serial driver */
+/* No SBUS on the Sun3, kludge -- sam */
 
 static inline void _sbus_writeb(unsigned char val, unsigned long addr)
 {

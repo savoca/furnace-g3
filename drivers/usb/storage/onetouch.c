@@ -50,18 +50,18 @@ static void onetouch_release_input(void *onetouch_);
 struct usb_onetouch {
 	char name[128];
 	char phys[64];
-	struct input_dev *dev;	/*                        */
-	struct usb_device *udev;	/*            */
+	struct input_dev *dev;	/* input device interface */
+	struct usb_device *udev;	/* usb device */
 
-	struct urb *irq;	/*                             */
-	unsigned char *data;	/*            */
+	struct urb *irq;	/* urb for interrupt in report */
+	unsigned char *data;	/* input data */
 	dma_addr_t data_dma;
 	unsigned int is_open:1;
 };
 
 
 /*
-                       
+ * The table of devices
  */
 #define UNUSUAL_DEV(id_vendor, id_product, bcdDeviceMin, bcdDeviceMax, \
 		    vendorName, productName, useProtocol, useTransport, \
@@ -71,14 +71,14 @@ struct usb_onetouch {
 
 static struct usb_device_id onetouch_usb_ids[] = {
 #	include "unusual_onetouch.h"
-	{ }		/*                   */
+	{ }		/* Terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, onetouch_usb_ids);
 
 #undef UNUSUAL_DEV
 
 /*
-                  
+ * The flags table
  */
 #define UNUSUAL_DEV(idVendor, idProduct, bcdDeviceMin, bcdDeviceMax, \
 		    vendor_name, product_name, use_protocol, use_transport, \
@@ -93,7 +93,7 @@ MODULE_DEVICE_TABLE(usb, onetouch_usb_ids);
 
 static struct us_unusual_dev onetouch_unusual_dev_list[] = {
 #	include "unusual_onetouch.h"
-	{ }		/*                   */
+	{ }		/* Terminating entry */
 };
 
 #undef UNUSUAL_DEV
@@ -108,14 +108,14 @@ static void usb_onetouch_irq(struct urb *urb)
 	int retval;
 
 	switch (status) {
-	case 0:			/*         */
+	case 0:			/* success */
 		break;
-	case -ECONNRESET:	/*        */
+	case -ECONNRESET:	/* unlink */
 	case -ENOENT:
 	case -ESHUTDOWN:
 		return;
-	/*                                */
-	default:		/*       */
+	/* -EPIPE:  should clear the halt */
+	default:		/* error */
 		goto resubmit;
 	}
 
@@ -172,7 +172,7 @@ static void usb_onetouch_pm_hook(struct us_data *us, int action)
 		}
 	}
 }
-#endif /*           */
+#endif /* CONFIG_PM */
 
 static int onetouch_connect_input(struct us_data *ss)
 {
@@ -295,7 +295,7 @@ static int onetouch_probe(struct usb_interface *intf,
 	if (result)
 		return result;
 
-	/*                                    */
+	/* Use default transport and protocol */
 
 	result = usb_stor_probe2(us);
 	return result;

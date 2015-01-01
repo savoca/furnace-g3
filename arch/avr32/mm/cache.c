@@ -16,8 +16,8 @@
 #include <asm/syscalls.h>
 
 /*
-                                                                      
-                                                  
+ * If you attempt to flush anything more than this, you need superuser
+ * privileges.  The value is completely arbitrary.
  */
 #define CACHEFLUSH_MAX_LEN	1024
 
@@ -28,9 +28,9 @@ void invalidate_dcache_region(void *start, size_t size)
 	linesz = boot_cpu_data.dcache.linesz;
 	mask = linesz - 1;
 
-	/*                                                         
-                                                         
-  */
+	/* when first and/or last cachelines are shared, flush them
+	 * instead of invalidating ... never discard valid data!
+	 */
 	begin = (unsigned long)start;
 	end = begin + size;
 
@@ -43,7 +43,7 @@ void invalidate_dcache_region(void *start, size_t size)
 		end &= ~mask;
 	}
 
-	/*                                             */
+	/* remaining cachelines only need invalidation */
 	for (v = begin; v < end; v += linesz)
 		invalidate_dcache_line((void *)v);
 	flush_write_buffer();
@@ -101,7 +101,7 @@ static inline void __flush_icache_range(unsigned long start, unsigned long end)
 }
 
 /*
-                                                     
+ * This one is called after a module has been loaded.
  */
 void flush_icache_range(unsigned long start, unsigned long end)
 {
@@ -113,7 +113,7 @@ void flush_icache_range(unsigned long start, unsigned long end)
 }
 
 /*
-                                                           
+ * This one is called from __do_fault() and do_swap_page().
  */
 void flush_icache_page(struct vm_area_struct *vma, struct page *page)
 {

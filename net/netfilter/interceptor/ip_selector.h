@@ -53,4 +53,4 @@ struct IPSelectorGroup {
 	uint32_t bytecount;
 };
 
-#endif				/*               */
+#endif				/* IP_SELECTOR_H */

@@ -1,5 +1,5 @@
 /*
-                                                
+ * dac.h - sysfs attributes associated with DACs
  */
 
 #define IIO_DEV_ATTR_OUT_RAW(_num, _store, _addr)				\

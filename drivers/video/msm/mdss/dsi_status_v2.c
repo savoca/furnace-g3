@@ -32,15 +32,15 @@
 
 #define STATUS_CHECK_INTERVAL 5000
 
-/* 
-                                                                  
-                                               
-                                                                
-                          
-                                                                      
-                    
-                                            
-                                                                   
+/**
+ * dsi_status_data - Stores all the data necessary for this module
+ * @fb_notif: Used to egister for the fb events
+ * @live_status: Delayed worker structure, used to associate the
+ * delayed worker function
+ * @mfd: Used to store the msm_fb_data_type received when the notifier
+ * call back happens
+ * @root: Stores the dir created by debuugfs
+ * @debugfs_reset_panel: The debugfs variable used to inject errors
  */
 
 struct dsi_status_data {
@@ -102,16 +102,16 @@ void check_dsi_ctrl_status(struct work_struct *work)
 	}
 }
 
-/* 
-                                                                           
-                   
-                          
-                                        
-                                   
-  
-                                                                             
-                                                                        
-                                           
+/**
+ * fb_notifier_callback() - Call back function for the fb_register_client()
+ * notifying events
+ * @self  : notifier block
+ * @event : The event that was triggered
+ * @data  : Of type struct fb_event
+ *
+ * - This function listens for FB_BLANK_UNBLANK and FB_BLANK_POWERDOWN events
+ * - Based on the event the delayed work is either scheduled again after
+ * PANEL_STATUS_CHECK_INTERVAL or cancelled
  */
 static int fb_event_callback(struct notifier_block *self,
 				unsigned long event, void *data)

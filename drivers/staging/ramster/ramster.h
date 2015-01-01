@@ -10,12 +10,12 @@
 #define _RAMSTER_H_
 
 /*
-                          
-                       
-                                                   
-                          
-                      
-                       
+ * format of remote pampd:
+ *   bit 0 == intransit
+ *   bit 1 == is_remote... if this bit is set, then
+ *   bit 2-9 == remotenode
+ *   bit 10-22 == size
+ *   bit 23-30 == cksum
  */
 #define FAKE_PAMPD_INTRANSIT_BITS	1
 #define FAKE_PAMPD_ISREMOTE_BITS	1
@@ -87,7 +87,7 @@ static inline bool pampd_is_intransit(void *pampd)
 		FAKE_PAMPD_MASK(FAKE_PAMPD_INTRANSIT_BITS);
 }
 
-/*                                                                         */
+/* note that it is a BUG for intransit to be set without isremote also set */
 static inline void *pampd_mark_intransit(void *pampd)
 {
 	unsigned long fake_pampd = (unsigned long)pampd;
@@ -115,4 +115,4 @@ extern int ramster_remote_flush_object(struct tmem_xhandle *, int);
 extern int r2net_register_handlers(void);
 extern int r2net_remote_target_node_set(int);
 
-#endif /*         */
+#endif /* _TMEM_H */

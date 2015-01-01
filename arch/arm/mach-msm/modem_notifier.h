@@ -11,8 +11,8 @@
  *
  */
 /*
-                             
-  
+ * Modem Restart Notifier API
+ *
  */
 
 #ifndef _MODEM_NOTIFIER_H
@@ -32,4 +32,4 @@ extern void modem_queue_end_reset_notify(void);
 extern void modem_queue_smsm_init_notify(void);
 extern int __init msm_init_modem_notifier_list(void);
 
-#endif /*                   */
+#endif /* _MODEM_NOTIFIER_H */

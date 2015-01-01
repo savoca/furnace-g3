@@ -24,18 +24,18 @@
 #include "jfs_debug.h"
 
 /*
-                         
-  
-                                                                     
-  
+ * NAME:	jfs_strfromUCS()
+ *
+ * FUNCTION:	Convert little-endian unicode string to character string
+ *
  */
 int jfs_strfromUCS_le(char *to, const __le16 * from,
 		      int len, struct nls_table *codepage)
 {
 	int i;
 	int outlen = 0;
-	static int warn_again = 5;	/*                               */
-	int warn = !!warn_again;	/*                 */
+	static int warn_again = 5;	/* Only warn up to 5 times total */
+	int warn = !!warn_again;	/* once per string */
 
 	if (codepage) {
 		for (i = 0; (i < len) && from[i]; i++) {
@@ -74,10 +74,10 @@ int jfs_strfromUCS_le(char *to, const __le16 * from,
 }
 
 /*
-                       
-  
-                                                       
-  
+ * NAME:	jfs_strtoUCS()
+ *
+ * FUNCTION:	Convert character string to unicode string
+ *
  */
 static int jfs_strtoUCS(wchar_t * to, const unsigned char *from, int len,
 		struct nls_table *codepage)
@@ -107,10 +107,10 @@ static int jfs_strtoUCS(wchar_t * to, const unsigned char *from, int len,
 }
 
 /*
-                      
-  
-                                                     
-  
+ * NAME:	get_UCSname()
+ *
+ * FUNCTION:	Allocate and translate to unicode string
+ *
  */
 int get_UCSname(struct component_name * uniName, struct dentry *dentry)
 {

@@ -1,5 +1,5 @@
 /*
-                                   
+ * Created: 9-Jan-1999 Rolf Fokkens
  */
 
 extern void ess_intr

@@ -1,6 +1,6 @@
 /*
-                                                              
-                                                   
+ * x86_energy_perf_policy -- set the energy versus performance
+ * policy preference bias on recent X86 processors.
  */
 /*
  * Copyright (c) 2010, Intel Corporation.
@@ -31,35 +31,35 @@
 #include <stdlib.h>
 #include <string.h>
 
-unsigned int verbose;		/*             */
-unsigned int read_only;		/*             */
+unsigned int verbose;		/* set with -v */
+unsigned int read_only;		/* set with -r */
 char *progname;
 unsigned long long new_bias;
 int cpu = -1;
 
 /*
-         
-  
-                                                             
-                                                 
-                                           
-  
-               
-                            
-                                         
-                                                    
-  
-          
-                                            
-                                              
-                                                     
-  
-             
-                                           
-                              
-  
-    
-                                                    
+ * Usage:
+ *
+ * -c cpu: limit action to a single CPU (default is all CPUs)
+ * -v: verbose output (can invoke more than once)
+ * -r: read-only, don't change any settings
+ *
+ *  performance
+ *	Performance is paramount.
+ *	Unwilling to sacrifice any performance
+ *	for the sake of energy saving. (hardware default)
+ *
+ *  normal
+ *	Can tolerate minor performance compromise
+ *	for potentially significant energy savings.
+ *	(reasonable default for most desktops and servers)
+ *
+ *  powersave
+ *	Can tolerate significant performance hit
+ *	to maximize energy savings.
+ *
+ * n
+ *	a numerical value to write to the underlying MSR.
  */
 void usage(void)
 {
@@ -96,13 +96,13 @@ void cmdline(int argc, char **argv)
 			usage();
 		}
 	}
-	/*                                            */
+	/* if -r, then should be no additional optind */
 	if (read_only && (argc > optind))
 		usage();
 
 	/*
-                                                 
-  */
+	 * if no -r , then must be one additional optind
+	 */
 	if (!read_only) {
 
 		if (argc != optind + 1) {
@@ -131,8 +131,8 @@ void cmdline(int argc, char **argv)
 }
 
 /*
-                   
-                                                                      
+ * validate_cpuid()
+ * returns on success, quietly exits on failure (make verbose with -v)
  */
 void validate_cpuid(void)
 {
@@ -170,9 +170,9 @@ void validate_cpuid(void)
 	}
 
 	/*
-                                         
-                                      
-  */
+	 * Support for MSR_IA32_ENERGY_PERF_BIAS
+	 * is indicated by CPUID.06H.ECX.bit3
+	 */
 	asm("cpuid" : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx) : "a" (6));
 	if (verbose)
 		printf("CPUID.06H.ECX: 0x%x\n", ecx);
@@ -181,7 +181,7 @@ void validate_cpuid(void)
 			printf("CPUID: No MSR_IA32_ENERGY_PERF_BIAS\n");
 		exit(1);
 	}
-	return;	/*         */
+	return;	/* success */
 }
 
 unsigned long long get_msr(int cpu, int offset)
@@ -263,7 +263,7 @@ void update_msr(int cpu)
 
 char *proc_stat = "/proc/stat";
 /*
-                                      
+ * run func() on every cpu in /dev/cpu
  */
 void for_every_cpu(void (func)(int))
 {

@@ -17,7 +17,7 @@ struct pm8xxx_upl_device;
 
 #define PM8XXX_UPL_DEV_NAME		"pm8xxx-upl"
 
-/*                         */
+/* control masks and flags */
 #define PM8XXX_UPL_MOD_ENABLE_MASK	(0x10)
 #define PM8XXX_UPL_MOD_ENABLE		(0x10)
 #define PM8XXX_UPL_MOD_DISABLE		(0x00)
@@ -43,7 +43,7 @@ struct pm8xxx_upl_device;
 #define PM8XXX_UPL_IN_D_DTEST		(0x08)
 
 /*
-                                                             
+ * pm8xxx_upl_request - request a handle to access UPL device
  */
 struct pm8xxx_upl_device *pm8xxx_upl_request(void);
 
@@ -54,12 +54,12 @@ int pm8xxx_upl_write_truthtable(struct pm8xxx_upl_device *upldev,
 				u16 truthtable);
 
 /*
-                                                                        
-  
-                          
-                                   
-                        
+ * pm8xxx_upl_config - configure UPL I/O settings and UPL enable/disable
+ *
+ * @upldev: the UPL device
+ * @mask: setting mask to configure
+ * @flags: setting flags
  */
 int pm8xxx_upl_config(struct pm8xxx_upl_device *upldev, u32 mask, u32 flags);
 
-#endif /*                  */
+#endif /* __PM8XXX_UPL_H__ */

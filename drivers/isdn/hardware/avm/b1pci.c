@@ -25,15 +25,15 @@
 #include <linux/isdn/capilli.h>
 #include "avmcard.h"
 
-/*                                                               */
+/* ------------------------------------------------------------- */
 
 static char *revision = "$Revision: 1.1.2.2 $";
 
-/*                                                               */
+/* ------------------------------------------------------------- */
 
 static struct pci_device_id b1pci_pci_tbl[] = {
 	{ PCI_VENDOR_ID_AVM, PCI_DEVICE_ID_AVM_B1, PCI_ANY_ID, PCI_ANY_ID },
-	{ }				/*                   */
+	{ }				/* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE(pci, b1pci_pci_tbl);
@@ -41,7 +41,7 @@ MODULE_DESCRIPTION("CAPI4Linux: Driver for AVM B1 PCI card");
 MODULE_AUTHOR("Carsten Paeth");
 MODULE_LICENSE("GPL");
 
-/*                                                               */
+/* ------------------------------------------------------------- */
 
 static char *b1pci_procinfo(struct capi_ctr *ctrl)
 {
@@ -59,7 +59,7 @@ static char *b1pci_procinfo(struct capi_ctr *ctrl)
 	return cinfo->infobuf;
 }
 
-/*                                                               */
+/* ------------------------------------------------------------- */
 
 static int b1pci_probe(struct capicardparams *p, struct pci_dev *pdev)
 {
@@ -159,7 +159,7 @@ static void b1pci_remove(struct pci_dev *pdev)
 }
 
 #ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
-/*                                                               */
+/* ------------------------------------------------------------- */
 
 static char *b1pciv4_procinfo(struct capi_ctr *ctrl)
 {
@@ -178,7 +178,7 @@ static char *b1pciv4_procinfo(struct capi_ctr *ctrl)
 	return cinfo->infobuf;
 }
 
-/*                                                               */
+/* ------------------------------------------------------------- */
 
 static int b1pciv4_probe(struct capicardparams *p, struct pci_dev *pdev)
 {
@@ -297,7 +297,7 @@ static void b1pciv4_remove(struct pci_dev *pdev)
 	b1_free_card(card);
 }
 
-#endif /*                               */
+#endif /* CONFIG_ISDN_DRV_AVMB1_B1PCIV4 */
 
 static int __devinit b1pci_pci_probe(struct pci_dev *pdev,
 				     const struct pci_device_id *ent)
@@ -311,7 +311,7 @@ static int __devinit b1pci_pci_probe(struct pci_dev *pdev,
 	}
 	param.irq = pdev->irq;
 
-	if (pci_resource_start(pdev, 2)) { /*           */
+	if (pci_resource_start(pdev, 2)) { /* B1 PCI V4 */
 #ifdef CONFIG_ISDN_DRV_AVMB1_B1PCIV4
 		pci_set_master(pdev);
 #endif

@@ -49,12 +49,12 @@
 # define RPCDBG_FACILITY	RPCDBG_AUTH
 #endif
 
-static struct gss_api_mech gss_kerberos_mech;	/*                     */
+static struct gss_api_mech gss_kerberos_mech;	/* forward declaration */
 
 static const struct gss_krb5_enctype supported_gss_krb5_enctypes[] = {
 	/*
-                                                                   
-  */
+	 * DES (All DES enctypes are mapped to the same gss functionality)
+	 */
 	{
 	  .etype = ENCTYPE_DES_CBC_RAW,
 	  .ctype = CKSUMTYPE_RSA_MD5,
@@ -74,8 +74,8 @@ static const struct gss_krb5_enctype supported_gss_krb5_enctypes[] = {
 	  .keyed_cksum = 0,
 	},
 	/*
-            
-  */
+	 * RC4-HMAC
+	 */
 	{
 	  .etype = ENCTYPE_ARCFOUR_HMAC,
 	  .ctype = CKSUMTYPE_HMAC_MD5_ARCFOUR,
@@ -95,8 +95,8 @@ static const struct gss_krb5_enctype supported_gss_krb5_enctypes[] = {
 	  .keyed_cksum = 1,
 	},
 	/*
-        
-  */
+	 * 3DES
+	 */
 	{
 	  .etype = ENCTYPE_DES3_CBC_RAW,
 	  .ctype = CKSUMTYPE_HMAC_SHA1_DES3,
@@ -116,8 +116,8 @@ static const struct gss_krb5_enctype supported_gss_krb5_enctypes[] = {
 	  .keyed_cksum = 1,
 	},
 	/*
-          
-  */
+	 * AES128
+	 */
 	{
 	  .etype = ENCTYPE_AES128_CTS_HMAC_SHA1_96,
 	  .ctype = CKSUMTYPE_HMAC_SHA1_96_AES128,
@@ -139,8 +139,8 @@ static const struct gss_krb5_enctype supported_gss_krb5_enctypes[] = {
 	  .keyed_cksum = 1,
 	},
 	/*
-          
-  */
+	 * AES256
+	 */
 	{
 	  .etype = ENCTYPE_AES256_CTS_HMAC_SHA1_96,
 	  .ctype = CKSUMTYPE_HMAC_SHA1_96_AES256,
@@ -230,7 +230,7 @@ get_key(const void *p, const void *end,
 	case ENCTYPE_DES_CBC_CRC:
 	case ENCTYPE_DES_CBC_MD4:
 	case ENCTYPE_DES_CBC_MD5:
-		/*                                                */
+		/* Map all these key types to ENCTYPE_DES_CBC_RAW */
 		alg = ENCTYPE_DES_CBC_RAW;
 		break;
 	}
@@ -280,7 +280,7 @@ gss_import_v1_context(const void *p, const void *end, struct krb5_ctx *ctx)
 	if (IS_ERR(p))
 		goto out_err;
 
-	/*                                                                  */
+	/* Old format supports only DES!  Any other enctype uses new format */
 	ctx->enctype = ENCTYPE_DES_CBC_RAW;
 
 	ctx->gk5e = get_gss_krb5_enctype(ctx->enctype);
@@ -289,10 +289,10 @@ gss_import_v1_context(const void *p, const void *end, struct krb5_ctx *ctx)
 		goto out_err;
 	}
 
-	/*                                                                 
-                                                                
-                                                              
-                                             */
+	/* The downcall format was designed before we completely understood
+	 * the uses of the context fields; so it includes some stuff we
+	 * just give some minimal sanity-checking, and some we ignore
+	 * completely (like the next twenty bytes): */
 	if (unlikely(p + 20 > end || p + 20 < p)) {
 		p = ERR_PTR(-EFAULT);
 		goto out_err;
@@ -388,7 +388,7 @@ context_derive_keys_des3(struct krb5_ctx *ctx, gfp_t gfp_mask)
 	keyin.len = ctx->gk5e->keylength;
 	keyout.len = ctx->gk5e->keylength;
 
-	/*                      */
+	/* seq uses the raw key */
 	ctx->seq = context_v2_alloc_cipher(ctx, ctx->gk5e->encrypt_name,
 					   ctx->Ksess);
 	if (ctx->seq == NULL)
@@ -399,7 +399,7 @@ context_derive_keys_des3(struct krb5_ctx *ctx, gfp_t gfp_mask)
 	if (ctx->enc == NULL)
 		goto out_free_seq;
 
-	/*              */
+	/* derive cksum */
 	set_cdata(cdata, KG_USAGE_SIGN, KEY_USAGE_SEED_CHECKSUM);
 	keyout.data = ctx->cksum;
 	err = krb5_derive_key(ctx->gk5e, &keyin, &keyout, &c, gfp_mask);
@@ -420,24 +420,24 @@ out_err:
 }
 
 /*
-                                                            
-                                                                
-                                                             
+ * Note that RC4 depends on deriving keys using the sequence
+ * number or the checksum of a token.  Therefore, the final keys
+ * cannot be calculated until the token is being constructed!
  */
 static int
 context_derive_keys_rc4(struct krb5_ctx *ctx)
 {
 	struct crypto_hash *hmac;
 	char sigkeyconstant[] = "signaturekey";
-	int slen = strlen(sigkeyconstant) + 1;	/*                         */
+	int slen = strlen(sigkeyconstant) + 1;	/* include null terminator */
 	struct hash_desc desc;
 	struct scatterlist sg[1];
 	int err;
 
 	dprintk("RPC:       %s: entered\n", __func__);
 	/*
-                                
-  */
+	 * derive cksum (aka Ksign) key
+	 */
 	hmac = crypto_alloc_hash(ctx->gk5e->cksum_name, 0, CRYPTO_ALG_ASYNC);
 	if (IS_ERR(hmac)) {
 		dprintk("%s: error %ld allocating hash '%s'\n",
@@ -464,8 +464,8 @@ context_derive_keys_rc4(struct krb5_ctx *ctx)
 	if (err)
 		goto out_err_free_hmac;
 	/*
-                                                                
-  */
+	 * allocate hash, and blkciphers for data and seqnum encryption
+	 */
 	ctx->enc = crypto_alloc_blkcipher(ctx->gk5e->encrypt_name, 0,
 					  CRYPTO_ALG_ASYNC);
 	if (IS_ERR(ctx->enc)) {
@@ -506,7 +506,7 @@ context_derive_keys_new(struct krb5_ctx *ctx, gfp_t gfp_mask)
 	keyin.len = ctx->gk5e->keylength;
 	keyout.len = ctx->gk5e->keylength;
 
-	/*                           */
+	/* initiator seal encryption */
 	set_cdata(cdata, KG_USAGE_INITIATOR_SEAL, KEY_USAGE_SEED_ENCRYPTION);
 	keyout.data = ctx->initiator_seal;
 	err = krb5_derive_key(ctx->gk5e, &keyin, &keyout, &c, gfp_mask);
@@ -521,7 +521,7 @@ context_derive_keys_new(struct krb5_ctx *ctx, gfp_t gfp_mask)
 	if (ctx->initiator_enc == NULL)
 		goto out_err;
 
-	/*                          */
+	/* acceptor seal encryption */
 	set_cdata(cdata, KG_USAGE_ACCEPTOR_SEAL, KEY_USAGE_SEED_ENCRYPTION);
 	keyout.data = ctx->acceptor_seal;
 	err = krb5_derive_key(ctx->gk5e, &keyin, &keyout, &c, gfp_mask);
@@ -536,7 +536,7 @@ context_derive_keys_new(struct krb5_ctx *ctx, gfp_t gfp_mask)
 	if (ctx->acceptor_enc == NULL)
 		goto out_free_initiator_enc;
 
-	/*                         */
+	/* initiator sign checksum */
 	set_cdata(cdata, KG_USAGE_INITIATOR_SIGN, KEY_USAGE_SEED_CHECKSUM);
 	keyout.data = ctx->initiator_sign;
 	err = krb5_derive_key(ctx->gk5e, &keyin, &keyout, &c, gfp_mask);
@@ -546,7 +546,7 @@ context_derive_keys_new(struct krb5_ctx *ctx, gfp_t gfp_mask)
 		goto out_free_acceptor_enc;
 	}
 
-	/*                        */
+	/* acceptor sign checksum */
 	set_cdata(cdata, KG_USAGE_ACCEPTOR_SIGN, KEY_USAGE_SEED_CHECKSUM);
 	keyout.data = ctx->acceptor_sign;
 	err = krb5_derive_key(ctx->gk5e, &keyin, &keyout, &c, gfp_mask);
@@ -556,7 +556,7 @@ context_derive_keys_new(struct krb5_ctx *ctx, gfp_t gfp_mask)
 		goto out_free_acceptor_enc;
 	}
 
-	/*                          */
+	/* initiator seal integrity */
 	set_cdata(cdata, KG_USAGE_INITIATOR_SEAL, KEY_USAGE_SEED_INTEGRITY);
 	keyout.data = ctx->initiator_integ;
 	err = krb5_derive_key(ctx->gk5e, &keyin, &keyout, &c, gfp_mask);
@@ -566,7 +566,7 @@ context_derive_keys_new(struct krb5_ctx *ctx, gfp_t gfp_mask)
 		goto out_free_acceptor_enc;
 	}
 
-	/*                         */
+	/* acceptor seal integrity */
 	set_cdata(cdata, KG_USAGE_ACCEPTOR_SEAL, KEY_USAGE_SEED_INTEGRITY);
 	keyout.data = ctx->acceptor_integ;
 	err = krb5_derive_key(ctx->gk5e, &keyin, &keyout, &c, gfp_mask);
@@ -620,7 +620,7 @@ gss_import_v2_context(const void *p, const void *end, struct krb5_ctx *ctx,
 	p = simple_get_bytes(p, end, &ctx->seq_send64, sizeof(ctx->seq_send64));
 	if (IS_ERR(p))
 		goto out_err;
-	/*                                          */
+	/* set seq_send for use by "older" enctypes */
 	ctx->seq_send = ctx->seq_send64;
 	if (ctx->seq_send64 != ctx->seq_send) {
 		dprintk("%s: seq_send64 %lx, seq_send %x overflow?\n", __func__,
@@ -631,7 +631,7 @@ gss_import_v2_context(const void *p, const void *end, struct krb5_ctx *ctx,
 	p = simple_get_bytes(p, end, &ctx->enctype, sizeof(ctx->enctype));
 	if (IS_ERR(p))
 		goto out_err;
-	/*                                                   */
+	/* Map ENCTYPE_DES3_CBC_SHA1 to ENCTYPE_DES3_CBC_RAW */
 	if (ctx->enctype == ENCTYPE_DES3_CBC_SHA1)
 		ctx->enctype = ENCTYPE_DES3_CBC_RAW;
 	ctx->gk5e = get_gss_krb5_enctype(ctx->enctype);

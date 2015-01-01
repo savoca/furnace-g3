@@ -39,7 +39,7 @@ xfs_xattr_get(struct dentry *dentry, const char *name,
 	if (strcmp(name, "") == 0)
 		return -EINVAL;
 
-	/*                                                  */
+	/* Convert Linux syscall to XFS internal ATTR flags */
 	if (!size) {
 		xflags |= ATTR_KERNOVAL;
 		value = NULL;
@@ -60,7 +60,7 @@ xfs_xattr_set(struct dentry *dentry, const char *name, const void *value,
 	if (strcmp(name, "") == 0)
 		return -EINVAL;
 
-	/*                                                  */
+	/* Convert Linux syscall to XFS internal ATTR flags */
 	if (flags & XATTR_CREATE)
 		xflags |= ATTR_CREATE;
 	if (flags & XATTR_REPLACE)
@@ -74,7 +74,7 @@ xfs_xattr_set(struct dentry *dentry, const char *name, const void *value,
 
 static const struct xattr_handler xfs_xattr_user_handler = {
 	.prefix	= XATTR_USER_PREFIX,
-	.flags	= 0, /*                                 */
+	.flags	= 0, /* no flags implies user namespace */
 	.get	= xfs_xattr_get,
 	.set	= xfs_xattr_set,
 };
@@ -140,21 +140,21 @@ xfs_xattr_put_listent(
 	ASSERT(context->count >= 0);
 
 	/*
-                                                                  
-             
-  */
+	 * Only show root namespace entries if we are actually allowed to
+	 * see them.
+	 */
 	if ((flags & XFS_ATTR_ROOT) && !capable(CAP_SYS_ADMIN))
 		return 0;
 
 	arraytop = context->count + prefix_len + namelen + 1;
 	if (arraytop > context->firstu) {
-		context->count = -1;	/*                    */
+		context->count = -1;	/* insufficient space */
 		return 1;
 	}
 	offset = (char *)context->alist + context->count;
 	strncpy(offset, xfs_xattr_prefix(flags), prefix_len);
 	offset += prefix_len;
-	strncpy(offset, (char *)name, namelen);			/*           */
+	strncpy(offset, (char *)name, namelen);			/* real name */
 	offset += namelen;
 	*offset = '\0';
 	context->count += prefix_len + namelen + 1;
@@ -199,8 +199,8 @@ xfs_vn_listxattr(struct dentry *dentry, char *data, size_t size)
 	int			error;
 
 	/*
-                                              
-  */
+	 * First read the regular on-disk attributes.
+	 */
 	memset(&context, 0, sizeof(context));
 	context.dp = XFS_I(inode);
 	context.cursor = &cursor;
@@ -219,8 +219,8 @@ xfs_vn_listxattr(struct dentry *dentry, char *data, size_t size)
 		return -ERANGE;
 
 	/*
-                                              
-  */
+	 * Then add the two synthetic ACL attributes.
+	 */
 	if (posix_acl_access_exists(inode)) {
 		error = list_one_attr(POSIX_ACL_XATTR_ACCESS,
 				strlen(POSIX_ACL_XATTR_ACCESS) + 1,

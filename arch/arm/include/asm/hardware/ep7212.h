@@ -24,8 +24,8 @@
 #define __ASM_HARDWARE_EP7212_H
 
 /*
-                                                          
-                      
+ * define EP7212_BASE to be the base address of the region
+ * you want to access.
  */
 
 #define EP7212_PHYS_BASE	(0x80000000)
@@ -36,7 +36,7 @@
 #endif
 
 /*
-                                                  
+ * These registers are specific to the EP7212 only
  */
 #define DAIR			0x2000
 #define DAIR0			0x2040
@@ -80,4 +80,4 @@
 #define SYSCON3_FASTWAKE	(1 << 8)
 #define SYSCON3_DAIEN		(1 << 9)
 
-#endif /*                         */
+#endif /* __ASM_HARDWARE_EP7212_H */

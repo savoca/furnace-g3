@@ -17,12 +17,12 @@
 #include <plat/padmux.h>
 
 /*
-                                       
-  
-                                                
-                                
-                                 
-                                              
+ * struct pmx: pmx definition structure
+ *
+ * base: base address of configuration registers
+ * mode_reg: mode configurations
+ * mux_reg: muxing configurations
+ * active_mode: pointer to current active mode
  */
 struct pmx {
 	u32 base;
@@ -33,12 +33,12 @@ struct pmx {
 
 static struct pmx *pmx;
 
-/* 
-                                              
-                              
-  
-                                             
-                                 
+/**
+ * pmx_mode_set - Enables an multiplexing mode
+ * @mode - pointer to pmx mode
+ *
+ * It will set mode of operation in hardware.
+ * Returns -ve on Err otherwise 0
  */
 static int pmx_mode_set(struct pmx_mode *mode)
 {
@@ -57,17 +57,17 @@ static int pmx_mode_set(struct pmx_mode *mode)
 	return 0;
 }
 
-/* 
-                                            
-                                      
-                                       
-  
-                                                                       
-                                                                           
-                                                                        
-                                                          
-                                                                
-                                 
+/**
+ * pmx_devs_enable - Enables list of devices
+ * @devs - pointer to pmx device array
+ * @count - number of devices to enable
+ *
+ * It will enable pads for all required peripherals once and only once.
+ * If peripheral is not supported by current mode then request is rejected.
+ * Conflicts between peripherals are not handled and peripherals will be
+ * enabled in the order they are present in pmx_dev array.
+ * In case of conflicts last peripheral enabled will be present.
+ * Returns -ve on Err otherwise 0
  */
 static int pmx_devs_enable(struct pmx_dev **devs, u8 count)
 {
@@ -84,7 +84,7 @@ static int pmx_devs_enable(struct pmx_dev **devs, u8 count)
 			printk(KERN_ERR "padmux: dev name or modes is null\n");
 			continue;
 		}
-		/*                                           */
+		/* check if peripheral exists in active mode */
 		if (pmx->active_mode) {
 			bool found = false;
 			for (j = 0; j < devs[i]->mode_count; j++) {
@@ -102,7 +102,7 @@ static int pmx_devs_enable(struct pmx_dev **devs, u8 count)
 			}
 		}
 
-		/*                   */
+		/* enable peripheral */
 		mask = devs[i]->modes[j].mask & pmx->mux_reg.mask;
 		if (devs[i]->enb_on_reset)
 			val &= ~mask;
@@ -114,19 +114,19 @@ static int pmx_devs_enable(struct pmx_dev **devs, u8 count)
 	writel(val, pmx->base + pmx->mux_reg.offset);
 	kfree(pmx);
 
-	/*                                                         */
+	/* this will ensure that multiplexing can't be changed now */
 	pmx = (struct pmx *)-1;
 
 	return 0;
 }
 
-/* 
-                                                                 
-                                                                              
-  
-                                                                        
-                                                                
-                                 
+/**
+ * pmx_register - registers a platform requesting pad mux feature
+ * @driver - pointer to driver structure containing driver specific parameters
+ *
+ * Also this must be called only once. This will allocate memory for pmx
+ * structure, will call pmx_mode_set, will call pmx_devs_enable.
+ * Returns -ve on Err otherwise 0
  */
 int pmx_register(struct pmx_driver *driver)
 {
@@ -147,7 +147,7 @@ int pmx_register(struct pmx_driver *driver)
 	pmx->mux_reg.offset = driver->mux_reg.offset;
 	pmx->mux_reg.mask = driver->mux_reg.mask;
 
-	/*                       */
+	/* choose mode to enable */
 	if (driver->mode) {
 		ret = pmx_mode_set(driver->mode);
 		if (ret)

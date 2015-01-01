@@ -31,13 +31,13 @@
 
 typedef struct
 {
-    VibeUInt8 nActuatorIndex;  /*                            */
-    VibeUInt8 nBitDepth;       /*                       */
-    VibeUInt8 nBufferSize;     /*                       */
+    VibeUInt8 nActuatorIndex;  /* 1st byte is actuator index */
+    VibeUInt8 nBitDepth;       /* 2nd byte is bit depth */
+    VibeUInt8 nBufferSize;     /* 3rd byte is data size */
     VibeUInt8 dataBuffer[VIBE_OUTPUT_SAMPLE_SIZE];
 } actuator_samples_buffer;
 
-/*                                  */
+/* Buffer to store data sent to SPI */
 #define SPI_BUFFER_SIZE (NUM_ACTUATORS * (VIBE_OUTPUT_SAMPLE_SIZE + SPI_HEADER_SIZE))
 static actuator_samples_buffer g_SamplesBuffer[NUM_ACTUATORS] = {{0}}; 
 
@@ -45,19 +45,19 @@ int SaveOutputData(const char *outputDataBuffer, int count)
 {
     int i = 0;
 
-    /*                                                         */
+    /* The below code is not valid if SPI header size is not 3 */
 #if (SPI_HEADER_SIZE != 3)
 #error "SPI_HEADER_SIZE expected to be 3"
 #endif
 
-    /*                   */
+    /* Check buffer size */
     if ((count < SPI_HEADER_SIZE) || (count > SPI_BUFFER_SIZE))
     {
         DbgOut((DBL_ERROR, "SaveOutputData: invalid write buffer size.\n"));
         return 0;
     }
 
-    /*                */
+    /* Check argument */
     if (0 == outputDataBuffer)
     {
         DbgOut((DBL_ERROR, "SaveOutputData: outputDataBuffer invalid.\n"));
@@ -71,29 +71,29 @@ int SaveOutputData(const char *outputDataBuffer, int count)
         if ((i + SPI_HEADER_SIZE) > count)
         {
             /*
-                                                           
-                                     
+            ** Index is about to go beyond the buffer size.
+            ** (Should never happen).
             */
             DbgOut((DBL_FATAL,"SaveOutputData: invalid buffer index.\n"));
         }
 
-        /*                 */
+        /* Check bit depth */
         if (8 != pInputBuffer->nBitDepth)
         {
             DbgOut((DBL_WARNING, "SaveOutputData: invalid bit depth. Use default value (8).\n"));
         }
 
-        /*                   */
+        /* Check buffer size */
         if ((i + SPI_HEADER_SIZE + pInputBuffer->nBufferSize) > count)
         {
             /*
-                                                           
-                                     
+            ** Index is about to go beyond the buffer size.
+            ** (Should never happen).
             */
             DbgOut((DBL_FATAL, "SaveOutputData: invalid data size.\n"));
         }
         
-        /*                      */
+        /* Check actuator index */
         if (NUM_ACTUATORS <= pInputBuffer->nActuatorIndex)
         {
             DbgOut((DBL_ERROR, "SaveOutputData: invalid actuator index.\n"));
@@ -104,17 +104,17 @@ int SaveOutputData(const char *outputDataBuffer, int count)
         if ((count == SPI_HEADER_SIZE) && (0 == pInputBuffer->nBufferSize))
         {
             /* 
-                                                                                        
-                                                                               
-                                                    
+            ** Get out of the loop. An "empty" packet (header with data size equal to 0)
+            ** is used by the user mode daemon to start blocking-timer process,
+            ** even if no output force data is sent.
             */
             break;
         }
 
-        /*                                                         */
+        /* Store the data in the free buffer of the given actuator */
         memcpy(&(g_SamplesBuffer[pInputBuffer->nActuatorIndex]), &outputDataBuffer[i], (SPI_HEADER_SIZE + pInputBuffer->nBufferSize));
 
-        /*                        */
+        /* Increment buffer index */
         i += (SPI_HEADER_SIZE + pInputBuffer->nBufferSize);
     }
 
@@ -133,12 +133,12 @@ bool SendOutputData(void)
         if (pCurrentActuatorSample->nBufferSize)
         {
 
-            /*                                                                                             
-                                               
-                                                    
-                                                        */
+            /* DbgOut((DBL_ERROR, "SendOutputData: 2: Size, BitDepth: %d, Buffer: %d, dataBuffer[0]:%d\n", 
+            pCurrentActuatorSample->nBitDepth, 
+                pCurrentActuatorSample->nBufferSize,
+                pCurrentActuatorSample->dataBuffer[0]));*/
 
-            /*                         */
+            /* Play the current buffer */
             ImmVibeSPI_ForceOut_SetSamples(
                 i, 
                 pCurrentActuatorSample->nBitDepth, 
@@ -147,7 +147,7 @@ bool SendOutputData(void)
 
             ret = 1;
 
-            /*                               */
+            /* The current buffer is emptied */
             pCurrentActuatorSample->nBufferSize = 0;
         }
     }

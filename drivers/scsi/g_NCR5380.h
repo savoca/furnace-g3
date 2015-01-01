@@ -26,7 +26,7 @@
  */
 
 /*
-                              
+ * $Log: generic_NCR5380.h,v $
  */
 
 #ifndef GENERIC_NCR5380_H
@@ -91,7 +91,7 @@ static const char* generic_NCR5380_info(struct Scsi_Host *);
     NCR5380_map_name = (NCR5380_map_type)((instance)->NCR5380_instance_name)
 
 #else 
-/*                              */
+/* therefore SCSI_G_NCR5380_MEM */
 
 #define NCR5380_map_config memory
 #define NCR5380_map_type unsigned long
@@ -131,7 +131,7 @@ static const char* generic_NCR5380_info(struct Scsi_Host *);
 #define BOARD_NCR53C400A 2
 #define BOARD_DTC3181E	3
 
-#endif /*                  */
-#endif /*          */
-#endif /*                   */
+#endif /* else def HOSTS_C */
+#endif /* ndef ASM */
+#endif /* GENERIC_NCR5380_H */
 

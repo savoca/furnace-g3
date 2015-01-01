@@ -49,7 +49,7 @@ struct regmap;
 #define WM8994_IRQ_DCS_DONE		14
 #define WM8994_IRQ_TEMP_WARN		15
 
-/*                                          */
+/* GPIOs in the chip are numbered from 1-11 */
 #define WM8994_IRQ_GPIO(x) (x + WM8994_IRQ_TEMP_WARN)
 
 struct wm8994 {
@@ -69,7 +69,7 @@ struct wm8994 {
 	int irq;
 	struct regmap_irq_chip_data *irq_data;
 
-	/*                          */
+	/* Used over suspend/resume */
 	bool suspended;
 
 	struct regulator_dev *dbvdd;
@@ -77,7 +77,7 @@ struct wm8994 {
 	struct regulator_bulk_data *supplies;
 };
 
-/*                */
+/* Device I/O API */
 int wm8994_reg_read(struct wm8994 *wm8994, unsigned short reg);
 int wm8994_reg_write(struct wm8994 *wm8994, unsigned short reg,
 		 unsigned short val);
@@ -89,7 +89,7 @@ int wm8994_bulk_write(struct wm8994 *wm8994, unsigned short reg,
 		     int count, const u16 *buf);
 
 
-/*                               */
+/* Helper to save on boilerplate */
 static inline int wm8994_request_irq(struct wm8994 *wm8994, int irq,
 				     irq_handler_t handler, const char *name,
 				     void *data)

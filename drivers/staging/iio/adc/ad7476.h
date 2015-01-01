@@ -11,7 +11,7 @@
 #define RES_MASK(bits)	((1 << (bits)) - 1)
 
 /*
-                                                                       
+ * TODO: struct ad7476_platform_data needs to go into include/linux/iio
  */
 
 struct ad7476_platform_data {
@@ -32,9 +32,9 @@ struct ad7476_state {
 	struct spi_transfer		xfer;
 	struct spi_message		msg;
 	/*
-                                                       
-                                                      
-  */
+	 * DMA (thus cache coherency maintenance) requires the
+	 * transfer buffers to live in their own cache lines.
+	 */
 	unsigned char			data[2] ____cacheline_aligned;
 };
 
@@ -52,7 +52,7 @@ enum ad7476_supported_device_ids {
 #ifdef CONFIG_IIO_BUFFER
 int ad7476_register_ring_funcs_and_init(struct iio_dev *indio_dev);
 void ad7476_ring_cleanup(struct iio_dev *indio_dev);
-#else /*                   */
+#else /* CONFIG_IIO_BUFFER */
 
 static inline int
 ad7476_register_ring_funcs_and_init(struct iio_dev *indio_dev)
@@ -63,5 +63,5 @@ ad7476_register_ring_funcs_and_init(struct iio_dev *indio_dev)
 static inline void ad7476_ring_cleanup(struct iio_dev *indio_dev)
 {
 }
-#endif /*                   */
-#endif /*                   */
+#endif /* CONFIG_IIO_BUFFER */
+#endif /* IIO_ADC_AD7476_H_ */

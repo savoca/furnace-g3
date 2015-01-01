@@ -7,62 +7,62 @@
 #define DEBUG_IMPLEMENTATION_H
 
 /*
-                                                                 
+  The header debug_implementation.h must define following macros.
 
-                                                
+  DEBUG_IMPLEMENTATION(level, flow, module, ...)
 
-                                                            
-                                                                
-                         
+  May produce a debug log message based on the arguments and
+  definition of __DEBUG_MODULE__. Additionally can use __FILE__,
+  __LINE__, and __func__.
 
-                   
+  The arguments are
 
-                                                             
-                                                
+      level    a preprocessing token defining debug level and
+               is one of FAIL, HIGH, MEDIUM, LOW
 
-                                                            
-                                                 
+      flow     a preprocessing token defining debug flow and
+               may be any valid identifier string
 
-                                                           
-                        
+      ...      includes a printf format string and possible
+               arguments
 
-                                               
+  ASSERT_IMPLEMENTATION(condition, description)
 
-                                                              
-                                                          
-                    
+  May abort program execution if condition evaluates to false.
+  May optionally produce a log message based on arguments.
+  The arguments are:
 
-                                                           
-                                                                  
+      condition      expression that is asserted to be true
+      description    a string describing reason for program abort.
 
-                           
+  PANIC_IMPLEMENTATION(...)
 
-                                                                   
-                             
-                    
-                                                                
+  Must always abort program execution. Optionally may produce a log
+  message based on arguments.
+  The arguments are:
+      ...     contains printf style format string and arguments.
 
-                           
+  TODO_IMPLEMENTATION(todo)
 
-                                                                     
-                    
-                                                        
+  Must not produce run time behaviour. May produce a compile warning.
+  The arguments are:
+      todo     a string describing what needs to be done
 
-                                                 
+  COMPILE_GLOBAL_ASSERT_IMPLEMENTATION(condition)
 
-                                                                     
-                                                                        
+  Should produce a compile time error if condition evaluates to false
+  in global context i.e. not inside a function body.  The arguments are:
 
-                                                                   
-                                    
+      condition     expression that is always based on compile time
+                    constant values.
 
-                                                 
+  COMPILE_STATIC_ASSERT_IMPLEMENTATION(condition)
 
-                                                                     
-                                                                      
+  Should produce a compile time error if condition evaluates to false
+  in "static" context i.e. within a function body.  The arguments are:
 
-                                                                   
-                                    
+      condition     expression that is always based on compile time
+                    constant values.
 */
 
 #define STR_BOOL_IMPLEMENTATION(b) ((bool)(b) ? "true" : "false")
@@ -70,12 +70,12 @@
 #define STR_HEXBUF_IMPLEMENTATION(buf, len)             \
   debug_str_hexbuf(DEBUG_STRBUF_GET(), (buf), (len))
 
-/*             
+/* __FILELINE__
 
-                                                                 
-                                                  
-                                                           
-                                                                
+   Macro __FILELINE__ combines __FILE__ and __LINE__ preprocessor
+   macros into a single macro with a string value.
+   As an example: If __FILE__ would have value "file.c" and
+   __LINE__ value 24, the __FILELINE__ would become "file.c:24".
 */
 #define __FILELINE__ __FILE__ ":" L_TOSTRING(__LINE__)
 
@@ -220,4 +220,4 @@ DebugDumper(const struct DebugDumpContext *,
 
 DebugDumper debug_dump_hex_bytes;
 
-#endif				/*                        */
+#endif				/* DEBUG_IMPLEMENTATION_H */

@@ -1,12 +1,12 @@
 /*
-                              
-  
-                                                                           
-                                                                        
-                                     
-  
-                                           
-  
+ * NetLabel Management Support
+ *
+ * This file defines the management functions for the NetLabel system.  The
+ * NetLabel system manages static and dynamic label mappings for network
+ * protocols such as CIPSO and RIPSO.
+ *
+ * Author: Paul Moore <paul@paul-moore.com>
+ *
  */
 
 /*
@@ -48,17 +48,17 @@
 #include "netlabel_user.h"
 #include "netlabel_mgmt.h"
 
-/*                                      */
+/* NetLabel configured protocol counter */
 atomic_t netlabel_mgmt_protocount = ATOMIC_INIT(0);
 
-/*                                          */
+/* Argument struct for netlbl_domhsh_walk() */
 struct netlbl_domhsh_walk_arg {
 	struct netlink_callback *nl_cb;
 	struct sk_buff *skb;
 	u32 seq;
 };
 
-/*                                         */
+/* NetLabel Generic NETLINK CIPSOv4 family */
 static struct genl_family netlbl_mgmt_gnl_family = {
 	.id = GENL_ID_GENERATE,
 	.hdrsize = 0,
@@ -67,7 +67,7 @@ static struct genl_family netlbl_mgmt_gnl_family = {
 	.maxattr = NLBL_MGMT_A_MAX,
 };
 
-/*                                   */
+/* NetLabel Netlink attribute policy */
 static const struct nla_policy netlbl_mgmt_genl_policy[NLBL_MGMT_A_MAX + 1] = {
 	[NLBL_MGMT_A_DOMAIN] = { .type = NLA_NUL_STRING },
 	[NLBL_MGMT_A_PROTOCOL] = { .type = NLA_U32 },
@@ -76,19 +76,19 @@ static const struct nla_policy netlbl_mgmt_genl_policy[NLBL_MGMT_A_MAX + 1] = {
 };
 
 /*
-                   
+ * Helper Functions
  */
 
-/* 
-                                          
-                                        
-                                          
-  
-               
-                                                                             
-                                                                               
-                                                                        
-  
+/**
+ * netlbl_mgmt_add - Handle an ADD message
+ * @info: the Generic NETLINK info block
+ * @audit_info: NetLabel audit information
+ *
+ * Description:
+ * Helper function for the ADD and ADDDEF messages to add the domain mappings
+ * from the message to the hash table.  See netlabel.h for a description of the
+ * message format.  Returns zero on success, negative values on failure.
+ *
  */
 static int netlbl_mgmt_add_common(struct genl_info *info,
 				  struct netlbl_audit *audit_info)
@@ -116,10 +116,10 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
 			    info->attrs[NLBL_MGMT_A_DOMAIN], tmp_size);
 	}
 
-	/*                                                     
-                                                                     
-                                                                      
-                          */
+	/* NOTE: internally we allow/use a entry->type value of
+	 *       NETLBL_NLTYPE_ADDRSELECT but we don't currently allow users
+	 *       to pass that as a protocol value because we need to know the
+	 *       "real" protocol */
 
 	switch (entry->type) {
 	case NETLBL_NLTYPE_UNLABELED:
@@ -233,7 +233,7 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
 
 		entry->type = NETLBL_NLTYPE_ADDRSELECT;
 		entry->type_def.addrsel = addrmap;
-#endif /*      */
+#endif /* IPv6 */
 	}
 
 	ret_val = netlbl_domhsh_add(entry, audit_info);
@@ -252,16 +252,16 @@ add_failure:
 	return ret_val;
 }
 
-/* 
-                                                               
-                           
-                        
-  
-               
-                                                                             
-                                                                           
-                                                                 
-  
+/**
+ * netlbl_mgmt_listentry - List a NetLabel/LSM domain map entry
+ * @skb: the NETLINK buffer
+ * @entry: the map entry
+ *
+ * Description:
+ * This function is a helper function used by the LISTALL and LISTDEF command
+ * handlers.  The caller is responsible for ensuring that the RCU read lock
+ * is held.  Returns zero on success, negative values on failure.
+ *
  */
 static int netlbl_mgmt_listentry(struct sk_buff *skb,
 				 struct netlbl_dom_map *entry)
@@ -351,7 +351,7 @@ static int netlbl_mgmt_listentry(struct sk_buff *skb,
 
 			nla_nest_end(skb, nla_b);
 		}
-#endif /*      */
+#endif /* IPv6 */
 
 		nla_nest_end(skb, nla_a);
 		break;
@@ -371,19 +371,19 @@ static int netlbl_mgmt_listentry(struct sk_buff *skb,
 }
 
 /*
-                            
+ * NetLabel Command Handlers
  */
 
-/* 
-                                          
-                           
-                                        
-  
-               
-                                                                            
-                                                                              
-                                                       
-  
+/**
+ * netlbl_mgmt_add - Handle an ADD message
+ * @skb: the NETLINK buffer
+ * @info: the Generic NETLINK info block
+ *
+ * Description:
+ * Process a user generated ADD message and add the domains from the message
+ * to the hash table.  See netlabel.h for a description of the message format.
+ * Returns zero on success, negative values on failure.
+ *
  */
 static int netlbl_mgmt_add(struct sk_buff *skb, struct genl_info *info)
 {
@@ -406,15 +406,15 @@ static int netlbl_mgmt_add(struct sk_buff *skb, struct genl_info *info)
 	return netlbl_mgmt_add_common(info, &audit_info);
 }
 
-/* 
-                                               
-                           
-                                        
-  
-               
-                                                                          
-                                                                  
-  
+/**
+ * netlbl_mgmt_remove - Handle a REMOVE message
+ * @skb: the NETLINK buffer
+ * @info: the Generic NETLINK info block
+ *
+ * Description:
+ * Process a user generated REMOVE message and remove the specified domain
+ * mappings.  Returns zero on success, negative values on failure.
+ *
  */
 static int netlbl_mgmt_remove(struct sk_buff *skb, struct genl_info *info)
 {
@@ -430,17 +430,17 @@ static int netlbl_mgmt_remove(struct sk_buff *skb, struct genl_info *info)
 	return netlbl_domhsh_remove(domain, &audit_info);
 }
 
-/* 
-                                                                     
-                                              
-                                             
-  
-               
-                                                            
-                                                                               
-                                                                           
-           
-  
+/**
+ * netlbl_mgmt_listall_cb - netlbl_domhsh_walk() callback for LISTALL
+ * @entry: the domain mapping hash table entry
+ * @arg: the netlbl_domhsh_walk_arg structure
+ *
+ * Description:
+ * This function is designed to be used as a callback to the
+ * netlbl_domhsh_walk() function for use in generating a response for a LISTALL
+ * message.  Returns the size of the message on success, negative values on
+ * failure.
+ *
  */
 static int netlbl_mgmt_listall_cb(struct netlbl_dom_map *entry, void *arg)
 {
@@ -466,16 +466,16 @@ listall_cb_failure:
 	return ret_val;
 }
 
-/* 
-                                                 
-                           
-                            
-  
-               
-                                                                              
-                                                                               
-                                          
-  
+/**
+ * netlbl_mgmt_listall - Handle a LISTALL message
+ * @skb: the NETLINK buffer
+ * @cb: the NETLINK callback
+ *
+ * Description:
+ * Process a user generated LISTALL message and dumps the domain hash table in
+ * a form suitable for use in a kernel generated LISTALL message.  Returns zero
+ * on success, negative values on failure.
+ *
  */
 static int netlbl_mgmt_listall(struct sk_buff *skb,
 			       struct netlink_callback *cb)
@@ -498,15 +498,15 @@ static int netlbl_mgmt_listall(struct sk_buff *skb,
 	return skb->len;
 }
 
-/* 
-                                                
-                           
-                                        
-  
-               
-                                                                            
-                                               
-  
+/**
+ * netlbl_mgmt_adddef - Handle an ADDDEF message
+ * @skb: the NETLINK buffer
+ * @info: the Generic NETLINK info block
+ *
+ * Description:
+ * Process a user generated ADDDEF message and respond accordingly.  Returns
+ * zero on success, negative values on failure.
+ *
  */
 static int netlbl_mgmt_adddef(struct sk_buff *skb, struct genl_info *info)
 {
@@ -528,15 +528,15 @@ static int netlbl_mgmt_adddef(struct sk_buff *skb, struct genl_info *info)
 	return netlbl_mgmt_add_common(info, &audit_info);
 }
 
-/* 
-                                                     
-                           
-                                        
-  
-               
-                                                                           
-                                                                 
-  
+/**
+ * netlbl_mgmt_removedef - Handle a REMOVEDEF message
+ * @skb: the NETLINK buffer
+ * @info: the Generic NETLINK info block
+ *
+ * Description:
+ * Process a user generated REMOVEDEF message and remove the default domain
+ * mapping.  Returns zero on success, negative values on failure.
+ *
  */
 static int netlbl_mgmt_removedef(struct sk_buff *skb, struct genl_info *info)
 {
@@ -547,16 +547,16 @@ static int netlbl_mgmt_removedef(struct sk_buff *skb, struct genl_info *info)
 	return netlbl_domhsh_remove_default(&audit_info);
 }
 
-/* 
-                                                 
-                           
-                                        
-  
-               
-                                                                        
-                                                                            
-                                                       
-  
+/**
+ * netlbl_mgmt_listdef - Handle a LISTDEF message
+ * @skb: the NETLINK buffer
+ * @info: the Generic NETLINK info block
+ *
+ * Description:
+ * Process a user generated LISTDEF message and dumps the default domain
+ * mapping in a form suitable for use in a kernel generated LISTDEF message.
+ * Returns zero on success, negative values on failure.
+ *
  */
 static int netlbl_mgmt_listdef(struct sk_buff *skb, struct genl_info *info)
 {
@@ -594,17 +594,17 @@ listdef_failure:
 	return ret_val;
 }
 
-/* 
-                                                                           
-                            
-                            
-                                                         
-  
-               
-                                                                             
-                                                                             
-                                          
-  
+/**
+ * netlbl_mgmt_protocols_cb - Write an individual PROTOCOL message response
+ * @skb: the skb to write to
+ * @cb: the NETLINK callback
+ * @protocol: the NetLabel protocol to use in the message
+ *
+ * Description:
+ * This function is to be used in conjunction with netlbl_mgmt_protocols() to
+ * answer a application's PROTOCOLS message.  Returns the size of the message
+ * on success, negative values on failure.
+ *
  */
 static int netlbl_mgmt_protocols_cb(struct sk_buff *skb,
 				    struct netlink_callback *cb,
@@ -630,14 +630,14 @@ protocols_cb_failure:
 	return ret_val;
 }
 
-/* 
-                                                     
-                           
-                            
-  
-               
-                                                                      
-  
+/**
+ * netlbl_mgmt_protocols - Handle a PROTOCOLS message
+ * @skb: the NETLINK buffer
+ * @cb: the NETLINK callback
+ *
+ * Description:
+ * Process a user generated PROTOCOLS message and respond accordingly.
+ *
  */
 static int netlbl_mgmt_protocols(struct sk_buff *skb,
 				 struct netlink_callback *cb)
@@ -664,15 +664,15 @@ protocols_return:
 	return skb->len;
 }
 
-/* 
-                                                 
-                           
-                                        
-  
-               
-                                                                             
-                                               
-  
+/**
+ * netlbl_mgmt_version - Handle a VERSION message
+ * @skb: the NETLINK buffer
+ * @info: the Generic NETLINK info block
+ *
+ * Description:
+ * Process a user generated VERSION message and respond accordingly.  Returns
+ * zero on success, negative values on failure.
+ *
  */
 static int netlbl_mgmt_version(struct sk_buff *skb, struct genl_info *info)
 {
@@ -704,7 +704,7 @@ version_failure:
 
 
 /*
-                                               
+ * NetLabel Generic NETLINK Command Definitions
  */
 
 static struct genl_ops netlbl_mgmt_genl_ops[] = {
@@ -767,16 +767,16 @@ static struct genl_ops netlbl_mgmt_genl_ops[] = {
 };
 
 /*
-                                              
+ * NetLabel Generic NETLINK Protocol Functions
  */
 
-/* 
-                                                                     
-  
-               
-                                                                      
-                                                                   
-  
+/**
+ * netlbl_mgmt_genl_init - Register the NetLabel management component
+ *
+ * Description:
+ * Register the NetLabel management component with the Generic NETLINK
+ * mechanism.  Returns zero on success, negative values on failure.
+ *
  */
 int __init netlbl_mgmt_genl_init(void)
 {

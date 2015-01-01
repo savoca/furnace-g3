@@ -3,26 +3,26 @@
 
 #include <linux/spinlock.h>
 #include <linux/init.h>
-#include <asm/page.h>		/*          */
+#include <asm/page.h>		/* pgprot_t */
 
-struct vm_area_struct;		/*                                         */
+struct vm_area_struct;		/* vma defining user mapping in mm_types.h */
 
-/*                                            */
-#define VM_IOREMAP	0x00000001	/*                       */
-#define VM_ALLOC	0x00000002	/*           */
-#define VM_MAP		0x00000004	/*                */
-#define VM_USERMAP	0x00000008	/*                                  */
-#define VM_VPAGES	0x00000010	/*                                 */
-#define VM_UNLIST	0x00000020	/*                                   */
-#define VM_LOWMEM	0x00000040	/*                                  */
-/*                                                            */
+/* bits in flags of vmalloc's vm_struct below */
+#define VM_IOREMAP	0x00000001	/* ioremap() and friends */
+#define VM_ALLOC	0x00000002	/* vmalloc() */
+#define VM_MAP		0x00000004	/* vmap()ed pages */
+#define VM_USERMAP	0x00000008	/* suitable for remap_vmalloc_range */
+#define VM_VPAGES	0x00000010	/* buffer for pages was vmalloc'ed */
+#define VM_UNLIST	0x00000020	/* vm_struct is not listed in vmlist */
+#define VM_LOWMEM	0x00000040	/* Tracking of direct mapped lowmem */
+/* bits [20..32] reserved for arch specific ioremap internals */
 
 /*
-                                           
-                                           
+ * Maximum alignment for ioremap() regions.
+ * Can be overriden by arch-specific value.
  */
 #ifndef IOREMAP_MAX_ORDER
-#define IOREMAP_MAX_ORDER	(7 + PAGE_SHIFT)	/*           */
+#define IOREMAP_MAX_ORDER	(7 + PAGE_SHIFT)	/* 128 pages */
 #endif
 
 struct vm_struct {
@@ -37,7 +37,7 @@ struct vm_struct {
 };
 
 /*
-                                
+ *	Highlevel APIs for driver use
  */
 extern void vm_unmap_ram(const void *mem, unsigned int count);
 extern void *vm_map_ram(struct page **pages, unsigned int count,
@@ -75,12 +75,12 @@ extern int remap_vmalloc_range(struct vm_area_struct *vma, void *addr,
 void vmalloc_sync_all(void);
  
 /*
-                                      
+ *	Lowlevel-APIs (not for driver use!)
  */
 
 static inline size_t get_vm_area_size(const struct vm_struct *area)
 {
-	/*                                       */
+	/* return actual size without guard page */
 	return area->size - PAGE_SIZE;
 }
 
@@ -120,16 +120,16 @@ unmap_kernel_range(unsigned long addr, unsigned long size)
 }
 #endif
 
-/*                                       */
+/* Allocate/destroy a 'vmalloc' VM area. */
 extern struct vm_struct *alloc_vm_area(size_t size, pte_t **ptes);
 extern void free_vm_area(struct vm_struct *area);
 
-/*               */
+/* for /dev/kmem */
 extern long vread(char *buf, char *addr, unsigned long count);
 extern long vwrite(char *buf, char *addr, unsigned long count);
 
 /*
-                           
+ *	Internals.  Dont't use..
  */
 extern rwlock_t vmlist_lock;
 extern struct vm_struct *vmlist;
@@ -166,4 +166,4 @@ pcpu_free_vm_areas(struct vm_struct **vms, int nr_vms)
 # endif
 #endif
 
-#endif /*                  */
+#endif /* _LINUX_VMALLOC_H */

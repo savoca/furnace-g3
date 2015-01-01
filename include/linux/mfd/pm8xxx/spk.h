@@ -15,9 +15,9 @@
 
 #define PM8XXX_SPK_DEV_NAME     "pm8xxx-spk"
 
-/* 
-                                                     
-                                                                          
+/**
+ * struct pm8xxx_spk_pdata - SPK driver platform data
+ * @spk_add_enable: variable stating SPK secondary input adding capability
  */
 struct pm8xxx_spk_platform_data {
 	bool spk_add_enable;
@@ -32,24 +32,24 @@ struct pm8xxx_spk_platform_data {
 };
 
 /*
-                                             
-  
-                             
+ * pm8xxx_spk_mute - mute/unmute speaker pamp
+ *
+ * @mute: bool value for mute
  */
 int pm8xxx_spk_mute(bool mute);
 
 /*
-                                     
-  
-                      
+ * pm8xxx_spk_gain - Set Speaker gain
+ *
+ * @gain: Speaker gain
  */
 int pm8xxx_spk_gain(u8 gain);
 
 /*
-                                             
-  
-                                       
+ * pm8xxx_spk_enable - Enable/Disable Speaker
+ *
+ * @enable: bool enable/disable Speaker
  */
 int pm8xxx_spk_enable(int enable);
 
-#endif /*                  */
+#endif /* __SPK_PM8XXX_H__ */

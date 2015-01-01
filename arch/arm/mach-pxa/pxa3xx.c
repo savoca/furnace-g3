@@ -66,7 +66,7 @@ static DEFINE_CLK(pxa3xx_pout, &clk_pxa3xx_pout_ops, 13000000, 70);
 
 static struct clk_lookup pxa3xx_clkregs[] = {
 	INIT_CLKREG(&clk_pxa3xx_pout, NULL, "CLK_POUT"),
-	/*                              */
+	/* Power I2C clock is always on */
 	INIT_CLKREG(&clk_dummy, "pxa3xx-pwri2c.1", NULL),
 	INIT_CLKREG(&clk_pxa3xx_lcd, "pxa2xx-fb", NULL),
 	INIT_CLKREG(&clk_pxa3xx_camera, NULL, "CAMCLK"),
@@ -102,12 +102,12 @@ static void __iomem *sram;
 static unsigned long wakeup_src;
 
 /*
-                                                                     
-                                                                   
-                                        
-  
-                                                                     
-                                      
+ * Enter a standby mode (S0D1C2 or S0D2C2).  Upon wakeup, the dynamic
+ * memory controller has to be reinitialised, so we place some code
+ * in the SRAM to perform this function.
+ *
+ * We disable FIQs across the standby - otherwise, we might receive a
+ * FIQ while the SDRAM is unavailable.
  */
 static void pxa3xx_cpu_standby(unsigned int pwrmode)
 {
@@ -133,11 +133,11 @@ static void pxa3xx_cpu_standby(unsigned int pwrmode)
 }
 
 /*
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                             
+ * NOTE:  currently, the OBM (OEM Boot Module) binary comes along with
+ * PXA3xx development kits assumes that the resuming process continues
+ * with the address stored within the first 4 bytes of SDRAM. The PSPR
+ * register is used privately by BootROM and OBM, and _must_ be set to
+ * 0x5c014000 for the moment.
  */
 static void pxa3xx_cpu_pm_suspend(void)
 {
@@ -151,22 +151,22 @@ static void pxa3xx_cpu_pm_suspend(void)
 
 	extern int pxa3xx_finish_suspend(unsigned long);
 
-	/*                                                             */
+	/* resuming from D2 requires the HSIO2/BOOT/TPM clocks enabled */
 	CKENA |= (1 << CKEN_BOOT) | (1 << CKEN_TPM);
 	CKENB |= 1 << (CKEN_HSIO2 & 0x1f);
 
-	/*                               */
+	/* clear and setup wakeup source */
 	AD3SR = ~0;
 	AD3ER = wakeup_src;
 	ASCR = ASCR;
 	ARSR = ARSR;
 
-	PCFR |= (1u << 13);			/*        */
-	PCFR &= ~((1u << 12) | (1u << 1));	/*                */
+	PCFR |= (1u << 13);			/* L1_DIS */
+	PCFR &= ~((1u << 12) | (1u << 1));	/* L0_EN | SL_ROD */
 
 	PSPR = 0x5c014000;
 
-	/*                                   */
+	/* overwrite with the resume address */
 	*p = virt_to_phys(cpu_resume);
 
 	cpu_suspend(0, pxa3xx_finish_suspend);
@@ -183,8 +183,8 @@ static void pxa3xx_cpu_pm_suspend(void)
 static void pxa3xx_cpu_pm_enter(suspend_state_t state)
 {
 	/*
-                                                
-  */
+	 * Don't sleep if no wakeup sources are defined
+	 */
 	if (wakeup_src == 0) {
 		printk(KERN_ERR "Not suspending: no wakeup sources\n");
 		return;
@@ -220,17 +220,17 @@ static void __init pxa3xx_init_pm(void)
 	}
 
 	/*
-                                                              
-                                                               
-                                                             
-  */
+	 * Since we copy wakeup code into the SRAM, we need to ensure
+	 * that it is preserved over the low power modes.  Note: bit 8
+	 * is undocumented in the developer manual, but must be set.
+	 */
 	AD1R |= ADXR_L2 | ADXR_R0;
 	AD2R |= ADXR_L2 | ADXR_R0;
 	AD3R |= ADXR_L2 | ADXR_R0;
 
 	/*
-                                      
-  */
+	 * Clear the resume enable registers.
+	 */
 	AD1D0ER = 0;
 	AD2D0ER = 0;
 	AD2D1ER = 0;
@@ -384,7 +384,7 @@ static void __init pxa_init_ext_wakeup_irq(int (*fn)(struct irq_data *,
 
 void __init pxa3xx_init_irq(void)
 {
-	/*                   */
+	/* enable CP6 access */
 	u32 value;
 	__asm__ __volatile__("mrc p15, 0, %0, c15, c1, 0\n": "=r"(value));
 	value |= (1 << 6);
@@ -395,7 +395,7 @@ void __init pxa3xx_init_irq(void)
 }
 
 static struct map_desc pxa3xx_io_desc[] __initdata = {
-	{	/*         */
+	{	/* Mem Ctl */
 		.virtual	= (unsigned long)SMEMC_VIRT,
 		.pfn		= __phys_to_pfn(PXA3XX_SMEMC_BASE),
 		.length		= 0x00200000,
@@ -411,7 +411,7 @@ void __init pxa3xx_map_io(void)
 }
 
 /*
-                                          
+ * device registration specific to PXA3xx.
  */
 
 void __init pxa3xx_set_i2c_power_info(struct i2c_pxa_platform_data *info)
@@ -448,11 +448,11 @@ static int __init pxa3xx_init(void)
 		reset_status = ARSR;
 
 		/*
-                                         
-    
-                                                                
-                                                             
-   */
+		 * clear RDH bit every time after reset
+		 *
+		 * Note: the last 3 bits DxS are write-1-to-clear so carefully
+		 * preserve them here in case they will be referenced later
+		 */
 		ASCR &= ~(ASCR_RDH | ASCR_D1S | ASCR_D2S | ASCR_D3S);
 
 		clkdev_add_table(pxa3xx_clkregs, ARRAY_SIZE(pxa3xx_clkregs));

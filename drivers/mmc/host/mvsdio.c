@@ -65,14 +65,14 @@ static int mvsd_setup_data(struct mvsd_host *host, struct mmc_data *data)
 	int tmout_index;
 
 	/*
-                                                           
-                                                          
-                                                                
-                                                                
-                                                           
-                                                             
-                                                              
-  */
+	 * Hardware weirdness.  The FIFO_EMPTY bit of the HW_STATE
+	 * register is sometimes not set before a while when some
+	 * "unusual" data block sizes are used (such as with the SWITCH
+	 * command), even despite the fact that the XFER_DONE interrupt
+	 * was raised.  And if another data transfer starts before
+	 * this bit comes to good sense (which eventually happens by
+	 * itself) then the new transfer simply fails with a timeout.
+	 */
 	if (!(mvsd_read(MVSD_HW_STATE) & (1 << 13))) {
 		unsigned long t = jiffies + HZ;
 		unsigned int hw_state,  count = 0;
@@ -89,7 +89,7 @@ static int mvsd_setup_data(struct mvsd_host *host, struct mmc_data *data)
 				   hw_state, count, jiffies - (t - HZ));
 	}
 
-	/*                                                  */
+	/* If timeout=0 then maximum timeout index is used. */
 	tmout = DIV_ROUND_UP(data->timeout_ns, host->ns_per_clk);
 	tmout += data->timeout_clks;
 	tmout_index = fls(tmout - 1) - 12;
@@ -111,9 +111,9 @@ static int mvsd_setup_data(struct mvsd_host *host, struct mmc_data *data)
 
 	if (nodma || (data->blksz | data->sg->offset) & 3) {
 		/*
-                                                      
-                                         
-   */
+		 * We cannot do DMA on a buffer which offset or size
+		 * is not aligned on a 4-byte boundary.
+		 */
 		host->pio_size = data->blocks * data->blksz;
 		host->pio_ptr = sg_virt(data->sg);
 		if (!nodma)
@@ -183,7 +183,7 @@ static void mvsd_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		pio = mvsd_setup_data(host, data);
 		if (pio) {
 			xfer |= MVSD_XFER_MODE_PIO;
-			/*                                                    */
+			/* PIO section of mvsd_irq has comments on those bits */
 			if (data->flags & MMC_DATA_WRITE)
 				intr |= MVSD_NOR_TX_AVAIL;
 			else if (host->pio_size > 32)
@@ -310,11 +310,11 @@ static u32 mvsd_finish_data(struct mvsd_host *host, struct mmc_data *data,
 		mvsd_read(MVSD_CURR_BLK_LEFT), mvsd_read(MVSD_CURR_BYTE_LEFT));
 	data->bytes_xfered =
 		(data->blocks - mvsd_read(MVSD_CURR_BLK_LEFT)) * data->blksz;
-	/*                                                                */
+	/* We can't be sure about the last block when errors are detected */
 	if (data->bytes_xfered && data->error)
 		data->bytes_xfered -= data->blksz;
 
-	/*                             */
+	/* Handle Auto cmd 12 response */
 	if (data->stop) {
 		unsigned int response[3], i;
 		for (i = 0; i < 3; i++)
@@ -356,7 +356,7 @@ static irqreturn_t mvsd_irq(int irq, void *dev)
 
 	spin_lock(&host->lock);
 
-	/*                                            */
+	/* PIO handling, if needed. Messy business... */
 	if (host->pio_size &&
 	    (intr_status & host->intr_en &
 	     (MVSD_NOR_RX_READY | MVSD_NOR_RX_FIFO_8W))) {
@@ -369,10 +369,10 @@ static irqreturn_t mvsd_irq(int irq, void *dev)
 			intr_status = mvsd_read(MVSD_NOR_INTR_STATUS);
 		}
 		/*
-                                                        
-                                                            
-                                           
-   */
+		 * Normally we'd use < 32 here, but the RX_FIFO_8W bit
+		 * doesn't appear to assert when there is exactly 32 bytes
+		 * (8 words) left to fetch in a transfer.
+		 */
 		if (s <= 32) {
 			while (s >= 4 && (intr_status & MVSD_NOR_RX_READY)) {
 				put_unaligned(mvsd_read(MVSD_FIFO), p++);
@@ -409,11 +409,11 @@ static irqreturn_t mvsd_irq(int irq, void *dev)
 		u16 *p = host->pio_ptr;
 		int s = host->pio_size;
 		/*
-                                                         
-                                                              
-                                                               
-                            
-   */
+		 * The TX_FIFO_8W bit is unreliable. When set, bursting
+		 * 16 halfwords all at once in the FIFO drops data. Actually
+		 * TX_AVAIL does go off after only one word is pushed even if
+		 * TX_FIFO_8W remains set.
+		 */
 		while (s >= 4 && (intr_status & MVSD_NOR_TX_AVAIL)) {
 			mvsd_write(MVSD_FIFO, get_unaligned(p++));
 			mvsd_write(MVSD_FIFO, get_unaligned(p++));
@@ -572,9 +572,9 @@ static int mvsd_get_ro(struct mmc_host *mmc)
 		return gpio_get_value(host->gpio_write_protect);
 
 	/*
-                                                               
-                      
-  */
+	 * Board doesn't support read only detection; let the mmc core
+	 * decide what to do.
+	 */
 	return -ENOSYS;
 }
 
@@ -631,11 +631,11 @@ static void mvsd_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			ios->clock, host->base_clock / (m+1), m);
 	}
 
-	/*                       */
+	/* default transfer mode */
 	ctrl_reg |= MVSD_HOST_CTRL_BIG_ENDIAN;
 	ctrl_reg &= ~MVSD_HOST_CTRL_LSB_FIRST;
 
-	/*                            */
+	/* default to maximum timeout */
 	ctrl_reg |= MVSD_HOST_CTRL_TMOUT_MASK;
 	ctrl_reg |= MVSD_HOST_CTRL_TMOUT_EN;
 
@@ -646,12 +646,12 @@ static void mvsd_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		ctrl_reg |= MVSD_HOST_CTRL_DATA_WIDTH_4_BITS;
 
 	/*
-                                                                  
-                                                              
-                                                                
-                                                                
-                      
-  */
+	 * The HI_SPEED_EN bit is causing trouble with many (but not all)
+	 * high speed SD, SDHC and SDIO cards.  Not enabling that bit
+	 * makes all cards work.  So let's just ignore that bit for now
+	 * and revisit this issue if problems for not enabling this bit
+	 * are ever reported.
+	 */
 #if 0
 	if (ios->timing == MMC_TIMING_MMC_HS ||
 	    ios->timing == MMC_TIMING_SD_HS)
@@ -756,7 +756,7 @@ static int __init mvsd_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	/*                                                         */
+	/* (Re-)program MBUS remapping windows if we are asked to. */
 	dram = mv_mbus_dram_info();
 	if (dram)
 		mv_conf_mbus_windows(host, dram);
@@ -909,10 +909,10 @@ static void __exit mvsd_exit(void)
 module_init(mvsd_init);
 module_exit(mvsd_exit);
 
-/*                                              */
+/* maximum card clock frequency (default 50MHz) */
 module_param(maxfreq, int, 0);
 
-/*                                  */
+/* force PIO transfers all the time */
 module_param(nodma, int, 0);
 
 MODULE_AUTHOR("Maen Suleiman, Nicolas Pitre");

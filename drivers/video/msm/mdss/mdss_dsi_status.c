@@ -42,12 +42,12 @@ struct dsi_status_data *pstatus_data;
 static uint32_t interval = STATUS_CHECK_INTERVAL;
 
 /*
-                                                                      
-                                      
-  
-                                                                         
-                                                                            
-                                         
+ * check_dsi_ctrl_status() - Check DSI controller status periodically.
+ * @work  : dsi controller status data
+ *
+ * This function calls check_status API on DSI controller to send the BTA
+ * command. If DSI controller fails to acknowledge the BTA command, it sends
+ * the PANEL_ALIVE=0 status to HAL layer.
  */
 static void check_dsi_ctrl_status(struct work_struct *work)
 {
@@ -87,15 +87,15 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 	mutex_lock(&mdp5_data->ov_lock);
 
 	/*
-                                                      
-                                                             
-                                                                
-                                                             
-                                                           
-                                                               
-                                                              
-                                                  
-  */
+	 * For the command mode panels, we return pan display
+	 * IOCTL on vsync interrupt. So, after vsync interrupt comes
+	 * and when DMA_P is in progress, if the panel stops responding
+	 * and if we trigger BTA before DMA_P finishes, then the DSI
+	 * FIFO will not be cleared since the DSI data bus control
+	 * doesn't come back to the host after BTA. This may cause the
+	 * display reset not to be proper. Hence, wait for DMA_P done
+	 * for command mode panels before triggering BTA.
+	 */
 	if (ctl->wait_pingpong)
 		ctl->wait_pingpong(ctl, NULL);
 
@@ -126,15 +126,15 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 }
 
 /*
-                                                                        
-                      
-                          
-                                        
-                                   
-  
-                                                                           
-                                                                           
-                                                               
+ * fb_event_callback() - Call back function for the fb_register_client()
+ *			 notifying events
+ * @self  : notifier block
+ * @event : The event that was triggered
+ * @data  : Of type struct fb_event
+ *
+ * This function listens for FB_BLANK_UNBLANK and FB_BLANK_POWERDOWN events
+ * from frame buffer. DSI status check work is either scheduled again after
+ * PANEL_STATUS_CHECK_INTERVAL or cancelled based on the event.
  */
 static int fb_event_callback(struct notifier_block *self,
 				unsigned long event, void *data)

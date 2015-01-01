@@ -37,10 +37,10 @@ static int exofs_release_file(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-/*                                           
-  
-                                                                         
-                                
+/* exofs_file_fsync - flush the inode to disk
+ *
+ *   Note, in exofs all metadata is written as part of inode, regardless.
+ *   The writeout is synchronous
  */
 static int exofs_file_fsync(struct file *filp, loff_t start, loff_t end,
 			    int datasync)
@@ -61,7 +61,7 @@ static int exofs_file_fsync(struct file *filp, loff_t start, loff_t end,
 static int exofs_flush(struct file *file, fl_owner_t id)
 {
 	int ret = vfs_fsync(file, 0);
-	/*                            */
+	/* TODO: Flush the OSD target */
 	return ret;
 }
 

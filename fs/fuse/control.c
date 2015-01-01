@@ -14,8 +14,8 @@
 #define FUSE_CTL_SUPER_MAGIC 0x65735543
 
 /*
-                                                                      
-                                   
+ * This is non-NULL when the single instance of the control filesystem
+ * exists.  Protected by fuse_mutex
  */
 static struct super_block *fuse_control_sb;
 
@@ -227,7 +227,7 @@ static struct dentry *fuse_ctl_add_dentry(struct dentry *parent,
 	inode->i_uid = fc->user_id;
 	inode->i_gid = fc->group_id;
 	inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
-	/*                                       */
+	/* setting ->i_op to NULL is not allowed */
 	if (iop)
 		inode->i_op = iop;
 	inode->i_fop = fop;
@@ -238,8 +238,8 @@ static struct dentry *fuse_ctl_add_dentry(struct dentry *parent,
 }
 
 /*
-                                                                     
-                       
+ * Add a connection to the control filesystem (if it exists).  Caller
+ * must hold fuse_mutex
  */
 int fuse_ctl_add_conn(struct fuse_conn *fc)
 {
@@ -277,8 +277,8 @@ int fuse_ctl_add_conn(struct fuse_conn *fc)
 }
 
 /*
-                                                                  
-                              
+ * Remove a connection from the control filesystem (if it exists).
+ * Caller must hold fuse_mutex
  */
 void fuse_ctl_remove_conn(struct fuse_conn *fc)
 {

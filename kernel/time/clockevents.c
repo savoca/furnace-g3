@@ -20,22 +20,22 @@
 
 #include "tick-internal.h"
 
-/*                                    */
+/* The registered clock event devices */
 static LIST_HEAD(clockevent_devices);
 static LIST_HEAD(clockevents_released);
 
-/*                               */
+/* Notification for clock events */
 static RAW_NOTIFIER_HEAD(clockevents_chain);
 
-/*                          */
+/* Protection for the above */
 static DEFINE_RAW_SPINLOCK(clockevents_lock);
 
-/* 
-                                                                             
-                           
-                                                 
-  
-                                                                            
+/**
+ * clockevents_delta2ns - Convert a latch value (device ticks) to nanoseconds
+ * @latch:	value to convert
+ * @evt:	pointer to clock event device descriptor
+ *
+ * Math helper, returns latch value converted to nanoseconds (bound checked)
  */
 u64 clockevent_delta2ns(unsigned long latch, struct clock_event_device *evt)
 {
@@ -56,12 +56,12 @@ u64 clockevent_delta2ns(unsigned long latch, struct clock_event_device *evt)
 }
 EXPORT_SYMBOL_GPL(clockevent_delta2ns);
 
-/* 
-                                                                        
-                         
-                  
-  
-                                            
+/**
+ * clockevents_set_mode - set the operating mode of a clock event device
+ * @dev:	device to modify
+ * @mode:	new mode
+ *
+ * Must be called with interrupts disabled !
  */
 void clockevents_set_mode(struct clock_event_device *dev,
 				 enum clock_event_mode mode)
@@ -71,9 +71,9 @@ void clockevents_set_mode(struct clock_event_device *dev,
 		dev->mode = mode;
 
 		/*
-                                                            
-                                            
-   */
+		 * A nsec2cyc multiplicator of 0 is invalid and we'd crash
+		 * on it, so fix it up and emit a warning:
+		 */
 		if (mode == CLOCK_EVT_MODE_ONESHOT) {
 			if (unlikely(!dev->mult)) {
 				dev->mult = 1;
@@ -83,9 +83,9 @@ void clockevents_set_mode(struct clock_event_device *dev,
 	}
 }
 
-/* 
-                                                                  
-                           
+/**
+ * clockevents_shutdown - shutdown the device and clear next_event
+ * @dev:	device to shutdown
  */
 void clockevents_shutdown(struct clock_event_device *dev)
 {
@@ -95,18 +95,18 @@ void clockevents_shutdown(struct clock_event_device *dev)
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS_MIN_ADJUST
 
-/*                             */
+/* Limit min_delta to a jiffie */
 #define MIN_DELTA_LIMIT		(NSEC_PER_SEC / HZ)
 
-/* 
-                                                                               
-                                                   
-  
-                                                                         
+/**
+ * clockevents_increase_min_delta - raise minimum delta of a clock event device
+ * @dev:       device to increase the minimum delta
+ *
+ * Returns 0 on success, -ETIME when the minimum delta reached the limit.
  */
 static int clockevents_increase_min_delta(struct clock_event_device *dev)
 {
-	/*                                               */
+	/* Nothing to do if we already reached the limit */
 	if (dev->min_delta_ns >= MIN_DELTA_LIMIT) {
 		printk(KERN_WARNING "CE: Reprogramming failure. Giving up\n");
 		dev->next_event.tv64 = KTIME_MAX;
@@ -127,11 +127,11 @@ static int clockevents_increase_min_delta(struct clock_event_device *dev)
 	return 0;
 }
 
-/* 
-                                                                               
-                          
-  
-                                                           
+/**
+ * clockevents_program_min_delta - Set clock event device to the minimum delay.
+ * @dev:	device to program
+ *
+ * Returns 0 on success, -ETIME when the retry loop failed.
  */
 static int clockevents_program_min_delta(struct clock_event_device *dev)
 {
@@ -153,10 +153,10 @@ static int clockevents_program_min_delta(struct clock_event_device *dev)
 
 		if (++i > 2) {
 			/*
-                                                     
-                                                     
-                                                   
-    */
+			 * We tried 3 times to program the device with the
+			 * given min_delta_ns. Try to increase the minimum
+			 * delta, if that fails as well get out of here.
+			 */
 			if (clockevents_increase_min_delta(dev))
 				return -ETIME;
 			i = 0;
@@ -164,13 +164,13 @@ static int clockevents_program_min_delta(struct clock_event_device *dev)
 	}
 }
 
-#else  /*                                       */
+#else  /* CONFIG_GENERIC_CLOCKEVENTS_MIN_ADJUST */
 
-/* 
-                                                                               
-                          
-  
-                                                           
+/**
+ * clockevents_program_min_delta - Set clock event device to the minimum delay.
+ * @dev:	device to program
+ *
+ * Returns 0 on success, -ETIME when the retry loop failed.
  */
 static int clockevents_program_min_delta(struct clock_event_device *dev)
 {
@@ -188,15 +188,15 @@ static int clockevents_program_min_delta(struct clock_event_device *dev)
 	return dev->set_next_event((unsigned long) clc, dev);
 }
 
-#endif /*                                       */
+#endif /* CONFIG_GENERIC_CLOCKEVENTS_MIN_ADJUST */
 
-/* 
-                                                                
-                          
-                                                   
-                                                          
-  
-                                                              
+/**
+ * clockevents_program_event - Reprogram the clock event device.
+ * @dev:	device to program
+ * @expires:	absolute expiry time (monotonic clock)
+ * @force:	program minimum delay if expires can not be set
+ *
+ * Returns 0 on success, -ETIME when the event is in the past.
  */
 int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
 			      bool force)
@@ -215,7 +215,7 @@ int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
 	if (dev->mode == CLOCK_EVT_MODE_SHUTDOWN)
 		return 0;
 
-	/*                                                           */
+	/* Shortcut for clockevent devices that can deal with ktime. */
 	if (dev->features & CLOCK_EVT_FEAT_KTIME)
 		return dev->set_next_ktime(expires, dev);
 
@@ -232,8 +232,8 @@ int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
 	return (rc && force) ? clockevents_program_min_delta(dev) : rc;
 }
 
-/* 
-                                                                          
+/**
+ * clockevents_register_notifier - register a clock events change listener
  */
 int clockevents_register_notifier(struct notifier_block *nb)
 {
@@ -248,8 +248,8 @@ int clockevents_register_notifier(struct notifier_block *nb)
 }
 
 /*
-                                                                  
-        
+ * Notify about a clock event change. Called with clockevents_lock
+ * held.
  */
 static void clockevents_do_notify(unsigned long reason, void *dev)
 {
@@ -257,8 +257,8 @@ static void clockevents_do_notify(unsigned long reason, void *dev)
 }
 
 /*
-                                                                 
-                                   
+ * Called after a notify add to make devices available which were
+ * released from the notifier call.
  */
 static void clockevents_notify_released(void)
 {
@@ -273,9 +273,9 @@ static void clockevents_notify_released(void)
 	}
 }
 
-/* 
-                                                              
-                           
+/**
+ * clockevents_register_device - register a clock event device
+ * @dev:	device to register
  */
 void clockevents_register_device(struct clock_event_device *dev)
 {
@@ -306,10 +306,10 @@ static void clockevents_config(struct clock_event_device *dev,
 		return;
 
 	/*
-                                                               
-                                                          
-                                                             
-  */
+	 * Calculate the maximum number of seconds we can sleep. Limit
+	 * to 10 minutes for hardware which can program more than
+	 * 32bit ticks so we still get reasonable conversion values.
+	 */
 	sec = dev->max_delta_ticks;
 	do_div(sec, freq);
 	if (!sec)
@@ -322,14 +322,14 @@ static void clockevents_config(struct clock_event_device *dev,
 	dev->max_delta_ns = clockevent_delta2ns(dev->max_delta_ticks, dev);
 }
 
-/* 
-                                                                                
-                           
-                             
-                                                                 
-                                                                 
-  
-                                                                        
+/**
+ * clockevents_config_and_register - Configure and register a clock event device
+ * @dev:	device to register
+ * @freq:	The clock frequency
+ * @min_delta:	The minimum clock ticks to program in oneshot mode
+ * @max_delta:	The maximum clock ticks to program in oneshot mode
+ *
+ * min/max_delta can be 0 for devices which do not support oneshot mode.
  */
 void clockevents_config_and_register(struct clock_event_device *dev,
 				     u32 freq, unsigned long min_delta,
@@ -341,15 +341,15 @@ void clockevents_config_and_register(struct clock_event_device *dev,
 	clockevents_register_device(dev);
 }
 
-/* 
-                                                                                 
-                         
-                              
-  
-                                                            
-                                                                    
-                                                                    
-                                        
+/**
+ * clockevents_update_freq - Update frequency and reprogram a clock event device.
+ * @dev:	device to modify
+ * @freq:	new device frequency
+ *
+ * Reconfigure and reprogram a clock event device in oneshot
+ * mode. Must be called on the cpu for which the device delivers per
+ * cpu timer events with interrupts disabled!  Returns 0 on success,
+ * -ETIME when the event is in the past.
  */
 int clockevents_update_freq(struct clock_event_device *dev, u32 freq)
 {
@@ -362,18 +362,18 @@ int clockevents_update_freq(struct clock_event_device *dev, u32 freq)
 }
 
 /*
-                                                 
+ * Noop handler when we shut down an event device
  */
 void clockevents_handle_noop(struct clock_event_device *dev)
 {
 }
 
-/* 
-                                                                  
-                                        
-                                        
-  
-                                                                   
+/**
+ * clockevents_exchange_device - release and request clock devices
+ * @old:	device to release (can be NULL)
+ * @new:	device to request (can be NULL)
+ *
+ * Called from the notifier chain. clockevents_lock is held already
  */
 void clockevents_exchange_device(struct clock_event_device *old,
 				 struct clock_event_device *new)
@@ -382,9 +382,9 @@ void clockevents_exchange_device(struct clock_event_device *old,
 
 	local_irq_save(flags);
 	/*
-                                                              
-                                            
-  */
+	 * Caller releases a clock event device. We queue it into the
+	 * released list and do a notify add later.
+	 */
 	if (old) {
 		clockevents_set_mode(old, CLOCK_EVT_MODE_UNUSED);
 		list_del(&old->list);
@@ -399,8 +399,8 @@ void clockevents_exchange_device(struct clock_event_device *old,
 }
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
-/* 
-                                                          
+/**
+ * clockevents_notify - notification about relevant events
  */
 void clockevents_notify(unsigned long reason, void *arg)
 {
@@ -414,14 +414,14 @@ void clockevents_notify(unsigned long reason, void *arg)
 	switch (reason) {
 	case CLOCK_EVT_NOTIFY_CPU_DEAD:
 		/*
-                                                  
-                                                 
-   */
+		 * Unregister the clock event devices which were
+		 * released from the users in the notify chain.
+		 */
 		list_for_each_entry_safe(dev, tmp, &clockevents_released, list)
 			list_del(&dev->list);
 		/*
-                                                              
-   */
+		 * Now check whether the CPU has left unused per cpu devices
+		 */
 		cpu = *((int *)arg);
 		list_for_each_entry_safe(dev, tmp, &clockevent_devices, list) {
 			if (cpumask_test_cpu(cpu, dev->cpumask) &&

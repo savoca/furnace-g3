@@ -161,8 +161,8 @@ static int jz_nand_calculate_ecc_rs(struct mtd_info *mtd, const uint8_t *dat,
 	for (i = 0; i < 9; ++i)
 		ecc_code[i] = readb(nand->base + JZ_REG_NAND_PAR0 + i);
 
-	/*                                                                     
-                                                                     */
+	/* If the written data is completly 0xff, we also want to write 0xff as
+	 * ecc, otherwise we will get in trouble when doing subpage writes. */
 	if (memcmp(ecc_code, empty_block_ecc, 9) == 0)
 		memset(ecc_code, 0xff, 9);
 
@@ -334,9 +334,9 @@ static int __devinit jz_nand_probe(struct platform_device *pdev)
 	chip->ecc.bytes		= 9;
 	chip->ecc.strength	= 2;
 	/*
-                                                                  
-                                                               
-  */
+	 * FIXME: ecc_strength value of 2 bits per 512 bytes of data is a
+	 * conservative guess, given 9 ecc bytes and reed-solomon alg.
+	 */
 
 	if (pdata)
 		chip->ecc.layout = pdata->ecc_layout;
@@ -405,7 +405,7 @@ static int __devexit jz_nand_remove(struct platform_device *pdev)
 
 	nand_release(&nand->mtd);
 
-	/*                                */
+	/* Deassert and disable all chips */
 	writel(0, nand->base + JZ_REG_NAND_CTRL);
 
 	iounmap(nand->bank_base);

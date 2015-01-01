@@ -59,10 +59,10 @@
 #define GPIO_IRRC_PWEN_ENABLE       1
 #define GPIO_IRRC_PWEN_DISABLE      0
 /*
-                     
-                                                                                                              
-                                                                                                            
-                                                                                                     
+    For ADB debugging
+    if you want to turn on with pwm clock(33Khz), duty(50%),    #echo 1 33 50 > /sys/kernel/debug/sw_irrc/poke
+    if you want to turn on with gpio level high.                #echo 1 0 0 > /sys/kernel/debug/sw_irrc/poke
+    if you want to turn off,                           #echo 0 33 50 > /sys/kernel/debug/sw_irrc/poke
 
 */
 
@@ -70,7 +70,7 @@
 #define REG_READL(reg)				readl(reg)
 
 #define MMSS_GP0_CMD_RCGR(x) (void __iomem *)(virt_bases_v + (x))
-//                                                                                                                   
+//#define MMSS_CC_PWM_SET		0xFD8C3450 //B2:0xFD8C3450, Wx:0xFD8C3420. The value will be from device tree. gp_cmd_rcgr
 #define MMSS_CC_PWM_SIZE	SZ_1K
 
 struct timed_irrc_data {
@@ -103,7 +103,7 @@ static int gpio_high_flag = 0;
 
 
 static struct gpiomux_setting irrc_active = {
-    .func = 0, //                                                                                            
+    .func = 0, //[WX project] The value will be from device tree. GPIO for GP clock has alternative function.
     .drv = GPIOMUX_DRV_2MA,
     .pull = GPIOMUX_PULL_NONE,
 };
@@ -116,7 +116,7 @@ static struct gpiomux_setting irrc_suspend = {
 
 static struct msm_gpiomux_config irrc_config[] = {
     {
-        .gpio = 0, //                                                                          
+        .gpio = 0, //[WX project] The value will be from device tree. GPIO_IRRC_PWM gpio number
         .settings = {
             [GPIOMUX_ACTIVE] =    &irrc_active,
             [GPIOMUX_SUSPENDED] = &irrc_suspend,
@@ -131,7 +131,7 @@ static int android_irrc_set_pwm(int enable,int PWM_CLK, int duty)
     int N_VAL = 1;
     int D_VAL = 1;
 
-    N_VAL = (9600+PWM_CLK)/(PWM_CLK*2); //                                                                
+    N_VAL = (9600+PWM_CLK)/(PWM_CLK*2); //Formular in case SRC is 19.2Mhz. N_VAL = SRC/(div*PWM_CLK) + 0.5
     D_VAL = (N_VAL*duty+50)/100;
     if (D_VAL == 0)
         D_VAL = 1;
@@ -140,19 +140,19 @@ static int android_irrc_set_pwm(int enable,int PWM_CLK, int duty)
 
     if (enable) {
         REG_WRITEL(
-            ((~(N_VAL-M_VAL)) & 0xffU),/*        */
+            ((~(N_VAL-M_VAL)) & 0xffU),/* N[7:0] */
             MMSS_GP0_CMD_RCGR(0x0C));
         REG_WRITEL(
-            ((~(D_VAL << 1)) & 0xffU),	/*        */
+            ((~(D_VAL << 1)) & 0xffU),	/* D[7:0] */
             MMSS_GP0_CMD_RCGR(0x10));
         REG_WRITEL(
-            (1 << 1U) + /*            */
-            (1),		/*           */
+            (1 << 1U) + /* ROOT_EN[1] */
+            (1),		/* UPDATE[0] */
             MMSS_GP0_CMD_RCGR(0));
     } else {
         REG_WRITEL(
-            (0 << 1U) + /*            */
-            (0),		/*           */
+            (0 << 1U) + /* ROOT_EN[1] */
+            (0),		/* UPDATE[0] */
             MMSS_GP0_CMD_RCGR(0));
     }
     return 0;
@@ -174,7 +174,7 @@ static void android_irrc_enable_pwm(struct timed_irrc_data *irrc, int PWM_CLK, i
             ERR_MSG("regulator_enable failed\n");
     }
 
-    cancel_delayed_work_sync(&irrc->gpio_off_work); //                        
+    cancel_delayed_work_sync(&irrc->gpio_off_work); //android_irrc_disable_pwm
     if((PWM_CLK == 0) || (duty == 100)){
         INFO_MSG("gpio set to high!!!\n");
 
@@ -221,7 +221,7 @@ static void android_irrc_disable_pwm(struct work_struct *work)
         gpio_set_value(irrc->pwm_gpio, 0);
 
     } else {
-        //                                        
+        //android_irrc_set_pwm(0,38,30); //no need
         clk_disable_unprepare(irrc->gp_clk);
     }
 }
@@ -260,7 +260,7 @@ static long android_irrc_ioctl(struct file *file, unsigned int cmd, unsigned lon
 
         case IRRC_STOP:
             INFO_MSG("IRRC_STOP\n");
-            cancel_delayed_work_sync(&irrc->gpio_off_work); //                        
+            cancel_delayed_work_sync(&irrc->gpio_off_work); //android_irrc_disable_pwm
             queue_delayed_work(irrc->workqueue, &irrc->gpio_off_work, msecs_to_jiffies(1500));
             break;
         default:
@@ -341,7 +341,7 @@ static ssize_t codec_debug_write(struct file *filp,
 
     lbuf[cnt] = '\0';
 
-    //                                                                  
+    //INFO_MSG("access_str:%s lbuf:%s cnt:%d\n", access_str, lbuf, cnt);
 
     if (!strncmp(access_str, "poke", 6)) {
         rc = get_parameters(lbuf, param, 3);
@@ -476,15 +476,15 @@ static int android_irrc_probe(struct platform_device *pdev)
     clk_set_rate(irrc->gp_clk, (unsigned long)irrc->clk_rate);
 
     if(lge_get_board_revno() >= HW_REV_B) {
-#if 0   /*                                                                          */
-        /*                                                                                                 */
+#if 0   /* GPIO_IRRC_PWEN(GPIO 69) is shared with IrDA and IrRC in B2 KDDI targets. */
+        /* Proving of IrDA driver is invoked earlier than IrRC driver's one, so IrRC doesn't need to init. */
         if((rc = gpio_request_one(GPIO_IRRC_PWEN, GPIOF_OUT_INIT_LOW, "IrRC_PWEN")) != 0) {
             ERR_MSG("failed to gpio_request_one an external LDO(GPIO:%d) for SW IrRC \n", GPIO_IRRC_PWEN);
             goto err_4;
         }
 #endif
     } else {
-        //                                  
+        // for VREG_L19_2V85 on irrc sensor.
         irrc->vreg = regulator_get(&pdev->dev, "vreg_irrc");
         if (IS_ERR(irrc->vreg)) {
             ERR_MSG("regulator_get failed (%ld)\n", PTR_ERR(irrc->vreg));
@@ -584,7 +584,7 @@ static void __exit android_irrc_exit(void)
     platform_driver_unregister(&android_irrc_driver);
 }
 
-late_initcall_sync(android_irrc_init); /*                    */
+late_initcall_sync(android_irrc_init); /* to let init lately */
 module_exit(android_irrc_exit);
 
 MODULE_AUTHOR("LG Electronics Inc.");

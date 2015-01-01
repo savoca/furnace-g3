@@ -10,7 +10,7 @@
 #include "init.h"
 #include "os.h"
 
-/*                                               */
+/* Changed by uml_initrd_setup, which is a setup */
 static char *initrd __initdata = NULL;
 static int load_initrd(char *filename, void *buf, int size);
 
@@ -28,9 +28,9 @@ static int __init read_initrd(void)
 		return 0;
 
 	/*
-                                                            
-                      
-  */
+	 * This is necessary because alloc_bootmem craps out if you
+	 * ask for no memory.
+	 */
 	if (size == 0) {
 		printk(KERN_ERR "\"%s\" is a zero-size initrd\n", initrd);
 		return 0;

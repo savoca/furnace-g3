@@ -157,21 +157,21 @@ struct ibft_tgt {
 } __attribute__((__packed__));
 
 /*
-                                             
-  
+ * The kobject different types and its names.
+ *
 */
 enum ibft_id {
-	id_reserved = 0, /*                   */
-	id_control = 1, /*                                               */
+	id_reserved = 0, /* We don't support. */
+	id_control = 1, /* Should show up only once and is not exported. */
 	id_initiator = 2,
 	id_nic = 3,
 	id_target = 4,
-	id_extensions = 5, /*                   */
+	id_extensions = 5, /* We don't support. */
 	id_end_marker,
 };
 
 /*
-                                        
+ * The kobject and attribute structures.
  */
 
 struct ibft_kobject {
@@ -189,7 +189,7 @@ static struct iscsi_boot_kset *boot_kset;
 static const char nulls[16];
 
 /*
-                                           
+ * Helper functions to parse data properly.
  */
 static ssize_t sprintf_ipaddr(char *buf, u8 *ip)
 {
@@ -199,13 +199,13 @@ static ssize_t sprintf_ipaddr(char *buf, u8 *ip)
 	    ip[4] == 0 && ip[5] == 0 && ip[6] == 0 && ip[7] == 0 &&
 	    ip[8] == 0 && ip[9] == 0 && ip[10] == 0xff && ip[11] == 0xff) {
 		/*
-         
-   */
+		 * IPV4
+		 */
 		str += sprintf(buf, "%pI4", ip + 12);
 	} else {
 		/*
-         
-   */
+		 * IPv6
+		 */
 		str += sprintf(str, "%pI6", ip);
 	}
 	str += sprintf(str, "\n");
@@ -218,7 +218,7 @@ static ssize_t sprintf_string(char *str, int len, char *buf)
 }
 
 /*
-                                             
+ * Helper function to verify the IBFT header.
  */
 static int ibft_verify_hdr(char *t, struct ibft_hdr *hdr, int id, int length)
 {
@@ -239,7 +239,7 @@ static int ibft_verify_hdr(char *t, struct ibft_hdr *hdr, int id, int length)
 }
 
 /*
-                                                            
+ *  Routines for parsing the iBFT data to be human readable.
  */
 static ssize_t ibft_attr_show_initiator(void *data, int type, char *buf)
 {
@@ -411,7 +411,7 @@ static int __init ibft_check_device(void)
 
 	len = ibft_addr->header.length;
 
-	/*                          */
+	/* Sanity checking of iBFT. */
 	if (ibft_addr->header.revision != 1) {
 		printk(KERN_ERR "iBFT module supports only revision 1, " \
 				"while this is %d.\n",
@@ -430,8 +430,8 @@ static int __init ibft_check_device(void)
 }
 
 /*
-                                                               
-                                
+ * Helper routiners to check to determine if the entry is valid
+ * in the proper iBFT structure.
  */
 static umode_t ibft_check_nic_for(void *data, int type)
 {
@@ -572,7 +572,7 @@ static void ibft_kobj_release(void *data)
 }
 
 /*
-                                              
+ * Helper function for ibft_register_kobjects.
  */
 static int __init ibft_create_kobject(struct acpi_table_ibft *header,
 				      struct ibft_hdr *hdr)
@@ -642,7 +642,7 @@ static int __init ibft_create_kobject(struct acpi_table_ibft *header,
 	case id_reserved:
 	case id_control:
 	case id_extensions:
-		/*                                            */
+		/* Fields which we don't support. Ignore them */
 		rc = 1;
 		break;
 	default:
@@ -654,18 +654,18 @@ static int __init ibft_create_kobject(struct acpi_table_ibft *header,
 	}
 
 	if (rc) {
-		/*                                                          */
+		/* Skip adding this kobject, but exit with non-fatal error. */
 		rc = 0;
 		goto free_ibft_obj;
 	}
 
 	if (hdr->id == id_nic) {
 		/*
-                                                        
-                                                   
-                                                                 
-                                                
-  */
+		* We don't search for the device in other domains than
+		* zero. This is because on x86 platforms the BIOS
+		* executes only devices which are in domain 0. Furthermore, the
+		* iBFT spec doesn't have a domain id field :-(
+		*/
 		pci_dev = pci_get_bus_and_slot((nic->pci_bdf & 0xff00) >> 8,
 					       (nic->pci_bdf & 0xff));
 		if (pci_dev) {
@@ -682,9 +682,9 @@ free_ibft_obj:
 }
 
 /*
-                                                                    
-                                                                    
-                                             
+ * Scan the IBFT table structure for the NIC and Target fields. When
+ * found add them on the passed-in list. We do not support the other
+ * fields at this point, so they are skipped.
  */
 static int __init ibft_register_kobjects(struct acpi_table_ibft *header)
 {
@@ -700,7 +700,7 @@ static int __init ibft_register_kobjects(struct acpi_table_ibft *header)
 	rc = ibft_verify_hdr("control", (struct ibft_hdr *)control, id_control,
 			     sizeof(*control));
 
-	/*                            */
+	/* iBFT table safety checking */
 	rc |= ((control->hdr.index) ? -ENODEV : 0);
 	if (rc) {
 		printk(KERN_ERR "iBFT error: Control header is invalid!\n");
@@ -751,9 +751,9 @@ static const struct {
 	char *sign;
 } ibft_signs[] = {
 	/*
-                                                                 
-             
-  */
+	 * One spec says "IBFT", the other says "iBFT". We have to check
+	 * for both.
+	 */
 	{ ACPI_SIG_IBFT },
 	{ "iBFT" },
 };
@@ -778,17 +778,17 @@ static void __init acpi_find_ibft_region(void)
 #endif
 
 /*
-                                                              
+ * ibft_init() - creates sysfs tree entries for the iBFT data.
  */
 static int __init ibft_init(void)
 {
 	int rc = 0;
 
 	/*
-                                                          
-                                                            
-                   
- */
+	   As on UEFI systems the setup_arch()/find_ibft_region()
+	   is called before ACPI tables are parsed and it only does
+	   legacy finding.
+	*/
 	if (!ibft_addr)
 		acpi_find_ibft_region();
 
@@ -803,7 +803,7 @@ static int __init ibft_init(void)
 		if (!boot_kset)
 			return -ENOMEM;
 
-		/*                                                   */
+		/* Scan the IBFT for data and register the kobjects. */
 		rc = ibft_register_kobjects(ibft_addr);
 		if (rc)
 			goto out_free;

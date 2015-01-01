@@ -11,18 +11,18 @@
 #ifndef _ASM_IO_H
 #define _ASM_IO_H
 
-#include <asm/page.h> /*                                         */
+#include <asm/page.h> /* I/O is all done through memory accesses */
 #include <asm/cpu-regs.h>
 #include <asm/cacheflush.h>
 
 #define mmiowb() do {} while (0)
 
-/*                                                                           */
+/*****************************************************************************/
 /*
-                                                                   
-                                                                
-                                                               
-                            
+ * readX/writeX() are used to access memory mapped devices. On some
+ * architectures the memory mapped IO stuff needs to be accessed
+ * differently. On the x86 architecture, we just read/write the
+ * memory location directly.
  */
 static inline u8 readb(const volatile void __iomem *addr)
 {
@@ -66,9 +66,9 @@ static inline void writel(u32 b, volatile void __iomem *addr)
 #define __raw_writew writew
 #define __raw_writel writel
 
-/*                                                                           */
+/*****************************************************************************/
 /*
-                                     
+ * traditional input/output functions
  */
 static inline u8 inb_local(unsigned long addr)
 {
@@ -227,15 +227,15 @@ static inline void outsl(unsigned long addr, const void *buffer, int count)
 #include <linux/vmalloc.h>
 #define __io_virt(x) ((void *) (x))
 
-/*                                                              */
+/* Create a virtual mapping cookie for a PCI BAR (memory or IO) */
 struct pci_dev;
 static inline void pci_iounmap(struct pci_dev *dev, void __iomem *p)
 {
 }
 
 /*
-                                                         
-                           
+ * Change virtual addresses to physical addresses and vv.
+ * These are pretty trivial
  */
 static inline unsigned long virt_to_phys(volatile void *address)
 {
@@ -248,7 +248,7 @@ static inline void *phys_to_virt(unsigned long address)
 }
 
 /*
-                                            
+ * Change "struct page" to physical address.
  */
 static inline void __iomem *__ioremap(unsigned long offset, unsigned long size,
 				      unsigned long flags)
@@ -262,9 +262,9 @@ static inline void __iomem *ioremap(unsigned long offset, unsigned long size)
 }
 
 /*
-                                                                          
-                                                                             
-                                              
+ * This one maps high address device memory and turns off caching for that
+ * area.  it's useful if some control registers are in such an area and write
+ * combining or read caching is not desirable:
  */
 static inline void __iomem *ioremap_nocache(unsigned long offset, unsigned long size)
 {
@@ -290,7 +290,7 @@ static inline void ioport_unmap(void __iomem *p)
 #define xlate_dev_mem_ptr(p)	((void *) (p))
 
 /*
-                                                                      
+ * PCI bus iomem addresses must be in the region 0x80000000-0x9fffffff
  */
 static inline unsigned long virt_to_bus(volatile void *address)
 {
@@ -308,6 +308,6 @@ static inline void *bus_to_virt(unsigned long address)
 #define memcpy_fromio(a, b, c)	memcpy((a), __io_virt(b), (c))
 #define memcpy_toio(a, b, c)	memcpy(__io_virt(a), (b), (c))
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*           */
+#endif /* _ASM_IO_H */

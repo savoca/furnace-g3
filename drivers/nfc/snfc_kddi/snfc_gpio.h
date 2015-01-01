@@ -1,6 +1,6 @@
 /*
-             
- 
+* snfc_gpio.h
+*
 */
 
 
@@ -9,11 +9,11 @@
 
 
 /*
-                            
+ *  INCLUDE FILES FOR MODULE
  */
 #include <linux/gpio.h>
 #include "snfc_common.h"
-/*      */
+/*DEFINE*/
 
 enum{
   GPIO_DIRECTION_IN = 0,
@@ -41,42 +41,42 @@ struct snfc_gp {
 };
 
 #ifdef CONFIG_LGE_NFC_SONY_KDDI
-/*          */
-#define GPIO_SNFC_PON		74  	//       
+/* snfc_pon */
+#define GPIO_SNFC_PON		74  	//IMA_PON
 
-/*          */
-#define GPIO_SNFC_RFS   	102		//        
+/* snfc_rfs */
+#define GPIO_SNFC_RFS   	102		//IMA_CDET
 
-/*          */
-#define GPIO_SNFC_INT   	46		//       
+/* snfc_int */
+#define GPIO_SNFC_INT   	46		//IMA_INT
 
-/*               */
-#define GPIO_SNFC_INTU   	59		//        
+/* snfc_lockcont */
+#define GPIO_SNFC_INTU   	59		//IMA_INTU
 
-/*           */
-#define GPIO_SNFC_HSEL		94		//        
+/* snfc_hsel */
+#define GPIO_SNFC_HSEL		94		//NFC_HSEL
 
-/*           */
-#define GPIO_SNFC_HVDD		145		//        
+/* snfc_hvdd */
+#define GPIO_SNFC_HVDD		145		//NFC_HSEL
 
-#else  //         
-/*          */
-#define GPIO_SNFC_PON		40  	//       
+#else  //G2 Docomo
+/* snfc_pon */
+#define GPIO_SNFC_PON		40  	//IMA_PON
 
-/*          */
-#define GPIO_SNFC_RFS   	94		//        
+/* snfc_rfs */
+#define GPIO_SNFC_RFS   	94		//IMA_CDET
 
-/*          */
-#define GPIO_SNFC_INT   	38		//       
+/* snfc_int */
+#define GPIO_SNFC_INT   	38		//IMA_INT
 
-/*               */
-#define GPIO_SNFC_INTU   	36		//        
+/* snfc_lockcont */
+#define GPIO_SNFC_INTU   	36		//IMA_INTU
 
-/*           */
-#define GPIO_SNFC_HSEL		59		//        
+/* snfc_hsel */
+#define GPIO_SNFC_HSEL		59		//NFC_HSEL
 
-/*           */
-#define GPIO_SNFC_HVDD		35		//        
+/* snfc_hvdd */
+#define GPIO_SNFC_HVDD		35		//NFC_HSEL
 
 #endif
 
@@ -90,10 +90,10 @@ struct snfc_gp {
 extern int gpio_rfs;
 
 /*
-                     
+ *	FUNCTION PROTOTYPE
  */
 int snfc_gpio_open(int gpionum, int direction, int value);
 void snfc_gpio_write(int gpionum, int value);
 int snfc_gpio_read(int gpionum);
 
-#endif  //               
+#endif  //__SNFC_GPIO_H__

@@ -30,12 +30,12 @@
 #include <asm/unistd.h>
 
 /*
-                                                       
-                            
+ * does not yet catch signals sent when the child dies.
+ * in exit.c or in signal.c.
  */
 
 /*
-                                                           
+ * retrieve the contents of FRV userspace general registers
  */
 static int genregs_get(struct task_struct *target,
 		       const struct user_regset *regset,
@@ -55,7 +55,7 @@ static int genregs_get(struct task_struct *target,
 }
 
 /*
-                                                             
+ * update the contents of the FRV userspace general registers
  */
 static int genregs_set(struct task_struct *target,
 		       const struct user_regset *regset,
@@ -66,7 +66,7 @@ static int genregs_set(struct task_struct *target,
 	unsigned int offs_gr0, offs_gr1;
 	int ret;
 
-	/*                                    */
+	/* not allowed to set PSR or __status */
 	if (pos < offsetof(struct user_int_regs, psr) + sizeof(long) &&
 	    pos + count > offsetof(struct user_int_regs, psr))
 		return -EIO;
@@ -75,7 +75,7 @@ static int genregs_set(struct task_struct *target,
 	    pos + count > offsetof(struct user_int_regs, __status))
 		return -EIO;
 
-	/*                      */
+	/* set the control regs */
 	offs_gr0 = offsetof(struct user_int_regs, gr[0]);
 	offs_gr1 = offsetof(struct user_int_regs, gr[1]);
 	ret = user_regset_copyin(&pos, &count, &kbuf, &ubuf,
@@ -83,13 +83,13 @@ static int genregs_set(struct task_struct *target,
 	if (ret < 0)
 		return ret;
 
-	/*              */
+	/* skip GR0/TBR */
 	ret = user_regset_copyin_ignore(&pos, &count, &kbuf, &ubuf,
 					offs_gr0, offs_gr1);
 	if (ret < 0)
 		return ret;
 
-	/*                      */
+	/* set the general regs */
 	ret = user_regset_copyin(&pos, &count, &kbuf, &ubuf,
 				 &iregs->gr[1], offs_gr1, sizeof(*iregs));
 	if (ret < 0)
@@ -100,7 +100,7 @@ static int genregs_set(struct task_struct *target,
 }
 
 /*
-                                                            
+ * retrieve the contents of FRV userspace FP/Media registers
  */
 static int fpmregs_get(struct task_struct *target,
 		       const struct user_regset *regset,
@@ -120,7 +120,7 @@ static int fpmregs_get(struct task_struct *target,
 }
 
 /*
-                                                              
+ * update the contents of the FRV userspace FP/Media registers
  */
 static int fpmregs_set(struct task_struct *target,
 		       const struct user_regset *regset,
@@ -140,7 +140,7 @@ static int fpmregs_set(struct task_struct *target,
 }
 
 /*
-                                                              
+ * determine if the FP/Media registers have actually been used
  */
 static int fpmregs_active(struct task_struct *target,
 			  const struct user_regset *regset)
@@ -149,7 +149,7 @@ static int fpmregs_active(struct task_struct *target,
 }
 
 /*
-                                                            
+ * Define the register sets available on the FRV under Linux
  */
 enum frv_regset {
 	REGSET_GENERAL,
@@ -158,10 +158,10 @@ enum frv_regset {
 
 static const struct user_regset frv_regsets[] = {
 	/*
-                               
-                                                                  
-                               
-  */
+	 * General register format is:
+	 *	PSR, ISR, CCR, CCCR, LR, LCR, PC, (STATUS), SYSCALLNO, ORIG_G8
+	 *	GNER0-1, IACC0, TBR, GR1-63
+	 */
 	[REGSET_GENERAL] = {
 		.core_note_type	= NT_PRSTATUS,
 		.n		= ELF_NGREG,
@@ -171,9 +171,9 @@ static const struct user_regset frv_regsets[] = {
 		.set		= genregs_set,
 	},
 	/*
-                                 
-                                                 
-  */
+	 * FPU/Media register format is:
+	 *	FR0-63, FNER0-1, MSR0-1, ACC0-7, ACCG0-8, FSR
+	 */
 	[REGSET_FPMEDIA] = {
 		.core_note_type	= NT_PRFPREG,
 		.n		= sizeof(struct user_fpmedia_regs) / sizeof(long),
@@ -198,7 +198,7 @@ const struct user_regset_view *task_user_regset_view(struct task_struct *task)
 }
 
 /*
-                                               
+ * Get contents of register REGNO in task TASK.
  */
 static inline long get_reg(struct task_struct *task, int regno)
 {
@@ -211,7 +211,7 @@ static inline long get_reg(struct task_struct *task, int regno)
 }
 
 /*
-                                                 
+ * Write contents of register REGNO in task TASK.
  */
 static inline int put_reg(struct task_struct *task, int regno,
 			  unsigned long data)
@@ -234,9 +234,9 @@ static inline int put_reg(struct task_struct *task, int regno,
 }
 
 /*
-                                             
-  
-                              
+ * Called by kernel/ptrace.c when detaching..
+ *
+ * Control h/w single stepping
  */
 void user_enable_single_step(struct task_struct *child)
 {
@@ -262,7 +262,7 @@ long arch_ptrace(struct task_struct *child, long request,
 	unsigned long __user *datap = (unsigned long __user *) data;
 
 	switch (request) {
-		/*                                                  */
+		/* read the word at location addr in the USER area. */
 	case PTRACE_PEEKUSR: {
 		tmp = 0;
 		ret = -EIO;
@@ -305,7 +305,7 @@ long arch_ptrace(struct task_struct *child, long request,
 		break;
 	}
 
-	case PTRACE_POKEUSR: /*                                                  */
+	case PTRACE_POKEUSR: /* write the word at location addr in the USER area */
 		ret = -EIO;
 		if (addr & 3)
 			break;
@@ -317,25 +317,25 @@ long arch_ptrace(struct task_struct *child, long request,
 		}
 		break;
 
-	case PTRACE_GETREGS:	/*                                      */
+	case PTRACE_GETREGS:	/* Get all integer regs from the child. */
 		return copy_regset_to_user(child, &user_frv_native_view,
 					   REGSET_GENERAL,
 					   0, sizeof(child->thread.user->i),
 					   datap);
 
-	case PTRACE_SETREGS:	/*                                    */
+	case PTRACE_SETREGS:	/* Set all integer regs in the child. */
 		return copy_regset_from_user(child, &user_frv_native_view,
 					     REGSET_GENERAL,
 					     0, sizeof(child->thread.user->i),
 					     datap);
 
-	case PTRACE_GETFPREGS:	/*                               */
+	case PTRACE_GETFPREGS:	/* Get the child FP/Media state. */
 		return copy_regset_to_user(child, &user_frv_native_view,
 					   REGSET_FPMEDIA,
 					   0, sizeof(child->thread.user->f),
 					   datap);
 
-	case PTRACE_SETFPREGS:	/*                               */
+	case PTRACE_SETFPREGS:	/* Set the child FP/Media state. */
 		return copy_regset_from_user(child, &user_frv_native_view,
 					     REGSET_FPMEDIA,
 					     0, sizeof(child->thread.user->f),
@@ -349,18 +349,18 @@ long arch_ptrace(struct task_struct *child, long request,
 }
 
 /*
-                                      
-                                                                       
+ * handle tracing of system call entry
+ * - return the revised system call number or ULONG_MAX to cause ENOSYS
  */
 asmlinkage unsigned long syscall_trace_entry(void)
 {
 	__frame->__status |= REG__STATUS_SYSC_ENTRY;
 	if (tracehook_report_syscall_entry(__frame)) {
-		/*                                                   
-                                                      
-                                            
-                       
-   */
+		/* tracing decided this syscall should not happen, so
+		 * We'll return a bogus call number to get an ENOSYS
+		 * error, but leave the original number in
+		 * __frame->syscallno
+		 */
 		return ULONG_MAX;
 	}
 
@@ -368,7 +368,7 @@ asmlinkage unsigned long syscall_trace_entry(void)
 }
 
 /*
-                                     
+ * handle tracing of system call exit
  */
 asmlinkage void syscall_trace_exit(void)
 {

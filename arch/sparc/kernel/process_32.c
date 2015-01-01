@@ -5,7 +5,7 @@
  */
 
 /*
-                                                                           
+ * This file handles the architecture-dependent parts of process handling..
  */
 
 #include <stdarg.h>
@@ -40,23 +40,23 @@
 #include <asm/setup.h>
 
 /* 
-                                  
-                                               
+ * Power management idle function 
+ * Set in pm platform drivers (apc.c and pmc.c)
  */
 void (*pm_idle)(void);
 EXPORT_SYMBOL(pm_idle);
 
 /* 
-                                                      
-                                                          
-                                                        
+ * Power-off handler instantiation for pm.h compliance
+ * This is done via auxio, but could be used as a fallback
+ * handler when auxio is not present-- unused for now...
  */
 void (*pm_power_off)(void) = machine_power_off;
 EXPORT_SYMBOL(pm_power_off);
 
 /*
-                                                            
-                                 
+ * sysctl - toggle power-off restriction for serial console 
+ * systems in machine_power_off()
  */
 int scons_pwroff = 1;
 
@@ -70,11 +70,11 @@ struct thread_info *current_set[NR_CPUS];
 #define SUN4C_FAULT_HIGH 100
 
 /*
-                                 
+ * the idle loop on a Sparc... ;)
  */
 void cpu_idle(void)
 {
-	/*                                           */
+	/* endless idle loop with no priority at all */
 	for (;;) {
 		if (ARCH_SUN4C) {
 			static int count = HZ;
@@ -120,11 +120,11 @@ void cpu_idle(void)
 
 #else
 
-/*                                                */
+/* This is being executed in task 0 'user space'. */
 void cpu_idle(void)
 {
         set_thread_flag(TIF_POLLING_NRFLAG);
-	/*                                           */
+	/* endless idle loop with no priority at all */
 	while(1) {
 #ifdef CONFIG_SPARC_LEON
 		if (pm_idle) {
@@ -143,7 +143,7 @@ void cpu_idle(void)
 
 #endif
 
-/*                                                                        */
+/* XXX cli/sti -> local_irq_xxx here, check this works once SMP is fixed. */
 void machine_halt(void)
 {
 	local_irq_enable();
@@ -285,8 +285,8 @@ void show_regs(struct pt_regs *r)
 }
 
 /*
-                                                                   
-                                        
+ * The show_stack is an external API which we do not use ourselves.
+ * The oops is printed in die_if_kernel.
  */
 void show_stack(struct task_struct *tsk, unsigned long *_ksp)
 {
@@ -302,7 +302,7 @@ void show_stack(struct task_struct *tsk, unsigned long *_ksp)
 
 	fp = (unsigned long) _ksp;
 	do {
-		/*                      */
+		/* Bogus frame pointer? */
 		if (fp < (task_base + sizeof(struct thread_info)) ||
 		    fp >= (task_base + (PAGE_SIZE << 1)))
 			break;
@@ -327,7 +327,7 @@ void dump_stack(void)
 EXPORT_SYMBOL(dump_stack);
 
 /*
-                                                                       
+ * Note: sparc64 has a pretty intricated thread_saved_pc, check it out.
  */
 unsigned long thread_saved_pc(struct task_struct *tsk)
 {
@@ -335,7 +335,7 @@ unsigned long thread_saved_pc(struct task_struct *tsk)
 }
 
 /*
-                                            
+ * Free current thread data structures etc..
  */
 void exit_thread(void)
 {
@@ -344,7 +344,7 @@ void exit_thread(void)
 #else
 	if (test_thread_flag(TIF_USEDFPU)) {
 #endif
-		/*                                                 */
+		/* Keep process from leaving FPU in a bogon state. */
 		put_psr(get_psr() | PSR_EF);
 		fpsave(&current->thread.float_regs[0], &current->thread.fsr,
 		       &current->thread.fpqueue[0], &current->thread.fpqdepth);
@@ -365,7 +365,7 @@ void flush_thread(void)
 #else
 	if (test_thread_flag(TIF_USEDFPU)) {
 #endif
-		/*                */
+		/* Clean the fpu. */
 		put_psr(get_psr() | PSR_EF);
 		fpsave(&current->thread.float_regs[0], &current->thread.fsr,
 		       &current->thread.fpqueue[0], &current->thread.fpqdepth);
@@ -376,12 +376,12 @@ void flush_thread(void)
 #endif
 	}
 
-	/*                                         */
+	/* This task is no longer a kernel thread. */
 	if (current->thread.flags & SPARC_FLAG_KTHREAD) {
 		current->thread.flags &= ~SPARC_FLAG_KTHREAD;
 
-		/*                              */
-		/*                                                            */
+		/* We must fixup kregs as well. */
+		/* XXX This was not fixed for ti for a while, worked. Unused? */
 		current->thread.kregs = (struct pt_regs *)
 		    (task_stack_page(current) + (THREAD_SIZE - TRACEREG_SZ));
 	}
@@ -403,10 +403,10 @@ clone_stackframe(struct sparc_stackf __user *dst,
 	fp = (unsigned long) dst;
 	sp = (struct sparc_stackf __user *)(fp - size); 
 
-	/*                                                         
-                                                           
-                        
-  */
+	/* do_fork() grabs the parent semaphore, we must release it
+	 * temporarily so we can build the child clone stack frame
+	 * without deadlocking.
+	 */
 	if (__copy_user(sp, src, size))
 		sp = NULL;
 	else if (put_user(fp, &sp->fp))
@@ -432,29 +432,29 @@ asmlinkage int sparc_do_fork(unsigned long clone_flags,
 		      (int __user *) parent_tid_ptr,
 		      (int __user *) child_tid_ptr);
 
-	/*                                                      
-                                                       
-                                                         
-         
-  */
+	/* If we get an error and potentially restart the system
+	 * call, we're screwed because copy_thread() clobbered
+	 * the parent's %o1.  So detect that case and restore it
+	 * here.
+	 */
 	if ((unsigned long)ret >= -ERESTART_RESTARTBLOCK)
 		regs->u_regs[UREG_I1] = orig_i1;
 
 	return ret;
 }
 
-/*                                                          
-                                                
-                                           
-                                           
-  
-                                                  
-                                                     
-                                                   
-                                                   
-                                                     
-                   
-                                                    
+/* Copy a Sparc thread.  The fork() return value conventions
+ * under SunOS are nothing short of bletcherous:
+ * Parent -->  %o0 == childs  pid, %o1 == 0
+ * Child  -->  %o0 == parents pid, %o1 == 1
+ *
+ * NOTE: We have a separate fork kpsr/kwim because
+ *       the parent could change these values between
+ *       sys_fork invocation and when we reach here
+ *       if the parent should sleep while trying to
+ *       allocate the task_struct and kernel stack in
+ *       do_fork().
+ * XXX See comment above sys_vfork in sparc64. todo.
  */
 extern void ret_from_fork(void);
 
@@ -480,11 +480,11 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 	}
 
 	/*
-                                                 
-                                                                   
-                                                                   
-                                                                    
-  */
+	 *  p->thread_info         new_stack   childregs
+	 *  !                      !           !             {if(PSR_PS) }
+	 *  V                      V (stk.fr.) V  (pt_regs)  { (stk.fr.) }
+	 *  +----- - - - - - ------+===========+============={+==========}+
+	 */
 	new_stack = task_stack_page(p) + THREAD_SIZE;
 	if (regs->psr & PSR_PS)
 		new_stack -= STACKFRAME_SZ;
@@ -493,12 +493,12 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 	childregs = (struct pt_regs *) (new_stack + STACKFRAME_SZ);
 
 	/*
-                                                           
-                                                                  
-                                                                       
-                                                                        
-                        
-  */
+	 * A new process must start with interrupts closed in 2.5,
+	 * because this is how Mingo's scheduler works (see schedule_tail
+	 * and finish_arch_switch). If we do not do it, a timer interrupt hits
+	 * before we unlock, attempts to re-take the rq->lock, and then we die.
+	 * Thus, kpsr|=PSR_PIL.
+	 */
 	ti->ksp = (unsigned long) new_stack;
 	ti->kpc = (((unsigned long) ret_from_fork) - 0x8);
 	ti->kpsr = current->thread.fork_kpsr | PSR_PIL;
@@ -525,9 +525,9 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 			struct sparc_stackf __user *parentstack;
 
 			/*
-                                                      
-                                                       
-    */
+			 * This is a clone() call with supplied user stack.
+			 * Set some valid stack frames to give to the child.
+			 */
 			childstack = (struct sparc_stackf __user *)
 				(sp & ~0xfUL);
 			parentstack = (struct sparc_stackf __user *)
@@ -552,15 +552,15 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 	}
 
 #ifdef CONFIG_SMP
-	/*                              */
+	/* FPU must be disabled on SMP. */
 	childregs->psr &= ~PSR_EF;
 #endif
 
-	/*                                     */
+	/* Set the return value for the child. */
 	childregs->u_regs[UREG_I0] = current->pid;
 	childregs->u_regs[UREG_I1] = 1;
 
-	/*                                      */
+	/* Set the return value for the parent. */
 	regs->u_regs[UREG_I1] = 0;
 
 	if (clone_flags & CLONE_SETTLS)
@@ -570,7 +570,7 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 }
 
 /*
-                                             
+ * fill in the fpu structure for a core dump.
  */
 int dump_fpu (struct pt_regs * regs, elf_fpregset_t * fpregs)
 {
@@ -612,22 +612,22 @@ int dump_fpu (struct pt_regs * regs, elf_fpregset_t * fpregs)
 		       &current->thread.fpqueue[0],
 		       sizeof(struct fpq) * fpregs->pr_qcnt);
 	}
-	/*                    */
+	/* Zero out the rest. */
 	memset(&fpregs->pr_q[fpregs->pr_qcnt], 0,
 	       sizeof(struct fpq) * (32 - fpregs->pr_qcnt));
 	return 1;
 }
 
 /*
-                                                                   
-                                                                 
+ * sparc_execve() executes a new program after the asm stub has set
+ * things up for us.  This should basically do what I want it to.
  */
 asmlinkage int sparc_execve(struct pt_regs *regs)
 {
 	int error, base = 0;
 	char *filename;
 
-	/*                          */
+	/* Check for indirect call. */
 	if(regs->u_regs[UREG_G1] == 0)
 		base = 1;
 
@@ -647,31 +647,31 @@ out:
 }
 
 /*
-                                                          
-  
-                                                                        
-                                                                       
-                                                                         
-                                                                
+ * This is the mechanism for creating a new kernel thread.
+ *
+ * NOTE! Only a kernel-only process(ie the swapper or direct descendants
+ * who haven't done an "execve()") should use this: it will work within
+ * a system call from a "real" process, but the process memory space will
+ * not be freed until both the parent and the child have exited.
  */
 pid_t kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 {
 	long retval;
 
-	__asm__ __volatile__("mov %4, %%g2\n\t"    /*                     */
-			     "mov %5, %%g3\n\t"    /*          */
+	__asm__ __volatile__("mov %4, %%g2\n\t"    /* Set aside fn ptr... */
+			     "mov %5, %%g3\n\t"    /* and arg. */
 			     "mov %1, %%g1\n\t"
-			     "mov %2, %%o0\n\t"    /*              */
-			     "mov 0, %%o1\n\t"     /*              */
-			     "t 0x10\n\t"          /*                      */
+			     "mov %2, %%o0\n\t"    /* Clone flags. */
+			     "mov 0, %%o1\n\t"     /* usp arg == 0 */
+			     "t 0x10\n\t"          /* Linux/Sparc clone(). */
 			     "cmp %%o1, 0\n\t"
-			     "be 1f\n\t"           /*                          */
-			     " nop\n\t"            /*             */
-			     "jmpl %%g2, %%o7\n\t" /*                    */
-			     " mov %%g3, %%o0\n\t" /*                            */
+			     "be 1f\n\t"           /* The parent, just return. */
+			     " nop\n\t"            /* Delay slot. */
+			     "jmpl %%g2, %%o7\n\t" /* Call the function. */
+			     " mov %%g3, %%o0\n\t" /* Get back the arg in delay. */
 			     "mov %3, %%g1\n\t"
-			     "t 0x10\n\t"          /*                     */
-			     /*                      */
+			     "t 0x10\n\t"          /* Linux/Sparc exit(). */
+			     /* Notreached by child. */
 			     "1: mov %%o0, %0\n\t" :
 			     "=r" (retval) :
 			     "i" (__NR_clone), "r" (flags | CLONE_VM | CLONE_UNTRACED),
@@ -695,7 +695,7 @@ unsigned long get_wchan(struct task_struct *task)
 
 	fp = task_thread_info(task)->ksp + bias;
 	do {
-		/*                      */
+		/* Bogus frame pointer? */
 		if (fp < (task_base + sizeof(struct thread_info)) ||
 		    fp >= (task_base + (2 * PAGE_SIZE)))
 			break;

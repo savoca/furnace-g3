@@ -39,9 +39,9 @@
 
 #include "qib_verbs.h"
 
-/* 
-                                                   
-                                                          
+/**
+ * qib_release_mmap_info - free mmap info structure
+ * @ref: a pointer to the kref within struct qib_mmap_info
  */
 void qib_release_mmap_info(struct kref *ref)
 {
@@ -58,8 +58,8 @@ void qib_release_mmap_info(struct kref *ref)
 }
 
 /*
-                                                                
-                         
+ * open and close keep track of how many times the CQ is mapped,
+ * to avoid releasing it.
  */
 static void qib_vma_open(struct vm_area_struct *vma)
 {
@@ -80,11 +80,11 @@ static struct vm_operations_struct qib_vm_ops = {
 	.close =    qib_vma_close,
 };
 
-/* 
-                                      
-                                                                      
-                                  
-                                                             
+/**
+ * qib_mmap - create a new mmap region
+ * @context: the IB user context of the process making the mmap() call
+ * @vma: the VMA to be initialized
+ * Return zero if the mmap is OK. Otherwise, return an errno.
  */
 int qib_mmap(struct ib_ucontext *context, struct vm_area_struct *vma)
 {
@@ -95,17 +95,17 @@ int qib_mmap(struct ib_ucontext *context, struct vm_area_struct *vma)
 	int ret = -EINVAL;
 
 	/*
-                                                                
-                                                              
-                                                        
-  */
+	 * Search the device's list of objects waiting for a mmap call.
+	 * Normally, this list is very short since a call to create a
+	 * CQ, QP, or SRQ is soon followed by a call to mmap().
+	 */
 	spin_lock_irq(&dev->pending_lock);
 	list_for_each_entry_safe(ip, pp, &dev->pending_mmaps,
 				 pending_mmaps) {
-		/*                                                */
+		/* Only the creator is allowed to mmap the object */
 		if (context != ip->context || (__u64) offset != ip->offset)
 			continue;
-		/*                                            */
+		/* Don't allow a mmap larger than the object. */
 		if (size > ip->size)
 			break;
 
@@ -126,7 +126,7 @@ done:
 }
 
 /*
-                                    
+ * Allocate information for qib_mmap
  */
 struct qib_mmap_info *qib_create_mmap_info(struct qib_ibdev *dev,
 					   u32 size,

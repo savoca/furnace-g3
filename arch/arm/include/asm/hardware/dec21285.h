@@ -85,8 +85,8 @@
 #define SA110_CNTL_PCICFN		(1 << 31)
 
 /*
-                                             
-                                               
+ * footbridge_cfn_mode() is used when we want
+ * to check whether we are the central function
  */
 #define __footbridge_cfn_mode() (*CSR_SA110_CNTL & SA110_CNTL_PCICFN)
 #if defined(CONFIG_FOOTBRIDGE_HOST) && defined(CONFIG_FOOTBRIDGE_ADDIN)

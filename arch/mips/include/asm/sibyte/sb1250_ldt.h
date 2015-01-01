@@ -39,18 +39,18 @@
 #define K_LDT_DEVICE_SB1250	0x0002
 
 /*
-                                                     
+ * LDT Interface Type 1 (bridge) configuration header
  */
 
 #define R_LDT_TYPE1_DEVICEID	0x0000
 #define R_LDT_TYPE1_CMDSTATUS	0x0004
 #define R_LDT_TYPE1_CLASSREV	0x0008
 #define R_LDT_TYPE1_DEVHDR	0x000C
-#define R_LDT_TYPE1_BAR0	0x0010	/*          */
-#define R_LDT_TYPE1_BAR1	0x0014	/*          */
+#define R_LDT_TYPE1_BAR0	0x0010	/* not used */
+#define R_LDT_TYPE1_BAR1	0x0014	/* not used */
 
-#define R_LDT_TYPE1_BUSID	0x0018	/*                 */
-#define R_LDT_TYPE1_SECSTATUS	0x001C	/*                                   */
+#define R_LDT_TYPE1_BUSID	0x0018	/* bus ID register */
+#define R_LDT_TYPE1_SECSTATUS	0x001C	/* secondary status / I/O base/limit */
 #define R_LDT_TYPE1_MEMLIMIT	0x0020
 #define R_LDT_TYPE1_PREFETCH	0x0024
 #define R_LDT_TYPE1_PREF_BASE	0x0028
@@ -70,14 +70,14 @@
 #define R_LDT_TYPE1_SRICTRL	0x006C
 #if SIBYTE_HDR_FEATURE(1250, PASS2) || SIBYTE_HDR_FEATURE(112x, PASS1)
 #define R_LDT_TYPE1_ADDSTATUS	0x0070
-#endif /*                          */
+#endif /* 1250 PASS2 || 112x PASS1 */
 #define R_LDT_TYPE1_TXBUFCNT	0x00C8
 #define R_LDT_TYPE1_EXPCRC	0x00DC
 #define R_LDT_TYPE1_RXCRC	0x00F0
 
 
 /*
-                         
+ * LDT Device ID register
  */
 
 #define S_LDT_DEVICEID_VENDOR		0
@@ -92,7 +92,7 @@
 
 
 /*
-                                    
+ * LDT Command Register (Table 8-13)
  */
 
 #define M_LDT_CMD_IOSPACE_EN		_SB_MAKEMASK1_32(0)
@@ -107,7 +107,7 @@
 #define M_LDT_CMD_FASTB2B_EN		_SB_MAKEMASK1_32(9)
 
 /*
-                                   
+ * LDT class and revision registers
  */
 
 #define S_LDT_CLASSREV_REV		0
@@ -124,7 +124,7 @@
 #define K_LDT_CLASS			0x060000
 
 /*
-                              
+ * Device Header (offset 0x0C)
  */
 
 #define S_LDT_DEVHDR_CLINESZ		0
@@ -152,17 +152,17 @@
 
 
 /*
-                                                               
-                                                     
-                                        
-  
-                                                
-                                     
+ * LDT Status Register (Table 8-14).  Note that these constants
+ * assume you've read the command and status register
+ * together (32-bit read at offset 0x04)
+ *
+ * These bits also apply to the secondary status
+ * register (Table 8-15), offset 0x1C
  */
 
 #if SIBYTE_HDR_FEATURE(1250, PASS2) || SIBYTE_HDR_FEATURE(112x, PASS1)
 #define M_LDT_STATUS_VGAEN		_SB_MAKEMASK1_32(3)
-#endif /*                          */
+#endif /* 1250 PASS2 || 112x PASS1 */
 #define M_LDT_STATUS_CAPLIST		_SB_MAKEMASK1_32(20)
 #define M_LDT_STATUS_66MHZCAP		_SB_MAKEMASK1_32(21)
 #define M_LDT_STATUS_RESERVED2		_SB_MAKEMASK1_32(22)
@@ -181,9 +181,9 @@
 #define M_LDT_STATUS_DETPARERR		_SB_MAKEMASK1_32(31)
 
 /*
-                                                         
-                                                        
-                     
+ * Bridge Control Register (Table 8-16).  Note that these
+ * constants assume you've read the register as a 32-bit
+ * read (offset 0x3C)
  */
 
 #define M_LDT_BRCTL_PARERRRESP_EN	_SB_MAKEMASK1_32(16)
@@ -199,9 +199,9 @@
 #define M_LDT_BRCTL_DISCARDSERR_EN	_SB_MAKEMASK1_32(27)
 
 /*
-                                                                
-                                                              
-                             
+ * LDT Command Register (Table 8-17).  Note that these constants
+ * assume you've read the command and status register together
+ * 32-bit read at offset 0x40
  */
 
 #define M_LDT_CMD_WARMRESET		_SB_MAKEMASK1_32(16)
@@ -213,7 +213,7 @@
 #define G_LDT_CMD_CAPTYPE(x)		_SB_GETVALUE_32(x, S_LDT_CMD_CAPTYPE, M_LDT_CMD_CAPTYPE)
 
 /*
-                                                           
+ * LDT link control register (Table 8-18), and (Table 8-19)
  */
 
 #define M_LDT_LINKCTRL_CAPSYNCFLOOD_EN	_SB_MAKEMASK1_32(1)
@@ -258,7 +258,7 @@
 #define M_LDT_LINKCTRL_DWFCOUT_EN	_SB_MAKEMASK1_32(31)
 
 /*
-                                                        
+ * LDT Link frequency register  (Table 8-20) offset 0x48
  */
 
 #define S_LDT_LINKFREQ_FREQ		8
@@ -275,21 +275,21 @@
 #define K_LDT_LINKFREQ_1000MHZ		6
 
 /*
-                                                                    
-                                                              
-                             
+ * LDT SRI Command Register (Table 8-21).  Note that these constants
+ * assume you've read the command and status register together
+ * 32-bit read at offset 0x50
  */
 
 #define M_LDT_SRICMD_SIPREADY		_SB_MAKEMASK1_32(16)
 #define M_LDT_SRICMD_SYNCPTRCTL		_SB_MAKEMASK1_32(17)
 #define M_LDT_SRICMD_REDUCESYNCZERO	_SB_MAKEMASK1_32(18)
 #if SIBYTE_HDR_FEATURE_UP_TO(1250, PASS1)
-#define M_LDT_SRICMD_DISSTARVATIONCNT	_SB_MAKEMASK1_32(19)	/*       */
-#endif /*                  */
+#define M_LDT_SRICMD_DISSTARVATIONCNT	_SB_MAKEMASK1_32(19)	/* PASS1 */
+#endif /* up to 1250 PASS1 */
 #if SIBYTE_HDR_FEATURE(1250, PASS2) || SIBYTE_HDR_FEATURE(112x, PASS1)
 #define M_LDT_SRICMD_DISMULTTXVLD	_SB_MAKEMASK1_32(19)
 #define M_LDT_SRICMD_EXPENDIAN		_SB_MAKEMASK1_32(26)
-#endif /*                          */
+#endif /* 1250 PASS2 || 112x PASS1 */
 
 
 #define S_LDT_SRICMD_RXMARGIN		20
@@ -307,7 +307,7 @@
 #define M_LDT_SRICMD_LINKFREQDIRECT	_SB_MAKEMASK1_32(31)
 
 /*
-                                                                  
+ * LDT Error control and status register (Table 8-22) (Table 8-23)
  */
 
 #define M_LDT_ERRCTL_PROTFATAL_EN	_SB_MAKEMASK1_32(0)
@@ -336,7 +336,7 @@
 #define M_LDT_ERRCTL_MAPNXAERR		_SB_MAKEMASK1_32(28)
 
 /*
-                                                       
+ * SRI Control register (Table 8-24, 8-25)  Offset 0x6C
  */
 
 #define S_LDT_SRICTRL_NEEDRESP		0
@@ -375,7 +375,7 @@
 #define G_LDT_SRICTRL_BUFRELSPACE(x)	_SB_GETVALUE_32(x, S_LDT_SRICTRL_BUFRELSPACE, M_LDT_SRICTRL_BUFRELSPACE)
 
 /*
-                                                      
+ * LDT SRI Transmit Buffer Count register (Table 8-26)
  */
 
 #define S_LDT_TXBUFCNT_PCMD		0
@@ -410,13 +410,13 @@
 
 #if SIBYTE_HDR_FEATURE(1250, PASS2) || SIBYTE_HDR_FEATURE(112x, PASS1)
 /*
-                             
+ * Additional Status Register
  */
 
 #define S_LDT_ADDSTATUS_TGTDONE		0
 #define M_LDT_ADDSTATUS_TGTDONE		_SB_MAKEMASK_32(8, S_LDT_ADDSTATUS_TGTDONE)
 #define V_LDT_ADDSTATUS_TGTDONE(x)	_SB_MAKEVALUE_32(x, S_LDT_ADDSTATUS_TGTDONE)
 #define G_LDT_ADDSTATUS_TGTDONE(x)	_SB_GETVALUE_32(x, S_LDT_ADDSTATUS_TGTDONE, M_LDT_ADDSTATUS_TGTDONE)
-#endif /*                          */
+#endif /* 1250 PASS2 || 112x PASS1 */
 
 #endif

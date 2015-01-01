@@ -35,7 +35,7 @@
 	__raw_writel(value, AT91_TC + field);
 
 /*
-                                 
+ *	3 counter/timer units present.
  */
 #define	AT91_TC_CLK0BASE	0
 #define	AT91_TC_CLK1BASE	0x40

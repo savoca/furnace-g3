@@ -22,9 +22,9 @@
 
 #include "uwb-internal.h"
 
-/* 
-                                      
-                              
+/**
+ * uwb_pal_init - initialize a UWB PAL
+ * @pal: the PAL to initialize
  */
 void uwb_pal_init(struct uwb_pal *pal)
 {
@@ -32,11 +32,11 @@ void uwb_pal_init(struct uwb_pal *pal)
 }
 EXPORT_SYMBOL_GPL(uwb_pal_init);
 
-/* 
-                                        
-                
-  
-                                                   
+/**
+ * uwb_pal_register - register a UWB PAL
+ * @pal: the PAL
+ *
+ * The PAL must be initialized with uwb_pal_init().
  */
 int uwb_pal_register(struct uwb_pal *pal)
 {
@@ -66,9 +66,9 @@ int uwb_pal_register(struct uwb_pal *pal)
 }
 EXPORT_SYMBOL_GPL(uwb_pal_register);
 
-/* 
-                                          
-                
+/**
+ * uwb_pal_register - unregister a UWB PAL
+ * @pal: the PAL
  */
 void uwb_pal_unregister(struct uwb_pal *pal)
 {
@@ -89,9 +89,9 @@ void uwb_pal_unregister(struct uwb_pal *pal)
 }
 EXPORT_SYMBOL_GPL(uwb_pal_unregister);
 
-/* 
-                                                                           
-                            
+/**
+ * uwb_rc_pal_init - initialize the PAL related parts of a radio controller
+ * @rc: the radio controller
  */
 void uwb_rc_pal_init(struct uwb_rc *rc)
 {

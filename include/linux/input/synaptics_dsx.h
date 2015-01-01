@@ -25,9 +25,9 @@
 #define SPI_DRIVER_NAME "synaptics_dsx_spi"
 
 /*
-                                                      
-                                  
-                                         
+ * struct synaptics_dsx_cap_button_map - 0d button map
+ * @nbuttons: number of 0d buttons
+ * @map: pointer to array of button types
  */
 struct synaptics_dsx_cap_button_map {
 	unsigned char nbuttons;
@@ -35,25 +35,25 @@ struct synaptics_dsx_cap_button_map {
 };
 
 /*
-                                                   
-                       
-                       
-                                      
-                                 
-                                             
-                          
-                                      
-                        
-                                               
-                                               
-                                                     
-                                                  
-                                      
-                                                           
-                                                        
-                                                
-                                                       
-                                            
+ * struct synaptics_dsx_board_data - dsx board data
+ * @x_flip: x flip flag
+ * @y_flip: y flip flag
+ * @irq_gpio: attention interrupt gpio
+ * @power_gpio: power switch gpio
+ * @power_on_state: power switch active state
+ * @reset_gpio: reset gpio
+ * @reset_on_state: reset active state
+ * @irq_flags: irq flags
+ * @panel_x: x-axis resolution of display panel
+ * @panel_y: y-axis resolution of display panel
+ * @power_delay_ms: delay time to wait after power-on
+ * @reset_delay_ms: delay time to wait after reset
+ * @reset_active_ms: reset active time
+ * @byte_delay_us: delay time between two bytes of SPI data
+ * @block_delay_us: delay time between two SPI transfers
+ * @regulator_name: pointer to name of regulator
+ * @gpio_config: pointer to gpio configuration function
+ * @cap_button_map: pointer to 0d button map
  */
 struct synaptics_dsx_board_data {
 	bool x_flip;

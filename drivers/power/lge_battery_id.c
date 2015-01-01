@@ -11,8 +11,8 @@
  */
 
 /*
-                              
-                                                           
+ * This driver is really ugly.
+ * I want some smart guy to implement again.. more pretty..
  */
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -41,8 +41,8 @@ static enum power_supply_property lge_battery_id_battery_props[] = {
 };
 
 /*
-                                                  
-                                                         
+ * TBD : This function should be more intelligent.
+ * Should directly access battery id circuit via 1-Wired.
  */
 static int lge_battery_id_get_property(struct power_supply *psy,
 		enum power_supply_property psp,
@@ -67,7 +67,7 @@ static __devinit int lge_battery_id_probe(struct platform_device *pdev)
 	struct lge_battery_id_platform_data *pdata =
 		dev_get_platdata(&pdev->dev);
 	struct lge_battery_id_info *info;
-	/*                         */
+	/*struct power_supply *psy;*/
 	int ret = 0;
 	uint *smem_batt = 0;
 
@@ -131,14 +131,14 @@ static int __devexit lge_battery_id_remove(struct platform_device *pdev)
 #if defined(CONFIG_PM)
 static int lge_battery_id_suspend(struct device *dev)
 {
-	/*                                                        */
+	/*struct lge_battery_id_info *info = dev_get_drvdata(dev);*/
 
 	return 0;
 }
 
 static int lge_battery_id_resume(struct device *dev)
 {
-	/*                                                        */
+	/*struct lge_battery_id_info *info = dev_get_drvdata(dev);*/
 
 	return 0;
 }

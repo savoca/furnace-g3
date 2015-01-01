@@ -43,11 +43,11 @@ bfa_hwcb_reqq_ack_msix(struct bfa_s *bfa, int reqq)
 }
 
 /*
-                                                      
-                                         
-                                         
-                                                       
-                               
+ * Actions to respond RME Interrupt for Crossbow ASIC:
+ * - Write 1 to Interrupt Status register
+ *              INTX - done in bfa_intx()
+ *              MSIX - done in bfa_hwcb_rspq_ack_msix()
+ * - Update CI (only if new CI)
  */
 static void
 bfa_hwcb_rspq_ack_msix(struct bfa_s *bfa, int rspq, u32 ci)
@@ -101,7 +101,7 @@ bfa_hwcb_msix_getvecs(struct bfa_s *bfa, u32 *msix_vecs_bmap,
 }
 
 /*
-                                                            
+ * Dummy interrupt handler for handling spurious interrupts.
  */
 static void
 bfa_hwcb_msix_dummy(struct bfa_s *bfa, int vec)
@@ -109,7 +109,7 @@ bfa_hwcb_msix_dummy(struct bfa_s *bfa, int vec)
 }
 
 /*
-                                                                             
+ * No special setup required for crossbow -- vector assignments are implicit.
  */
 void
 bfa_hwcb_msix_init(struct bfa_s *bfa, int nvecs)
@@ -169,7 +169,7 @@ bfa_hwcb_msix_uninstall(struct bfa_s *bfa)
 }
 
 /*
-                                                                
+ * No special enable/disable -- vector assignments are implicit.
  */
 void
 bfa_hwcb_isr_mode_set(struct bfa_s *bfa, bfa_boolean_t msix)

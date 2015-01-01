@@ -1,7 +1,7 @@
 /*
-                       
-  
-                                                
+ * Intel ACPI functions
+ *
+ * _DSM related code stolen from nouveau_acpi.c.
  */
 #include <linux/pci.h>
 #include <linux/acpi.h>
@@ -10,10 +10,10 @@
 
 #include "drmP.h"
 
-#define INTEL_DSM_REVISION_ID 1 /*                        */
+#define INTEL_DSM_REVISION_ID 1 /* For Calpella anyway... */
 
-#define INTEL_DSM_FN_SUPPORTED_FUNCTIONS 0 /*         */
-#define INTEL_DSM_FN_PLATFORM_MUX_INFO 1 /*         */
+#define INTEL_DSM_FN_SUPPORTED_FUNCTIONS 0 /* No args */
+#define INTEL_DSM_FN_PLATFORM_MUX_INFO 1 /* No args */
 
 static struct intel_dsm_priv {
 	acpi_handle dhandle;

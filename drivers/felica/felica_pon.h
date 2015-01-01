@@ -1,6 +1,6 @@
 /*
-                
-  
+ *  felica_pon.h
+ *
  */
 #ifndef __FELICA_PON_H__
 #define __FELICA_PON_H__
@@ -9,8 +9,8 @@
 extern "C" {
 #endif
 /*
-                            
-  
+ *  INCLUDE FILES FOR MODULE
+ *
  */
 #include <linux/list.h>
 #include "felica_common.h"
@@ -19,4 +19,4 @@ extern "C" {
 }
 #endif
 
-#endif //                 
+#endif // __FELICA_PON_H__

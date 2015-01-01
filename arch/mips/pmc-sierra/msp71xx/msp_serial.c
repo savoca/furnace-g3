@@ -70,15 +70,15 @@ static int msp_serial_handle_irq(struct uart_port *p)
 		return 1;
 	} else if ((iir & UART_IIR_BUSY) == UART_IIR_BUSY) {
 		/*
-                                                                
-                                                             
-                                                            
-                                                  
-    
-                                                                
-                                                              
-                                     
-   */
+		 * The DesignWare APB UART has an Busy Detect (0x07) interrupt
+		 * meaning an LCR write attempt occurred while the UART was
+		 * busy. The interrupt must be cleared by reading the UART
+		 * status register (USR) and the LCR re-written.
+		 *
+		 * Note: MSP reserves 0x20 bytes of address space for the UART
+		 * and the USR is mapped in a separate block at an offset of
+		 * 0xc0 from the start of the UART.
+		 */
 		(void)readb(p->membase + 0xc0);
 		writeb(d->last_lcr, p->membase + (UART_LCR << p->regshift));
 
@@ -97,13 +97,13 @@ void __init msp_serial_setup(void)
 
 	memset(&up, 0, sizeof(up));
 
-	/*                                             */
+	/* Check if clock was specified in environment */
 	s = prom_getenv("uartfreqhz");
 	if(!(s && *s && (uartclk = simple_strtoul(s, &endp, 10)) && *endp == 0))
 		uartclk = MSP_BASE_BAUD;
 	ppfinit("UART clock set to %d\n", uartclk);
 
-	/*                              */
+	/* Initialize first serial port */
 	up.mapbase      = MSP_UART0_BASE;
 	up.membase      = ioremap_nocache(up.mapbase, MSP_UART_REG_LEN);
 	up.irq          = MSP_INT_UART0;
@@ -126,7 +126,7 @@ void __init msp_serial_setup(void)
 		pr_err("Early serial init of port 0 failed\n");
 	}
 
-	/*                                                  */
+	/* Initialize the second serial port, if one exists */
 	switch (mips_machtype) {
 		case MACH_MSP4200_EVAL:
 		case MACH_MSP4200_GW:
@@ -134,12 +134,12 @@ void __init msp_serial_setup(void)
 		case MACH_MSP7120_EVAL:
 		case MACH_MSP7120_GW:
 		case MACH_MSP7120_FPGA:
-			/*                                     */
+			/* Enable UART1 on MSP4200 and MSP7120 */
 			*GPIO_CFG2_REG = 0x00002299;
 			break;
 
 		default:
-			return; /*                                  */
+			return; /* No second serial port, good-bye. */
 	}
 
 	up.mapbase      = MSP_UART1_BASE;

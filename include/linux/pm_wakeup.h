@@ -28,20 +28,20 @@
 
 #include <linux/types.h>
 
-/* 
-                                                          
-  
-                                                              
-                                                                           
-                                                                              
-                                                                             
-                                                  
-                                                                 
-                                                                  
-                                                                          
-                                                                        
-                                        
-                                                                     
+/**
+ * struct wakeup_source - Representation of wakeup sources
+ *
+ * @total_time: Total time this wakeup source has been active.
+ * @max_time: Maximum time this wakeup source has been continuously active.
+ * @last_time: Monotonic clock when the wakeup source's was touched last time.
+ * @prevent_sleep_time: Total time this source has been preventing autosleep.
+ * @event_count: Number of signaled wakeup events.
+ * @active_count: Number of times the wakeup sorce was activated.
+ * @relax_count: Number of times the wakeup sorce was deactivated.
+ * @expire_count: Number of times the wakeup source's timeout has expired.
+ * @wakeup_count: Number of times the wakeup source might abort suspend.
+ * @active: Status of the wakeup source.
+ * @has_timeout: The wakeup source has been activated with a timeout.
  */
 struct wakeup_source {
 	const char 		*name;
@@ -69,7 +69,7 @@ struct wakeup_source {
 #ifdef CONFIG_PM_SLEEP
 
 /*
-                                                                        
+ * Changes to device_may_wakeup take effect on the next pm state change.
  */
 
 static inline bool device_can_wakeup(struct device *dev)
@@ -82,7 +82,7 @@ static inline bool device_may_wakeup(struct device *dev)
 	return dev->power.can_wakeup && !!dev->power.wakeup;
 }
 
-/*                             */
+/* drivers/base/power/wakeup.c */
 extern void wakeup_source_prepare(struct wakeup_source *ws, const char *name);
 extern struct wakeup_source *wakeup_source_create(const char *name);
 extern void wakeup_source_drop(struct wakeup_source *ws);
@@ -103,7 +103,7 @@ extern void pm_relax(struct device *dev);
 extern void __pm_wakeup_event(struct wakeup_source *ws, unsigned int msec);
 extern void pm_wakeup_event(struct device *dev, unsigned int msec);
 
-#else /*                  */
+#else /* !CONFIG_PM_SLEEP */
 
 static inline void device_set_wakeup_capable(struct device *dev, bool capable)
 {
@@ -180,7 +180,7 @@ static inline void __pm_wakeup_event(struct wakeup_source *ws, unsigned int msec
 
 static inline void pm_wakeup_event(struct device *dev, unsigned int msec) {}
 
-#endif /*                  */
+#endif /* !CONFIG_PM_SLEEP */
 
 static inline void wakeup_source_init(struct wakeup_source *ws,
 				      const char *name)
@@ -195,4 +195,4 @@ static inline void wakeup_source_trash(struct wakeup_source *ws)
 	wakeup_source_drop(ws);
 }
 
-#endif /*                    */
+#endif /* _LINUX_PM_WAKEUP_H */

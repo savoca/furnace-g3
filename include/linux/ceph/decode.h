@@ -8,9 +8,9 @@
 #include "types.h"
 
 /*
-                
-                                             
-                                                          
+ * in all cases,
+ *   void **p     pointer to position pointer
+ *   void *end    pointer to end of buffer (last byte + 1)
  */
 
 static inline u64 ceph_decode_64(void **p)
@@ -44,7 +44,7 @@ static inline void ceph_decode_copy(void **p, void *pv, size_t n)
 }
 
 /*
-                      
+ * bounds check input.
  */
 #define ceph_decode_need(p, end, n, bad)		\
 	do {						\
@@ -80,7 +80,7 @@ static inline void ceph_decode_copy(void **p, void *pv, size_t n)
 	} while (0)
 
 /*
-                                           
+ * struct ceph_timespec <-> struct timespec
  */
 static inline void ceph_decode_timespec(struct timespec *ts,
 					const struct ceph_timespec *tv)
@@ -96,7 +96,7 @@ static inline void ceph_encode_timespec(struct ceph_timespec *tv,
 }
 
 /*
-                                     
+ * sockaddr_storage <-> ceph_sockaddr
  */
 static inline void ceph_encode_addr(struct ceph_entity_addr *a)
 {
@@ -111,7 +111,7 @@ static inline void ceph_decode_addr(struct ceph_entity_addr *a)
 }
 
 /*
-           
+ * encoders
  */
 static inline void ceph_encode_64(void **p, u64 v)
 {
@@ -140,7 +140,7 @@ static inline void ceph_encode_copy(void **p, const void *s, int len)
 }
 
 /*
-                            
+ * filepath, string encoders
  */
 static inline void ceph_encode_filepath(void **p, void *end,
 					u64 ino, const char *path)

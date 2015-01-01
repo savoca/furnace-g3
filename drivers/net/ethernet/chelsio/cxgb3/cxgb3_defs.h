@@ -45,7 +45,7 @@ void *cxgb_alloc_mem(unsigned long size);
 void cxgb_free_mem(void *addr);
 
 /*
-                                                                        
+ * Map an ATID or STID to their entries in the corresponding TID tables.
  */
 static inline union active_open_entry *atid2entry(const struct tid_info *t,
 						  unsigned int atid)
@@ -60,7 +60,7 @@ static inline union listen_entry *stid2entry(const struct tid_info *t,
 }
 
 /*
-                                              
+ * Find the connection corresponding to a TID.
  */
 static inline struct t3c_tid_entry *lookup_tid(const struct tid_info *t,
 					       unsigned int tid)
@@ -72,7 +72,7 @@ static inline struct t3c_tid_entry *lookup_tid(const struct tid_info *t,
 }
 
 /*
-                                                     
+ * Find the connection corresponding to a server TID.
  */
 static inline struct t3c_tid_entry *lookup_stid(const struct tid_info *t,
 						unsigned int tid)
@@ -91,7 +91,7 @@ static inline struct t3c_tid_entry *lookup_stid(const struct tid_info *t,
 }
 
 /*
-                                                           
+ * Find the connection corresponding to an active-open TID.
  */
 static inline struct t3c_tid_entry *lookup_atid(const struct tid_info *t,
 						unsigned int tid)

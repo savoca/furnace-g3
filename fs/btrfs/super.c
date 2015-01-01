@@ -93,22 +93,22 @@ static const char *btrfs_decode_error(struct btrfs_fs_info *fs_info, int errno,
 static void __save_error_info(struct btrfs_fs_info *fs_info)
 {
 	/*
-                                                                
-                                 
-  */
+	 * today we only save the error info into ram.  Long term we'll
+	 * also send it down to the disk
+	 */
 	fs_info->fs_state = BTRFS_SUPER_FLAG_ERROR;
 }
 
-/*      
-                                                                 
-                            
+/* NOTE:
+ *	We move write_super stuff at umount in order to avoid deadlock
+ *	for umount hold all lock.
  */
 static void save_error_info(struct btrfs_fs_info *fs_info)
 {
 	__save_error_info(fs_info);
 }
 
-/*                                                       */
+/* btrfs handle error by forcing the filesystem readonly */
 static void btrfs_handle_error(struct btrfs_fs_info *fs_info)
 {
 	struct super_block *sb = fs_info->sb;
@@ -120,13 +120,13 @@ static void btrfs_handle_error(struct btrfs_fs_info *fs_info)
 		sb->s_flags |= MS_RDONLY;
 		printk(KERN_INFO "btrfs is forced readonly\n");
 		__btrfs_scrub_cancel(fs_info);
-//             
+//		WARN_ON(1);
 	}
 }
 
 /*
-                                                                
-                                         
+ * __btrfs_std_error decodes expected errors from the caller and
+ * invokes the approciate error response.
  */
 void __btrfs_std_error(struct btrfs_fs_info *fs_info, const char *function,
 		       unsigned int line, int errno, const char *fmt, ...)
@@ -138,9 +138,9 @@ void __btrfs_std_error(struct btrfs_fs_info *fs_info, const char *function,
 	va_start(args, fmt);
 
 	/*
-                                                          
-                                          
-  */
+	 * Special case: if the error is EROFS, and we're already
+	 * under MS_RDONLY, then it is safe here.
+	 */
 	if (errno == -EROFS && (sb->s_flags & MS_RDONLY))
   		return;
 
@@ -158,7 +158,7 @@ void __btrfs_std_error(struct btrfs_fs_info *fs_info, const char *function,
 			sb->s_id, function, line, errstr);
 	}
 
-	/*                                                   */
+	/* Don't go through full error handling during mount */
 	if (sb->s_flags & MS_BORN) {
 		save_error_info(fs_info);
 		btrfs_handle_error(fs_info);
@@ -200,17 +200,17 @@ void btrfs_printk(struct btrfs_fs_info *fs_info, const char *fmt, ...)
 }
 
 /*
-                                                                               
-                                                                          
-       
-  
-                                                                        
-                                                                     
-                                                                        
-                                         
-  
-                                                          
-                            
+ * We only mark the transaction aborted and then set the file system read-only.
+ * This will prevent new transactions from starting or trying to join this
+ * one.
+ *
+ * This means that error recovery at the call site is limited to freeing
+ * any local memory allocations and passing the error code up without
+ * further cleanup. The transaction should complete as it normally would
+ * in the call path but will return -EIO.
+ *
+ * We'll complete the cleanup in btrfs_end_transaction and
+ * btrfs_commit_transaction.
  */
 void __btrfs_abort_transaction(struct btrfs_trans_handle *trans,
 			       struct btrfs_root *root, const char *function,
@@ -218,8 +218,8 @@ void __btrfs_abort_transaction(struct btrfs_trans_handle *trans,
 {
 	WARN_ONCE(1, KERN_DEBUG "btrfs: Transaction aborted");
 	trans->aborted = errno;
-	/*                                                      
-                                         */
+	/* Nothing used. The other threads that have joined this
+	 * transaction may be able to continue. */
 	if (!trans->blocks_used) {
 		btrfs_printk(root->fs_info, "Aborting unused transaction.\n");
 		return;
@@ -228,8 +228,8 @@ void __btrfs_abort_transaction(struct btrfs_trans_handle *trans,
 	__btrfs_std_error(root->fs_info, function, line, errno, NULL);
 }
 /*
-                                                                  
-                                                                          
+ * __btrfs_panic decodes unexpected, fatal errors from the caller,
+ * issues an alert, and either panics or BUGs, depending on mount options.
  */
 void __btrfs_panic(struct btrfs_fs_info *fs_info, const char *function,
 		   unsigned int line, int errno, const char *fmt, ...)
@@ -254,18 +254,18 @@ void __btrfs_panic(struct btrfs_fs_info *fs_info, const char *function,
 	printk(KERN_CRIT "BTRFS panic (device %s) in %s:%d: %pV (%s)\n",
 	       s_id, function, line, &vaf, errstr);
 	va_end(args);
-	/*                    */
+	/* Caller calls BUG() */
 }
 
 static void btrfs_put_super(struct super_block *sb)
 {
 	(void)close_ctree(btrfs_sb(sb)->tree_root);
-	/*                                         */
-	/*                                                                     
-                                                                   
-                                                                      
-                                              
-  */
+	/* FIXME: need to fix VFS to return error? */
+	/* AV: return it _where_?  ->put_super() can be triggered by any number
+	 * of async events, up to and including delivery of SIGKILL to the
+	 * last process that kept it busy.  Or segfault in the aforementioned
+	 * process...  Whom would you report that to?
+	 */
 }
 
 enum {
@@ -323,9 +323,9 @@ static match_table_t tokens = {
 };
 
 /*
-                                                                     
-                                              
-                                                    
+ * Regular mount options parser.  Everything that is needed only when
+ * reading in a new superblock is parsed here.
+ * XXX JDM: This needs to be cleaned up for remount.
  */
 int btrfs_parse_options(struct btrfs_root *root, char *options)
 {
@@ -346,9 +346,9 @@ int btrfs_parse_options(struct btrfs_root *root, char *options)
 		goto out;
 
 	/*
-                                                                 
-                     
-  */
+	 * strsep changes the string, duplicate it because parse_options
+	 * gets called twice
+	 */
 	options = kstrdup(options, GFP_NOFS);
 	if (!options)
 		return -ENOMEM;
@@ -371,9 +371,9 @@ int btrfs_parse_options(struct btrfs_root *root, char *options)
 		case Opt_subvolrootid:
 		case Opt_device:
 			/*
-                                                   
-                                      
-    */
+			 * These are parsed by btrfs_parse_early_options
+			 * and can be happily ignored here.
+			 */
 			break;
 		case Opt_nodatasum:
 			printk(KERN_INFO "btrfs: setting nodatasum\n");
@@ -581,10 +581,10 @@ out:
 }
 
 /*
-                                                                    
-  
-                                                                          
-                                                   
+ * Parse mount options that are required early in the mount process.
+ *
+ * All other options will be parsed on much later in the mount process and
+ * only when we need to allocate a new super block.
  */
 static int btrfs_parse_early_options(const char *options, fmode_t flags,
 		void *holder, char **subvol_name, u64 *subvol_objectid,
@@ -599,9 +599,9 @@ static int btrfs_parse_early_options(const char *options, fmode_t flags,
 		return 0;
 
 	/*
-                                                                 
-                     
-  */
+	 * strsep changes the string, duplicate it because parse_options
+	 * gets called twice
+	 */
 	opts = kstrdup(options, GFP_KERNEL);
 	if (!opts)
 		return -ENOMEM;
@@ -622,7 +622,7 @@ static int btrfs_parse_early_options(const char *options, fmode_t flags,
 			intarg = 0;
 			error = match_int(&args[0], &intarg);
 			if (!error) {
-				/*                              */
+				/* we want the original fs_tree */
 				if (!intarg)
 					*subvol_objectid =
 						BTRFS_FS_TREE_OBJECTID;
@@ -634,7 +634,7 @@ static int btrfs_parse_early_options(const char *options, fmode_t flags,
 			intarg = 0;
 			error = match_int(&args[0], &intarg);
 			if (!error) {
-				/*                              */
+				/* we want the original fs_tree */
 				if (!intarg)
 					*subvol_rootid =
 						BTRFS_FS_TREE_OBJECTID;
@@ -678,9 +678,9 @@ static struct dentry *get_default_root(struct super_block *sb,
 	int new = 0;
 
 	/*
-                                                                       
-                        
-  */
+	 * We have a specific subvol we want to mount, just setup location and
+	 * go look up the root.
+	 */
 	if (subvol_objectid) {
 		location.objectid = subvol_objectid;
 		location.type = BTRFS_ROOT_ITEM_KEY;
@@ -694,10 +694,10 @@ static struct dentry *get_default_root(struct super_block *sb,
 	path->leave_spinning = 1;
 
 	/*
-                                                                     
-                                                                       
-             
-  */
+	 * Find the "default" dir item which points to the root item that we
+	 * will mount by default if we haven't been given a specific subvolume
+	 * to mount.
+	 */
 	dir_id = btrfs_super_root_dir(fs_info->super_copy);
 	di = btrfs_lookup_dir_item(NULL, root, path, dir_id, "default", 7, 0);
 	if (IS_ERR(di)) {
@@ -706,10 +706,10 @@ static struct dentry *get_default_root(struct super_block *sb,
 	}
 	if (!di) {
 		/*
-                                                              
-                                                              
-                                  
-   */
+		 * Ok the default dir item isn't there.  This is weird since
+		 * it's always been there, but don't freak out, just try and
+		 * mount to root most subvolume.
+		 */
 		btrfs_free_path(path);
 		dir_id = BTRFS_FIRST_FREE_OBJECTID;
 		new_root = fs_info->fs_root;
@@ -738,10 +738,10 @@ setup_root:
 		return ERR_CAST(inode);
 
 	/*
-                                                                        
-                                                                       
-                                                         
-  */
+	 * If we're just mounting the root most subvol put the inode and return
+	 * a reference to the dentry.  We will have already gotten a reference
+	 * to the inode in btrfs_fill_super so we're good to go.
+	 */
 	if (!new && sb->s_root->d_inode == inode) {
 		iput(inode);
 		return dget(sb->s_root);
@@ -909,7 +909,7 @@ static int btrfs_set_super(struct super_block *s, void *data)
 }
 
 /*
-                                       
+ * subvolumes are identified by ino 256
  */
 static inline int is_subvolume_inode(struct inode *inode)
 {
@@ -919,9 +919,9 @@ static inline int is_subvolume_inode(struct inode *inode)
 }
 
 /*
-                                                                            
-                                                                              
-                  
+ * This will strip out the subvol=%s argument for an argument string and add
+ * subvolid=0 to make sure we get the actual tree root for path walking to the
+ * subvol we want.
  */
 static char *setup_root_args(char *args)
 {
@@ -931,32 +931,32 @@ static char *setup_root_args(char *args)
 	char *ret;
 
 	/*
-                                              
-   
-            
-   
-           
-   
-              
-   
-                                                                        
-                 
-  */
+	 * We need the same args as before, but minus
+	 *
+	 * subvol=a
+	 *
+	 * and add
+	 *
+	 * subvolid=0
+	 *
+	 * which is a difference of 2 characters, so we allocate strlen(args) +
+	 * 2 characters.
+	 */
 	ret = kzalloc(len * sizeof(char), GFP_NOFS);
 	if (!ret)
 		return NULL;
 	pos = strstr(args, "subvol=");
 
-	/*                                           */
+	/* This shouldn't happen, but just in case.. */
 	if (!pos) {
 		kfree(ret);
 		return NULL;
 	}
 
 	/*
-                                                                       
-                        
-  */
+	 * The subvol=<> arg is not at the front of the string, copy everybody
+	 * up to that into ret.
+	 */
 	if (pos != args) {
 		*pos = '\0';
 		strcpy(ret, args);
@@ -966,18 +966,18 @@ static char *setup_root_args(char *args)
 
 	strncpy(ret + copied, "subvolid=0", len - copied);
 
-	/*                      */
+	/* Length of subvolid=0 */
 	copied += 10;
 
 	/*
-                                                                     
-                                         
-  */
+	 * If there is no , after the subvol= option then we know there's no
+	 * other options and we can just return.
+	 */
 	pos = strchr(pos, ',');
 	if (!pos)
 		return ret;
 
-	/*                                                */
+	/* Copy the rest of the arguments into our buffer */
 	strncpy(ret + copied, pos, len - copied);
 	copied += strlen(pos);
 
@@ -1015,10 +1015,10 @@ static struct dentry *mount_subvol(const char *subvol_name, int flags,
 }
 
 /*
-                                                        
-  
-                                                                           
-                                                              
+ * Find a superblock for the given device / mount point.
+ *
+ * Note:  This is based on get_sb_bdev from fs/super.c with a few additions
+ *	  for multiple device setup.  Make sure to keep it in sync.
  */
 static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 		const char *device_name, void *data)
@@ -1056,11 +1056,11 @@ static struct dentry *btrfs_mount(struct file_system_type *fs_type, int flags,
 		return ERR_PTR(error);
 
 	/*
-                                                                       
-                                                                       
-                                                                     
-                                                              
-  */
+	 * Setup a dummy root and fs_info for test/set super.  This is because
+	 * we don't actually fill this stuff out until open_ctree, but we need
+	 * it for searching for existing supers, so this lets us do that and
+	 * then open_ctree will properly initialize everything later.
+	 */
 	fs_info = kzalloc(sizeof(struct btrfs_fs_info), GFP_NOFS);
 	if (!fs_info)
 		return ERR_PTR(-ENOMEM);
@@ -1161,7 +1161,7 @@ static int btrfs_remount(struct super_block *sb, int *flags, char *data)
 		if (ret)
 			goto restore;
 
-		/*                    */
+		/* recover relocation */
 		ret = btrfs_recover_relocation(root);
 		if (ret)
 			goto restore;
@@ -1172,7 +1172,7 @@ static int btrfs_remount(struct super_block *sb, int *flags, char *data)
 	return 0;
 
 restore:
-	/*                                            */
+	/* We've hit an error - don't reset MS_RDONLY */
 	if (sb->s_flags & MS_RDONLY)
 		old_flags |= MS_RDONLY;
 	sb->s_flags = old_flags;
@@ -1185,7 +1185,7 @@ restore:
 	return ret;
 }
 
-/*                                                        */
+/* Used to sort the devices by max_avail(descending sort) */
 static int btrfs_cmp_device_free_bytes(const void *dev_info1,
 				       const void *dev_info2)
 {
@@ -1200,8 +1200,8 @@ static int btrfs_cmp_device_free_bytes(const void *dev_info1,
 }
 
 /*
-                                                                              
-                              
+ * sort the devices by max_avail, in which max free extent size of each device
+ * is stored.(Descending Sort)
  */
 static inline void btrfs_descending_sort_devices(
 					struct btrfs_device_info *devices,
@@ -1212,8 +1212,8 @@ static inline void btrfs_descending_sort_devices(
 }
 
 /*
-                                                                             
-             
+ * The helper to calc the free space on the devices that can be used to store
+ * file data.
  */
 static int btrfs_calc_avail_data_space(struct btrfs_root *root, u64 *free_bytes)
 {
@@ -1238,7 +1238,7 @@ static int btrfs_calc_avail_data_space(struct btrfs_root *root, u64 *free_bytes)
 	if (!devices_info)
 		return -ENOMEM;
 
-	/*                                                 */
+	/* calc min stripe number for data space alloction */
 	type = btrfs_get_alloc_profile(root, 1);
 	if (type & BTRFS_BLOCK_GROUP_RAID0) {
 		min_stripes = 2;
@@ -1262,27 +1262,27 @@ static int btrfs_calc_avail_data_space(struct btrfs_root *root, u64 *free_bytes)
 
 		avail_space = device->total_bytes - device->bytes_used;
 
-		/*                       */
+		/* align with stripe_len */
 		do_div(avail_space, BTRFS_STRIPE_LEN);
 		avail_space *= BTRFS_STRIPE_LEN;
 
 		/*
-                                                                
-                                                               
-                
-   */
+		 * In order to avoid overwritting the superblock on the drive,
+		 * btrfs starts at an offset of at least 1MB when doing chunk
+		 * allocation.
+		 */
 		skip_space = 1024 * 1024;
 
-		/*                                                  */
+		/* user can set the offset in fs_info->alloc_start. */
 		if (fs_info->alloc_start + BTRFS_STRIPE_LEN <=
 		    device->total_bytes)
 			skip_space = max(fs_info->alloc_start, skip_space);
 
 		/*
-                                                             
-                                                              
-                                                       
-   */
+		 * btrfs can not use the free space in [0, skip_space - 1],
+		 * we must subtract it from the total. In order to implement
+		 * it, we account the used space in this range first.
+		 */
 		ret = btrfs_account_dev_extents_size(device, 0, skip_space - 1,
 						     &used_space);
 		if (ret) {
@@ -1290,13 +1290,13 @@ static int btrfs_calc_avail_data_space(struct btrfs_root *root, u64 *free_bytes)
 			return ret;
 		}
 
-		/*                                            */
+		/* calc the free space in [0, skip_space - 1] */
 		skip_space -= used_space;
 
 		/*
-                                                               
-                       
-   */
+		 * we can use the free space in [0, skip_space - 1], subtract
+		 * it from the total.
+		 */
 		if (avail_space && avail_space >= skip_space)
 			avail_space -= skip_space;
 		else
@@ -1351,7 +1351,7 @@ static int btrfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 	__be32 *fsid = (__be32 *)fs_info->fsid;
 	int ret;
 
-	/*                                                    */
+	/* holding chunk_muext to avoid allocating new chunks */
 	mutex_lock(&fs_info->chunk_mutex);
 	rcu_read_lock();
 	list_for_each_entry_rcu(found, head, list) {
@@ -1380,12 +1380,12 @@ static int btrfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_bavail = buf->f_bavail >> bits;
 	mutex_unlock(&fs_info->chunk_mutex);
 
-	/*                                                               
-                                                                 
-                                          */
+	/* We treat it as constant endianness (it doesn't matter _which_)
+	   because we want the fsid to come out the same whether mounted
+	   on a big-endian or little-endian host */
 	buf->f_fsid.val[0] = be32_to_cpu(fsid[0]) ^ be32_to_cpu(fsid[2]);
 	buf->f_fsid.val[1] = be32_to_cpu(fsid[1]) ^ be32_to_cpu(fsid[3]);
-	/*                                                         */
+	/* Mask in the root object ID too, to disambiguate subvols */
 	buf->f_fsid.val[0] ^= BTRFS_I(dentry->d_inode)->root->objectid >> 32;
 	buf->f_fsid.val[1] ^= BTRFS_I(dentry->d_inode)->root->objectid;
 
@@ -1408,7 +1408,7 @@ static struct file_system_type btrfs_fs_type = {
 };
 
 /*
-                                                         
+ * used by btrfsctl to scan devices when no FS is mounted
  */
 static long btrfs_control_ioctl(struct file *file, unsigned int cmd,
 				unsigned long arg)

@@ -41,14 +41,14 @@
 
 #include "aacraid.h"
 
-/* 
-                                               
-                         
-  
-                                                                        
-                                                                          
-                                                                       
-                                                           
+/**
+ *	aac_response_normal	-	Handle command replies
+ *	@q: Queue to read from
+ *
+ *	This DPC routine will be run when the adapter interrupts us to let us
+ *	know there is a response on our normal priority queue. We will pull off
+ *	all QE there are and wake up all the waiters before exiting. We will
+ *	take a spinlock out on the queue before operating on it.
  */
 
 unsigned int aac_response_normal(struct aac_queue * q)
@@ -62,11 +62,11 @@ unsigned int aac_response_normal(struct aac_queue * q)
 
 	spin_lock_irqsave(q->lock, flags);
 	/*
-                                                               
-                                                              
-                                                           
-                                         
-  */
+	 *	Keep pulling response QEs off the response queue and waking
+	 *	up the waiters until there are no more QEs. We then return
+	 *	back to the system. If no response was requesed we just
+	 *	deallocate the Fib here and continue.
+	 */
 	while(aac_consumer_get(dev, q, &entry))
 	{
 		int fast;
@@ -77,13 +77,13 @@ unsigned int aac_response_normal(struct aac_queue * q)
 		
 		aac_consumer_free(dev, q, HostNormRespQueue);
 		/*
-                                                    
-                                                   
-    
-                                                      
-                                                        
-                       
-   */
+		 *	Remove this fib from the Outstanding I/O queue.
+		 *	But only if it has not already been timed out.
+		 *
+		 *	If the fib has been timed out already, then just 
+		 *	continue. The caller has already been notified that
+		 *	the fib timed out.
+		 */
 		dev->queues->queue[AdapNormCmdQueue].numpending--;
 
 		if (unlikely(fib->flags & FIB_CONTEXT_FLAG_TIMED_OUT)) {
@@ -97,8 +97,8 @@ unsigned int aac_response_normal(struct aac_queue * q)
 
 		if (fast) {
 			/*
-                    
-    */
+			 *	Doctor the fib
+			 */
 			*(__le32 *)hwfib->data = cpu_to_le32(ST_OK);
 			hwfib->header.XferState |= cpu_to_le32(AdapterProcessed);
 		}
@@ -118,9 +118,9 @@ unsigned int aac_response_normal(struct aac_queue * q)
 			else 
 				FIB_COUNTER_INCREMENT(aac_config.AsyncRecved);
 			/*
-                                               
-                                                     
-    */
+			 *	NOTE:  we cannot touch the fib after this
+			 *	    call, because it may have been deallocated.
+			 */
 			fib->flags = 0;
 			fib->callback(fib->callback_data, fib);
 		} else {
@@ -159,14 +159,14 @@ unsigned int aac_response_normal(struct aac_queue * q)
 }
 
 
-/* 
-                                       
-                       
-  
-                                                                     
-                                                                        
-                                                                        
-                                                                   
+/**
+ *	aac_command_normal	-	handle commands
+ *	@q: queue to process
+ *
+ *	This DPC routine will be queued when the adapter interrupts us to 
+ *	let us know there is a command on our normal priority queue. We will 
+ *	pull off all QE there are and wake up all the waiters before exiting.
+ *	We will take a spinlock out on the queue before operating on it.
  */
  
 unsigned int aac_command_normal(struct aac_queue *q)
@@ -178,10 +178,10 @@ unsigned int aac_command_normal(struct aac_queue *q)
 	spin_lock_irqsave(q->lock, flags);
 
 	/*
-                                                               
-                                                              
-                       
-  */
+	 *	Keep pulling response QEs off the response queue and waking
+	 *	up the waiters until there are no more QEs. We then return
+	 *	back to the system.
+	 */
 	while(aac_consumer_get(dev, q, &entry))
 	{
 		struct fib fibctx;
@@ -193,10 +193,10 @@ unsigned int aac_command_normal(struct aac_queue *q)
 		hw_fib = &dev->aif_base_va[index];
 		
 		/*
-                                                      
-                                                       
-                                                     
-   */
+		 *	Allocate a FIB at all costs. For non queued stuff
+		 *	we can just use the stack so we are happy. We need
+		 *	a fib object in order to manage the linked lists
+		 */
 		if (dev->aif_thread)
 			if((fib = kmalloc(sizeof(struct fib), GFP_ATOMIC)) == NULL)
 				fib = &fibctx;
@@ -218,8 +218,8 @@ unsigned int aac_command_normal(struct aac_queue *q)
 	 	        aac_consumer_free(dev, q, HostNormCmdQueue);
 			spin_unlock_irqrestore(q->lock, flags);
 			/*
-                                
-    */
+			 *	Set the status of this FIB
+			 */
 			*(__le32 *)hw_fib->data = cpu_to_le32(ST_OK);
 			aac_fib_adapter_complete(fib, sizeof(u32));
 			spin_lock_irqsave(q->lock, flags);
@@ -230,13 +230,13 @@ unsigned int aac_command_normal(struct aac_queue *q)
 }
 
 /*
-  
-                   
-                                                             
-                              
-  
-                                      
-  
+ *
+ * aac_aif_callback
+ * @context: the context set in the fib - here it is scsi cmd
+ * @fibptr: pointer to the fib
+ *
+ * Handles the AIFs - new method (SRC)
+ *
  */
 
 static void aac_aif_callback(void *context, struct fib * fibptr)
@@ -272,31 +272,31 @@ static void aac_aif_callback(void *context, struct fib * fibptr)
 }
 
 
-/* 
-                                           
-               
-                               
-  
-                                                                        
-                                                                          
-                                                               
+/**
+ *	aac_intr_normal	-	Handle command replies
+ *	@dev: Device
+ *	@index: completion reference
+ *
+ *	This DPC routine will be run when the adapter interrupts us to let us
+ *	know there is a response on our normal priority queue. We will pull off
+ *	all QE there are and wake up all the waiters before exiting.
  */
 unsigned int aac_intr_normal(struct aac_dev *dev, u32 index,
 			int isAif, int isFastResponse, struct hw_fib *aif_fib)
 {
 	unsigned long mflags;
 	dprintk((KERN_INFO "aac_intr_normal(%p,%x)\n", dev, index));
-	if (isAif == 1) {	/*              */
+	if (isAif == 1) {	/* AIF - common */
 		struct hw_fib * hw_fib;
 		struct fib * fib;
 		struct aac_queue *q = &dev->queues->queue[HostNormCmdQueue];
 		unsigned long flags;
 
 		/*
-                                                         
-                                                                
-                             
-   */
+		 *	Allocate a FIB. For non queued stuff we can just use
+		 * the stack so we are happy. We need a fib object in order to
+		 * manage the linked lists.
+		 */
 		if ((!dev->aif_thread)
 		 || (!(fib = kzalloc(sizeof(struct fib),GFP_ATOMIC))))
 			return 1;
@@ -323,7 +323,7 @@ unsigned int aac_intr_normal(struct aac_dev *dev, u32 index,
 	        wake_up_interruptible(&q->cmdready);
 		spin_unlock_irqrestore(q->lock, flags);
 		return 1;
-	} else if (isAif == 2) {	/*                 */
+	} else if (isAif == 2) {	/* AIF - new (SRC) */
 		struct fib *fibctx;
 		struct aac_aifcmd *cmd;
 
@@ -346,13 +346,13 @@ unsigned int aac_intr_normal(struct aac_dev *dev, u32 index,
 		struct hw_fib * hwfib = fib->hw_fib_va;
 
 		/*
-                                                    
-                                                   
-    
-                                                      
-                                                        
-                       
-   */
+		 *	Remove this fib from the Outstanding I/O queue.
+		 *	But only if it has not already been timed out.
+		 *
+		 *	If the fib has been timed out already, then just 
+		 *	continue. The caller has already been notified that
+		 *	the fib timed out.
+		 */
 		dev->queues->queue[AdapNormCmdQueue].numpending--;
 
 		if (unlikely(fib->flags & FIB_CONTEXT_FLAG_TIMED_OUT)) {
@@ -363,8 +363,8 @@ unsigned int aac_intr_normal(struct aac_dev *dev, u32 index,
 
 		if (isFastResponse) {
 			/*
-                    
-    */
+			 *	Doctor the fib
+			 */
 			*(__le32 *)hwfib->data = cpu_to_le32(ST_OK);
 			hwfib->header.XferState |= cpu_to_le32(AdapterProcessed);
 		}
@@ -384,9 +384,9 @@ unsigned int aac_intr_normal(struct aac_dev *dev, u32 index,
 			else 
 				FIB_COUNTER_INCREMENT(aac_config.AsyncRecved);
 			/*
-                                               
-                                                     
-    */
+			 *	NOTE:  we cannot touch the fib after this
+			 *	    call, because it may have been deallocated.
+			 */
 			fib->flags = 0;
 			fib->callback(fib->callback_data, fib);
 		} else {

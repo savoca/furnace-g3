@@ -38,7 +38,7 @@
 #define DSP_MEM_CONNID        16
 
 enum hda_cmd_vendor_io {
-	/*                */
+	/* for DspIO node */
 	VENDOR_DSPIO_SCP_WRITE_DATA_LOW      = 0x000,
 	VENDOR_DSPIO_SCP_WRITE_DATA_HIGH     = 0x100,
 
@@ -49,7 +49,7 @@ enum hda_cmd_vendor_io {
 	VENDOR_DSPIO_SCP_POST_COUNT_QUERY    = 0x704,
 	VENDOR_DSPIO_SCP_READ_COUNT          = 0xF04,
 
-	/*                 */
+	/* for ChipIO node */
 	VENDOR_CHIPIO_ADDRESS_LOW            = 0x000,
 	VENDOR_CHIPIO_ADDRESS_HIGH           = 0x100,
 	VENDOR_CHIPIO_STREAM_FORMAT          = 0x200,
@@ -84,122 +84,122 @@ enum hda_cmd_vendor_io {
 };
 
 /*
-                    
+ *  Control flag IDs
  */
 enum control_flag_id {
-	/*                                                     */
+	/* Connection manager stream setup is bypassed/enabled */
 	CONTROL_FLAG_C_MGR                  = 0,
-	/*                             */
+	/* DSP DMA is bypassed/enabled */
 	CONTROL_FLAG_DMA                    = 1,
-	/*                                      */
+	/* 8051 'idle' mode is disabled/enabled */
 	CONTROL_FLAG_IDLE_ENABLE            = 2,
-	/*                                                   */
+	/* Tracker for the SPDIF-in path is bypassed/enabled */
 	CONTROL_FLAG_TRACKER                = 3,
-	/*                                                        */
+	/* DigitalOut to Spdif2Out connection is disabled/enabled */
 	CONTROL_FLAG_SPDIF2OUT              = 4,
-	/*                                        */
+	/* Digital Microphone is disabled/enabled */
 	CONTROL_FLAG_DMIC                   = 5,
-	/*                             */
+	/* ADC_B rate is 48 kHz/96 kHz */
 	CONTROL_FLAG_ADC_B_96KHZ            = 6,
-	/*                             */
+	/* ADC_C rate is 48 kHz/96 kHz */
 	CONTROL_FLAG_ADC_C_96KHZ            = 7,
-	/*                                              */
+	/* DAC rate is 48 kHz/96 kHz (affects all DACs) */
 	CONTROL_FLAG_DAC_96KHZ              = 8,
-	/*                           */
+	/* DSP rate is 48 kHz/96 kHz */
 	CONTROL_FLAG_DSP_96KHZ              = 9,
-	/*                                                             */
+	/* SRC clock is 98 MHz/196 MHz (196 MHz forces rate to 96 KHz) */
 	CONTROL_FLAG_SRC_CLOCK_196MHZ       = 10,
-	/*                                                                   */
+	/* SRC rate is 48 kHz/96 kHz (48 kHz disabled when clock is 196 MHz) */
 	CONTROL_FLAG_SRC_RATE_96KHZ         = 11,
-	/*                                                 */
+	/* Decode Loop (DSP->SRC->DSP) is disabled/enabled */
 	CONTROL_FLAG_DECODE_LOOP            = 12,
-	/*                                              */
+	/* De-emphasis filter on DAC-1 disabled/enabled */
 	CONTROL_FLAG_DAC1_DEEMPHASIS        = 13,
-	/*                                              */
+	/* De-emphasis filter on DAC-2 disabled/enabled */
 	CONTROL_FLAG_DAC2_DEEMPHASIS        = 14,
-	/*                                              */
+	/* De-emphasis filter on DAC-3 disabled/enabled */
 	CONTROL_FLAG_DAC3_DEEMPHASIS        = 15,
-	/*                                            */
+	/* High-pass filter on ADC_B disabled/enabled */
 	CONTROL_FLAG_ADC_B_HIGH_PASS        = 16,
-	/*                                            */
+	/* High-pass filter on ADC_C disabled/enabled */
 	CONTROL_FLAG_ADC_C_HIGH_PASS        = 17,
-	/*                                        */
+	/* Common mode on Port_A disabled/enabled */
 	CONTROL_FLAG_PORT_A_COMMON_MODE     = 18,
-	/*                                        */
+	/* Common mode on Port_D disabled/enabled */
 	CONTROL_FLAG_PORT_D_COMMON_MODE     = 19,
-	/*                                                       */
+	/* Impedance for ramp generator on Port_A 16 Ohm/10K Ohm */
 	CONTROL_FLAG_PORT_A_10KOHM_LOAD     = 20,
-	/*                                                        */
+	/* Impedance for ramp generator on Port_D, 16 Ohm/10K Ohm */
 	CONTROL_FLAG_PORT_D_10K0HM_LOAD     = 21,
-	/*                         */
+	/* ASI rate is 48kHz/96kHz */
 	CONTROL_FLAG_ASI_96KHZ              = 22,
-	/*                                                          */
+	/* DAC power settings able to control attached ports no/yes */
 	CONTROL_FLAG_DACS_CONTROL_PORTS     = 23,
-	/*                                             */
+	/* Clock Stop OK reporting is disabled/enabled */
 	CONTROL_FLAG_CONTROL_STOP_OK_ENABLE = 24,
-	/*                         */
+	/* Number of control flags */
 	CONTROL_FLAGS_MAX = (CONTROL_FLAG_CONTROL_STOP_OK_ENABLE+1)
 };
 
 /*
-                        
+ * Control parameter IDs
  */
 enum control_parameter_id {
-	/*                                                            */
+	/* 0: force HDA, 1: allow DSP if HDA Spdif1Out stream is idle */
 	CONTROL_PARAM_SPDIF1_SOURCE            = 2,
 
-	/*                */
+	/* Stream Control */
 
-	/*                                 */
+	/* Select stream with the given ID */
 	CONTROL_PARAM_STREAM_ID                = 24,
-	/*                                                 */
+	/* Source connection point for the selected stream */
 	CONTROL_PARAM_STREAM_SOURCE_CONN_POINT = 25,
-	/*                                                      */
+	/* Destination connection point for the selected stream */
 	CONTROL_PARAM_STREAM_DEST_CONN_POINT   = 26,
-	/*                                                 */
+	/* Number of audio channels in the selected stream */
 	CONTROL_PARAM_STREAMS_CHANNELS         = 27,
-	/*                                       */
+	/*Enable control for the selected stream */
 	CONTROL_PARAM_STREAM_CONTROL           = 28,
 
-	/*                          */
+	/* Connection Point Control */
 
-	/*                                           */
+	/* Select connection point with the given ID */
 	CONTROL_PARAM_CONN_POINT_ID            = 29,
-	/*                              */
+	/* Connection point sample rate */
 	CONTROL_PARAM_CONN_POINT_SAMPLE_RATE   = 30,
 
-	/*              */
+	/* Node Control */
 
-	/*                                   */
+	/* Select HDA node with the given ID */
 	CONTROL_PARAM_NODE_ID                  = 31
 };
 
 /*
-                       
+ *  Dsp Io Status codes
  */
 enum hda_vendor_status_dspio {
-	/*         */
+	/* Success */
 	VENDOR_STATUS_DSPIO_OK                       = 0x00,
-	/*                                                         */
+	/* Busy, unable to accept new command, the host must retry */
 	VENDOR_STATUS_DSPIO_BUSY                     = 0x01,
-	/*                           */
+	/* SCP command queue is full */
 	VENDOR_STATUS_DSPIO_SCP_COMMAND_QUEUE_FULL   = 0x02,
-	/*                             */
+	/* SCP response queue is empty */
 	VENDOR_STATUS_DSPIO_SCP_RESPONSE_QUEUE_EMPTY = 0x03
 };
 
 /*
-                        
+ *  Chip Io Status codes
  */
 enum hda_vendor_status_chipio {
-	/*         */
+	/* Success */
 	VENDOR_STATUS_CHIPIO_OK   = 0x00,
-	/*                                                         */
+	/* Busy, unable to accept new command, the host must retry */
 	VENDOR_STATUS_CHIPIO_BUSY = 0x01
 };
 
 /*
-                      
+ *  CA0132 sample rate
  */
 enum ca0132_sample_rate {
 	SR_6_000        = 0x00,
@@ -225,7 +225,7 @@ enum ca0132_sample_rate {
 };
 
 /*
-                       
+ *  Scp Helper function
  */
 enum get_set {
 	IS_SET = 0,
@@ -233,7 +233,7 @@ enum get_set {
 };
 
 /*
-                               
+ * Duplicated from ca0110 codec
  */
 
 static void init_output(struct hda_codec *codec, hda_nid_t pin, hda_nid_t dac)
@@ -306,7 +306,7 @@ static int _add_volume(struct hda_codec *codec, hda_nid_t nid, const char *pfx,
 
 
 /*
-                  
+ * CA0132 specific
  */
 
 struct ca0132_spec {
@@ -325,10 +325,10 @@ struct ca0132_spec {
 	long curr_speaker_switch;
 	struct mutex chipio_mutex;
 	const char *input_labels[AUTO_PIN_LAST];
-	struct hda_pcm pcm_rec[2]; /*                 */
+	struct hda_pcm pcm_rec[2]; /* PCM information */
 };
 
-/*                             */
+/* Chip access helper function */
 static int chipio_send(struct hda_codec *codec,
 		       unsigned int reg,
 		       unsigned int data)
@@ -336,7 +336,7 @@ static int chipio_send(struct hda_codec *codec,
 	unsigned int res;
 	int retry = 50;
 
-	/*                                    */
+	/* send bits of data specified by reg */
 	do {
 		res = snd_hda_codec_read(codec, WIDGET_CHIP_CTRL, 0,
 					 reg, data);
@@ -347,19 +347,19 @@ static int chipio_send(struct hda_codec *codec,
 }
 
 /*
-                                                                              
+ * Write chip address through the vendor widget -- NOT protected by the Mutex!
  */
 static int chipio_write_address(struct hda_codec *codec,
 				unsigned int chip_addx)
 {
 	int res;
 
-	/*                                 */
+	/* send low 16 bits of the address */
 	res = chipio_send(codec, VENDOR_CHIPIO_ADDRESS_LOW,
 			  chip_addx & 0xffff);
 
 	if (res != -EIO) {
-		/*                                  */
+		/* send high 16 bits of the address */
 		res = chipio_send(codec, VENDOR_CHIPIO_ADDRESS_HIGH,
 				  chip_addx >> 16);
 	}
@@ -368,18 +368,18 @@ static int chipio_write_address(struct hda_codec *codec,
 }
 
 /*
-                                                                      
+ * Write data through the vendor widget -- NOT protected by the Mutex!
  */
 
 static int chipio_write_data(struct hda_codec *codec, unsigned int data)
 {
 	int res;
 
-	/*                              */
+	/* send low 16 bits of the data */
 	res = chipio_send(codec, VENDOR_CHIPIO_DATA_LOW, data & 0xffff);
 
 	if (res != -EIO) {
-		/*                               */
+		/* send high 16 bits of the data */
 		res = chipio_send(codec, VENDOR_CHIPIO_DATA_HIGH,
 				  data >> 16);
 	}
@@ -388,22 +388,22 @@ static int chipio_write_data(struct hda_codec *codec, unsigned int data)
 }
 
 /*
-                                                                     
+ * Read data through the vendor widget -- NOT protected by the Mutex!
  */
 static int chipio_read_data(struct hda_codec *codec, unsigned int *data)
 {
 	int res;
 
-	/*           */
+	/* post read */
 	res = chipio_send(codec, VENDOR_CHIPIO_HIC_POST_READ, 0);
 
 	if (res != -EIO) {
-		/*             */
+		/* read status */
 		res = chipio_send(codec, VENDOR_CHIPIO_STATUS, 0);
 	}
 
 	if (res != -EIO) {
-		/*           */
+		/* read data */
 		*data = snd_hda_codec_read(codec, WIDGET_CHIP_CTRL, 0,
 					   VENDOR_CHIPIO_HIC_READ_DATA,
 					   0);
@@ -413,8 +413,8 @@ static int chipio_read_data(struct hda_codec *codec, unsigned int *data)
 }
 
 /*
-                                                                      
-                         
+ * Write given value to the given address through the chip I/O widget.
+ * protected by the Mutex
  */
 static int chipio_write(struct hda_codec *codec,
 		unsigned int chip_addx, const unsigned int data)
@@ -424,7 +424,7 @@ static int chipio_write(struct hda_codec *codec,
 
 	mutex_lock(&spec->chipio_mutex);
 
-	/*                                                            */
+	/* write the address, and if successful proceed to write data */
 	err = chipio_write_address(codec, chip_addx);
 	if (err < 0)
 		goto exit;
@@ -439,8 +439,8 @@ exit:
 }
 
 /*
-                                                     
-                         
+ * Read the given address through the chip I/O widget
+ * protected by the Mutex
  */
 static int chipio_read(struct hda_codec *codec,
 		unsigned int chip_addx, unsigned int *data)
@@ -450,7 +450,7 @@ static int chipio_read(struct hda_codec *codec,
 
 	mutex_lock(&spec->chipio_mutex);
 
-	/*                                                            */
+	/* write the address, and if successful proceed to write data */
 	err = chipio_write_address(codec, chip_addx);
 	if (err < 0)
 		goto exit;
@@ -465,7 +465,7 @@ exit:
 }
 
 /*
-             
+ * PCM stuffs
  */
 static void ca0132_setup_stream(struct hda_codec *codec, hda_nid_t nid,
 				 u32 stream_tag,
@@ -480,7 +480,7 @@ static void ca0132_setup_stream(struct hda_codec *codec, hda_nid_t nid,
 		"NID=0x%x, stream=0x%x, channel=%d, format=0x%x\n",
 		nid, stream_tag, channel_id, format);
 
-	/*                                 */
+	/* update the format-id if changed */
 	oldval = snd_hda_codec_read(codec, nid, 0,
 				    AC_VERB_GET_STREAM_FORMAT,
 				    0);
@@ -507,7 +507,7 @@ static void ca0132_cleanup_stream(struct hda_codec *codec, hda_nid_t nid)
 }
 
 /*
-                
+ * PCM callbacks
  */
 static int ca0132_playback_pcm_prepare(struct hda_pcm_stream *hinfo,
 			struct hda_codec *codec,
@@ -534,7 +534,7 @@ static int ca0132_playback_pcm_cleanup(struct hda_pcm_stream *hinfo,
 }
 
 /*
-              
+ * Digital out
  */
 static int ca0132_dig_playback_pcm_prepare(struct hda_pcm_stream *hinfo,
 			struct hda_codec *codec,
@@ -561,7 +561,7 @@ static int ca0132_dig_playback_pcm_cleanup(struct hda_pcm_stream *hinfo,
 }
 
 /*
-                 
+ * Analog capture
  */
 static int ca0132_capture_pcm_prepare(struct hda_pcm_stream *hinfo,
 			struct hda_codec *codec,
@@ -589,7 +589,7 @@ static int ca0132_capture_pcm_cleanup(struct hda_pcm_stream *hinfo,
 }
 
 /*
-                  
+ * Digital capture
  */
 static int ca0132_dig_capture_pcm_prepare(struct hda_pcm_stream *hinfo,
 			struct hda_codec *codec,
@@ -720,7 +720,7 @@ static int ca0132_hp_switch_put(struct snd_kcontrol *kcontrol,
 	unsigned int data;
 	int err;
 
-	/*             */
+	/* any change? */
 	if (spec->curr_hp_switch == *valp)
 		return 0;
 
@@ -730,7 +730,7 @@ static int ca0132_hp_switch_put(struct snd_kcontrol *kcontrol,
 	if (err < 0)
 		goto exit;
 
-	/*                              */
+	/* *valp 0 is mute, 1 is unmute */
 	data = (data & 0x7f) | (*valp ? 0 : 0x80);
 	err = chipio_write(codec, REG_CODEC_MUTE, data);
 	if (err < 0)
@@ -763,7 +763,7 @@ static int ca0132_speaker_switch_put(struct snd_kcontrol *kcontrol,
 	unsigned int data;
 	int err;
 
-	/*             */
+	/* any change? */
 	if (spec->curr_speaker_switch == *valp)
 		return 0;
 
@@ -773,7 +773,7 @@ static int ca0132_speaker_switch_put(struct snd_kcontrol *kcontrol,
 	if (err < 0)
 		goto exit;
 
-	/*                              */
+	/* *valp 0 is mute, 1 is unmute */
 	data = (data & 0xef) | (*valp ? 0 : 0x10);
 	err = chipio_write(codec, REG_CODEC_MUTE, data);
 	if (err < 0)
@@ -812,7 +812,7 @@ static int ca0132_hp_volume_put(struct snd_kcontrol *kcontrol,
 	left_vol = *valp++;
 	right_vol = *valp;
 
-	/*             */
+	/* any change? */
 	if ((spec->curr_hp_volume[0] == left_vol) &&
 		(spec->curr_hp_volume[1] == right_vol))
 		return 0;
@@ -879,7 +879,7 @@ static void ca0132_fix_hp_caps(struct hda_codec *codec)
 	struct auto_pin_cfg *cfg = &spec->autocfg;
 	unsigned int caps;
 
-	/*                                             */
+	/* set mute-capable, 1db step, 32 steps, ofs 6 */
 	caps = 0x80031f06;
 	snd_hda_override_amp_caps(codec, cfg->hp_pins[0], HDA_OUTPUT, caps);
 }
@@ -916,7 +916,7 @@ static int ca0132_build_controls(struct hda_codec *codec)
 		if (err < 0)
 			return err;
 		if (cfg->inputs[i].type == AUTO_PIN_MIC) {
-			/*               */
+			/* add Mic-Boost */
 			err = add_in_mono_volume(codec, spec->input_pins[i],
 						 "Mic Boost", 1);
 			if (err < 0)
@@ -948,7 +948,7 @@ static int ca0132_build_controls(struct hda_codec *codec)
 
 static void ca0132_set_ct_ext(struct hda_codec *codec, int enable)
 {
-	/*                        */
+	/* Set Creative extension */
 	snd_printdd("SET CREATIVE EXTENSION\n");
 	snd_hda_codec_write(codec, WIDGET_CHIP_CTRL, 0,
 			    VENDOR_CHIPIO_CT_EXTENSIONS_ENABLE,
@@ -962,9 +962,9 @@ static void ca0132_config(struct hda_codec *codec)
 	struct ca0132_spec *spec = codec->spec;
 	struct auto_pin_cfg *cfg = &spec->autocfg;
 
-	/*           */
+	/* line-outs */
 	cfg->line_outs = 1;
-	cfg->line_out_pins[0] = 0x0b; /*       */
+	cfg->line_out_pins[0] = 0x0b; /* front */
 	cfg->line_out_type = AUTO_PIN_LINE_OUT;
 
 	spec->dacs[0] = 0x02;
@@ -973,26 +973,26 @@ static void ca0132_config(struct hda_codec *codec)
 	spec->multiout.num_dacs = 1;
 	spec->multiout.max_channels = 2;
 
-	/*           */
+	/* headphone */
 	cfg->hp_outs = 1;
 	cfg->hp_pins[0] = 0x0f;
 
 	spec->hp_dac = 0;
 	spec->multiout.hp_nid = 0;
 
-	/*        */
-	cfg->num_inputs = 2;  /*                    */
+	/* inputs */
+	cfg->num_inputs = 2;  /* Mic-in and line-in */
 	cfg->inputs[0].pin = 0x12;
 	cfg->inputs[0].type = AUTO_PIN_MIC;
 	cfg->inputs[1].pin = 0x11;
 	cfg->inputs[1].type = AUTO_PIN_LINE_IN;
 
-	/*        */
+	/* Mic-in */
 	spec->input_pins[0] = 0x12;
 	spec->input_labels[0] = "Mic-In";
 	spec->adcs[0] = 0x07;
 
-	/*         */
+	/* Line-In */
 	spec->input_pins[1] = 0x11;
 	spec->input_labels[1] = "Line-In";
 	spec->adcs[1] = 0x08;
@@ -1008,7 +1008,7 @@ static void ca0132_init_chip(struct hda_codec *codec)
 
 static void ca0132_exit_chip(struct hda_codec *codec)
 {
-	/*                                   */
+	/* put any chip cleanup stuffs here. */
 }
 
 static int ca0132_init(struct hda_codec *codec)
@@ -1072,11 +1072,11 @@ static int patch_ca0132(struct hda_codec *codec)
 }
 
 /*
-                
+ * patch entries
  */
 static struct hda_codec_preset snd_hda_preset_ca0132[] = {
 	{ .id = 0x11020011, .name = "CA0132",     .patch = patch_ca0132 },
-	{} /*            */
+	{} /* terminator */
 };
 
 MODULE_ALIAS("snd-hda-codec-id:11020011");

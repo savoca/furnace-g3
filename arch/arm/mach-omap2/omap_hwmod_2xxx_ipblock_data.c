@@ -30,8 +30,8 @@ struct omap_hwmod_dma_info omap2xxx_dss_sdma_chs[] = {
 };
 
 /*
-                
-                     
+ * 'dispc' class
+ * display controller
  */
 
 static struct omap_hwmod_class_sysconfig omap2_dispc_sysc = {
@@ -50,7 +50,7 @@ struct omap_hwmod_class omap2_dispc_hwmod_class = {
 	.sysc	= &omap2_dispc_sysc,
 };
 
-/*                       */
+/* OMAP2xxx Timer Common */
 static struct omap_hwmod_class_sysconfig omap2xxx_timer_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x0010,
@@ -69,9 +69,9 @@ struct omap_hwmod_class omap2xxx_timer_hwmod_class = {
 };
 
 /*
-                   
-                                                                            
-                     
+ * 'wd_timer' class
+ * 32-bit watchdog upward counter that generates a pulse on the reset pin on
+ * overflow condition
  */
 
 static struct omap_hwmod_class_sysconfig omap2xxx_wd_timer_sysc = {
@@ -90,8 +90,8 @@ struct omap_hwmod_class omap2xxx_wd_timer_hwmod_class = {
 };
 
 /*
-               
-                            
+ * 'gpio' class
+ * general purpose io module
  */
 static struct omap_hwmod_class_sysconfig omap2xxx_gpio_sysc = {
 	.rev_offs	= 0x0000,
@@ -110,7 +110,7 @@ struct omap_hwmod_class omap2xxx_gpio_hwmod_class = {
 	.rev = 0,
 };
 
-/*            */
+/* system dma */
 static struct omap_hwmod_class_sysconfig omap2xxx_dma_sysc = {
 	.rev_offs	= 0x0000,
 	.sysc_offs	= 0x002c,
@@ -128,9 +128,9 @@ struct omap_hwmod_class omap2xxx_dma_hwmod_class = {
 };
 
 /*
-                  
-                                                                       
-                                              
+ * 'mailbox' class
+ * mailbox module allowing communication between the on-chip processors
+ * using a queued mailbox-interrupt mechanism.
  */
 
 static struct omap_hwmod_class_sysconfig omap2xxx_mailbox_sysc = {
@@ -149,9 +149,9 @@ struct omap_hwmod_class omap2xxx_mailbox_hwmod_class = {
 };
 
 /*
-                
-                                                                               
-      
+ * 'mcspi' class
+ * multichannel serial port interface (mcspi) / master/slave synchronous serial
+ * bus
  */
 
 static struct omap_hwmod_class_sysconfig omap2xxx_mcspi_sysc = {

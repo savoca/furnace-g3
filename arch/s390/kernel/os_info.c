@@ -15,12 +15,12 @@
 #include <asm/os_info.h>
 
 /*
-                                           
+ * OS info structure has to be page aligned
  */
 static struct os_info os_info __page_aligned_data;
 
 /*
-                                          
+ * Compute checksum over OS info structure
  */
 u32 os_info_csum(struct os_info *os_info)
 {
@@ -29,7 +29,7 @@ u32 os_info_csum(struct os_info *os_info)
 }
 
 /*
-                                                      
+ * Add crashkernel info to OS info and update checksum
  */
 void os_info_crashkernel_add(unsigned long base, unsigned long size)
 {
@@ -39,7 +39,7 @@ void os_info_crashkernel_add(unsigned long base, unsigned long size)
 }
 
 /*
-                                        
+ * Add OS info entry and update checksum
  */
 void os_info_entry_add(int nr, void *ptr, u64 size)
 {
@@ -50,7 +50,7 @@ void os_info_entry_add(int nr, void *ptr, u64 size)
 }
 
 /*
-                                                      
+ * Initialize OS info struture and set lowcore pointer
  */
 void __init os_info_init(void)
 {
@@ -68,7 +68,7 @@ void __init os_info_init(void)
 static struct os_info *os_info_old;
 
 /*
-                                              
+ * Allocate and copy OS info entry from oldmem
  */
 static void os_info_old_alloc(int nr, int align)
 {
@@ -110,7 +110,7 @@ out:
 }
 
 /*
-                                                     
+ * Initialize os info and os info entries from oldmem
  */
 static void os_info_old_init(void)
 {
@@ -152,7 +152,7 @@ fail:
 }
 
 /*
-                                                
+ * Return pointer to os infor entry and its size
  */
 void *os_info_old_entry(int nr, unsigned long *size)
 {

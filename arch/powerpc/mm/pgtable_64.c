@@ -73,12 +73,12 @@ static void *early_alloc_pgtable(unsigned long size)
 
 	return pt;
 }
-#endif /*                       */
+#endif /* CONFIG_PPC_MMU_NOHASH */
 
 /*
-                                                     
-                                                          
-                                                    
+ * map_kernel_page currently only called by __ioremap
+ * map_kernel_page adds an entry to the ioremap page table
+ * and adds an entry to the HPT, possibly bolting it
  */
 int map_kernel_page(unsigned long ea, unsigned long pa, int flags)
 {
@@ -102,10 +102,10 @@ int map_kernel_page(unsigned long ea, unsigned long pa, int flags)
 							  __pgprot(flags)));
 	} else {
 #ifdef CONFIG_PPC_MMU_NOHASH
-		/*                                                          
-                                                           
-                                  
-   */
+		/* Warning ! This will blow up if bootmem is not initialized
+		 * which our ppc64 code is keen to do that, we'll need to
+		 * fix it and/or be more careful
+		 */
 		pgdp = pgd_offset_k(ea);
 #ifdef PUD_TABLE_SIZE
 		if (pgd_none(*pgdp)) {
@@ -113,7 +113,7 @@ int map_kernel_page(unsigned long ea, unsigned long pa, int flags)
 			BUG_ON(pudp == NULL);
 			pgd_populate(&init_mm, pgdp, pudp);
 		}
-#endif /*                */
+#endif /* PUD_TABLE_SIZE */
 		pudp = pud_offset(pgdp, ea);
 		if (pud_none(*pudp)) {
 			pmdp = early_alloc_pgtable(PMD_TABLE_SIZE);
@@ -129,43 +129,43 @@ int map_kernel_page(unsigned long ea, unsigned long pa, int flags)
 		ptep = pte_offset_kernel(pmdp, ea);
 		set_pte_at(&init_mm, ea, ptep, pfn_pte(pa >> PAGE_SHIFT,
 							  __pgprot(flags)));
-#else /*                       */
+#else /* CONFIG_PPC_MMU_NOHASH */
 		/*
-                                                            
-                                                             
-                                      
-    
-   */
+		 * If the mm subsystem is not fully up, we cannot create a
+		 * linux page table entry for this mapping.  Simply bolt an
+		 * entry in the hardware page table.
+		 *
+		 */
 		if (htab_bolt_mapping(ea, ea + PAGE_SIZE, pa, flags,
 				      mmu_io_psize, mmu_kernel_ssize)) {
 			printk(KERN_ERR "Failed to do bolted mapping IO "
 			       "memory at %016lx !\n", pa);
 			return -ENOMEM;
 		}
-#endif /*                        */
+#endif /* !CONFIG_PPC_MMU_NOHASH */
 	}
 	return 0;
 }
 
 
-/* 
-                                                                 
-                                   
+/**
+ * __ioremap_at - Low level function to establish the page tables
+ *                for an IO mapping
  */
 void __iomem * __ioremap_at(phys_addr_t pa, void *ea, unsigned long size,
 			    unsigned long flags)
 {
 	unsigned long i;
 
-	/*                                  */
+	/* Make sure we have the base flags */
 	if ((flags & _PAGE_PRESENT) == 0)
 		flags |= pgprot_val(PAGE_KERNEL);
 
-	/*                                       */
+	/* Non-cacheable page cannot be coherent */
 	if (flags & _PAGE_NO_CACHE)
 		flags &= ~_PAGE_COHERENT;
 
-	/*                                               */
+	/* We don't support the 4K PFN hack with ioremap */
 	if (flags & _PAGE_4K_PFN)
 		return NULL;
 
@@ -180,11 +180,11 @@ void __iomem * __ioremap_at(phys_addr_t pa, void *ea, unsigned long size,
 	return (void __iomem *)ea;
 }
 
-/* 
-                                                                   
-                                                                     
-                                                                       
-                                         
+/**
+ * __iounmap_from - Low level function to tear down the page tables
+ *                  for an IO mapping. This is used for mappings that
+ *                  are manipulated manually, like partial unmapping of
+ *                  PCI IOs or ISA space.
  */
 void __iounmap_at(void *ea, unsigned long size)
 {
@@ -201,14 +201,14 @@ void __iomem * __ioremap_caller(phys_addr_t addr, unsigned long size,
 	void __iomem *ret;
 
 	/*
-                                   
-                                                  
-                                             
-                                          
-                                          
-               
-    
-  */
+	 * Choose an address to map it to.
+	 * Once the imalloc system is running, we use it.
+	 * Before that, we map using addresses going
+	 * up from ioremap_bot.  imalloc will use
+	 * the addresses from ioremap_bot through
+	 * IMALLOC_END
+	 * 
+	 */
 	paligned = addr & PAGE_MASK;
 	size = PAGE_ALIGN(addr + size) - paligned;
 
@@ -270,18 +270,18 @@ void __iomem * ioremap_prot(phys_addr_t addr, unsigned long size,
 {
 	void *caller = __builtin_return_address(0);
 
-	/*                                              */
+	/* writeable implies dirty for kernel addresses */
 	if (flags & _PAGE_RW)
 		flags |= _PAGE_DIRTY;
 
-	/*                                                         */
+	/* we don't want to let _PAGE_USER and _PAGE_EXEC leak out */
 	flags &= ~(_PAGE_USER | _PAGE_EXEC);
 
 #ifdef _PAGE_BAP_SR
-	/*                                                                   
-                                                                       
-               
-  */
+	/* _PAGE_USER contains _PAGE_BAP_SR on BookE using the new PTE format
+	 * which means that we just cleared supervisor access... oops ;-) This
+	 * restores it
+	 */
 	flags |= _PAGE_BAP_SR;
 #endif
 
@@ -292,8 +292,8 @@ void __iomem * ioremap_prot(phys_addr_t addr, unsigned long size,
 
 
 /*  
-                                                        
-                                                      
+ * Unmap an IO region and remove it from imalloc'd list.
+ * Access to IO memory should be serialized by driver.
  */
 void __iounmap(volatile void __iomem *token)
 {

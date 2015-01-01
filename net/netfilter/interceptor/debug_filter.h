@@ -27,4 +27,4 @@ debug_filter(const char *level,
 
 void debug_filter_set_string(const char *str);
 
-#endif				/*                */
+#endif				/* DEBUG_FILTER_H */

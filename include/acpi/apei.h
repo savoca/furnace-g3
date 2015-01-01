@@ -1,5 +1,5 @@
 /*
-                                         
+ * apei.h - ACPI Platform Error Interface
  */
 
 #ifndef ACPI_APEI_H

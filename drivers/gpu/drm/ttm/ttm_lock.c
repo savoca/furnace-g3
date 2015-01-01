@@ -25,7 +25,7 @@
  *
  **************************************************************************/
 /*
-                                                           
+ * Authors: Thomas Hellstrom <thellstrom-at-vmware-dot-com>
  */
 
 #include "ttm/ttm_lock.h"
@@ -255,10 +255,10 @@ int ttm_vt_lock(struct ttm_lock *lock,
 		wait_event(lock->queue, __ttm_vt_lock(lock));
 
 	/*
-                                                   
-                                                     
-                     
-  */
+	 * Add a base-object, the destructor of which will
+	 * make sure the lock is released if the client dies
+	 * while holding it.
+	 */
 
 	ret = ttm_base_object_init(tfile, &lock->base, false,
 				   ttm_lock_type, &ttm_vt_lock_remove, NULL);

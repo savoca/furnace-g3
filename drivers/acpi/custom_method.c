@@ -1,5 +1,5 @@
 /*
-                                                   
+ * debugfs.c - ACPI debugfs interface to userspace.
  */
 
 #include <linux/init.h>
@@ -17,7 +17,7 @@ MODULE_LICENSE("GPL");
 
 static struct dentry *cm_dentry;
 
-/*                                      */
+/* /sys/kernel/debug/acpi/custom_method */
 
 static ssize_t cm_write(struct file *file, const char __user * user_buf,
 			size_t count, loff_t *ppos)
@@ -30,7 +30,7 @@ static ssize_t cm_write(struct file *file, const char __user * user_buf,
 	acpi_status status;
 
 	if (!(*ppos)) {
-		/*                                                */
+		/* parse the table header to get the table length */
 		if (count <= sizeof(struct acpi_table_header))
 			return -EINVAL;
 		if (copy_from_user(&table, user_buf,

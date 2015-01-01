@@ -45,12 +45,12 @@ static ssize_t do_coredump_read(int num, struct spu_context *ctx, void *buffer,
 	ret = snprintf(buffer, size, "0x%.16llx", data);
 	if (ret >= size)
 		return size;
-	return ++ret; /*                     */
+	return ++ret; /* count trailing NULL */
 }
 
 /*
-                                                                         
-                                                 
+ * These are the only things you should do on a core-file: use only these
+ * functions to write out all the necessary info.
  */
 static int spufs_dump_write(struct file *file, const void *addr, int nr, loff_t *foffset)
 {
@@ -107,13 +107,13 @@ static int spufs_ctx_note_size(struct spu_context *ctx, int dfd)
 }
 
 /*
-                                                                  
-                                    
-  
-                                                                 
-                                                               
-                                                                  
-                  
+ * The additional architecture-specific notes for Cell are various
+ * context files in the spu context.
+ *
+ * This function iterates over all open file descriptors and sees
+ * if they are a directory in spufs.  In that case we use spufs
+ * internal functionality to dump them without needing to actually
+ * open the files.
  */
 static struct spu_context *coredump_next_context(int *fd)
 {
@@ -157,7 +157,7 @@ int spufs_coredump_extra_notes_size(void)
 
 		size += rc;
 
-		/*                                       */
+		/* start searching the next fd next time */
 		fd++;
 	}
 
@@ -242,7 +242,7 @@ int spufs_coredump_extra_notes_write(struct file *file, loff_t *foffset)
 
 		spu_release_saved(ctx);
 
-		/*                                       */
+		/* start searching the next fd next time */
 		fd++;
 	}
 

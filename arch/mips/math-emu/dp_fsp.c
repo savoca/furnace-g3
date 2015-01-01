@@ -1,5 +1,5 @@
-/*                                  
-                                     
+/* IEEE754 floating point arithmetic
+ * double precision: common utilities
  */
 /*
  * MIPS floating point support
@@ -52,7 +52,7 @@ ieee754dp ieee754dp_fsp(ieee754sp x)
 	case IEEE754_CLASS_ZERO:
 		return ieee754dp_zero(xs);
 	case IEEE754_CLASS_DNORM:
-		/*           */
+		/* normalize */
 		while ((xm >> SP_MBITS) == 0) {
 			xm <<= 1;
 			xe--;
@@ -62,10 +62,10 @@ ieee754dp ieee754dp_fsp(ieee754sp x)
 		break;
 	}
 
-	/*                                                    
-  */
+	/* CAN'T possibly overflow,underflow, or need rounding
+	 */
 
-	/*                     */
+	/* drop the hidden bit */
 	xm &= ~SP_HIDDEN_BIT;
 
 	return builddp(xs, xe + DP_EBIAS,

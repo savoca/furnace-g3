@@ -1,16 +1,16 @@
 /*
-                                                     
-                                                     
-                                                 
-                                                     
-                                                   
-                                                
-                                                
-                                               
-                                                       
-                                  
-  
-                                                 
+ * A security context is a set of security attributes
+ * associated with each subject and object controlled
+ * by the security policy.  Security contexts are
+  * externally represented as variable-length strings
+ * that can be interpreted by a user or application
+ * with an understanding of the security policy.
+ * Internally, the security server uses a simple
+ * structure.  This structure is private to the
+ * security server and can be changed without affecting
+ * clients of the security server.
+ *
+ * Author : Stephen Smalley, <sds@epoch.ncsc.mil>
  */
 #ifndef _SS_CONTEXT_H_
 #define _SS_CONTEXT_H_
@@ -20,16 +20,16 @@
 #include "security.h"
 
 /*
-                                                       
-                                            
+ * A security context consists of an authenticated user
+ * identity, a role, a type and a MLS range.
  */
 struct context {
 	u32 user;
 	u32 role;
 	u32 type;
-	u32 len;        /*                           */
+	u32 len;        /* length of string in bytes */
 	struct mls_range range;
-	char *str;	/*                                                    */
+	char *str;	/* string representation if context cannot be mapped. */
 };
 
 static inline void mls_context_init(struct context *c)
@@ -55,7 +55,7 @@ out:
 }
 
 /*
-                                                                        
+ * Sets both levels in the MLS range of 'dst' to the low level of 'src'.
  */
 static inline int mls_context_cpy_low(struct context *dst, struct context *src)
 {
@@ -139,5 +139,5 @@ static inline int context_cmp(struct context *c1, struct context *c2)
 		mls_context_cmp(c1, c2));
 }
 
-#endif	/*                */
+#endif	/* _SS_CONTEXT_H_ */
 

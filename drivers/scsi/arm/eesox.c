@@ -62,7 +62,7 @@
 #define VERSION "1.10 (17/01/2003 2.5.59)"
 
 /*
-                                                
+ * Use term=0,1,0,0,0 to turn terminators on/off
  */
 static int term[MAX_ECARDS] = { 1, 1, 1, 1, 1, 1, 1, 1 };
 
@@ -74,13 +74,13 @@ struct eesoxscsi_info {
 	void __iomem		*base;
 	void __iomem		*ctl_port;
 	unsigned int		control;
-	struct scatterlist	sg[NR_SG];	/*                  */
+	struct scatterlist	sg[NR_SG];	/* Scatter DMA list	*/
 };
 
-/*                                               
-                                                  
-                                              
-                                      
+/* Prototype: void eesoxscsi_irqenable(ec, irqnr)
+ * Purpose  : Enable interrupts on EESOX SCSI card
+ * Params   : ec    - expansion card structure
+ *          : irqnr - interrupt number
  */
 static void
 eesoxscsi_irqenable(struct expansion_card *ec, int irqnr)
@@ -92,10 +92,10 @@ eesoxscsi_irqenable(struct expansion_card *ec, int irqnr)
 	writeb(info->control, info->ctl_port);
 }
 
-/*                                                
-                                                   
-                                              
-                                      
+/* Prototype: void eesoxscsi_irqdisable(ec, irqnr)
+ * Purpose  : Disable interrupts on EESOX SCSI card
+ * Params   : ec    - expansion card structure
+ *          : irqnr - interrupt number
  */
 static void
 eesoxscsi_irqdisable(struct expansion_card *ec, int irqnr)
@@ -112,10 +112,10 @@ static const expansioncard_ops_t eesoxscsi_ops = {
 	.irqdisable	= eesoxscsi_irqdisable,
 };
 
-/*                                                        
-                                                       
-                                          
-                                                   
+/* Prototype: void eesoxscsi_terminator_ctl(*host, on_off)
+ * Purpose  : Turn the EESOX SCSI terminators on or off
+ * Params   : host   - card to turn on/off
+ *          : on_off - !0 to turn on, 0 to turn off
  */
 static void
 eesoxscsi_terminator_ctl(struct Scsi_Host *host, int on_off)
@@ -133,10 +133,10 @@ eesoxscsi_terminator_ctl(struct Scsi_Host *host, int on_off)
 	spin_unlock_irqrestore(host->host_lock, flags);
 }
 
-/*                                                    
-                                                    
-                                       
-                                                    
+/* Prototype: void eesoxscsi_intr(irq, *dev_id, *regs)
+ * Purpose  : handle interrupts from EESOX SCSI card
+ * Params   : irq    - interrupt number
+ *	      dev_id - user-defined (Scsi_Host structure)
  */
 static irqreturn_t
 eesoxscsi_intr(int irq, void *dev_id)
@@ -146,13 +146,13 @@ eesoxscsi_intr(int irq, void *dev_id)
 	return fas216_intr(&info->info);
 }
 
-/*                                                                              
-                                 
-                              
-                            
-                                          
-                                                                            
-                                              
+/* Prototype: fasdmatype_t eesoxscsi_dma_setup(host, SCpnt, direction, min_type)
+ * Purpose  : initialises DMA/PIO
+ * Params   : host      - host
+ *	      SCpnt     - command
+ *	      direction - DMA on to/off of card
+ *	      min_type  - minimum DMA support that we must have for this transfer
+ * Returns  : type of transfer to be performed
  */
 static fasdmatype_t
 eesoxscsi_dma_setup(struct Scsi_Host *host, struct scsi_pointer *SCp,
@@ -184,10 +184,10 @@ eesoxscsi_dma_setup(struct Scsi_Host *host, struct scsi_pointer *SCp,
 		return fasdma_real_all;
 	}
 	/*
-                                        
-   
-                                   
-  */
+	 * We don't do DMA, we only do slow PIO
+	 *
+	 * Some day, we will do Pseudo DMA
+	 */
 	return fasdma_pseudo;
 }
 
@@ -202,22 +202,22 @@ static void eesoxscsi_buffer_in(void *buf, int length, void __iomem *base)
 		unsigned int status;
 
 		/*
-                       
-   */
+		 * Interrupt request?
+		 */
 		status = readb(reg_fas + (REG_STAT << EESOX_FAS216_SHIFT));
 		if (status & STAT_INT)
 			break;
 
 		/*
-                        
-   */
+		 * DMA request active?
+		 */
 		status = readb(reg_dmastat);
 		if (!(status & EESOX_STAT_DMA))
 			continue;
 
 		/*
-                                
-   */
+		 * Get number of bytes in FIFO
+		 */
 		status = readb(reg_fas + (REG_CFIS << EESOX_FAS216_SHIFT)) & CFIS_CF;
 		if (status > 16)
 			status = 16;
@@ -225,8 +225,8 @@ static void eesoxscsi_buffer_in(void *buf, int length, void __iomem *base)
 			status = length;
 
 		/*
-                  
-   */
+		 * Align buffer.
+		 */
 		if (((u32)buf) & 2 && status >= 2) {
 			*(u16 *)buf = readl(reg_dmadata);
 			buf += 2;
@@ -279,22 +279,22 @@ static void eesoxscsi_buffer_out(void *buf, int length, void __iomem *base)
 		unsigned int status;
 
 		/*
-                       
-   */
+		 * Interrupt request?
+		 */
 		status = readb(reg_fas + (REG_STAT << EESOX_FAS216_SHIFT));
 		if (status & STAT_INT)
 			break;
 
 		/*
-                        
-   */
+		 * DMA request active?
+		 */
 		status = readb(reg_dmastat);
 		if (!(status & EESOX_STAT_DMA))
 			continue;
 
 		/*
-                                
-   */
+		 * Get number of bytes in FIFO
+		 */
 		status = readb(reg_fas + (REG_CFIS << EESOX_FAS216_SHIFT)) & CFIS_CF;
 		if (status > 16)
 			status = 16;
@@ -304,8 +304,8 @@ static void eesoxscsi_buffer_out(void *buf, int length, void __iomem *base)
 		status &= ~1;
 
 		/*
-                  
-   */
+		 * Align buffer.
+		 */
 		if (((u32)buf) & 2 && status >= 2) {
 			writel(*(u16 *)buf << 16, reg_dmadata);
 			buf += 2;
@@ -361,10 +361,10 @@ eesoxscsi_dma_pseudo(struct Scsi_Host *host, struct scsi_pointer *SCp,
 	}
 }
 
-/*                                               
-                           
-                          
-                        
+/* Prototype: int eesoxscsi_dma_stop(host, SCpnt)
+ * Purpose  : stops DMA/PIO
+ * Params   : host  - host
+ *	      SCpnt - command
  */
 static void
 eesoxscsi_dma_stop(struct Scsi_Host *host, struct scsi_pointer *SCp)
@@ -374,10 +374,10 @@ eesoxscsi_dma_stop(struct Scsi_Host *host, struct scsi_pointer *SCp)
 		disable_dma(info->info.scsi.dma);
 }
 
-/*                                                               
-                                                                
-                                                              
-                                                                           
+/* Prototype: const char *eesoxscsi_info(struct Scsi_Host * host)
+ * Purpose  : returns a descriptive string about this interface,
+ * Params   : host - driver host structure to return info for.
+ * Returns  : pointer to a static buffer containing null terminated string.
  */
 const char *eesoxscsi_info(struct Scsi_Host *host)
 {
@@ -391,12 +391,12 @@ const char *eesoxscsi_info(struct Scsi_Host *host)
 	return string;
 }
 
-/*                                                                                         
-                                            
-                                    
-                                                                    
-                                       
-                           
+/* Prototype: int eesoxscsi_set_proc_info(struct Scsi_Host *host, char *buffer, int length)
+ * Purpose  : Set a driver specific function
+ * Params   : host   - host to setup
+ *          : buffer - buffer containing string describing operation
+ *          : length - length of string
+ * Returns  : -EINVAL, or 0
  */
 static int
 eesoxscsi_set_proc_info(struct Scsi_Host *host, char *buffer, int length)
@@ -422,18 +422,18 @@ eesoxscsi_set_proc_info(struct Scsi_Host *host, char *buffer, int length)
 	return ret;
 }
 
-/*                                                                             
-                                               
-                                                                             
-                              
-                                                       
-                                                                             
-                                       
-                                                                  
-                                  
-                                                        
-                                               
-                                               
+/* Prototype: int eesoxscsi_proc_info(char *buffer, char **start, off_t offset,
+ *				      int length, int host_no, int inout)
+ * Purpose  : Return information about the driver to a user process accessing
+ *	      the /proc filesystem.
+ * Params   : buffer - a buffer to write information to
+ *	      start  - a pointer into this buffer set by this routine to the start
+ *		       of the required information.
+ *	      offset - offset into information that we have read up to.
+ *	      length - length of buffer
+ *	      host_no - host number to return information for
+ *	      inout  - 0 for reading, 1 for writing.
+ * Returns  : length of data written to buffer.
  */
 int eesoxscsi_proc_info(struct Scsi_Host *host, char *buffer, char **start, off_t offset,
 			    int length, int inout)
@@ -553,9 +553,9 @@ eesoxscsi_probe(struct expansion_card *ec, const struct ecard_id *id)
 	info->info.scsi.io_shift	= EESOX_FAS216_SHIFT;
 	info->info.scsi.irq		= ec->irq;
 	info->info.scsi.dma		= ec->dma;
-	info->info.ifcfg.clockrate	= 40; /*     */
+	info->info.ifcfg.clockrate	= 40; /* MHz */
 	info->info.ifcfg.select_timeout	= 255;
-	info->info.ifcfg.asyncperiod	= 200; /*    */
+	info->info.ifcfg.asyncperiod	= 200; /* ns */
 	info->info.ifcfg.sync_max_depth	= 7;
 	info->info.ifcfg.cntl3		= CNTL3_FASTSCSI | CNTL3_FASTCLK;
 	info->info.ifcfg.disconnect_ok	= 1;

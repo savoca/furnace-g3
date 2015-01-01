@@ -38,7 +38,7 @@ DECLARE_EVENT_CLASS(msm_mp,
 		__entry->mp_val)
 );
 
-/*                        */
+/* Core function of run_q */
 
 DEFINE_EVENT(msm_mp, msm_mp_runq,
 
@@ -85,7 +85,7 @@ DECLARE_EVENT_CLASS(msm_dcvs,
 		__entry->val)
 );
 
-/*                       */
+/* Core function of dcvs */
 
 DEFINE_EVENT(msm_dcvs, msm_dcvs_idle,
 
@@ -150,7 +150,7 @@ DEFINE_EVENT(msm_dcvs_scm, msm_dcvs_scm_event,
 	TP_ARGS(cpuid, ev_type, param0, param1, ret0, ret1)
 );
 
-#endif /*                 */
+#endif /* _TRACE_MPDCVS_H */
 
-/*                                      */
+/* This part must be outside protection */
 #include <trace/define_trace.h>

@@ -27,7 +27,7 @@ struct xfs_trans;
 extern struct xfs_name	xfs_name_dotdot;
 
 /*
-                                       
+ * Generic directory interface routines
  */
 extern void xfs_dir_startup(void);
 extern void xfs_dir_mount(struct xfs_mount *mp);
@@ -53,8 +53,8 @@ extern int xfs_dir_canenter(struct xfs_trans *tp, struct xfs_inode *dp,
 				struct xfs_name *name, uint resblks);
 
 /*
-                                                                         
+ * Direct call from the bmap code, bypassing the generic directory layer.
  */
 extern int xfs_dir2_sf_to_block(struct xfs_da_args *args);
 
-#endif	/*                */
+#endif	/* __XFS_DIR2_H__ */

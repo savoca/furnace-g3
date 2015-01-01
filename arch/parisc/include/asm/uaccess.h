@@ -2,7 +2,7 @@
 #define __PARISC_UACCESS_H
 
 /*
-                                     
+ * User space memory access functions
  */
 #include <asm/page.h>
 #include <asm/cache.h>
@@ -22,10 +22,10 @@
 #define set_fs(x)	(current_thread_info()->addr_limit = (x))
 
 /*
-                                                                      
-                                                        
-                                                                         
-                                                
+ * Note that since kernel addresses are in a separate address space on
+ * parisc, we don't need to do anything for access_ok().
+ * We just let the page fault handler do the right thing. This also means
+ * that put_user is the same as __put_user, etc.
  */
 
 extern int __get_kernel_bad(void);
@@ -57,14 +57,14 @@ static inline long access_ok(int type, const void __user * addr,
 #endif
 
 /*
-                                                                   
-                                                                 
-                                     
+ * The exception table contains two values: the first is an address
+ * for an instruction that is allowed to fault, and the second is
+ * the address to the fixup routine. 
  */
 
 struct exception_table_entry {
-	unsigned long insn;  /*                                             */
-	long fixup;          /*               */
+	unsigned long insn;  /* address of insn that is allowed to fault.   */
+	long fixup;          /* fixup routine */
 };
 
 #define ASM_EXCEPTIONTABLE_ENTRY( fault_addr, except_addr )\
@@ -73,8 +73,8 @@ struct exception_table_entry {
 	".previous\n"
 
 /*
-                                                                              
-                                   
+ * The page fault handler stores, in a per-cpu area, the following information
+ * if a fixup routine is available.
  */
 struct exception_data {
 	unsigned long fault_ip;
@@ -152,13 +152,13 @@ struct exception_data {
 })
 
 /*
-                                                                      
-                                                                      
-                                                                      
-                                                                    
-                                                                    
-                                                                       
-                                       
+ * The "__put_user/kernel_asm()" macros tell gcc they read from memory
+ * instead of writing. This is because they do not write to any memory
+ * gcc knows about, so there are no aliasing issues. These macros must
+ * also be aware that "fixup_put_user_skip_[12]" are executed in the
+ * context of the fault, and any registers used there must be listed
+ * as clobbers. In this case only "r1" is used by the current routines.
+ * r8/r9 are already listed as err/val.
  */
 
 #define __put_kernel_asm(stx,x,ptr)                         \
@@ -208,11 +208,11 @@ struct exception_data {
 		: "r1");				    \
 } while (0)
 
-#endif /*                        */
+#endif /* !defined(CONFIG_64BIT) */
 
 
 /*
-                                                   
+ * Complex access routines -- external declarations
  */
 
 extern unsigned long lcopy_to_user(void __user *, const void *, unsigned long);
@@ -223,7 +223,7 @@ extern unsigned lclear_user(void __user *,unsigned long);
 extern long lstrnlen_user(const char __user *,long);
 
 /*
-                                    
+ * Complex access routines -- macros
  */
 
 #define strncpy_from_user lstrncpy_from_user
@@ -266,4 +266,4 @@ static inline unsigned long __must_check copy_from_user(void *to,
 struct pt_regs;
 int fixup_exception(struct pt_regs *regs);
 
-#endif /*                    */
+#endif /* __PARISC_UACCESS_H */

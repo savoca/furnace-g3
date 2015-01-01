@@ -23,7 +23,7 @@
 #include <asm/vr41xx/irq.h>
 
 /*
-                                 
+ * General-Purpose I/O Pin Number
  */
 #define GD82559_1_PIN			2
 #define GD82559_2_PIN			3
@@ -32,7 +32,7 @@
 #define UPD720100_INTC_PIN		13
 
 /*
-                   
+ * Interrupt Number
  */
 #define GD82559_1_IRQ			GIU_IRQ(GD82559_1_PIN)
 #define GD82559_2_IRQ			GIU_IRQ(GD82559_2_PIN)
@@ -40,4 +40,4 @@
 #define UPD720100_INTB_IRQ		GIU_IRQ(UPD720100_INTB_PIN)
 #define UPD720100_INTC_IRQ		GIU_IRQ(UPD720100_INTC_PIN)
 
-#endif /*                   */
+#endif /* __TANBAC_TB0226_H */

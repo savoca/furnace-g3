@@ -90,7 +90,7 @@ write_fifo(unsigned int padr, signed int adr, u_char *data, int size)
 	return;
 }
 
-/*                     */
+/* Interface functions */
 
 static u_char
 ReadISAC(struct IsdnCardState *cs, u_char offset)
@@ -129,7 +129,7 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 }
 
 /*
-                                      
+ * fast interrupt HSCX stuff goes here
  */
 
 #define READHSCX(cs, nr, reg) readreg(cs->hw.teles3.cfg_reg, cs->hw.teles3.hscx[nr], reg)

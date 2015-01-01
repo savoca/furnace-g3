@@ -12,11 +12,11 @@
 #define CARMINE_USE_DISPLAY1	(1 << 1)
 
 /*
-                                                                              
-                     
+ * This values work on the eval card. Custom boards may use different timings,
+ * here an example :)
  */
 
-/*                            */
+/* DRAM initialization values */
 #ifdef CONFIG_FB_CARMINE_DRAM_EVAL
 
 #define CARMINE_DFLT_IP_CLOCK_ENABLE		(0x03ff)

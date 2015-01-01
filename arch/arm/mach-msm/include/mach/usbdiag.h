@@ -84,5 +84,5 @@ int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req)
 {
 	return -ENODEV;
 }
-#endif /*                      */
-#endif /*                      */
+#endif /* CONFIG_USB_G_ANDROID */
+#endif /* _DRIVERS_USB_DIAG_H_ */

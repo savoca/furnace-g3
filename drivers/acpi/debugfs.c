@@ -1,5 +1,5 @@
 /*
-                                                   
+ * debugfs.c - ACPI debugfs interface to userspace.
  */
 
 #include <linux/export.h>

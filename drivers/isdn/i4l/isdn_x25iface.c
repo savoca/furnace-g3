@@ -17,7 +17,7 @@
  *
  */
 
-/*                         */
+/* #include <linux/isdn.h> */
 #include <linux/netdevice.h>
 #include <linux/concap.h>
 #include <linux/slab.h>
@@ -25,22 +25,22 @@
 #include <net/x25device.h>
 #include "isdn_x25iface.h"
 
-/*                                                                        */
+/* for debugging messages not to cause an oops when device pointer is NULL*/
 #define MY_DEVNAME(dev)  ((dev) ? (dev)->name : "DEVICE UNSPECIFIED")
 
 
 typedef struct isdn_x25iface_proto_data {
 	int magic;
 	enum wan_states state;
-	/*                                                                 
-                                                             
-                                                          */
+	/* Private stuff, not to be accessed via proto_data. We provide the
+	   other storage for the concap_proto instance here as well,
+	   enabling us to allocate both with just one kmalloc(): */
 	struct concap_proto priv;
 } ix25_pdata_t;
 
 
 
-/*                                                                                      */
+/* is now in header file (extern): struct concap_proto * isdn_x25iface_proto_new(void); */
 static void isdn_x25iface_proto_del(struct concap_proto *);
 static int isdn_x25iface_proto_close(struct concap_proto *);
 static int isdn_x25iface_proto_restart(struct concap_proto *,
@@ -63,14 +63,14 @@ static struct concap_proto_ops ix25_pops = {
 	&isdn_x25iface_disconn_ind
 };
 
-/*                               */
+/* error message helper function */
 static void illegal_state_warn(unsigned state, unsigned char firstbyte)
 {
 	printk(KERN_WARNING "isdn_x25iface: firstbyte %x illegal in"
 	       "current state %d\n", firstbyte, state);
 }
 
-/*                                           */
+/* check protocol data field for consistency */
 static int pdata_is_bad(ix25_pdata_t *pda) {
 
 	if (pda  &&  pda->magic == ISDN_X25IFACE_MAGIC) return 0;
@@ -79,7 +79,7 @@ static int pdata_is_bad(ix25_pdata_t *pda) {
 	return 1;
 }
 
-/*                                             
+/* create a new x25 interface protocol instance
  */
 struct concap_proto *isdn_x25iface_proto_new(void)
 {
@@ -88,8 +88,8 @@ struct concap_proto *isdn_x25iface_proto_new(void)
 	if (tmp) {
 		tmp->magic = ISDN_X25IFACE_MAGIC;
 		tmp->state = WAN_UNCONFIGURED;
-		/*                                                       
-                                                  */
+		/* private data space used to hold the concap_proto data.
+		   Only to be accessed via the returned pointer */
 		spin_lock_init(&tmp->priv.lock);
 		tmp->priv.dops       = NULL;
 		tmp->priv.net_dev    = NULL;
@@ -101,7 +101,7 @@ struct concap_proto *isdn_x25iface_proto_new(void)
 	return NULL;
 };
 
-/*                                          
+/* close the x25iface encapsulation protocol
  */
 static int isdn_x25iface_proto_close(struct concap_proto *cprot) {
 
@@ -128,7 +128,7 @@ static int isdn_x25iface_proto_close(struct concap_proto *cprot) {
 	return ret;
 }
 
-/*                                                    
+/* Delete the x25iface encapsulation protocol instance
  */
 static void isdn_x25iface_proto_del(struct concap_proto *cprot) {
 
@@ -146,10 +146,10 @@ static void isdn_x25iface_proto_del(struct concap_proto *cprot) {
 		       "proto_data pointer (maybe already deleted?)\n");
 		return;
 	}
-	/*                                     */
+	/* close if the protocol is still open */
 	if (cprot->dops) isdn_x25iface_proto_close(cprot);
-	/*                                                                  
-                                                   */
+	/* freeing the storage should be sufficient now. But some additional
+	   settings might help to catch wild pointer bugs */
 	tmp->magic = 0;
 	cprot->proto_data = NULL;
 
@@ -157,7 +157,7 @@ static void isdn_x25iface_proto_del(struct concap_proto *cprot) {
 	return;
 }
 
-/*                                                               
+/* (re-)initialize the data structures for x25iface encapsulation
  */
 static int isdn_x25iface_proto_restart(struct concap_proto *cprot,
 				       struct net_device *ndev,
@@ -186,7 +186,7 @@ static int isdn_x25iface_proto_restart(struct concap_proto *cprot,
 	return 0;
 }
 
-/*                                                                         
+/* deliver a dl_data frame received from i4l HL driver to the network layer
  */
 static int isdn_x25iface_receive(struct concap_proto *cprot, struct sk_buff *skb)
 {
@@ -205,7 +205,7 @@ static int isdn_x25iface_receive(struct concap_proto *cprot, struct sk_buff *skb
 	return -1;
 }
 
-/*                                                
+/* a connection set up is indicated by lower layer
  */
 static int isdn_x25iface_connect_ind(struct concap_proto *cprot)
 {
@@ -236,7 +236,7 @@ static int isdn_x25iface_connect_ind(struct concap_proto *cprot)
 	}
 }
 
-/*                                         
+/* a disconnect is indicated by lower layer
  */
 static int isdn_x25iface_disconn_ind(struct concap_proto *cprot)
 {
@@ -264,8 +264,8 @@ static int isdn_x25iface_disconn_ind(struct concap_proto *cprot)
 	}
 }
 
-/*                                                                       
-                                                                 
+/* process a frame handed over to us from linux network layer. First byte
+   semantics as defined in Documentation/networking/x25-iface.txt
 */
 static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
 {
@@ -280,7 +280,7 @@ static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
 			skb_pull(skb, 1);
 			cprot->net_dev->trans_start = jiffies;
 			ret = (cprot->dops->data_req(cprot, skb));
-			/*                                    */
+			/* prepare for future retransmissions */
 			if (ret) skb_push(skb, 1);
 			return ret;
 		}
@@ -291,8 +291,8 @@ static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
 			*state = WAN_CONNECTING;
 			ret = cprot->dops->connect_req(cprot);
 			if (ret) {
-				/*                                         
-                                  */
+				/* reset state and notify upper layer about
+				 * immidiatly failed attempts */
 				isdn_x25iface_disconn_ind(cprot);
 			}
 		} else {
@@ -302,14 +302,14 @@ static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
 	case X25_IFACE_DISCONNECT:
 		switch (*state) {
 		case WAN_DISCONNECTED:
-			/*                                               
-                                                      
-                                                       
-                                */
+			/* Should not happen. However, give upper layer a
+			   chance to recover from inconstistency  but don't
+			   trust the lower layer sending the disconn_confirm
+			   when already disconnected */
 			printk(KERN_WARNING "isdn_x25iface_xmit: disconnect "
 			       " requested while disconnected\n");
 			isdn_x25iface_disconn_ind(cprot);
-			break; /*                        */
+			break; /* prevent infinite loops */
 		case WAN_CONNECTING:
 		case WAN_CONNECTED:
 			*state = WAN_DISCONNECTED;

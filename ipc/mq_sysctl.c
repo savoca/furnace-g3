@@ -14,13 +14,13 @@
 #include <linux/sysctl.h>
 
 /*
-                                                              
-             
+ * Define the ranges various user-specified maximum values can
+ * be set to.
  */
-#define MIN_MSGMAX	1		/*                       */
-#define MAX_MSGMAX	HARD_MSGMAX	/*                       */
-#define MIN_MSGSIZEMAX	128		/*                           */
-#define MAX_MSGSIZEMAX	(8192*128)	/*                           */
+#define MIN_MSGMAX	1		/* min value for msg_max */
+#define MAX_MSGMAX	HARD_MSGMAX	/* max value for msg_max */
+#define MIN_MSGSIZEMAX	128		/* min value for msgsize_max */
+#define MAX_MSGSIZEMAX	(8192*128)	/* max value for msgsize_max */
 
 #ifdef CONFIG_PROC_SYSCTL
 static void *get_mq(ctl_table *table)

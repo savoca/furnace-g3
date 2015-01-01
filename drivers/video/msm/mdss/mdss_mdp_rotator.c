@@ -200,13 +200,13 @@ static int mdss_mdp_rotator_pipe_dequeue(struct mdss_mdp_rotator_session *rot)
 	return 0;
 }
 
-/* 
-                                                                                
-                                   
-                                           
-  
-                                                                             
-                                                                             
+/**
+ * __mdss_mdp_rotator_to_pipe() - setup pipe according to rotator session params
+ * @rot:	Pointer to rotator session
+ * @pipe:	Pointer to pipe driving structure
+ *
+ * After calling this the pipe structure will contain all parameters required
+ * to use rotator pipe. Note that this function assumes rotator pipe is idle.
  */
 static int __mdss_mdp_rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 		struct mdss_mdp_pipe *pipe)
@@ -393,9 +393,9 @@ static int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot)
 }
 
 /*
-                                                                             
-                                                                             
-                                   
+ * Try to reserve hardware resources for rotator session if possible, if this
+ * is not possible we may still have a chance to reuse existing pipes used by
+ * other sessions at a later point.
  */
 static int __mdss_mdp_rotator_pipe_reserve(struct mdss_mdp_rotator_session *rot)
 {
@@ -408,11 +408,11 @@ static int __mdss_mdp_rotator_pipe_reserve(struct mdss_mdp_rotator_session *rot)
 			list_add_tail(&rot->head, &rotator_queue);
 		} else {
 			/*
-                                                       
-                                                           
-                                                       
-                                            
-    */
+			 * if rotator queue is not empty means that we'll be
+			 * able to reuse existing rotator pipes for this rotator
+			 * session, otherwise it means that there are no DMA
+			 * pipes available so we should abort now
+			 */
 			if (list_empty(&rotator_queue)) {
 				pr_err("unable to reserve rot pipe\n");
 				return -ENODEV;
@@ -477,7 +477,7 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 		goto rot_err;
 	}
 
-	/*                                        */
+	/* keep only flags of interest to rotator */
 	rot->flags = req->flags & (MDP_ROT_90 | MDP_FLIP_LR | MDP_FLIP_UD |
 				   MDP_SECURE_OVERLAY_SESSION);
 
@@ -507,9 +507,9 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 	rot->dst = rot->src_rect;
 
 	/*
-                                                           
-                                             
-  */
+	 * by default, rotator output should be placed directly on
+	 * output buffer address without any offset.
+	 */
 	rot->dst.x = 0;
 	rot->dst.y = 0;
 
@@ -564,18 +564,18 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 
 		if (rot->flags & MDP_ROT_90) {
 			/*
-                                                   
-                                                      
-    */
+			 * If rotated by 90 first half should be on top.
+			 * But if horizontally flipped should be on bottom.
+			 */
 			if (rot->flags & MDP_FLIP_LR)
 				rot->dst.y = tmp->src_rect.w;
 			else
 				tmp->dst.y = rot->src_rect.w;
 		} else {
 			/*
-                                                        
-                                               
-    */
+			 * If not rotated, first half should be the left part
+			 * of the frame, unless horizontally flipped
+			 */
 			if (rot->flags & MDP_FLIP_LR)
 				rot->dst.x = tmp->src_rect.w;
 			else

@@ -57,7 +57,7 @@ config_access(unsigned int pci_cmd, struct pci_bus *bus, unsigned int devfn, int
 	unsigned long ioaddr = calc_cfg_addr(bus, devfn, where);
 
 	local_irq_save(flags);
-	/*                               */
+	/*Clear pending interrupt status */
 	if (inl(PCI_BASE | PCI_GPPM_STATUS)) {
 		clear_status();
 		while (!(inl(PCI_BASE | PCI_GPPM_STATUS) == 0)) ;
@@ -106,8 +106,8 @@ config_access(unsigned int pci_cmd, struct pci_bus *bus, unsigned int devfn, int
 }
 
 /*
-                                                                    
-                                                                     
+ * We can't address 8 and 16 bit words directly.  Instead we have to
+ * read/write a 32bit word and mask/modify the data we actually want.
  */
 static int
 read_config_byte(struct pci_bus *bus, unsigned int devfn, int where, u8 * val)

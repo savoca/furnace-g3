@@ -25,75 +25,75 @@
  * Contact Cavium Networks for more information
  ***********************license end**************************************/
 
-/* 
-  
-                                                                     
-                                                                         
-  
+/**
+ *
+ * This file provides support for the processor local scratch memory.
+ * Scratch memory is byte addressable - all addresses are byte addresses.
+ *
  */
 
 #ifndef __CVMX_SCRATCH_H__
 #define __CVMX_SCRATCH_H__
 
 /*
-                                                                
-                                                     
+ * Note: This define must be a long, not a long long in order to
+ * compile without warnings for both 32bit and 64bit.
  */
-#define CVMX_SCRATCH_BASE       (-32768l)	/*                    */
+#define CVMX_SCRATCH_BASE       (-32768l)	/* 0xffffffffffff8000 */
 
-/* 
-                                                                   
-  
-                                      
-  
-                     
+/**
+ * Reads an 8 bit value from the processor local scratchpad memory.
+ *
+ * @address: byte address to read from
+ *
+ * Returns value read
  */
 static inline uint8_t cvmx_scratch_read8(uint64_t address)
 {
 	return *CASTPTR(volatile uint8_t, CVMX_SCRATCH_BASE + address);
 }
 
-/* 
-                                                                   
-  
-                                      
-  
-                     
+/**
+ * Reads a 16 bit value from the processor local scratchpad memory.
+ *
+ * @address: byte address to read from
+ *
+ * Returns value read
  */
 static inline uint16_t cvmx_scratch_read16(uint64_t address)
 {
 	return *CASTPTR(volatile uint16_t, CVMX_SCRATCH_BASE + address);
 }
 
-/* 
-                                                                   
-  
-                                      
-  
-                     
+/**
+ * Reads a 32 bit value from the processor local scratchpad memory.
+ *
+ * @address: byte address to read from
+ *
+ * Returns value read
  */
 static inline uint32_t cvmx_scratch_read32(uint64_t address)
 {
 	return *CASTPTR(volatile uint32_t, CVMX_SCRATCH_BASE + address);
 }
 
-/* 
-                                                                   
-  
-                                      
-  
-                     
+/**
+ * Reads a 64 bit value from the processor local scratchpad memory.
+ *
+ * @address: byte address to read from
+ *
+ * Returns value read
  */
 static inline uint64_t cvmx_scratch_read64(uint64_t address)
 {
 	return *CASTPTR(volatile uint64_t, CVMX_SCRATCH_BASE + address);
 }
 
-/* 
-                                                                  
-  
-                                     
-                           
+/**
+ * Writes an 8 bit value to the processor local scratchpad memory.
+ *
+ * @address: byte address to write to
+ * @value:   value to write
  */
 static inline void cvmx_scratch_write8(uint64_t address, uint64_t value)
 {
@@ -101,11 +101,11 @@ static inline void cvmx_scratch_write8(uint64_t address, uint64_t value)
 	    (uint8_t) value;
 }
 
-/* 
-                                                                  
-  
-                                     
-                           
+/**
+ * Writes a 32 bit value to the processor local scratchpad memory.
+ *
+ * @address: byte address to write to
+ * @value:   value to write
  */
 static inline void cvmx_scratch_write16(uint64_t address, uint64_t value)
 {
@@ -113,11 +113,11 @@ static inline void cvmx_scratch_write16(uint64_t address, uint64_t value)
 	    (uint16_t) value;
 }
 
-/* 
-                                                                  
-  
-                                     
-                           
+/**
+ * Writes a 16 bit value to the processor local scratchpad memory.
+ *
+ * @address: byte address to write to
+ * @value:   value to write
  */
 static inline void cvmx_scratch_write32(uint64_t address, uint64_t value)
 {
@@ -125,15 +125,15 @@ static inline void cvmx_scratch_write32(uint64_t address, uint64_t value)
 	    (uint32_t) value;
 }
 
-/* 
-                                                                  
-  
-                                     
-                           
+/**
+ * Writes a 64 bit value to the processor local scratchpad memory.
+ *
+ * @address: byte address to write to
+ * @value:   value to write
  */
 static inline void cvmx_scratch_write64(uint64_t address, uint64_t value)
 {
 	*CASTPTR(volatile uint64_t, CVMX_SCRATCH_BASE + address) = value;
 }
 
-#endif /*                    */
+#endif /* __CVMX_SCRATCH_H__ */

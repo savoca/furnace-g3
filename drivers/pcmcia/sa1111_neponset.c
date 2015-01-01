@@ -1,7 +1,7 @@
 /*
-                                         
-  
-                                    
+ * linux/drivers/pcmcia/sa1100_neponset.c
+ *
+ * Neponset PCMCIA specific routines
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -17,27 +17,27 @@
 #include "sa1111_generic.h"
 
 /*
-                                                                   
-  
-                          
-  
-                                    
-                                    
-                                 
-                                 
-                                    
-                                    
-                                        
-                                        
-  
-                           
-                                
-                      
-                                        
-  
-                                                                 
-                                                                
-                                 
+ * Neponset uses the Maxim MAX1600, with the following connections:
+ *
+ *   MAX1600      Neponset
+ *
+ *    A0VCC        SA-1111 GPIO A<1>
+ *    A1VCC        SA-1111 GPIO A<0>
+ *    A0VPP        CPLD NCR A0VPP
+ *    A1VPP        CPLD NCR A1VPP
+ *    B0VCC        SA-1111 GPIO A<2>
+ *    B1VCC        SA-1111 GPIO A<3>
+ *    B0VPP        ground (slot B is CF)
+ *    B1VPP        ground (slot B is CF)
+ *
+ *     VX          VCC (5V)
+ *     VY          VCC3_3 (3.3V)
+ *     12INA       12V
+ *     12INB       ground (slot B is CF)
+ *
+ * The MAX1600 CODE pin is tied to ground, placing the device in 
+ * "Standard Intel code" mode. Refer to the Maxim data sheet for
+ * the corresponding truth table.
  */
 
 static int
@@ -82,9 +82,9 @@ neponset_pcmcia_configure_socket(struct soc_pcmcia_socket *skt, const socket_sta
 	}
 
 	/*
-                                                             
-                                                                    
-  */
+	 * pa_dwr_set is the mask for selecting Vcc on both sockets.
+	 * pa_dwr_mask selects which bits (and therefore socket) we change.
+	 */
 	switch (state->Vcc) {
 	default:
 	case 0:  pa_dwr_set = 0;		break;
@@ -114,9 +114,9 @@ int pcmcia_neponset_init(struct sa1111_dev *sadev)
 
 	if (machine_is_assabet()) {
 		/*
-                                                   
-                                
-   */
+		 * Set GPIO_A<3:0> to be outputs for the MAX1600,
+		 * and switch to standby mode.
+		 */
 		sa1111_set_io_dir(sadev, GPIO_A0|GPIO_A1|GPIO_A2|GPIO_A3, 0, 0);
 		sa1111_set_io(sadev, GPIO_A0|GPIO_A1|GPIO_A2|GPIO_A3, 0);
 		sa1111_set_sleep_io(sadev, GPIO_A0|GPIO_A1|GPIO_A2|GPIO_A3, 0);

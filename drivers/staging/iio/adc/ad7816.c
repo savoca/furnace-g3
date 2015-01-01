@@ -21,7 +21,7 @@
 #include "../events.h"
 
 /*
-                      
+ * AD7816 config masks
  */
 #define AD7816_FULL			0x1
 #define AD7816_PD			0x2
@@ -29,7 +29,7 @@
 #define AD7816_CS_MAX			0x4
 
 /*
-                           
+ * AD7816 temperature masks
  */
 #define AD7816_VALUE_OFFSET		6
 #define AD7816_BOUND_VALUE_BASE		0x8
@@ -40,7 +40,7 @@
 
 
 /*
-                                                     
+ * struct ad7816_chip_info - chip specifc information
  */
 
 struct ad7816_chip_info {
@@ -49,12 +49,12 @@ struct ad7816_chip_info {
 	u16 convert_pin;
 	u16 busy_pin;
 	u8  oti_data[AD7816_CS_MAX+1];
-	u8  channel_id;	/*                         */
+	u8  channel_id;	/* 0 always be temperature */
 	u8  mode;
 };
 
 /*
-                            
+ * ad7816 data access by SPI
  */
 static int ad7816_spi_read(struct ad7816_chip_info *chip, u16 *data)
 {
@@ -71,10 +71,10 @@ static int ad7816_spi_read(struct ad7816_chip_info *chip, u16 *data)
 	gpio_set_value(chip->rdwr_pin, 1);
 
 
-	if (chip->mode == AD7816_PD) { /*                  */
+	if (chip->mode == AD7816_PD) { /* operating mode 2 */
 		gpio_set_value(chip->convert_pin, 1);
 		gpio_set_value(chip->convert_pin, 0);
-	} else { /*                  */
+	} else { /* operating mode 1 */
 		gpio_set_value(chip->convert_pin, 0);
 		gpio_set_value(chip->convert_pin, 1);
 	}
@@ -245,7 +245,7 @@ static const struct attribute_group ad7816_attribute_group = {
 };
 
 /*
-                           
+ * temperature bound events
  */
 
 #define IIO_EVENT_CODE_AD7816_OTI IIO_UNMOD_EVENT_CODE(IIO_TEMP,	\
@@ -338,7 +338,7 @@ static const struct iio_info ad7816_info = {
 };
 
 /*
-                          
+ * device probe and remove
  */
 
 static int __devinit ad7816_probe(struct spi_device *spi_dev)
@@ -360,7 +360,7 @@ static int __devinit ad7816_probe(struct spi_device *spi_dev)
 		goto error_ret;
 	}
 	chip = iio_priv(indio_dev);
-	/*                                               */
+	/* this is only used for device removal purposes */
 	dev_set_drvdata(&spi_dev->dev, indio_dev);
 
 	chip->spi_dev = spi_dev;
@@ -398,7 +398,7 @@ static int __devinit ad7816_probe(struct spi_device *spi_dev)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	if (spi_dev->irq) {
-		/*                                             */
+		/* Only low trigger is supported in ad7816/7/8 */
 		ret = request_threaded_irq(spi_dev->irq,
 					   NULL,
 					   &ad7816_event_handler,

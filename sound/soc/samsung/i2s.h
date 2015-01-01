@@ -14,9 +14,9 @@
 #define __SND_SOC_SAMSUNG_I2S_H
 
 /*
-                                                      
-                                                             
-                                                    
+ * Maximum number of I2S blocks that any SoC can have.
+ * The secondary interface of a CPU dai(if there exists any),
+ * is indexed at [cpu-dai's ID + SAMSUNG_I2S_SECOFF]
  */
 #define SAMSUNG_I2S_SECOFF	4
 
@@ -26,4 +26,4 @@
 #define SAMSUNG_I2S_RCLKSRC_1	1
 #define SAMSUNG_I2S_CDCLK		2
 
-#endif /*                         */
+#endif /* __SND_SOC_SAMSUNG_I2S_H */

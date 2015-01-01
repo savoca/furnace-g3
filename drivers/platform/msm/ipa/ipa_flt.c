@@ -19,23 +19,23 @@
 #define IPA_FLT_STATUS_OF_ADD_FAILED		(-1)
 #define IPA_FLT_STATUS_OF_DEL_FAILED		(-1)
 
-/* 
-                                                                     
-                                  
-                        
-                                         
-                                                     
-                                                            
-                           
-                                    
-                                                            
-                                                            
-                                             
-  
-                                             
-  
-                                                            
-  
+/**
+ * ipa_generate_flt_hw_rule() - generates the filtering hardware rule
+ * @ip: the ip address family type
+ * @entry: routing entry
+ * @buf: output buffer, buf == NULL means
+ *		caller wants to know the size of the rule as seen
+ *		by HW so they did not pass a valid buffer, we will use a
+ *		scratch buffer instead.
+ *		With this scheme we are going to
+ *		generate the rule twice, once to know size using scratch
+ *		buffer and second to write the rule to the actual caller
+ *		supplied buffer which is of required size
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * caller needs to hold any needed locks to ensure integrity
+ *
  */
 static int ipa_generate_flt_hw_rule(enum ipa_ip_type ip,
 		struct ipa_flt_entry *entry, u8 *buf)
@@ -58,7 +58,7 @@ static int ipa_generate_flt_hw_rule(enum ipa_ip_type ip,
 	if (entry->rt_tbl)
 		hdr->u.hdr.rt_tbl_idx = entry->rt_tbl->idx;
 	else
-		/*                                                        */
+		/* for excp action flt rules, rt tbl index is meaningless */
 		hdr->u.hdr.rt_tbl_idx = 0;
 	hdr->u.hdr.rsvd = 0;
 	buf += sizeof(struct ipa_flt_rule_hw_hdr);
@@ -84,15 +84,15 @@ static int ipa_generate_flt_hw_rule(enum ipa_ip_type ip,
 	return 0;
 }
 
-/* 
-                                                                     
-                                  
-                       
-  
-                                             
-  
-                                                            
-  
+/**
+ * ipa_get_flt_hw_tbl_size() - returns the size of HW filtering table
+ * @ip: the ip address family type
+ * @hdr_sz: header size
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * caller needs to hold any needed locks to ensure integrity
+ *
  */
 static int ipa_get_flt_hw_tbl_size(enum ipa_ip_type ip, u32 *hdr_sz)
 {
@@ -116,10 +116,10 @@ static int ipa_get_flt_hw_tbl_size(enum ipa_ip_type ip, u32 *hdr_sz)
 
 	if (rule_set_sz) {
 		tbl->sz = rule_set_sz + IPA_FLT_TABLE_WORD_SIZE;
-		/*                                           */
+		/* this rule-set uses a word in header block */
 		*hdr_sz += IPA_FLT_TABLE_WORD_SIZE;
 		if (!tbl->in_sys) {
-			/*                    */
+			/* add the terminator */
 			total_sz += (rule_set_sz + IPA_FLT_TABLE_WORD_SIZE);
 			total_sz = (total_sz +
 					IPA_FLT_ENTRY_MEMORY_ALLIGNMENT) &
@@ -141,10 +141,10 @@ static int ipa_get_flt_hw_tbl_size(enum ipa_ip_type ip, u32 *hdr_sz)
 
 		if (rule_set_sz) {
 			tbl->sz = rule_set_sz + IPA_FLT_TABLE_WORD_SIZE;
-			/*                                           */
+			/* this rule-set uses a word in header block */
 			*hdr_sz += IPA_FLT_TABLE_WORD_SIZE;
 			if (!tbl->in_sys) {
-				/*                    */
+				/* add the terminator */
 				total_sz += (rule_set_sz +
 					    IPA_FLT_TABLE_WORD_SIZE);
 				total_sz = (total_sz +
@@ -161,12 +161,12 @@ static int ipa_get_flt_hw_tbl_size(enum ipa_ip_type ip, u32 *hdr_sz)
 	return total_sz;
 }
 
-/* 
-                                                                     
-                                       
-                                                
-  
-                                             
+/**
+ * ipa_generate_flt_hw_tbl() - generates the filtering hardware table
+ * @ip:	[in] the ip address family type
+ * @mem:	[out] buffer to put the filtering table
+ *
+ * Returns:	0 on success, negative on failure
  */
 int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 {
@@ -198,11 +198,11 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 
 	memset(mem->base, 0, mem->size);
 
-	/*                                                         */
+	/* build the flt tbl in the DMA buffer to submit to IPA HW */
 	base = hdr = (u8 *)mem->base;
 	body = base + hdr_sz;
 
-	/*                                     */
+	/* write a dummy header to move cursor */
 	hdr = ipa_write_32(hdr_top, hdr);
 
 	tbl = &ipa_ctx->glob_flt_tbl[ip];
@@ -218,11 +218,11 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 			}
 
 			offset &= ~IPA_FLT_ENTRY_MEMORY_ALLIGNMENT;
-			/*                                */
+			/* rule is at an offset from base */
 			offset |= IPA_FLT_BIT_MASK;
 			hdr = ipa_write_32(offset, hdr);
 
-			/*                       */
+			/* generate the rule-set */
 			list_for_each_entry(entry, &tbl->head_flt_rule_list,
 					link) {
 				if (ipa_generate_flt_hw_rule(ip, entry, body)) {
@@ -232,16 +232,16 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 				body += entry->hw_len;
 			}
 
-			/*                               */
+			/* write the rule-set terminator */
 			body = ipa_write_32(0, body);
 			if ((u32)body & IPA_FLT_ENTRY_MEMORY_ALLIGNMENT)
-				/*                                    */
+				/* advance body to next word boundary */
 				body = body + (IPA_FLT_TABLE_WORD_SIZE -
 					((u32)body &
 					IPA_FLT_ENTRY_MEMORY_ALLIGNMENT));
 		} else {
 			WARN_ON(tbl->sz == 0);
-			/*                                 */
+			/* allocate memory for the flt tbl */
 			flt_tbl_mem.size = tbl->sz;
 			flt_tbl_mem.base =
 			   dma_alloc_coherent(NULL, flt_tbl_mem.size,
@@ -259,7 +259,7 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 			memset(flt_tbl_mem.base, 0, flt_tbl_mem.size);
 			hdr = ipa_write_32(flt_tbl_mem.phys_base, hdr);
 
-			/*                       */
+			/* generate the rule-set */
 			list_for_each_entry(entry, &tbl->head_flt_rule_list,
 					link) {
 				if (ipa_generate_flt_hw_rule(ip, entry,
@@ -270,7 +270,7 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 				ftbl_membody += entry->hw_len;
 			}
 
-			/*                               */
+			/* write the rule-set terminator */
 			ftbl_membody = ipa_write_32(0, ftbl_membody);
 			if (tbl->curr_mem.phys_base) {
 				WARN_ON(tbl->prev_mem.phys_base);
@@ -283,7 +283,7 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 	for (i = 0; i < IPA_NUM_PIPES; i++) {
 		tbl = &ipa_ctx->flt_tbl[i][ip];
 		if (!list_empty(&tbl->head_flt_rule_list)) {
-			/*                          */
+			/* pipe "i" is at bit "i+1" */
 			hdr_top |= (1 << (i + 1));
 			if (!tbl->in_sys) {
 				offset = body - base;
@@ -293,11 +293,11 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 					goto proc_err;
 				}
 				offset &= ~IPA_FLT_ENTRY_MEMORY_ALLIGNMENT;
-				/*                                */
+				/* rule is at an offset from base */
 				offset |= IPA_FLT_BIT_MASK;
 				hdr = ipa_write_32(offset, hdr);
 
-				/*                       */
+				/* generate the rule-set */
 				list_for_each_entry(entry,
 						&tbl->head_flt_rule_list,
 						link) {
@@ -309,16 +309,16 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 					body += entry->hw_len;
 				}
 
-				/*                               */
+				/* write the rule-set terminator */
 				body = ipa_write_32(0, body);
 				if ((u32)body & IPA_FLT_ENTRY_MEMORY_ALLIGNMENT)
-					/*                                    */
+					/* advance body to next word boundary */
 					body = body + (IPA_FLT_TABLE_WORD_SIZE -
 						((u32)body &
 					IPA_FLT_ENTRY_MEMORY_ALLIGNMENT));
 			} else {
 				WARN_ON(tbl->sz == 0);
-				/*                                 */
+				/* allocate memory for the flt tbl */
 				flt_tbl_mem.size = tbl->sz;
 				flt_tbl_mem.base =
 				   dma_alloc_coherent(NULL, flt_tbl_mem.size,
@@ -338,7 +338,7 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 				memset(flt_tbl_mem.base, 0, flt_tbl_mem.size);
 				hdr = ipa_write_32(flt_tbl_mem.phys_base, hdr);
 
-				/*                       */
+				/* generate the rule-set */
 				list_for_each_entry(entry,
 						&tbl->head_flt_rule_list,
 						link) {
@@ -350,7 +350,7 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 					ftbl_membody += entry->hw_len;
 				}
 
-				/*                               */
+				/* write the rule-set terminator */
 				ftbl_membody =
 					ipa_write_32(0, ftbl_membody);
 				if (tbl->curr_mem.phys_base) {
@@ -362,7 +362,7 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 		}
 	}
 
-	/*                       */
+	/* now write the hdr_top */
 	ipa_write_32(hdr_top, base);
 
 	return 0;
@@ -596,7 +596,7 @@ static int __ipa_del_flt_rule(u32 rule_hdl)
 	entry->cookie = 0;
 	kmem_cache_free(ipa_ctx->flt_rule_cache, entry);
 
-	/*                                     */
+	/* remove the handle from the database */
 	rb_erase(&node->node, &ipa_ctx->flt_rule_hdl_tree);
 	kmem_cache_free(ipa_ctx->tree_node_cache, node);
 
@@ -647,13 +647,13 @@ static int __ipa_add_ep_flt_rule(enum ipa_ip_type ip, enum ipa_client_type ep,
 	return __ipa_add_flt_rule(tbl, ip, rule, add_rear, rule_hdl);
 }
 
-/* 
-                                                                              
-                   
-  
-                                             
-  
-                                                 
+/**
+ * ipa_add_flt_rule() - Add the specified filtering rules to SW and optionally
+ * commit to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 {
@@ -700,13 +700,13 @@ bail:
 }
 EXPORT_SYMBOL(ipa_add_flt_rule);
 
-/* 
-                                                                        
-                              
-  
-                                             
-  
-                                                 
+/**
+ * ipa_del_flt_rule() - Remove the specified filtering rules from SW and
+ * optionally commit to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls)
 {
@@ -742,14 +742,14 @@ bail:
 }
 EXPORT_SYMBOL(ipa_del_flt_rule);
 
-/* 
-                                                                                
-         
-                                         
-  
-                                             
-  
-                                                 
+/**
+ * ipa_commit_flt() - Commit the current SW filtering table of specified type to
+ * IPA HW
+ * @ip:	[in] the family of routing tables
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_commit_flt(enum ipa_ip_type ip)
 {
@@ -775,14 +775,14 @@ bail:
 }
 EXPORT_SYMBOL(ipa_commit_flt);
 
-/* 
-                                                                           
-                          
-                                         
-  
-                                             
-  
-                                                 
+/**
+ * ipa_reset_flt() - Reset the current SW filtering table of specified type
+ * (does not commit to HW)
+ * @ip:	[in] the family of routing tables
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_reset_flt(enum ipa_ip_type ip)
 {
@@ -825,7 +825,7 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 		entry->cookie = 0;
 		kmem_cache_free(ipa_ctx->flt_rule_cache, entry);
 
-		/*                                     */
+		/* remove the handle from the database */
 		rb_erase(&node->node, &ipa_ctx->flt_rule_hdl_tree);
 		kmem_cache_free(ipa_ctx->tree_node_cache, node);
 	}
@@ -848,7 +848,7 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 			entry->cookie = 0;
 			kmem_cache_free(ipa_ctx->flt_rule_cache, entry);
 
-			/*                                     */
+			/* remove the handle from the database */
 			rb_erase(&node->node, &ipa_ctx->flt_rule_hdl_tree);
 			kmem_cache_free(ipa_ctx->tree_node_cache, node);
 		}

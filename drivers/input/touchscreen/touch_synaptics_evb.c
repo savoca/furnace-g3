@@ -28,21 +28,21 @@
 #include <linux/input/lge_touch_core.h>
 #include <linux/input/touch_synaptics_evb.h>
 
-/*                                   
-                               
-                               
-                                        
-                            
-                            
-                  
-                  
-                                
-                                         
-                       
-                   
-                                    
-                           
-                            
+/* RMI4 spec from 511-000405-01 Rev.D
+ * Function	Purpose				See page
+ * $01		RMI Device Control			45
+ * $1A		0-D capacitive button sensors	61
+ * $05		Image Reporting			68
+ * $07		Image Reporting			75
+ * $08		BIST				82
+ * $09		BIST				87
+ * $11		2-D TouchPad sensors		93
+ * $19		0-D capacitive button sensors	141
+ * $30		GPIO/LEDs			148
+ * $31		LEDs				162
+ * $34		Flash Memory Management		163
+ * $36		Auxiliary ADC			174
+ * $54		Test Reporting			176
  */
 #define RMI_DEVICE_CONTROL			0x01
 #define TOUCHPAD_SENSORS			0x11
@@ -54,44 +54,44 @@
 #define FLASH_MEMORY_MANAGEMENT			0x34
 #define AUXILIARY_ADC				0x36
 
-/*                                 
-                                                                     
+/* Register Map & Register bit mask
+ * - Please check "One time" this map before using this device driver
  */
-/*                    */
-#define MANUFACTURER_ID_REG			(ts->common_fc.dsc.query_base)			/*                 */
-#define FW_REVISION_REG				(ts->common_fc.dsc.query_base+3)		/*             */
-#define PRODUCT_ID_REG				(ts->common_fc.dsc.query_base+11)		/*            */
+/* RMI_DEVICE_CONTROL */
+#define MANUFACTURER_ID_REG			(ts->common_fc.dsc.query_base)			/* Manufacturer ID */
+#define FW_REVISION_REG				(ts->common_fc.dsc.query_base+3)		/* FW revision */
+#define PRODUCT_ID_REG				(ts->common_fc.dsc.query_base+11)		/* Product ID */
 
 #define DEVICE_COMMAND_REG			(ts->common_fc.dsc.command_base)
 
-#define DEVICE_CONTROL_REG 			(ts->common_fc.dsc.control_base)		/*                */
-#define DEVICE_CONTROL_NORMAL_OP		0x00	/*                                           */
-#define DEVICE_CONTROL_SLEEP 			0x01	/*                          */
-#define DEVICE_CONTROL_SPECIFIC			0x02	/*                                          */
+#define DEVICE_CONTROL_REG 			(ts->common_fc.dsc.control_base)		/* Device Control */
+#define DEVICE_CONTROL_NORMAL_OP		0x00	/* sleep mode : go to doze mode after 500 ms */
+#define DEVICE_CONTROL_SLEEP 			0x01	/* sleep mode : go to sleep */
+#define DEVICE_CONTROL_SPECIFIC			0x02	/* sleep mode : go to doze mode after 5 sec */
 #define DEVICE_CONTROL_NOSLEEP			0x04
 #define DEVICE_CONTROL_CONFIGURED		0x80
 #define DEVICE_CHARGER_CONNECTED		0x20
 
-#define INTERRUPT_ENABLE_REG			(ts->common_fc.dsc.control_base+1)		/*                    */
+#define INTERRUPT_ENABLE_REG			(ts->common_fc.dsc.control_base+1)		/* Interrupt Enable 0 */
 
-#define DEVICE_STATUS_REG			(ts->common_fc.dsc.data_base)			/*               */
+#define DEVICE_STATUS_REG			(ts->common_fc.dsc.data_base)			/* Device Status */
 #define DEVICE_FAILURE_MASK			0x03
 #define DEVICE_CRC_ERROR_MASK			0x04
 #define DEVICE_STATUS_FLASH_PROG		0x40
 #define DEVICE_STATUS_UNCONFIGURED		0x80
 
-#define INTERRUPT_STATUS_REG			(ts->common_fc.dsc.data_base+1)		/*                  */
+#define INTERRUPT_STATUS_REG			(ts->common_fc.dsc.data_base+1)		/* Interrupt Status */
 #define INTERRUPT_MASK_FLASH			0x01
 #define INTERRUPT_MASK_STATUS			0x02
 #define INTERRUPT_MASK_ABS0			0x04
 #define INTERRUPT_MASK_BUTTON			0x10
 
 
-/*                  */
+/* TOUCHPAD_SENSORS */
 #define FINGER_COMMAND_REG			(ts->finger_fc.dsc.command_base)
 
-#define FINGER_STATE_REG			(ts->finger_fc.dsc.data_base)			/*              */
-#define FINGER_DATA_REG_START			(ts->finger_fc.dsc.data_base+3)		/*                      */
+#define FINGER_STATE_REG			(ts->finger_fc.dsc.data_base)			/* Finger State */
+#define FINGER_DATA_REG_START			(ts->finger_fc.dsc.data_base+3)		/* Finger Data Register */
 #define FINGER_STATE_MASK			0x03
 #define REG_X_POSITION				0
 #define REG_Y_POSITION				1
@@ -100,25 +100,25 @@
 #define REG_Z					4
 #define TWO_D_EXTEND_STATUS			(ts->finger_fc.dsc.data_base+53)
 
-#define TWO_D_REPORTING_MODE			(ts->finger_fc.dsc.control_base+0)		/*                   */
+#define TWO_D_REPORTING_MODE			(ts->finger_fc.dsc.control_base+0)		/* 2D Reporting Mode */
 
 #define REPORT_BEYOND_CLIP			0x80
 #define REPORT_MODE_CONTINUOUS			0x00
 #define REPORT_MODE_REDUCED			0x01
 #define ABS_FILTER				0x08
-#define PALM_DETECT_REG 			(ts->finger_fc.dsc.control_base+1)		/*             */
-#define DELTA_X_THRESH_REG 			(ts->finger_fc.dsc.control_base+2)		/*                */
-#define DELTA_Y_THRESH_REG 			(ts->finger_fc.dsc.control_base+3)		/*                */
-#define SENSOR_MAX_X_POS			(ts->finger_fc.dsc.control_base+6)		/*               */
-#define SENSOR_MAX_Y_POS			(ts->finger_fc.dsc.control_base+8)		/*               */
+#define PALM_DETECT_REG 			(ts->finger_fc.dsc.control_base+1)		/* Palm Detect */
+#define DELTA_X_THRESH_REG 			(ts->finger_fc.dsc.control_base+2)		/* Delta-X Thresh */
+#define DELTA_Y_THRESH_REG 			(ts->finger_fc.dsc.control_base+3)		/* Delta-Y Thresh */
+#define SENSOR_MAX_X_POS			(ts->finger_fc.dsc.control_base+6)		/* SensorMaxXPos */
+#define SENSOR_MAX_Y_POS			(ts->finger_fc.dsc.control_base+8)		/* SensorMaxYPos */
 
-/*                           */
+/* CAPACITIVE_BUTTON_SENSORS */
 #define BUTTON_COMMAND_REG			(ts->button_fc.dsc.command_base)
-#define BUTTON_DATA_REG				(ts->button_fc.dsc.data_base)			/*             */
+#define BUTTON_DATA_REG				(ts->button_fc.dsc.data_base)			/* Button Data */
 
 #define MAX_NUM_OF_BUTTON			4
 
-/*                */
+/* ANALOG_CONTROL */
 #define ANALOG_COMMAND_REG			(ts->analog_fc.dsc.command_base)
 #define FORCE_UPDATE				0x04
 
@@ -127,12 +127,12 @@
 
 #define FAST_RELAXATION_RATE			(ts->analog_fc.dsc.control_base+16)
 
-/*                         */
-#define FLASH_CONFIG_ID_REG			(ts->flash_fc.dsc.control_base)		/*               */
+/* FLASH_MEMORY_MANAGEMENT */
+#define FLASH_CONFIG_ID_REG			(ts->flash_fc.dsc.control_base)		/* Flash Control */
 #define FLASH_CONTROL_REG			(ts->flash_fc.dsc.data_base+18)
 #define FLASH_STATUS_MASK			0xF0
 
-/*             */
+/* Page number */
 #define COMMON_PAGE				(ts->common_fc.function_page)
 #define FINGER_PAGE				(ts->finger_fc.function_page)
 #define BUTTON_PAGE				(ts->button_fc.function_page)
@@ -140,10 +140,10 @@
 #define FLASH_PAGE				(ts->flash_fc.function_page)
 #define DEFAULT_PAGE				0x00
 
-#define SMALL_OBJECT_DETECTION_TUNNING_REG	(ts->finger_fc.dsc.control_base+45) //      
+#define SMALL_OBJECT_DETECTION_TUNNING_REG	(ts->finger_fc.dsc.control_base+45) //0x0083
 #define SMALL_OBJECT_DETECTION			0x04
 
-/*                                    
+/* Get user-finger-data from register.
  */
 #define TS_SNTS_GET_X_POSITION(_high_reg, _low_reg) \
 		( ((u16)((_high_reg << 4) & 0x0FF0) | (u16)(_low_reg&0x0F)))
@@ -158,13 +158,13 @@
 #define TS_SNTS_GET_PRESSURE(_pressure) \
 		_pressure
 
-/*                                   
-  
-                                      
-                                             
-                                                             
-                                                     
-                               
+/* GET_BIT_MASK & GET_INDEX_FROM_MASK
+ *
+ * For easily checking the user input.
+ * Usually, User use only one or two fingers.
+ * However, we should always check all finger-status-register
+ * because we can't know the total number of fingers.
+ * These Macro will prevent it.
  */
 #define GET_BIT_MASK(_finger_status_reg)	\
 		(_finger_status_reg[2] & 0x04)<<7 | (_finger_status_reg[2] & 0x01)<<8 |	\
@@ -178,8 +178,8 @@
 		if (_index <= _max_finger) _bit_mask &= ~(_bit_mask & (1<<(_index)));
 
 
-/*                                                             
-                                                                                       */
+/* wrapper function for i2c communication - except defalut page
+ * if you have to select page for reading or writing, then using this wrapper function */
 int synaptics_ts_page_data_read(struct i2c_client *client, u8 page, u8 reg, int size, u8 *data)
 {
 	DO_SAFE(touch_i2c_write_byte(client, PAGE_SELECT_REG, page), error);
@@ -190,26 +190,26 @@ error:
 	return -1;
 }
 /*
-                                                                                                
- 
-                                                                     
-                                                          
-                                                                             
-          
-      
-           
- 
+int synaptics_ts_page_data_write(struct i2c_client *client, u8 page, u8 reg, int size, u8 *data)
+{
+	DO_SAFE(touch_i2c_write_byte(client, PAGE_SELECT_REG, page), error);
+	DO_SAFE(touch_i2c_write(client, reg, size, data), error);
+	DO_SAFE(touch_i2c_write_byte(client, PAGE_SELECT_REG, DEFAULT_PAGE), error);
+	return 0;
+error:
+	return -1;
+}
 
 
-                                                                                          
- 
-                                                                     
-                                                         
-                                                                             
-          
-      
-           
- 
+int synaptics_ts_page_data_write_byte(struct i2c_client *client, u8 page, u8 reg, u8 data)
+{
+	DO_SAFE(touch_i2c_write_byte(client, PAGE_SELECT_REG, page), error);
+	DO_SAFE(touch_i2c_write_byte(client, reg, data), error);
+	DO_SAFE(touch_i2c_write_byte(client, PAGE_SELECT_REG, DEFAULT_PAGE), error);
+	return 0;
+error:
+	return -1;
+}
 */
 
 static ssize_t show_test(struct i2c_client *client, char *buf)
@@ -394,7 +394,7 @@ err_t synaptics_ts_get_data(struct i2c_client *client, struct touch_data* curr_d
 	DO_SAFE(touch_i2c_read(client, INTERRUPT_STATUS_REG,
 		sizeof(ts->ts_data.interrupt_status_reg), &ts->ts_data.interrupt_status_reg), error);
 
-	//    
+	// ABS
 	if(ts->ts_data.interrupt_status_reg & INTERRUPT_MASK_ABS0){
 		DO_SAFE(touch_i2c_read(ts->client, FINGER_STATE_REG,
 					sizeof(ts->ts_data.finger.finger_status_reg),
@@ -440,13 +440,13 @@ err_t synaptics_ts_get_data(struct i2c_client *client, struct touch_data* curr_d
 		TOUCH_DEBUG(DEBUG_GET_DATA, "ID[0x%x] Total_num[%d]\n", curr_data->id_mask, curr_data->total_num);
 	}
 
-	//       
+	// BUTTON
 	if (likely(ts->ts_data.interrupt_status_reg & INTERRUPT_MASK_BUTTON)) {
 		DO_SAFE(synaptics_ts_page_data_read(ts->client, BUTTON_PAGE, BUTTON_DATA_REG,
 				sizeof(ts->ts_data.button_data_reg), &ts->ts_data.button_data_reg), error);
 
 		if (ts->ts_data.button_data_reg) {
-			/*                          */
+			/* pressed - find first one */
 			int cnt = 0;
 			for (cnt = 0; cnt < ts->pdata->caps->number_of_button; cnt++)
 			{
@@ -458,7 +458,7 @@ err_t synaptics_ts_get_data(struct i2c_client *client, struct touch_data* curr_d
 				}
 			}
 		}else {
-			/*         */
+			/* release */
 			curr_data->button_data.key_code = ts->ts_data.button.key_code;
 			curr_data->button_data.state = 0;
 		}
@@ -474,8 +474,8 @@ error:
 
 err_t synaptics_ts_filter(struct i2c_client *client, struct touch_data* curr_data, const struct touch_data* prev_data)
 {
-//                               
-//                                                        
+//	struct synaptics_ts_data *ts =
+//			(struct synaptics_ts_data *)get_touch_handle(client);
 
 	return NO_ERROR;
 }
@@ -520,40 +520,40 @@ err_t synaptics_ts_power(struct i2c_client *client, int power_ctrl)
 
 err_t synaptics_ts_ic_ctrl(struct i2c_client *client, u8 code, u32 value, u32* ret)
 {
-//                               
-//                                                        
+//	struct synaptics_ts_data *ts =
+//			(struct synaptics_ts_data *)get_touch_handle(client);
 
 	return NO_ERROR;
 }
 
 err_t synaptics_ts_fw_upgrade(struct i2c_client* client, struct touch_fw_info* info, struct touch_firmware_module* fw)
 {
-//                               
-//                                                       
+//	struct synaptics_ts_data *ts =
+//			(struct synaptics_ts_data*)get_touch_handle(client);
 
 	return NO_ERROR;
 }
 
 err_t synaptics_ts_suspend(struct i2c_client* client)
 {
-//                               
-//                                                       
+//	struct synaptics_ts_data *ts =
+//			(struct synaptics_ts_data*)get_touch_handle(client);
 
 	return NO_ERROR;
 }
 
 err_t synaptics_ts_resume(struct i2c_client* client)
 {
-//                               
-//                                                       
+//	struct synaptics_ts_data *ts =
+//			(struct synaptics_ts_data*)get_touch_handle(client);
 
 	return NO_ERROR;
 }
 
 err_t synaptics_ts_notify(struct i2c_client *client, u8 code, u32 value)
 {
-//                               
-//                                                       
+//	struct synaptics_ts_data *ts =
+//			(struct synaptics_ts_data*)get_touch_handle(client);
 
 	return NO_ERROR;
 }

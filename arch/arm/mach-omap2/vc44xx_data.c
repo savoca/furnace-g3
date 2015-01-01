@@ -27,8 +27,8 @@
 #include "vc.h"
 
 /*
-                               
-                                                                  
+ * VC data common to 44xx chips
+ * XXX This stuff presumably belongs in the vc3xxx.c or vc.c file.
  */
 static const struct omap_vc_common omap4_vc_common = {
 	.bypass_val_reg = OMAP4_PRM_VC_VAL_BYPASS_OFFSET,
@@ -46,7 +46,7 @@ static const struct omap_vc_common omap4_vc_common = {
 	.i2c_mcode_mask	 = OMAP4430_HSMCODE_MASK,
 };
 
-/*                                                     */
+/* VC instance data for each controllable voltage line */
 struct omap_vc_channel omap4_vc_mpu = {
 	.flags = OMAP_VC_CHANNEL_DEFAULT | OMAP_VC_CHANNEL_CFG_MUTANT,
 	.common = &omap4_vc_common,

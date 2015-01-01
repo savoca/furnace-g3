@@ -43,7 +43,7 @@
 #include <linux/hsi/hsi.h>
 #include <linux/hsi/hsi_char.h>
 
-#define HSC_DEVS		16 /*                 */
+#define HSC_DEVS		16 /* Num of channels */
 #define HSC_MSGS		4
 
 #define HSC_RXBREAK		0
@@ -55,8 +55,8 @@
 #define HSC_CH_MASK		0xf
 
 /*
-                                                       
-                                                     
+ * We support up to 4 controllers that can have up to 4
+ * ports, which should currently be more than enough.
  */
 #define HSC_BASEMINOR(id, port_id) \
 		((((id) & HSC_ID_MASK) << HSC_ID_BITS) | \
@@ -75,18 +75,18 @@ enum {
 };
 
 struct hsc_client_data;
-/* 
-                                                      
-                      
-                                                                    
-                                                      
-                                              
-                                              
-                                       
-                                              
-                                                                       
-                                   
-                                   
+/**
+ * struct hsc_channel - hsi_char internal channel data
+ * @ch: channel number
+ * @flags: Keeps state of the channel (open/close, reading, writing)
+ * @free_msgs_list: List of free HSI messages/requests
+ * @rx_msgs_queue: List of pending RX requests
+ * @tx_msgs_queue: List of pending TX requests
+ * @lock: Serialize access to the lists
+ * @cl: reference to the associated hsi_client
+ * @cl_data: reference to the client data that this channels belongs to
+ * @rx_wait: RX requests wait queue
+ * @tx_wait: TX requests wait queue
  */
 struct hsc_channel {
 	unsigned int		ch;
@@ -101,14 +101,14 @@ struct hsc_channel {
 	wait_queue_head_t	tx_wait;
 };
 
-/* 
-                                                         
-                                                        
-                                             
-                                                       
-                                                                 
-                                  
-                                                        
+/**
+ * struct hsc_client_data - hsi_char internal client data
+ * @cdev: Characther device associated to the hsi_client
+ * @lock: Lock to serialize open/close access
+ * @flags: Keeps track of port state (rx hwbreak armed)
+ * @usecnt: Use count for claiming the HSI port (mutex protected)
+ * @cl: Referece to the HSI client
+ * @channels: Array of channels accessible by the client
  */
 struct hsc_client_data {
 	struct cdev		cdev;
@@ -119,9 +119,9 @@ struct hsc_client_data {
 	struct hsc_channel	channels[HSC_DEVS];
 };
 
-/*                                                            */
+/* Stores the major number dynamically allocated for hsi_char */
 static unsigned int hsc_major;
-/*                                                              */
+/* Maximum buffer size that hsi_char will accept from userspace */
 static unsigned int max_data_size = 0x1000;
 module_param(max_data_size, uint, 0);
 MODULE_PARM_DESC(max_data_size, "max read/write data size [4,8..65536] (^2)");
@@ -197,7 +197,7 @@ static inline struct hsi_msg *hsc_msg_alloc(unsigned int alloc_size)
 		goto out;
 	}
 	sg_init_one(msg->sgt.sgl, buf, alloc_size);
-	/*                                                   */
+	/* Ignore false positive, due to sg pointer handling */
 	kmemleak_ignore(buf);
 
 	return msg;
@@ -289,7 +289,7 @@ static void hsc_break_received(struct hsi_msg *msg)
 	struct hsc_channel *channel = cl_data->channels;
 	int i, ret;
 
-	/*                                   */
+	/* Broadcast HWBREAK on all channels */
 	for (i = 0; i < HSC_DEVS; i++, channel++) {
 		struct hsi_msg *msg2;
 
@@ -616,9 +616,9 @@ static int hsc_open(struct inode *inode, struct file *file)
 		goto out;
 	}
 	/*
-                                                                   
-                                                                   
-  */
+	 * Check if we have already claimed the port associated to the HSI
+	 * client. If not then try to claim it, else increase its refcount
+	 */
 	if (cl_data->usecnt == 0) {
 		ret = hsi_claim_port(cl_data->cl, 0);
 		if (ret < 0)
@@ -728,7 +728,7 @@ static int __devinit hsc_probe(struct device *dev)
 		channel->cl_data = cl_data;
 	}
 
-	/*                                                       */
+	/* 1 hsi client -> N char devices (one for each channel) */
 	ret = cdev_add(&cl_data->cdev, hsc_dev, HSC_DEVS);
 	if (ret) {
 		dev_err(dev, "Could not add char device %d\n", ret);

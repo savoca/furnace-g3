@@ -49,9 +49,9 @@
  *****************************************************************************/
 
 
-/*                                                                            */
+/*Definitions - Defines & Constants ----------------------------------------- */
 
-  /*                             */
+  /* Define the operating system */
 #if (defined(__linux__))
 # define _DPT_LINUX
 #elif (defined(__bsdi__))
@@ -68,12 +68,12 @@
 #define         _DPT_MOTIF
 #endif
 
-  /*                                                                  */
+  /* Redefine 'far' to nothing - no far pointer type required in UNIX */
 #define		far
 
-  /*                                              */
+  /* Define the mutually exclusive semaphore type */
 #define		SEMAPHORE_T	unsigned int *
-  /*                          */
+  /* Define a handle to a DLL */
 #define		DLL_HANDLE_T	unsigned int *
 
 #endif

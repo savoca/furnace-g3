@@ -50,11 +50,11 @@ int nfs_cache_upcall(struct cache_detail *cd, char *entry_name)
 		goto out;
 	ret = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
 	/*
-                                                              
-                                                                
-                                                              
-                   
-  */
+	 * Disable the upcall mechanism if we're getting an ENOENT or
+	 * EACCES error. The admin can re-enable it on the fly by using
+	 * sysfs to set the 'cache_getent' parameter once the problem
+	 * has been fixed.
+	 */
 	if (ret == -ENOENT || ret == -EACCES)
 		nfs_cache_getent_prog[0] = '\0';
 out:
@@ -62,7 +62,7 @@ out:
 }
 
 /*
-                            
+ * Deferred request handling
  */
 void nfs_cache_defer_req_put(struct nfs_cache_defer_req *dreq)
 {

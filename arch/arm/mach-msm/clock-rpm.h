@@ -38,7 +38,7 @@ struct rpm_clk {
 	const int rpm_status_id;
 	const bool active_only;
 	bool enabled;
-	bool branch; /*                                               */
+	bool branch; /* true: RPM only accepts 1 for ON and 0 for OFF */
 	struct clk_rpmrs_data *rpmrs_data;
 	struct rpm_clk *peer;
 	struct clk c;
@@ -50,8 +50,8 @@ static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
 }
 
 /*
-                                                                           
-                            
+ * RPM scaling enable function used for target that has an RPM resource for
+ * rpm clock scaling enable.
  */
 void enable_rpm_scaling(void);
 
@@ -150,10 +150,10 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 	__DEFINE_CLK_RPM(name, active, type, r_id, \
 		0, 0, RPM_SMD_KEY_STATE, &clk_rpmrs_data_smd)
 /*
-                                                                                
-                                                                              
-                                                                            
-                                                                             
+ * The RPM XO buffer clock management code aggregates votes for pin-control mode
+ * and software mode separately. Software-enable has higher priority over pin-
+ * control, and if the software-mode aggregation results in a 'disable', the
+ * buffer will be left in pin-control mode if a pin-control vote is in place.
  */
 #define DEFINE_CLK_RPM_SMD_XO_BUFFER(name, active, r_id) \
 	__DEFINE_CLK_RPM_BRANCH(name, active, RPM_CLK_BUFFER_A_REQ, r_id, 0, \

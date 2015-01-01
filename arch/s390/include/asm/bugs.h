@@ -10,13 +10,13 @@
  */
 
 /*
-                                                                            
-  
-         
-                              
+ * This is included by init/main.c to check for architecture-dependent bugs.
+ *
+ * Needs:
+ *      void check_bugs(void);
  */
 
 static inline void check_bugs(void)
 {
-  /*                      */
+  /* s390 has no bugs ... */
 }

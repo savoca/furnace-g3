@@ -9,7 +9,7 @@
  *
  */
 
-/*                                        */
+/*#define pr_fmt(fmt)	"%s: " fmt, __func__*/
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -127,7 +127,7 @@ struct unified_wlc_chip {
 #if I2C_SUSPEND_WORKAROUND
 	struct delayed_work 	check_suspended_work;
 	int suspended;
-#endif /*                       */
+#endif /*I2C_SUSPEND_WORKAROUND */
 	int		enabled;
 #ifdef CONFIG_CHARGER_UNIFIED_WLC_ALIGNMENT
 	struct mutex align_lock;
@@ -212,8 +212,8 @@ int is_wireless_charger_plugged_internal(struct unified_wlc_chip *chip)
 {
 	int ret = 0;
 
-/*                                               
-                                           */
+/*When WLC power is supplied, wlc_int_gpio is low
+ *(Because it is connected to inverse ACOK)*/
 	ret = !(gpio_get_value(chip->wlc_int_gpio));
 	return ret;
 }
@@ -270,7 +270,7 @@ static void wireless_align_proc(struct unified_wlc_chip *chip,
 									bool attached)
 {
 	if (likely(attached)) {
-		/*                                */
+		/* start work queue for alignment */
 		wireless_align_start(chip);
 		if (likely(delayed_work_pending(&chip->wireless_align_work))) {
 			flush_delayed_work_sync(&chip->wireless_align_work);
@@ -342,12 +342,12 @@ static int pm_power_get_property_wireless(struct power_supply *psy,
 	struct unified_wlc_chip *chip =
 			container_of(psy, struct unified_wlc_chip, wireless_psy);
 
-	/*                             */
-	/*                               
-                                                                              
-               
-                 
- */
+	/* Check if called before init */
+	/* todo workaround for below kmsg
+	power_supply wireless: driver failed to report `present' property: 4294967274
+	if (!the_chip)
+		return -EINVAL;
+	*/
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PRESENT:
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -393,11 +393,11 @@ static int pm_power_set_event_property_wireless(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_WIRELESS_FAKE_OTG:
 		if(val->intval == FAKE_DISCONNECTION) {
-			//                    
+			// fake disconnect wlc
 			wireless_removed(chip);
 		}
 		else {
-			//                
+			// fake online wlc
 			wireless_inserted(chip);
 		}
 		break;
@@ -414,12 +414,12 @@ static int pm_power_get_event_property_wireless(struct power_supply *psy,
 	struct unified_wlc_chip *chip =
 			container_of(psy, struct unified_wlc_chip, wireless_psy);
 
-	/*                             */
-	/*                               
-                                                                              
-               
-                 
- */
+	/* Check if called before init */
+	/* todo workaround for below kmsg
+	power_supply wireless: driver failed to report `present' property: 4294967274
+	if (!the_chip)
+		return -EINVAL;
+	*/
 	switch (psp) {
 	case POWER_SUPPLY_PROP_WIRELESS_ONLINE:
 		if (likely(chip)) {
@@ -442,10 +442,10 @@ static int pm_power_get_event_property_wireless(struct power_supply *psy,
 	return 0;
 }
 
-/*                                             
-                                                    
-                                              
-                                               */
+/* Update WLC psy to online after checking vbus
+  * Sometimes WLC OVP GPIO swing when USB is removed
+  * because of remained WLC power on backcover
+  * Check every 50msec from 200msec to 700msec */
 
 static void wireless_set_online_work (struct work_struct *work)
 {
@@ -471,19 +471,19 @@ static void wireless_set_online_work (struct work_struct *work)
 #endif
 
 #ifdef CONFIG_CHARGER_UNIFIED_WLC_BQ5102X
-	/*                                 */
+	/* Set output voltage to 5.5V(0x2) */
 	ret_wlc = bq5102x_set_output_voltage(0x2);
 	if (ret_wlc < 0) {
 		pr_err("[WLC] %s : failed to set output voltage\n", __func__);
 	}
 
-	/*                                */
+	/* Set output current to 90%(0x6) */
 	ret_wlc = bq5102x_set_output_current(0x6);
 	if (ret_wlc < 0) {
 		pr_err("[WLC] %s : failed to set output currnet\n", __func__);
 	}
 
-	/*                                   */
+	/* Set FOD calibration to 156mW(0x4) */
 	ret_wlc = bq5102x_set_fod_calibration(0x4);
 	if (ret_wlc < 0) {
 		pr_err("[WLC] %s : failed to set FOD calibration\n", __func__);
@@ -510,10 +510,10 @@ static void wireless_set_online_work (struct work_struct *work)
 	}
 }
 
-/*                                             
-                                                
-                                    
-                                               */
+/* Update USB psy to online after checking vbus
+  * Sometimes SOURCE is switched from WLC to USB
+  * without smb349 irq (Charger IRQ)
+  * Check every 50msec from 500msec to 700msec */
 
 static void wireless_set_offline_work(struct work_struct *work)
 {
@@ -546,13 +546,13 @@ static void wireless_set_offline_work(struct work_struct *work)
 	checking_usb_insert_cnt++;
 
 	if (!wlc) {
-		/*           */
+		/*Need to W/R*/
 		if (!usb_present && vbus) {
 			pr_err("[WLC] %s : USB is inserted and No SMB349 IRQ \n", __func__);
 			pr_err("[WLC] %s : USB psy is updated to ONLINE !!!\n", __func__);
 
 #if defined(CONFIG_SMB349_CHARGER) || defined(CONFIG_BQ24192_CHARGER)
-			set_usb_present(1); /*   */
+			set_usb_present(1); /*W/R*/
 #elif defined(CONFIG_BQ24296_CHARGER) || defined(CONFIG_CHARGER_MAX77819)
 			ret.intval = 1;
 			wlc_charger_psy_getprop_event(chip, psy_ext,
@@ -565,7 +565,7 @@ static void wireless_set_offline_work(struct work_struct *work)
 			return;
 		}
 
-		/*           */
+		/*Normal Case*/
 		if (usb_present || (checking_usb_insert_cnt > MAX_USB_CHECKING_COUNT)) {
 			pr_err("[WLC] %s : USB Already updated or W/O USB (usb(%d) cnt(%d)) \n"
 						, __func__, usb_present, checking_usb_insert_cnt);
@@ -594,7 +594,7 @@ static void wireless_inserted(struct unified_wlc_chip *chip)
 	}
 
 #if defined(CONFIG_SMB349_CHARGER) || defined(CONFIG_BQ24192_CHARGER)
-	set_wireless_power_supply_control(true);	/*                        */
+	set_wireless_power_supply_control(true);	/*Notify to Charger driver*/
 #elif defined(CONFIG_BQ24296_CHARGER) || defined(CONFIG_CHARGER_MAX77819)
 	wlc_charger_psy_setprop_event(chip, psy_ext,
 		WIRELESS_CHARGE_ENABLED, 1, _EXT_);
@@ -612,7 +612,7 @@ static void wireless_removed(struct unified_wlc_chip *chip)
 	pr_err("[WLC] %s \n", __func__);
 
 #if defined(CONFIG_SMB349_CHARGER) || defined(CONFIG_BQ24192_CHARGER)
-	set_wireless_power_supply_control(false);	/*                        */
+	set_wireless_power_supply_control(false);	/*Notify to Charger driver*/
 #elif defined(CONFIG_BQ24296_CHARGER) || defined(CONFIG_CHARGER_MAX77819)
 	wlc_charger_psy_setprop_event(chip, psy_ext,
 		WIRELESS_CHARGE_ENABLED, 0, _EXT_);
@@ -695,7 +695,7 @@ static void wlc_check_suspended_worker(struct work_struct *work)
 		schedule_delayed_work(&chip->wireless_interrupt_work, 0);
 	}
 }
-#endif /*                      */
+#endif /*I2C_SUSPEND_WORKAROUND*/
 
 static void wireless_eoc_work(struct work_struct *work)
 {
@@ -728,7 +728,7 @@ static int __devinit unified_wlc_hw_init(struct unified_wlc_chip *chip)
 	int ret;
 	pr_err("[WLC] %s \n", __func__);
 
-	/*                                      */
+	/* wlc_int_gpio DIR_IN and register IRQ */
 	ret = gpio_request(chip->wlc_int_gpio, "wlc_int_gpio");
 	if (ret < 0) {
 		pr_err("[WLC] %s : failed to request gpio wlc_int\n", __func__);
@@ -758,16 +758,16 @@ static int __devinit unified_wlc_hw_init(struct unified_wlc_chip *chip)
 
 #if defined(CONFIG_MACH_MSM8974_G3_VZW) || defined(CONFIG_MACH_MSM8974_G3_LRA)
 	if (lge_get_board_revno() <= HW_REV_B){
-		/*                              */
+		/* wlc_full_chg DIR_OUT and Low */
 		ret = gpio_request_one(chip->wlc_full_chg, GPIOF_OUT_INIT_LOW,
 				"wlc_full_chg");
 	} else if (lge_get_board_revno() >= HW_REV_C) {
-		/*                                      */
+		/* wlc_full_chg DIR_OUT and OPEN_SOURCE */
 		ret = gpio_request_one(chip->wlc_full_chg, GPIOF_DIR_OUT | GPIOF_OPEN_SOURCE,
 				"wlc_full_chg");
 	}
 #else
-	/*                              */
+	/* wlc_full_chg DIR_OUT and Low */
 	ret = gpio_request_one(chip->wlc_full_chg, GPIOF_OUT_INIT_LOW,
 			"wlc_full_chg");
 #endif
@@ -801,7 +801,7 @@ static int unified_wlc_resume(struct device *dev)
 
 #if I2C_SUSPEND_WORKAROUND
 		chip->suspended = 0;
-#endif /*                      */
+#endif /*I2C_SUSPEND_WORKAROUND*/
 	return 0;
 }
 
@@ -816,7 +816,7 @@ static int unified_wlc_suspend(struct device *dev)
 
 #if I2C_SUSPEND_WORKAROUND
 	chip->suspended = 1;
-#endif /*                      */
+#endif /*I2C_SUSPEND_WORKAROUND*/
 	return 0;
 }
 
@@ -853,7 +853,7 @@ static int __devinit unified_wlc_probe(struct platform_device *pdev)
 
 	pr_err("[WLC] %s : probe start\n", __func__);
 
-	/*                                */
+	/*Read platform data from dts file*/
 
 	pdata = devm_kzalloc(&pdev->dev,
 					sizeof(struct unified_wlc_platform_data),
@@ -878,7 +878,7 @@ static int __devinit unified_wlc_probe(struct platform_device *pdev)
 
 	chip->dev = &pdev->dev;
 
-	/*                                                                */
+	/*Check charger IC probe is finshed or not , before starting probe*/
 #if defined(CONFIG_SMB349_CHARGER)
 	rc = smb349_is_ready();
 	if (rc)
@@ -899,7 +899,7 @@ static int __devinit unified_wlc_probe(struct platform_device *pdev)
 	}
 #endif
 
-	/*                             */
+	/*Set Power Supply type for wlc*/
 	chip->wireless_psy.name = "wireless";
 	chip->wireless_psy.type = POWER_SUPPLY_TYPE_WIRELESS;
 	chip->wireless_psy.supplied_to = pm_power_supplied_to;
@@ -920,7 +920,7 @@ static int __devinit unified_wlc_probe(struct platform_device *pdev)
 
 #if I2C_SUSPEND_WORKAROUND
 	INIT_DELAYED_WORK(&chip->check_suspended_work, wlc_check_suspended_worker);
-#endif /*                      */
+#endif /*I2C_SUSPEND_WORKAROUND*/
 	INIT_DELAYED_WORK(&chip->wireless_interrupt_work, wireless_interrupt_worker);
 	INIT_DELAYED_WORK(&chip->wireless_set_online_work, wireless_set_online_work);
 	INIT_DELAYED_WORK(&chip->wireless_set_offline_work, wireless_set_offline_work);
@@ -930,13 +930,13 @@ static int __devinit unified_wlc_probe(struct platform_device *pdev)
 	mutex_init(&chip->align_lock);
 	chip->align_values = 0;
 #endif
-	/*                      */
+	/*Set  Wake lock for wlc*/
 	wake_lock_init(&chip->wireless_chip_wake_lock, WAKE_LOCK_SUSPEND,
 				"unified_wireless_chip");
 	wake_lock_init(&chip->wireless_eoc_wake_lock, WAKE_LOCK_SUSPEND,
 				"unified_wireless_eoc");
 
-	/*                                  */
+	/*Set GPIO & Enable GPIO IRQ for wlc*/
 	chip->wlc_int_gpio = pdata->wlc_int_gpio;
 	pr_err("[WLC] %s : wlc_int_gpio = %d.\n", __func__, chip->wlc_int_gpio);
 
@@ -953,29 +953,29 @@ static int __devinit unified_wlc_probe(struct platform_device *pdev)
 
 	the_chip = chip;
 
-	/*                                                                                */
+	/* For Booting Wireless_charging and For Power Charging Logo In Wireless Charging */
 	if (is_wireless_charger_plugged_internal(chip)) {
 		pr_err("[WLC] %s : I'm on WLC PAD during booting\n ", __func__);
 
 #if defined(CONFIG_SMB349_CHARGER) || defined(CONFIG_BQ24192_CHARGER)
-		set_usb_present(0); /*   */
+		set_usb_present(0); /*W/R*/
 #elif defined(CONFIG_BQ24296_CHARGER) || defined(CONFIG_CHARGER_MAX77819)
 		wlc_charger_psy_setprop_event(chip, psy_ext,
 			WIRELESS_USB_PRESENT, 0, _EXT_);
 #endif
 		wireless_inserted(chip);
 	}
-	/*    
-                         */
+	/*else
+		wireless_removed(chip);*/
 	chip->enabled = 0;
 	pr_err("[WLC] %s : probe done\n", __func__);
 	return 0;
 /*
-     
-                                              
-                               
-             
-                      
+bail:
+	power_supply_unregister(&chip->wireless_psy);
+	gpio_free(chip->wlc_int_gpio);
+	kfree(chip);
+	return -EPROBE_DEFER;
 */
 free_chip:
 	kfree(chip);

@@ -48,7 +48,7 @@
 }
 
 /*
-                                            
+ * Superset of all mux modes for omap4 ES1.0
  */
 static struct omap_mux __initdata omap4_core_muxmodes[] = {
 	_OMAP4_MUXENTRY(GPMC_AD0, 0, "gpmc_ad0", "sdmmc2_dat0", NULL, NULL,
@@ -538,9 +538,9 @@ static struct omap_mux __initdata omap4_core_muxmodes[] = {
 };
 
 /*
-                             
-                                                          
-                                  
+ * Balls for 44XX CBL package
+ * 547-pin CBL ES1.0 S-FPGA-N547, 0.40mm Ball Pitch (Top),
+ *				  0.40mm Ball Pitch (Bottom)
  */
 #if defined(CONFIG_OMAP_MUX) && defined(CONFIG_DEBUG_FS)		\
 		&& defined(CONFIG_OMAP_PACKAGE_CBL)
@@ -755,7 +755,7 @@ static struct omap_ball __initdata omap4_core_cbl_ball[] = {
 #endif
 
 /*
-                                                  
+ * Signals different on ES2.0 compared to superset
  */
 static struct omap_mux __initdata omap4_es2_core_subset[] = {
 	_OMAP4_MUXENTRY(GPMC_AD8, 32, "gpmc_ad8", "kpd_row0", "c2c_data15",
@@ -984,9 +984,9 @@ static struct omap_mux __initdata omap4_es2_core_subset[] = {
 };
 
 /*
-                             
-                                                          
-                                  
+ * Balls for 44XX CBS package
+ * 547-pin CBL ES2.0 S-FPGA-N547, 0.40mm Ball Pitch (Top),
+ *				  0.40mm Ball Pitch (Bottom)
  */
 #if defined(CONFIG_OMAP_MUX) && defined(CONFIG_DEBUG_FS)		\
 		&& defined(CONFIG_OMAP_PACKAGE_CBS)
@@ -1201,7 +1201,7 @@ static struct omap_ball __initdata omap4_core_cbs_ball[] = {
 #endif
 
 /*
-                                      
+ * Superset of all mux modes for omap4
  */
 static struct omap_mux __initdata omap4_wkup_muxmodes[] = {
 	_OMAP4_MUXENTRY(SIM_IO, 0, "sim_io", NULL, NULL, "gpio_wk0", NULL,
@@ -1268,9 +1268,9 @@ static struct omap_mux __initdata omap4_wkup_muxmodes[] = {
 };
 
 /*
-                                                      
-                                                          
-                                  
+ * Balls for 44XX CBL & CBS package - wakeup partition
+ * 547-pin CBL ES1.0 S-FPGA-N547, 0.40mm Ball Pitch (Top),
+ *				  0.40mm Ball Pitch (Bottom)
  */
 #if defined(CONFIG_OMAP_MUX) && defined(CONFIG_DEBUG_FS)		\
 		&& defined(CONFIG_OMAP_PACKAGE_CBL)

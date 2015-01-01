@@ -25,20 +25,20 @@
 #include <linux/mtd/mtd.h>
 
 /*
-                       
-                             
-                                   
-                                   
-                                 
+ * Flash memory areas :
+ *   - 0x0000 .. 0x07ff : IPL
+ *   - 0x0800 .. 0x0fff : Data area
+ *   - 0x1000 .. 0x17ff : Registers
+ *   - 0x1800 .. 0x1fff : Unknown
  */
 #define DOC_IOSPACE_IPL			0x0000
 #define DOC_IOSPACE_DATA		0x0800
 #define DOC_IOSPACE_SIZE		0x2000
 
 /*
-                                     
-                                                              
-                               
+ * DOC G3 layout and adressing scheme
+ *   A page address for the block "b", plane "P" and page "p":
+ *   address = [bbbb bPpp pppp]
  */
 
 #define DOC_ADDR_PAGE_MASK		0x3f
@@ -55,7 +55,7 @@
 	(DOC_LAYOUT_PAGES_PER_BLOCK * DOC_LAYOUT_PAGE_SIZE)
 
 /*
-                        
+ * ECC related constants
  */
 #define DOC_ECC_BCH_M			14
 #define DOC_ECC_BCH_T			4
@@ -68,7 +68,7 @@
 	(DOC_ECC_BCH_COVERED_BYTES + DOC_LAYOUT_OOB_BCH_SZ)
 
 /*
-                      
+ * Blocks distribution
  */
 #define DOC_LAYOUT_BLOCK_BBT		0
 #define DOC_LAYOUT_BLOCK_OTP		0
@@ -77,7 +77,7 @@
 #define DOC_LAYOUT_PAGE_BBT		4
 
 /*
-                                        
+ * Extra page OOB (16 bytes wide) layout
  */
 #define DOC_LAYOUT_OOB_PAGEINFO_OFS	0
 #define DOC_LAYOUT_OOB_HAMMING_OFS	7
@@ -93,7 +93,7 @@
 #define DOC_ERASE_MARK			0xaa
 #define DOC_MAX_NBFLOORS		4
 /*
-                  
+ * Flash registers
  */
 #define DOC_CHIPID			0x1000
 #define DOC_TEST			0x1004
@@ -134,8 +134,8 @@
 #define DOC_POWERMODE			0x107c
 
 /*
-                  
-                                                                          
+ * Flash sequences
+ * A sequence is preset before one or more commands are input to the chip.
  */
 #define DOC_SEQ_RESET			0x00
 #define DOC_SEQ_PAGE_SIZE_532		0x03
@@ -149,7 +149,7 @@
 #define DOC_SEQ_PLANES_STATUS		0x31
 
 /*
-                 
+ * Flash commands
  */
 #define DOC_CMD_READ_PLANE1		0x00
 #define DOC_CMD_SET_ADDR_READ		0x05
@@ -172,7 +172,7 @@
 #define DOC_CMD_RESET			0xff
 
 /*
-                                    
+ * Flash register : DOC_FLASHCONTROL
  */
 #define DOC_CTRL_VIOLATION		0x20
 #define DOC_CTRL_CE			0x10
@@ -182,7 +182,7 @@
 #define DOC_CTRL_FLASHREADY		0x01
 
 /*
-                                
+ * Flash register : DOC_ASICMODE
  */
 #define DOC_ASICMODE_RESET		0x00
 #define DOC_ASICMODE_NORMAL		0x01
@@ -193,7 +193,7 @@
 #define DOC_ASICMODE_RAM_WE		0x20
 
 /*
-                                
+ * Flash register : DOC_ECCCONF0
  */
 #define DOC_ECCCONF0_WRITE_MODE		0x0000
 #define DOC_ECCCONF0_READ_MODE		0x8000
@@ -203,7 +203,7 @@
 #define DOC_ECCCONF0_DATA_BYTES_MASK	0x07ff
 
 /*
-                                
+ * Flash register : DOC_ECCCONF1
  */
 #define DOC_ECCCONF1_BCH_SYNDROM_ERR	0x80
 #define DOC_ECCCONF1_UNKOWN1		0x40
@@ -212,7 +212,7 @@
 #define DOC_ECCCONF1_HAMMING_BITS_MASK	0x0f
 
 /*
-                                  
+ * Flash register : DOC_PROTECTION
  */
 #define DOC_PROTECT_FOUNDRY_OTP_LOCK	0x01
 #define DOC_PROTECT_CUSTOMER_OTP_LOCK	0x02
@@ -223,7 +223,7 @@
 #define DOC_PROTECT_PROTECTION_ERROR	0x80
 
 /*
-                                                       
+ * Flash register : DOC_DPS0_STATUS and DOC_DPS1_STATUS
  */
 #define DOC_DPS_OTP_PROTECTED		0x01
 #define DOC_DPS_READ_PROTECTED		0x02
@@ -232,48 +232,48 @@
 #define DOC_DPS_KEY_OK			0x80
 
 /*
-                                     
+ * Flash register : DOC_CONFIGURATION
  */
 #define DOC_CONF_IF_CFG			0x80
 #define DOC_CONF_MAX_ID_MASK		0x30
 #define DOC_CONF_VCCQ_3V		0x01
 
 /*
-                                   
+ * Flash register : DOC_READADDRESS
  */
 #define DOC_READADDR_INC		0x8000
 #define DOC_READADDR_ONE_BYTE		0x4000
 #define DOC_READADDR_ADDR_MASK		0x1fff
 
 /*
-                                 
+ * Flash register : DOC_POWERMODE
  */
 #define DOC_POWERDOWN_READY		0x80
 
 /*
-                                      
+ * Status of erase and write operation
  */
 #define DOC_PLANES_STATUS_FAIL		0x01
 #define DOC_PLANES_STATUS_PLANE0_KO	0x02
 #define DOC_PLANES_STATUS_PLANE1_KO	0x04
 
 /*
-                     
-  
-                                                                              
-                                                                          
-           
-                                                                               
-                                   
+ * DPS key management
+ *
+ * Each floor of docg3 has 2 protection areas: DPS0 and DPS1. These areas span
+ * across block boundaries, and define whether these blocks can be read or
+ * written.
+ * The definition is dynamically stored in page 0 of blocks (2,3) for DPS0, and
+ * page 0 of blocks (4,5) for DPS1.
  */
 #define DOC_LAYOUT_DPS_KEY_LENGTH	8
 
-/* 
-                                                       
-                                                             
-                                                     
-                                             
-                                                                 
+/**
+ * struct docg3_cascade - Cascade of 1 to 4 docg3 chips
+ * @floors: floors (ie. one physical docg3 chip is one floor)
+ * @base: IO space to access all chips in the cascade
+ * @bch: the BCH correcting control structure
+ * @lock: lock to protect docg3 IO space from concurrent accesses
  */
 struct docg3_cascade {
 	struct mtd_info *floors[DOC_MAX_NBFLOORS];
@@ -282,24 +282,24 @@ struct docg3_cascade {
 	struct mutex lock;
 };
 
-/* 
-                                                
-                                           
-                                               
-                                                                 
-                                                                 
+/**
+ * struct docg3 - DiskOnChip driver private data
+ * @dev: the device currently under control
+ * @cascade: the cascade this device belongs to
+ * @device_id: number of the cascaded DoCG3 device (0, 1, 2 or 3)
+ * @if_cfg: if true, reads are on 16bits, else reads are on 8bits
 
-                                                                          
-                           
-                                                             
-                                                                       
-                              
-                                                                              
-                              
-                                                                              
-                                            
-                                                   
-                                   
+ * @reliable: if 0, docg3 in normal mode, if 1 docg3 in fast mode, if 2 in
+ *            reliable mode
+ *            Fast mode implies more errors than normal mode.
+ *            Reliable mode implies that page 2*n and 2*n+1 are clones.
+ * @bbt: bad block table cache
+ * @oob_write_ofs: offset of the MTD where this OOB should belong (ie. in next
+ *                 page_write)
+ * @oob_autoecc: if 1, use only bytes 0-7, 15, and fill the others with HW ECC
+ *               if 0, use all the 16 bytes.
+ * @oob_write_buf: prepared OOB for next page_write
+ * @debugfs_root: debugfs root node
  */
 struct docg3 {
 	struct device *dev;
@@ -333,7 +333,7 @@ struct docg3 {
 #endif
 
 /*
-                    
+ * Trace events part
  */
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM docg3
@@ -362,7 +362,7 @@ TRACE_EVENT(docg3_io,
 	);
 #endif
 
-/*                                      */
+/* This part must be outside protection */
 #undef TRACE_INCLUDE_PATH
 #undef TRACE_INCLUDE_FILE
 #define TRACE_INCLUDE_PATH .

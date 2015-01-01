@@ -39,7 +39,7 @@
 #define LGE_ERR_TZ_ERR         0x0002
 #define LGE_ERR_TZ_WDT_BARK    0x0003
 
-#define LAF_DLOAD_MODE   0x6C616664 /*      */
+#define LAF_DLOAD_MODE   0x6C616664 /* lafd */
 
 int lge_set_magic_subsystem(const char *name, int type);
 void lge_skip_dload_by_sbl(int on);

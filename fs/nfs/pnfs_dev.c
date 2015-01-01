@@ -34,7 +34,7 @@
 #define NFSDBG_FACILITY		NFSDBG_PNFS
 
 /*
-                                                                         
+ * Device ID RCU cache. A device ID is unique per server and layout type.
  */
 #define NFS4_DEVICE_ID_HASH_BITS	5
 #define NFS4_DEVICE_ID_HASH_SIZE	(1 << NFS4_DEVICE_ID_HASH_BITS)
@@ -89,10 +89,10 @@ _lookup_deviceid(const struct pnfs_layoutdriver_type *ld,
 }
 
 /*
-                                                                      
-  
-                                           
-                          
+ * Lookup a deviceid in cache and get a reference count on it if found
+ *
+ * @clp nfs_client associated with deviceid
+ * @id deviceid to look up
  */
 static struct nfs4_deviceid_node *
 _find_get_deviceid(const struct pnfs_layoutdriver_type *ld,
@@ -118,12 +118,12 @@ nfs4_find_get_deviceid(const struct pnfs_layoutdriver_type *ld,
 EXPORT_SYMBOL_GPL(nfs4_find_get_deviceid);
 
 /*
-                               
-  
-                                           
-                             
-  
-                                                                             
+ * Remove a deviceid from cache
+ *
+ * @clp nfs_client associated with deviceid
+ * @id the deviceid to unhash
+ *
+ * @ret the unhashed node, if found and dereferenced to zero, NULL otherwise.
  */
 void
 nfs4_delete_deviceid(const struct pnfs_layoutdriver_type *ld,
@@ -143,7 +143,7 @@ nfs4_delete_deviceid(const struct pnfs_layoutdriver_type *ld,
 	spin_unlock(&nfs4_deviceid_lock);
 	synchronize_rcu();
 
-	/*                                                     */
+	/* balance the initial ref set in pnfs_insert_deviceid */
 	if (atomic_dec_and_test(&d->ref))
 		d->ld->free_deviceid_node(d);
 }
@@ -166,15 +166,15 @@ nfs4_init_deviceid_node(struct nfs4_deviceid_node *d,
 EXPORT_SYMBOL_GPL(nfs4_init_deviceid_node);
 
 /*
-                                                            
-  
-                         
-                                                               
-                 
-                         
-                       
-  
-                                                                     
+ * Uniquely initialize and insert a deviceid node into cache
+ *
+ * @new new deviceid node
+ *      Note that the caller must set up the following members:
+ *        new->ld
+ *        new->nfs_client
+ *        new->deviceid
+ *
+ * @ret the inserted node, if none found, otherwise, the found entry.
  */
 struct nfs4_deviceid_node *
 nfs4_insert_deviceid_node(struct nfs4_deviceid_node *new)
@@ -199,14 +199,14 @@ nfs4_insert_deviceid_node(struct nfs4_deviceid_node *new)
 EXPORT_SYMBOL_GPL(nfs4_insert_deviceid_node);
 
 /*
-                                                                           
-           
-  
-                          
-  
-                                       
-                                                                      
-                                                                   
+ * Dereference a deviceid node and delete it when its reference count drops
+ * to zero.
+ *
+ * @d deviceid node to put
+ *
+ * return true iff the node was deleted
+ * Note that since the test for d->ref == 0 is sufficient to establish
+ * that the node is no longer hashed in the global device id cache.
  */
 bool
 nfs4_put_deviceid_node(struct nfs4_deviceid_node *d)
@@ -259,7 +259,7 @@ nfs4_deviceid_purge_client(const struct nfs_client *clp)
 }
 
 /*
-                                                          
+ * Stop use of all deviceids associated with an nfs_client
  */
 void
 nfs4_deviceid_mark_client_invalid(struct nfs_client *clp)

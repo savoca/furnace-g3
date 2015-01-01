@@ -108,7 +108,7 @@ typedef unsigned int boolean;
 #define  MIN( x, y ) (((x) < (y)) ? (x) : (y))
 #endif
 
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #define inp32(addr) readl(addr)
 #define inp16(addr) readw(addr)
@@ -150,15 +150,15 @@ typedef unsigned int boolean;
 extern u32 msm_fb_msg_level;
 
 /*
-                               
-                                        
-                     
-                    
-                   
-                       
-                      
-                    
-                                       
+ * Message printing priorities:
+ * LEVEL 0 KERN_EMERG (highest priority)
+ * LEVEL 1 KERN_ALERT
+ * LEVEL 2 KERN_CRIT
+ * LEVEL 3 KERN_ERR
+ * LEVEL 4 KERN_WARNING
+ * LEVEL 5 KERN_NOTICE
+ * LEVEL 6 KERN_INFO
+ * LEVEL 7 KERN_DEBUG (Lowest priority)
  */
 #define MSM_FB_EMERG(msg, ...)    \
 	if (msm_fb_msg_level > 0)  \
@@ -200,4 +200,4 @@ extern unsigned char *mipi_dsi_base;
 #undef ENABLE_MDDI_MULTI_READ_WRITE
 #undef ENABLE_FWD_LINK_SKEW_CALIBRATION
 
-#endif /*              */
+#endif /* MSM_FB_DEF_H */

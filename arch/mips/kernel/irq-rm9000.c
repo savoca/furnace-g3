@@ -38,7 +38,7 @@ static inline void rm9k_cpu_irq_enable(struct irq_data *d)
 }
 
 /*
-                                                               
+ * Performance counter interrupts are global on all processors.
  */
 static void local_rm9k_perfcounter_irq_startup(void *args)
 {
@@ -94,7 +94,7 @@ void __init rm9k_cpu_irq_init(void)
 	int base = RM9K_CPU_IRQ_BASE;
 	int i;
 
-	clear_c0_intcontrol(0x0000f000);		/*          */
+	clear_c0_intcontrol(0x0000f000);		/* Mask all */
 
 	for (i = base; i < base + 4; i++)
 		irq_set_chip_and_handler(i, &rm9k_irq_controller,

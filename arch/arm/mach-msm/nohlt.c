@@ -11,7 +11,7 @@
  *
  */
 /*
-                                                       
+ * MSM architecture driver to control arm halt behavior
  */
 
 #include <linux/module.h>

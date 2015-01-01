@@ -42,7 +42,7 @@
 #define SERIAL_KS8695_NR	1
 
 /*
-                                    
+ * Access macros for the KS8695 UART
  */
 #define UART_GET_CHAR(p)	(__raw_readl((p)->membase + KS8695_URRB) & 0xFF)
 #define UART_PUT_CHAR(p, c)	__raw_writel((c), (p)->membase + KS8695_URTH)
@@ -109,10 +109,10 @@ static struct console ks8695_console;
 static void ks8695uart_stop_tx(struct uart_port *port)
 {
 	if (tx_enabled(port)) {
-		/*                                                             
-                                                            
-                                                                      
-   */
+		/* use disable_irq_nosync() and not disable_irq() to avoid self
+		 * imposed deadlock by not waiting for irq handler to end,
+		 * since this ks8695uart_stop_tx() is called from interrupt context.
+		 */
 		disable_irq_nosync(KS8695_IRQ_UART_TX);
 		tx_enable(port, 0);
 	}
@@ -156,7 +156,7 @@ static irqreturn_t ks8695uart_rx_chars(int irq, void *dev_id)
 	struct tty_struct *tty = port->state->port.tty;
 	unsigned int status, ch, lsr, flg, max_count = 256;
 
-	status = UART_GET_LSR(port);		/*                               */
+	status = UART_GET_LSR(port);		/* clears pending LSR interrupts */
 	while ((status & URLS_URDR) && max_count--) {
 		ch = UART_GET_CHAR(port);
 		flg = TTY_NORMAL;
@@ -164,9 +164,9 @@ static irqreturn_t ks8695uart_rx_chars(int irq, void *dev_id)
 		port->icount.rx++;
 
 		/*
-                                         
-                                   
-   */
+		 * Note that the error handling code is
+		 * out of the main execution path
+		 */
 		lsr = UART_GET_LSR(port) | UART_DUMMY_LSR_RX;
 		if (unlikely(lsr & (URLS_URBI | URLS_URPE | URLS_URFE | URLS_URROE))) {
 			if (lsr & URLS_URBI) {
@@ -225,7 +225,7 @@ static irqreturn_t ks8695uart_tx_chars(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
-	count = 16;	/*           */
+	count = 16;	/* fifo size */
 	while (!uart_circ_empty(xmit) && (count-- > 0)) {
 		KS8695_CLR_TX_INT();
 		UART_PUT_CHAR(port, xmit->buf[xmit->tail]);
@@ -249,8 +249,8 @@ static irqreturn_t ks8695uart_modem_status(int irq, void *dev_id)
 	unsigned int status;
 
 	/*
-                                        
-  */
+	 * clear modem interrupt by reading MSR
+	 */
 	status = UART_GET_MSR(port);
 
 	if (status & URMS_URDDCD)
@@ -335,8 +335,8 @@ static int ks8695uart_startup(struct uart_port *port)
 	ms_enable(port, 1);
 
 	/*
-                    
-  */
+	 * Allocate the IRQ
+	 */
 	retval = request_irq(KS8695_IRQ_UART_TX, ks8695uart_tx_chars, 0, "UART TX", port);
 	if (retval)
 		goto err_tx;
@@ -368,14 +368,14 @@ err_tx:
 static void ks8695uart_shutdown(struct uart_port *port)
 {
 	/*
-                      
-  */
+	 * Free the interrupt
+	 */
 	free_irq(KS8695_IRQ_UART_RX, port);
 	free_irq(KS8695_IRQ_UART_TX, port);
 	free_irq(KS8695_IRQ_UART_MODEM_STATUS, port);
 	free_irq(KS8695_IRQ_UART_LINE_STATUS, port);
 
-	/*                                   */
+	/* disable break condition and fifos */
 	UART_PUT_LCR(port, UART_GET_LCR(port) & ~URLC_URSBC);
 	UART_PUT_FCR(port, UART_GET_FCR(port) & ~URFC_URFE);
 }
@@ -387,8 +387,8 @@ static void ks8695uart_set_termios(struct uart_port *port, struct ktermios *term
 	unsigned int baud, quot;
 
 	/*
-                                                 
-  */
+	 * Ask the core to calculate the divisor for us.
+	 */
 	baud = uart_get_baud_rate(port, termios, old, 0, port->uartclk/16);
 	quot = uart_get_divisor(port, baud);
 
@@ -407,13 +407,13 @@ static void ks8695uart_set_termios(struct uart_port *port, struct ktermios *term
 		break;
 	}
 
-	/*           */
+	/* stop bits */
 	if (termios->c_cflag & CSTOPB)
 		lcr |= URLC_URSB;
 
-	/*        */
+	/* parity */
 	if (termios->c_cflag & PARENB) {
-		if (termios->c_cflag & CMSPAR) {	/*                      */
+		if (termios->c_cflag & CMSPAR) {	/* Mark or Space parity */
 			if (termios->c_cflag & PARODD)
 				lcr |= URPE_MARK;
 			else
@@ -431,8 +431,8 @@ static void ks8695uart_set_termios(struct uart_port *port, struct ktermios *term
 	spin_lock_irqsave(&port->lock, flags);
 
 	/*
-                                
-  */
+	 * Update the per-port timeout.
+	 */
 	uart_update_timeout(port, termios->c_cflag, baud);
 
 	port->read_status_mask = URLS_URROE;
@@ -442,34 +442,34 @@ static void ks8695uart_set_termios(struct uart_port *port, struct ktermios *term
 		port->read_status_mask |= URLS_URBI;
 
 	/*
-                        
-  */
+	 * Characters to ignore
+	 */
 	port->ignore_status_mask = 0;
 	if (termios->c_iflag & IGNPAR)
 		port->ignore_status_mask |= (URLS_URFE | URLS_URPE);
 	if (termios->c_iflag & IGNBRK) {
 		port->ignore_status_mask |= URLS_URBI;
 		/*
-                                                   
-                                                
-   */
+		 * If we're ignoring parity and break indicators,
+		 * ignore overruns too (for real raw support).
+		 */
 		if (termios->c_iflag & IGNPAR)
 			port->ignore_status_mask |= URLS_URROE;
 	}
 
 	/*
-                                              
-  */
+	 * Ignore all characters if CREAD is not set.
+	 */
 	if ((termios->c_cflag & CREAD) == 0)
 		port->ignore_status_mask |= UART_DUMMY_LSR_RX;
 
-	/*                           */
+	/* first, disable everything */
 	if (UART_ENABLE_MS(port, termios->c_cflag))
 		ks8695uart_enable_ms(port);
 	else
 		ks8695uart_disable_ms(port);
 
-	/*               */
+	/* Set baud rate */
 	UART_PUT_BRDR(port, quot);
 
 	UART_PUT_LCR(port, lcr);
@@ -484,7 +484,7 @@ static const char *ks8695uart_type(struct uart_port *port)
 }
 
 /*
-                                                    
+ * Release the memory region(s) being used by 'port'
  */
 static void ks8695uart_release_port(struct uart_port *port)
 {
@@ -492,7 +492,7 @@ static void ks8695uart_release_port(struct uart_port *port)
 }
 
 /*
-                                                    
+ * Request the memory region(s) being used by 'port'
  */
 static int ks8695uart_request_port(struct uart_port *port)
 {
@@ -501,7 +501,7 @@ static int ks8695uart_request_port(struct uart_port *port)
 }
 
 /*
-                                    
+ * Configure/autoconfigure the port.
  */
 static void ks8695uart_config_port(struct uart_port *port, int flags)
 {
@@ -512,7 +512,7 @@ static void ks8695uart_config_port(struct uart_port *port, int flags)
 }
 
 /*
-                                                  
+ * verify the new serial_struct (for TIOCSSERIAL).
  */
 static int ks8695uart_verify_port(struct uart_port *port, struct serial_struct *ser)
 {
@@ -621,10 +621,10 @@ static int __init ks8695_console_setup(struct console *co, char *options)
 	int flow = 'n';
 
 	/*
-                                                                
-                                                             
-                    
-  */
+	 * Check whether an invalid uart number has been specified, and
+	 * if so, search for the first available port that does have
+	 * console support.
+	 */
 	port = uart_get_console(ks8695uart_ports, SERIAL_KS8695_NR, co);
 
 	if (options)

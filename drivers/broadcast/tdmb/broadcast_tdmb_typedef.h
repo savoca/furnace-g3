@@ -46,7 +46,7 @@ extern "C" {
 #define DMB_NO_WAIT		0
 #define DMB_UNUSED_PARAMETER(x) ((void)(x))
 
-//                    
+//typedef int boolean;
 #ifndef boolean
 typedef unsigned char      boolean;
 #endif
@@ -201,5 +201,5 @@ typedef int(*dmb_callback_type)(int);
 }
 #endif
 
-#endif	/*                  */
+#endif	/* !__TDMB_TYPE_H__ */
 

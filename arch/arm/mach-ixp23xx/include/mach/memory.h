@@ -15,7 +15,7 @@
 #include <mach/hardware.h>
 
 /*
-                        
+ * Physical DRAM offset.
  */
 #define PLAT_PHYS_OFFSET		(0x00000000)
 

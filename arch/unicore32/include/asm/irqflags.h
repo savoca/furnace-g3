@@ -20,7 +20,7 @@
 #define ARCH_IRQ_ENABLED	(PRIV_MODE)
 
 /*
-                                           
+ * Save the current interrupt enable state.
  */
 static inline unsigned long arch_local_save_flags(void)
 {
@@ -32,7 +32,7 @@ static inline unsigned long arch_local_save_flags(void)
 }
 
 /*
-                          
+ * restore saved IRQ state
  */
 static inline void arch_local_irq_restore(unsigned long flags)
 {

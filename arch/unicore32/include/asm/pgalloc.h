@@ -31,7 +31,7 @@ extern void free_pgd_slow(struct mm_struct *mm, pgd_t *pgd);
 #define PGALLOC_GFP	(GFP_KERNEL | __GFP_NOTRACK | __GFP_REPEAT | __GFP_ZERO)
 
 /*
-                          
+ * Allocate one PTE table.
  */
 static inline pte_t *
 pte_alloc_one_kernel(struct mm_struct *mm, unsigned long addr)
@@ -63,7 +63,7 @@ pte_alloc_one(struct mm_struct *mm, unsigned long addr)
 }
 
 /*
-                      
+ * Free one PTE table.
  */
 static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
 {
@@ -84,8 +84,8 @@ static inline void __pmd_populate(pmd_t *pmdp, unsigned long pmdval)
 }
 
 /*
-                                                                       
-                           
+ * Populate the pmdp entry with a pointer to the pte.  This pmd is part
+ * of the mm address space.
  */
 static inline void
 pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmdp, pte_t *ptep)
@@ -93,9 +93,9 @@ pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmdp, pte_t *ptep)
 	unsigned long pte_ptr = (unsigned long)ptep;
 
 	/*
-                                            
-                            
-  */
+	 * The pmd must be loaded with the physical
+	 * address of the PTE table
+	 */
 	__pmd_populate(pmdp, __pa(pte_ptr) | _PAGE_KERNEL_TABLE);
 }
 

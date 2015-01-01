@@ -21,7 +21,7 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *	http://www.gnu.org/copyleft/gpl.html
  */
-/*                                                                            */
+/******************************************************************************/
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -38,31 +38,31 @@
 #define assert(C)  if (C) ; else        \
 	{ pr_err("ASSERT(%s:%d)\n", __FILE__, __LINE__); }
 
-/*                                                                  */
+/* Module parameters no g_ prefix as it would look ugly externally. */
 
-/*                                                     */
+/* Uid of the user that the /proc/ device is given to. */
 static int uid = 1000;
 
-/*                                                                    */
+/* Per-crypto-alg-transform context, which contains the key material. */
 struct kfips_transform_context {
 	int keylen;
 	uint32_t key[(AES_MAX_KEY_SIZE * 2) / sizeof(uint32_t)];
 };
 
-/*                                                                
-                                                                   */
+/* Per-request context, which contains the in-kernel list pointers
+ * (for g_pending or g_sent) as well as pointer to the SHM handle. */
 struct kfips_request_context {
-	/*                                                        
-                          */
+	/* DO NOT MOVE this! assumption that typecasts can be done
+	 * exists in few places. */
 	struct list_head list;
 
-	/*                                            */
+	/* Request-related flags (See KFIPS_FLAGS_*). */
 	uint8_t flags;
 
-	/*                                                 */
+	/* Available if in g_sent, but not if in g_pending */
 	kfips_msg_t *msg;
 
-	/*                  */
+	/* Available always */
 	struct ablkcipher_request *req;
 };
 
@@ -71,17 +71,17 @@ static pid_t g_pid = 0;
 
 static kfips_queue_t *g_queue;
 
-/*                                                                  
-                  */
+/* This lock is used to protect access to g_queue, and to the g_sent
+ * and g_pending. */
 static DEFINE_SPINLOCK(g_lock);
 static LIST_HEAD(g_pending);
 static LIST_HEAD(g_sent);
 
-/*                                         */
+/* Wait queue for blocking file operations */
 static DECLARE_WAIT_QUEUE_HEAD(g_file_wq);
 
-/*                                                               
-                
+/* Get real allocated size in multiple of PAGE_SIZE, as e.g. mmap
+ * rounds to it.
  */
 static size_t kfips_real_size(size_t size)
 {
@@ -91,10 +91,10 @@ static size_t kfips_real_size(size_t size)
 	return real_size;
 }
 
-/*                                                                
-                                                                 
-                                                                      
-                                   */
+/* Get number of pages within scatterlist that are needed to store
+ * nbytes bytes of data. It is interesting question how we should
+ * behave in error cases; hopefully sg_copy functions do not overwrite
+ * memory if running out of lists! */
 static int sg_count(struct scatterlist *sg, size_t nbytes)
 {
 	int n = 0;
@@ -111,10 +111,10 @@ static int sg_count(struct scatterlist *sg, size_t nbytes)
 	return n;
 }
 
-/*                                                                 
-                                                                      
-                                                                   
-                                
+/* Flush a request to the memory structure, and potentially wake up
+ * the reading user-land application. The call should be done with the
+ * spinlock held. If the queue is full, NULL is returned, otherwise
+ * the place within kfips_queue.
  */
 static bool flush_request_locked(struct ablkcipher_request *req)
 {
@@ -139,14 +139,14 @@ static bool flush_request_locked(struct ablkcipher_request *req)
 	return true;
 }
 
-/*                                                                  
-                                                                     
-                                                                    
-                                                                 
-                                                              
-                                                                 
-                                                                      
-                        
+/* Copy all dirty/done requests' content back to the ring, and clear
+ * the dirty/done bits. In general, dirty requests are ones that have
+ * been touched by the userland, but haven't yet received completion
+ * message from the userland. The assumption is that when this is
+ * called, there is no pending processing in the userland, nor
+ * anything inbound on the file descriptor => everything dirty is
+ * tainted, as userland would operate again on the same data (or worse
+ * yet, corrupted data).
  */
 static void recopy_dirty_locked(void)
 {
@@ -163,9 +163,9 @@ static void recopy_dirty_locked(void)
 			req = msg->pointer;
 			if (req) {
 				msg->response_valid = 0;
-				/*                                
-                          
-                             */
+				/* Do the same scatter-gather copy
+				 * operation as within
+				 * flush_request_locked. */
 				sg_copy_to_buffer(req->src,
 						  sg_count(req->dst,
 							   req->nbytes),
@@ -210,8 +210,8 @@ static int file_release(struct inode *inode, struct file *filp)
 {
 	pr_info("Process %d disconnected\n", g_pid);
 	g_pid = 0;
-	/*                                                      
-                           */
+	/* At this point, we have to refresh the contents of the
+	   ring where applicable. */
 	spin_lock_bh(&g_lock);
 	recopy_dirty_locked();
 	spin_unlock_bh(&g_lock);
@@ -239,8 +239,8 @@ static int file_mmap(struct file *filp, struct vm_area_struct *vma)
 		     (int) length);
 		return -EIO;
 	}
-	/*                                                           
-                  */
+	/* As one call remaps only ~page we iterate and map each page
+	 * individually. */
 	pfn = vmalloc_to_pfn(vmalloc_area_ptr);
 	while (length > 0) {
 		pfn = vmalloc_to_pfn(vmalloc_area_ptr);
@@ -268,9 +268,9 @@ static ssize_t file_read(struct file *filp, char *buf, size_t count,
 			 loff_t * pos)
 {
 	bool want_sleep;
-	/*                                                          
-                                                           
-                    */
+	/* We produce an artificial EOF at ~second interval, even if
+	 * nothing received in the g_file_wq, and faster, if we do
+	 * have something. */
 	spin_lock_bh(&g_lock);
 	want_sleep = list_empty(&g_sent);
 	spin_unlock_bh(&g_lock);
@@ -297,9 +297,9 @@ static ssize_t file_write(struct file *filp, const char *buf, size_t count,
 		return -EINVAL;
 	}
 
-	/*                                                           
-                 
-  */
+	/* Assumption is that data comes in the order it was given to
+	 * the userland.
+	 */
 	pr_debug("Processing responses\n");
 	spin_lock_bh(&g_lock);
 
@@ -311,8 +311,8 @@ static ssize_t file_write(struct file *filp, const char *buf, size_t count,
 			spin_unlock_bh(&g_lock);
 			return -EINVAL;
 		}
-		/*                                              
-                                                      */
+		/* Make sure the things come in order - the code
+		 * makes that assumption fairly strictly right now. */
 		req = msg->pointer;
 		rctx = ablkcipher_request_ctx(req);
 
@@ -320,11 +320,11 @@ static ssize_t file_write(struct file *filp, const char *buf, size_t count,
 		list_del(&qrctx->list);
 		qreq = qrctx->req;
 
-		/*                                                    */
+		/* Mark that we're done with this particular message. */
 		msg->flags = 0;
 
 		if (qreq != req) {
-			/*                                                */
+			/* Also the dequeue request should be the oldest. */
 			pr_err("Queue screwed up");
 			msg->pointer = NULL;
 			kfips_queue_remrsp_end(g_queue, msg);
@@ -347,21 +347,21 @@ static ssize_t file_write(struct file *filp, const char *buf, size_t count,
 	}
 
 
-	/*                                                   
-                                                              
-                                                               
-                                                              
-                                                             
-                                
-  */
+	/* Finally, check if there is something in the g_sent
+	 * that needs to be flushed now that we have again space.  To
+	 * prevent congestion, we just fire off the first one (so that
+	 * if there is multiple parties doing more-than-we-can-handle
+	 * I/O, we wind up with roughly ~fair usage, each party gets
+	 * to utilize us for one block)
+	 */
 	req = NULL;
 	if (!list_empty(&g_pending)) {
 		rctx = (struct kfips_request_context *) g_pending.next;
 		req = rctx->req;
 		assert(req);
-		/*                                        
-                                                       
-                                              */
+		/* If we manage to send it, have put it to
+		 * g_sent. Otherwise keep it in g_pending to wait for
+		 * more entries to complete for more space. */
 		if (flush_request_locked(req)) {
 			list_del(&rctx->list);
 			list_add_tail(&rctx->list, &g_sent);
@@ -370,8 +370,8 @@ static ssize_t file_write(struct file *filp, const char *buf, size_t count,
 		}
 	}
 	spin_unlock_bh(&g_lock);
-	/*                                                          */
-	/*                                 */
+	/* We have someone to wake (to start sending us more stuff) */
+	/* => send -EINPROGRESS completion */
 	if (req) {
 		pr_debug("Resuming after EBUSY - sending -EINPROGRESS\n");
 		req->base.complete(&req->base, -EINPROGRESS);
@@ -385,7 +385,7 @@ static int kfips_aes_qcrypt(struct ablkcipher_request *req, uint8_t flags)
 	int rc;
 	int rflags = req->base.flags;
 
-	/*                                                        */
+	/* For all AES modes, we require a minimum amount of data */
 	if (req->nbytes < AES_BLOCK_SIZE) {
 		pr_err("request size %d less than AES block size\n",
 		       (int)req->nbytes);
@@ -412,22 +412,22 @@ static int kfips_aes_qcrypt(struct ablkcipher_request *req, uint8_t flags)
 		return -EINVAL;
 	}
 
-	/*                                                        
-                                                               
-           */
+	/* Store the initial flags in the request context, just in
+	 * case they're needed later on (likely if we don't fit in the
+	 * ring)  */
 	rctx->flags = flags;
 
-	/*                                        */
+	/* And backpointer to the request itself. */
 	rctx->req = req;
 
-	/*                                           */
+	/* Lock the queue, attempt send the request. */
 	spin_lock_bh(&g_lock);
 	if (flush_request_locked(req)) {
-		/*                                    */
+		/* Put the request in the sent queue. */
 		list_add_tail(&rctx->list, &g_sent);
 		rc = -EINPROGRESS;
 	} else {
-		/*                                       */
+		/* Put the request in the pending queue. */
 		list_add_tail(&rctx->list, &g_pending);
 		rc = -EBUSY;
 	}
@@ -625,7 +625,7 @@ static int __init kfips_aes_mod_init(void)
 	mstate = KFIPS_STATE_CRYPTO_REGISTERED;
 	real_size = kfips_real_size(sizeof(kfips_queue_t));
 
-	/*                                   */
+	/* vmalloc_user will zero the memory */
 	if ((g_queue = vmalloc_user(real_size)) == NULL) {
 		pr_err("Error vmalloc %s \n", algs[0].cra_driver_name);
 		kfips_aes_mod_unload(mstate);

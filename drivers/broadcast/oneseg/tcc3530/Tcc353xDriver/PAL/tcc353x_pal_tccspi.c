@@ -1,13 +1,13 @@
+/*--------------------------------------------------------------------------*/
+/*    FileName    : Tcc353x_pal_tccspi.c                                    */
+/*    Description : Interface Function                                      */
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*   TCC Version : 1.0.0                                                    */
 /*   Copyright (c) Telechips, Inc.                                          */
+/*   ALL RIGHTS RESERVED                                                    */
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #include "tcc353x_common.h"
 #include "tcpal_os.h"
@@ -26,17 +26,17 @@ static I08U Tcc353xCheckCrc7(I08U * _data, I32U _len);
 static I32S Tcc353xTccspiReset(I32S _moduleIndex, I32S _chipAddress);
 
 /*
-                           
-                           
+#define DMA_MAX_SIZE	(2048)
+#define DMA_MAX_SIZE	(4096)
 */
-//                                                    
-//                                                
-//                                               
-#define DMA_MAX_SIZE	(188*87)		//               
+//#define DMA_MAX_SIZE	(188*40)		// 07.34kb  7520 byte
+//#define DMA_MAX_SIZE	(188*64)		//  11.75kb 12032
+//#define DMA_MAX_SIZE	(188*80)	//  14.68kb 15040
+#define DMA_MAX_SIZE	(188*87)		//  15.97kb 16356
 
-/*               */
+/* for test code */
 /*
-                        
+#define _RW_AT_ONCE_				
 */
 
 #define SPICMD_BUFF_LEN     8
@@ -310,7 +310,7 @@ static I08U Tcc353xCheckCrc7(I08U * _data, I32U _len)
 I32S Tcc353xSpiRW(I32S _moduleIndex, I08U * _bufferIn, I08U * _bufferOut,
 		  I32S _size, I08U _reservedOption)
 {
-	/*                                  */
+	/* for avoid const data confliction */
 	Tcc353xAdaptSpiReadWrite(_moduleIndex, _bufferIn, _bufferOut,
 				 _size, _reservedOption);
 	return TCC353X_RETURN_SUCCESS;
@@ -328,33 +328,33 @@ static I32S Tcc353xTccspiSingleRW(I32S _moduleIndex, I32S _chipAddress,
 				  I08U _writeFlag)
 {
 	I08U crc;
-	Buffin[0] = (I08U) (_chipAddress);	/*                           */
+	Buffin[0] = (I08U) (_chipAddress);	/* start bit(1) + chip_id(7) */
 
-	/*                                    */
+	/* mode(1) + rw(1) + fix(1) + addr(5) */
 	Buffin[1] =
 	    0 << 7 | _writeFlag << 6 | 1 << 5 | ((_registerAddr & 0x7c0) >>
 						 6);
 
-	/*                         */
+	/* addr(6bit) + NULL(2bit) */
 	Buffin[2] = (_registerAddr & 0x03f) << 2 | 0x0;
 
-	if (_writeFlag)		/*       */
+	if (_writeFlag)		/* write */
 		Buffin[3] = _data[0];
 	else
-		Buffin[3] = 0x0;	/*         */
+		Buffin[3] = 0x0;	/* null(8) */
 
 	Buffin[4] = 0x00;
 
 	crc = Tcc353xCheckCrc7(Buffin, 36);
-	Buffin[4] = 0x00 | ((crc & 0x7f) >> 3);	/*                  */
-	Buffin[5] = ((crc & 0x07) << 5) | 0x1f;	/*                     */
+	Buffin[4] = 0x00 | ((crc & 0x7f) >> 3);	/* null(4) + crc(4) */
+	Buffin[5] = ((crc & 0x07) << 5) | 0x1f;	/* crc(3) + end bit(5) */
 	Buffin[6] = 0xff;
 	Buffin[7] = 0xff;
 
 	Tcc353xSpiRW(_moduleIndex, Buffin, Buffout, SPICMD_BUFF_LEN, 1);
 
 	if (Buffout[7] != SPICMD_ACK) {
-		/*     */
+		/* ack */
 		TcpalPrintErr((I08S *) "[TCC353X] Single %s ACK error\n",
 			      _writeFlag ? "Write" : "Read");
 		TcpalPrintErr((I08S *)
@@ -390,24 +390,24 @@ static I32S Tcc353xTccspiMultiRW(I32S _moduleIndex, I32S _chipAddress,
 	if (_size > DMA_MAX_SIZE)
 		return (-1);
 
-	/*                                                         */
-	/*                           */
-	Buffin[0] = (I08U) (_chipAddress);	/*                           */
-	/*                                    */
+	/* MAX 16KB (Output buffer max size 7KB) (LENGTH + 1 Byte) */
+	/* start bit(1) + chip_id(7) */
+	Buffin[0] = (I08U) (_chipAddress);	/* start bit(1) + chip_id(7) */
+	/* mode(1) + rw(1) + fix(1) + addr(5) */
 	Buffin[1] =
 	    1 << 7 | _writeFlag << 6 | fixedMode << 5 |
 	    ((_registerAddr & 0x7c0) >> 6);
-	/*                           */
+	/* addr(6bit) + length(2bit) */
 	Buffin[2] =
 	    (I08U) ((_registerAddr & 0x03f) << 2 |
 		    ((_size & 0x3000) >> 12));
-	/*              */
+	/* length(8bit) */
 	Buffin[3] = (I08U) ((_size & 0xff0) >> 4);
 	Buffin[4] = (I08U) ((_size & 0xf) << 4);
 	crc = Tcc353xCheckCrc7(Buffin, 36);
-	/*                    */
+	/* length(4) + crc(4) */
 	Buffin[4] = (I08U) (((_size & 0xf) << 4) | ((crc & 0x7f) >> 3));
-	/*                     */
+	/* crc(3) + end bit(5) */
 	Buffin[5] = ((crc & 0x07) << 5) | 0x1f;
 	Buffin[6] = 0xff;
 	Buffin[7] = 0xff;
@@ -419,7 +419,7 @@ static I32S Tcc353xTccspiMultiRW(I32S _moduleIndex, I32S _chipAddress,
 
 		Tcc353xSpiRW(_moduleIndex, DummyDatas, BurstDatas, _size + 1 + (SPICMD_BUFF_LEN*2), 0);
 		TcpalMemcpy(_data, &BurstDatas[SPICMD_BUFF_LEN], _size+1);
-		if (BurstDatas[7] != SPICMD_ACK) {	/*     */
+		if (BurstDatas[7] != SPICMD_ACK) {	/* ack */
 			TcpalPrintErr((I08S *) "[TCC353X] Burst %s ACK error\n",
 				      _writeFlag ? "Write" : "Read");
 			TcpalPrintErr((I08S *)
@@ -436,7 +436,7 @@ static I32S Tcc353xTccspiMultiRW(I32S _moduleIndex, I32S _chipAddress,
 
 		Tcc353xSpiRW(_moduleIndex, BurstDatas, DummyDatas, _size + 1 + (SPICMD_BUFF_LEN*2), 0);
 		TcpalMemcpy(_data, &BurstDatas[SPICMD_BUFF_LEN], _size+1);
-		if (DummyDatas[7] != SPICMD_ACK) {	/*     */
+		if (DummyDatas[7] != SPICMD_ACK) {	/* ack */
 			TcpalPrintErr((I08S *) "[TCC353X] Burst %s ACK error\n",
 				      _writeFlag ? "Write" : "Read");
 			TcpalPrintErr((I08S *)
@@ -468,31 +468,31 @@ static I32S Tcc353xTccspiMultiRW(I32S _moduleIndex, I32S _chipAddress,
 	if (_size > DMA_MAX_SIZE)
 		return (-1);
 
-	/*                                                         */
-	/*                           */
-	Buffin[0] = (I08U) (_chipAddress);	/*                           */
-	/*                                    */
+	/* MAX 16KB (Output buffer max size 7KB) (LENGTH + 1 Byte) */
+	/* start bit(1) + chip_id(7) */
+	Buffin[0] = (I08U) (_chipAddress);	/* start bit(1) + chip_id(7) */
+	/* mode(1) + rw(1) + fix(1) + addr(5) */
 	Buffin[1] =
 	    1 << 7 | _writeFlag << 6 | fixedMode << 5 |
 	    ((_registerAddr & 0x7c0) >> 6);
-	/*                           */
+	/* addr(6bit) + length(2bit) */
 	Buffin[2] =
 	    (I08U) ((_registerAddr & 0x03f) << 2 |
 		    ((_size & 0x3000) >> 12));
-	/*              */
+	/* length(8bit) */
 	Buffin[3] = (I08U) ((_size & 0xff0) >> 4);
 	Buffin[4] = (I08U) ((_size & 0xf) << 4);
 	crc = Tcc353xCheckCrc7(Buffin, 36);
-	/*                    */
+	/* length(4) + crc(4) */
 	Buffin[4] = (I08U) (((_size & 0xf) << 4) | ((crc & 0x7f) >> 3));
-	/*                     */
+	/* crc(3) + end bit(5) */
 	Buffin[5] = ((crc & 0x07) << 5) | 0x1f;
 	Buffin[6] = 0xff;
 	Buffin[7] = 0xff;
 
 	Tcc353xSpiRW(_moduleIndex, Buffin, Buffout, SPICMD_BUFF_LEN, 1);
 
-	if (Buffout[7] != SPICMD_ACK) {	/*     */
+	if (Buffout[7] != SPICMD_ACK) {	/* ack */
 		TcpalPrintErr((I08S *) "[TCC353X] Burst %s ACK error\n",
 			      _writeFlag ? "Write" : "Read");
 		TcpalPrintErr((I08S *)
@@ -504,24 +504,24 @@ static I32S Tcc353xTccspiMultiRW(I32S _moduleIndex, I32S _chipAddress,
 	}
 
 	if (_writeFlag == 0) {
-		/*              */
+		/* Receive Data */
 		Tcc353xSpiRW(_moduleIndex, NullDatas, BurstDatas, _size + 1, 0);
 		TcpalMemcpy(_data, BurstDatas, _size+1);
 
-		/*                                          
-                        
-   */
+		/* initialize tcc353x spi cmd interface and 
+		 * read crc for pData 
+		 */
 		TcpalMemset(&FFData[0], 0xFF, SPICMD_BUFF_LEN);
 		Tcc353xSpiRW(_moduleIndex, FFData, Buffout,
 			     SPICMD_BUFF_LEN, 0);
-		/*               */
+		/*TODO check crc */
 	} else {
-		/*           */
+		/* Send Data */
 		TcpalMemcpy(BurstDatas, _data, _size+1);
 		Tcc353xSpiRW(_moduleIndex, BurstDatas, DummyDatas,
 			     _size + 1, 0);
 
-		/*                                      */
+		/* initialize tcc353x spi cmd interface */
 		TcpalMemset(&FFData[0], 0xFF, SPICMD_BUFF_LEN);
 		Tcc353xSpiRW(_moduleIndex, FFData, Buffout,
 			     SPICMD_BUFF_LEN, 0);

@@ -25,7 +25,7 @@
 #include <linux/delay.h>
 
 /*
-                                                                          
+ * swap functions are sometimes needed to interface little-endian hardware
  */
 
 static inline unsigned short _swapw(unsigned short v)
@@ -38,8 +38,8 @@ static inline unsigned long _swapl(unsigned long v)
     return ((v << 24) | ((v & 0xff00) << 8) | ((v & 0xff0000) >> 8) | (v >> 24));
 }
 
-//                                        
-//                                        
+//#define __iormb() asm volatile("membar")
+//#define __iowmb() asm volatile("membar")
 
 #define __raw_readb __builtin_read8
 #define __raw_readw __builtin_read16
@@ -108,8 +108,8 @@ static inline void __insl(unsigned long addr, void *buf, int len, int swap)
 #define mmiowb() mb()
 
 /*
-                                                  
-                                
+ *	make the short names macros so specific devices
+ *	can override them as required
  */
 
 static inline void memset_io(volatile void __iomem *addr, unsigned char val, int count)
@@ -244,7 +244,7 @@ static inline void writel(uint32_t datum, volatile void __iomem *addr)
 }
 
 
-/*                                  */
+/* Values for nocacheflag and cmode */
 #define IOMAP_FULL_CACHING		0
 #define IOMAP_NOCACHE_SER		1
 #define IOMAP_NOCACHE_NONSER		2
@@ -291,7 +291,7 @@ static inline void flush_write_buffers(void)
 }
 
 /*
-                                             
+ * do appropriate I/O accesses for token type
  */
 static inline unsigned int ioread8(void __iomem *p)
 {
@@ -369,7 +369,7 @@ static inline void iowrite32_rep(void __iomem *p, const void *src, unsigned long
 	__outsl_ns((unsigned long) p, src, count);
 }
 
-/*                                                              */
+/* Create a virtual mapping cookie for a PCI BAR (memory or IO) */
 struct pci_dev;
 static inline void pci_iounmap(struct pci_dev *dev, void __iomem *p)
 {
@@ -377,16 +377,16 @@ static inline void pci_iounmap(struct pci_dev *dev, void __iomem *p)
 
 
 /*
-                                                                      
-         
+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
+ * access
  */
 #define xlate_dev_mem_ptr(p)	__va(p)
 
 /*
-                                                          
+ * Convert a virtual cached pointer to an uncached pointer
  */
 #define xlate_dev_kmem_ptr(p)	p
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*           */
+#endif /* _ASM_IO_H */

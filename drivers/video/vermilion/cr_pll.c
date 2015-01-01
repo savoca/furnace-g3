@@ -34,7 +34,7 @@
 #include <linux/fb.h>
 #include "vermilion.h"
 
-/*                                            */
+/* The PLL Clock register sits on Host bridge */
 #define CRVML_DEVICE_MCH   0x5001
 #define CRVML_REG_MCHBAR   0x44
 #define CRVML_REG_MCHEN    0x54
@@ -60,8 +60,8 @@ static const unsigned crvml_clocks[] = {
 	74250,
 	120000
 	    /*
-                                                                     
-      */
+	     * There are more clocks, but they are disabled on the CR board.
+	     */
 };
 
 static const u32 crvml_clock_bits[] = {

@@ -25,7 +25,7 @@ DEFINE_MUTEX(pm_mutex);
 
 #ifdef CONFIG_PM_SLEEP
 
-/*                                          */
+/* Routines for PM-transition notifications */
 
 static BLOCKING_NOTIFIER_HEAD(pm_chain_head);
 
@@ -55,7 +55,7 @@ int pm_notifier_call_chain(unsigned long val)
 	return notifier_to_errno(ret);
 }
 
-/*                                                              */
+/* If set, devices may be suspended and resumed asynchronously. */
 int pm_async_enabled = 1;
 
 static ssize_t pm_async_show(struct kobject *kobj, struct kobj_attribute *attr,
@@ -102,12 +102,12 @@ touch_event_store(struct kobject *kobj,
 	hrtimer_cancel(&tc_ev_timer);
 	tc_ev_processed = 0;
 
-	/*                                                       
-               
-  */
+	/* set a timer to notify the userspace to stop processing
+	 * touch event
+	 */
 	hrtimer_start(&tc_ev_timer, touch_evt_timer_val, HRTIMER_MODE_REL);
 
-	/*                           */
+	/* wakeup the userspace poll */
 	sysfs_notify(kobj, NULL, "touch_event");
 
 	return n;
@@ -141,7 +141,7 @@ power_attr(touch_event_timer);
 
 static void touch_event_fn(struct work_struct *work)
 {
-	/*                           */
+	/* wakeup the userspace poll */
 	tc_ev_processed = 1;
 	sysfs_notify(power_kobj, NULL, "touch_event");
 
@@ -183,7 +183,7 @@ static ssize_t pm_test_show(struct kobject *kobj, struct kobj_attribute *attr,
 		}
 
 	if (s != buf)
-		/*                                     */
+		/* convert the last space to a newline */
 		*(s-1) = '\n';
 
 	return (s - buf);
@@ -217,7 +217,7 @@ static ssize_t pm_test_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 power_attr(pm_test);
-#endif /*                 */
+#endif /* CONFIG_PM_DEBUG */
 
 #ifdef CONFIG_DEBUG_FS
 static char *suspend_step_name(enum suspend_stat_step step)
@@ -316,21 +316,21 @@ static int __init pm_debugfs_init(void)
 }
 
 late_initcall(pm_debugfs_init);
-#endif /*                 */
+#endif /* CONFIG_DEBUG_FS */
 
-#endif /*                 */
+#endif /* CONFIG_PM_SLEEP */
 
 struct kobject *power_kobj;
 
-/* 
-                                      
-  
-                                                                   
-                                                            
-                            
-  
-                                                               
-                                                               
+/**
+ *	state - control system power state.
+ *
+ *	show() returns what states are supported, which is hard-coded to
+ *	'standby' (Power-On Suspend), 'mem' (Suspend-to-RAM), and
+ *	'disk' (Suspend-to-Disk).
+ *
+ *	store() accepts one of those strings, translates it into the
+ *	proper enumerated value, and initiates a suspend transition.
  */
 static ssize_t state_show(struct kobject *kobj, struct kobj_attribute *attr,
 			  char *buf)
@@ -348,7 +348,7 @@ static ssize_t state_show(struct kobject *kobj, struct kobj_attribute *attr,
 	s += sprintf(s, "%s\n", "disk");
 #else
 	if (s != buf)
-		/*                                     */
+		/* convert the last space to a newline */
 		*(s-1) = '\n';
 #endif
 	return (s - buf);
@@ -370,7 +370,7 @@ static suspend_state_t decode_state(const char *buf, size_t n)
 	p = memchr(buf, '\n', n);
 	len = p ? p - buf : n;
 
-	/*                          */
+	/* Check hibernation first. */
 	if (len == 4 && !strncmp(buf, "disk", len))
 		return PM_SUSPEND_MAX;
 
@@ -415,31 +415,31 @@ power_attr(state);
 
 #ifdef CONFIG_PM_SLEEP
 /*
-                                                                    
-                                                                              
-                             
-  
-                                                                             
-                                                                             
-                                                                           
-                                                                            
-                                                                          
-                                                                             
-                                                                             
-                                                                            
-                                                                            
-                                                                                
-                                                                              
-                               
-  
-                                                                           
-                                                                          
-                                                                                
-                                                                   
-                                                                               
-                                                                               
-                                                                              
-                                                                      
+ * The 'wakeup_count' attribute, along with the functions defined in
+ * drivers/base/power/wakeup.c, provides a means by which wakeup events can be
+ * handled in a non-racy way.
+ *
+ * If a wakeup event occurs when the system is in a sleep state, it simply is
+ * woken up.  In turn, if an event that would wake the system up from a sleep
+ * state occurs when it is undergoing a transition to that sleep state, the
+ * transition should be aborted.  Moreover, if such an event occurs when the
+ * system is in the working state, an attempt to start a transition to the
+ * given sleep state should fail during certain period after the detection of
+ * the event.  Using the 'state' attribute alone is not sufficient to satisfy
+ * these requirements, because a wakeup event may occur exactly when 'state'
+ * is being written to and may be delivered to user space right before it is
+ * frozen, so the event will remain only partially processed until the system is
+ * woken up by another event.  In particular, it won't cause the transition to
+ * a sleep state to be aborted.
+ *
+ * This difficulty may be overcome if user space uses 'wakeup_count' before
+ * writing to 'state'.  It first should read from 'wakeup_count' and store
+ * the read value.  Then, after carrying out its own preparations for the system
+ * transition to a sleep state, it should write the stored value to
+ * 'wakeup_count'.  If that fails, at least one wakeup event has occurred since
+ * 'wakeup_count' was read and 'state' should not be written to.  Otherwise, it
+ * is allowed to write to 'state', but the transition will be aborted if there
+ * are any wakeup events detected after 'wakeup_count' was written to.
  */
 
 static ssize_t wakeup_count_show(struct kobject *kobj,
@@ -519,7 +519,7 @@ static ssize_t autosleep_store(struct kobject *kobj,
 }
 
 power_attr(autosleep);
-#endif /*                     */
+#endif /* CONFIG_PM_AUTOSLEEP */
 
 #ifdef CONFIG_PM_WAKELOCKS
 static ssize_t wake_lock_show(struct kobject *kobj,
@@ -556,8 +556,8 @@ static ssize_t wake_unlock_store(struct kobject *kobj,
 
 power_attr(wake_unlock);
 
-#endif /*                     */
-#endif /*                 */
+#endif /* CONFIG_PM_WAKELOCKS */
+#endif /* CONFIG_PM_SLEEP */
 
 #ifdef CONFIG_PM_TRACE
 int pm_trace_enabled;
@@ -599,7 +599,7 @@ pm_trace_dev_match_store(struct kobject *kobj, struct kobj_attribute *attr,
 
 power_attr(pm_trace_dev_match);
 
-#endif /*                 */
+#endif /* CONFIG_PM_TRACE */
 
 #ifdef CONFIG_USER_WAKELOCK
 power_attr(wake_lock);

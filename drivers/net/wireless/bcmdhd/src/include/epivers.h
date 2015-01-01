@@ -42,7 +42,7 @@
 
 #define EPI_VERSION_DEV		1.88.67
 
-/*                                            */
+/* Driver Version String, ASCII, 32 chars max */
 #define	EPI_VERSION_STR		"1.88.67 (r)"
 
-#endif /*             */
+#endif /* _epivers_h_ */

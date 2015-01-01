@@ -2,7 +2,7 @@
 #define BCM63XX_DEV_PCMCIA_H_
 
 /*
-                              
+ * PCMCIA driver platform data
  */
 struct bcm63xx_pcmcia_platform_data {
 	unsigned int ready_gpio;
@@ -10,4 +10,4 @@ struct bcm63xx_pcmcia_platform_data {
 
 int bcm63xx_pcmcia_register(void);
 
-#endif /*                       */
+#endif /* BCM63XX_DEV_PCMCIA_H_ */

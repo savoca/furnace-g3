@@ -18,12 +18,12 @@
  */
 #line 5
 
-/* 
-        
-  
-                                                 
-  
-                                  
+/**
+ * @file
+ *
+ * @brief Large physical address extension types.
+ *
+ * See ARM PRD03-GENC-008469 11.0.
  */
 #ifndef _LPAE_TYPES_H_
 #define _LPAE_TYPES_H_
@@ -38,9 +38,9 @@
 
 #include "lpae_defs.h"
 
-/* 
-                                                                              
-     
+/**
+ * @name ARM LPAE page table descriptors. See p7-8 ARM PRD03-GENC-008469 11.0.
+ * @{
  */
 
 #define LOWER_PAGE_ATTRIBUTES_STAGE1	\
@@ -119,6 +119,6 @@ ARM_LPAE_DESC_TYPE(1, ARM_LPAE_L1D_BLOCK_BITS, uint64 sbzP:18;)
 ARM_LPAE_DESC_TYPE(2, ARM_LPAE_L2D_BLOCK_BITS, uint64 sbzP:9;)
 ARM_LPAE_DESC_TYPE(3, ARM_LPAE_L3D_BLOCK_BITS, ;)
 
-/*  */
+/*@}*/
 
-#endif /*                       */
+#endif /* ifndef _LPAE_TYPES_H_ */

@@ -1,10 +1,10 @@
-/*                                                                    
-  
-                                  
-                     
-                                         
-  
-                                                                    */
+/*********************************************************************
+ *
+ * Filename:      lge_irtty-kddi.c
+ * Version:       1.0
+ * Description:   please refer to n_tty.c
+ *
+ ********************************************************************/
 
 #include <linux/types.h>
 #include <linux/major.h>
@@ -33,7 +33,7 @@
 
 #define IRTTY_WAKEUP_CHARS 256
 
-#define IRTTY_THRESHOLD_THROTTLE		128 /*                             */
+#define IRTTY_THRESHOLD_THROTTLE		128 /* now based on remaining room */
 #define IRTTY_THRESHOLD_UNTHROTTLE 	128
 
 #define IRTTY_ECHO_OP_START 0xff
@@ -61,7 +61,7 @@ static inline int irtty_put_user(struct tty_struct *tty, unsigned char x,
 
 static void irtty_set_room(struct tty_struct *tty)
 {
-	/*                                    */
+	/* tty->read_cnt is not read locked ? */
 	int	left = N_IRDA_BUF_SIZE - tty->read_cnt - 1;
 	int old_left;
 
@@ -70,7 +70,7 @@ static void irtty_set_room(struct tty_struct *tty)
 	old_left = tty->receive_room;
 	tty->receive_room = left;
 
-	/*                                                          */
+	/* Did this open up the receive buffer? We may need to flip */
 	if (left && !old_left)
 		schedule_work(&tty->buf.work);
 }
@@ -102,7 +102,7 @@ static void irtty_reset_buffer_flags(struct tty_struct *tty)
 static void irtty_flush_buffer(struct tty_struct *tty)
 {
 	unsigned long flags;
-	/*                                            */
+	/* clear everything and unthrottle the driver */
 
 	irtty_reset_buffer_flags(tty);
 
@@ -172,8 +172,8 @@ static void irtty_receive_buf(struct tty_struct *tty, const unsigned char *cp,
 	tty->read_head = (tty->read_head + i) & (N_IRDA_BUF_SIZE-1);
 	tty->read_cnt += i;
 
-	//                                                                     
-	//                                                          
+	//printk(KERN_INFO "count: %d, i: %d, cnt: %d, head: %d , tail: %d \n",
+	//	count, i, tty->read_cnt, tty->read_head, tty->read_tail);
 
 	spin_unlock_irqrestore(&tty->read_lock, cpuflags);
 
@@ -271,7 +271,7 @@ static void irtty_set_termios(struct tty_struct *tty, struct ktermios *old)
 			tty->real_raw = 0;
 	}
 	irtty_set_room(tty);
-	/*                                               */
+	/* The termios change make the tty ready for I/O */
 	wake_up_interruptible(&tty->write_wait);
 	wake_up_interruptible(&tty->read_wait);
 }
@@ -289,8 +289,8 @@ static void irtty_close(struct tty_struct *tty)
 	}
 
 	printk(KERN_INFO "%s - %s: Irda GPIO PIN Disabled\n", __func__, tty->name);
-	/*                                                 
-                                  */
+	/* we must switch on IrDA HW module & Level shifter
+	 * prior to transfering any data */
 	gpio_set_value_cansleep(GPIO_IRDA_PWDN, GPIO_IRDA_PWDN_DISABLE);
 
 	if(lge_get_board_revno() >= HW_REV_B) {
@@ -298,7 +298,7 @@ static void irtty_close(struct tty_struct *tty)
 		udelay(150);
 	}
 	else {
-		//                            
+		//IrDA LDO Disable -> PMIC L19
 		if(!LDO19) {
 			LDO19 = regulator_get(tty->dev, "8941_l19");
 			if(IS_ERR(LDO19)) {
@@ -316,7 +316,7 @@ static int irtty_open(struct tty_struct *tty)
 	if (!tty)
 		return -EINVAL;
 
-	/*                                                           */
+	/* These are ugly. Currently a malloc failure here can panic */
 	if (!tty->read_buf) {
 		tty->read_buf = kzalloc(N_IRDA_BUF_SIZE, GFP_KERNEL);
 		if (!tty->read_buf)
@@ -339,7 +339,7 @@ static int irtty_open(struct tty_struct *tty)
 		udelay(30);
 	}
 	else {
-		//                           
+		//IrDA LDO enable -> PMIC L19
 		if(!LDO19) {
 			LDO19 = regulator_get(tty->dev, "8941_l19");
 			if(IS_ERR(LDO19)) {
@@ -351,8 +351,8 @@ static int irtty_open(struct tty_struct *tty)
 		regulator_enable(LDO19);
 	}
 	printk(KERN_INFO "%s - %s: Irda GPIO PIN Enabled\n", __func__, tty->name);
-	/*                                                 
-                                  */
+	/* we must switch on IrDA HW module & Level shifter
+	 * prior to transfering any data */
 	gpio_set_value_cansleep(GPIO_IRDA_PWDN, GPIO_IRDA_PWDN_ENABLE);
 
 	return 0;
@@ -393,7 +393,7 @@ static int irtty_copy_from_read_buf(struct tty_struct *tty,
 		spin_lock_irqsave(&tty->read_lock, flags);
 		tty->read_tail = (tty->read_tail + n) & (N_IRDA_BUF_SIZE-1);
 		tty->read_cnt -= n;
-		/*                                       */
+		/* Turn single EOF into zero-length read */
 		if (L_EXTPROC(tty) && tty->icanon && n == 1) {
 			if (!tty->read_cnt && (*b)[n-1] == EOF_CHAR(tty))
 				n--;
@@ -469,8 +469,8 @@ do_it_again:
 	}
 
 	/*
-                                    
-  */
+	 *	Internal serialization of reads.
+	 */
 	if (file->f_flags & O_NONBLOCK) {
 		if (!mutex_trylock(&tty->atomic_read_lock))
 			return -EAGAIN;
@@ -482,7 +482,7 @@ do_it_again:
 
 	add_wait_queue(&tty->read_wait, &wait);
 	while (nr) {
-		/*                               */
+		/* First test for status change. */
 		if (packet && tty->link->ctrl_status) {
 			unsigned char cs;
 			if (b != buf)
@@ -499,9 +499,9 @@ do_it_again:
 			nr--;
 			break;
 		}
-		/*                                                       
-                                                     
-                   */
+		/* This statement must be first before checking for input
+		   so that any interrupt will set the state back to
+		   TASK_RUNNING. */
 		set_current_state(TASK_INTERRUPTIBLE);
 
 		if (((minimum - (b - buf)) < tty->minimum_to_wake) &&
@@ -525,7 +525,7 @@ do_it_again:
 				retval = -ERESTARTSYS;
 				break;
 			}
-			/*                                           */
+			/* FIXME: does n_tty_set_room need locking ? */
 			irtty_set_room(tty);
 			timeout = schedule_timeout(timeout);
 			BUG_ON(!tty->read_buf);
@@ -533,7 +533,7 @@ do_it_again:
 		}
 		__set_current_state(TASK_RUNNING);
 
-		/*                        */
+		/* Deal with packet mode. */
 		if (packet && b == buf) {
 			if (irtty_put_user(tty, TIOCPKT_DATA, b++)) {
 				retval = -EFAULT;
@@ -544,8 +544,8 @@ do_it_again:
 		}
 		{
 			int uncopied;
-			/*                                                  
-                                       */
+			/* The copy function takes the read lock and handles
+			   locking internally for this case */
 			uncopied = irtty_copy_from_read_buf(tty, &b, &nr);
 			uncopied += irtty_copy_from_read_buf(tty, &b, &nr);
 			if (uncopied) {
@@ -592,7 +592,7 @@ static ssize_t irtty_write(struct tty_struct *tty, struct file *file,
 	ssize_t retval = 0;
 	unsigned long cpuflags;
 
-	/*                                                               */
+	/* Job control check -- must be done at start (POSIX.1 7.1.1.4). */
 	if (L_TOSTOP(tty) && file->f_op->write != redirected_tty_write) {
 		retval = tty_check_change(tty);
 		if (retval)
@@ -682,7 +682,7 @@ struct tty_ldisc_ops tty_ldisc_N_IRDA = {
 	.write           = irtty_write,
 	.ioctl           = irtty_ioctl,
 	.set_termios     = irtty_set_termios,
-	.poll            = NULL,//           
+	.poll            = NULL,//irtty_poll,
 	.receive_buf     = irtty_receive_buf,
 	.write_wakeup    = irtty_write_wakeup
 };
@@ -694,9 +694,9 @@ static int __init irtty_sir_init(void)
 
 	if ((err = tty_register_ldisc(N_IRDA, &tty_ldisc_N_IRDA)) != 0)
 		printk(KERN_ERR "IrDA: can't register line discipline (err = %d)\n", err);
-	/*                                                 
-                                 
-  */
+	/* we must switch on IrDA HW module & Level shifter
+	 * prior to transfering any data
+	 */
 
 	if((err = gpio_request_one(GPIO_IRDA_PWDN, GPIOF_OUT_INIT_HIGH, "IrDA_PWDN")) != 0) {
 		printk(KERN_ERR "%s : irda HW module open error\n", __func__);

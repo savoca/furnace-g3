@@ -16,14 +16,14 @@
  */
 
 /*
-                                                           
+ *  bfa_attr.c Linux driver configuration interface module.
  */
 
 #include "bfad_drv.h"
 #include "bfad_im.h"
 
 /*
-                                                        
+ * FC transport template entry, get SCSI target port ID.
  */
 static void
 bfad_im_get_starget_port_id(struct scsi_target *starget)
@@ -49,7 +49,7 @@ bfad_im_get_starget_port_id(struct scsi_target *starget)
 }
 
 /*
-                                                     
+ * FC transport template entry, get SCSI target nwwn.
  */
 static void
 bfad_im_get_starget_node_name(struct scsi_target *starget)
@@ -75,7 +75,7 @@ bfad_im_get_starget_node_name(struct scsi_target *starget)
 }
 
 /*
-                                                     
+ * FC transport template entry, get SCSI target pwwn.
  */
 static void
 bfad_im_get_starget_port_name(struct scsi_target *starget)
@@ -101,7 +101,7 @@ bfad_im_get_starget_port_name(struct scsi_target *starget)
 }
 
 /*
-                                                      
+ * FC transport template entry, get SCSI host port ID.
  */
 static void
 bfad_im_get_host_port_id(struct Scsi_Host *shost)
@@ -115,7 +115,7 @@ bfad_im_get_host_port_id(struct Scsi_Host *shost)
 }
 
 /*
-                                                        
+ * FC transport template entry, get SCSI host port type.
  */
 static void
 bfad_im_get_host_port_type(struct Scsi_Host *shost)
@@ -147,7 +147,7 @@ bfad_im_get_host_port_type(struct Scsi_Host *shost)
 }
 
 /*
-                                                         
+ * FC transport template entry, get SCSI host port state.
  */
 static void
 bfad_im_get_host_port_state(struct Scsi_Host *shost)
@@ -184,7 +184,7 @@ bfad_im_get_host_port_state(struct Scsi_Host *shost)
 }
 
 /*
-                                                          
+ * FC transport template entry, get SCSI host active fc4s.
  */
 static void
 bfad_im_get_host_active_fc4s(struct Scsi_Host *shost)
@@ -203,7 +203,7 @@ bfad_im_get_host_active_fc4s(struct Scsi_Host *shost)
 }
 
 /*
-                                                         
+ * FC transport template entry, get SCSI host link speed.
  */
 static void
 bfad_im_get_host_speed(struct Scsi_Host *shost)
@@ -240,7 +240,7 @@ bfad_im_get_host_speed(struct Scsi_Host *shost)
 }
 
 /*
-                                                        
+ * FC transport template entry, get SCSI host port type.
  */
 static void
 bfad_im_get_host_fabric_name(struct Scsi_Host *shost)
@@ -257,7 +257,7 @@ bfad_im_get_host_fabric_name(struct Scsi_Host *shost)
 }
 
 /*
-                                                    
+ * FC transport template entry, get BFAD statistics.
  */
 static struct fc_host_statistics *
 bfad_im_get_stats(struct Scsi_Host *shost)
@@ -287,7 +287,7 @@ bfad_im_get_stats(struct Scsi_Host *shost)
 
 	wait_for_completion(&fcomp.comp);
 
-	/*                                       */
+	/* Fill the fc_host_statistics structure */
 	hstats->seconds_since_last_reset = fcstats->fc.secs_reset;
 	hstats->tx_frames = fcstats->fc.tx_frames;
 	hstats->tx_words  = fcstats->fc.tx_words;
@@ -308,7 +308,7 @@ bfad_im_get_stats(struct Scsi_Host *shost)
 }
 
 /*
-                                                      
+ * FC transport template entry, reset BFAD statistics.
  */
 static void
 bfad_im_reset_stats(struct Scsi_Host *shost)
@@ -335,7 +335,7 @@ bfad_im_reset_stats(struct Scsi_Host *shost)
 }
 
 /*
-                                                       
+ * FC transport template entry, get rport loss timeout.
  */
 static void
 bfad_im_get_rport_loss_tmo(struct fc_rport *rport)
@@ -351,7 +351,7 @@ bfad_im_get_rport_loss_tmo(struct fc_rport *rport)
 }
 
 /*
-                                                       
+ * FC transport template entry, set rport loss timeout.
  */
 static void
 bfad_im_set_rport_loss_tmo(struct fc_rport *rport, u32 timeout)
@@ -571,7 +571,7 @@ bfad_im_vport_disable(struct fc_vport *fc_vport, bool disable)
 
 struct fc_function_template bfad_im_fc_function_template = {
 
-	/*                           */
+	/* Target dynamic attributes */
 	.get_starget_port_id = bfad_im_get_starget_port_id,
 	.show_starget_port_id = 1,
 	.get_starget_node_name = bfad_im_get_starget_node_name,
@@ -579,11 +579,11 @@ struct fc_function_template bfad_im_fc_function_template = {
 	.get_starget_port_name = bfad_im_get_starget_port_name,
 	.show_starget_port_name = 1,
 
-	/*                        */
+	/* Host dynamic attribute */
 	.get_host_port_id = bfad_im_get_host_port_id,
 	.show_host_port_id = 1,
 
-	/*                       */
+	/* Host fixed attributes */
 	.show_host_node_name = 1,
 	.show_host_port_name = 1,
 	.show_host_supported_classes = 1,
@@ -591,7 +591,7 @@ struct fc_function_template bfad_im_fc_function_template = {
 	.show_host_supported_speeds = 1,
 	.show_host_maxframe_size = 1,
 
-	/*                              */
+	/* More host dynamic attributes */
 	.show_host_port_type = 1,
 	.get_host_port_type = bfad_im_get_host_port_type,
 	.show_host_port_state = 1,
@@ -605,14 +605,14 @@ struct fc_function_template bfad_im_fc_function_template = {
 
 	.show_host_symbolic_name = 1,
 
-	/*            */
+	/* Statistics */
 	.get_fc_host_stats = bfad_im_get_stats,
 	.reset_fc_host_stats = bfad_im_reset_stats,
 
-	/*                                          */
+	/* Allocation length for host specific data */
 	.dd_fcrport_size = sizeof(struct bfad_itnim_data_s *),
 
-	/*                              */
+	/* Remote port fixed attributes */
 	.show_rport_maxframe_size = 1,
 	.show_rport_supported_classes = 1,
 	.show_rport_dev_loss_tmo = 1,
@@ -628,7 +628,7 @@ struct fc_function_template bfad_im_fc_function_template = {
 
 struct fc_function_template bfad_im_vport_fc_function_template = {
 
-	/*                           */
+	/* Target dynamic attributes */
 	.get_starget_port_id = bfad_im_get_starget_port_id,
 	.show_starget_port_id = 1,
 	.get_starget_node_name = bfad_im_get_starget_node_name,
@@ -636,11 +636,11 @@ struct fc_function_template bfad_im_vport_fc_function_template = {
 	.get_starget_port_name = bfad_im_get_starget_port_name,
 	.show_starget_port_name = 1,
 
-	/*                        */
+	/* Host dynamic attribute */
 	.get_host_port_id = bfad_im_get_host_port_id,
 	.show_host_port_id = 1,
 
-	/*                       */
+	/* Host fixed attributes */
 	.show_host_node_name = 1,
 	.show_host_port_name = 1,
 	.show_host_supported_classes = 1,
@@ -648,7 +648,7 @@ struct fc_function_template bfad_im_vport_fc_function_template = {
 	.show_host_supported_speeds = 1,
 	.show_host_maxframe_size = 1,
 
-	/*                              */
+	/* More host dynamic attributes */
 	.show_host_port_type = 1,
 	.get_host_port_type = bfad_im_get_host_port_type,
 	.show_host_port_state = 1,
@@ -662,14 +662,14 @@ struct fc_function_template bfad_im_vport_fc_function_template = {
 
 	.show_host_symbolic_name = 1,
 
-	/*            */
+	/* Statistics */
 	.get_fc_host_stats = bfad_im_get_stats,
 	.reset_fc_host_stats = bfad_im_reset_stats,
 
-	/*                                          */
+	/* Allocation length for host specific data */
 	.dd_fcrport_size = sizeof(struct bfad_itnim_data_s *),
 
-	/*                              */
+	/* Remote port fixed attributes */
 	.show_rport_maxframe_size = 1,
 	.show_rport_supported_classes = 1,
 	.show_rport_dev_loss_tmo = 1,
@@ -678,7 +678,7 @@ struct fc_function_template bfad_im_vport_fc_function_template = {
 };
 
 /*
-                                        
+ *  Scsi_Host_attrs SCSI host attributes
  */
 static ssize_t
 bfad_im_serial_num_show(struct device *dev, struct device_attribute *attr,

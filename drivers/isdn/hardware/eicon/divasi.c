@@ -52,7 +52,7 @@ extern int idifunc_init(void);
 extern void idifunc_finit(void);
 
 /*
-                    
+ *  helper functions
  */
 static char *getrev(const char *revision)
 {
@@ -68,7 +68,7 @@ static char *getrev(const char *revision)
 }
 
 /*
-          
+ *  LOCALS
  */
 static ssize_t um_idi_read(struct file *file, char __user *buf, size_t count,
 			   loff_t *offset);
@@ -81,7 +81,7 @@ static int remove_entity(void *entity);
 static void diva_um_timer_function(unsigned long data);
 
 /*
-             
+ * proc entry
  */
 extern struct proc_dir_entry *proc_net_eicon;
 static struct proc_dir_entry *um_idi_proc_entry = NULL;
@@ -159,7 +159,7 @@ static int DIVA_INIT_FUNCTION divas_idi_register_chrdev(void)
 }
 
 /*
-              
+** Driver Load
 */
 static int DIVA_INIT_FUNCTION divasi_init(void)
 {
@@ -200,7 +200,7 @@ out:
 
 
 /*
-                
+** Driver Unload
 */
 static void DIVA_EXIT_FUNCTION divasi_exit(void)
 {
@@ -216,7 +216,7 @@ module_exit(divasi_exit);
 
 
 /*
-                   
+ *  FILE OPERATIONS
  */
 
 static int
@@ -257,13 +257,13 @@ um_idi_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 			       file, data, count,
 			       divas_um_idi_copy_to_user);
 	switch (ret) {
-	case 0:		/*                      */
+	case 0:		/* no message available */
 		ret = (-EAGAIN);
 		break;
-	case (-1):		/*                     */
+	case (-1):		/* adapter was removed */
 		ret = (-ENODEV);
 		break;
-	case (-2):		/*                                        */
+	case (-2):		/* message_length > length of user buffer */
 		ret = (-EFAULT);
 		break;
 	}
@@ -318,7 +318,7 @@ um_idi_write(struct file *file, const char __user *buf, size_t count,
 	int adapter_nr = 0;
 
 	if (!file->private_data) {
-		/*                                          */
+		/* the first write() selects the adapter_nr */
 		if (count == sizeof(int)) {
 			if (copy_from_user
 			    ((void *) &adapter_nr, buf,
@@ -351,13 +351,13 @@ um_idi_write(struct file *file, const char __user *buf, size_t count,
 					file, data, count,
 					divas_um_idi_copy_from_user);
 		switch (ret) {
-		case 0:	/*                    */
+		case 0:	/* no space available */
 			ret = (-EAGAIN);
 			break;
-		case (-1):	/*                     */
+		case (-1):	/* adapter was removed */
 			ret = (-ENODEV);
 			break;
-		case (-2):	/*                                            */
+		case (-2):	/* length of user buffer > max message_length */
 			ret = (-EFAULT);
 			break;
 		}
@@ -469,8 +469,8 @@ void diva_um_timer_function(unsigned long data)
 		}
 
 /*
-                                                                         
-                                              
+**  If application exits without entity removal this function will remove
+**  entity and block until removal is complete
 */
 static int remove_entity(void *entity)
 {
@@ -493,17 +493,17 @@ static int remove_entity(void *entity)
 
 	if (!divas_um_idi_entity_assigned(entity) || p_os->aborted) {
 		/*
-                                               
-  */
+		  Entity is not assigned, also can be removed
+		*/
 		return (0);
 	}
 
 	DBG_TRC(("E(%08x) check remove", entity))
 
 		/*
-                                                      
-                                
-  */
+		  If adapter not answers on remove request inside of
+		  10 Sec, then adapter is dead
+		*/
 		diva_um_idi_start_wdog(entity);
 
 	{
@@ -550,7 +550,7 @@ static int remove_entity(void *entity)
 }
 
 /*
-                 
+ * timer watchdog
  */
 void diva_um_idi_start_wdog(void *entity)
 {

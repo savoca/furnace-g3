@@ -20,39 +20,39 @@
  *
  */
 
-/*                                                               
-                                        
-  
-                                                                
-                                      
-                                                 
-                                                                
-                                                                  
-                                                               
-                                                                 
-           
-                                                                    
-                                                               
-                            
-                                 
-                                                                    
-                                                                   
-                                                           
-  
-           
-                                                         
-    
-               
-  
-                             
-                                                                       
-                                
-                                                        
-                               
-  
-                  
-    
-                     
+/*	I think it would be in everyone's best interest to follow this
+ *	guidelines when writing PDC wrappers:
+ *
+ *	 - the name of the pdc wrapper should match one of the macros
+ *	   used for the first two arguments
+ *	 - don't use caps for random parts of the name
+ *	 - use the static PDC result buffers and "copyout" to structs
+ *	   supplied by the caller to encapsulate alignment restrictions
+ *	 - hold pdc_lock while in PDC or using static result buffers
+ *	 - use __pa() to convert virtual (kernel) pointers to physical
+ *	   ones.
+ *	 - the name of the struct used for pdc return values should equal
+ *	   one of the macros used for the first two arguments to the
+ *	   corresponding PDC call
+ *	 - keep the order of arguments
+ *	 - don't be smart (setting trailing NUL bytes for strings, return
+ *	   something useful even if the call failed) unless you are sure
+ *	   it's not going to affect functionality or performance
+ *
+ *	Example:
+ *	int pdc_cache_info(struct pdc_cache_info *cache_info )
+ *	{
+ *		int retval;
+ *
+ *		spin_lock_irq(&pdc_lock);
+ *		retval = mem_pdc_call(PDC_CACHE,PDC_CACHE_INFO,__pa(cache_info),0);
+ *		convert_to_wide(pdc_result);
+ *		memcpy(cache_info, pdc_result, sizeof(*cache_info));
+ *		spin_unlock_irq(&pdc_lock);
+ *
+ *		return retval;
+ *	}
+ *					prumpf	991016	
  */
 
 #include <stdarg.h>
@@ -67,7 +67,7 @@
 #include <asm/page.h>
 #include <asm/pdc.h>
 #include <asm/pdcpat.h>
-#include <asm/processor.h>	/*                   */
+#include <asm/processor.h>	/* for boot_cpu_data */
 
 static DEFINE_SPINLOCK(pdc_lock);
 extern unsigned long pdc_result[NUM_PDC_RESULT];
@@ -77,20 +77,20 @@ extern unsigned long pdc_result2[NUM_PDC_RESULT];
 #define WIDE_FIRMWARE 0x1
 #define NARROW_FIRMWARE 0x2
 
-/*                                                               
-                          */
+/* Firmware needs to be initially set to narrow to determine the 
+ * actual firmware width. */
 int parisc_narrow_firmware __read_mostly = 1;
 #endif
 
-/*                                                                       
-                                                         
-                                           
-  
-                                                                   
-                                                              
-                                                  
-                                                                      
-                                                                  
+/* On most currently-supported platforms, IODC I/O calls are 32-bit calls
+ * and MEM_PDC calls are always the same width as the OS.
+ * Some PAT boxes may have 64-bit IODC I/O.
+ *
+ * Ryan Bradetich added the now obsolete CONFIG_PDC_NARROW to allow
+ * 64-bit kernels to run on systems with 32-bit MEM_PDC calls.
+ * This allowed wide kernels to run on Cxxx boxes.
+ * We now detect 32-bit-only PDC and dynamically switch to 32-bit mode
+ * when running a 64-bit kernel on such boxes (e.g. C200 or C360).
  */
 
 #ifdef CONFIG_64BIT
@@ -107,12 +107,12 @@ long real32_call(unsigned long function, ...);
 #endif
 
 
-/* 
-                                                        
-                                       
-  
-                                                                       
-                                                                   
+/**
+ * f_extend - Convert PDC addresses to kernel addresses.
+ * @address: Address returned from PDC.
+ *
+ * This function is used to convert PDC addresses into kernel addresses
+ * when the PDC address size and kernel address size are different.
  */
 static unsigned long f_extend(unsigned long address)
 {
@@ -128,13 +128,13 @@ static unsigned long f_extend(unsigned long address)
 	return address;
 }
 
-/* 
-                                                                               
-                                        
-  
-                                                                                  
-                                                                              
-             
+/**
+ * convert_to_wide - Convert the return buffer addresses into kernel addresses.
+ * @address: The return buffer from PDC.
+ *
+ * This function is used to convert the return buffer addresses retrieved from PDC
+ * into kernel addresses when the PDC address size and kernel address size are
+ * different.
  */
 static void convert_to_wide(unsigned long *addr)
 {
@@ -161,11 +161,11 @@ void __cpuinit set_firmware_width_unlocked(void)
 		parisc_narrow_firmware = 0;
 }
 	
-/* 
-                                                                    
-   
-                                                                       
-                            
+/**
+ * set_firmware_width - Determine if the firmware is wide or narrow.
+ * 
+ * This function must be called before any pdc_* function that uses the
+ * convert_to_wide function.
  */
 void __cpuinit set_firmware_width(void)
 {
@@ -182,30 +182,30 @@ void __cpuinit set_firmware_width_unlocked(void) {
 void __cpuinit set_firmware_width(void) {
 	return;
 }
-#endif /*            */
+#endif /*CONFIG_64BIT*/
 
-/* 
-                                                   
-  
-                                                                          
-                                                 
+/**
+ * pdc_emergency_unlock - Unlock the linux pdc lock
+ *
+ * This call unlocks the linux pdc lock in case we need some PDC functions
+ * (like pdc_add_valid) during kernel stack dump.
  */
 void pdc_emergency_unlock(void)
 {
- 	/*                                                             */
+ 	/* Spinlock DEBUG code freaks out if we unconditionally unlock */
         if (spin_is_locked(&pdc_lock))
 		spin_unlock(&pdc_lock);
 }
 
 
-/* 
-                                                                         
-                                    
-  
-                                                                         
-                           
-   
-                                                                          
+/**
+ * pdc_add_valid - Verify address can be accessed without causing a HPMC.
+ * @address: Address to be verified.
+ *
+ * This PDC call attempts to read from the specified address and verifies
+ * if the address is valid.
+ * 
+ * The return value is PDC_OK (0) in case accessing this address is valid.
  */
 int pdc_add_valid(unsigned long address)
 {
@@ -220,13 +220,13 @@ int pdc_add_valid(unsigned long address)
 }
 EXPORT_SYMBOL(pdc_add_valid);
 
-/* 
-                                                 
-                              
-                                            
-                                               
-  
-                                                                    
+/**
+ * pdc_chassis_info - Return chassis information.
+ * @result: The return buffer.
+ * @chassis_info: The memory buffer address.
+ * @len: The size of the memory buffer address.
+ *
+ * An HVERSION dependent call for returning the chassis information.
  */
 int __init pdc_chassis_info(struct pdc_chassis_info *chassis_info, void *led_info, unsigned long len)
 {
@@ -245,11 +245,11 @@ int __init pdc_chassis_info(struct pdc_chassis_info *chassis_info, void *led_inf
         return retval;
 }
 
-/* 
-                                                                  
-                                                                 
-   
-                                                     
+/**
+ * pdc_pat_chassis_send_log - Sends a PDC PAT CHASSIS log message.
+ * @retval: -1 on error, 0 on success. Other value are PDC errors
+ * 
+ * Must be correctly formatted or expect system crash
  */
 #ifdef CONFIG_64BIT
 int pdc_pat_chassis_send_log(unsigned long state, unsigned long data)
@@ -268,9 +268,9 @@ int pdc_pat_chassis_send_log(unsigned long state, unsigned long data)
 }
 #endif
 
-/* 
-                                          
-                                     
+/**
+ * pdc_chassis_disp - Updates chassis code
+ * @retval: -1 on error, 0 on success
  */
 int pdc_chassis_disp(unsigned long disp)
 {
@@ -284,9 +284,9 @@ int pdc_chassis_disp(unsigned long disp)
 	return retval;
 }
 
-/* 
-                                              
-                                     
+/**
+ * pdc_chassis_warn - Fetches chassis warnings
+ * @retval: -1 on error, 0 on success
  */
 int pdc_chassis_warn(unsigned long *warn)
 {
@@ -315,12 +315,12 @@ int __cpuinit pdc_coproc_cfg_unlocked(struct pdc_coproc_cfg *pdc_coproc_info)
 	return ret;
 }
 
-/* 
-                                                                       
-                                           
-  
-                                                                        
-                             
+/**
+ * pdc_coproc_cfg - To identify coprocessors attached to the processor.
+ * @pdc_coproc_info: Return buffer address.
+ *
+ * This PDC call returns the presence and status of all the coprocessors
+ * attached to the processor.
  */
 int __cpuinit pdc_coproc_cfg(struct pdc_coproc_cfg *pdc_coproc_info)
 {
@@ -334,16 +334,16 @@ int __cpuinit pdc_coproc_cfg(struct pdc_coproc_cfg *pdc_coproc_info)
 	return ret;
 }
 
-/* 
-                                                   
-                                       
-                                                 
-                                
-                                                    
-                                              
-  
-                                                                       
-            
+/**
+ * pdc_iodc_read - Read data from the modules IODC.
+ * @actcnt: The actual number of bytes.
+ * @hpa: The HPA of the module for the iodc read.
+ * @index: The iodc entry point.
+ * @iodc_data: A buffer memory for the iodc options.
+ * @iodc_data_size: Size of the memory buffer.
+ *
+ * This PDC call reads from the IODC of the module specified by the hpa
+ * argument.
  */
 int pdc_iodc_read(unsigned long *actcnt, unsigned long hpa, unsigned int index,
 		  void *iodc_data, unsigned int iodc_data_size)
@@ -363,14 +363,14 @@ int pdc_iodc_read(unsigned long *actcnt, unsigned long hpa, unsigned int index,
 }
 EXPORT_SYMBOL(pdc_iodc_read);
 
-/* 
-                                                           
-                                        
-                                            
-                                          
-  
-                                                                            
-                                                  
+/**
+ * pdc_system_map_find_mods - Locate unarchitected modules.
+ * @pdc_mod_info: Return buffer address.
+ * @mod_path: pointer to dev path structure.
+ * @mod_index: fixed address module index.
+ *
+ * To locate and identify modules which reside at fixed I/O addresses, which
+ * do not self-identify via architected bus walks.
  */
 int pdc_system_map_find_mods(struct pdc_system_map_mod_info *pdc_mod_info,
 			     struct pdc_module_path *mod_path, long mod_index)
@@ -390,14 +390,14 @@ int pdc_system_map_find_mods(struct pdc_system_map_mod_info *pdc_mod_info,
 	return retval;
 }
 
-/* 
-                                                                  
-                                         
-                                          
-                                    
-   
-                                                                              
-                                  
+/**
+ * pdc_system_map_find_addrs - Retrieve additional address ranges.
+ * @pdc_addr_info: Return buffer address.
+ * @mod_index: Fixed address module index.
+ * @addr_index: Address range index.
+ * 
+ * Retrieve additional information about subsequent address ranges for modules
+ * with multiple address ranges.  
  */
 int pdc_system_map_find_addrs(struct pdc_system_map_addr_info *pdc_addr_info, 
 			      long mod_index, long addr_index)
@@ -416,11 +416,11 @@ int pdc_system_map_find_addrs(struct pdc_system_map_addr_info *pdc_addr_info,
 	return retval;
 }
 
-/* 
-                                                                 
-                             
-  
-                                                                                        
+/**
+ * pdc_model_info - Return model information about the processor.
+ * @model: The return buffer.
+ *
+ * Returns the version numbers, identifiers, and capabilities from the processor module.
  */
 int pdc_model_info(struct pdc_model *model) 
 {
@@ -436,13 +436,13 @@ int pdc_model_info(struct pdc_model *model)
 	return retval;
 }
 
-/* 
-                                                  
-                                                 
-  
-                                                                        
-                                                                         
-            
+/**
+ * pdc_model_sysmodel - Get the system model name.
+ * @name: A char array of at least 81 characters.
+ *
+ * Get system model name from PDC ROM (e.g. 9000/715 or 9000/778/B160L).
+ * Using OS_ID_HPUX will return the equivalent of the 'modelname' command
+ * on HP/UX.
  */
 int pdc_model_sysmodel(char *name)
 {
@@ -455,7 +455,7 @@ int pdc_model_sysmodel(char *name)
         convert_to_wide(pdc_result);
 
         if (retval == PDC_OK) {
-                name[pdc_result[0]] = '\0'; /*                   */
+                name[pdc_result[0]] = '\0'; /* add trailing '\0' */
         } else {
                 name[0] = 0;
         }
@@ -464,15 +464,15 @@ int pdc_model_sysmodel(char *name)
         return retval;
 }
 
-/* 
-                                                                      
-                              
-                                         
-  
-                                                           
-  
-                                                                       
-                                             
+/**
+ * pdc_model_versions - Identify the version number of each processor.
+ * @cpu_id: The return buffer.
+ * @id: The id of the processor to check.
+ *
+ * Returns the version number for each processor component.
+ *
+ * This comment was here before, but I do not know what it means :( -RB
+ * id: 0 = cpu revision, 1 = boot-rom-version
  */
 int pdc_model_versions(unsigned long *versions, int id)
 {
@@ -488,12 +488,12 @@ int pdc_model_versions(unsigned long *versions, int id)
         return retval;
 }
 
-/* 
-                                        
-                              
-  
-                                                                        
-                        
+/**
+ * pdc_model_cpuid - Returns the CPU_ID.
+ * @cpu_id: The return buffer.
+ *
+ * Returns the CPU_ID value which uniquely identifies the cpu portion of
+ * the processor module.
  */
 int pdc_model_cpuid(unsigned long *cpu_id)
 {
@@ -501,7 +501,7 @@ int pdc_model_cpuid(unsigned long *cpu_id)
 	unsigned long flags;
 
         spin_lock_irqsave(&pdc_lock, flags);
-        pdc_result[0] = 0; /*                                            */
+        pdc_result[0] = 0; /* preset zero (call may not be implemented!) */
         retval = mem_pdc_call(PDC_MODEL, PDC_MODEL_CPU_ID, __pa(pdc_result), 0);
         convert_to_wide(pdc_result);
         *cpu_id = pdc_result[0];
@@ -510,12 +510,12 @@ int pdc_model_cpuid(unsigned long *cpu_id)
         return retval;
 }
 
-/* 
-                                                              
-                                    
-  
-                                                                   
-                                                 
+/**
+ * pdc_model_capabilities - Returns the platform capabilities.
+ * @capabilities: The return buffer.
+ *
+ * Returns information about platform support for 32- and/or 64-bit
+ * OSes, IO-PDIR coherency, and virtual aliasing.
  */
 int pdc_model_capabilities(unsigned long *capabilities)
 {
@@ -523,7 +523,7 @@ int pdc_model_capabilities(unsigned long *capabilities)
 	unsigned long flags;
 
         spin_lock_irqsave(&pdc_lock, flags);
-        pdc_result[0] = 0; /*                                            */
+        pdc_result[0] = 0; /* preset zero (call may not be implemented!) */
         retval = mem_pdc_call(PDC_MODEL, PDC_MODEL_CAPABILITIES, __pa(pdc_result), 0);
         convert_to_wide(pdc_result);
         if (retval == PDC_OK) {
@@ -536,11 +536,11 @@ int pdc_model_capabilities(unsigned long *capabilities)
         return retval;
 }
 
-/* 
-                                                     
-                                  
-  
-                                                           
+/**
+ * pdc_cache_info - Return cache and TLB information.
+ * @cache_info: The return buffer.
+ *
+ * Returns information about the processor's cache and TLB.
  */
 int pdc_cache_info(struct pdc_cache_info *cache_info)
 {
@@ -556,11 +556,11 @@ int pdc_cache_info(struct pdc_cache_info *cache_info)
         return retval;
 }
 
-/* 
-                                                                   
-                                              
-  
-                                              
+/**
+ * pdc_spaceid_bits - Return whether Space ID hashing is turned on.
+ * @space_bits: Should be 0, if not, bad mojo!
+ *
+ * Returns information about Space ID hashing.
  */
 int pdc_spaceid_bits(unsigned long *space_bits)
 {
@@ -578,11 +578,11 @@ int pdc_spaceid_bits(unsigned long *space_bits)
 }
 
 #ifndef CONFIG_PA20
-/* 
-                                                
-                            
-  
-                                                    
+/**
+ * pdc_btlb_info - Return block TLB information.
+ * @btlb: The return buffer.
+ *
+ * Returns information about the hardware Block TLB.
  */
 int pdc_btlb_info(struct pdc_btlb_info *btlb) 
 {
@@ -600,17 +600,17 @@ int pdc_btlb_info(struct pdc_btlb_info *btlb)
         return retval;
 }
 
-/* 
-                                                     
-                              
-                                            
-  
-                                                                            
-                                                                        
-                                                                            
-        
-  
-                                                                           
+/**
+ * pdc_mem_map_hpa - Find fixed module information.  
+ * @address: The return buffer
+ * @mod_path: pointer to dev path structure.
+ *
+ * This call was developed for S700 workstations to allow the kernel to find
+ * the I/O devices (Core I/O). In the future (Kittyhawk and beyond) this
+ * call will be replaced (on workstations) by the architected PDC_SYSTEM_MAP
+ * call.
+ *
+ * This call is supported by all existing S700 workstations (up to  Gecko).
  */
 int pdc_mem_map_hpa(struct pdc_memory_map *address,
 		struct pdc_module_path *mod_path)
@@ -627,14 +627,14 @@ int pdc_mem_map_hpa(struct pdc_memory_map *address,
 
         return retval;
 }
-#endif	/*              */
+#endif	/* !CONFIG_PA20 */
 
-/* 
-                                            
-                                
-                                
-  
-                                                                                       
+/**
+ * pdc_lan_station_id - Get the LAN address.
+ * @lan_addr: The return buffer.
+ * @hpa: The network device HPA.
+ *
+ * Get the LAN station address when it is not directly available from the LAN hardware.
  */
 int pdc_lan_station_id(char *lan_addr, unsigned long hpa)
 {
@@ -645,7 +645,7 @@ int pdc_lan_station_id(char *lan_addr, unsigned long hpa)
 	retval = mem_pdc_call(PDC_LAN_STATION_ID, PDC_LAN_STATION_ID_READ,
 			__pa(pdc_result), hpa);
 	if (retval < 0) {
-		/*                                 */
+		/* FIXME: else read MAC from NVRAM */
 		memset(lan_addr, 0, PDC_LAN_STATION_ID_SIZE);
 	} else {
 		memcpy(lan_addr, pdc_result, PDC_LAN_STATION_ID_SIZE);
@@ -656,15 +656,15 @@ int pdc_lan_station_id(char *lan_addr, unsigned long hpa)
 }
 EXPORT_SYMBOL(pdc_lan_station_id);
 
-/* 
-                                                   
-                                             
-                                                                          
-                                                               
-  
-                                                                         
-                                                        
-                                                        
+/**
+ * pdc_stable_read - Read data from Stable Storage.
+ * @staddr: Stable Storage address to access.
+ * @memaddr: The memory address where Stable Storage data shall be copied.
+ * @count: number of bytes to transfer. count is multiple of 4.
+ *
+ * This PDC call reads from the Stable Storage address supplied in staddr
+ * and copies count bytes to the memory address memaddr.
+ * The call will fail if staddr+count > PDC_STABLE size.
  */
 int pdc_stable_read(unsigned long staddr, void *memaddr, unsigned long count)
 {
@@ -682,15 +682,15 @@ int pdc_stable_read(unsigned long staddr, void *memaddr, unsigned long count)
 }
 EXPORT_SYMBOL(pdc_stable_read);
 
-/* 
-                                                   
-                                             
-                                                                             
-                                                               
-  
-                                                                     
-                                                               
-                                                        
+/**
+ * pdc_stable_write - Write data to Stable Storage.
+ * @staddr: Stable Storage address to access.
+ * @memaddr: The memory address where Stable Storage data shall be read from.
+ * @count: number of bytes to transfer. count is multiple of 4.
+ *
+ * This PDC call reads count bytes from the supplied memaddr address,
+ * and copies count bytes to the Stable Storage address staddr.
+ * The call will fail if staddr+count > PDC_STABLE size.
  */
 int pdc_stable_write(unsigned long staddr, void *memaddr, unsigned long count)
 {
@@ -708,14 +708,14 @@ int pdc_stable_write(unsigned long staddr, void *memaddr, unsigned long count)
 }
 EXPORT_SYMBOL(pdc_stable_write);
 
-/* 
-                                                          
-                                                
-  
-                                                                      
-                                                                         
-                                                                     
-                               
+/**
+ * pdc_stable_get_size - Get Stable Storage size in bytes.
+ * @size: pointer where the size will be stored.
+ *
+ * This PDC call returns the number of bytes in the processor's Stable
+ * Storage, which is the number of contiguous bytes implemented in Stable
+ * Storage starting from staddr=0. size in an unsigned 64-bit integer
+ * which is a multiple of four.
  */
 int pdc_stable_get_size(unsigned long *size)
 {
@@ -731,11 +731,11 @@ int pdc_stable_get_size(unsigned long *size)
 }
 EXPORT_SYMBOL(pdc_stable_get_size);
 
-/* 
-                                                                              
-  
-                                                                          
-                              
+/**
+ * pdc_stable_verify_contents - Checks that Stable Storage contents are valid.
+ *
+ * This PDC call is meant to be used to check the integrity of the current
+ * contents of Stable Storage.
  */
 int pdc_stable_verify_contents(void)
 {
@@ -750,11 +750,11 @@ int pdc_stable_verify_contents(void)
 }
 EXPORT_SYMBOL(pdc_stable_verify_contents);
 
-/* 
-                                                                              
-                          
-  
-                                                                          
+/**
+ * pdc_stable_initialize - Sets Stable Storage contents to zero and initialize
+ * the validity indicator.
+ *
+ * This PDC call will erase all contents of Stable Storage. Use with care!
  */
 int pdc_stable_initialize(void)
 {
@@ -769,19 +769,19 @@ int pdc_stable_initialize(void)
 }
 EXPORT_SYMBOL(pdc_stable_initialize);
 
-/* 
-                                                                                    
-                                                  
-                                                  
-  
-                                                
-                                                           
-                                                               
-                                                              
-                                   
-                                                 
-                                                                  
-                                                                         
+/**
+ * pdc_get_initiator - Get the SCSI Interface Card params (SCSI ID, SDTR, SE or LVD)
+ * @hwpath: fully bc.mod style path to the device.
+ * @initiator: the array to return the result into
+ *
+ * Get the SCSI operational parameters from PDC.
+ * Needed since HPUX never used BIOS or symbios card NVRAM.
+ * Most ncr/sym cards won't have an entry and just use whatever
+ * capabilities of the card are (eg Ultra, LVD). But there are
+ * several cases where it's useful:
+ *    o set SCSI id for Multi-initiator clusters,
+ *    o cable too long (ie SE scsi 10Mhz won't support 6m length),
+ *    o bus width exported is less than what the interface chip supports.
  */
 int pdc_get_initiator(struct hardware_path *hwpath, struct pdc_initiator *initiator)
 {
@@ -790,7 +790,7 @@ int pdc_get_initiator(struct hardware_path *hwpath, struct pdc_initiator *initia
 
 	spin_lock_irqsave(&pdc_lock, flags);
 
-/*                                              */
+/* BCJ-XXXX series boxes. E.G. "9000/785/C3000" */
 #define IS_SPROCKETS() (strlen(boot_cpu_data.pdc.sys_model_name) == 14 && \
 	strncmp(boot_cpu_data.pdc.sys_model_name, "9000/785", 8) == 0)
 
@@ -806,9 +806,9 @@ int pdc_get_initiator(struct hardware_path *hwpath, struct pdc_initiator *initia
 	}
 
 	/*
-                                                                  
-                                                        
-  */
+	 * Sprockets and Piranha return 20 or 40 (MT/s).  Prelude returns
+	 * 1, 2, 5 or 10 for 5, 10, 20 or 40 MT/s, respectively
+	 */
 	switch (pdc_result[1]) {
 		case  1: initiator->factor = 50; break;
 		case  2: initiator->factor = 25; break;
@@ -835,14 +835,14 @@ int pdc_get_initiator(struct hardware_path *hwpath, struct pdc_initiator *initia
 EXPORT_SYMBOL(pdc_get_initiator);
 
 
-/* 
-                                                                               
-                                  
-                                
-  
-                                                                          
-                   
-                                                               
+/**
+ * pdc_pci_irt_size - Get the number of entries in the interrupt routing table.
+ * @num_entries: The return value.
+ * @hpa: The HPA for the device.
+ *
+ * This PDC function returns the number of entries in the specified cell's
+ * interrupt table.
+ * Similar to PDC_PAT stuff - but added for Forte/Allegro boxes
  */ 
 int pdc_pci_irt_size(unsigned long *num_entries, unsigned long hpa)
 {
@@ -859,14 +859,14 @@ int pdc_pci_irt_size(unsigned long *num_entries, unsigned long hpa)
 	return retval;
 }
 
-/*  
-                                                     
-                                                    
-                                                 
-         
-  
-                                                                       
-                                                               
+/** 
+ * pdc_pci_irt - Get the PCI interrupt routing table.
+ * @num_entries: The number of entries in the table.
+ * @hpa: The Hard Physical Address of the device.
+ * @tbl: 
+ *
+ * Get the PCI interrupt routing table for the device at the given HPA.
+ * Similar to PDC_PAT stuff - but added for Forte/Allegro boxes
  */
 int pdc_pci_irt(unsigned long num_entries, unsigned long hpa, void *tbl)
 {
@@ -885,14 +885,14 @@ int pdc_pci_irt(unsigned long num_entries, unsigned long hpa, void *tbl)
 }
 
 
-#if 0	/*                                                  */
+#if 0	/* UNTEST CODE - left here in case someone needs it */
 
-/*  
-                                               
-                                                    
-                                                     
-  
-                                                                        
+/** 
+ * pdc_pci_config_read - read PCI config space.
+ * @hpa		token from PDC to indicate which PCI device
+ * @pci_addr	configuration space address to read from
+ *
+ * Read PCI Configuration space *before* linux PCI subsystem is running.
  */
 unsigned int pdc_pci_config_read(void *hpa, unsigned long cfg_addr)
 {
@@ -910,13 +910,13 @@ unsigned int pdc_pci_config_read(void *hpa, unsigned long cfg_addr)
 }
 
 
-/*  
-                                                
-                                                    
-                                                 
-                                             
-  
-                                                                         
+/** 
+ * pdc_pci_config_write - read PCI config space.
+ * @hpa		token from PDC to indicate which PCI device
+ * @pci_addr	configuration space address to write
+ * @val		value we want in the 32-bit register
+ *
+ * Write PCI Configuration space *before* linux PCI subsystem is running.
  */
 void pdc_pci_config_write(void *hpa, unsigned long cfg_addr, unsigned int val)
 {
@@ -932,13 +932,13 @@ void pdc_pci_config_write(void *hpa, unsigned long cfg_addr, unsigned int val)
 
 	return retval;
 }
-#endif /*               */
+#endif /* UNTESTED CODE */
 
-/* 
-                                             
-                           
-  
-                             
+/**
+ * pdc_tod_read - Read the Time-Of-Day clock.
+ * @tod: The return buffer:
+ *
+ * Read the Time-Of-Day clock
  */
 int pdc_tod_read(struct pdc_tod *tod)
 {
@@ -955,12 +955,12 @@ int pdc_tod_read(struct pdc_tod *tod)
 }
 EXPORT_SYMBOL(pdc_tod_read);
 
-/* 
-                                           
-                                           
-                                      
-  
-                             
+/**
+ * pdc_tod_set - Set the Time-Of-Day clock.
+ * @sec: The number of seconds since epoch.
+ * @usec: The number of micro seconds.
+ *
+ * Set the Time-Of-Day clock.
  */ 
 int pdc_tod_set(unsigned long sec, unsigned long usec)
 {
@@ -991,11 +991,11 @@ int pdc_mem_mem_table(struct pdc_memory_table_raddr *r_addr,
 
 	return retval;
 }
-#endif /*              */
+#endif /* CONFIG_64BIT */
 
-/*                                                                        
-                                                                            
-               
+/* FIXME: Is this pdc used?  I could not find type reference to ftc_bitmap
+ * so I guessed at unsigned long.  Someone who knows what this does, can fix
+ * it later. :)
  */
 int pdc_do_firm_test_reset(unsigned long ftc_bitmap)
 {
@@ -1011,9 +1011,9 @@ int pdc_do_firm_test_reset(unsigned long ftc_bitmap)
 }
 
 /*
-                                   
-  
-                    
+ * pdc_do_reset - Reset the system.
+ *
+ * Reset the system.
  */
 int pdc_do_reset(void)
 {
@@ -1028,10 +1028,10 @@ int pdc_do_reset(void)
 }
 
 /*
-                                                  
-                                             
-  
-                                                                
+ * pdc_soft_power_info - Enable soft power switch.
+ * @power_reg: address of soft power register
+ *
+ * Return the absolute address of the soft power switch register
  */
 int __init pdc_soft_power_info(unsigned long *power_reg)
 {
@@ -1052,15 +1052,15 @@ int __init pdc_soft_power_info(unsigned long *power_reg)
 }
 
 /*
-                                                                  
-                                                               
-  
-  
-                                                                   
-                    
-                                                                      
-                                                                     
-                                     
+ * pdc_soft_power_button - Control the soft power button behaviour
+ * @sw_control: 0 for hardware control, 1 for software control 
+ *
+ *
+ * This PDC function places the soft power button under software or
+ * hardware control.
+ * Under software control the OS may control to when to allow to shut 
+ * down the system. Under hardware control pressing the power button 
+ * powers off the system immediately.
  */
 int pdc_soft_power_button(int sw_control)
 {
@@ -1075,9 +1075,9 @@ int pdc_soft_power_button(int sw_control)
 }
 
 /*
-                                                                               
-                                                                       
-                                                                       
+ * pdc_io_reset - Hack to avoid overlapping range registers of Bridges devices.
+ * Primarily a problem on T600 (which parisc-linux doesn't support) but
+ * who knows what other platform firmware might do with this OS "hook".
  */
 void pdc_io_reset(void)
 {
@@ -1089,13 +1089,13 @@ void pdc_io_reset(void)
 }
 
 /*
-                                                     
-  
-                                                     
-                                                             
-                                                     
-                            
-                                                
+ * pdc_io_reset_devices - Hack to Stop USB controller
+ *
+ * If PDC used the usb controller, the usb controller
+ * is still running and will crash the machines during iommu 
+ * setup, because of still running DMA. This PDC call
+ * stops the USB controller.
+ * Normally called after calling pdc_io_reset().
  */
 void pdc_io_reset_devices(void)
 {
@@ -1106,19 +1106,19 @@ void pdc_io_reset_devices(void)
 	spin_unlock_irqrestore(&pdc_lock, flags);
 }
 
-/*                            */
+/* locked by pdc_console_lock */
 static int __attribute__((aligned(8)))   iodc_retbuf[32];
 static char __attribute__((aligned(64))) iodc_dbuf[4096];
 
-/* 
-                                             
-                              
-                        
-  
-                                                                          
-                                                  
-                                                                           
-                  
+/**
+ * pdc_iodc_print - Console print using IODC.
+ * @str: the string to output.
+ * @count: length of str
+ *
+ * Note that only these special chars are architected for console IODC io:
+ * BEL, BS, CR, and LF. Others are passed through.
+ * Since the HP console requires CR+LF to perform a 'newline', we translate
+ * "\n" to "\r\n".
  */
 int pdc_iodc_print(const unsigned char *str, unsigned count)
 {
@@ -1150,11 +1150,11 @@ print:
 	return i;
 }
 
-/* 
-                                                                        
-  
-                                                                      
-                      
+/**
+ * pdc_iodc_getc - Read a character (non-blocking) from the PDC console.
+ *
+ * Read a character (non-blocking) from the PDC console, returns -1 if
+ * key is not present.
  */
 int pdc_iodc_getc(void)
 {
@@ -1162,11 +1162,11 @@ int pdc_iodc_getc(void)
 	int status;
 	unsigned long flags;
 
-	/*                                  */
+	/* Bail if no console input device. */
 	if (!PAGE0->mem_kbd.iodc_io)
 		return 0;
 	
-	/*                                   */
+	/* wait for a keyboard (rs232)-input */
 	spin_lock_irqsave(&pdc_lock, flags);
 	real32_call(PAGE0->mem_kbd.iodc_io,
 		    (unsigned long)PAGE0->mem_kbd.hpa, ENTRY_IO_CIN,
@@ -1199,12 +1199,12 @@ int pdc_sti_call(unsigned long func, unsigned long flags,
 EXPORT_SYMBOL(pdc_sti_call);
 
 #ifdef CONFIG_64BIT
-/* 
-                                                     
-                                 
-  
-                                                                        
-           
+/**
+ * pdc_pat_cell_get_number - Returns the cell number.
+ * @cell_info: The return buffer.
+ *
+ * This PDC call returns the cell number of the cell from which the call
+ * is made.
  */
 int pdc_pat_cell_get_number(struct pdc_pat_cell_num *cell_info)
 {
@@ -1219,16 +1219,16 @@ int pdc_pat_cell_get_number(struct pdc_pat_cell_num *cell_info)
 	return retval;
 }
 
-/* 
-                                                                
-                                                    
-                                
-                          
-                                            
-                                
-  
-                                                                           
-                             
+/**
+ * pdc_pat_cell_module - Retrieve the cell's module information.
+ * @actcnt: The number of bytes written to mem_addr.
+ * @ploc: The physical location.
+ * @mod: The module index.
+ * @view_type: The view of the address type.
+ * @mem_addr: The return buffer.
+ *
+ * This PDC call returns information about each module attached to the cell
+ * at the specified location.
  */
 int pdc_pat_cell_module(unsigned long *actcnt, unsigned long ploc, unsigned long mod,
 			unsigned long view_type, void *mem_addr)
@@ -1249,12 +1249,12 @@ int pdc_pat_cell_module(unsigned long *actcnt, unsigned long ploc, unsigned long
 	return retval;
 }
 
-/* 
-                                                    
-                                
-                                              
-  
-                                                            
+/**
+ * pdc_pat_cpu_get_number - Retrieve the cpu number.
+ * @cpu_info: The return buffer.
+ * @hpa: The Hard Physical Address of the CPU.
+ *
+ * Retrieve the cpu number for the cpu at the specified HPA.
  */
 int pdc_pat_cpu_get_number(struct pdc_pat_cpu_num *cpu_info, void *hpa)
 {
@@ -1270,13 +1270,13 @@ int pdc_pat_cpu_get_number(struct pdc_pat_cpu_num *cpu_info, void *hpa)
 	return retval;
 }
 
-/* 
-                                                                                       
-                                  
-                              
-  
-                                                                          
-                   
+/**
+ * pdc_pat_get_irt_size - Retrieve the number of entries in the cell's interrupt table.
+ * @num_entries: The return value.
+ * @cell_num: The target cell.
+ *
+ * This PDC function returns the number of entries in the specified cell's
+ * interrupt table.
  */
 int pdc_pat_get_irt_size(unsigned long *num_entries, unsigned long cell_num)
 {
@@ -1292,12 +1292,12 @@ int pdc_pat_get_irt_size(unsigned long *num_entries, unsigned long cell_num)
 	return retval;
 }
 
-/* 
-                                                         
-                              
-                              
-  
-                                                                               
+/**
+ * pdc_pat_get_irt - Retrieve the cell's interrupt table.
+ * @r_addr: The return buffer.
+ * @cell_num: The target cell.
+ *
+ * This PDC function returns the actual interrupt table for the specified cell.
  */
 int pdc_pat_get_irt(void *r_addr, unsigned long cell_num)
 {
@@ -1312,13 +1312,13 @@ int pdc_pat_get_irt(void *r_addr, unsigned long cell_num)
 	return retval;
 }
 
-/* 
-                                                                              
-                              
-                                           
-                                                       
-                                                                   
-  
+/**
+ * pdc_pat_pd_get_addr_map - Retrieve information about memory address ranges.
+ * @actlen: The return buffer.
+ * @mem_addr: Pointer to the memory buffer.
+ * @count: The number of bytes to read from the buffer.
+ * @offset: The offset with respect to the beginning of the buffer.
+ *
  */
 int pdc_pat_pd_get_addr_map(unsigned long *actual_len, void *mem_addr, 
 			    unsigned long count, unsigned long offset)
@@ -1336,12 +1336,12 @@ int pdc_pat_pd_get_addr_map(unsigned long *actual_len, void *mem_addr,
 	return retval;
 }
 
-/* 
-                                                          
-                                                                                       
-                                                                   
-                                              
-  
+/**
+ * pdc_pat_io_pci_cfg_read - Read PCI configuration space.
+ * @pci_addr: PCI configuration space address for which the read request is being made.
+ * @pci_size: Size of read in bytes. Valid values are 1, 2, and 4. 
+ * @mem_addr: Pointer to return memory buffer.
+ *
  */
 int pdc_pat_io_pci_cfg_read(unsigned long pci_addr, int pci_size, u32 *mem_addr)
 {
@@ -1361,13 +1361,13 @@ int pdc_pat_io_pci_cfg_read(unsigned long pci_addr, int pci_size, u32 *mem_addr)
 	return retval;
 }
 
-/* 
-                                                                               
-                                                                                         
-                                                                    
-                                                                               
-                                       
-  
+/**
+ * pdc_pat_io_pci_cfg_write - Retrieve information about memory address ranges.
+ * @pci_addr: PCI configuration space address for which the write  request is being made.
+ * @pci_size: Size of write in bytes. Valid values are 1, 2, and 4. 
+ * @value: Pointer to 1, 2, or 4 byte value in low order end of argument to be 
+ *         written to PCI Config space.
+ *
  */
 int pdc_pat_io_pci_cfg_write(unsigned long pci_addr, int pci_size, u32 val)
 {
@@ -1381,17 +1381,17 @@ int pdc_pat_io_pci_cfg_write(unsigned long pci_addr, int pci_size, u32 val)
 
 	return retval;
 }
-#endif /*              */
+#endif /* CONFIG_64BIT */
 
 
-/*                                                  */
-/*                         
-                                                                  
-                                                             
+/***************** 32-bit real-mode calls ***********/
+/* The struct below is used
+ * to overlay real_stack (real2.S), preparing a 32-bit call frame.
+ * real32_call_asm() then uses this stack in narrow real mode
  */
 
 struct narrow_stack {
-	/*                                    */
+	/* use int, not long which is 64 bits */
 	unsigned int arg13;
 	unsigned int arg12;
 	unsigned int arg11;
@@ -1408,7 +1408,7 @@ struct narrow_stack {
 	unsigned int arg0;
 	unsigned int frame_marker[8];
 	unsigned int sp;
-	/*                                                   */
+	/* in reality, there's nearly 8k of stack after this */
 };
 
 long real32_call(unsigned long fn, ...)
@@ -1440,7 +1440,7 @@ long real32_call(unsigned long fn, ...)
 }
 
 #ifdef CONFIG_64BIT
-/*                                                  */
+/***************** 64-bit real-mode calls ***********/
 
 struct wide_stack {
 	unsigned long arg0;
@@ -1457,9 +1457,9 @@ struct wide_stack {
 	unsigned long arg11;
 	unsigned long arg12;
 	unsigned long arg13;
-	unsigned long frame_marker[2];	/*                 */
+	unsigned long frame_marker[2];	/* rp, previous sp */
 	unsigned long sp;
-	/*                                                   */
+	/* in reality, there's nearly 8k of stack after this */
 };
 
 long real64_call(unsigned long fn, ...)
@@ -1490,5 +1490,5 @@ long real64_call(unsigned long fn, ...)
 	return real64_call_asm(&real64_stack.sp, &real64_stack.arg0, fn);
 }
 
-#endif /*              */
+#endif /* CONFIG_64BIT */
 

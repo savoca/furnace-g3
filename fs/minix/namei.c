@@ -241,7 +241,7 @@ out:
 }
 
 /*
-                                            
+ * directories can handle most operations...
  */
 const struct inode_operations minix_dir_inode_operations = {
 	.create		= minix_create,

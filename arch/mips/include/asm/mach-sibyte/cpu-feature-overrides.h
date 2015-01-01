@@ -9,7 +9,7 @@
 #define __ASM_MACH_SIBYTE_CPU_FEATURE_OVERRIDES_H
 
 /*
-                                                                 
+ * Sibyte are MIPS64 processors wired to a specific configuration
  */
 #define cpu_has_watch		1
 #define cpu_has_mips16		0
@@ -44,4 +44,4 @@
 #define cpu_icache_line_size()	32
 #define cpu_scache_line_size()	32
 
-#endif /*                                           */
+#endif /* __ASM_MACH_SIBYTE_CPU_FEATURE_OVERRIDES_H */

@@ -17,7 +17,7 @@
 #define	DM_MSG_PREFIX	"thin"
 
 /*
-                    
+ * Tunable constants
  */
 #define ENDIO_HOOK_POOL_SIZE 10240
 #define DEFERRED_SET_SIZE 64
@@ -26,82 +26,82 @@
 #define COMMIT_PERIOD HZ
 
 /*
-                                                         
-                        
+ * The block size of the device holding pool data must be
+ * between 64KB and 1GB.
  */
 #define DATA_DEV_BLOCK_SIZE_MIN_SECTORS (64 * 1024 >> SECTOR_SHIFT)
 #define DATA_DEV_BLOCK_SIZE_MAX_SECTORS (1024 * 1024 * 1024 >> SECTOR_SHIFT)
 
 /*
-                                      
+ * Device id is restricted to 24 bits.
  */
 #define MAX_DEV_ID ((1 << 24) - 1)
 
 /*
-                                                    
-                                                    
-  
-                                                                      
-                                                                          
-                                                                         
-                                                                         
-                                                                        
-                    
-  
-                                                                        
-                                                             
-  
-                                                                    
-             
-  
-                                                                    
-  
-                                                                
-                                                                        
-  
-                                                                        
-                                                          
-  
-                                                     
-                                                                 
-                                                                         
-                                                                   
-                                                                       
-                                                                       
-                                                                  
-  
-                                                                       
-                           
-  
-                                          
-  
-                                                                           
-                                                                        
-                            
-  
-                                                                      
-                                                                           
-                                   
-  
-                                                                       
-              
-  
-                                                                        
-                                                                          
-                                                                         
-                                                                      
-                                                                        
-                                                                     
-                                                
+ * How do we handle breaking sharing of data blocks?
+ * =================================================
+ *
+ * We use a standard copy-on-write btree to store the mappings for the
+ * devices (note I'm talking about copy-on-write of the metadata here, not
+ * the data).  When you take an internal snapshot you clone the root node
+ * of the origin btree.  After this there is no concept of an origin or a
+ * snapshot.  They are just two device trees that happen to point to the
+ * same data blocks.
+ *
+ * When we get a write in we decide if it's to a shared data block using
+ * some timestamp magic.  If it is, we have to break sharing.
+ *
+ * Let's say we write to a shared block in what was the origin.  The
+ * steps are:
+ *
+ * i) plug io further to this physical block. (see bio_prison code).
+ *
+ * ii) quiesce any read io to that shared data block.  Obviously
+ * including all devices that share this block.  (see deferred_set code)
+ *
+ * iii) copy the data block to a newly allocate block.  This step can be
+ * missed out if the io covers the block. (schedule_copy).
+ *
+ * iv) insert the new mapping into the origin's btree
+ * (process_prepared_mapping).  This act of inserting breaks some
+ * sharing of btree nodes between the two devices.  Breaking sharing only
+ * effects the btree of that specific device.  Btrees for the other
+ * devices that share the block never change.  The btree for the origin
+ * device as it was after the last commit is untouched, ie. we're using
+ * persistent data structures in the functional programming sense.
+ *
+ * v) unplug io to this physical block, including the io that triggered
+ * the breaking of sharing.
+ *
+ * Steps (ii) and (iii) occur in parallel.
+ *
+ * The metadata _doesn't_ need to be committed before the io continues.  We
+ * get away with this because the io is always written to a _new_ block.
+ * If there's a crash, then:
+ *
+ * - The origin mapping will point to the old origin block (the shared
+ * one).  This will contain the data as it was before the io that triggered
+ * the breaking of sharing came in.
+ *
+ * - The snap mapping still points to the old block.  As it would after
+ * the commit.
+ *
+ * The downside of this scheme is the timestamp magic isn't perfect, and
+ * will continue to think that data block in the snapshot device is shared
+ * even after the write to the origin has broken sharing.  I suspect data
+ * blocks will typically be shared by many different devices, so we're
+ * breaking sharing n + 1 times, rather than n, where n is the number of
+ * devices that reference this data block.  At the moment I think the
+ * benefits far, far outweigh the disadvantages.
  */
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 /*
-                                                                           
-                                                                          
-                                                                     
-                                                   
+ * Sometimes we can't deal with a bio straight away.  We put them in prison
+ * where they can't cause any mischief.  Bios are put in a cell identified
+ * by a key, multiple bios can be in the same cell.  When the cell is
+ * subsequently unlocked the bios become available.
  */
 struct bio_prison;
 
@@ -142,8 +142,8 @@ static uint32_t calc_nr_buckets(unsigned nr_cells)
 }
 
 /*
-                                                                          
-                                                     
+ * @nr_cells should be the number of cells you want in use _concurrently_.
+ * Don't confuse it with the number of distinct keys.
  */
 static struct bio_prison *prison_create(unsigned nr_cells)
 {
@@ -208,10 +208,10 @@ static struct cell *__search_bucket(struct hlist_head *bucket,
 }
 
 /*
-                                                                       
-                                                                
-  
-                                                                          
+ * This may block if a new cell needs allocating.  You must ensure that
+ * cells will be unlocked even if the calling thread is blocked.
+ *
+ * Returns 1 if the cell was already held, 0 if @inmate is the new holder.
  */
 static int bio_detain(struct bio_prison *prison, struct cell_key *key,
 		      struct bio *inmate, struct cell **ref)
@@ -232,16 +232,16 @@ static int bio_detain(struct bio_prison *prison, struct cell_key *key,
 	}
 
 	/*
-                       
-  */
+	 * Allocate a new cell
+	 */
 	spin_unlock_irqrestore(&prison->lock, flags);
 	cell2 = mempool_alloc(prison->cell_pool, GFP_NOIO);
 	spin_lock_irqsave(&prison->lock, flags);
 
 	/*
-                                                        
-                                                       
-  */
+	 * We've been unlocked, so we have to double check that
+	 * nobody else has inserted this cell in the meantime.
+	 */
 	cell = __search_bucket(prison->cells + hash, key);
 	if (cell) {
 		mempool_free(cell2, prison->cell_pool);
@@ -250,8 +250,8 @@ static int bio_detain(struct bio_prison *prison, struct cell_key *key,
 	}
 
 	/*
-                 
-  */
+	 * Use new cell.
+	 */
 	cell = cell2;
 
 	cell->prison = prison;
@@ -271,7 +271,7 @@ out:
 }
 
 /*
-                                                         
+ * @inmates must have been initialised prior to this call
  */
 static void __cell_release(struct cell *cell, struct bio_list *inmates)
 {
@@ -298,10 +298,10 @@ static void cell_release(struct cell *cell, struct bio_list *bios)
 }
 
 /*
-                                                                      
-                                                                         
-                                                                          
-                  
+ * There are a couple of places where we put a bio into a cell briefly
+ * before taking it out again.  In these situations we know that no other
+ * bio may be in the cell.  This function releases the cell, and also does
+ * a sanity check.
  */
 static void __cell_release_singleton(struct cell *cell, struct bio *bio)
 {
@@ -322,7 +322,7 @@ static void cell_release_singleton(struct cell *cell, struct bio *bio)
 }
 
 /*
-                                                                
+ * Sometimes we don't want the holder, just the additional bios.
  */
 static void __cell_release_no_holder(struct cell *cell, struct bio_list *inmates)
 {
@@ -361,13 +361,13 @@ static void cell_error(struct cell *cell)
 		bio_io_error(bio);
 }
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 /*
-                                                                           
-                                                                         
-                                                                          
-                                                                         
+ * We use the deferred set to keep track of pending reads to shared blocks.
+ * We do this to ensure the new mapping caused by a write isn't performed
+ * until these prior reads have completed.  Otherwise the insertion of the
+ * new mapping could free the old block that the read bios are mapped to.
  */
 
 struct deferred_set;
@@ -440,7 +440,7 @@ static void ds_dec(struct deferred_entry *entry, struct list_head *head)
 }
 
 /*
-                                                               
+ * Returns 1 if deferred or 0 if no pending items to delay job.
  */
 static int ds_add_work(struct deferred_set *ds, struct list_head *work)
 {
@@ -463,10 +463,10 @@ static int ds_add_work(struct deferred_set *ds, struct list_head *work)
 	return r;
 }
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 /*
-                
+ * Key building.
  */
 static void build_data_key(struct dm_thin_device *td,
 			   dm_block_t b, struct cell_key *key)
@@ -484,12 +484,12 @@ static void build_virtual_key(struct dm_thin_device *td, dm_block_t b,
 	key->block = b;
 }
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 /*
-                                                                       
-                                                                   
-           
+ * A pool device ties together a metadata device and a data device.  It
+ * also provides the interface for creating and destroying internal
+ * devices.
  */
 struct new_mapping;
 
@@ -501,7 +501,7 @@ struct pool_features {
 
 struct pool {
 	struct list_head list;
-	struct dm_target *ti;	/*                                    */
+	struct dm_target *ti;	/* Only set if a pool target is bound */
 
 	struct mapped_device *pool_md;
 	struct block_device *md_dev;
@@ -513,8 +513,8 @@ struct pool {
 	dm_block_t low_water_blocks;
 
 	struct pool_features pf;
-	unsigned low_water_triggered:1;	/*                          */
-	unsigned no_free_space:1;	/*                                   */
+	unsigned low_water_triggered:1;	/* A dm event has been sent */
+	unsigned no_free_space:1;	/* A -ENOSPC warning has been issued */
 
 	struct bio_prison *prison;
 	struct dm_kcopyd_client *copier;
@@ -543,7 +543,7 @@ struct pool {
 };
 
 /*
-                             
+ * Target context for a pool.
  */
 struct pool_c {
 	struct dm_target *ti;
@@ -557,7 +557,7 @@ struct pool_c {
 };
 
 /*
-                             
+ * Target context for a thin.
  */
 struct thin_c {
 	struct dm_dev *pool_dev;
@@ -568,10 +568,10 @@ struct thin_c {
 	struct dm_thin_device *td;
 };
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 /*
-                                                                    
+ * A global list of pools that uses a struct mapped_device as a key.
  */
 static struct dm_thin_pool_table {
 	struct mutex mutex;
@@ -628,7 +628,7 @@ static struct pool *__pool_table_lookup_metadata_dev(struct block_device *md_dev
 	return pool;
 }
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 struct endio_hook {
 	struct thin_c *tc;
@@ -667,10 +667,10 @@ static void requeue_io(struct thin_c *tc)
 }
 
 /*
-                                                                             
-                                                                             
-                                                                                
-          
+ * This section of code contains the logic for processing a thin device's IO.
+ * Much of the code depends on pool object resources (lists, workqueues, etc)
+ * but most is exclusively called from the thin target rather than the thin-pool
+ * target.
  */
 
 static dm_block_t get_bio_block(struct thin_c *tc, struct bio *bio)
@@ -698,9 +698,9 @@ static void issue(struct thin_c *tc, struct bio *bio)
 	unsigned long flags;
 
 	/*
-                                                            
-                                                        
-  */
+	 * Batch together any FUA/FLUSH bios we find and then issue
+	 * a single commit for them in process_deferred_bios().
+	 */
 	if (bio->bi_rw & (REQ_FLUSH | REQ_FUA)) {
 		spin_lock_irqsave(&pool->lock, flags);
 		bio_list_add(&pool->deferred_flush_bios, bio);
@@ -723,18 +723,18 @@ static void remap_and_issue(struct thin_c *tc, struct bio *bio,
 }
 
 /*
-                                                                        
-                                            
+ * wake_worker() is used when new work is queued and when pool_resume is
+ * ready to continue deferred IO processing.
  */
 static void wake_worker(struct pool *pool)
 {
 	queue_work(pool->wq, &pool->worker);
 }
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 /*
-                       
+ * Bio endio functions.
  */
 struct new_mapping {
 	struct list_head list;
@@ -750,11 +750,11 @@ struct new_mapping {
 	int err;
 
 	/*
-                                                                 
-                                                                  
-                                                                  
-                  
-  */
+	 * If the bio covers the whole area of a block then we can avoid
+	 * zeroing or copying.  Instead this bio is hooked.  The bio will
+	 * still be in the cell, so care has to be taken to avoid issuing
+	 * the bio twice.
+	 */
 	struct bio *bio;
 	bio_end_io_t *saved_bi_end_io;
 };
@@ -798,18 +798,18 @@ static void overwrite_endio(struct bio *bio, int err)
 	spin_unlock_irqrestore(&pool->lock, flags);
 }
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 /*
-             
+ * Workqueue.
  */
 
 /*
-                         
+ * Prepared mapping jobs.
  */
 
 /*
-                                                                  
+ * This sends the bios in the cell back to the deferred_bios list.
  */
 static void cell_defer(struct thin_c *tc, struct cell *cell,
 		       dm_block_t data_block)
@@ -825,8 +825,8 @@ static void cell_defer(struct thin_c *tc, struct cell *cell,
 }
 
 /*
-                                                                     
-                                                                    
+ * Same as cell_defer above, except it omits one particular detainee,
+ * a write bio that covers the block and has already been processed.
  */
 static void cell_defer_except(struct thin_c *tc, struct cell *cell)
 {
@@ -859,10 +859,10 @@ static void process_prepared_mapping(struct new_mapping *m)
 	}
 
 	/*
-                                                     
-                                                             
-                            
-  */
+	 * Commit the prepared block into the mapping btree.
+	 * Any I/O for this block arriving after this point will get
+	 * remapped to it directly.
+	 */
 	r = dm_thin_insert_block(tc->td, m->virt_block, m->data_block);
 	if (r) {
 		DMERR("dm_thin_insert_block() failed");
@@ -871,11 +871,11 @@ static void process_prepared_mapping(struct new_mapping *m)
 	}
 
 	/*
-                                                                
-                                                                      
-                                                                
-                         
-  */
+	 * Release any bios held while the block was being provisioned.
+	 * If we are processing a write bio that completely covers the block,
+	 * we already processed it so can ignore it now when processing
+	 * the bios in the cell.
+	 */
 	if (bio) {
 		cell_defer_except(tc, m->cell);
 		bio_endio(bio, 0);
@@ -896,8 +896,8 @@ static void process_prepared_discard(struct new_mapping *m)
 		DMERR("dm_thin_remove_block() failed");
 
 	/*
-                                                   
-  */
+	 * Pass the discard down to the underlying device?
+	 */
 	if (m->pass_discard)
 		remap_and_issue(tc, m->bio, m->data_block);
 	else
@@ -925,7 +925,7 @@ static void process_prepared(struct pool *pool, struct list_head *head,
 }
 
 /*
-                     
+ * Deferred bio jobs.
  */
 static int io_overlaps_block(struct pool *pool, struct bio *bio)
 {
@@ -991,11 +991,11 @@ static void schedule_copy(struct thin_c *tc, dm_block_t virt_block,
 		m->quiesced = 1;
 
 	/*
-                                                        
-   
-                                                                     
-                                                                     
-  */
+	 * IO to pool_dev remaps to the pool target's data_dev.
+	 *
+	 * If the whole block of data is being overwritten, we can issue the
+	 * bio immediately. Otherwise we use kcopyd to clone the data first.
+	 */
 	if (io_overwrites_block(pool, bio)) {
 		struct endio_hook *h = dm_get_mapinfo(bio)->ptr;
 		h->overwrite_mapping = m;
@@ -1057,10 +1057,10 @@ static void schedule_zero(struct thin_c *tc, dm_block_t virt_block,
 	m->bio = NULL;
 
 	/*
-                                                                 
-                                                                
-                                                   
-  */
+	 * If the whole block of data is being overwritten or we are not
+	 * zeroing pre-existing data, we can issue the bio immediately.
+	 * Otherwise we use kcopyd to zero the data first.
+	 */
 	if (!pool->pf.zero_new_blocks)
 		process_prepared_mapping(m);
 
@@ -1113,9 +1113,9 @@ static int alloc_data_block(struct thin_c *tc, dm_block_t *result)
 			return -ENOSPC;
 		else {
 			/*
-                                                    
-                 
-    */
+			 * Try to commit to see if that will free up some
+			 * more space.
+			 */
 			r = dm_pool_commit_metadata(pool->pmd);
 			if (r) {
 				DMERR("%s: dm_pool_commit_metadata() failed, error = %d",
@@ -1128,9 +1128,9 @@ static int alloc_data_block(struct thin_c *tc, dm_block_t *result)
 				return r;
 
 			/*
-                                                      
-                                                 
-    */
+			 * If we still have no space we set a flag to avoid
+			 * doing all this checking and return -ENOSPC.
+			 */
 			if (!free_blocks) {
 				DMWARN("%s: no free space available.",
 				       dm_device_name(pool->pool_md));
@@ -1150,8 +1150,8 @@ static int alloc_data_block(struct thin_c *tc, dm_block_t *result)
 }
 
 /*
-                                                              
-                                                                  
+ * If we have run out of space, queue bios until the device is
+ * resumed, presumably after having been reloaded with more space.
  */
 static void retry_on_resume(struct bio *bio)
 {
@@ -1196,10 +1196,10 @@ static void process_discard(struct thin_c *tc, struct bio *bio)
 	switch (r) {
 	case 0:
 		/*
-                                                             
-                                                           
-                   
-   */
+		 * Check nobody is fiddling with this pool block.  This can
+		 * happen if someone's in the process of breaking sharing
+		 * on this block.
+		 */
 		build_data_key(tc->td, lookup_result.block, &key2);
 		if (bio_detain(tc->pool->prison, &key2, bio, &cell2)) {
 			cell_release_singleton(cell, bio);
@@ -1208,9 +1208,9 @@ static void process_discard(struct thin_c *tc, struct bio *bio)
 
 		if (io_overlaps_block(pool, bio)) {
 			/*
-                                                              
-                                           
-    */
+			 * IO may still be going to the destination block.  We must
+			 * quiesce before we can do the removal.
+			 */
 			m = get_next_mapping(pool);
 			m->tc = tc;
 			m->pass_discard = (!lookup_result.shared) & pool->pf.discard_passdown;
@@ -1229,11 +1229,11 @@ static void process_discard(struct thin_c *tc, struct bio *bio)
 			}
 		} else {
 			/*
-                                             
-                                                  
-                                                 
-            
-    */
+			 * This path is hit if people are ignoring
+			 * limits->discard_granularity.  It ignores any
+			 * part of the discard that is in a subsequent
+			 * block.
+			 */
 			sector_t offset = bio->bi_sector - (block << pool->block_shift);
 			unsigned remaining = (pool->sectors_per_block - offset) << 9;
 			bio->bi_size = min(bio->bi_size, remaining);
@@ -1246,8 +1246,8 @@ static void process_discard(struct thin_c *tc, struct bio *bio)
 
 	case -ENODATA:
 		/*
-                                          
-   */
+		 * It isn't provisioned, just forget it.
+		 */
 		cell_release_singleton(cell, bio);
 		bio_endio(bio, 0);
 		break;
@@ -1295,9 +1295,9 @@ static void process_shared_bio(struct thin_c *tc, struct bio *bio,
 	struct cell_key key;
 
 	/*
-                                                                       
-                                                          
-  */
+	 * If cell is already occupied, then sharing is already in the process
+	 * of being broken so we have nothing further to do here.
+	 */
 	build_data_key(tc->td, lookup_result->block, &key);
 	if (bio_detain(pool->prison, &key, bio, &cell))
 		return;
@@ -1321,8 +1321,8 @@ static void provision_block(struct thin_c *tc, struct bio *bio, dm_block_t block
 	dm_block_t data_block;
 
 	/*
-                                                                 
-  */
+	 * Remap empty bios (flushes) immediately, without provisioning.
+	 */
 	if (!bio->bi_size) {
 		cell_release_singleton(cell, bio);
 		remap_and_issue(tc, bio, 0);
@@ -1330,8 +1330,8 @@ static void provision_block(struct thin_c *tc, struct bio *bio, dm_block_t block
 	}
 
 	/*
-                                                             
-  */
+	 * Fill read bios with zeroes and complete them immediately.
+	 */
 	if (bio_data_dir(bio) == READ) {
 		zero_fill_bio(bio);
 		cell_release_singleton(cell, bio);
@@ -1368,9 +1368,9 @@ static void process_bio(struct thin_c *tc, struct bio *bio)
 	struct dm_thin_lookup_result lookup_result;
 
 	/*
-                                                          
-                                                            
-  */
+	 * If cell is already occupied, then the block is already
+	 * being provisioned so we have nothing further to do here.
+	 */
 	build_virtual_key(tc->td, block, &key);
 	if (bio_detain(tc->pool->prison, &key, bio, &cell))
 		return;
@@ -1379,14 +1379,14 @@ static void process_bio(struct thin_c *tc, struct bio *bio)
 	switch (r) {
 	case 0:
 		/*
-                                                           
-                                                           
-                       
-   */
+		 * We can release this cell now.  This thread is the only
+		 * one that puts bios into a cell, and we know there were
+		 * no preceding bios.
+		 */
 		/*
-                                                              
-             
-   */
+		 * TODO: this will probably have to change when discard goes
+		 * back in.
+		 */
 		cell_release_singleton(cell, bio);
 
 		if (lookup_result.shared)
@@ -1436,10 +1436,10 @@ static void process_deferred_bios(struct pool *pool)
 		struct thin_c *tc = h->tc;
 
 		/*
-                                                             
-                                                              
-                                  
-   */
+		 * If we've got no free new_mapping structs, and processing
+		 * this bio might require one, we pause until there are some
+		 * prepared mappings to process.
+		 */
 		if (ensure_next_mapping(pool)) {
 			spin_lock_irqsave(&pool->lock, flags);
 			bio_list_merge(&pool->deferred_bios, &bios);
@@ -1455,9 +1455,9 @@ static void process_deferred_bios(struct pool *pool)
 	}
 
 	/*
-                                                        
-                                     
-  */
+	 * If there are any deferred flush bios, we must commit
+	 * the metadata before issuing them.
+	 */
 	bio_list_init(&bios);
 	spin_lock_irqsave(&pool->lock, flags);
 	bio_list_merge(&bios, &pool->deferred_flush_bios);
@@ -1491,8 +1491,8 @@ static void do_worker(struct work_struct *ws)
 }
 
 /*
-                                                      
-                            
+ * We want to commit periodically so that not too much
+ * unwritten data builds up.
  */
 static void do_waker(struct work_struct *ws)
 {
@@ -1501,14 +1501,14 @@ static void do_waker(struct work_struct *ws)
 	queue_delayed_work(pool->wq, &pool->waker, COMMIT_PERIOD);
 }
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 /*
-                     
+ * Mapping functions.
  */
 
 /*
-                                                                         
+ * Called only while mapping a thin bio to hand it over to the workqueue.
  */
 static void thin_defer_bio(struct thin_c *tc, struct bio *bio)
 {
@@ -1536,7 +1536,7 @@ static struct endio_hook *thin_hook_bio(struct thin_c *tc, struct bio *bio)
 }
 
 /*
-                                                                    
+ * Non-blocking function called from the thin target's map function.
  */
 static int thin_bio_map(struct dm_target *ti, struct bio *bio,
 			union map_info *map_context)
@@ -1556,25 +1556,25 @@ static int thin_bio_map(struct dm_target *ti, struct bio *bio,
 	r = dm_thin_find_block(td, block, 0, &result);
 
 	/*
-                                     
-  */
+	 * Note that we defer readahead too.
+	 */
 	switch (r) {
 	case 0:
 		if (unlikely(result.shared)) {
 			/*
-                                               
-                                                    
-                                            
-              
-     
-                                                    
-                                                     
-                                          
-                    
-     
-                                                
-                                            
-    */
+			 * We have a race condition here between the
+			 * result.shared value returned by the lookup and
+			 * snapshot creation, which may cause new
+			 * sharing.
+			 *
+			 * To avoid this always quiesce the origin before
+			 * taking the snap.  You want to do this anyway to
+			 * ensure a consistent application view
+			 * (i.e. lockfs).
+			 *
+			 * More distant ancestors are irrelevant. The
+			 * shared flag will be set in their case.
+			 */
 			thin_defer_bio(tc, bio);
 			r = DM_MAPIO_SUBMITTED;
 		} else {
@@ -1585,9 +1585,9 @@ static int thin_bio_map(struct dm_target *ti, struct bio *bio,
 
 	case -ENODATA:
 		/*
-                                                         
-                                                      
-   */
+		 * In future, the failed dm_thin_find_block above could
+		 * provide the hint to load the metadata into cache.
+		 */
 	case -EWOULDBLOCK:
 		thin_defer_bio(tc, bio);
 		r = DM_MAPIO_SUBMITTED;
@@ -1621,9 +1621,9 @@ static void __requeue_bios(struct pool *pool)
 	bio_list_init(&pool->retry_on_resume_list);
 }
 
-/*                                                                
-                                              
-                                                                */
+/*----------------------------------------------------------------
+ * Binding of control targets to a pool object
+ *--------------------------------------------------------------*/
 static int bind_control_target(struct pool *pool, struct dm_target *ti)
 {
 	struct pool_c *pt = ti->private;
@@ -1633,10 +1633,10 @@ static int bind_control_target(struct pool *pool, struct dm_target *ti)
 	pool->pf = pt->pf;
 
 	/*
-                                                               
-                                                                  
-                                 
-  */
+	 * If discard_passdown was enabled verify that the data device
+	 * supports discards.  Disable discard_passdown if not; otherwise
+	 * -EOPNOTSUPP will be returned.
+	 */
 	if (pt->pf.discard_passdown) {
 		struct request_queue *q = bdev_get_queue(pt->data_dev->bdev);
 		if (!q || !blk_queue_discard(q)) {
@@ -1656,10 +1656,10 @@ static void unbind_control_target(struct pool *pool, struct dm_target *ti)
 		pool->ti = NULL;
 }
 
-/*                                                                
-                
-                                                                */
-/*                           */
+/*----------------------------------------------------------------
+ * Pool creation
+ *--------------------------------------------------------------*/
+/* Initialize pool features. */
 static void pool_features_init(struct pool_features *pf)
 {
 	pf->zero_new_blocks = 1;
@@ -1731,9 +1731,9 @@ static struct pool *pool_create(struct mapped_device *pool_md,
 	}
 
 	/*
-                                                                 
-                           
-  */
+	 * Create singlethreaded workqueue that will service all devices
+	 * that use this metadata.
+	 */
 	pool->wq = alloc_ordered_workqueue("dm-" DM_MSG_PREFIX, WQ_MEM_RECLAIM);
 	if (!pool->wq) {
 		*error = "Error creating pool's workqueue";
@@ -1837,9 +1837,9 @@ static struct pool *__pool_find(struct mapped_device *pool_md,
 	return pool;
 }
 
-/*                                                                
-                      
-                                                                */
+/*----------------------------------------------------------------
+ * Pool target methods
+ *--------------------------------------------------------------*/
 static void pool_dtr(struct dm_target *ti)
 {
 	struct pool_c *pt = ti->private;
@@ -1867,8 +1867,8 @@ static int parse_pool_features(struct dm_arg_set *as, struct pool_features *pf,
 	};
 
 	/*
-                                  
-  */
+	 * No feature arguments supplied.
+	 */
 	if (!as->argc)
 		return 0;
 
@@ -1899,15 +1899,15 @@ static int parse_pool_features(struct dm_arg_set *as, struct pool_features *pf,
 }
 
 /*
-                                      
-                                   
-                                 
-                                  
-  
-                                  
-                                                                          
-                                       
-                                                                        
+ * thin-pool <metadata dev> <data dev>
+ *	     <data block size (sectors)>
+ *	     <low water mark (blocks)>
+ *	     [<#feature args> [<arg>]*]
+ *
+ * Optional feature arguments are:
+ *	     skip_block_zeroing: skips the zeroing of newly-provisioned blocks.
+ *	     ignore_discard: disable discard
+ *	     no_discard_passdown: don't pass discards down to the data device
  */
 static int pool_ctr(struct dm_target *ti, unsigned argc, char **argv)
 {
@@ -1924,8 +1924,8 @@ static int pool_ctr(struct dm_target *ti, unsigned argc, char **argv)
 	char b[BDEVNAME_SIZE];
 
 	/*
-                                               
-  */
+	 * FIXME Remove validation from scope of lock.
+	 */
 	mutex_lock(&dm_thin_pool_table.mutex);
 
 	if (argc < 4) {
@@ -1969,8 +1969,8 @@ static int pool_ctr(struct dm_target *ti, unsigned argc, char **argv)
 	}
 
 	/*
-                              
-  */
+	 * Set default pool features.
+	 */
 	pool_features_init(&pf);
 
 	dm_consume_args(&as, 4);
@@ -1992,11 +1992,11 @@ static int pool_ctr(struct dm_target *ti, unsigned argc, char **argv)
 	}
 
 	/*
-                                                                 
-                                                                
-                                                                   
-                   
-  */
+	 * 'pool_created' reflects whether this is the first table load.
+	 * Top level discard support is not allowed to be changed after
+	 * initial load.  This would require a pool reload to trigger thin
+	 * device changes.
+	 */
 	if (!pool_created && pf.discard_enabled != pool->pf.discard_enabled) {
 		ti->error = "Discard support cannot be disabled once enabled";
 		r = -EINVAL;
@@ -2011,17 +2011,17 @@ static int pool_ctr(struct dm_target *ti, unsigned argc, char **argv)
 	pt->pf = pf;
 	ti->num_flush_requests = 1;
 	/*
-                                                        
-                                                            
-                                                                
-  */
+	 * Only need to enable discards if the pool should pass
+	 * them down to the data device.  The thin device's discard
+	 * processing will cause mappings to be removed from the btree.
+	 */
 	if (pf.discard_enabled && pf.discard_passdown) {
 		ti->num_discard_requests = 1;
 		/*
-                                                        
-                                                        
-                                              
-   */
+		 * Setting 'discards_supported' circumvents the normal
+		 * stacking of discard limits (this keeps the pool and
+		 * thin devices' discard limits consistent).
+		 */
 		ti->discards_supported = 1;
 	}
 	ti->private = pt;
@@ -2056,8 +2056,8 @@ static int pool_map(struct dm_target *ti, struct bio *bio,
 	unsigned long flags;
 
 	/*
-                                                            
-  */
+	 * As this is a singleton target, ti->begin is always zero.
+	 */
 	spin_lock_irqsave(&pool->lock, flags);
 	bio->bi_bdev = pt->data_dev->bdev;
 	r = DM_MAPIO_REMAPPED;
@@ -2067,15 +2067,15 @@ static int pool_map(struct dm_target *ti, struct bio *bio,
 }
 
 /*
-                                                         
-                                                            
-                                                      
-  
-                                                                    
-                             
-        
-                                                             
-                                                      
+ * Retrieves the number of blocks of the data device from
+ * the superblock and compares it to the actual device size,
+ * thus resizing the data device in case it has grown.
+ *
+ * This both copes with opening preallocated data devices in the ctr
+ * being followed by a resume
+ * -and-
+ * calling the resume method individually after userspace has
+ * grown the data device in reaction to a table event.
  */
 static int pool_preresume(struct dm_target *ti)
 {
@@ -2085,8 +2085,8 @@ static int pool_preresume(struct dm_target *ti)
 	dm_block_t data_size, sb_data_size;
 
 	/*
-                                    
-  */
+	 * Take control of the pool object.
+	 */
 	r = bind_control_target(pool, ti);
 	if (r)
 		return r;
@@ -2149,7 +2149,7 @@ static void pool_postsuspend(struct dm_target *ti)
 	if (r < 0) {
 		DMERR("%s: dm_pool_commit_metadata() failed, error = %d",
 		      __func__, r);
-		/*                                                            */
+		/* FIXME: invalidate device? error the next FUA or FLUSH bio ?*/
 	}
 }
 
@@ -2277,12 +2277,12 @@ static int process_set_transaction_id_mesg(unsigned argc, char **argv, struct po
 }
 
 /*
-                      
-                         
-                                     
-                     
-                                         
-                                                         
+ * Messages supported:
+ *   create_thin	<dev_id>
+ *   create_snap	<dev_id> <origin_id>
+ *   delete		<dev_id>
+ *   trim		<dev_id> <new_size_in_sectors>
+ *   set_transaction_id <current_trans_id> <new_trans_id>
  */
 static int pool_message(struct dm_target *ti, unsigned argc, char **argv)
 {
@@ -2316,9 +2316,9 @@ static int pool_message(struct dm_target *ti, unsigned argc, char **argv)
 }
 
 /*
-                  
-                                                                       
-                                                                   
+ * Status line is:
+ *    <transaction id> <used metadata sectors>/<total metadata sectors>
+ *    <used data sectors>/<total data sectors> <held metadata root>
  */
 static int pool_status(struct dm_target *ti, status_type_t type,
 		       char *result, unsigned maxlen)
@@ -2430,14 +2430,14 @@ static int pool_merge(struct dm_target *ti, struct bvec_merge_data *bvm,
 static void set_discard_limits(struct pool *pool, struct queue_limits *limits)
 {
 	/*
-                                                                       
-  */
+	 * FIXME: these limits may be incompatible with the pool's data device
+	 */
 	limits->max_discard_sectors = pool->sectors_per_block;
 
 	/*
-                                                                
-                               
-  */
+	 * This is just a hint, and not enforced.  We have to cope with
+	 * bios that overlap 2 blocks.
+	 */
 	limits->discard_granularity = pool->sectors_per_block << SECTOR_SHIFT;
 	limits->discard_zeroes_data = pool->pf.zero_new_blocks;
 }
@@ -2472,9 +2472,9 @@ static struct target_type pool_target = {
 	.io_hints = pool_io_hints,
 };
 
-/*                                                                
-                      
-                                                                */
+/*----------------------------------------------------------------
+ * Thin target methods
+ *--------------------------------------------------------------*/
 static void thin_dtr(struct dm_target *ti)
 {
 	struct thin_c *tc = ti->private;
@@ -2492,16 +2492,16 @@ static void thin_dtr(struct dm_target *ti)
 }
 
 /*
-                          
-  
-                                   
-  
-                                                           
-                                         
-                                                                          
-  
-                                                                           
-                  
+ * Thin target parameters:
+ *
+ * <pool_dev> <dev_id> [origin_dev]
+ *
+ * pool_dev: the path to the pool (eg, /dev/mapper/my_pool)
+ * dev_id: the internal device identifier
+ * origin_dev: a device external to the pool that should act as the origin
+ *
+ * If the pool device has discards disabled, they get disabled for the thin
+ * device as well.
  */
 static int thin_ctr(struct dm_target *ti, unsigned argc, char **argv)
 {
@@ -2571,7 +2571,7 @@ static int thin_ctr(struct dm_target *ti, unsigned argc, char **argv)
 	ti->split_io = tc->pool->sectors_per_block;
 	ti->num_flush_requests = 1;
 
-	/*                                                   */
+	/* In case the pool supports discards, pass them on. */
 	if (tc->pool->pf.discard_enabled) {
 		ti->discards_supported = 1;
 		ti->num_discard_requests = 1;
@@ -2652,7 +2652,7 @@ static void thin_postsuspend(struct dm_target *ti)
 }
 
 /*
-                                              
+ * <nr mapped sectors> <highest mapped sector>
  */
 static int thin_status(struct dm_target *ti, status_type_t type,
 		       char *result, unsigned maxlen)
@@ -2704,11 +2704,11 @@ static int thin_iterate_devices(struct dm_target *ti,
 	struct thin_c *tc = ti->private;
 
 	/*
-                                                                    
-                                                                  
-  */
+	 * We can't call dm_pool_get_data_dev_size() since that blocks.  So
+	 * we follow a more convoluted path through to the pool's target.
+	 */
 	if (!tc->pool->ti)
-		return 0;	/*                  */
+		return 0;	/* nothing is bound */
 
 	blocks = tc->pool->ti->len >> tc->pool->block_shift;
 	if (blocks)
@@ -2741,7 +2741,7 @@ static struct target_type thin_target = {
 	.io_hints = thin_io_hints,
 };
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 static int __init dm_thin_init(void)
 {

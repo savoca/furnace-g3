@@ -38,7 +38,7 @@ static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
 	u32 value = readl(ioaddr + DMA_BUS_MODE);
 	int limit;
 
-	/*              */
+	/* DMA SW reset */
 	value |= DMA_BUS_MODE_SFT_RESET;
 	writel(value, ioaddr + DMA_BUS_MODE);
 	limit = 10;
@@ -50,24 +50,24 @@ static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, u32 dma_tx,
 	if (limit < 0)
 		return -EBUSY;
 
-	/*                                                  */
+	/* Enable Application Access by writing to DMA CSR0 */
 	writel(DMA_BUS_MODE_DEFAULT | (pbl << DMA_BUS_MODE_PBL_SHIFT),
 	       ioaddr + DMA_BUS_MODE);
 
-	/*                                    */
+	/* Mask interrupts by writing to CSR7 */
 	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
 
-	/*                                                                    
-                                     */
+	/* The base address of the RX/TX descriptor lists must be written into
+	 * DMA CSR3 and CSR4, respectively. */
 	writel(dma_tx, ioaddr + DMA_TX_BASE_ADDR);
 	writel(dma_rx, ioaddr + DMA_RCV_BASE_ADDR);
 
 	return 0;
 }
 
-/*                                                  
-                                              
-                                                    */
+/* Store and Forward capability is not used at all..
+ * The transmit threshold can be programmed by
+ * setting the TTC bits in the DMA control register.*/
 static void dwmac100_dma_operation_mode(void __iomem *ioaddr, int txmode,
 					int rxmode)
 {
@@ -98,8 +98,8 @@ static void dwmac100_dump_dma_regs(void __iomem *ioaddr)
 	    DMA_CUR_RX_BUF_ADDR, readl(ioaddr + DMA_CUR_RX_BUF_ADDR));
 }
 
-/*                                                       
-                              */
+/* DMA controller has two counters to track the number of
+ * the receive missed frames. */
 static void dwmac100_dma_diagnostic_fr(void *data, struct stmmac_extra_stats *x,
 				       void __iomem *ioaddr)
 {

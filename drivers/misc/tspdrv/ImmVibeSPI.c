@@ -27,7 +27,7 @@
 ** =========================================================================
 */
 
-/*                    */
+/* Debug Mask setting */
 #define VIBRATOR_DEBUG_PRINT   (0)
 #define VIBRATOR_ERROR_PRINT   (1)
 #define VIBRATOR_INFO_PRINT    (1)
@@ -57,7 +57,7 @@
 #endif
 
 
-/*                           */
+/*USE THE QPNP-VIBRATOR START*/
 #include <linux/init.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
@@ -68,11 +68,11 @@
 #include "../../staging/android/timed_output.h"
 
 extern struct qpnp_vib *vib_dev;
-//                                                                                  
-/*                         */
+//extern int qpnp_vib_set_with_vtglevel(struct qpnp_vib *vib, int vtglevel, int on);
+/*USE THE QPNP-VIBRATOR END*/
 
 
-/*                   */
+/*USE THE SM100 START*/
 #include <linux/types.h>
 #include <linux/err.h>
 #include <mach/msm_iomap.h>
@@ -89,10 +89,10 @@ extern struct qpnp_vib *vib_dev;
 #include <mach/board_lge.h>
 
 
-/*                           
-                                      
-                                       
-                                      
+/* When use SM100 with GP_CLK
+  175Hz motor : 22.4KHz - M=1, N=214 ,
+  205Hz motor : 26.24Khz - M=1, N=183 ,
+  230Hz motor : 29.4KHZ - M=1, N=163 ,
   */
 
 #define DEVICE_NAME		"lge_sm100"
@@ -112,11 +112,11 @@ static void __iomem *virt_bases_v = NULL;
 #define IMMVIBESPIAPI static
 
 /*
-                                       
+** This SPI supports only one actuator.
 */
 #define NUM_ACTUATORS 1
 
-#define PWM_DUTY_MAX    579 /*                             */
+#define PWM_DUTY_MAX    579 /* 13MHz / (579 + 1) = 22.4kHz */
 
 static bool g_bAmpEnabled = false;
 
@@ -145,7 +145,7 @@ struct timed_vibrator_data {
 struct timed_vibrator_data vib;
 static DEFINE_MUTEX(vib_lock);
 
-bool sm100_flag = false; //                     
+bool sm100_flag = false; //default is QPNP(PMIC)
 extern void touch_fops_init(void);
 
 static int sm100_pwm_set(int enable, int amp)
@@ -161,16 +161,16 @@ static int sm100_pwm_set(int enable, int amp)
 
 	if (enable) {
 		REG_WRITEL(
-			((~(d_val << 1)) & 0xffU),	/*        */
+			((~(d_val << 1)) & 0xffU),	/* D[7:0] */
 			MMSS_CC_GP1_CMD_RCGR(0x10));
 		REG_WRITEL(
-			(1 << 1U) +	/*            */
-			(1),		/*           */
+			(1 << 1U) +	/* ROOT_EN[1] */
+			(1),		/* UPDATE[0] */
 			MMSS_CC_GP1_CMD_RCGR(0));
 	} else {
 		REG_WRITEL(
-			(0 << 1U) +	/*            */
-			(0),		/*           */
+			(0 << 1U) +	/* ROOT_EN[1] */
+			(0),		/* UPDATE[0] */
 			MMSS_CC_GP1_CMD_RCGR(0));
 	}
 	return 0;
@@ -319,12 +319,12 @@ static struct platform_driver sm100_driver = {
 #endif
 	},
 };
-/*                 */
+/*USE THE SM100 END*/
 
 
 
 /*
-                                               
+** Called to disable amp (disable output force)
 */
 IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex)
 {
@@ -341,8 +341,8 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex
 				atomic_set(&vib.gp1_clk_flag, 0);
 			}
 		} else {
-//                      
-//                                                  
+//			if(vib_dev != NULL)
+//				qpnp_vib_set_with_vtglevel(vib_dev, 0, false);
 		}
 
 		g_bAmpEnabled = false;
@@ -353,7 +353,7 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex
 }
 
 /*
-                                             
+** Called to enable amp (enable output force)
 */
 IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex, VibeInt8 nForce)
 {
@@ -367,7 +367,7 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex,
 			}
 
 			sm100_power_set(1, &vib);
-			//                                                   
+			//sm100_pwm_set(1, 0); //MSM GP CLK update bit issue.
 			sm100_ic_enable_set(1, &vib);
 
 		}
@@ -379,7 +379,7 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex,
 }
 
 /*
-                                                                     
+** Called at initialization time to set PWM freq, disable amp, etc...
 */
 
 IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_Initialize(void)
@@ -390,13 +390,13 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_Initialize(void)
 
     INFO_MSG("\n");
 
-    g_bAmpEnabled = true;   /*                                                           */
+    g_bAmpEnabled = true;   /* to force ImmVibeSPI_ForceOut_AmpDisable disabling the amp */
 
     /* 
-                   
-                                                                    
-                                                                                      
-                       
+    ** Disable amp.
+    ** If multiple actuators are supported, please make sure to call
+    ** ImmVibeSPI_ForceOut_AmpDisable for each actuator (provide the actuator index as
+    ** input argument).
     */
     ImmVibeSPI_ForceOut_AmpDisable(0);
 
@@ -406,17 +406,17 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_Initialize(void)
 }
 
 /*
-                                                                  
+** Called at termination time to set PWM freq, disable amp, etc...
 */
 IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_Terminate(void)
 {
     INFO_MSG("\n");
 
     /* 
-                   
-                                                                    
-                                                                                      
-                       
+    ** Disable amp.
+    ** If multiple actuators are supported, please make sure to call
+    ** ImmVibeSPI_ForceOut_AmpDisable for each actuator (provide the actuator index as
+    ** input argument).
     */
     ImmVibeSPI_ForceOut_AmpDisable(0);
 
@@ -425,31 +425,31 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_Terminate(void)
 }
 
 /*
-                                                     
+** Called by the real-time loop to set PWM duty cycle
 */
 IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetSamples(VibeUInt8 nActuatorIndex, VibeUInt16 nOutputSignalBitDepth, VibeUInt16 nBufferSizeInBytes, VibeInt8* pForceOutputBuffer)
 {
     VibeInt8 nForce;
 
-//                      
+//    g_bStarted = true;
 
     switch (nOutputSignalBitDepth)
     {
         case 8:
-            /*                                                  */
+            /* pForceOutputBuffer is expected to contain 1 byte */
             if (nBufferSizeInBytes != 1) return VIBE_E_FAIL;
 
             nForce = pForceOutputBuffer[0];
             break;
         case 16:
-            /*                                                  */
+            /* pForceOutputBuffer is expected to contain 2 byte */
             if (nBufferSizeInBytes != 2) return VIBE_E_FAIL;
 
-            /*                           */
+            /* Map 16-bit value to 8-bit */
             nForce = ((VibeInt16*)pForceOutputBuffer)[0] >> 8;
             break;
         default:
-            /*                      */
+            /* Unexpected bit depth */
             return VIBE_E_FAIL;
     }
 
@@ -461,12 +461,12 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetSamples(VibeUInt8 nActuatorIndex
 	if(IMMR_DEB)
 		printk("[IMMR] Force set = %d\n", nForce);
 
-	//                                           
+	// nForce range: SM100: -127~127,  PMIC:0~127
     if (nForce <= 0)
     {      
 		if(sm100_flag && nForce < 0)
 		{
-			sm100_pwm_set(1, nForce); //                            
+			sm100_pwm_set(1, nForce); //MSM GP CLK update bit issue.
 		}
 	    else ImmVibeSPI_ForceOut_AmpDisable(nActuatorIndex);
     }
@@ -475,13 +475,13 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetSamples(VibeUInt8 nActuatorIndex
         ImmVibeSPI_ForceOut_AmpEnable(nActuatorIndex, nForce);
 
 		if(sm100_flag) {
-	        sm100_pwm_set(1, nForce); //                            
+	        sm100_pwm_set(1, nForce); //MSM GP CLK update bit issue.
 		} else {
 			if(vib_dev != NULL) {
 #ifdef CONFIG_TSPDRV_3_0V_VIBRATOR
-//                                                                       
+//				qpnp_vib_set_with_vtglevel(vib_dev, (nForce * 31) / 128 + 1, true);
 #else
-//                                                                       
+//				qpnp_vib_set_with_vtglevel(vib_dev, (nForce * 31) / 128 + 3, true);
 #endif
 			}
 		}
@@ -490,28 +490,28 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetSamples(VibeUInt8 nActuatorIndex
 }
 
 /*
-                                                  
+** Called to set force output frequency parameters
 */
 #if 0
 IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetFrequency(VibeUInt8 nActuatorIndex, VibeUInt16 nFrequencyParameterID, VibeUInt32 nFrequencyParameterValue)
 {
-    /*                                            */
+    /* This function is not called for ERM device */
 
     return VIBE_S_SUCCESS;
 }
 #endif
 
 /*
-                                                                            
+** Called to get the device name (device name must be returned as ANSI char)
 */
 IMMVIBESPIAPI VibeStatus ImmVibeSPI_Device_GetName(VibeUInt8 nActuatorIndex, char *szDevName, int nSize)
 {
-#if 0   /*                                                                        */
+#if 0   /* The following code is provided as a sample. Please modify as required. */
 	INFO_MSG("\n");
     if ((!szDevName) || (nSize < 1)) return VIBE_E_FAIL;
 
     strncpy(szDevName, "W7", nSize-1);
-    szDevName[nSize - 1] = '\0';    /*                                         */
+    szDevName[nSize - 1] = '\0';    /* make sure the string is NULL terminated */
 #endif
 
     return VIBE_S_SUCCESS;

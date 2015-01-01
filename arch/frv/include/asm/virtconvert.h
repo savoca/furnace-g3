@@ -12,7 +12,7 @@
 #define _ASM_VIRTCONVERT_H
 
 /*
-                                                                    
+ * Macros used for converting between virtual and physical mappings.
  */
 
 #ifdef __KERNEL__

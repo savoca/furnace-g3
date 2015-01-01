@@ -16,8 +16,8 @@ extern unsigned int __sw_hweight32(unsigned int w);
 extern unsigned long __sw_hweight64(__u64 w);
 
 /*
-                                                                       
-        
+ * Include this here because some architectures need generic_ffs/fls in
+ * scope
  */
 #include <asm/bitops.h>
 
@@ -26,7 +26,7 @@ extern unsigned long __sw_hweight64(__u64 w);
 	     (bit) < (size);					\
 	     (bit) = find_next_bit((addr), (size), (bit) + 1))
 
-/*                                                               */
+/* same as for_each_set_bit() but use bit as value to start with */
 #define for_each_set_bit_from(bit, addr, size) \
 	for ((bit) = find_next_bit((addr), (size), (bit));	\
 	     (bit) < (size);					\
@@ -37,7 +37,7 @@ extern unsigned long __sw_hweight64(__u64 w);
 	     (bit) < (size);					\
 	     (bit) = find_next_zero_bit((addr), (size), (bit) + 1))
 
-/*                                                                 */
+/* same as for_each_clear_bit() but use bit as value to start with */
 #define for_each_clear_bit_from(bit, addr, size) \
 	for ((bit) = find_next_zero_bit((addr), (size), (bit));	\
 	     (bit) < (size);					\
@@ -48,7 +48,7 @@ static __inline__ int get_bitmask_order(unsigned int count)
 	int order;
 
 	order = fls(count);
-	return order;	/*                                                  */
+	return order;	/* We could be slightly more clever with -1 here... */
 }
 
 static __inline__ int get_count_order(unsigned int count)
@@ -66,90 +66,90 @@ static inline unsigned long hweight_long(unsigned long w)
 	return sizeof(w) == 4 ? hweight32(w) : hweight64(w);
 }
 
-/* 
-                                     
-                         
-                       
+/**
+ * rol64 - rotate a 64-bit value left
+ * @word: value to rotate
+ * @shift: bits to roll
  */
 static inline __u64 rol64(__u64 word, unsigned int shift)
 {
 	return (word << shift) | (word >> (64 - shift));
 }
 
-/* 
-                                      
-                         
-                       
+/**
+ * ror64 - rotate a 64-bit value right
+ * @word: value to rotate
+ * @shift: bits to roll
  */
 static inline __u64 ror64(__u64 word, unsigned int shift)
 {
 	return (word >> shift) | (word << (64 - shift));
 }
 
-/* 
-                                     
-                         
-                       
+/**
+ * rol32 - rotate a 32-bit value left
+ * @word: value to rotate
+ * @shift: bits to roll
  */
 static inline __u32 rol32(__u32 word, unsigned int shift)
 {
 	return (word << shift) | (word >> (32 - shift));
 }
 
-/* 
-                                      
-                         
-                       
+/**
+ * ror32 - rotate a 32-bit value right
+ * @word: value to rotate
+ * @shift: bits to roll
  */
 static inline __u32 ror32(__u32 word, unsigned int shift)
 {
 	return (word >> shift) | (word << (32 - shift));
 }
 
-/* 
-                                     
-                         
-                       
+/**
+ * rol16 - rotate a 16-bit value left
+ * @word: value to rotate
+ * @shift: bits to roll
  */
 static inline __u16 rol16(__u16 word, unsigned int shift)
 {
 	return (word << shift) | (word >> (16 - shift));
 }
 
-/* 
-                                      
-                         
-                       
+/**
+ * ror16 - rotate a 16-bit value right
+ * @word: value to rotate
+ * @shift: bits to roll
  */
 static inline __u16 ror16(__u16 word, unsigned int shift)
 {
 	return (word >> shift) | (word << (16 - shift));
 }
 
-/* 
-                                    
-                         
-                       
+/**
+ * rol8 - rotate an 8-bit value left
+ * @word: value to rotate
+ * @shift: bits to roll
  */
 static inline __u8 rol8(__u8 word, unsigned int shift)
 {
 	return (word << shift) | (word >> (8 - shift));
 }
 
-/* 
-                                     
-                         
-                       
+/**
+ * ror8 - rotate an 8-bit value right
+ * @word: value to rotate
+ * @shift: bits to roll
  */
 static inline __u8 ror8(__u8 word, unsigned int shift)
 {
 	return (word >> shift) | (word << (8 - shift));
 }
 
-/* 
-                                                                             
-                               
-                                                      
+/**
+ * sign_extend32 - sign extend a 32-bit value using specified bit as sign-bit
+ * @value: value to sign extend
+ * @index: 0 based bit index (0<=index<32) to sign bit
  */
 static inline __s32 sign_extend32(__u32 value, int index)
 {
@@ -164,13 +164,13 @@ static inline unsigned fls_long(unsigned long l)
 	return fls64(l);
 }
 
-/* 
-                                                
-                         
-  
-                                               
-                                                                    
-                                   
+/**
+ * __ffs64 - find first set bit in a 64 bit word
+ * @word: The 64 bit word
+ *
+ * On 64 bit arches this is a synomyn for __ffs
+ * The result is not defined if no bits are set, so check that @word
+ * is non-zero before calling this.
  */
 static inline unsigned long __ffs64(u64 word)
 {
@@ -186,16 +186,16 @@ static inline unsigned long __ffs64(u64 word)
 #ifdef __KERNEL__
 
 #ifndef find_last_bit
-/* 
-                                                           
-                                            
-                                    
-  
-                                                        
+/**
+ * find_last_bit - find the last set bit in a memory region
+ * @addr: The address to start the search at
+ * @size: The maximum size to search
+ *
+ * Returns the bit number of the first set bit, or size.
  */
 extern unsigned long find_last_bit(const unsigned long *addr,
 				   unsigned long size);
 #endif
 
-#endif /*            */
+#endif /* __KERNEL__ */
 #endif

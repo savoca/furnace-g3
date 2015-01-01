@@ -58,7 +58,7 @@
 #include <linux/module.h>
 #include "../../../../drivers/video/msm/mdss/mdss_fb.h"
 extern int update_preset_lcdc_lut(void);
-#endif /*                 */
+#endif /* CONFIG_LCD_KCAL */
 
 #ifdef CONFIG_MFD_WM5110
 #include <linux/slimbus/slimbus.h>
@@ -179,12 +179,12 @@ void __init lge_add_lcd_kcal_devices(void)
 	pr_info(" KCAL_DEBUG : %s\n", __func__);
 	platform_device_register(&kcal_platrom_device);
 }
-#endif /*                 */
+#endif /* CONFIG_LCD_KCAL */
 /*
-                                                           
-                                                                           
-                                                                        
-                                                     
+ * Used to satisfy dependencies for devices that need to be
+ * run early or in a particular order. Most likely your device doesn't fall
+ * into this category, and thus the driver should not be added here. The
+ * EPROBE_DEFER can satisfy most dependency problems.
  */
 /*                                                                       */
 #if defined (CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
@@ -226,7 +226,7 @@ void __init msm8974_add_drivers(void)
                                 
 */
 	lge_add_lcd_kcal_devices();
-#endif /*                 */
+#endif /* CONFIG_LCD_KCAL */
 #if defined(CONFIG_LGE_PM_BATTERY_ID_CHECKER)
 	lge_battery_id_devices();
 #endif
@@ -318,7 +318,7 @@ void __init msm8974_init(void)
 	board_dt_populate(adata);
 	msm8974_add_drivers();
 #ifdef CONFIG_MFD_WM5110
-	/*                                           */
+	/* Register the Wolfson WM5119 slimbus codec */
 	slim_register_board_info(msm_slim_devices, 1);
 #endif
 }

@@ -60,11 +60,11 @@ static int ocfs2_do_flock(struct file *file, struct inode *inode,
 			goto out;
 
 		/*
-                                                        
-                                                     
-                                                      
-           
-   */
+		 * Converting an existing lock is not guaranteed to be
+		 * atomic, so we can get away with simply unlocking
+		 * here and allowing the lock code to try at the new
+		 * level.
+		 */
 
 		flock_lock_file_wait(file,
 				     &(struct file_lock){.fl_type = F_UNLCK});
@@ -103,7 +103,7 @@ static int ocfs2_do_funlock(struct file *file, int cmd, struct file_lock *fl)
 }
 
 /*
-                                                                
+ * Overall flow of ocfs2_flock() was influenced by gfs2_flock().
  */
 int ocfs2_flock(struct file *file, int cmd, struct file_lock *fl)
 {

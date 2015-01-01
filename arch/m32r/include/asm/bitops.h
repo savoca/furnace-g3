@@ -23,22 +23,22 @@
 #include <asm/types.h>
 
 /*
-                                                                       
-                                                                     
-                                                           
-  
-                                                           
+ * These have to be done with inline assembly: that way the bit-setting
+ * is guaranteed to be atomic. All bit operations return 0 if the bit
+ * was cleared before the operation and != 0 if it was not.
+ *
+ * bit 0 is the LSB of addr; bit 32 is the LSB of (addr+1).
  */
 
-/* 
-                                           
-                      
-                                            
-  
-                                                                     
-                                               
-                                                                      
-                                                  
+/**
+ * set_bit - Atomically set a bit in memory
+ * @nr: the bit to set
+ * @addr: the address to start counting from
+ *
+ * This function is atomic and may not be reordered.  See __set_bit()
+ * if you do not require the atomic guarantees.
+ * Note that @nr may be almost arbitrarily large; this function is not
+ * restricted to acting on a single-word quantity.
  */
 static __inline__ void set_bit(int nr, volatile void * addr)
 {
@@ -61,20 +61,20 @@ static __inline__ void set_bit(int nr, volatile void * addr)
 		: "memory"
 #ifdef CONFIG_CHIP_M32700_TS1
 		, "r6"
-#endif	/*                        */
+#endif	/* CONFIG_CHIP_M32700_TS1 */
 	);
 	local_irq_restore(flags);
 }
 
-/* 
-                                     
-                    
-                                        
-  
-                                                                    
-                                                                       
-                                                                              
-                                                              
+/**
+ * clear_bit - Clears a bit in memory
+ * @nr: Bit to clear
+ * @addr: Address to start counting from
+ *
+ * clear_bit() is atomic and may not be reordered.  However, it does
+ * not contain a memory barrier, so if it is used for locking purposes,
+ * you should call smp_mb__before_clear_bit() and/or smp_mb__after_clear_bit()
+ * in order to ensure changes are visible on other processors.
  */
 static __inline__ void clear_bit(int nr, volatile void * addr)
 {
@@ -98,7 +98,7 @@ static __inline__ void clear_bit(int nr, volatile void * addr)
 		: "memory"
 #ifdef CONFIG_CHIP_M32700_TS1
 		, "r6"
-#endif	/*                        */
+#endif	/* CONFIG_CHIP_M32700_TS1 */
 	);
 	local_irq_restore(flags);
 }
@@ -106,14 +106,14 @@ static __inline__ void clear_bit(int nr, volatile void * addr)
 #define smp_mb__before_clear_bit()	barrier()
 #define smp_mb__after_clear_bit()	barrier()
 
-/* 
-                                      
-                    
-                                        
-  
-                                                   
-                                                                      
-                                                  
+/**
+ * change_bit - Toggle a bit in memory
+ * @nr: Bit to clear
+ * @addr: Address to start counting from
+ *
+ * change_bit() is atomic and may not be reordered.
+ * Note that @nr may be almost arbitrarily large; this function is not
+ * restricted to acting on a single-word quantity.
  */
 static __inline__ void change_bit(int nr, volatile void * addr)
 {
@@ -136,18 +136,18 @@ static __inline__ void change_bit(int nr, volatile void * addr)
 		: "memory"
 #ifdef CONFIG_CHIP_M32700_TS1
 		, "r6"
-#endif	/*                        */
+#endif	/* CONFIG_CHIP_M32700_TS1 */
 	);
 	local_irq_restore(flags);
 }
 
-/* 
-                                                        
-                  
-                               
-  
-                                                    
-                                    
+/**
+ * test_and_set_bit - Set a bit and return its old value
+ * @nr: Bit to set
+ * @addr: Address to count from
+ *
+ * This operation is atomic and cannot be reordered.
+ * It also implies a memory barrier.
  */
 static __inline__ int test_and_set_bit(int nr, volatile void * addr)
 {
@@ -176,13 +176,13 @@ static __inline__ int test_and_set_bit(int nr, volatile void * addr)
 	return (oldbit != 0);
 }
 
-/* 
-                                                            
-                  
-                               
-  
-                                                    
-                                    
+/**
+ * test_and_clear_bit - Clear a bit and return its old value
+ * @nr: Bit to set
+ * @addr: Address to count from
+ *
+ * This operation is atomic and cannot be reordered.
+ * It also implies a memory barrier.
  */
 static __inline__ int test_and_clear_bit(int nr, volatile void * addr)
 {
@@ -213,13 +213,13 @@ static __inline__ int test_and_clear_bit(int nr, volatile void * addr)
 	return (oldbit != 0);
 }
 
-/* 
-                                                              
-                  
-                               
-  
-                                                    
-                                    
+/**
+ * test_and_change_bit - Change a bit and return its old value
+ * @nr: Bit to set
+ * @addr: Address to count from
+ *
+ * This operation is atomic and cannot be reordered.
+ * It also implies a memory barrier.
  */
 static __inline__ int test_and_change_bit(int nr, volatile void * addr)
 {
@@ -263,13 +263,13 @@ static __inline__ int test_and_change_bit(int nr, volatile void * addr)
 #include <asm-generic/bitops/hweight.h>
 #include <asm-generic/bitops/lock.h>
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
 #ifdef __KERNEL__
 
 #include <asm-generic/bitops/le.h>
 #include <asm-generic/bitops/ext2-atomic.h>
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*                    */
+#endif /* _ASM_M32R_BITOPS_H */

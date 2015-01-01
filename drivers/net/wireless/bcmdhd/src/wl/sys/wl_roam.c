@@ -62,7 +62,7 @@ void init_roam(int ioctl_ver)
 {
 #ifdef D11AC_IOTYPES
 	if (ioctl_ver == 1) {
-		/*                 */
+		/* legacy chanspec */
 		band2G = WL_LCHANSPEC_BAND_2G;
 		band5G = WL_LCHANSPEC_BAND_5G;
 		band_bw = WL_LCHANSPEC_BW_20 | WL_LCHANSPEC_CTL_SB_NONE;
@@ -75,7 +75,7 @@ void init_roam(int ioctl_ver)
 	band2G = WL_CHANSPEC_BAND_2G;
 	band5G = WL_CHANSPEC_BAND_5G;
 	band_bw = WL_CHANSPEC_BW_20 | WL_CHANSPEC_CTL_SB_NONE;
-#endif /*               */
+#endif /* D11AC_IOTYPES */
 
 	n_roam_cache = 0;
 	roam_band = WLC_BAND_AUTO;
@@ -150,9 +150,9 @@ int set_roamscan_channel_list(struct net_device *dev,
 	n_roam_cache = n;
 	channel_list.n = n;
 
-	/*                                                              
-                                  
-  */
+	/* need to set ROAMSCAN_MODE_NORMAL to update roamscan_channels,
+	 * otherwise, it won't be updated
+	 */
 	wldev_iovar_setint(dev, "roamscan_mode", ROAMSCAN_MODE_NORMAL);
 	error = wldev_iovar_setbuf(dev, "roamscan_channels", &channel_list,
 		sizeof(channel_list), iobuf, sizeof(iobuf), NULL);
@@ -163,7 +163,7 @@ int set_roamscan_channel_list(struct net_device *dev,
 
 	return error;
 }
-#endif /*             */
+#endif /* WES_SUPPORT */
 
 void set_roam_band(int band)
 {
@@ -197,7 +197,7 @@ void add_roam_cache(wl_bss_info_t *bi)
 		if ((roam_cache[i].ssid_len == bi->SSID_len) &&
 			(roam_cache[i].chanspec == bi->chanspec) &&
 			(memcmp(roam_cache[i].ssid, bi->SSID, bi->SSID_len) == 0)) {
-			/*                                  */
+			/* identical one found, just return */
 			return;
 		}
 	}
@@ -230,7 +230,7 @@ int get_roam_channel_list(int target_chan,
 {
 	int i, n = 1;
 
-	/*                                                     */
+	/* first index is filled with the given target channel */
 	channels[0] = (target_chan & WL_CHANSPEC_CHAN_MASK) |
 		(target_chan <= CH_MAX_2G_CHANNEL ? band2G : band5G) | band_bw;
 
@@ -255,7 +255,7 @@ int get_roam_channel_list(int target_chan,
 
 		return n;
 	}
-#endif /*             */
+#endif /* WES_SUPPORT */
 
 	for (i = 0; i < n_roam_cache; i++) {
 		chanspec_t ch = roam_cache[i].chanspec;
@@ -269,7 +269,7 @@ int get_roam_channel_list(int target_chan,
 		if ((roam_cache[i].ssid_len == ssid->SSID_len) &&
 			band_match && !is_duplicated_channel(channels, n, ch) &&
 			(memcmp(roam_cache[i].ssid, ssid->SSID, ssid->SSID_len) == 0)) {
-			/*                     */
+			/* match found, add it */
 			WL_DBG((" %s: %03d(0x%04X)\n", __FUNCTION__,
 				CHSPEC_CHANNEL(ch), ch));
 			channels[n++] = ch;
@@ -297,11 +297,11 @@ static void add_roamcache_channel(channel_list_t *channels, chanspec_t ch)
 {
 	int i;
 
-	if (channels->n >= MAX_CHANNEL_LIST) /*             */
+	if (channels->n >= MAX_CHANNEL_LIST) /* buffer full */
 		return;
 
 	for (i = 0; i < channels->n; i++) {
-		if (channels->channels[i] == ch) /*                     */
+		if (channels->channels[i] == ch) /* already in the list */
 			return;
 	}
 
@@ -322,7 +322,7 @@ void update_roam_cache(struct wl_priv *wl, int ioctl_ver)
 
 #if defined(CUSTOMER_HW4) && defined(WES_SUPPORT)
 	if (roamscan_mode == ROAMSCAN_MODE_WES) {
-		/*                                  */
+		/* no update when ROAMSCAN_MODE_WES */
 		return;
 	}
 #endif
@@ -332,9 +332,9 @@ void update_roam_cache(struct wl_priv *wl, int ioctl_ver)
 		return;
 	}
 
-	/*                                        
-                                          
- */
+	/* need to read out the current cache list
+	   as the firmware may change dynamically
+	*/
 	error = wldev_iovar_getbuf(dev, "roamscan_channels", 0, 0,
 		(void *)&channel_list, sizeof(channel_list), NULL);
 
@@ -357,13 +357,13 @@ void update_roam_cache(struct wl_priv *wl, int ioctl_ver)
 
 		if ((roam_cache[i].ssid_len == ssid.SSID_len) &&
 			band_match && (memcmp(roam_cache[i].ssid, ssid.SSID, ssid.SSID_len) == 0)) {
-			/*                     */
+			/* match found, add it */
 			ch = CHSPEC_CHANNEL(ch) | (is_2G ? band2G : band5G) | band_bw;
 			add_roamcache_channel(&channel_list, ch);
 		}
 	}
 	if (prev_channels != channel_list.n) {
-		/*                      */
+		/* channel list updated */
 		error = wldev_iovar_setbuf(dev, "roamscan_channels", &channel_list,
 			sizeof(channel_list), iobuf, sizeof(iobuf), NULL);
 		if (error) {

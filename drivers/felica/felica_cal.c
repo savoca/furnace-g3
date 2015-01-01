@@ -1,10 +1,10 @@
 /*
-                
-  
+ *  felica_cal.c
+ *
  */
 
 /*
-                              
+ *    INCLUDE FILES FOR MODULE
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -14,7 +14,7 @@
 
 
 /*
-                         
+ *    INTERNAL DEFINITION
  */
 
 #define FELICA_I2C_SLAVE_ADDRESS  0x56
@@ -22,13 +22,13 @@
 #define FELICA_I2C_REG_ADDRSS_02  0x02
 
 /*
-                         
+ *    FUNCTION DEFINITION
  */
 
 /*
-               
-         
-          
+* Description :
+* Input :
+* Output :
 */
 static int felica_cal_open (struct inode *inode, struct file *fp)
 {
@@ -40,9 +40,9 @@ static int felica_cal_open (struct inode *inode, struct file *fp)
 }
 
 /*
-               
-         
-          
+* Description :
+* Input :
+* Output :
 */
 static int felica_cal_release (struct inode *inode, struct file *fp)
 {
@@ -54,9 +54,9 @@ static int felica_cal_release (struct inode *inode, struct file *fp)
 }
 
 /*
-               
-         
-          
+* Description :
+* Input :
+* Output :
 */
 static ssize_t felica_cal_read(struct file *fp, char *buf, size_t count, loff_t *pos)
 {
@@ -67,7 +67,7 @@ static ssize_t felica_cal_read(struct file *fp, char *buf, size_t count, loff_t 
   FELICA_DEBUG_MSG("[FELICA_CAL] felica_cal_read - start \n");
   #endif
 
-/*             */
+/* Check error */
   if(NULL == fp)
   {
     FELICA_DEBUG_MSG("[FELICA_CAL] ERROR fp \n");
@@ -120,9 +120,9 @@ static ssize_t felica_cal_read(struct file *fp, char *buf, size_t count, loff_t 
 }
 
 /*
-               
-         
-          
+* Description :
+* Input :
+* Output :
 */
 static ssize_t felica_cal_write(struct file *fp, const char *buf, size_t count, loff_t *pos)
 {
@@ -133,7 +133,7 @@ static ssize_t felica_cal_write(struct file *fp, const char *buf, size_t count, 
   FELICA_DEBUG_MSG("[FELICA_CAL] felica_cal_write - start \n");
   #endif
 
-/*             */
+/* Check error */
   if(NULL == fp)
   {
     FELICA_DEBUG_MSG("[FELICA_CAL] ERROR file \n");
@@ -158,7 +158,7 @@ static ssize_t felica_cal_write(struct file *fp, const char *buf, size_t count, 
     return -1;
   }
 
-  /*                     */
+  /* copy from user data */
   rc = copy_from_user(&write_buf, buf, count);
   if(rc)
   {
@@ -170,16 +170,16 @@ static ssize_t felica_cal_write(struct file *fp, const char *buf, size_t count, 
   FELICA_DEBUG_MSG("[FELICA_CAL] write_buf : 0x%02x \n",write_buf);
   #endif
 
-  /*                                              */
+  /* read register value before writing new value */
   rc = felica_i2c_read(FELICA_I2C_REG_ADDRSS_01, &read_buf, 1);
   udelay(50);
 
-  /*                 */
+  /* write new value */
   write_buf = write_buf | 0x80;
   rc = felica_i2c_write(FELICA_I2C_REG_ADDRSS_01, &write_buf, 1);
   mdelay(2);
 
-  /*                                             */
+  /* read register value after writing new value */
   rc = felica_i2c_read(FELICA_I2C_REG_ADDRSS_01, &read_buf, 1);
   udelay(50);
 
@@ -191,7 +191,7 @@ static ssize_t felica_cal_write(struct file *fp, const char *buf, size_t count, 
 }
 
 /*
-                       
+ *    STRUCT DEFINITION
  */
 
 
@@ -212,9 +212,9 @@ static struct miscdevice felica_cal_device =
 };
 
 /*
-               
-         
-          
+* Description :
+* Input :
+* Output :
 */
 static int felica_cal_init(void)
 {
@@ -224,7 +224,7 @@ static int felica_cal_init(void)
   FELICA_DEBUG_MSG("[FELICA_CAL] felica_cal_init - start \n");
   #endif
 
-  /*                          */
+  /* register the device file */
   rc = misc_register(&felica_cal_device);
   if (rc < 0)
   {
@@ -239,9 +239,9 @@ static int felica_cal_init(void)
   return 0;
 }
 /*
-               
-         
-          
+* Description :
+* Input :
+* Output :
 */
 static void felica_cal_exit(void)
 {
@@ -249,7 +249,7 @@ static void felica_cal_exit(void)
   FELICA_DEBUG_MSG("[FELICA_CAL] felica_cal_exit - start \n");
   #endif
 
-  /*                            */
+  /* deregister the device file */
   misc_deregister(&felica_cal_device);
 
   #ifdef FEATURE_DEBUG_LOW

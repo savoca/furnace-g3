@@ -27,9 +27,9 @@
  */
 
 /*
-             
-                                                        
-                                     
+ * To-Do List
+ * -> Port the Sleep/Wakeup dependencies for the domains
+ *    from the Power domain framework
  */
 
 #include <linux/kernel.h>
@@ -45,17 +45,17 @@
 #include "prm-regbits-34xx.h"
 
 /*
-                                                
-  
-                                                               
-                                                                 
+ * Clockdomain dependencies for wkdeps/sleepdeps
+ *
+ * XXX Hardware dependencies (e.g., dependencies that cannot be
+ * changed in software) are not included here yet, but should be.
  */
 
-/*                                 */
+/* Wakeup dependency source arrays */
 
-/*                                     */
+/* 2xxx-specific possible dependencies */
 
-/*                                    */
+/* 2xxx PM_WKDEP_GFX: CORE, MPU, WKUP */
 struct clkdm_dep gfx_24xx_wkdeps[] = {
 	{ .clkdm_name = "core_l3_clkdm" },
 	{ .clkdm_name = "core_l4_clkdm" },
@@ -64,7 +64,7 @@ struct clkdm_dep gfx_24xx_wkdeps[] = {
 	{ NULL },
 };
 
-/*                                    */
+/* 2xxx PM_WKDEP_DSP: CORE, MPU, WKUP */
 struct clkdm_dep dsp_24xx_wkdeps[] = {
 	{ .clkdm_name = "core_l3_clkdm" },
 	{ .clkdm_name = "core_l4_clkdm" },
@@ -75,15 +75,15 @@ struct clkdm_dep dsp_24xx_wkdeps[] = {
 
 
 /*
-                              
-  
-                                                         
-                                                                
-                                                            
-                          
+ * OMAP2/3-common clockdomains
+ *
+ * Even though the 2420 has a single PRCM module from the
+ * interconnect's perspective, internally it does appear to have
+ * separate PRM and CM clockdomains.  The usual test case is
+ * sys_clkout/sys_clkout2.
  */
 
-/*                                                                      */
+/* This is an implicit clockdomain - it is never defined as such in TRM */
 struct clockdomain wkup_common_clkdm = {
 	.name		= "wkup_clkdm",
 	.pwrdm		= { .name = "wkup_pwrdm" },

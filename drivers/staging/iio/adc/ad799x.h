@@ -15,7 +15,7 @@
 #define AD799X_CHANNEL_SHIFT			4
 #define AD799X_STORAGEBITS			16
 /*
-                                    
+ * AD7991, AD7995 and AD7999 defines
  */
 
 #define AD7991_REF_SEL				0x08
@@ -24,7 +24,7 @@
 #define AD7991_SAMPLE_DELAY			0x01
 
 /*
-                                                    
+ * AD7992, AD7993, AD7994, AD7997 and AD7998 defines
  */
 
 #define AD7998_FLTR				0x08
@@ -62,12 +62,12 @@
 #define AD7998_ALERT_STAT_CLEAR			0xFF
 
 /*
-                            
+ * AD7997 and AD7997 defines
  */
 
 #define AD7997_8_READ_SINGLE			0x80
 #define AD7997_8_READ_SEQUENCE			0x70
-/*                                      */
+/* TODO: move this into a common header */
 #define RES_MASK(bits)	((1 << (bits)) - 1)
 
 enum {
@@ -83,14 +83,14 @@ enum {
 
 struct ad799x_state;
 
-/* 
-                                                     
-                                   
-                                    
-                                               
-                                                              
-                                                
-                                                             
+/**
+ * struct ad799x_chip_info - chip specifc information
+ * @channel:		channel specification
+ * @num_channels:	number of channels
+ * @int_vref_mv:	the internal reference voltage
+ * @monitor_mode:	whether the chip supports monitor interrupts
+ * @default_config:	device default configuration
+ * @event_attrs:	pointer to the monitor event attribute group
  */
 
 struct ad799x_chip_info {
@@ -114,7 +114,7 @@ struct ad799x_state {
 };
 
 /*
-                                                                       
+ * TODO: struct ad799x_platform_data needs to go into include/linux/iio
  */
 
 struct ad799x_platform_data {
@@ -126,7 +126,7 @@ int ad7997_8_set_scan_mode(struct ad799x_state *st, unsigned mask);
 #ifdef CONFIG_AD799X_RING_BUFFER
 int ad799x_register_ring_funcs_and_init(struct iio_dev *indio_dev);
 void ad799x_ring_cleanup(struct iio_dev *indio_dev);
-#else /*                           */
+#else /* CONFIG_AD799X_RING_BUFFER */
 
 static inline int
 ad799x_register_ring_funcs_and_init(struct iio_dev *indio_dev)
@@ -137,5 +137,5 @@ ad799x_register_ring_funcs_and_init(struct iio_dev *indio_dev)
 static inline void ad799x_ring_cleanup(struct iio_dev *indio_dev)
 {
 }
-#endif /*                           */
-#endif /*            */
+#endif /* CONFIG_AD799X_RING_BUFFER */
+#endif /* _AD799X_H_ */

@@ -105,7 +105,7 @@ static int choose_best_symbol(struct symbol *syma, struct symbol *symb)
 	s64 a;
 	s64 b;
 
-	/*                                      */
+	/* Prefer a symbol with non zero length */
 	a = syma->end - syma->start;
 	b = symb->end - symb->start;
 	if ((b == 0) && (a > 0))
@@ -113,7 +113,7 @@ static int choose_best_symbol(struct symbol *syma, struct symbol *symb)
 	else if ((a == 0) && (b > 0))
 		return SYMBOL_B;
 
-	/*                                          */
+	/* Prefer a non weak symbol over a weak one */
 	a = syma->binding == STB_WEAK;
 	b = symb->binding == STB_WEAK;
 	if (b && !a)
@@ -121,7 +121,7 @@ static int choose_best_symbol(struct symbol *syma, struct symbol *symb)
 	if (a && !b)
 		return SYMBOL_B;
 
-	/*                                              */
+	/* Prefer a global symbol over a non global one */
 	a = syma->binding == STB_GLOBAL;
 	b = symb->binding == STB_GLOBAL;
 	if (a && !b)
@@ -129,7 +129,7 @@ static int choose_best_symbol(struct symbol *syma, struct symbol *symb)
 	if (b && !a)
 		return SYMBOL_B;
 
-	/*                                       */
+	/* Prefer a symbol with less underscores */
 	a = prefix_underscores_count(syma->name);
 	b = prefix_underscores_count(symb->name);
 	if (b > a)
@@ -137,7 +137,7 @@ static int choose_best_symbol(struct symbol *syma, struct symbol *symb)
 	else if (a > b)
 		return SYMBOL_B;
 
-	/*                                                            */
+	/* If all else fails, choose the symbol with the longest name */
 	if (strlen(syma->name) >= strlen(symb->name))
 		return SYMBOL_A;
 	else
@@ -191,7 +191,7 @@ static void symbols__fixup_end(struct rb_root *symbols)
 			prev->end = curr->start - 1;
 	}
 
-	/*            */
+	/* Last entry */
 	if (curr->end == curr->start)
 		curr->end = roundup(curr->start, 4096);
 }
@@ -213,9 +213,9 @@ static void __map_groups__fixup_end(struct map_groups *mg, enum map_type type)
 	}
 
 	/*
-                                                     
-                           
-  */
+	 * We still haven't the actual symbols, so guess the
+	 * last map final address.
+	 */
 	curr->end = ~0ULL;
 }
 
@@ -566,7 +566,7 @@ int kallsyms__parse(const char *filename, void *arg,
 		if (line_len < 0 || !line)
 			break;
 
-		line[--line_len] = '\0'; /*    */
+		line[--line_len] = '\0'; /* \n */
 
 		len = hex2u64(line, &start);
 
@@ -585,10 +585,10 @@ int kallsyms__parse(const char *filename, void *arg,
 		}
 
 		/*
-                                                
-                                         
-                                       
-   */
+		 * module symbols are not sorted so we add all
+		 * symbols with zero length and rely on
+		 * symbols__fixup_end() to fix it up.
+		 */
 		err = process_symbol(arg, symbol_name,
 				     symbol_type, start, start);
 		if (err)
@@ -631,18 +631,18 @@ static int map__process_kallsym_symbol(void *arg, const char *name,
 	if (sym == NULL)
 		return -ENOMEM;
 	/*
-                                                    
-                                                               
-  */
+	 * We will pass the symbols to the filter later, in
+	 * map__split_kallsyms, when we have split the maps per module
+	 */
 	symbols__insert(root, sym);
 
 	return 0;
 }
 
 /*
-                                                                     
-                                                                        
-                                    
+ * Loads the function entries in /proc/kallsyms into kernel_map->dso,
+ * so that we can in the next step set the symbol ->end address and then
+ * call kernel_maps__split_kallsyms.
  */
 static int dso__load_all_kallsyms(struct dso *dso, const char *filename,
 				  struct map *map)
@@ -652,9 +652,9 @@ static int dso__load_all_kallsyms(struct dso *dso, const char *filename,
 }
 
 /*
-                                                                           
-                                                                             
-                                               
+ * Split the symbols into maps, making sure there are no overlaps, i.e. the
+ * kernel range is broken in several maps, named [kernel].N, as we don't have
+ * the original ELF section names vmlinux have.
  */
 static int dso__split_kallsyms(struct dso *dso, struct map *map,
 			       symbol_filter_t filter)
@@ -686,12 +686,12 @@ static int dso__split_kallsyms(struct dso *dso, struct map *map,
 				    dso->kernel == DSO_TYPE_GUEST_KERNEL &&
 				    machine__is_default_guest(machine)) {
 					/*
-                                             
-                                             
-                                      
-                                           
-               
-      */
+					 * We assume all symbols of a module are
+					 * continuous in * kallsyms, so curr_map
+					 * points to a module and all its
+					 * symbols are in its kmap. Mark it as
+					 * loaded.
+					 */
 					dso__set_loaded(curr_map->dso,
 							curr_map->type);
 				}
@@ -712,9 +712,9 @@ static int dso__split_kallsyms(struct dso *dso, struct map *map,
 					goto discard_symbol;
 			}
 			/*
-                                                      
-                                                 
-    */
+			 * So that we look just like we get from .ko files,
+			 * i.e. not prelinked, relative to map->start.
+			 */
 			pos->start = curr_map->map_ip(curr_map, pos->start);
 			pos->end   = curr_map->map_ip(curr_map, pos->end);
 		} else if (curr_map != map) {
@@ -836,7 +836,7 @@ static int dso__load_perf_map(struct dso *dso, struct map *map,
 		if (!line)
 			goto out_failure;
 
-		line[--line_len] = '\0'; /*    */
+		line[--line_len] = '\0'; /* \n */
 
 		len = hex2u64(line, &start);
 
@@ -874,12 +874,12 @@ out_failure:
 	return -1;
 }
 
-/* 
-                                                             
-  
-                                               
-                     
-                          
+/**
+ * elf_symtab__for_each_symbol - iterate thru all the symbols
+ *
+ * @syms: struct elf_symtab instance to iterate
+ * @idx: uint32_t idx
+ * @sym: GElf_Sym iterator
  */
 #define elf_symtab__for_each_symbol(syms, nr_syms, idx, sym) \
 	for (idx = 0, gelf_getsym(syms, idx, &sym);\
@@ -971,11 +971,11 @@ static Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
 	     ++idx, pos = gelf_getrela(reldata, idx, &pos_mem))
 
 /*
-                                                                   
-                                                                    
-                       
-                                                                       
-                                                                       
+ * We need to check if we have a .dynsym, so that we can handle the
+ * .plt, synthesizing its symbols, that aren't on the symtabs (be it
+ * .dynsym or .symtab).
+ * And always look at the original dso, not at debuginfo packages, that
+ * have the PLT data stripped out (shdr_rel_plt.sh_type == SHT_NOBITS).
  */
 static int
 dso__synthesize_plt_symbols(struct dso *dso, char *name, struct map *map,
@@ -1029,9 +1029,9 @@ dso__synthesize_plt_symbols(struct dso *dso, char *name, struct map *map,
 		goto out_elf_end;
 
 	/*
-                                                             
-                                                 
-  */
+	 * Fetch the relocation section to find the idxes to the GOT
+	 * and the symbols in the .dynsym they refer to.
+	 */
 	reldata = elf_getdata(scn_plt_rel, NULL);
 	if (reldata == NULL)
 		goto out_elf_end;
@@ -1187,7 +1187,7 @@ static int dso__load_sym(struct dso *dso, struct map *map, const char *name,
 		goto out_elf_end;
 	}
 
-	/*                                                  */
+	/* Always reject images with a mismatched build-id: */
 	if (dso->has_build_id) {
 		u8 build_id[BUILD_ID_SIZE];
 
@@ -1259,9 +1259,9 @@ static int dso__load_sym(struct dso *dso, struct map *map, const char *name,
 		if (!is_label && !elf_sym__is_a(&sym, map->type))
 			continue;
 
-		/*                                                          
-                                                          
-             */
+		/* Reject ARM ELF "mapping symbols": these aren't unique and
+		 * don't identify functions, so will confuse the profile
+		 * output: */
 		if (ehdr.e_machine == EM_ARM) {
 			if (!strcmp(elf_name, "$a") ||
 			    !strcmp(elf_name, "$d") ||
@@ -1287,8 +1287,8 @@ static int dso__load_sym(struct dso *dso, struct map *map, const char *name,
 
 		section_name = elf_sec__name(&shdr, secstrs);
 
-		/*                                                    
-                                              */
+		/* On ARM, symbols for thumb functions have 1 added to
+		 * the symbol address as a flag - remove it */
 		if ((ehdr.e_machine == EM_ARM) &&
 		    (map->type == MAP__FUNCTION) &&
 		    (sym.st_value & 1))
@@ -1350,10 +1350,10 @@ static int dso__load_sym(struct dso *dso, struct map *map, const char *name,
 			sym.st_value -= shdr.sh_addr - shdr.sh_offset;
 		}
 		/*
-                                                                     
-                                                                    
-             
-   */
+		 * We need to figure out if the object was created from C++ sources
+		 * DWARF DW_compile_unit has this, but we don't always have access
+		 * to it...
+		 */
 		demangled = bfd_demangle(NULL, elf_name, DMGL_PARAMS | DMGL_ANSI);
 		if (demangled != NULL)
 			elf_name = demangled;
@@ -1373,16 +1373,16 @@ new_symbol:
 	}
 
 	/*
-                                                 
-  */
+	 * For misannotated, zeroed, ASM function sizes.
+	 */
 	if (nr > 0) {
 		symbols__fixup_duplicate(&dso->symbols[map->type]);
 		symbols__fixup_end(&dso->symbols[map->type]);
 		if (kmap) {
 			/*
-                                                          
-                                                   
-    */
+			 * We need to fixup this here too because we create new
+			 * maps here, for things like vsyscall sections.
+			 */
 			__map_groups__fixup_end(kmap->kmaps, map->type);
 		}
 	}
@@ -1421,7 +1421,7 @@ bool __dsos__read_build_ids(struct list_head *head, bool with_hits)
 }
 
 /*
-                                                                       
+ * Align offset to 4 bytes as needed for note name and descriptor data.
  */
 #define NOTE_ALIGN(n) (((n) + 3) & -4U)
 
@@ -1625,10 +1625,10 @@ int dso__load(struct dso *dso, struct map *map, symbol_filter_t filter)
 		return ret;
 	}
 
-	/*                                     
-                                                                   
-                                                               
-  */
+	/* Iterate over candidate debug images.
+	 * On the first pass, only load images if they have a full symtab.
+	 * Failing that, do a second pass where we accept .dynsym also
+	 */
 	want_symtab = 1;
 restart:
 	for (dso->symtab_type = SYMTAB__BUILD_ID_CACHE;
@@ -1636,7 +1636,7 @@ restart:
 	     dso->symtab_type++) {
 		switch (dso->symtab_type) {
 		case SYMTAB__BUILD_ID_CACHE:
-			/*                                                       */
+			/* skip the locally configured cache if a symfs is given */
 			if (symbol_conf.symfs[0] ||
 			    (dso__build_id_filename(dso, name, size) == NULL)) {
 				continue;
@@ -1684,7 +1684,7 @@ restart:
 		default:;
 		}
 
-		/*                                               */
+		/* Name is now the name of the next image to try */
 		fd = open(name, O_RDONLY);
 		if (fd < 0)
 			continue;
@@ -1694,9 +1694,9 @@ restart:
 		close(fd);
 
 		/*
-                                                             
-             
-   */
+		 * Some people seem to have debuginfo files _WITHOUT_ debug
+		 * info!?!?
+		 */
 		if (!ret)
 			continue;
 
@@ -1711,9 +1711,9 @@ restart:
 	}
 
 	/*
-                                                    
-                                                 
-  */
+	 * If we wanted a full symtab but no image had one,
+	 * relax our requirements and repeat the search.
+	 */
 	if (ret <= 0 && want_symtab) {
 		want_symtab = 0;
 		goto restart;
@@ -1745,9 +1745,9 @@ static int dso__kernel_module_get_build_id(struct dso *dso,
 {
 	char filename[PATH_MAX];
 	/*
-                                                            
-                               
-  */
+	 * kernel module short names are of the form "[module]" and
+	 * we need just "module" here.
+	 */
 	const char *name = dso->short_name + 1;
 
 	snprintf(filename, sizeof(filename),
@@ -1777,7 +1777,7 @@ static int map_groups__set_modules_path_dir(struct map_groups *mg,
 		char path[PATH_MAX];
 		struct stat st;
 
-		/*                                                       */
+		/*sshfs might return bad dent->d_type, so we have to stat*/
 		snprintf(path, sizeof(path), "%s/%s", dir_name, dent->d_name);
 		if (stat(path, &st))
 			continue;
@@ -1867,9 +1867,9 @@ static int machine__set_modules_path(struct machine *machine)
 }
 
 /*
-                                                                          
-                                                                     
-                                               
+ * Constructor variant for modules (where we know from /proc/modules where
+ * they are loaded) and for vmlinux, where only after we load all the
+ * symbols we'll know where it starts and ends.
  */
 static struct map *map__new2(u64 start, struct dso *dso, enum map_type type)
 {
@@ -1877,8 +1877,8 @@ static struct map *map__new2(u64 start, struct dso *dso, enum map_type type)
 				     (dso->kernel ? sizeof(struct kmap) : 0)));
 	if (map != NULL) {
 		/*
-                                                       
-   */
+		 * ->end will be filled after we load all the symbols
+		 */
 		map__init(map, type, start, 0, 0, dso);
 	}
 
@@ -1942,7 +1942,7 @@ static int machine__create_modules(struct machine *machine)
 		if (!line)
 			goto out_failure;
 
-		line[--line_len] = '\0'; /*    */
+		line[--line_len] = '\0'; /* \n */
 
 		sep = strrchr(line, 'x');
 		if (sep == NULL)
@@ -2034,20 +2034,20 @@ static int dso__load_kernel_sym(struct dso *dso, struct map *map,
 	const char *kallsyms_filename = NULL;
 	char *kallsyms_allocated_filename = NULL;
 	/*
-                                                                     
-                                                                      
-   
-                                                                  
-                                                                  
-                                                                   
-                                                                       
-                             
-   
-                                                                  
-                                                                
-                                                                   
-          
-  */
+	 * Step 1: if the user specified a kallsyms or vmlinux filename, use
+	 * it and only it, reporting errors to the user if it cannot be used.
+	 *
+	 * For instance, try to analyse an ARM perf.data file _without_ a
+	 * build-id, or if the user specifies the wrong path to the right
+	 * vmlinux file, obviously we can't fallback to another vmlinux (a
+	 * x86_86 one, on the machine where analysis is being performed, say),
+	 * or worse, /proc/kallsyms.
+	 *
+	 * If the specified file _has_ a build-id and there is a build-id
+	 * section in the perf.data file, we will still do the expected
+	 * validation in dso__load_vmlinux and will bail out if they don't
+	 * match.
+	 */
 	if (symbol_conf.kallsyms_name != NULL) {
 		kallsyms_filename = symbol_conf.kallsyms_name;
 		goto do_kallsyms;
@@ -2070,15 +2070,15 @@ static int dso__load_kernel_sym(struct dso *dso, struct map *map,
 			goto out_fixup;
 	}
 
-	/*                                             */
+	/* do not try local files if a symfs was given */
 	if (symbol_conf.symfs[0] != 0)
 		return -1;
 
 	/*
-                                                                             
-                                                                         
-                      
-  */
+	 * Say the kernel DSO was created when processing the build-id header table,
+	 * we have a build-id, so check if it is the same as the running kernel,
+	 * using it if it is.
+	 */
 	if (dso->has_build_id) {
 		u8 kallsyms_build_id[BUILD_ID_SIZE];
 		char sbuild_id[BUILD_ID_SIZE * 2 + 1];
@@ -2091,9 +2091,9 @@ static int dso__load_kernel_sym(struct dso *dso, struct map *map,
 			}
 		}
 		/*
-                                                    
-                                    
-   */
+		 * Now look if we have it on the build-id cache in
+		 * $HOME/.debug/[kernel.kallsyms].
+		 */
 		build_id__sprintf(dso->build_id, sizeof(dso->build_id),
 				  sbuild_id);
 
@@ -2114,9 +2114,9 @@ static int dso__load_kernel_sym(struct dso *dso, struct map *map,
 		}
 	} else {
 		/*
-                                                               
-                                                             
-   */
+		 * Last resort, if we don't have a build-id and couldn't find
+		 * any vmlinux file, try the running kernel kallsyms table.
+		 */
 		kallsyms_filename = "/proc/kallsyms";
 	}
 
@@ -2153,10 +2153,10 @@ static int dso__load_guest_kernel_sym(struct dso *dso, struct map *map,
 
 	if (machine__is_default_guest(machine)) {
 		/*
-                                                              
-                                                           
-                                                               
-   */
+		 * if the user specified a vmlinux filename, use it and only
+		 * it, reporting errors to the user if it cannot be used.
+		 * Or use file guest_kallsyms inputted by user on commandline
+		 */
 		if (symbol_conf.default_guest_vmlinux_name != NULL) {
 			err = dso__load_vmlinux(dso, map,
 				symbol_conf.default_guest_vmlinux_name, filter);
@@ -2286,14 +2286,14 @@ dso__kernel_findnew(struct machine *machine, const char *name,
 		    const char *short_name, int dso_type)
 {
 	/*
-                                                           
-  */
+	 * The kernel dso could be created by build_id processing.
+	 */
 	struct dso *dso = __dsos__findnew(&machine->kernel_dsos, name);
 
 	/*
-                                                               
-                                                      
-  */
+	 * We need to run this in all cases, since during the build_id
+	 * processing we had no idea this was the kernel dso.
+	 */
 	if (dso != NULL) {
 		dso__set_short_name(dso, short_name);
 		dso->kernel = dso_type;
@@ -2363,7 +2363,7 @@ static int symbol__in_kernel(void *arg, const char *name,
 	return 1;
 }
 
-/*                                                                */
+/* Figure out the start address of kernel map from /proc/kallsyms */
 static u64 machine__get_kernel_start_addr(struct machine *machine)
 {
 	const char *filename;
@@ -2429,9 +2429,9 @@ void machine__destroy_kernel_maps(struct machine *machine)
 				   machine->vmlinux_maps[type]);
 		if (kmap->ref_reloc_sym) {
 			/*
-                                                          
-                     
-    */
+			 * ref_reloc_sym is shared among all maps, so free just
+			 * on one of them.
+			 */
 			if (type == MAP__FUNCTION) {
 				free((char *)kmap->ref_reloc_sym->name);
 				kmap->ref_reloc_sym->name = NULL;
@@ -2456,8 +2456,8 @@ int machine__create_kernel_maps(struct machine *machine)
 	if (symbol_conf.use_modules && machine__create_modules(machine) < 0)
 		pr_debug("Problems creating module maps, continuing anyway...\n");
 	/*
-                                                                      
-  */
+	 * Now that we have all the maps created, just set the ->end of them:
+	 */
 	map_groups__fixup_end(&machine->kmaps);
 	return 0;
 }
@@ -2491,7 +2491,7 @@ static int vmlinux_path__init(void)
 		goto out_fail;
 	++vmlinux_path__nr_entries;
 
-	/*                                                       */
+	/* only try running kernel version if no symfs was given */
 	if (symbol_conf.symfs[0] != 0)
 		return 0;
 
@@ -2609,9 +2609,9 @@ int symbol__init(void)
 		goto out_free_comm_list;
 
 	/*
-                                               
-                              
-  */
+	 * A path to symbols of "/" is identical to ""
+	 * reset here for simplicity.
+	 */
 	symfs = realpath(symbol_conf.symfs, NULL);
 	if (symfs == NULL)
 		symfs = symbol_conf.symfs;
@@ -2666,8 +2666,8 @@ static int hex(char ch)
 }
 
 /*
-                                                  
-                                    
+ * While we find nice hex chars, build a long_val.
+ * Return number of chars processed.
  */
 int hex2u64(const char *ptr, u64 *long_val)
 {
@@ -2717,7 +2717,7 @@ int machines__create_guest_kernel_maps(struct rb_root *machines)
 			return -ENOENT;
 		for (i = 0; i < items; i++) {
 			if (!isdigit(namelist[i]->d_name[0])) {
-				/*                     */
+				/* Filter out . and .. */
 				continue;
 			}
 			pid = atoi(namelist[i]->d_name);
@@ -2760,10 +2760,10 @@ int machine__load_kallsyms(struct machine *machine, const char *filename,
 	if (ret > 0) {
 		dso__set_loaded(map->dso, type);
 		/*
-                                                             
-                                                            
-              
-   */
+		 * Since /proc/kallsyms will have multiple sessions for the
+		 * kernel, with modules between them, fixup the end of all
+		 * sections.
+		 */
 		__map_groups__fixup_end(&machine->kmaps, type);
 	}
 

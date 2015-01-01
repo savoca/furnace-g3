@@ -106,7 +106,7 @@ struct goodix_ts_data {
 extern u16 show_len;
 extern u16 total_len;
 
-/*                                                                           */
+/***************************PART1:ON/OFF define*******************************/
 #define GTP_CUSTOM_CFG			0
 #define GTP_CHANGE_X2Y			0
 #define GTP_DRIVER_SEND_CFG		1
@@ -114,9 +114,9 @@ extern u16 total_len;
 #define GTP_ESD_PROTECT			0
 #define GTP_WITH_PEN			0
 
-/*                                              */
+/* This cannot work when enable-power-off is on */
 #define GTP_SLIDE_WAKEUP		0
-/*                                                              */
+/* double-click wakeup, function together with GTP_SLIDE_WAKEUP */
 #define GTP_DBL_CLK_WAKEUP		0
 
 #define GTP_IRQ_TAB            {\
@@ -143,12 +143,12 @@ extern u16 total_len;
 #define GTP_PRODUCT_ID_BUFFER_MAXSIZE	6
 #define GTP_FW_VERSION_BUFFER_MAXSIZE	4
 #define GTP_MAX_TOUCH		5
-#define GTP_ESD_CHECK_CIRCLE	2000      /*           */
+#define GTP_ESD_CHECK_CIRCLE	2000      /* jiffy: ms */
 
-/*                                                                            */
+/***************************PART3:OTHER define*********************************/
 #define GTP_DRIVER_VERSION	"V1.8.1<2013/09/01>"
 #define GTP_I2C_NAME		"Goodix-TS"
-#define GTP_POLL_TIME		10     /*          */
+#define GTP_POLL_TIME		10     /* jiffy: ms*/
 #define GTP_ADDR_LENGTH		2
 #define GTP_CONFIG_MIN_LENGTH	186
 #define GTP_CONFIG_MAX_LENGTH	240
@@ -157,7 +157,7 @@ extern u16 total_len;
 #define SWITCH_OFF		0
 #define SWITCH_ON		1
 
-/*                  */
+/* Registers define */
 #define GTP_READ_COOR_ADDR	0x814E
 #define GTP_REG_SLEEP		0x8040
 #define GTP_REG_SENSOR_ID	0x814A
@@ -172,13 +172,13 @@ extern u16 total_len;
 #define RESOLUTION_LOC		3
 #define TRIGGER_LOC		8
 
-/*                                 */
+/* HIGH: 0x28/0x29, LOW: 0xBA/0xBB */
 #define GTP_I2C_ADDRESS_HIGH	0x14
 #define GTP_I2C_ADDRESS_LOW	0x5D
 
 #define CFG_GROUP_LEN(p_cfg_grp) (sizeof(p_cfg_grp) / sizeof(p_cfg_grp[0]))
 
-/*                      */
+/* GTP CM_HEAD RW flags */
 #define GTP_RW_READ			0
 #define GTP_RW_WRITE			1
 #define GTP_RW_READ_IC_TYPE		2
@@ -194,12 +194,12 @@ extern u16 total_len;
 #define GTP_RW_UPDATE_FW		15
 #define GTP_RW_CHECK_RAWDIFF_MODE	17
 
-/*                            */
+/* GTP need flag or interrupt */
 #define GTP_NO_NEED			0
 #define GTP_NEED_FLAG			1
 #define GTP_NEED_INTERRUPT		2
 
-/*                                                                          */
+/*****************************End of Part III********************************/
 
 void gtp_esd_switch(struct i2c_client *client, int on);
 
@@ -222,4 +222,4 @@ void gup_leave_update_mode(struct i2c_client *client);
 s32 gup_update_proc(void *dir);
 extern struct i2c_client  *i2c_connect_client;
 #endif
-#endif /*                  */
+#endif /* _GOODIX_GT9XX_H_ */

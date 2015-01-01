@@ -36,8 +36,8 @@ void get_vmalloc_info(struct vmalloc_info *vmi)
 			unsigned long addr = (unsigned long) vma->addr;
 
 			/*
-                                                         
-    */
+			 * Some archs keep another range for modules in vmlist
+			 */
 			if (addr < VMALLOC_START)
 				continue;
 			if (addr >= VMALLOC_END)

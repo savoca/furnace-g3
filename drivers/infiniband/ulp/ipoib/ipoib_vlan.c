@@ -65,9 +65,9 @@ int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
 	mutex_lock(&ppriv->vlan_mutex);
 
 	/*
-                                                                       
-                                                                         
-  */
+	 * First ensure this isn't a duplicate. We check the parent device and
+	 * then all of the child interfaces to make sure the Pkey doesn't match.
+	 */
 	if (ppriv->pkey == pkey) {
 		result = -ENOTUNIQ;
 		priv = NULL;
@@ -91,7 +91,7 @@ int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
 	}
 
 	priv->max_ib_mtu = ppriv->max_ib_mtu;
-	/*                                           */
+	/* MTU will be reset when mcast join happens */
 	priv->dev->mtu   = IPOIB_UD_MTU(priv->max_ib_mtu);
 	priv->mcast_mtu  = priv->admin_mtu = priv->dev->mtu;
 	set_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags);

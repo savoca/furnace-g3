@@ -106,7 +106,7 @@ inline int msm_jpeg_q_in_buf(struct msm_jpeg_q *q_p,
 
 inline int msm_jpeg_q_wait(struct msm_jpeg_q *q_p)
 {
-	int tm = MAX_SCHEDULE_TIMEOUT; /*       */
+	int tm = MAX_SCHEDULE_TIMEOUT; /* 500ms */
 	int rc;
 
 	JPEG_DBG("%s:%d] %s wait\n", __func__, __LINE__, q_p->name);
@@ -178,7 +178,7 @@ inline void msm_jpeg_q_cleanup(struct msm_jpeg_q *q_p)
 	q_p->unblck = 0;
 }
 
-/*                                          */
+/*************** event queue ****************/
 
 int msm_jpeg_framedone_irq(struct msm_jpeg_device *pgmn_dev,
 	struct msm_jpeg_core_buf *buf_in)
@@ -269,7 +269,7 @@ void msm_jpeg_err_irq(struct msm_jpeg_device *pgmn_dev,
 	return;
 }
 
-/*                                           */
+/*************** output queue ****************/
 
 int msm_jpeg_we_pingpong_irq(struct msm_jpeg_device *pgmn_dev,
 	struct msm_jpeg_core_buf *buf_in)
@@ -408,7 +408,7 @@ int msm_jpeg_output_buf_enqueue(struct msm_jpeg_device *pgmn_dev,
 	return 0;
 }
 
-/*                                          */
+/*************** input queue ****************/
 
 int msm_jpeg_fe_pingpong_irq(struct msm_jpeg_device *pgmn_dev,
 	struct msm_jpeg_core_buf *buf_in)
@@ -581,7 +581,7 @@ int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev)
 
 	mutex_lock(&pgmn_dev->lock);
 	if (pgmn_dev->open_count) {
-		/*                */
+		/* only open once */
 		JPEG_PR_ERR("%s:%d] busy\n", __func__, __LINE__);
 		mutex_unlock(&pgmn_dev->lock);
 		return -EBUSY;
@@ -958,7 +958,7 @@ int __msm_jpeg_init(struct msm_jpeg_device *pgmn_dev)
 
 #ifdef CONFIG_MSM_IOMMU
 	j = (pgmn_dev->iommu_cnt <= 1) ? idx : 0;
-	/*                            */
+	/*get device context for IOMMU*/
 	for (i = 0; i < pgmn_dev->iommu_cnt; i++) {
 		pgmn_dev->iommu_ctx_arr[i] = msm_iommu_get_ctx(iommu_name[j]);
 		JPEG_DBG("%s:%d] name %s", __func__, __LINE__, iommu_name[j]);

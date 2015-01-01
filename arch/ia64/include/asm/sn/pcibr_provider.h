@@ -11,12 +11,12 @@
 #include <asm/sn/intr.h>
 #include <asm/sn/pcibus_provider_defs.h>
 
-/*             */
-#define PV907516 (1 << 1) /*                                               */
+/* Workarounds */
+#define PV907516 (1 << 1) /* TIOCP: Don't write the write buffer flush reg */
 
 #define BUSTYPE_MASK                    0x1
 
-/*                                 */
+/* Macros given a pcibus structure */
 #define IS_PCIX(ps)     ((ps)->pbi_bridge_mode & BUSTYPE_MASK)
 #define IS_PCI_BRIDGE_ASIC(asic) (asic == PCIIO_ASIC_TYPE_PIC || \
                 asic == PCIIO_ASIC_TYPE_TIOCP)
@@ -25,14 +25,14 @@
 
 
 /*
-                                                                      
+ * The different PCI Bridge types supported on the SGI Altix platforms
  */
 #define PCIBR_BRIDGETYPE_UNKNOWN       -1
 #define PCIBR_BRIDGETYPE_PIC            2
 #define PCIBR_BRIDGETYPE_TIOCP          3
 
 /*
-                                     
+ * Bridge 64bit Direct Map Attributes
  */
 #define PCI64_ATTR_PREF                 (1ull << 59)
 #define PCI64_ATTR_PREC                 (1ull << 58)
@@ -51,11 +51,11 @@
 
 
 /*
-                                                 
+ * Bridge PMU Address Transaltion Entry Attibutes
  */
 #define PCI32_ATE_V                     (0x1 << 0)
-#define PCI32_ATE_CO                    (0x1 << 1)	/*               */
-#define PCI32_ATE_PIO                   (0x1 << 1)	/*                 */
+#define PCI32_ATE_CO                    (0x1 << 1)	/* PIC ASIC ONLY */
+#define PCI32_ATE_PIO                   (0x1 << 1)	/* TIOCP ASIC ONLY */
 #define PCI32_ATE_MSI                   (0x1 << 2)
 #define PCI32_ATE_PREF                  (0x1 << 3)
 #define PCI32_ATE_BAR                   (0x1 << 4)
@@ -67,18 +67,18 @@
 #define MINIMAL_ATE_FLAG(addr, size) \
 	(MINIMAL_ATES_REQUIRED((u64)addr, size) ? 1 : 0)
 
-/*                                           */
+/* bit 29 of the pci address is the SWAP bit */
 #define ATE_SWAPSHIFT                   29
 #define ATE_SWAP_ON(x)                  ((x) |= (1 << ATE_SWAPSHIFT))
 #define ATE_SWAP_OFF(x)                 ((x) &= ~(1 << ATE_SWAPSHIFT))
 
 /*
-                
+ * I/O page size
  */
 #if PAGE_SIZE < 16384
-#define IOPFNSHIFT                      12      /*                    */
+#define IOPFNSHIFT                      12      /* 4K per mapped page */
 #else
-#define IOPFNSHIFT                      14      /*                     */
+#define IOPFNSHIFT                      14      /* 16K per mapped page */
 #endif
 
 #define IOPGSIZE                        (1 << IOPFNSHIFT)
@@ -89,7 +89,7 @@
 #define PCIBR_CTRL_PAGE_SIZE            (0x1 << 21)
 
 /*
-                 
+ * PMU resources.
  */
 struct ate_resource{
 	u64 *ate;
@@ -98,7 +98,7 @@ struct ate_resource{
 };
 
 struct pcibus_info {
-	struct pcibus_bussoft	pbi_buscommon;   /*               */
+	struct pcibus_bussoft	pbi_buscommon;   /* common header */
 	u32                pbi_moduleid;
 	short                   pbi_bridge_type;
 	short                   pbi_bridge_mode;
@@ -124,7 +124,7 @@ extern dma_addr_t pcibr_dma_map_consistent(struct pci_dev *, unsigned long, size
 extern void pcibr_dma_unmap(struct pci_dev *, dma_addr_t, int);
 
 /*
-                                                                         
+ * prototypes for the bridge asic register access routines in pcibr_reg.c
  */
 extern void             pcireg_control_bit_clr(struct pcibus_info *, u64);
 extern void             pcireg_control_bit_set(struct pcibus_info *, u64);

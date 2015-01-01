@@ -19,7 +19,7 @@
 #include <linux/regmap.h>
 #include <linux/regulator/machine.h>
 
-/*           */
+/* Registers */
 #define LM3631_REG_DEVCTRL		0x00
 #define LM3631_LCD_EN_MASK		BIT(1)
 #define LM3631_LCD_EN_SHIFT		1
@@ -76,17 +76,17 @@
 enum lm3631_brightness_mode {
 	LM3631_I2C_ONLY	= 0 << 2,
 	LM3631_PWM_ONLY	= 1 << 2,
-	LM3631_COMB1	= 2 << 2,	/*                          */
-	LM3631_COMB2	= 3 << 2,	/*                  */
+	LM3631_COMB1	= 2 << 2,	/* I2C x PWM befoer sloping */
+	LM3631_COMB2	= 3 << 2,	/* Sloped I2C x PWM */
 };
 
 /*
-                                 
-                               
-                                                     
-                                             
-                                
-                                                                
+ * struct lm3633_bl_platform_data
+ * @name: Backlight driver name
+ * @is_full_strings: set true if two strings are used
+ * @init_brightness: Initial brightness value
+ * @mode: Backlight control mode
+ * @pwm_period: Platform specific PWM period value. unit is nano
  */
 struct lm3631_backlight_platform_data {
 	const char *name;
@@ -98,7 +98,7 @@ struct lm3631_backlight_platform_data {
 #endif
 	enum lm3631_brightness_mode mode;
 
-	/*                                */
+	/* Only valid in case of PWM mode */
 	unsigned int pwm_period;
 
 #ifdef CONFIG_MACH_LGE
@@ -108,10 +108,10 @@ struct lm3631_backlight_platform_data {
 };
 
 /*
-                           
-                              
-                                                       
-                                     
+ * struct lmu_platform_data
+ * @en_gpio: GPIO for nRST pin
+ * @regulator_data: Regulator initial data for LCD bias
+ * @bl_pdata: Backlight platform data
  */
 struct lm3631_platform_data {
 	int en_gpio;
@@ -134,10 +134,10 @@ struct lm3631_info {
 	bool enable_is_inverted;
 };
 /*
-                
-                              
-                                                            
-                                     
+ * struct lm3631
+ * @dev: Parent device pointer
+ * @regmap: Used for i2c communcation on accessing registers
+ * @pdata: LMU platform specific data
  */
 struct lm3631 {
 	struct device *dev;

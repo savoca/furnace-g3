@@ -32,20 +32,20 @@ extern void pmctwiled_setup(void);
     defined(CONFIG_PMC_MSP7120_GW) || \
     defined(CONFIG_PMC_MSP7120_FPGA)
 /*
-                                              
+ * Performs the reset for MSP7120-based boards
  */
 void msp7120_reset(void)
 {
 	void *start, *end, *iptr;
 	register int i;
 
-	/*                        */
+	/* Diasble all interrupts */
 	local_irq_disable();
 #ifdef CONFIG_SYS_SUPPORTS_MULTITHREADING
 	dvpe();
 #endif
 
-	/*                                       */
+	/* Cache the reset code of this function */
 	__asm__ __volatile__ (
 		"	.set	push				\n"
 		"	.set	mips3				\n"
@@ -64,39 +64,39 @@ void msp7120_reset(void)
 		"startpoint:					\n"
 	);
 
-	/*                                     */
+	/* Put the DDRC into self-refresh mode */
 	DDRC_INDIRECT_WRITE(DDRC_CTL(10), 0xb, 1 << 16);
 
 	/*
-              
-                                                       
-                                                        
-                                                           
-                                                       
-             
-  */
+	 * IMPORTANT!
+	 * DO NOT do anything from here on out that might even
+	 * think about fetching from RAM - i.e., don't call any
+	 * non-inlined functions, and be VERY sure that any inline
+	 * functions you do call do NOT access any sort of RAM
+	 * anywhere!
+	 */
 
-	/*                                   */
+	/* Wait a bit for the DDRC to settle */
 	for (i = 0; i < 100000000; i++);
 
 #if defined(CONFIG_PMC_MSP7120_GW)
 	/*
-                                              
-                                        
-   
-                                                              
-                                                               
-               
-  */
+	 * Set GPIO 9 HI, (tied to board reset logic)
+	 * GPIO 9 is the 4th GPIO of register 3
+	 *
+	 * NOTE: We cannot use the higher-level msp_gpio_mode()/out()
+	 * as GPIO char driver may not be enabled and it would look up
+	 * data inRAM!
+	 */
 	set_value_reg32(GPIO_CFG3_REG, 0xf000, 0x8000);
 	set_reg32(GPIO_DATA3_REG, 8);
 
 	/*
-                                                                
-                                   
-  */
+	 * In case GPIO9 doesn't reset the board (jumper configurable!)
+	 * fallback to device reset below.
+	 */
 #endif
-	/*                                         */
+	/* Set bit 1 of the MSP7120 reset register */
 	*RST_SET_REG = 0x00000001;
 
 	__asm__ __volatile__ (
@@ -114,7 +114,7 @@ void msp_restart(char *command)
     defined(CONFIG_PMC_MSP7120_FPGA)
 	msp7120_reset();
 #else
-	/*                                                                */
+	/* No chip-specific reset code, just jump to the ROM reset vector */
 	set_c0_status(ST0_BEV | ST0_ERL);
 	change_c0_config(CONF_CM_CMASK, CONF_CM_UNCACHED);
 	flush_cache_all();
@@ -128,7 +128,7 @@ void msp_halt(void)
 {
 	printk(KERN_WARNING "\n** You can safely turn off the power\n");
 	while (1)
-		/*                                                    */
+		/* If possible call official function to get CPU WARs */
 		if (cpu_wait)
 			(*cpu_wait)();
 		else
@@ -159,19 +159,19 @@ void __init prom_init(void)
 	prom_envp = (char **)fw_arg2;
 
 	/*
-                                                  
-                                                       
-                                                    
-   
-                                                            
-  */
+	 * Someday we can use this with PMON2000 to get a
+	 * platform call prom routines for output etc. without
+	 * having to use grody hacks.  For now it's unused.
+	 *
+	 * struct callvectors *cv = (struct callvectors *) fw_arg3;
+	 */
 	family = identify_family();
 	revision = identify_revision();
 
 	switch (family)	{
 	case FAMILY_FPGA:
 		if (FPGA_IS_MSP4200(revision)) {
-			/*                       */
+			/* Old-style revision ID */
 			mips_machtype = MACH_MSP4200_FPGA;
 		} else {
 			mips_machtype = MACH_MSP_OTHER;
@@ -207,7 +207,7 @@ void __init prom_init(void)
 		break;
 
 	default:
-		/*                                */
+		/* we don't recognize the machine */
 		mips_machtype  = MACH_UNKNOWN;
 		panic("***Bogosity factor five***, exiting");
 		break;
@@ -218,15 +218,15 @@ void __init prom_init(void)
 	prom_meminit();
 
 	/*
-                             
-                                                           
-                                                           
-                                                              
-                                                        
-   
-                                                             
-                               
-  */
+	 * Sub-system setup follows.
+	 * Setup functions can  either be called here or using the
+	 * subsys_initcall mechanism (i.e. see msp_pci_setup). The
+	 * order in which they are called can be changed by using the
+	 * link order in arch/mips/pmc-sierra/msp71xx/Makefile.
+	 *
+	 * NOTE: Please keep sub-system specific initialization code
+	 * in separate specific files.
+	 */
 	msp_serial_setup();
 
 	if (register_vsmp_smp_ops()) {
@@ -237,9 +237,9 @@ void __init prom_init(void)
 
 #ifdef CONFIG_PMCTWILED
 	/*
-                                                           
-                              
-  */
+	 * Setup LED states before the subsys_initcall loads other
+	 * dependent drivers/modules.
+	 */
 	pmctwiled_setup();
 #endif
 }

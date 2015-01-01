@@ -2,7 +2,7 @@
 #define __MACH_CT_CA9X4_H
 
 /*
-                          
+ * Physical base addresses
  */
 #define CT_CA9X4_CLCDC		(0x10020000)
 #define CT_CA9X4_AXIRAM		(0x10060000)
@@ -29,7 +29,7 @@
 #define A9_MPCORE_GIC_DIST	(CT_CA9X4_MPIC + 0x1000)
 
 /*
-                                                
+ * Interrupts.  Those in {} are for AMBA devices
  */
 #define IRQ_CT_CA9X4_CLCDC	{ 76 }
 #define IRQ_CT_CA9X4_DMC	{ 0 }

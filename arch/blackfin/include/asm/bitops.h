@@ -31,7 +31,7 @@
 #include <linux/irqflags.h>
 
 /*
-                                           
+ * clear_bit may not imply a memory barrier
  */
 #ifndef smp_mb__before_clear_bit
 #define smp_mb__before_clear_bit()	smp_mb()
@@ -41,7 +41,7 @@
 #include <asm-generic/bitops/non-atomic.h>
 #else
 
-#include <asm/byteorder.h>	/*        */
+#include <asm/byteorder.h>	/* swab32 */
 #include <linux/linkage.h>
 
 asmlinkage int __raw_bit_set_asm(volatile unsigned long *addr, int nr);
@@ -101,7 +101,7 @@ static inline int test_and_change_bit(int nr, volatile unsigned long *addr)
 }
 
 /*
-                                                            
+ * clear_bit() doesn't provide any barrier for the compiler.
  */
 #define smp_mb__before_clear_bit()	barrier()
 #define smp_mb__after_clear_bit()	barrier()
@@ -110,14 +110,14 @@ static inline int test_and_change_bit(int nr, volatile unsigned long *addr)
 #include <asm-generic/bitops/non-atomic.h>
 #undef test_bit
 
-#endif /*            */
+#endif /* CONFIG_SMP */
 
-/*                                        */
+/* Needs to be after test_bit and friends */
 #include <asm-generic/bitops/le.h>
 
 /*
-                                                        
-                               
+ * hweightN: returns the hamming weight (i.e. the number
+ * of bits set) of a N-bit word
  */
 
 static inline unsigned int __arch_hweight32(unsigned int w)
@@ -146,4 +146,4 @@ static inline unsigned int __arch_hweight8(unsigned int w)
 	return __arch_hweight32(w & 0xff);
 }
 
-#endif				/*                    */
+#endif				/* _BLACKFIN_BITOPS_H */

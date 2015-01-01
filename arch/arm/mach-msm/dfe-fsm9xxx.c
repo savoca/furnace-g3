@@ -28,7 +28,7 @@
 #include <linux/fsm_dfe_hh.h>
 
 /*
-                 
+ * DFE of FSM9XXX
  */
 
 #define HH_ADDR_MASK			0x000ffffc
@@ -40,7 +40,7 @@
 #define HH_REG_SCPN_IREQ_FLAG		HH_REG_IOADDR(HH_MAKE_OFFSET(5, 0x13))
 
 /*
-                                             
+ * Device private information per device node
  */
 
 #define HH_IRQ_FIFO_SIZE		64
@@ -60,11 +60,11 @@ static struct hh_dev_node_info {
 } hh_dev_info;
 
 /*
-                                      
+ * Device private information per file
  */
 
 struct hh_dev_file_info {
-	/*        */
+	/* Buffer */
 	unsigned int *parray;
 	unsigned int array_num;
 
@@ -73,20 +73,20 @@ struct hh_dev_file_info {
 };
 
 /*
-                 
+ * File interface
  */
 
 static int hh_open(struct inode *inode, struct file *file)
 {
 	struct hh_dev_file_info *pdfi;
 
-	/*                         */
+	/* private data allocation */
 	pdfi = kmalloc(sizeof(*pdfi), GFP_KERNEL);
 	if (pdfi == NULL)
 		return -ENOMEM;
 	file->private_data = pdfi;
 
-	/*                       */
+	/* buffer initialization */
 	pdfi->parray = NULL;
 	pdfi->array_num = 0;
 	pdfi->pcmd = NULL;
@@ -137,7 +137,7 @@ static ssize_t hh_read(struct file *filp, char __user *buf, size_t count,
 	} while (irq < 0);
 
 	if (irq < 0) {
-		/*                      */
+		/* No pending interrupt */
 		return 0;
 	} else {
 		put_user(irq, buf);
@@ -353,7 +353,7 @@ static const struct file_operations hh_fops = {
 };
 
 /*
-                     
+ * Interrupt handling
  */
 
 static irqreturn_t hh_irq_handler(int irq, void *data)
@@ -365,11 +365,11 @@ static irqreturn_t hh_irq_handler(int irq, void *data)
 	irq_flag = __raw_readl(HH_REG_SCPN_IREQ_FLAG);
 	irq_flag &= irq_enable;
 
-	/*                     */
+	/* Disables interrupts */
 	irq_enable &= ~irq_flag;
 	__raw_writel(irq_enable, HH_REG_SCPN_IREQ_MASK);
 
-	/*                                         */
+	/* Adds the pending interrupts to irq_fifo */
 	spin_lock(&hh_dev_info.hh_lock);
 	for (i = 0, irq_mask = 1; i < 32; ++i, irq_mask <<= 1) {
 		if (HH_IRQ_FIFO_FULL(&hh_dev_info))
@@ -383,14 +383,14 @@ static irqreturn_t hh_irq_handler(int irq, void *data)
 	}
 	spin_unlock(&hh_dev_info.hh_lock);
 
-	/*                            */
+	/* Wakes up pending processes */
 	wake_up_interruptible(&hh_dev_info.wq);
 
 	return IRQ_HANDLED;
 }
 
 /*
-                                  
+ * Driver initialization & cleanup
  */
 
 static struct miscdevice hh_misc_dev = {
@@ -403,10 +403,10 @@ static int __init hh_init(void)
 {
 	int ret;
 
-	/*                     */
+	/* lock initialization */
 	spin_lock_init(&hh_dev_info.hh_lock);
 
-	/*                   */
+	/* interrupt handler */
 	hh_dev_info.irq_fifo_head = 0;
 	hh_dev_info.irq_fifo_tail = 0;
 	ret = request_irq(INT_HH_SUPSS_IRQ, hh_irq_handler,
@@ -416,7 +416,7 @@ static int __init hh_init(void)
 		return ret;
 	}
 
-	/*            */
+	/* wait queue */
 	init_waitqueue_head(&hh_dev_info.wq);
 
 	return misc_register(&hh_misc_dev);

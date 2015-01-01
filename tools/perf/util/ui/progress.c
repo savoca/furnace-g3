@@ -8,9 +8,9 @@ void ui_progress__update(u64 curr, u64 total, const char *title)
 {
 	int bar, y;
 	/*
-                                                                   
-                                                  
-  */
+	 * FIXME: We should have a per UI backend way of showing progress,
+	 * stdio will just show a percentage as NN%, etc.
+	 */
 	if (use_browser <= 0)
 		return;
 

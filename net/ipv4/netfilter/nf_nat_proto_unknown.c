@@ -1,5 +1,5 @@
-/*                                                               
-                                                          
+/* The "unknown" protocol.  This is what is used for protocols we
+ * don't understand.  It's returned by ip_ct_find_proto().
  */
 
 /* (C) 1999-2001 Paul `Rusty' Russell
@@ -31,8 +31,8 @@ static void unknown_unique_tuple(struct nf_conntrack_tuple *tuple,
 				 enum nf_nat_manip_type maniptype,
 				 const struct nf_conn *ct)
 {
-	/*                                                            
-              */
+	/* Sorry: we can't help you; if it's not unique, we can't frob
+	   anything. */
 	return;
 }
 

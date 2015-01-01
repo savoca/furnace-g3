@@ -37,8 +37,8 @@
 
 #include "bttvp.h"
 
-/*                                                                         */
-/*                                                                         */
+/* ----------------------------------------------------------------------- */
+/* internal: the bttv "bus"                                                */
 
 static int bttv_sub_bus_match(struct device *dev, struct device_driver *drv)
 {
@@ -117,8 +117,8 @@ int bttv_sub_del_devices(struct bttv_core *core)
 	return 0;
 }
 
-/*                                                                         */
-/*                                                                         */
+/* ----------------------------------------------------------------------- */
+/* external: sub-driver register/unregister                                */
 
 int bttv_sub_register(struct bttv_sub_driver *sub, char *wanted)
 {
@@ -135,8 +135,8 @@ int bttv_sub_unregister(struct bttv_sub_driver *sub)
 }
 EXPORT_SYMBOL(bttv_sub_unregister);
 
-/*                                                                         */
-/*                                                                         */
+/* ----------------------------------------------------------------------- */
+/* external: gpio access functions                                         */
 
 void bttv_gpio_inout(struct bttv_core *core, u32 mask, u32 outbits)
 {
@@ -183,7 +183,7 @@ void bttv_gpio_bits(struct bttv_core *core, u32 mask, u32 bits)
 }
 
 /*
-                   
-                    
-       
+ * Local variables:
+ * c-basic-offset: 8
+ * End:
  */

@@ -32,19 +32,19 @@ struct mc_kernelapi_ctx {
 
 struct mc_kernelapi_ctx *mod_ctx;
 
-/*                                                                            */
+/* Define a MobiCore Kernel API device structure for use with dev_debug() etc */
 struct device_driver mc_kernel_api_name = {
 	.name = "mckernelapi"
 };
 
 struct device mc_kernel_api_subname = {
-	.init_name = "", /*                                     */
+	.init_name = "", /* Set to 'mcapi' at mcapi_init() time */
 	.driver = &mc_kernel_api_name
 };
 
 struct device *mc_kapi = &mc_kernel_api_subname;
 
-/*                 */
+/* get a unique ID */
 unsigned int mcapi_unique_id(void)
 {
 	return (unsigned int)atomic_inc_return(&(mod_ctx->counter));
@@ -55,7 +55,7 @@ static struct connection *mcapi_find_connection(uint32_t seq)
 	struct connection *tmp;
 	struct list_head *pos;
 
-	/*                            */
+	/* Get session for session_id */
 	list_for_each(pos, &mod_ctx->peers) {
 		tmp = list_entry(pos, struct connection, list);
 		if (tmp->sequence_magic == seq)
@@ -77,9 +77,9 @@ void mcapi_remove_connection(uint32_t seq)
 	struct list_head *pos, *q;
 
 	/*
-                                                                    
-                                                                     
-  */
+	 * Delete all session objects. Usually this should not be needed as
+	 * closeDevice() requires that all sessions have been closed before.
+	 */
 	list_for_each_safe(pos, q, &mod_ctx->peers) {
 		tmp = list_entry(pos, struct connection, list);
 		if (tmp->sequence_magic == seq) {
@@ -112,7 +112,7 @@ static int mcapi_process(struct sk_buff *skb, struct nlmsghdr *nlh)
 			break;
 		}
 
-		/*                                               */
+		/* Pass the buffer to the appropriate connection */
 		connection_process(c, skb);
 
 		ret = 0;
@@ -129,7 +129,7 @@ static void mcapi_callback(struct sk_buff *skb)
 	while (NLMSG_OK(nlh, len)) {
 		err = mcapi_process(skb, nlh);
 
-		/*                                                    */
+		/* if err or if this message says it wants a response */
 		if (err || (nlh->nlmsg_flags & NLM_F_ACK))
 			netlink_ack(skb, nlh, err);
 
@@ -161,7 +161,7 @@ static int __init mcapi_init(void)
 	mod_ctx->sk = netlink_kernel_create(&init_net, MC_DAEMON_NETLINK,
 					    THIS_MODULE, &cfg);
 #else
-	/*                     */
+	/* start kernel thread */
 	mod_ctx->sk = netlink_kernel_create(&init_net, MC_DAEMON_NETLINK, 0,
 					    mcapi_callback, NULL, THIS_MODULE);
 #endif

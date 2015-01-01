@@ -16,16 +16,16 @@
 #include <asm/uaccess.h>
 
 /*
-                                                               
-                             
-  
-                                                           
-                       
-  
-                                                         
-                                          
-  
-                                                      
+ * computes the checksum of a memory block at buff, length len,
+ * and adds in "sum" (32-bit)
+ *
+ * returns a 32-bit number suitable for feeding into itself
+ * or csum_tcpudp_magic
+ *
+ * this function must be called with even lengths, except
+ * for the last fragment, which may be odd
+ *
+ * it's best to have buff aligned on a 32-bit boundary
  */
 __wsum csum_partial(const void *buff, int len, __wsum sum);
 
@@ -33,8 +33,8 @@ __wsum __csum_partial_copy_user(const void *src, void *dst,
 				int len, __wsum sum, int *err_ptr);
 
 /*
-                                                                            
-                                                  
+ * this is a new version of the above that records errors it finds in *errp,
+ * but continues and zeros the rest of the buffer.
  */
 static inline
 __wsum csum_partial_copy_from_user(const void __user *src, void *dst, int len,
@@ -46,7 +46,7 @@ __wsum csum_partial_copy_from_user(const void __user *src, void *dst, int len,
 }
 
 /*
-                            
+ * Copy and checksum to user
  */
 #define HAVE_CSUM_COPY_USER
 static inline
@@ -60,18 +60,18 @@ __wsum csum_and_copy_to_user(const void *src, void __user *dst, int len,
 	if (len)
 		*err_ptr = -EFAULT;
 
-	return (__force __wsum)-1; /*                  */
+	return (__force __wsum)-1; /* invalid checksum */
 }
 
 /*
-                                                                    
-                                                                     
+ * the same as csum_partial, but copies from user space (but on MIPS
+ * we have just one address space, so this is identical to the above)
  */
 __wsum csum_partial_copy_nocheck(const void *src, void *dst,
 				       int len, __wsum sum);
 
 /*
-                                                        
+ *	Fold a partial checksum without adding pseudo headers
  */
 static inline __sum16 csum_fold(__wsum sum)
 {
@@ -92,11 +92,11 @@ static inline __sum16 csum_fold(__wsum sum)
 }
 
 /*
-                                                                   
-                                               
-  
-                                                                
-                    
+ *	This is a version of ip_compute_csum() optimized for IP headers,
+ *	which always checksum on 4 octet boundaries.
+ *
+ *	By Jorge Cwik <jorge@laser.satlink.net>, adapted for linux by
+ *	Arnt Gulbrandsen.
  */
 static inline __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
 {
@@ -172,8 +172,8 @@ static inline __wsum csum_tcpudp_nofold(__be32 saddr,
 }
 
 /*
-                                                     
-                                                  
+ * computes the checksum of the TCP/UDP pseudo-header
+ * returns a 16-bit checksum, already complemented
  */
 static inline __sum16 csum_tcpudp_magic(__be32 saddr, __be32 daddr,
 						   unsigned short len,
@@ -184,8 +184,8 @@ static inline __sum16 csum_tcpudp_magic(__be32 saddr, __be32 daddr,
 }
 
 /*
-                                                                   
-            
+ * this routine is used for miscellaneous IP-like checksums, mainly
+ * in icmp.c
  */
 static inline __sum16 ip_compute_csum(const void *buff, int len)
 {
@@ -257,4 +257,4 @@ static __inline__ __sum16 csum_ipv6_magic(const struct in6_addr *saddr,
 	return csum_fold(sum);
 }
 
-#endif /*                 */
+#endif /* _ASM_CHECKSUM_H */

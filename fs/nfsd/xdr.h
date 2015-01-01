@@ -1,4 +1,4 @@
-/*                                                       */
+/* XDR types for nfsd. This is mainly a typing exercise. */
 
 #ifndef LINUX_NFSD_H
 #define LINUX_NFSD_H
@@ -114,7 +114,7 @@ struct nfsd_statfsres {
 };
 
 /*
-                                                      
+ * Storage requirements for XDR arguments and results.
  */
 union nfsd_xdrstore {
 	struct nfsd_sattrargs	sattr;
@@ -166,8 +166,8 @@ int nfssvc_encode_entry(void *, const char *name,
 
 int nfssvc_release_fhandle(struct svc_rqst *, __be32 *, struct nfsd_fhandle *);
 
-/*                                     */
+/* Helper functions for NFSv2 ACL code */
 __be32 *nfs2svc_encode_fattr(struct svc_rqst *rqstp, __be32 *p, struct svc_fh *fhp);
 __be32 *nfs2svc_decode_fh(__be32 *p, struct svc_fh *fhp);
 
-#endif /*              */
+#endif /* LINUX_NFSD_H */

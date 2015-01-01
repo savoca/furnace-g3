@@ -46,9 +46,9 @@ static void __init c2k_setup_arch(void)
 	const unsigned int *reg;
 
 	/*
-                                                        
-                                
-  */
+	 * ioremap mpp and gpp registers in case they are later
+	 * needed by c2k_reset_board().
+	 */
 	np = of_find_compatible_node(NULL, NULL, "marvell,mv64360-mpp");
 	reg = of_get_property(np, "reg", NULL);
 	paddr = of_translate_address(np, reg);
@@ -119,7 +119,7 @@ void c2k_show_cpuinfo(struct seq_file *m)
 }
 
 /*
-                                                   
+ * Called very early, device-tree isn't unflattened
  */
 static int __init c2k_probe(void)
 {

@@ -15,7 +15,7 @@ struct mv643xx_eth_platform_data;
 struct mv_sata_platform_data;
 
 /*
-                                                            
+ * Basic MV78xx0 init functions used early by machine-setup.
  */
 int mv78xx0_core_index(void);
 void mv78xx0_map_io(void);

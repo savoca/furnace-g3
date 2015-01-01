@@ -1,8 +1,8 @@
-/*                                                                             
-  
-                                                                  
-  
-                                                                             */
+/******************************************************************************
+ *
+ * Name: acdispat.h - dispatcher (parser to interpreter interface)
+ *
+ *****************************************************************************/
 
 /*
  * Copyright (C) 2000 - 2012, Intel Corp.
@@ -48,7 +48,7 @@
 #define NAMEOF_ARG_NTE      "__A0"
 
 /*
-                                                             
+ * dsargs - execution of dynamic arguments for static objects
  */
 acpi_status
 acpi_ds_get_buffer_field_arguments(union acpi_operand_object *obj_desc);
@@ -63,7 +63,7 @@ acpi_status acpi_ds_get_buffer_arguments(union acpi_operand_object *obj_desc);
 acpi_status acpi_ds_get_package_arguments(union acpi_operand_object *obj_desc);
 
 /*
-                                                    
+ * dscontrol - support for execution control opcodes
  */
 acpi_status
 acpi_ds_exec_begin_control_op(struct acpi_walk_state *walk_state,
@@ -74,7 +74,7 @@ acpi_ds_exec_end_control_op(struct acpi_walk_state *walk_state,
 			    union acpi_parse_object *op);
 
 /*
-                                                 
+ * dsopcode - support for late operand evaluation
  */
 acpi_status
 acpi_ds_eval_buffer_field_operands(struct acpi_walk_state *walk_state,
@@ -100,7 +100,7 @@ acpi_ds_eval_bank_field_operands(struct acpi_walk_state *walk_state,
 acpi_status acpi_ds_initialize_region(acpi_handle obj_handle);
 
 /*
-                                                                    
+ * dsexec - Parser/Interpreter interface, method execution callbacks
  */
 acpi_status
 acpi_ds_get_predicate_value(struct acpi_walk_state *walk_state,
@@ -113,7 +113,7 @@ acpi_ds_exec_begin_op(struct acpi_walk_state *walk_state,
 acpi_status acpi_ds_exec_end_op(struct acpi_walk_state *state);
 
 /*
-                                                        
+ * dsfield - Parser/Interpreter interface for AML fields
  */
 acpi_status
 acpi_ds_create_field(union acpi_parse_object *op,
@@ -139,7 +139,7 @@ acpi_ds_init_field_objects(union acpi_parse_object *op,
 			   struct acpi_walk_state *walk_state);
 
 /*
-                                                                         
+ * dsload - Parser/Interpreter interface, pass 1 namespace load callbacks
  */
 acpi_status
 acpi_ds_init_callbacks(struct acpi_walk_state *walk_state, u32 pass_number);
@@ -151,7 +151,7 @@ acpi_ds_load1_begin_op(struct acpi_walk_state *walk_state,
 acpi_status acpi_ds_load1_end_op(struct acpi_walk_state *walk_state);
 
 /*
-                                                                         
+ * dsload - Parser/Interpreter interface, pass 2 namespace load callbacks
  */
 acpi_status
 acpi_ds_load2_begin_op(struct acpi_walk_state *walk_state,
@@ -160,7 +160,7 @@ acpi_ds_load2_begin_op(struct acpi_walk_state *walk_state,
 acpi_status acpi_ds_load2_end_op(struct acpi_walk_state *walk_state);
 
 /*
-                                       
+ * dsmthdat - method data (locals/args)
  */
 acpi_status
 acpi_ds_store_object_to_local(u8 type,
@@ -198,7 +198,7 @@ acpi_ds_method_data_get_node(u8 type,
 void acpi_ds_method_data_init(struct acpi_walk_state *walk_state);
 
 /*
-                                                                   
+ * dsmethod - Parser/Interpreter interface - control method parsing
  */
 acpi_status acpi_ds_parse_method(struct acpi_namespace_node *node);
 
@@ -224,14 +224,14 @@ acpi_status
 acpi_ds_method_error(acpi_status status, struct acpi_walk_state *walk_state);
 
 /*
-         
+ * dsinit
  */
 acpi_status
 acpi_ds_initialize_objects(u32 table_index,
 			   struct acpi_namespace_node *start_node);
 
 /*
-                                                                                 
+ * dsobject - Parser/Interpreter interface - object initialization and conversion
  */
 acpi_status
 acpi_ds_build_internal_buffer_obj(struct acpi_walk_state *walk_state,
@@ -256,7 +256,7 @@ acpi_ds_create_node(struct acpi_walk_state *walk_state,
 		    union acpi_parse_object *op);
 
 /*
-                                                          
+ * dsutils - Parser/Interpreter interface utility routines
  */
 void acpi_ds_clear_implicit_return(struct acpi_walk_state *walk_state);
 
@@ -289,7 +289,7 @@ void acpi_ds_clear_operands(struct acpi_walk_state *walk_state);
 acpi_status acpi_ds_evaluate_name_path(struct acpi_walk_state *walk_state);
 
 /*
-                                      
+ * dswscope - Scope Stack manipulation
  */
 acpi_status
 acpi_ds_scope_stack_push(struct acpi_namespace_node *node,
@@ -301,7 +301,7 @@ acpi_status acpi_ds_scope_stack_pop(struct acpi_walk_state *walk_state);
 void acpi_ds_scope_stack_clear(struct acpi_walk_state *walk_state);
 
 /*
-                                                   
+ * dswstate - parser WALK_STATE management routines
  */
 acpi_status
 acpi_ds_obj_stack_push(void *object, struct acpi_walk_state *walk_state);
@@ -348,4 +348,4 @@ acpi_status
 acpi_ds_result_push(union acpi_operand_object *object,
 		    struct acpi_walk_state *walk_state);
 
-#endif				/*              */
+#endif				/* _ACDISPAT_H_ */

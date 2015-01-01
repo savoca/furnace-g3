@@ -1,5 +1,5 @@
 /*
-           
+ * ex: sw=4
  */
 
 #include <linux/kernel.h>
@@ -28,10 +28,10 @@ static inline int dev_isalive(const struct net_device *dev)
 }
 
 /*
-                                                                    
-                                                                       
-                                                                          
-                              
+ * empirically even if tallies are defined as 32 bits entities, only
+ * high 16 bits are relevant; low half is always zero. It means tallies
+ * are pretty much useless for traffic counting but at least give overview
+ * about where error come from
  */
 static ssize_t show_tallies(struct device *d, struct device_attribute *attr,
 			    char *buf)

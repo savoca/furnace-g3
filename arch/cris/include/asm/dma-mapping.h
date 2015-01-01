@@ -1,4 +1,4 @@
-/*                                                     */
+/* DMA mapping. Nothing tricky here, just virt_to_phys */
 
 #ifndef _ASM_CRIS_DMA_MAPPING_H
 #define _ASM_CRIS_DMA_MAPPING_H
@@ -131,9 +131,9 @@ static inline int
 dma_supported(struct device *dev, u64 mask)
 {
         /*
-                                                              
-                                                         
-                                                
+         * we fall back to GFP_DMA when the mask isn't all 1s,
+         * so we can't guarantee allocations that must be
+         * within a tighter range than GFP_DMA..
          */
         if(mask < 0x00ffffff)
                 return 0;

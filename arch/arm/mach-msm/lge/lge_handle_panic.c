@@ -67,7 +67,7 @@ EXPORT_SYMBOL(lge_set_magic_subsystem);
 
 void lge_skip_dload_by_sbl(int on)
 {
-	/*                                  */
+	/* skip entering dload mode at sbl1 */
 	__raw_writel(on ? 1 : 0, UEFI_RAM_DUMP_MAGIC);
 }
 EXPORT_SYMBOL(lge_skip_dload_by_sbl);

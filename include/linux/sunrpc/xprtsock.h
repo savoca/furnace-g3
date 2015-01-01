@@ -1,7 +1,7 @@
 /*
-                                         
-  
-                                                       
+ *  linux/include/linux/sunrpc/xprtsock.h
+ *
+ *  Declarations for the RPC transport socket provider.
  */
 
 #ifndef _LINUX_SUNRPC_XPRTSOCK_H
@@ -17,6 +17,6 @@ void		cleanup_socket_xprt(void);
 #define RPC_DEF_MIN_RESVPORT	(665U)
 #define RPC_DEF_MAX_RESVPORT	(1023U)
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*                          */
+#endif /* _LINUX_SUNRPC_XPRTSOCK_H */

@@ -21,8 +21,8 @@
 #include "nv_type.h"
 #include "nv_proto.h"
 
-/*                                                                    
-                       
+/* We do not have any information about which values are allowed, thus
+ * we used safe values.
  */
 #define MIN_LEVEL 0x158
 #define MAX_LEVEL 0x534
@@ -34,8 +34,8 @@ static int nvidia_bl_get_level_brightness(struct nvidia_par *par,
 	struct fb_info *info = pci_get_drvdata(par->pci_dev);
 	int nlevel;
 
-	/*                           */
-	/*                                                     */
+	/* Get and convert the value */
+	/* No locking of bl_curve since we read a single value */
 	nlevel = MIN_LEVEL + info->bl_curve[level] * LEVEL_STEP;
 
 	if (nlevel < 0)
@@ -69,7 +69,7 @@ static int nvidia_bl_update_status(struct backlight_device *bd)
 
 	if (level > 0) {
 		tmp_pcrt |= 0x1;
-		tmp_pmc |= (1 << 31); /*               */
+		tmp_pmc |= (1 << 31); /* backlight bit */
 		tmp_pmc |= nvidia_bl_get_level_brightness(par, level) << 16;
 		fpcontrol |= par->fpSyncs;
 	} else

@@ -62,7 +62,7 @@ static irqreturn_t mmc_cd_gpio_irqt(int irq, void *dev_id)
 				"HIGH" : "LOW");
 		cd->status = status;
 
-		/*                                                    */
+		/* Schedule a card detection after a debounce timeout */
 		#ifdef CONFIG_MACH_LGE
 		/*           
                                                    

@@ -43,13 +43,13 @@ struct wcd9xxx_core_resource {
 
 	enum wcd9xxx_pm_state pm_state;
 	struct mutex pm_lock;
-	/*                                   */
+	/* pm_wq notifies change of pm_state */
 	wait_queue_head_t pm_wq;
 	struct pm_qos_request pm_qos_req;
 	int wlock_holders;
 
 
-	/*                                         */
+	/* holds the table of interrupts per codec */
 	const struct intr_data *intr_table;
 	int intr_table_size;
 	unsigned int irq_base;
@@ -60,7 +60,7 @@ struct wcd9xxx_core_resource {
 	int num_irqs;
 	int num_irq_regs;
 
-	/*                                                  */
+	/* Callback functions to read/write codec registers */
 	int (*codec_reg_read) (struct wcd9xxx_core_resource *,
 				unsigned short);
 	int (*codec_reg_write) (struct wcd9xxx_core_resource *,
@@ -68,7 +68,7 @@ struct wcd9xxx_core_resource {
 	int (*codec_bulk_read) (struct wcd9xxx_core_resource *,
 				unsigned short, int, u8 *);
 
-	/*                                            */
+	/* Pointer to parent container data structure */
 	void *parent;
 
 	struct device *dev;

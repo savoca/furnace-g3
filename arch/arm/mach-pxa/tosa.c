@@ -60,47 +60,47 @@
 #include "devices.h"
 
 static unsigned long tosa_pin_config[] = {
-	GPIO78_nCS_2, /*       */
-	GPIO80_nCS_4, /*          */
-	GPIO33_nCS_5, /*       */
+	GPIO78_nCS_2, /* Scoop */
+	GPIO80_nCS_4, /* tg6393xb */
+	GPIO33_nCS_5, /* Scoop */
 
-	//                    
+	// GPIO76 CARD_VCC_ON1
 
-	GPIO19_GPIO, /*           */
+	GPIO19_GPIO, /* Reset out */
 	GPIO1_RST | WAKEUP_ON_EDGE_FALL,
 
-	GPIO0_GPIO | WAKEUP_ON_EDGE_FALL, /*         */
-	GPIO2_GPIO | WAKEUP_ON_EDGE_BOTH, /*       */
-	GPIO3_GPIO | WAKEUP_ON_EDGE_FALL, /*        */
-	GPIO4_GPIO | WAKEUP_ON_EDGE_FALL, /*      */
-	GPIO20_GPIO, /*        */
-	GPIO22_GPIO, /*    */
+	GPIO0_GPIO | WAKEUP_ON_EDGE_FALL, /* WAKE_UP */
+	GPIO2_GPIO | WAKEUP_ON_EDGE_BOTH, /* AC_IN */
+	GPIO3_GPIO | WAKEUP_ON_EDGE_FALL, /* RECORD */
+	GPIO4_GPIO | WAKEUP_ON_EDGE_FALL, /* SYNC */
+	GPIO20_GPIO, /* EAR_IN */
+	GPIO22_GPIO, /* On */
 
-	GPIO5_GPIO, /*        */
-	GPIO32_GPIO, /*         */
+	GPIO5_GPIO, /* USB_IN */
+	GPIO32_GPIO, /* Pen IRQ */
 
-	GPIO7_GPIO, /*               */
-	GPIO14_GPIO, /*          */
-	GPIO12_GPIO, /*          */
-	GPIO17_GPIO, /*          */
-	GPIO84_GPIO, /*          */
-	GPIO38_GPIO, /*          */
+	GPIO7_GPIO, /* Jacket Detect */
+	GPIO14_GPIO, /* BAT0_CRG */
+	GPIO12_GPIO, /* BAT1_CRG */
+	GPIO17_GPIO, /* BAT0_LOW */
+	GPIO84_GPIO, /* BAT1_LOW */
+	GPIO38_GPIO, /* BAT_LOCK */
 
 	GPIO11_3_6MHz,
-	GPIO15_GPIO, /*              */
+	GPIO15_GPIO, /* TC6393XB IRQ */
 	GPIO18_RDY,
-	GPIO27_GPIO, /*          */
+	GPIO27_GPIO, /* LCD Sync */
 
-	/*     */
+	/* MMC */
 	GPIO6_MMC_CLK,
 	GPIO8_MMC_CS0,
-	GPIO9_GPIO, /*        */
-	GPIO10_GPIO, /*         */
+	GPIO9_GPIO, /* Detect */
+	GPIO10_GPIO, /* nSD_INT */
 
-	/*    */
-	GPIO13_GPIO, /*        */
-	GPIO21_GPIO, /*               */
-	GPIO36_GPIO, /*                 */
+	/* CF */
+	GPIO13_GPIO, /* CD_IRQ */
+	GPIO21_GPIO, /* Main Slot IRQ */
+	GPIO36_GPIO, /* Jacket Slot IRQ */
 	GPIO48_nPOE,
 	GPIO49_nPWE,
 	GPIO50_nPIOR,
@@ -112,14 +112,14 @@ static unsigned long tosa_pin_config[] = {
 	GPIO56_nPWAIT,
 	GPIO57_nIOIS16,
 
-	/*      */
+	/* AC97 */
 	GPIO31_AC97_SYNC,
 	GPIO30_AC97_SDATA_OUT,
 	GPIO28_AC97_BITCLK,
 	GPIO29_AC97_SDATA_IN_0,
-	//                
+	// GPIO79 nAUD_IRQ
 
-	/*        */
+	/* FFUART */
 	GPIO34_FFUART_RXD,
 	GPIO35_FFUART_CTS,
 	GPIO37_FFUART_DSR,
@@ -127,44 +127,44 @@ static unsigned long tosa_pin_config[] = {
 	GPIO40_FFUART_DTR,
 	GPIO41_FFUART_RTS,
 
-	/*        */
+	/* BTUART */
 	GPIO42_BTUART_RXD,
 	GPIO43_BTUART_TXD,
 	GPIO44_BTUART_CTS,
 	GPIO45_BTUART_RTS,
 
-	/*       */
-	GPIO58_GPIO | MFP_LPM_DRIVE_LOW,	/*          */
-	GPIO59_GPIO | MFP_LPM_DRIVE_LOW,	/*          */
-	GPIO60_GPIO | MFP_LPM_DRIVE_LOW,	/*          */
-	GPIO61_GPIO | MFP_LPM_DRIVE_LOW,	/*          */
-	GPIO62_GPIO | MFP_LPM_DRIVE_LOW,	/*          */
-	GPIO63_GPIO | MFP_LPM_DRIVE_LOW,	/*          */
-	GPIO64_GPIO | MFP_LPM_DRIVE_LOW,	/*          */
-	GPIO65_GPIO | MFP_LPM_DRIVE_LOW,	/*          */
-	GPIO66_GPIO | MFP_LPM_DRIVE_LOW,	/*          */
-	GPIO67_GPIO | MFP_LPM_DRIVE_LOW,	/*          */
-	GPIO68_GPIO | MFP_LPM_DRIVE_LOW,	/*           */
-	GPIO69_GPIO | MFP_LPM_DRIVE_LOW,	/*       */
-	GPIO70_GPIO | MFP_LPM_DRIVE_LOW,	/*       */
-	GPIO71_GPIO | MFP_LPM_DRIVE_LOW,	/*       */
-	GPIO72_GPIO | MFP_LPM_DRIVE_LOW,	/*       */
-	GPIO73_GPIO | MFP_LPM_DRIVE_LOW,	/*       */
-	GPIO74_GPIO | MFP_LPM_DRIVE_LOW,	/*       */
-	GPIO75_GPIO | MFP_LPM_DRIVE_LOW,	/*       */
+	/* Keybd */
+	GPIO58_GPIO | MFP_LPM_DRIVE_LOW,	/* Column 0 */
+	GPIO59_GPIO | MFP_LPM_DRIVE_LOW,	/* Column 1 */
+	GPIO60_GPIO | MFP_LPM_DRIVE_LOW,	/* Column 2 */
+	GPIO61_GPIO | MFP_LPM_DRIVE_LOW,	/* Column 3 */
+	GPIO62_GPIO | MFP_LPM_DRIVE_LOW,	/* Column 4 */
+	GPIO63_GPIO | MFP_LPM_DRIVE_LOW,	/* Column 5 */
+	GPIO64_GPIO | MFP_LPM_DRIVE_LOW,	/* Column 6 */
+	GPIO65_GPIO | MFP_LPM_DRIVE_LOW,	/* Column 7 */
+	GPIO66_GPIO | MFP_LPM_DRIVE_LOW,	/* Column 8 */
+	GPIO67_GPIO | MFP_LPM_DRIVE_LOW,	/* Column 9 */
+	GPIO68_GPIO | MFP_LPM_DRIVE_LOW,	/* Column 10 */
+	GPIO69_GPIO | MFP_LPM_DRIVE_LOW,	/* Row 0 */
+	GPIO70_GPIO | MFP_LPM_DRIVE_LOW,	/* Row 1 */
+	GPIO71_GPIO | MFP_LPM_DRIVE_LOW,	/* Row 2 */
+	GPIO72_GPIO | MFP_LPM_DRIVE_LOW,	/* Row 3 */
+	GPIO73_GPIO | MFP_LPM_DRIVE_LOW,	/* Row 4 */
+	GPIO74_GPIO | MFP_LPM_DRIVE_LOW,	/* Row 5 */
+	GPIO75_GPIO | MFP_LPM_DRIVE_LOW,	/* Row 6 */
 
-	/*     */
+	/* SPI */
 	GPIO81_SSP2_CLK_OUT,
 	GPIO82_SSP2_FRM_OUT,
 	GPIO83_SSP2_TXD,
 
-	/*                              */
+	/* IrDA is managed in other way */
 	GPIO46_GPIO,
 	GPIO47_GPIO,
 };
 
 /*
-               
+ * SCOOP Device
  */
 static struct resource tosa_scoop_resources[] = {
 	[0] = {
@@ -191,7 +191,7 @@ static struct platform_device tosascoop_device = {
 
 
 /*
-                      
+ * SCOOP Device Jacket
  */
 static struct resource tosa_scoop_jc_resources[] = {
 	[0] = {
@@ -218,7 +218,7 @@ static struct platform_device tosascoop_jc_device = {
 };
 
 /*
-         
+ * PCMCIA
  */
 static struct scoop_pcmcia_dev tosa_pcmcia_scoop[] = {
 {
@@ -239,7 +239,7 @@ static struct scoop_pcmcia_config tosa_pcmcia_config = {
 };
 
 /*
-                        
+ * USB Device Controller
  */
 static struct gpio_vbus_mach_info tosa_udc_info = {
 	.gpio_pullup		= TOSA_GPIO_USB_PULLUP,
@@ -256,7 +256,7 @@ static struct platform_device tosa_gpio_vbus = {
 };
 
 /*
-                
+ * MMC/SD Device
  */
 static int tosa_mci_init(struct device *dev, irq_handler_t tosa_detect_int, void *data)
 {
@@ -295,7 +295,7 @@ static struct pxamci_platform_data tosa_mci_platform_data = {
 };
 
 /*
-       
+ * Irda
  */
 static void tosa_irda_transceiver_mode(struct device *dev, int mode)
 {
@@ -357,7 +357,7 @@ static struct pxaficp_platform_data tosa_ficp_platform_data = {
 };
 
 /*
-             
+ * Tosa AC IN
  */
 static int tosa_power_init(struct device *dev)
 {
@@ -421,7 +421,7 @@ static struct platform_device tosa_power_device = {
 };
 
 /*
-                
+ * Tosa Keyboard
  */
 static const uint32_t tosakbd_keymap[] = {
 	KEY(0, 2, KEY_W),
@@ -508,10 +508,10 @@ static struct platform_device tosakbd_device = {
 
 static struct gpio_keys_button tosa_gpio_keys[] = {
 	/*
-                                                                     
-                                                                   
-                                                         
-  */
+	 * Two following keys are directly tied to "ON" button of tosa. Why?
+	 * The first one can be used as a wakeup source, the second can't;
+	 * also the first one is OR of ac_powered and on_button.
+	 */
 	{
 		.type	= EV_PWR,
 		.code	= KEY_RESERVED,
@@ -526,9 +526,9 @@ static struct gpio_keys_button tosa_gpio_keys[] = {
 		.gpio	= TOSA_GPIO_ON_KEY,
 		.desc	= "On key",
 		/*
-                            
-                 
-   */
+		 * can't be used as wakeup
+		 * .wakeup	= 1,
+		 */
 		.active_low = 1,
 	},
 	{
@@ -571,7 +571,7 @@ static struct platform_device tosa_gpio_keys_device = {
 };
 
 /*
-            
+ * Tosa LEDs
  */
 static struct gpio_led tosa_gpio_leds[] = {
 	{
@@ -610,7 +610,7 @@ static struct platform_device tosaled_device = {
 };
 
 /*
-                               
+ * Toshiba Mobile IO Controller
  */
 static struct resource tc6393xb_resources[] = {
 	[0] = {
@@ -761,7 +761,7 @@ static struct fb_videomode tosa_tc6393xb_lcd_mode[] = {
 	{
 		.xres = 480,
 		.yres = 640,
-		.pixclock = 0x002cdf00,/*             */
+		.pixclock = 0x002cdf00,/* PLL divisor */
 		.left_margin = 0x004c,
 		.right_margin = 0x005b,
 		.upper_margin = 0x0001,
@@ -773,7 +773,7 @@ static struct fb_videomode tosa_tc6393xb_lcd_mode[] = {
 	},{
 		.xres = 240,
 		.yres = 320,
-		.pixclock = 0x00e7f203,/*             */
+		.pixclock = 0x00e7f203,/* PLL divisor */
 		.left_margin = 0x0024,
 		.right_margin = 0x002f,
 		.upper_margin = 0x0001,
@@ -846,7 +846,7 @@ static struct pxa2xx_spi_master pxa_ssp_master_info = {
 static struct spi_board_info spi_board_info[] __initdata = {
 	{
 		.modalias	= "tosa-lcd",
-		//               
+		// .platform_data
 		.max_speed_hz	= 28750,
 		.bus_num	= 2,
 		.chip_select	= 0,
@@ -918,7 +918,7 @@ static void tosa_restart(char mode, const char *cmd)
 {
 	uint32_t msc0 = __raw_readl(MSC0);
 
-	/*                               */
+	/* Bootloader magic for a reboot */
 	if((msc0 & 0xffff0000) == 0x7ff00000)
 		__raw_writel((msc0 & 0xffff) | 0x7ee00000, MSC0);
 
@@ -936,7 +936,7 @@ static void __init tosa_init(void)
 	pxa_set_stuart_info(NULL);
 
 	gpio_set_wake(MFP_PIN_GPIO1, 1);
-	/*                                                                 */
+	/* We can't pass to gpio-keys since it will drop the Reset altfunc */
 
 	init_gpio_reset(TOSA_GPIO_ON_RESET, 0, 0);
 
@@ -944,7 +944,7 @@ static void __init tosa_init(void)
 
 	PCFR |= PCFR_OPDE;
 
-	/*                   */
+	/* enable batt_fault */
 	PMCR = 0x01;
 
 	dummy = gpiochip_reserve(TOSA_SCOOP_GPIO_BASE, 12);

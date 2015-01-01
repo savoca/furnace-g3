@@ -58,10 +58,10 @@ enum gpiomux_pull {
 	GPIOMUX_PULL_UP,
 };
 
-/*                                                                           
-                                                                        
-                                                                        
-                                    
+/* Direction settings are only meaningful when GPIOMUX_FUNC_GPIO is selected.
+ * This element is ignored for all other FUNC selections, as the output-
+ * enable pin is not under software control in those cases.  See the SWI
+ * for your target for more details.
  */
 enum gpiomux_dir {
 	GPIOMUX_IN = 0,
@@ -76,40 +76,40 @@ struct gpiomux_setting {
 	enum gpiomux_dir  dir;
 };
 
-/* 
-                                                                 
-  
-                                                                    
-                                                                             
-                                                                    
-  
-                                                       
-                                                         
-                                                                 
-                                                           
-                                                                
-                                                                
+/**
+ * struct msm_gpiomux_config: gpiomux settings for one gpio line.
+ *
+ * A complete gpiomux config is the combination of a drive-strength,
+ * function, pull, and (sometimes) direction.  For functions other than GPIO,
+ * the input/output setting is hard-wired according to the function.
+ *
+ * @gpio: The index number of the gpio being described.
+ * @settings: The settings to be installed, specifically:
+ *           GPIOMUX_ACTIVE: The setting to be installed when the
+ *           line is active, or its reference count is > 0.
+ *           GPIOMUX_SUSPENDED: The setting to be installed when
+ *           the line is suspended, or its reference count is 0.
  */
 struct msm_gpiomux_config {
 	unsigned gpio;
 	struct gpiomux_setting *settings[GPIOMUX_NSETTINGS];
 };
 
-/* 
-                                                               
-  
-                                                                              
-                                                            
-  
-                                                               
-                                             
+/**
+ * struct msm_gpiomux_configs: a collection of gpiomux configs.
+ *
+ * It is so common to manage blocks of gpiomux configs that the data structure
+ * for doing so has been standardized here as a convenience.
+ *
+ * @cfg:  A pointer to the first config in an array of configs.
+ * @ncfg: The number of configs in the array.
  */
 struct msm_gpiomux_configs {
 	struct msm_gpiomux_config *cfg;
 	size_t                     ncfg;
 };
 
-/*                                                            */
+/* Provide an enum and an API to write to misc TLMM registers */
 enum msm_tlmm_misc_reg {
 	TLMM_ETM_MODE_REG = 0x2014,
 	TLMM_SDC2_HDRV_PULL_CTL = 0x2048,
@@ -120,57 +120,57 @@ enum msm_tlmm_misc_reg {
 
 #ifdef CONFIG_MSM_GPIOMUX
 
-/*                                                                      
-                                                                             
-                                   
+/* Before using gpiomux, initialize the subsystem by telling it how many
+ * gpios are going to be managed.  Calling any other gpiomux functions before
+ * msm_gpiomux_init is unsupported.
  */
 int msm_gpiomux_init(size_t ngpio);
 
-/*                                                                           
-                                                  
+/* DT Variant of msm_gpiomux_init. This will look up the number of gpios from
+ * device tree rather than relying on NR_GPIO_IRQS
  */
 int msm_gpiomux_init_dt(void);
 
-/*                                                                            
-                                                     
+/* Install a block of gpiomux configurations in gpiomux.  This is functionally
+ * identical to calling msm_gpiomux_write many times.
  */
 void msm_gpiomux_install(struct msm_gpiomux_config *configs, unsigned nconfigs);
 
-/*                                                                           
-                                                                       
+/* Install a block of gpiomux configurations in gpiomux. Do not however write
+ * to hardware. Just store the settings to be retrieved at a later time
  */
 void msm_gpiomux_install_nowrite(struct msm_gpiomux_config *configs,
 				unsigned nconfigs);
 
-/*                                                                   */
+/* Increment a gpio's reference count, possibly activating the line. */
 int __must_check msm_gpiomux_get(unsigned gpio);
 
-/*                                                                   */
+/* Decrement a gpio's reference count, possibly suspending the line. */
 int msm_gpiomux_put(unsigned gpio);
 
-/*                                                             
-                                                                        
-                                                                          
-          
-                                                                         
-                           
-                          
+/* Install a new setting in a gpio.  To erase a slot, use NULL.
+ * The old setting that was overwritten can be passed back to the caller
+ * old_setting can be NULL if the caller is not interested in the previous
+ * setting
+ * If a previous setting was not available to return (NULL configuration)
+ * - the function returns 1
+ * else function returns 0
  */
 int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_setting which,
 	struct gpiomux_setting *setting, struct gpiomux_setting *old_setting);
 
-/*                                                              
-                                          
-                                             
-                                           
-  
-                                                               
-                                
+/* Architecture-internal function for use by the framework only.
+ * This function can assume the following:
+ * - the gpio value has passed a bounds-check
+ * - the gpiomux spinlock has been obtained
+ *
+ * This function is not for public consumption.  External users
+ * should use msm_gpiomux_write.
  */
 void __msm_gpiomux_write(unsigned gpio, struct gpiomux_setting val);
 
-/*                                                                    
-                                
+/* Functions that provide an API for drivers to read from and write to
+ * miscellaneous TLMM registers.
  */
 int msm_tlmm_misc_reg_read(enum msm_tlmm_misc_reg misc_reg);
 

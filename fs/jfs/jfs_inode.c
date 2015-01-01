@@ -64,10 +64,10 @@ void jfs_get_inode_flags(struct jfs_inode_info *jfs_ip)
 }
 
 /*
-                 
-  
-                                 
-  
+ * NAME:	ialloc()
+ *
+ * FUNCTION:	Allocate a new inode
+ *
  */
 struct inode *ialloc(struct inode *parent, umode_t mode)
 {
@@ -100,21 +100,21 @@ struct inode *ialloc(struct inode *parent, umode_t mode)
 
 	inode_init_owner(inode, parent, mode);
 	/*
-                                                    
-                                    
-  */
+	 * New inodes need to save sane values on disk when
+	 * uid & gid mount options are used
+	 */
 	jfs_inode->saved_uid = inode->i_uid;
 	jfs_inode->saved_gid = inode->i_gid;
 
 	/*
-                            
-  */
+	 * Allocate inode to quota.
+	 */
 	dquot_initialize(inode);
 	rc = dquot_alloc_inode(inode);
 	if (rc)
 		goto fail_drop;
 
-	/*                           */
+	/* inherit flags from parent */
 	jfs_inode->mode2 = JFS_IP(parent)->mode2 & JFS_FL_INHERIT;
 
 	if (S_ISDIR(mode)) {
@@ -135,7 +135,7 @@ struct inode *ialloc(struct inode *parent, umode_t mode)
 
 	jfs_inode->cflag = 0;
 
-	/*                       */
+	/* Zero remaining fields */
 	memset(&jfs_inode->acl, 0, sizeof(dxd_t));
 	memset(&jfs_inode->ea, 0, sizeof(dxd_t));
 	jfs_inode->next_index = 0;

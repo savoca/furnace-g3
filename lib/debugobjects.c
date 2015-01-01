@@ -106,7 +106,7 @@ static int fill_pool(void)
 }
 
 /*
-                                       
+ * Lookup an object in the hash bucket.
  */
 static struct debug_obj *lookup_object(void *addr, struct debug_bucket *b)
 {
@@ -126,8 +126,8 @@ static struct debug_obj *lookup_object(void *addr, struct debug_bucket *b)
 }
 
 /*
-                                                                        
-                                           
+ * Allocate a new object. If the pool is empty, switch off the debugger.
+ * Must be called with interrupts disabled.
  */
 static struct debug_obj *
 alloc_object(void *addr, struct debug_bucket *b, struct debug_obj_descr *descr)
@@ -160,7 +160,7 @@ alloc_object(void *addr, struct debug_bucket *b, struct debug_obj_descr *descr)
 }
 
 /*
-                                      
+ * workqueue function to free objects.
  */
 static void free_obj_work(struct work_struct *work)
 {
@@ -173,9 +173,9 @@ static void free_obj_work(struct work_struct *work)
 		hlist_del(&obj->node);
 		obj_pool_free--;
 		/*
-                                                     
-                                   
-   */
+		 * We release pool_lock across kmem_cache_free() to
+		 * avoid contention on pool_lock.
+		 */
 		raw_spin_unlock_irqrestore(&pool_lock, flags);
 		kmem_cache_free(obj_cache, obj);
 		raw_spin_lock_irqsave(&pool_lock, flags);
@@ -184,8 +184,8 @@ static void free_obj_work(struct work_struct *work)
 }
 
 /*
-                                                                      
-                
+ * Put the object back into the pool and schedule work to free objects
+ * if necessary.
  */
 static void free_object(struct debug_obj *obj)
 {
@@ -194,9 +194,9 @@ static void free_object(struct debug_obj *obj)
 
 	raw_spin_lock_irqsave(&pool_lock, flags);
 	/*
-                                                          
-                
-  */
+	 * schedule work when the pool is filled and the cache is
+	 * initialized:
+	 */
 	if (obj_pool_free > ODEBUG_POOL_SIZE && obj_cache)
 		sched = keventd_up() && !work_pending(&debug_obj_work);
 	hlist_add_head(&obj->node, &obj_pool);
@@ -208,8 +208,8 @@ static void free_object(struct debug_obj *obj)
 }
 
 /*
-                                                                    
-             
+ * We run out of memory. That means we probably have tons of objects
+ * allocated.
  */
 static void debug_objects_oom(void)
 {
@@ -227,7 +227,7 @@ static void debug_objects_oom(void)
 		hlist_move_list(&db->list, &freelist);
 		raw_spin_unlock_irqrestore(&db->lock, flags);
 
-		/*               */
+		/* Now free them */
 		hlist_for_each_entry_safe(obj, node, tmp, &freelist, node) {
 			hlist_del(&obj->node);
 			free_object(obj);
@@ -236,8 +236,8 @@ static void debug_objects_oom(void)
 }
 
 /*
-                                                                    
-                                                            
+ * We use the pfn of the address for the hash. That way we can check
+ * for freed objects simply by checking the affected bucket.
  */
 static struct debug_bucket *get_bucket(unsigned long addr)
 {
@@ -265,8 +265,8 @@ static void debug_print_object(struct debug_obj *obj, char *msg)
 }
 
 /*
-                                                                     
-                
+ * Try to repair the damage, so we have a better chance to get useful
+ * debug output.
  */
 static int
 debug_object_fixup(int (*fixup)(void *addr, enum debug_obj_state state),
@@ -352,10 +352,10 @@ __debug_object_init(void *addr, struct debug_obj_descr *descr, int onstack)
 	raw_spin_unlock_irqrestore(&db->lock, flags);
 }
 
-/* 
-                                                                 
-                               
-                                                                    
+/**
+ * debug_object_init - debug checks when an object is initialized
+ * @addr:	address of the object
+ * @descr:	pointer to an object specific debug description structure
  */
 void debug_object_init(void *addr, struct debug_obj_descr *descr)
 {
@@ -365,11 +365,11 @@ void debug_object_init(void *addr, struct debug_obj_descr *descr)
 	__debug_object_init(addr, descr, 0);
 }
 
-/* 
-                                                                       
-                 
-                               
-                                                                    
+/**
+ * debug_object_init_on_stack - debug checks when an object on stack is
+ *				initialized
+ * @addr:	address of the object
+ * @descr:	pointer to an object specific debug description structure
  */
 void debug_object_init_on_stack(void *addr, struct debug_obj_descr *descr)
 {
@@ -379,10 +379,10 @@ void debug_object_init_on_stack(void *addr, struct debug_obj_descr *descr)
 	__debug_object_init(addr, descr, 1);
 }
 
-/* 
-                                                                   
-                               
-                                                                    
+/**
+ * debug_object_activate - debug checks when an object is activated
+ * @addr:	address of the object
+ * @descr:	pointer to an object specific debug description structure
  */
 void debug_object_activate(void *addr, struct debug_obj_descr *descr)
 {
@@ -428,19 +428,19 @@ void debug_object_activate(void *addr, struct debug_obj_descr *descr)
 
 	raw_spin_unlock_irqrestore(&db->lock, flags);
 	/*
-                                                      
-                                                     
-                
-  */
+	 * This happens when a static object is activated. We
+	 * let the type specific code decide whether this is
+	 * true or not.
+	 */
 	if (debug_object_fixup(descr->fixup_activate, addr,
 			   ODEBUG_STATE_NOTAVAILABLE))
 		debug_print_object(&o, "activate");
 }
 
-/* 
-                                                                       
-                               
-                                                                    
+/**
+ * debug_object_deactivate - debug checks when an object is deactivated
+ * @addr:	address of the object
+ * @descr:	pointer to an object specific debug description structure
  */
 void debug_object_deactivate(void *addr, struct debug_obj_descr *descr)
 {
@@ -484,10 +484,10 @@ void debug_object_deactivate(void *addr, struct debug_obj_descr *descr)
 	raw_spin_unlock_irqrestore(&db->lock, flags);
 }
 
-/* 
-                                                                  
-                               
-                                                                    
+/**
+ * debug_object_destroy - debug checks when an object is destroyed
+ * @addr:	address of the object
+ * @descr:	pointer to an object specific debug description structure
  */
 void debug_object_destroy(void *addr, struct debug_obj_descr *descr)
 {
@@ -530,10 +530,10 @@ out_unlock:
 	raw_spin_unlock_irqrestore(&db->lock, flags);
 }
 
-/* 
-                                                           
-                               
-                                                                    
+/**
+ * debug_object_free - debug checks when an object is freed
+ * @addr:	address of the object
+ * @descr:	pointer to an object specific debug description structure
  */
 void debug_object_free(void *addr, struct debug_obj_descr *descr)
 {
@@ -570,10 +570,10 @@ out_unlock:
 	raw_spin_unlock_irqrestore(&db->lock, flags);
 }
 
-/* 
-                                                                        
-                               
-                                                                    
+/**
+ * debug_object_assert_init - debug checks when object should be init-ed
+ * @addr:	address of the object
+ * @descr:	pointer to an object specific debug description structure
  */
 void debug_object_assert_init(void *addr, struct debug_obj_descr *descr)
 {
@@ -596,9 +596,9 @@ void debug_object_assert_init(void *addr, struct debug_obj_descr *descr)
 
 		raw_spin_unlock_irqrestore(&db->lock, flags);
 		/*
-                                                       
-                            
-   */
+		 * Maybe the object is static.  Let the type specific
+		 * code decide what to do.
+		 */
 		if (debug_object_fixup(descr->fixup_assert_init, addr,
 				       ODEBUG_STATE_NOTAVAILABLE))
 			debug_print_object(&o, "assert_init");
@@ -608,12 +608,12 @@ void debug_object_assert_init(void *addr, struct debug_obj_descr *descr)
 	raw_spin_unlock_irqrestore(&db->lock, flags);
 }
 
-/* 
-                                                                      
-                               
-                                                                    
-                          
-                                                     
+/**
+ * debug_object_active_state - debug checks object usage state machine
+ * @addr:	address of the object
+ * @descr:	pointer to an object specific debug description structure
+ * @expect:	expected state
+ * @next:	state to move to if expected state is found
  */
 void
 debug_object_active_state(void *addr, struct debug_obj_descr *descr,
@@ -702,7 +702,7 @@ repeat:
 		}
 		raw_spin_unlock_irqrestore(&db->lock, flags);
 
-		/*               */
+		/* Now free them */
 		hlist_for_each_entry_safe(obj, node, tmp, &freelist, node) {
 			hlist_del(&obj->node);
 			free_object(obj);
@@ -777,7 +777,7 @@ static inline void debug_objects_init_debugfs(void) { }
 
 #ifdef CONFIG_DEBUG_OBJECTS_SELFTEST
 
-/*                                         */
+/* Random data structure for the self test */
 struct self_test {
 	unsigned long	dummy1[6];
 	int		static_init;
@@ -787,8 +787,8 @@ struct self_test {
 static __initdata struct debug_obj_descr descr_type_test;
 
 /*
-                             
-                                    
+ * fixup_init is called when:
+ * - an active object is initialized
  */
 static int __init fixup_init(void *addr, enum debug_obj_state state)
 {
@@ -805,9 +805,9 @@ static int __init fixup_init(void *addr, enum debug_obj_state state)
 }
 
 /*
-                                 
-                                  
-                                                                              
+ * fixup_activate is called when:
+ * - an active object is activated
+ * - an unknown object is activated (might be a statically initialized object)
  */
 static int __init fixup_activate(void *addr, enum debug_obj_state state)
 {
@@ -833,8 +833,8 @@ static int __init fixup_activate(void *addr, enum debug_obj_state state)
 }
 
 /*
-                                
-                                  
+ * fixup_destroy is called when:
+ * - an active object is destroyed
  */
 static int __init fixup_destroy(void *addr, enum debug_obj_state state)
 {
@@ -851,8 +851,8 @@ static int __init fixup_destroy(void *addr, enum debug_obj_state state)
 }
 
 /*
-                             
-                              
+ * fixup_free is called when:
+ * - an active object is freed
  */
 static int __init fixup_free(void *addr, enum debug_obj_state state)
 {
@@ -993,9 +993,9 @@ static inline void debug_objects_selftest(void) { }
 #endif
 
 /*
-                                                                   
-                                                                     
-                                           
+ * Called during early boot to initialize the hash buckets and link
+ * the static object pool objects into the poll list. After this call
+ * the object tracker is fully operational.
  */
 void __init debug_objects_early_init(void)
 {
@@ -1009,7 +1009,7 @@ void __init debug_objects_early_init(void)
 }
 
 /*
-                                                            
+ * Convert the statically allocated objects to dynamic ones:
  */
 static int __init debug_objects_replace_static_objects(void)
 {
@@ -1027,26 +1027,26 @@ static int __init debug_objects_replace_static_objects(void)
 	}
 
 	/*
-                                                             
-                                                    
-                                                              
-  */
+	 * When debug_objects_mem_init() is called we know that only
+	 * one CPU is up, so disabling interrupts is enough
+	 * protection. This avoids the lockdep hell of lock ordering.
+	 */
 	local_irq_disable();
 
-	/*                                                       */
+	/* Remove the statically allocated objects from the pool */
 	hlist_for_each_entry_safe(obj, node, tmp, &obj_pool, node)
 		hlist_del(&obj->node);
-	/*                                        */
+	/* Move the allocated objects to the pool */
 	hlist_move_list(&objects, &obj_pool);
 
-	/*                                      */
+	/* Replace the active object references */
 	for (i = 0; i < ODEBUG_HASH_SIZE; i++, db++) {
 		hlist_move_list(&db->list, &objects);
 
 		hlist_for_each_entry(obj, node, &objects, node) {
 			new = hlist_entry(obj_pool.first, typeof(*obj), node);
 			hlist_del(&new->node);
-			/*                  */
+			/* copy object data */
 			*new = *obj;
 			hlist_add_head(&new->node, &db->list);
 			cnt++;
@@ -1066,10 +1066,10 @@ free:
 }
 
 /*
-                                                                   
-                                                                   
-                                                                      
-                                                  
+ * Called after the kmem_caches are functional to setup a dedicated
+ * cache pool, which has the SLAB_DEBUG_OBJECTS flag set. This flag
+ * prevents that the debug code is called on kmem_cache_free() for the
+ * debug tracker objects to avoid recursive calls.
  */
 void __init debug_objects_mem_init(void)
 {

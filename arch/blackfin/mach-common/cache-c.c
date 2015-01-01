@@ -10,8 +10,8 @@
 #include <asm/blackfin.h>
 #include <asm/cplbinit.h>
 
-/*                                    
-                         
+/* Invalidate the Entire Data cache by
+ * clearing DMC[1:0] bits
  */
 void blackfin_invalidate_entire_dcache(void)
 {
@@ -22,8 +22,8 @@ void blackfin_invalidate_entire_dcache(void)
 	SSYNC();
 }
 
-/*                                           
-                   
+/* Invalidate the Entire Instruction cache by
+ * clearing IMC bit
  */
 void blackfin_invalidate_entire_icache(void)
 {
@@ -63,11 +63,11 @@ void __cpuinit bfin_icache_init(struct cplb_entry *icplb_tbl)
 void __cpuinit bfin_dcache_init(struct cplb_entry *dcplb_tbl)
 {
 	/*
-                   
-                                                                    
-                                                                     
-              
-  */
+	 *  Anomaly notes:
+	 *  05000287 - We implement workaround #2 - Change the DMEM_CONTROL
+	 *  register, so that the port preferences for DAG0 and DAG1 are set
+	 *  to port B
+	 */
 	bfin_cache_init(dcplb_tbl, DCPLB_ADDR0, DCPLB_DATA0, DMEM_CONTROL,
 		(DMEM_CNTR | PORT_PREF0 | (ANOMALY_05000287 ? PORT_PREF1 : 0)));
 }

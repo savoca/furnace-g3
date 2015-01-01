@@ -273,7 +273,7 @@ static int msm_vb2_buf_done(struct vb2_buffer *vb, int session_id,
 		}
 		msm_vb2 =
 			container_of(vb, struct msm_vb2_buffer, vb2_buf);
-		/*                         */
+		/* put buf before buf done */
 		if (msm_vb2->in_freeq) {
 			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 			msm_vb2->in_freeq = 0;

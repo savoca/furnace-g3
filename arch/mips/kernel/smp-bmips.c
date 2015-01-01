@@ -39,21 +39,21 @@
 
 static int __maybe_unused max_cpus = 1;
 
-/*                                              */
+/* these may be configured by the platform code */
 int bmips_smp_enabled = 1;
 int bmips_cpu_offset;
 cpumask_t bmips_booted_mask;
 
 #ifdef CONFIG_SMP
 
-/*                                                         */
+/* initial $sp, $gp - used by arch/mips/kernel/bmips_vec.S */
 unsigned long bmips_smp_boot_sp;
 unsigned long bmips_smp_boot_gp;
 
 static void bmips_send_ipi_single(int cpu, unsigned int action);
 static irqreturn_t bmips_ipi_interrupt(int irq, void *dev_id);
 
-/*                                                         */
+/* SW interrupts 0,1 are used for interprocessor signaling */
 #define IPI0_IRQ			(MIPS_CPU_IRQ_BASE + 0)
 #define IPI1_IRQ			(MIPS_CPU_IRQ_BASE + 1)
 
@@ -67,33 +67,33 @@ static void __init bmips_smp_setup(void)
 	int i;
 
 #if defined(CONFIG_CPU_BMIPS4350) || defined(CONFIG_CPU_BMIPS4380)
-	/*                      */
+	/* arbitration priority */
 	clear_c0_brcm_cmt_ctrl(0x30);
 
-	/*                          */
+	/* NBK and weak order flags */
 	set_c0_brcm_config_0(0x30000);
 
 	/*
-                                                                   
-                                                                
-                                                                
-  */
+	 * MIPS interrupts 0,1 (SW INT 0,1) cross over to the other thread
+	 * MIPS interrupt 2 (HW INT 0) is the CPU0 L1 controller output
+	 * MIPS interrupt 3 (HW INT 1) is the CPU1 L1 controller output
+	 */
 	change_c0_brcm_cmt_intr(0xf8018000,
 		(0x02 << 27) | (0x03 << 15));
 
-	/*                                      */
+	/* single core, 2 threads (2 pipelines) */
 	max_cpus = 2;
 #elif defined(CONFIG_CPU_BMIPS5000)
-	/*                               */
+	/* enable raceless SW interrupts */
 	set_c0_brcm_config(0x03 << 22);
 
-	/*                                                      */
+	/* route HW interrupt 0 to CPU0, HW interrupt 1 to CPU1 */
 	change_c0_brcm_mode(0x1f << 27, 0x02 << 27);
 
-	/*                             */
+	/* N cores, 2 threads per core */
 	max_cpus = (((read_c0_brcm_config() >> 6) & 0x03) + 1) << 1;
 
-	/*                                 */
+	/* clear any pending SW interrupts */
 	for (i = 0; i < max_cpus; i++) {
 		write_c0_brcm_action(ACTION_CLR_IPI(i, 0));
 		write_c0_brcm_action(ACTION_CLR_IPI(i, 1));
@@ -103,7 +103,7 @@ static void __init bmips_smp_setup(void)
 	if (!bmips_smp_enabled)
 		max_cpus = 1;
 
-	/*                                   */
+	/* this can be overridden by the BSP */
 	if (!board_ebase_setup)
 		board_ebase_setup = &bmips_ebase_setup;
 
@@ -116,7 +116,7 @@ static void __init bmips_smp_setup(void)
 }
 
 /*
-                               
+ * IPI IRQ setup - runs on CPU0
  */
 static void bmips_prepare_cpus(unsigned int max_cpus)
 {
@@ -129,7 +129,7 @@ static void bmips_prepare_cpus(unsigned int max_cpus)
 }
 
 /*
-                                                
+ * Tell the hardware to boot CPUx - runs on CPU0
  */
 static void bmips_boot_secondary(int cpu, struct task_struct *idle)
 {
@@ -138,19 +138,19 @@ static void bmips_boot_secondary(int cpu, struct task_struct *idle)
 	mb();
 
 	/*
-                                            
-                                        
-                        
-                                                              
-                                   
-   
-                          
-                            
-                                                   
-                          
-                                
-                     
-  */
+	 * Initial boot sequence for secondary CPU:
+	 *   bmips_reset_nmi_vec @ a000_0000 ->
+	 *   bmips_smp_entry ->
+	 *   plat_wired_tlb_setup (cached function call; optional) ->
+	 *   start_secondary (cached jump)
+	 *
+	 * Warm restart sequence:
+	 *   play_dead WAIT loop ->
+	 *   bmips_smp_int_vec @ BMIPS_WARM_RESTART_VEC ->
+	 *   eret to play_dead ->
+	 *   bmips_secondary_reentry ->
+	 *   start_secondary
+	 */
 
 	pr_info("SMP: Booting CPU%d...\n", cpu);
 
@@ -164,9 +164,9 @@ static void bmips_boot_secondary(int cpu, struct task_struct *idle)
 			write_c0_brcm_action(ACTION_BOOT_THREAD(cpu));
 		else {
 			/*
-                                              
-                        
-    */
+			 * core N thread 0 was already booted; just
+			 * pulse the NMI line
+			 */
 			bmips_write_zscm_reg(0x210, 0xc0000000);
 			udelay(10);
 			bmips_write_zscm_reg(0x210, 0x00);
@@ -177,11 +177,11 @@ static void bmips_boot_secondary(int cpu, struct task_struct *idle)
 }
 
 /*
-                                                        
+ * Early setup - runs on secondary CPU after cache probe
  */
 static void bmips_init_secondary(void)
 {
-	/*                                                    */
+	/* move NMI vector to kseg0, in case XKS01 is enabled */
 
 #if defined(CONFIG_CPU_BMIPS4350) || defined(CONFIG_CPU_BMIPS4380)
 	void __iomem *cbr = BMIPS_GET_CBR();
@@ -198,7 +198,7 @@ static void bmips_init_secondary(void)
 	write_c0_brcm_action(ACTION_CLR_IPI(smp_processor_id(), 0));
 #endif
 
-	/*                                                               */
+	/* make sure there won't be a timer interrupt for a little while */
 	write_c0_compare(read_c0_count() + mips_hpt_frequency / HZ);
 
 	irq_enable_hazard();
@@ -207,7 +207,7 @@ static void bmips_init_secondary(void)
 }
 
 /*
-                                                                   
+ * Late setup - runs on secondary CPU before entering the idle loop
  */
 static void bmips_smp_finish(void)
 {
@@ -215,7 +215,7 @@ static void bmips_smp_finish(void)
 }
 
 /*
-                                               
+ * Runs on CPU0 after all CPUs have been booted
  */
 static void bmips_cpus_done(void)
 {
@@ -224,11 +224,11 @@ static void bmips_cpus_done(void)
 #if defined(CONFIG_CPU_BMIPS5000)
 
 /*
-                          
-  
-                                                                            
-                                           
-                                     
+ * BMIPS5000 raceless IPIs
+ *
+ * Each CPU has two inbound SW IRQs which are independent of all other CPUs.
+ * IPI0 is used for SMP_RESCHEDULE_YOURSELF
+ * IPI1 is used for SMP_CALL_FUNCTION
  */
 
 static void bmips_send_ipi_single(int cpu, unsigned int action)
@@ -253,13 +253,13 @@ static irqreturn_t bmips_ipi_interrupt(int irq, void *dev_id)
 #else
 
 /*
-                       
-  
-                                          
-  
-                                                                           
-                                                                         
-                                                     
+ * BMIPS43xx racey IPIs
+ *
+ * We use one inbound SW IRQ for each CPU.
+ *
+ * A spinlock must be held in order to keep CPUx from accidentally clearing
+ * an incoming IPI when it writes CP0 CAUSE to raise an IPI on CPUy.  The
+ * same spinlock is used to protect the action masks.
  */
 
 static DEFINE_SPINLOCK(ipi_lock);
@@ -295,7 +295,7 @@ static irqreturn_t bmips_ipi_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-#endif /*            */
+#endif /* BMIPS type */
 
 static void bmips_send_ipi_mask(const struct cpumask *mask,
 	unsigned int action)
@@ -334,30 +334,30 @@ void __ref play_dead(void)
 {
 	idle_task_exit();
 
-	/*                  */
+	/* flush data cache */
 	_dma_cache_wback_inv(0, ~0);
 
 	/*
-                                                    
-                                                                   
-                                                             
-  */
+	 * Wakeup is on SW0 or SW1; disable everything else
+	 * Use BEV !IV (BMIPS_WARM_RESTART_VEC) to avoid the regular Linux
+	 * IRQ handlers; this clears ST0_IE and returns immediately.
+	 */
 	clear_c0_cause(CAUSEF_IV | C_SW0 | C_SW1);
 	change_c0_status(IE_IRQ5 | IE_IRQ1 | IE_SW0 | IE_SW1 | ST0_IE | ST0_BEV,
 		IE_SW0 | IE_SW1 | ST0_IE | ST0_BEV);
 	irq_disable_hazard();
 
 	/*
-                                                                
-                             
-  */
+	 * wait for SW interrupt from bmips_boot_secondary(), then jump
+	 * back to start_secondary()
+	 */
 	__asm__ __volatile__(
 	"	wait\n"
 	"	j	bmips_secondary_reentry\n"
 	: : : "memory");
 }
 
-#endif /*                    */
+#endif /* CONFIG_HOTPLUG_CPU */
 
 struct plat_smp_ops bmips_smp_ops = {
 	.smp_setup		= bmips_smp_setup,
@@ -374,13 +374,13 @@ struct plat_smp_ops bmips_smp_ops = {
 #endif
 };
 
-#endif /*            */
+#endif /* CONFIG_SMP */
 
-/*                                                                      
-                          
-                                                                    
-                            
-                                                                       */
+/***********************************************************************
+ * BMIPS vector relocation
+ * This is primarily used for SMP boot, but it is applicable to some
+ * UP BMIPS systems as well.
+ ***********************************************************************/
 
 static void __cpuinit bmips_wr_vec(unsigned long dst, char *start, char *end)
 {
@@ -407,33 +407,33 @@ void __cpuinit bmips_ebase_setup(void)
 
 #if defined(CONFIG_CPU_BMIPS4350)
 	/*
-                                                        
-                                                         
-                                                        
-                
-   
-                                                
-                                             
-                                                      
-  */
+	 * BMIPS4350 cannot relocate the normal vectors, but it
+	 * can relocate the BEV=1 vectors.  So CPU1 starts up at
+	 * the relocated BEV=1, IV=0 general exception vector @
+	 * 0xa000_0380.
+	 *
+	 * set_uncached_handler() is used here because:
+	 *  - CPU1 will run this from uncached space
+	 *  - None of the cacheflush functions are set up yet
+	 */
 	set_uncached_handler(BMIPS_WARM_RESTART_VEC - CKSEG0,
 		&bmips_smp_int_vec, 0x80);
 	__sync();
 	return;
 #elif defined(CONFIG_CPU_BMIPS4380)
 	/*
-                                               
-                               
-  */
+	 * 0x8000_0000: reset/NMI (initially in kseg1)
+	 * 0x8000_0400: normal vectors
+	 */
 	new_ebase = 0x80000400;
 	cbr = BMIPS_GET_CBR();
 	__raw_writel(0x80080800, cbr + BMIPS_RELO_VECTOR_CONTROL_0);
 	__raw_writel(0xa0080800, cbr + BMIPS_RELO_VECTOR_CONTROL_1);
 #elif defined(CONFIG_CPU_BMIPS5000)
 	/*
-                                               
-                               
-  */
+	 * 0x8000_0000: reset/NMI (initially in kseg1)
+	 * 0x8000_1000: normal vectors
+	 */
 	new_ebase = 0x80001000;
 	write_c0_brcm_bootvec(0xa0088008);
 	write_c0_ebase(new_ebase);
@@ -449,8 +449,8 @@ void __cpuinit bmips_ebase_setup(void)
 asmlinkage void __weak plat_wired_tlb_setup(void)
 {
 	/*
-                                                    
-                                                                   
-                                       
-  */
+	 * Called when starting/restarting a secondary CPU.
+	 * Kernel stacks and other important data might only be accessible
+	 * once the wired entries are present.
+	 */
 }

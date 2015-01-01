@@ -1,5 +1,5 @@
 /*
-               
+ * Amon support
  */
 
 int amon_cpu_avail(int);

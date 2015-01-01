@@ -30,8 +30,8 @@ MODULE_ALIAS("ipt_CONNSECMARK");
 MODULE_ALIAS("ip6t_CONNSECMARK");
 
 /*
-                                                                      
-                                                       
+ * If the packet has a security mark and the connection does not, copy
+ * the security mark from the packet to the connection.
  */
 static void secmark_save(const struct sk_buff *skb)
 {
@@ -48,8 +48,8 @@ static void secmark_save(const struct sk_buff *skb)
 }
 
 /*
-                                                                       
-                                                   
+ * If packet has no security mark, and the connection does, restore the
+ * security mark from the connection to the packet.
  */
 static void secmark_restore(struct sk_buff *skb)
 {

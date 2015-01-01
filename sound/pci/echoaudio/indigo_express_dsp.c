@@ -72,7 +72,7 @@ static int set_sample_rate(struct echoaudio *chip, u32 rate)
 
 
 
-/*                                                                        */
+/* This function routes the sound from a virtual channel to a real output */
 static int set_vmixer_gain(struct echoaudio *chip, u16 output, u16 pipe,
 			   int gain)
 {
@@ -95,7 +95,7 @@ static int set_vmixer_gain(struct echoaudio *chip, u16 output, u16 pipe,
 
 
 
-/*                                                                    */
+/* Tell the DSP to read and update virtual mixer levels in comm page. */
 static int update_vmixer_level(struct echoaudio *chip)
 {
 	if (wait_handshake(chip))
@@ -113,7 +113,7 @@ static u32 detect_input_clocks(const struct echoaudio *chip)
 
 
 
-/*                                           */
+/* The IndigoIO has no ASIC. Just do nothing */
 static int load_asic(struct echoaudio *chip)
 {
 	return 0;

@@ -19,15 +19,15 @@
 #include "wsm.h"
 
 struct mcore_device_t {
-	/*                                                      */
+	/* MobiCore Trustlet session associated with the device */
 	struct list_head	session_vector;
-	struct list_head	wsm_mmu_vector; /*                     */
+	struct list_head	wsm_mmu_vector; /* WSM L2 or L3 Table  */
 
-	uint32_t		device_id;	/*                   */
-	struct connection	*connection;	/*                       */
-	struct mc_instance	*instance;	/*                          */
+	uint32_t		device_id;	/* Device identifier */
+	struct connection	*connection;	/* The device connection */
+	struct mc_instance	*instance;	/* MobiCore Driver instance */
 
-	/*                                           */
+	/* The list param for using the kernel lists */
 	struct list_head	list;
 };
 
@@ -53,4 +53,4 @@ bool mcore_device_free_contiguous_wsm(
 struct wsm *mcore_device_find_contiguous_wsm(
 		struct mcore_device_t *dev, void *virt_addr);
 
-#endif /*                    */
+#endif /* _MC_KAPI_DEVICE_H_ */

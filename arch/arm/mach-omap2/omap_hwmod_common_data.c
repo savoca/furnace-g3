@@ -20,12 +20,12 @@
 
 #include "omap_hwmod_common_data.h"
 
-/* 
-                                                         
-  
-                                                                 
-                                                                
-                        
+/**
+ * struct omap_hwmod_sysc_type1 - TYPE1 sysconfig scheme.
+ *
+ * To be used by hwmod structure to specify the sysconfig offsets
+ * if the device ip is compliant with the original PRCM protocol
+ * defined for OMAP2420.
  */
 struct omap_hwmod_sysc_fields omap_hwmod_sysc_type1 = {
 	.midle_shift	= SYSC_TYPE1_MIDLEMODE_SHIFT,
@@ -36,12 +36,12 @@ struct omap_hwmod_sysc_fields omap_hwmod_sysc_type1 = {
 	.autoidle_shift	= SYSC_TYPE1_AUTOIDLE_SHIFT,
 };
 
-/* 
-                                                         
-  
-                                                                        
-                                                                    
-             
+/**
+ * struct omap_hwmod_sysc_type2 - TYPE2 sysconfig scheme.
+ *
+ * To be used by hwmod structure to specify the sysconfig offsets if the
+ * device ip is compliant with the new PRCM protocol defined for new
+ * OMAP4 IPs.
  */
 struct omap_hwmod_sysc_fields omap_hwmod_sysc_type2 = {
 	.midle_shift	= SYSC_TYPE2_MIDLEMODE_SHIFT,

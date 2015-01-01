@@ -346,9 +346,9 @@ const struct file_operations ax25_route_fops = {
 #endif
 
 /*
-                   
-  
-                                                               
+ *	Find AX.25 route
+ *
+ *	Only routes with a reference count of zero can be destroyed.
  */
 ax25_route *ax25_get_route(ax25_address *addr, struct net_device *dev)
 {
@@ -358,9 +358,9 @@ ax25_route *ax25_get_route(ax25_address *addr, struct net_device *dev)
 
 	read_lock(&ax25_route_lock);
 	/*
-                                                                   
-                           
-  */
+	 *	Bind to the physical interface we heard them on, or the default
+	 *	route if none is found;
+	 */
 	for (ax25_rt = ax25_route_list; ax25_rt != NULL; ax25_rt = ax25_rt->next) {
 		if (dev == NULL) {
 			if (ax25cmp(&ax25_rt->callsign, addr) == 0 && ax25_rt->dev != NULL)
@@ -388,9 +388,9 @@ ax25_route *ax25_get_route(ax25_address *addr, struct net_device *dev)
 }
 
 /*
-                                                                  
-                                                                      
-                                                                
+ *	Adjust path: If you specify a default route and want to connect
+ *      a target on the digipeater path but w/o having a special route
+ *	set before, the path has to be truncated from your target on.
  */
 static inline void ax25_adjust_path(ax25_address *addr, ax25_digi *digipeat)
 {
@@ -406,7 +406,7 @@ static inline void ax25_adjust_path(ax25_address *addr, ax25_digi *digipeat)
 
 
 /*
-                               
+ *	Find which interface to use.
  */
 int ax25_rt_autobind(ax25_cb *ax25, ax25_address *addr)
 {
@@ -487,7 +487,7 @@ struct sk_buff *ax25_rt_build_path(struct sk_buff *skb, ax25_address *src,
 }
 
 /*
-                                                      
+ *	Free all memory associated with routing structures.
  */
 void __exit ax25_rt_free(void)
 {

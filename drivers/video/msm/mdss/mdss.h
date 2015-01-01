@@ -71,9 +71,9 @@ struct mdss_debug_inf {
 #define MDSS_IRQ_REQ		0
 
 struct mdss_intr {
-	/*                */
+	/* requested intr */
 	u32 req;
-	/*                        */
+	/* currently enabled intr */
 	u32 curr;
 	int state;
 	spinlock_t lock;
@@ -176,6 +176,7 @@ struct mdss_data_type {
 	ulong weight;
 	ulong bucket;
 	ulong skip_count;
+	int skip_ratio;
 #endif
 };
 extern struct mdss_data_type *mdss_res;
@@ -225,4 +226,4 @@ static inline int mdss_get_iommu_domain(u32 type)
 
 	return mdss_res->iommu_map[type].domain_idx;
 }
-#endif /*        */
+#endif /* MDSS_H */

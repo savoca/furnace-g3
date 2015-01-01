@@ -34,14 +34,14 @@ static struct mutex lgeusb_lock;
 static u16 user_mode;
 #endif
 
-/*                                                      */
+/* This length must be same as MAX_STR_LEN in android.c */
 #define MAX_SERIAL_NO_LEN 256
 
 #define LGE_VENDOR_ID 	0x1004
 #define LGE_PRODUCT_ID 	0x618E
 #define LGE_FACTORY_PID	0x6000
 
-/*                          */
+/* PMIC USB CHGPTH register */
 #define SMBB_USB_CHGPTH_BASE                0x1300
 #define SMBB_USB_CHGPTH_USB_CHG_PTH_STS     (SMBB_USB_CHGPTH_BASE + 0x09)
 #define SMBB_USB_CHGPTH_INT_RT_STS          (SMBB_USB_CHGPTH_BASE + 0x10)
@@ -87,8 +87,8 @@ int debug_pmic_register_for_usb(void)
 		return -EINVAL;
 	}
 
-	/*                                                                           
- */
+	/* read SMBB_USB_CHGPTH_USB_CHG_PTH_STS, SMBB_USB_CHGPTH_INT_RT_STS registers
+	*/
 	rc = spmi_ext_register_readl(ctrl, 0, SMBB_USB_CHGPTH_USB_CHG_PTH_STS,
 			&usb_sts_reg, 1);
 	if (rc) {
@@ -113,7 +113,7 @@ int debug_pmic_register_for_usb(void)
 }
 EXPORT_SYMBOL(debug_pmic_register_for_usb);
 
-/*                                                          */
+/* Belows are borrowed from android gadget's ATTR macros ;) */
 #define LGE_ID_ATTR(field, format_string)               \
 static ssize_t                              \
 lgeusb_ ## field ## _show(struct device *dev, struct device_attribute *attr, \
@@ -215,7 +215,7 @@ static ssize_t lgeusb_mode_show(struct device *dev,
 static DEVICE_ATTR(lge_usb_mode, S_IRUGO | S_IWUSR, lgeusb_mode_show, NULL);
 
 #ifdef CONFIG_USB_G_LGE_ANDROID_AUTORUN
-/*                                                         */
+/* To set/get USB user mode to/from user space for autorun */
 static int autorun_user_mode_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -471,7 +471,7 @@ static int __init lgeusb_init(void)
 
 	_lgeusb_dev = dev;
 
-	/*                                                                     */
+	/* set default vid, pid and factory id. vid and pid will be overrided. */
 	dev->vendor_id = LGE_VENDOR_ID;
 	dev->factory_pid = LGE_FACTORY_PID;
 

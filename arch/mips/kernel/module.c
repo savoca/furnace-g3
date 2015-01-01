@@ -31,7 +31,7 @@
 #include <linux/spinlock.h>
 #include <linux/jump_label.h>
 
-#include <asm/pgtable.h>	/*              */
+#include <asm/pgtable.h>	/* MODULE_START */
 
 struct mips_hi16 {
 	struct mips_hi16 *next;
@@ -118,10 +118,10 @@ static int apply_r_mips_hi16_rel(struct module *me, u32 *location, Elf_Addr v)
 	struct mips_hi16 *n;
 
 	/*
-                                                                      
-                                                                        
-                      
-  */
+	 * We cannot relocate this one now because we don't know the value of
+	 * the carry we need to add.  Save the information, and let LO16 do the
+	 * actual relocation.
+	 */
 	n = kmalloc(sizeof *n, GFP_KERNEL);
 	if (!n)
 		return -ENOMEM;
@@ -147,7 +147,7 @@ static int apply_r_mips_lo16_rel(struct module *me, u32 *location, Elf_Addr v)
 	unsigned long insnlo = *location;
 	Elf_Addr val, vallo;
 
-	/*                                                      */
+	/* Sign extend the addend we extract from the lo insn.  */
 	vallo = ((insnlo & 0xffff) ^ 0x8000) - 0x8000;
 
 	if (mips_hi16_list != NULL) {
@@ -159,25 +159,25 @@ static int apply_r_mips_lo16_rel(struct module *me, u32 *location, Elf_Addr v)
 			unsigned long insn;
 
 			/*
-                                                  
-    */
+			 * The value for the HI16 had best be the same.
+			 */
 			if (v != l->value)
 				goto out_danger;
 
 			/*
-                                                          
-                                                         
-                                                        
-                  
-    */
+			 * Do the HI16 relocation.  Note that we actually don't
+			 * need to know anything about the LO16 itself, except
+			 * where to find the low 16 bits of the addend needed
+			 * by the LO16.
+			 */
 			insn = *l->addr;
 			val = ((insn & 0xffff) << 16) + vallo;
 			val += v;
 
 			/*
-                                                        
-                   
-    */
+			 * Account for the sign extension that will happen in
+			 * the low bits.
+			 */
 			val = ((val >> 16) + ((val & 0x8000) != 0)) & 0xffff;
 
 			insn = (insn & ~0xffff) | val;
@@ -192,8 +192,8 @@ static int apply_r_mips_lo16_rel(struct module *me, u32 *location, Elf_Addr v)
 	}
 
 	/*
-                                                                 
-  */
+	 * Ok, we're done with the HI16 relocs.  Now deal with the LO16.
+	 */
 	val = v + vallo;
 	insnlo = (insnlo & ~0xffff) | (val & 0xffff);
 	*location = insnlo;
@@ -274,14 +274,14 @@ int apply_relocate(Elf_Shdr *sechdrs, const char *strtab,
 	       sechdrs[relsec].sh_info);
 
 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
-		/*                                  */
+		/* This is where to make the change */
 		location = (void *)sechdrs[sechdrs[relsec].sh_info].sh_addr
 			+ rel[i].r_offset;
-		/*                                       */
+		/* This is the symbol it is referring to */
 		sym = (Elf_Sym *)sechdrs[symindex].sh_addr
 			+ ELF_MIPS_R_SYM(rel[i]);
 		if (IS_ERR_VALUE(sym->st_value)) {
-			/*                               */
+			/* Ignore unresolved weak symbol */
 			if (ELF_ST_BIND(sym->st_info) == STB_WEAK)
 				continue;
 			printk(KERN_WARNING "%s: Unknown symbol %s\n",
@@ -314,14 +314,14 @@ int apply_relocate_add(Elf_Shdr *sechdrs, const char *strtab,
 	       sechdrs[relsec].sh_info);
 
 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
-		/*                                  */
+		/* This is where to make the change */
 		location = (void *)sechdrs[sechdrs[relsec].sh_info].sh_addr
 			+ rel[i].r_offset;
-		/*                                       */
+		/* This is the symbol it is referring to */
 		sym = (Elf_Sym *)sechdrs[symindex].sh_addr
 			+ ELF_MIPS_R_SYM(rel[i]);
 		if (IS_ERR_VALUE(sym->st_value)) {
-			/*                               */
+			/* Ignore unresolved weak symbol */
 			if (ELF_ST_BIND(sym->st_info) == STB_WEAK)
 				continue;
 			printk(KERN_WARNING "%s: Unknown symbol %s\n",
@@ -339,7 +339,7 @@ int apply_relocate_add(Elf_Shdr *sechdrs, const char *strtab,
 	return 0;
 }
 
-/*                                                               */
+/* Given an address, look for it in the module exception tables. */
 const struct exception_table_entry *search_module_dbetables(unsigned long addr)
 {
 	unsigned long flags;
@@ -354,12 +354,12 @@ const struct exception_table_entry *search_module_dbetables(unsigned long addr)
 	}
 	spin_unlock_irqrestore(&dbe_lock, flags);
 
-	/*                                                          
-                                                                */
+	/* Now, if we found one, we are running inside it now, hence
+           we cannot unload the module, hence no refcnt needed. */
 	return e;
 }
 
-/*                               */
+/* Put in dbe list if necessary. */
 int module_finalize(const Elf_Ehdr *hdr,
 		    const Elf_Shdr *sechdrs,
 		    struct module *me)
@@ -367,7 +367,7 @@ int module_finalize(const Elf_Ehdr *hdr,
 	const Elf_Shdr *s;
 	char *secstrings = (void *)hdr + sechdrs[hdr->e_shstrndx].sh_offset;
 
-	/*                       */
+	/* Make jump label nops. */
 	jump_label_apply_nops(me);
 
 	INIT_LIST_HEAD(&me->arch.dbe_list);

@@ -28,7 +28,7 @@
 
 #define ADSP_CMD_SET_POWER_COLLAPSE_STATE 0x0001115C
 
-static int major;	/*                                            */
+static int major;	/* Major number assigned to our device driver */
 struct avtimer_t {
 	struct cdev myc;
 	struct class *avtimer_class;
@@ -121,16 +121,16 @@ int avcs_core_disable_power_collapse(int disable)
 		pc.hdr.token = 0;
 		pc.hdr.opcode = ADSP_CMD_SET_POWER_COLLAPSE_STATE;
 		/*
-                                                               
-                                                                 
-                                                                 
-                                   
-                                                              
-                                                              
-                                                              
-                                                            
-                               
-  */
+		* When power_collapse set to 1 -- If the aDSP is in the power
+		* collapsed state when this command is received, it is awakened
+		* from this state. The aDSP does not power collapse again until
+		* the client revokes this	command
+		* When power_collapse set to 0 -- This indicates to the aDSP
+		* that the remote client does not need it to be out of power
+		* collapse any longer. This may not always put the aDSP into
+		* power collapse; the aDSP must honor an internal client's
+		* power requirements as well.
+		*/
 		pc.power_collapse = disable;
 		rc = apr_send_pkt(core_handle, (uint32_t *)&pc);
 		if (rc < 0) {
@@ -195,7 +195,7 @@ static int avtimer_release(struct inode *inode, struct file *file)
 }
 
 /*
-                                  
+ * ioctl call provides GET_AVTIMER
  */
 static long avtimer_ioctl(struct file *file, unsigned int ioctl_num,
 				unsigned long ioctl_param)
@@ -266,7 +266,7 @@ static int dev_avtimer_probe(struct platform_device *pdev)
 	struct device *device_handle;
 	struct avtimer_t *pavtimer = &avtimer;
 
-	/*                       */
+	/* get the device number */
 	if (major)
 		result = register_chrdev_region(dev, 1, DEVICE_NAME);
 	else {

@@ -1,7 +1,7 @@
 /* Copyright (c) 2007 Coraid, Inc.  See COPYING for GPL terms. */
 /*
-           
-                        
+ * aoeblk.c
+ * block device routines
  */
 
 #include <linux/kernel.h>
@@ -32,7 +32,7 @@ static ssize_t aoedisk_show_state(struct device *dev,
 			(d->flags & DEVFL_UP) ? "up" : "down",
 			(d->flags & DEVFL_KICKME) ? ",kickme" :
 			(d->nopen && !(d->flags & DEVFL_UP)) ? ",closewait" : "");
-	/*                                                         */
+	/* I'd rather see nopen exported so we can ditch closewait */
 }
 static ssize_t aoedisk_show_mac(struct device *dev,
 				struct device_attribute *attr, char *page)
@@ -82,7 +82,7 @@ static ssize_t aoedisk_show_netif(struct device *dev,
 	p += snprintf(p, PAGE_SIZE - (p-page), "\n");
 	return p-page;
 }
-/*                  */
+/* firmware version */
 static ssize_t aoedisk_show_fwver(struct device *dev,
 				  struct device_attribute *attr, char *page)
 {
@@ -248,7 +248,7 @@ static const struct block_device_operations aoe_bdops = {
 	.owner = THIS_MODULE,
 };
 
-/*                                   */
+/* alloc_disk and add_disk can sleep */
 void
 aoeblk_gdalloc(void *vp)
 {

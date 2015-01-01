@@ -26,7 +26,7 @@ static unsigned long _icctrl_msc;
 
 static unsigned int irq_base;
 
-/*                       */
+/* mask off an interrupt */
 static inline void mask_msc_irq(struct irq_data *d)
 {
 	unsigned int irq = d->irq;
@@ -37,7 +37,7 @@ static inline void mask_msc_irq(struct irq_data *d)
 		MSCIC_WRITE(MSC01_IC_DISH, 1<<(irq - irq_base - 32));
 }
 
-/*                     */
+/* unmask an interrupt */
 static inline void unmask_msc_irq(struct irq_data *d)
 {
 	unsigned int irq = d->irq;
@@ -49,7 +49,7 @@ static inline void unmask_msc_irq(struct irq_data *d)
 }
 
 /*
-                        
+ * Masks and ACKs an IRQ
  */
 static void level_mask_and_ack_msc_irq(struct irq_data *d)
 {
@@ -58,12 +58,12 @@ static void level_mask_and_ack_msc_irq(struct irq_data *d)
 	mask_msc_irq(d);
 	if (!cpu_has_veic)
 		MSCIC_WRITE(MSC01_IC_EOI, 0);
-	/*                                                     */
+	/* This actually needs to be a call into platform code */
 	smtc_im_ack_irq(irq);
 }
 
 /*
-                        
+ * Masks and ACKs an IRQ
  */
 static void edge_mask_and_ack_msc_irq(struct irq_data *d)
 {
@@ -82,18 +82,18 @@ static void edge_mask_and_ack_msc_irq(struct irq_data *d)
 }
 
 /*
-                                                       
+ * Interrupt handler for interrupts coming from SOC-it.
  */
 void ll_msc_irq(void)
 {
  	unsigned int irq;
 
-	/*                                    */
+	/* read the interrupt vector register */
 	MSCIC_READ(MSC01_IC_VEC, irq);
 	if (irq < 64)
 		do_IRQ(irq + irq_base);
 	else {
-		/*                           */
+		/* Ignore spurious interrupt */
 	}
 }
 
@@ -126,7 +126,7 @@ void __init init_msc_irqs(unsigned long icubase, unsigned int irqbase, msc_irqma
 {
 	_icctrl_msc = (unsigned long) ioremap(icubase, 0x40000);
 
-	/*                                                             */
+	/* Reset interrupt controller - initialises all registers to 0 */
 	MSCIC_WRITE(MSC01_IC_RST, MSC01_IC_RST_RST_BIT);
 
 	board_bind_eic_interrupt = &msc_bind_eic_interrupt;
@@ -159,6 +159,6 @@ void __init init_msc_irqs(unsigned long icubase, unsigned int irqbase, msc_irqma
 
 	irq_base = irqbase;
 
-	MSCIC_WRITE(MSC01_IC_GENA, MSC01_IC_GENA_GENA_BIT);	/*                             */
+	MSCIC_WRITE(MSC01_IC_GENA, MSC01_IC_GENA_GENA_BIT);	/* Enable interrupt generation */
 
 }

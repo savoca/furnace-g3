@@ -74,7 +74,7 @@
 #endif
 
 enum {
-	/*                                      */
+	/* Mount options that take no arguments */
 	Opt_soft, Opt_hard,
 	Opt_posix, Opt_noposix,
 	Opt_cto, Opt_nocto,
@@ -87,7 +87,7 @@ enum {
 	Opt_resvport, Opt_noresvport,
 	Opt_fscache, Opt_nofscache,
 
-	/*                                           */
+	/* Mount options that take integer arguments */
 	Opt_port,
 	Opt_rsize, Opt_wsize, Opt_bsize,
 	Opt_timeo, Opt_retrans,
@@ -99,7 +99,7 @@ enum {
 	Opt_mountvers,
 	Opt_minorversion,
 
-	/*                                          */
+	/* Mount options that take string arguments */
 	Opt_nfsvers,
 	Opt_sec, Opt_proto, Opt_mountproto, Opt_mounthost,
 	Opt_addr, Opt_mountaddr, Opt_clientaddr,
@@ -107,7 +107,7 @@ enum {
 	Opt_fscache_uniq,
 	Opt_local_lock,
 
-	/*                       */
+	/* Special mount options */
 	Opt_userspace, Opt_deprecated, Opt_sloppy,
 
 	Opt_err
@@ -177,7 +177,7 @@ static const match_table_t nfs_mount_option_tokens = {
 	{ Opt_fscache_uniq, "fsc=%s" },
 	{ Opt_local_lock, "local_lock=%s" },
 
-	/*                                                          */
+	/* The following needs to be listed after all other options */
 	{ Opt_nfsvers, "v%s" },
 
 	{ Opt_err, NULL }
@@ -401,7 +401,7 @@ static struct shrinker acl_shrinker = {
 };
 
 /*
-                               
+ * Register the NFS filesystems
  */
 int __init register_nfs_fs(void)
 {
@@ -433,7 +433,7 @@ error_0:
 }
 
 /*
-                                 
+ * Unregister the NFS filesystems
  */
 void __exit unregister_nfs_fs(void)
 {
@@ -462,7 +462,7 @@ void nfs_sb_deactive(struct super_block *sb)
 }
 
 /*
-                                              
+ * Deliver file system statistics to userspace
  */
 static int nfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 {
@@ -494,19 +494,19 @@ static int nfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_type = NFS_SUPER_MAGIC;
 
 	/*
-                                                         
-                                                          
-                                             
-  */
+	 * Current versions of glibc do not correctly handle the
+	 * case where f_frsize != f_bsize.  Eventually we want to
+	 * report the value of wtmult in this field.
+	 */
 	buf->f_frsize = dentry->d_sb->s_blocksize;
 
 	/*
-                                                         
-                                                        
-                                                          
-                                                      
-                               
-  */
+	 * On most *nix systems, f_blocks, f_bfree, and f_bavail
+	 * are reported in units of f_frsize.  Linux hasn't had
+	 * an f_frsize field in its statfs struct until recently,
+	 * thus historically Linux's sys_statfs reports these
+	 * fields in units of f_bsize.
+	 */
 	buf->f_bsize = dentry->d_sb->s_blocksize;
 	blockbits = dentry->d_sb->s_blocksize_bits;
 	blockres = (1 << blockbits) - 1;
@@ -527,7 +527,7 @@ static int nfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 }
 
 /*
-                                            
+ * Map the security flavour number to a name
  */
 static const char *nfs_pseudoflavour_to_name(rpc_authflavor_t flavour)
 {
@@ -655,7 +655,7 @@ static void nfs_show_nfs_version(struct seq_file *m,
 }
 
 /*
-                                                                    
+ * Describe the mount options in force on this server representation
  */
 static void nfs_show_mount_options(struct seq_file *m, struct nfs_server *nfss,
 				   int showdefaults)
@@ -745,7 +745,7 @@ static void nfs_show_mount_options(struct seq_file *m, struct nfs_server *nfss,
 }
 
 /*
-                                                    
+ * Describe the mount options on this VFS mountpoint
  */
 static int nfs_show_options(struct seq_file *m, struct dentry *root)
 {
@@ -828,7 +828,7 @@ static int nfs_show_path(struct seq_file *m, struct dentry *dentry)
 }
 
 /*
-                                                          
+ * Present statistical information for this VFS mountpoint
  */
 static int nfs_show_stats(struct seq_file *m, struct dentry *root)
 {
@@ -840,8 +840,8 @@ static int nfs_show_stats(struct seq_file *m, struct dentry *root)
 	seq_printf(m, "statvers=%s", NFS_IOSTAT_VERS);
 
 	/*
-                                     
-  */
+	 * Display all mount option settings
+	 */
 	seq_printf(m, "\n\topts:\t");
 	seq_puts(m, root->d_sb->s_flags & MS_RDONLY ? "ro" : "rw");
 	seq_puts(m, root->d_sb->s_flags & MS_SYNCHRONOUS ? ",sync" : "");
@@ -872,15 +872,15 @@ static int nfs_show_stats(struct seq_file *m, struct dentry *root)
 #endif
 
 	/*
-                                                    
-  */
+	 * Display security flavor in effect for this mount
+	 */
 	seq_printf(m, "\n\tsec:\tflavor=%u", auth->au_ops->au_flavor);
 	if (auth->au_flavor)
 		seq_printf(m, ",pseudoflavor=%u", auth->au_flavor);
 
 	/*
-                                   
-  */
+	 * Display superblock I/O counters
+	 */
 	for_each_possible_cpu(cpu) {
 		struct nfs_iostats *stats;
 
@@ -920,8 +920,8 @@ static int nfs_show_stats(struct seq_file *m, struct dentry *root)
 }
 
 /*
-                                                                             
-                                               
+ * Begin unmount by attempting to remove all automounted mountpoints we added
+ * in response to xdev traversals and referrals
  */
 static void nfs_umount_begin(struct super_block *sb)
 {
@@ -929,7 +929,7 @@ static void nfs_umount_begin(struct super_block *sb)
 	struct rpc_clnt *rpc;
 
 	server = NFS_SB(sb);
-	/*                      */
+	/* -EIO all pending I/O */
 	rpc = server->client_acl;
 	if (!IS_ERR(rpc))
 		rpc_killall_tasks(rpc);
@@ -975,10 +975,10 @@ static void nfs_free_parsed_mount_data(struct nfs_parsed_mount_data *data)
 }
 
 /*
-                                                               
-  
-                                                              
-                                   
+ * Sanity-check a server address provided by the mount command.
+ *
+ * Address family must be initialized, and address must not be
+ * the ANY address for that family.
  */
 static int nfs_verify_server_address(struct sockaddr *addr)
 {
@@ -998,8 +998,8 @@ static int nfs_verify_server_address(struct sockaddr *addr)
 }
 
 /*
-                                                                       
-                                                      
+ * Select between a default port value and a user-specified port value.
+ * If a zero value is set, then autobind will be used.
  */
 static void nfs_set_port(struct sockaddr *sap, int *port,
 				 const unsigned short default_port)
@@ -1011,8 +1011,8 @@ static void nfs_set_port(struct sockaddr *sap, int *port,
 }
 
 /*
-                                           
-  
+ * Sanity check the NFS transport protocol.
+ *
  */
 static void nfs_validate_transport_protocol(struct nfs_parsed_mount_data *mnt)
 {
@@ -1027,8 +1027,8 @@ static void nfs_validate_transport_protocol(struct nfs_parsed_mount_data *mnt)
 }
 
 /*
-                                                                       
-                                                           
+ * For text based NFSv2/v3 mounts, the mount protocol transport default
+ * settings should depend upon the specified NFS transport.
  */
 static void nfs_set_mount_transport_protocol(struct nfs_parsed_mount_data *mnt)
 {
@@ -1048,7 +1048,7 @@ static void nfs_set_mount_transport_protocol(struct nfs_parsed_mount_data *mnt)
 }
 
 /*
-                                        
+ * Parse the value of the 'sec=' option.
  */
 static int nfs_parse_security_flavors(char *value,
 				      struct nfs_parsed_mount_data *mnt)
@@ -1114,10 +1114,10 @@ static int nfs_parse_version_string(char *string,
 		mnt->version = 3;
 		break;
 	case Opt_vers_4:
-		/*                                          
-                                           
-                                  
-   */
+		/* Backward compatibility option. In future,
+		 * the mount program should always supply
+		 * a NFSv4 minor version number.
+		 */
 		mnt->version = 4;
 		break;
 	case Opt_vers_4_0:
@@ -1156,10 +1156,10 @@ static int nfs_get_option_ul(substring_t args[], unsigned long *option)
 }
 
 /*
-                                                                         
-                                                                          
-                                                                       
-                             
+ * Error-check and convert a string of mount options from user space into
+ * a data structure.  The whole mount string is processed; bad options are
+ * skipped as they are encountered.  If there were no errors, return 1;
+ * otherwise return 0 (zero).
  */
 static int nfs_parse_mount_options(char *raw,
 				   struct nfs_parsed_mount_data *mnt)
@@ -1203,8 +1203,8 @@ static int nfs_parse_mount_options(char *raw,
 		switch (token) {
 
 		/*
-                                
-   */
+		 * boolean options:  foo/nofoo
+		 */
 		case Opt_soft:
 			mnt->flags |= NFS_MOUNT_SOFT;
 			break;
@@ -1248,7 +1248,7 @@ static int nfs_parse_mount_options(char *raw,
 			mnt->nfs_server.protocol = XPRT_TRANSPORT_TCP;
 			break;
 		case Opt_rdma:
-			mnt->flags |= NFS_MOUNT_TCP; /*                    */
+			mnt->flags |= NFS_MOUNT_TCP; /* for side protocols */
 			mnt->nfs_server.protocol = XPRT_TRANSPORT_RDMA;
 			xprt_load_transport(p);
 			break;
@@ -1288,8 +1288,8 @@ static int nfs_parse_mount_options(char *raw,
 			break;
 
 		/*
-                                     
-   */
+		 * options that take numeric values
+		 */
 		case Opt_port:
 			if (nfs_get_option_ul(args, &option) ||
 			    option > USHRT_MAX)
@@ -1374,8 +1374,8 @@ static int nfs_parse_mount_options(char *raw,
 			break;
 
 		/*
-                                  
-   */
+		 * options that take text values
+		 */
 		case Opt_nfsvers:
 			string = match_strdup(args);
 			if (string == NULL)
@@ -1419,7 +1419,7 @@ static int nfs_parse_mount_options(char *raw,
 				mnt->nfs_server.protocol = XPRT_TRANSPORT_TCP;
 				break;
 			case Opt_xprt_rdma:
-				/*                              */
+				/* vector side protocols to TCP */
 				mnt->flags |= NFS_MOUNT_TCP;
 				mnt->nfs_server.protocol = XPRT_TRANSPORT_RDMA;
 				xprt_load_transport(string);
@@ -1452,7 +1452,7 @@ static int nfs_parse_mount_options(char *raw,
 			case Opt_xprt_tcp:
 				mnt->mount_server.protocol = XPRT_TRANSPORT_TCP;
 				break;
-			case Opt_xprt_rdma: /*                             */
+			case Opt_xprt_rdma: /* not used for side protocols */
 			default:
 				dfprintk(MOUNT, "NFS:   unrecognized "
 						"transport protocol\n");
@@ -1553,8 +1553,8 @@ static int nfs_parse_mount_options(char *raw,
 			break;
 
 		/*
-                    
-   */
+		 * Special options
+		 */
 		case Opt_sloppy:
 			sloppy = 1;
 			dfprintk(MOUNT, "NFS:   relaxing parsing rules\n");
@@ -1579,9 +1579,9 @@ static int nfs_parse_mount_options(char *raw,
 		goto out_minorversion_mismatch;
 
 	/*
-                                                                
-                                              
-  */
+	 * verify that any proto=/mountproto= options match the address
+	 * familiies in the addr=/mountaddr= options.
+	 */
 	if (protofamily != AF_UNSPEC &&
 	    protofamily != mnt->nfs_server.address.ss_family)
 		goto out_proto_mismatch;
@@ -1625,10 +1625,10 @@ out_security_failure:
 }
 
 /*
-                                                             
-                                                                
-                                                                
-                        
+ * Match the requested auth flavors with the list returned by
+ * the server.  Returns zero and sets the mount's authentication
+ * flavor on success; returns -EACCES if server does not support
+ * the requested flavor.
  */
 static int nfs_walk_authlist(struct nfs_parsed_mount_data *args,
 			     struct nfs_mount_request *request)
@@ -1636,26 +1636,26 @@ static int nfs_walk_authlist(struct nfs_parsed_mount_data *args,
 	unsigned int i, j, server_authlist_len = *(request->auth_flav_len);
 
 	/*
-                                                      
-                                                       
-                                                    
-                                                         
-                                         
-  */
+	 * Certain releases of Linux's mountd return an empty
+	 * flavor list.  To prevent behavioral regression with
+	 * these servers (ie. rejecting mounts that used to
+	 * succeed), revert to pre-2.6.32 behavior (no checking)
+	 * if the returned flavor list is empty.
+	 */
 	if (server_authlist_len == 0)
 		return 0;
 
 	/*
-                                                         
-                                                        
-                                           
-   
-                                                       
-                                                    
-                                                     
-                                                       
-                                     
-  */
+	 * We avoid sophisticated negotiating here, as there are
+	 * plenty of cases where we can get it wrong, providing
+	 * either too little or too much security.
+	 *
+	 * RFC 2623, section 2.7 suggests we SHOULD prefer the
+	 * flavor listed first.  However, some servers list
+	 * AUTH_NULL first.  Our caller plants AUTH_SYS, the
+	 * preferred default, in args->auth_flavors[0] if user
+	 * didn't specify sec= mount option.
+	 */
 	for (i = 0; i < args->auth_flavor_len; i++)
 		for (j = 0; j < server_authlist_len; j++)
 			if (args->auth_flavors[i] == request->auth_flavs[j]) {
@@ -1671,8 +1671,8 @@ static int nfs_walk_authlist(struct nfs_parsed_mount_data *args,
 }
 
 /*
-                                                                       
-                                      
+ * Use the remote server's MOUNT service to request the NFS file handle
+ * corresponding to the provided path.
  */
 static int nfs_try_mount(struct nfs_parsed_mount_data *args,
 			 struct nfs_fh *root_fh)
@@ -1709,8 +1709,8 @@ static int nfs_try_mount(struct nfs_parsed_mount_data *args,
 		request.hostname = args->nfs_server.hostname;
 
 	/*
-                                         
-  */
+	 * Construct the mount server's address.
+	 */
 	if (args->mount_server.address.ss_family == AF_UNSPEC) {
 		memcpy(request.sap, &args->nfs_server.address,
 		       args->nfs_server.addrlen);
@@ -1720,9 +1720,9 @@ static int nfs_try_mount(struct nfs_parsed_mount_data *args,
 	nfs_set_port(request.sap, &args->mount_server.port, 0);
 
 	/*
-                                                   
-                     
-  */
+	 * Now ask the mount server to map our export path
+	 * to a file handle.
+	 */
 	status = nfs_mount(&request);
 	if (status != 0) {
 		dfprintk(MOUNT, "NFS: unable to mount server %s, error %d\n",
@@ -1731,21 +1731,21 @@ static int nfs_try_mount(struct nfs_parsed_mount_data *args,
 	}
 
 	/*
-                                                           
-  */
+	 * MNTv1 (NFSv2) does not support auth flavor negotiation.
+	 */
 	if (args->mount_server.version != NFS_MNT3_VERSION)
 		return 0;
 	return nfs_walk_authlist(args, &request);
 }
 
 /*
-                                                
-  
-                                                                     
-                                                                  
-                                       
-  
-                                                              
+ * Split "dev_name" into "hostname:export_path".
+ *
+ * The leftmost colon demarks the split between the server's hostname
+ * and the export path.  If the hostname starts with a left square
+ * bracket, then it may contain colons.
+ *
+ * Note: caller frees hostname and export path, even on error.
  */
 static int nfs_parse_devname(const char *dev_name,
 			     char **hostname, size_t maxnamlen,
@@ -1754,7 +1754,7 @@ static int nfs_parse_devname(const char *dev_name,
 	size_t len;
 	char *end;
 
-	/*                                                  */
+	/* Is the host name protected with square brakcets? */
 	if (*dev_name == '[') {
 		end = strchr(++dev_name, ']');
 		if (end == NULL || end[1] != ':')
@@ -1770,7 +1770,7 @@ static int nfs_parse_devname(const char *dev_name,
 			goto out_bad_devname;
 		len = end - dev_name;
 
-		/*                                            */
+		/* kill possible hostname list: not supported */
 		comma = strchr(dev_name, ',');
 		if (comma != NULL && comma < end)
 			*comma = 0;
@@ -1779,7 +1779,7 @@ static int nfs_parse_devname(const char *dev_name,
 	if (len > maxnamlen)
 		goto out_hostname;
 
-	/*                                                        */
+	/* N.B. caller will free nfs_server.hostname in all cases */
 	*hostname = kstrndup(dev_name, len, GFP_KERNEL);
 	if (*hostname == NULL)
 		goto out_nomem;
@@ -1811,20 +1811,20 @@ out_path:
 }
 
 /*
-                                    
-                                       
-  
-                                                                  
-  
-                                                                 
-  
-                                                                    
-                                 
-  
-                                                                
-  
-                                                                  
-                                                   
+ * Validate the NFS2/NFS3 mount data
+ * - fills in the mount root filehandle
+ *
+ * For option strings, user space handles the following behaviors:
+ *
+ * + DNS: mapping server host name to IP address ("addr=" option)
+ *
+ * + failure mode: how to behave if a mount request can't be handled
+ *   immediately ("fg/bg" option)
+ *
+ * + retry: how often to retry a mount request ("retry=" option)
+ *
+ * + breaking back: trying proto=udp after proto=tcp, v2 after v3,
+ *   mountproto=tcp after mountproto=udp, and so on
  */
 static int nfs_validate_mount_data(void *options,
 				   struct nfs_parsed_mount_data *args,
@@ -1870,9 +1870,9 @@ static int nfs_validate_mount_data(void *options,
 			       sizeof(mntfh->data) - mntfh->size);
 
 		/*
-                                                             
-                   
-   */
+		 * Translate to nfs_parsed_mount_data, which nfs_fill_super
+		 * can deal with.
+		 */
 		args->flags		= data->flags & NFS_MOUNT_FLAGMASK;
 		args->flags		|= NFS_MOUNT_LEGACY_INTERFACE;
 		args->rsize		= data->rsize;
@@ -1891,7 +1891,7 @@ static int nfs_validate_mount_data(void *options,
 
 		if (!(data->flags & NFS_MOUNT_TCP))
 			args->nfs_server.protocol = XPRT_TRANSPORT_UDP;
-		/*                                                        */
+		/* N.B. caller will free nfs_server.hostname in all cases */
 		args->nfs_server.hostname = kstrdup(data->hostname, GFP_KERNEL);
 		args->namlen		= data->namlen;
 		args->bsize		= data->bsize;
@@ -1908,13 +1908,13 @@ static int nfs_validate_mount_data(void *options,
 			args->flags |= (NFS_MOUNT_LOCAL_FLOCK|
 					NFS_MOUNT_LOCAL_FCNTL);
 		/*
-                                                                
-                                                              
-                                                              
-                                                                
-                                                                 
-                                                            
-   */
+		 * The legacy version 6 binary mount data from userspace has a
+		 * field used only to transport selinux information into the
+		 * the kernel.  To continue to support that functionality we
+		 * have a touch of selinux knowledge here in the NFS code. The
+		 * userspace code converted context=blah to just blah so we are
+		 * converting back to the full string selinux understands.
+		 */
 		if (data->context[0]){
 #ifdef CONFIG_SECURITY_SELINUX
 			int rc;
@@ -1976,7 +1976,7 @@ static int nfs_validate_mount_data(void *options,
 #ifndef CONFIG_NFS_V3
 	if (args->version == 3)
 		goto out_v3_not_compiled;
-#endif /*                */
+#endif /* !CONFIG_NFS_V3 */
 
 	return 0;
 
@@ -1997,13 +1997,13 @@ out_no_sec:
 out_v3_not_compiled:
 	dfprintk(MOUNT, "NFS: NFSv3 is not compiled into kernel\n");
 	return -EPROTONOSUPPORT;
-#endif /*                */
+#endif /* !CONFIG_NFS_V3 */
 
 #ifndef CONFIG_NFS_V4
 out_v4_not_compiled:
 	dfprintk(MOUNT, "NFS: NFSv4 is not compiled into kernel\n");
 	return -EPROTONOSUPPORT;
-#endif /*                */
+#endif /* !CONFIG_NFS_V4 */
 
 out_nomem:
 	dfprintk(MOUNT, "NFS: not enough memory to handle mount options\n");
@@ -2052,11 +2052,11 @@ nfs_remount(struct super_block *sb, int *flags, char *raw_data)
 	u32 nfsvers = nfss->nfs_client->rpc_ops->version;
 
 	/*
-                                                                    
-                                                                    
-                                                                    
-                        
-  */
+	 * Userspace mount programs that send binary options generally send
+	 * them populated with default values. We have no way to know which
+	 * ones were explicitly specified. Fall back to legacy behavior and
+	 * just return success.
+	 */
 	if ((nfsvers == 4 && (!options4 || options4->version == 1)) ||
 	    (nfsvers <= 3 && (!options || (options->version >= 1 &&
 					   options->version <= 6))))
@@ -2066,7 +2066,7 @@ nfs_remount(struct super_block *sb, int *flags, char *raw_data)
 	if (data == NULL)
 		return -ENOMEM;
 
-	/*                                                 */
+	/* fill out struct with values from existing mount */
 	data->flags = nfss->flags;
 	data->rsize = nfss->rsize;
 	data->wsize = nfss->wsize;
@@ -2082,21 +2082,21 @@ nfs_remount(struct super_block *sb, int *flags, char *raw_data)
 	memcpy(&data->nfs_server.address, &nfss->nfs_client->cl_addr,
 		data->nfs_server.addrlen);
 
-	/*                                                     */
+	/* overwrite those values with any that were specified */
 	error = nfs_parse_mount_options((char *)options, data);
 	if (error < 0)
 		goto out;
 
 	/*
-                                                              
-                                                            
-                                                                
-                                                       
-  */
+	 * noac is a special case. It implies -o sync, but that's not
+	 * necessarily reflected in the mtab options. do_remount_sb
+	 * will clear MS_SYNCHRONOUS if -o sync wasn't specified in the
+	 * remount options, so we have to explicitly reset it.
+	 */
 	if (data->flags & NFS_MOUNT_NOAC)
 		*flags |= MS_SYNCHRONOUS;
 
-	/*                                         */
+	/* compare new mount options with old ones */
 	error = nfs_compare_remount_data(nfss, data);
 out:
 	kfree(data);
@@ -2104,7 +2104,7 @@ out:
 }
 
 /*
-                                               
+ * Initialise the common bits of the superblock
  */
 static inline void nfs_initialise_sb(struct super_block *sb)
 {
@@ -2112,7 +2112,7 @@ static inline void nfs_initialise_sb(struct super_block *sb)
 
 	sb->s_magic = NFS_SUPER_MAGIC;
 
-	/*                                                  */
+	/* We probably want something more informative here */
 	snprintf(sb->s_id, sizeof(sb->s_id),
 		 "%u:%u", MAJOR(sb->s_dev), MINOR(sb->s_dev));
 
@@ -2126,7 +2126,7 @@ static inline void nfs_initialise_sb(struct super_block *sb)
 }
 
 /*
-                                         
+ * Finish setting up an NFS2/3 superblock
  */
 static void nfs_fill_super(struct super_block *sb,
 			   struct nfs_parsed_mount_data *data)
@@ -2139,9 +2139,9 @@ static void nfs_fill_super(struct super_block *sb,
 		sb->s_blocksize = nfs_block_size(data->bsize, &sb->s_blocksize_bits);
 
 	if (server->nfs_client->rpc_ops->version == 3) {
-		/*                                                           
-                                 
-   */
+		/* The VFS shouldn't apply the umask to mode bits. We will do
+		 * so ourselves when necessary.
+		 */
 		sb->s_flags |= MS_POSIXACL;
 		sb->s_time_gran = 1;
 	}
@@ -2151,7 +2151,7 @@ static void nfs_fill_super(struct super_block *sb,
 }
 
 /*
-                                               
+ * Finish setting up a cloned NFS2/3 superblock
  */
 static void nfs_clone_super(struct super_block *sb,
 			    const struct super_block *old_sb)
@@ -2163,9 +2163,9 @@ static void nfs_clone_super(struct super_block *sb,
 	sb->s_maxbytes = old_sb->s_maxbytes;
 
 	if (server->nfs_client->rpc_ops->version == 3) {
-		/*                                                           
-                                 
-   */
+		/* The VFS shouldn't apply the umask to mode bits. We will do
+		 * so ourselves when necessary.
+		 */
 		sb->s_flags |= MS_POSIXACL;
 		sb->s_time_gran = 1;
 	}
@@ -2270,7 +2270,7 @@ static int nfs_compare_super(struct super_block *sb, void *data)
 
 	if (!nfs_compare_super_address(old, server))
 		return 0;
-	/*                                                 */
+	/* Note: NFS_MOUNT_UNSHARED == NFS4_MOUNT_UNSHARED */
 	if (old->flags & NFS_MOUNT_UNSHARED)
 		return 0;
 	if (memcmp(&old->fsid, &server->fsid, sizeof(old->fsid)) != 0)
@@ -2302,7 +2302,7 @@ static struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 	if (data == NULL || mntfh == NULL)
 		goto out;
 
-	/*                         */
+	/* Validate the mount data */
 	error = nfs_validate_mount_data(raw_data, data, mntfh, dev_name);
 	if (error < 0) {
 		mntroot = ERR_PTR(error);
@@ -2314,9 +2314,9 @@ static struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 		mntroot = nfs4_try_mount(flags, dev_name, data);
 		goto out;
 	}
-#endif	/*               */
+#endif	/* CONFIG_NFS_V4 */
 
-	/*                             */
+	/* Get a volume representation */
 	server = nfs_create_server(data, mntfh);
 	if (IS_ERR(server)) {
 		mntroot = ERR_CAST(server);
@@ -2327,11 +2327,11 @@ static struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 	if (server->flags & NFS_MOUNT_UNSHARED)
 		compare_super = NULL;
 
-	/*                         */
+	/* -o noac implies -o sync */
 	if (server->flags & NFS_MOUNT_NOAC)
 		sb_mntdata.mntflags |= MS_SYNCHRONOUS;
 
-	/*                                                                            */
+	/* Get a superblock - note that we may end up sharing one that already exists */
 	s = sget(fs_type, compare_super, nfs_set_super, &sb_mntdata);
 	if (IS_ERR(s)) {
 		mntroot = ERR_CAST(s);
@@ -2350,7 +2350,7 @@ static struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 	}
 
 	if (!s->s_root) {
-		/*                                  */
+		/* initial superblock/root creation */
 		nfs_fill_super(s, data);
 		nfs_fscache_get_super_cookie(s, data->fscache_uniq, NULL);
 	}
@@ -2386,8 +2386,8 @@ error_splat_bdi:
 }
 
 /*
-                                                           
-                           
+ * Ensure that we unregister the bdi before kill_anon_super
+ * releases the device name
  */
 static void nfs_put_super(struct super_block *s)
 {
@@ -2397,7 +2397,7 @@ static void nfs_put_super(struct super_block *s)
 }
 
 /*
-                               
+ * Destroy an NFS2/3 superblock
  */
 static void nfs_kill_super(struct super_block *s)
 {
@@ -2409,7 +2409,7 @@ static void nfs_kill_super(struct super_block *s)
 }
 
 /*
-                                                                
+ * Clone an NFS2/3 server record on xdev traversal (FSID-change)
  */
 static struct dentry *
 nfs_xdev_mount(struct file_system_type *fs_type, int flags,
@@ -2427,7 +2427,7 @@ nfs_xdev_mount(struct file_system_type *fs_type, int flags,
 
 	dprintk("--> nfs_xdev_mount()\n");
 
-	/*                                    */
+	/* create a new volume representation */
 	server = nfs_clone_server(NFS_SB(data->sb), data->fh, data->fattr, data->authflavor);
 	if (IS_ERR(server)) {
 		error = PTR_ERR(server);
@@ -2438,11 +2438,11 @@ nfs_xdev_mount(struct file_system_type *fs_type, int flags,
 	if (server->flags & NFS_MOUNT_UNSHARED)
 		compare_super = NULL;
 
-	/*                         */
+	/* -o noac implies -o sync */
 	if (server->flags & NFS_MOUNT_NOAC)
 		sb_mntdata.mntflags |= MS_SYNCHRONOUS;
 
-	/*                                                                            */
+	/* Get a superblock - note that we may end up sharing one that already exists */
 	s = sget(&nfs_fs_type, compare_super, nfs_set_super, &sb_mntdata);
 	if (IS_ERR(s)) {
 		error = PTR_ERR(s);
@@ -2459,7 +2459,7 @@ nfs_xdev_mount(struct file_system_type *fs_type, int flags,
 	}
 
 	if (!s->s_root) {
-		/*                                  */
+		/* initial superblock/root creation */
 		nfs_clone_super(s, data->sb);
 		nfs_fscache_get_super_cookie(s, NULL, data);
 	}
@@ -2477,7 +2477,7 @@ nfs_xdev_mount(struct file_system_type *fs_type, int flags,
 
 	s->s_flags |= MS_ACTIVE;
 
-	/*                                                              */
+	/* clone any lsm security options from the parent to the new sb */
 	security_sb_clone_mnt_opts(data->sb, s);
 
 	dprintk("<-- nfs_xdev_mount() = 0\n");
@@ -2501,7 +2501,7 @@ error_splat_bdi:
 #ifdef CONFIG_NFS_V4
 
 /*
-                                             
+ * Finish setting up a cloned NFS4 superblock
  */
 static void nfs4_clone_super(struct super_block *sb,
 			    const struct super_block *old_sb)
@@ -2512,25 +2512,25 @@ static void nfs4_clone_super(struct super_block *sb,
 	sb->s_time_gran = 1;
 	sb->s_op = old_sb->s_op;
 	/*
-                                                              
-                                
-  */
+	 * The VFS shouldn't apply the umask to mode bits. We will do
+	 * so ourselves when necessary.
+	 */
 	sb->s_flags  |= MS_POSIXACL;
 	sb->s_xattr  = old_sb->s_xattr;
 	nfs_initialise_sb(sb);
 }
 
 /*
-                            
+ * Set up an NFS4 superblock
  */
 static void nfs4_fill_super(struct super_block *sb)
 {
 	sb->s_time_gran = 1;
 	sb->s_op = &nfs4_sops;
 	/*
-                                                              
-                                
-  */
+	 * The VFS shouldn't apply the umask to mode bits. We will do
+	 * so ourselves when necessary.
+	 */
 	sb->s_flags  |= MS_POSIXACL;
 	sb->s_xattr = nfs4_xattr_handlers;
 	nfs_initialise_sb(sb);
@@ -2574,7 +2574,7 @@ static int nfs4_validate_text_mount_data(void *options,
 }
 
 /*
-                               
+ * Validate NFSv4 mount options
  */
 static int nfs4_validate_mount_data(void *options,
 				    struct nfs_parsed_mount_data *args,
@@ -2625,9 +2625,9 @@ static int nfs4_validate_mount_data(void *options,
 		args->client_address = c;
 
 		/*
-                                                              
-                   
-   */
+		 * Translate to nfs_parsed_mount_data, which nfs4_fill_super
+		 * can deal with.
+		 */
 
 		args->flags	= data->flags & NFS4_MOUNT_FLAGMASK;
 		args->rsize	= data->rsize;
@@ -2669,7 +2669,7 @@ out_no_address:
 }
 
 /*
-                                                 
+ * Get the superblock for the NFS4 root partition
  */
 static struct dentry *
 nfs4_remote_mount(struct file_system_type *fs_type, int flags,
@@ -2690,7 +2690,7 @@ nfs4_remote_mount(struct file_system_type *fs_type, int flags,
 	if (data == NULL || mntfh == NULL)
 		goto out;
 
-	/*                             */
+	/* Get a volume representation */
 	server = nfs4_create_server(data, mntfh);
 	if (IS_ERR(server)) {
 		error = PTR_ERR(server);
@@ -2701,11 +2701,11 @@ nfs4_remote_mount(struct file_system_type *fs_type, int flags,
 	if (server->flags & NFS4_MOUNT_UNSHARED)
 		compare_super = NULL;
 
-	/*                         */
+	/* -o noac implies -o sync */
 	if (server->flags & NFS_MOUNT_NOAC)
 		sb_mntdata.mntflags |= MS_SYNCHRONOUS;
 
-	/*                                                                            */
+	/* Get a superblock - note that we may end up sharing one that already exists */
 	s = sget(&nfs4_fs_type, compare_super, nfs_set_super, &sb_mntdata);
 	if (IS_ERR(s)) {
 		error = PTR_ERR(s);
@@ -2722,7 +2722,7 @@ nfs4_remote_mount(struct file_system_type *fs_type, int flags,
 	}
 
 	if (!s->s_root) {
-		/*                                  */
+		/* initial superblock/root creation */
 		nfs4_fill_super(s);
 		nfs_fscache_get_super_cookie(s, data->fscache_uniq, NULL);
 	}
@@ -2771,7 +2771,7 @@ static struct vfsmount *nfs_do_root_mount(struct file_system_type *fs_type,
 	root_devname = kmalloc(len, GFP_KERNEL);
 	if (root_devname == NULL)
 		return ERR_PTR(-ENOMEM);
-	/*                                                 */
+	/* Does hostname needs to be enclosed in brackets? */
 	if (strchr(hostname, ':'))
 		snprintf(root_devname, len, "[%s]:/", hostname);
 	else
@@ -2892,7 +2892,7 @@ static struct dentry *nfs4_try_mount(int flags, const char *dev_name,
 }
 
 /*
-                                            
+ * Get the superblock for an NFS4 mountpoint
  */
 static struct dentry *nfs4_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *raw_data)
@@ -2905,7 +2905,7 @@ static struct dentry *nfs4_mount(struct file_system_type *fs_type,
 	if (data == NULL)
 		goto out;
 
-	/*                         */
+	/* Validate the mount data */
 	error = nfs4_validate_mount_data(raw_data, data, dev_name);
 	if (error < 0) {
 		res = ERR_PTR(error);
@@ -2936,7 +2936,7 @@ static void nfs4_kill_super(struct super_block *sb)
 }
 
 /*
-                                                              
+ * Clone an NFS4 server record on xdev traversal (FSID-change)
  */
 static struct dentry *
 nfs4_xdev_mount(struct file_system_type *fs_type, int flags,
@@ -2954,7 +2954,7 @@ nfs4_xdev_mount(struct file_system_type *fs_type, int flags,
 
 	dprintk("--> nfs4_xdev_mount()\n");
 
-	/*                                    */
+	/* create a new volume representation */
 	server = nfs_clone_server(NFS_SB(data->sb), data->fh, data->fattr, data->authflavor);
 	if (IS_ERR(server)) {
 		error = PTR_ERR(server);
@@ -2965,11 +2965,11 @@ nfs4_xdev_mount(struct file_system_type *fs_type, int flags,
 	if (server->flags & NFS4_MOUNT_UNSHARED)
 		compare_super = NULL;
 
-	/*                         */
+	/* -o noac implies -o sync */
 	if (server->flags & NFS_MOUNT_NOAC)
 		sb_mntdata.mntflags |= MS_SYNCHRONOUS;
 
-	/*                                                                            */
+	/* Get a superblock - note that we may end up sharing one that already exists */
 	s = sget(&nfs4_fs_type, compare_super, nfs_set_super, &sb_mntdata);
 	if (IS_ERR(s)) {
 		error = PTR_ERR(s);
@@ -2986,7 +2986,7 @@ nfs4_xdev_mount(struct file_system_type *fs_type, int flags,
 	}
 
 	if (!s->s_root) {
-		/*                                  */
+		/* initial superblock/root creation */
 		nfs4_clone_super(s, data->sb);
 		nfs_fscache_get_super_cookie(s, NULL, data);
 	}
@@ -3045,7 +3045,7 @@ nfs4_remote_referral_mount(struct file_system_type *fs_type, int flags,
 	if (mntfh == NULL)
 		goto out_err_nofh;
 
-	/*                                    */
+	/* create a new volume representation */
 	server = nfs4_create_referral_server(data, mntfh);
 	if (IS_ERR(server)) {
 		error = PTR_ERR(server);
@@ -3056,11 +3056,11 @@ nfs4_remote_referral_mount(struct file_system_type *fs_type, int flags,
 	if (server->flags & NFS4_MOUNT_UNSHARED)
 		compare_super = NULL;
 
-	/*                         */
+	/* -o noac implies -o sync */
 	if (server->flags & NFS_MOUNT_NOAC)
 		sb_mntdata.mntflags |= MS_SYNCHRONOUS;
 
-	/*                                                                            */
+	/* Get a superblock - note that we may end up sharing one that already exists */
 	s = sget(&nfs4_fs_type, compare_super, nfs_set_super, &sb_mntdata);
 	if (IS_ERR(s)) {
 		error = PTR_ERR(s);
@@ -3077,7 +3077,7 @@ nfs4_remote_referral_mount(struct file_system_type *fs_type, int flags,
 	}
 
 	if (!s->s_root) {
-		/*                                  */
+		/* initial superblock/root creation */
 		nfs4_fill_super(s);
 		nfs_fscache_get_super_cookie(s, NULL, data);
 	}
@@ -3120,7 +3120,7 @@ error_splat_bdi:
 }
 
 /*
-                                                     
+ * Create an NFS4 server record on referral traversal
  */
 static struct dentry *nfs4_referral_mount(struct file_system_type *fs_type,
 		int flags, const char *dev_name, void *raw_data)
@@ -3146,4 +3146,4 @@ static struct dentry *nfs4_referral_mount(struct file_system_type *fs_type,
 	return res;
 }
 
-#endif /*               */
+#endif /* CONFIG_NFS_V4 */

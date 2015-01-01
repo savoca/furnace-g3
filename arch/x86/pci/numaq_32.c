@@ -1,5 +1,5 @@
 /*
-                                                        
+ * numaq_32.c - Low-level PCI access for NUMA-Q machines
  */
 
 #include <linux/pci.h>
@@ -119,8 +119,8 @@ static const struct pci_raw_ops pci_direct_conf1_mq = {
 static void __devinit pci_fixup_i450nx(struct pci_dev *d)
 {
 	/*
-                                                             
-  */
+	 * i450NX -- Find and scan all secondary buses on all PXB's.
+	 */
 	int pxb, reg;
 	u8 busno, suba, subb;
 	int quad = BUS2QUAD(d->bus->number);
@@ -134,11 +134,11 @@ static void __devinit pci_fixup_i450nx(struct pci_dev *d)
 		dev_dbg(&d->dev, "i450NX PXB %d: %02x/%02x/%02x\n",
 			pxb, busno, suba, subb);
 		if (busno) {
-			/*       */
+			/* Bus A */
 			pci_scan_bus_with_sysdata(QUADLOCAL2BUS(quad, busno));
 		}
 		if (suba < subb) {
-			/*       */
+			/* Bus B */
 			pci_scan_bus_with_sysdata(QUADLOCAL2BUS(quad, suba+1));
 		}
 	}

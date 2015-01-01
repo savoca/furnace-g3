@@ -35,7 +35,7 @@ static u32 orig_ddr_err_disable;
 static u32 orig_ddr_err_sbe;
 
 /*
-                  
+ * PCI Err defines
  */
 #ifdef CONFIG_PCI
 static u32 orig_pci_err_cap_dr;
@@ -47,7 +47,7 @@ static u32 orig_l2_err_disable;
 static u32 orig_hid1[2];
 #endif
 
-/*                                                                         */
+/************************ MC SYSFS parts ***********************************/
 
 static ssize_t mpc85xx_mc_inject_data_hi_show(struct mem_ctl_info *mci,
 					      char *data)
@@ -133,7 +133,7 @@ static struct mcidev_sysfs_attribute mpc85xx_mc_sysfs_attributes[] = {
 	 .show = mpc85xx_mc_inject_ctrl_show,
 	 .store = mpc85xx_mc_inject_ctrl_store},
 
-	/*             */
+	/* End of list */
 	{
 	 .attr = {.name = NULL}
 	 }
@@ -144,7 +144,7 @@ static void mpc85xx_set_mc_sysfs_attributes(struct mem_ctl_info *mci)
 	mci->mc_driver_sysfs_attributes = mpc85xx_mc_sysfs_attributes;
 }
 
-/*                                                                     */
+/**************************** PCI Err device ***************************/
 #ifdef CONFIG_PCI
 
 static void mpc85xx_pci_check(struct edac_pci_ctl_info *pci)
@@ -154,7 +154,7 @@ static void mpc85xx_pci_check(struct edac_pci_ctl_info *pci)
 
 	err_detect = in_be32(pdata->pci_vbase + MPC85XX_PCI_ERR_DR);
 
-	/*                                                   */
+	/* master aborts can happen during PCI config cycles */
 	if (!(err_detect & ~(PCI_EDE_MULTI_ERR | PCI_EDE_MST_ABRT))) {
 		out_be32(pdata->pci_vbase + MPC85XX_PCI_ERR_DR, err_detect);
 		return;
@@ -174,7 +174,7 @@ static void mpc85xx_pci_check(struct edac_pci_ctl_info *pci)
 	printk(KERN_ERR "PCI/X ERR_DH register: %#08x\n",
 	       in_be32(pdata->pci_vbase + MPC85XX_PCI_ERR_DH));
 
-	/*                  */
+	/* clear error bits */
 	out_be32(pdata->pci_vbase + MPC85XX_PCI_ERR_DR, err_detect);
 
 	if (err_detect & PCI_EDE_PERR_MASK)
@@ -235,7 +235,7 @@ static int __devinit mpc85xx_pci_err_probe(struct platform_device *op)
 		goto err;
 	}
 
-	/*                                  */
+	/* we only need the error registers */
 	r.start += 0xe00;
 
 	if (!devm_request_mem_region(&op->dev, r.start, resource_size(&r),
@@ -256,15 +256,15 @@ static int __devinit mpc85xx_pci_err_probe(struct platform_device *op)
 	orig_pci_err_cap_dr =
 	    in_be32(pdata->pci_vbase + MPC85XX_PCI_ERR_CAP_DR);
 
-	/*                                                   */
+	/* PCI master abort is expected during config cycles */
 	out_be32(pdata->pci_vbase + MPC85XX_PCI_ERR_CAP_DR, 0x40);
 
 	orig_pci_err_en = in_be32(pdata->pci_vbase + MPC85XX_PCI_ERR_EN);
 
-	/*                                */
+	/* disable master abort reporting */
 	out_be32(pdata->pci_vbase + MPC85XX_PCI_ERR_EN, ~0x40);
 
-	/*                  */
+	/* clear error bits */
 	out_be32(pdata->pci_vbase + MPC85XX_PCI_ERR_DR, ~0);
 
 	if (edac_pci_add_device(pci, pdata->edac_idx) > 0) {
@@ -347,11 +347,11 @@ static struct platform_driver mpc85xx_pci_err_driver = {
 	},
 };
 
-#endif				/*            */
+#endif				/* CONFIG_PCI */
 
-/*                                                                    */
+/**************************** L2 Err device ***************************/
 
-/*                                                                         */
+/************************ L2 SYSFS parts ***********************************/
 
 static ssize_t mpc85xx_l2_inject_data_hi_show(struct edac_device_ctl_info
 					      *edac_dev, char *data)
@@ -439,7 +439,7 @@ static struct edac_dev_sysfs_attribute mpc85xx_l2_sysfs_attributes[] = {
 	 .show = mpc85xx_l2_inject_ctrl_show,
 	 .store = mpc85xx_l2_inject_ctrl_store},
 
-	/*             */
+	/* End of list */
 	{
 	 .attr = {.name = NULL}
 	 }
@@ -451,7 +451,7 @@ static void mpc85xx_set_l2_sysfs_attributes(struct edac_device_ctl_info
 	edac_dev->sysfs_attributes = mpc85xx_l2_sysfs_attributes;
 }
 
-/*                                                                      */
+/***************************** L2 ops ***********************************/
 
 static void mpc85xx_l2_check(struct edac_device_ctl_info *edac_dev)
 {
@@ -476,7 +476,7 @@ static void mpc85xx_l2_check(struct edac_device_ctl_info *edac_dev)
 	printk(KERN_ERR "L2 Error Address Capture Register: 0x%08x\n",
 	       in_be32(pdata->l2_vbase + MPC85XX_L2_ERRADDR));
 
-	/*                             */
+	/* clear error detect register */
 	out_be32(pdata->l2_vbase + MPC85XX_L2_ERRDET, err_detect);
 
 	if (err_detect & L2_EDE_CE_MASK)
@@ -535,7 +535,7 @@ static int __devinit mpc85xx_l2_err_probe(struct platform_device *op)
 		goto err;
 	}
 
-	/*                                  */
+	/* we only need the error registers */
 	r.start += 0xe00;
 
 	if (!devm_request_mem_region(&op->dev, r.start, resource_size(&r),
@@ -557,7 +557,7 @@ static int __devinit mpc85xx_l2_err_probe(struct platform_device *op)
 
 	orig_l2_err_disable = in_be32(pdata->l2_vbase + MPC85XX_L2_ERRDIS);
 
-	/*                   */
+	/* clear the err_dis */
 	out_be32(pdata->l2_vbase + MPC85XX_L2_ERRDIS, 0);
 
 	edac_dev->mod_name = EDAC_MOD_STR;
@@ -630,7 +630,7 @@ static int mpc85xx_l2_err_remove(struct platform_device *op)
 }
 
 static struct of_device_id mpc85xx_l2_err_of_match[] = {
-/*                                                     */
+/* deprecate the fsl,85.. forms in the future, 2.6.30? */
 	{ .compatible = "fsl,8540-l2-cache-controller", },
 	{ .compatible = "fsl,8541-l2-cache-controller", },
 	{ .compatible = "fsl,8544-l2-cache-controller", },
@@ -664,29 +664,29 @@ static struct platform_driver mpc85xx_l2_err_driver = {
 	},
 };
 
-/*                                                                    */
+/**************************** MC Err device ***************************/
 
 /*
-                                                                        
-                                                                          
-                                                                            
-                                           
+ * Taken from table 8-55 in the MPC8641 User's Manual and/or 9-61 in the
+ * MPC8572 User's Manual.  Each line represents a syndrome bit column as a
+ * 64-bit value, but split into an upper and lower 32-bit chunk.  The labels
+ * below correspond to Freescale's manuals.
  */
 static unsigned int ecc_table[16] = {
-	/*                   */
-	/*                   */
-	0xf00fe11e, 0xc33c0ff7,	/*                */
+	/* MSB           LSB */
+	/* [0:31]    [32:63] */
+	0xf00fe11e, 0xc33c0ff7,	/* Syndrome bit 7 */
 	0x00ff00ff, 0x00fff0ff,
 	0x0f0f0f0f, 0x0f0fff00,
 	0x11113333, 0x7777000f,
 	0x22224444, 0x8888222f,
 	0x44448888, 0xffff4441,
 	0x8888ffff, 0x11118882,
-	0xffff1111, 0x22221114,	/*                */
+	0xffff1111, 0x22221114,	/* Syndrome bit 0 */
 };
 
 /*
-                                                                           
+ * Calculate the correct ECC value for a 64-bit value specified by high:low
  */
 static u8 calculate_ecc(u32 high, u32 low)
 {
@@ -716,19 +716,19 @@ static u8 calculate_ecc(u32 high, u32 low)
 }
 
 /*
-                                                                            
-                                                                              
-                                                       
+ * Create the syndrome code which is generated if the data line specified by
+ * 'bit' failed.  Eg generate an 8-bit codes seen in Table 8-55 in the MPC8641
+ * User's Manual and 9-61 in the MPC8572 User's Manual.
  */
 static u8 syndrome_from_bit(unsigned int bit) {
 	int i;
 	u8 syndrome = 0;
 
 	/*
-                                                                    
-                                                                    
-                
-  */
+	 * Cycle through the upper or lower 32-bit portion of each value in
+	 * ecc_table depending on if 'bit' is in the upper or lower half of
+	 * 64-bit data.
+	 */
 	for (i = bit < 32; i < 16; i += 2)
 		syndrome |= ((ecc_table[i] >> (bit % 32)) & 1) << (i / 2);
 
@@ -736,8 +736,8 @@ static u8 syndrome_from_bit(unsigned int bit) {
 }
 
 /*
-                                                            
-                                               
+ * Decode data and ecc syndrome to determine what went wrong
+ * Note: This can only decode single-bit errors
  */
 static void sbe_ecc_decode(u32 cap_high, u32 cap_low, u32 cap_ecc,
 		       int *bad_data_bit, int *bad_ecc_bit)
@@ -749,12 +749,12 @@ static void sbe_ecc_decode(u32 cap_high, u32 cap_low, u32 cap_ecc,
 	*bad_ecc_bit = -1;
 
 	/*
-                                                                       
-                                                       
-  */
+	 * Calculate the ECC of the captured data and XOR it with the captured
+	 * ECC to find an ECC syndrome value we can search for
+	 */
 	syndrome = calculate_ecc(cap_high, cap_low) ^ cap_ecc;
 
-	/*                                  */
+	/* Check if a data line is stuck... */
 	for (i = 0; i < 64; i++) {
 		if (syndrome == syndrome_from_bit(i)) {
 			*bad_data_bit = i;
@@ -762,7 +762,7 @@ static void sbe_ecc_decode(u32 cap_high, u32 cap_low, u32 cap_ecc,
 		}
 	}
 
-	/*                                                  */
+	/* If data is correct, check ECC bits for errors... */
 	for (i = 0; i < 8; i++) {
 		if ((syndrome >> i) & 0x1) {
 			*bad_ecc_bit = i;
@@ -793,7 +793,7 @@ static void mpc85xx_mc_check(struct mem_ctl_info *mci)
 	mpc85xx_mc_printk(mci, KERN_ERR, "Err Detect Register: %#8.8x\n",
 			  err_detect);
 
-	/*                                          */
+	/* no more processing if not ECC bit errors */
 	if (!(err_detect & (DDR_EDE_SBE | DDR_EDE_MBE))) {
 		out_be32(pdata->mc_vbase + MPC85XX_MC_ERR_DETECT, err_detect);
 		return;
@@ -801,7 +801,7 @@ static void mpc85xx_mc_check(struct mem_ctl_info *mci)
 
 	syndrome = in_be32(pdata->mc_vbase + MPC85XX_MC_CAPTURE_ECC);
 
-	/*                                                          */
+	/* Mask off appropriate bits of syndrome based on bus width */
 	bus_width = (in_be32(pdata->mc_vbase + MPC85XX_MC_DDR_SDRAM_CFG) &
 			DSC_DBW_MASK) ? 32 : 64;
 	if (bus_width == 64)
@@ -822,9 +822,9 @@ static void mpc85xx_mc_check(struct mem_ctl_info *mci)
 	cap_low = in_be32(pdata->mc_vbase + MPC85XX_MC_CAPTURE_DATA_LO);
 
 	/*
-                                                  
-                                           
-  */
+	 * Analyze single-bit errors on 64-bit wide buses
+	 * TODO: Add support for 32-bit wide buses
+	 */
 	if ((err_detect & DDR_EDE_SBE) && (bus_width == 64)) {
 		sbe_ecc_decode(cap_high, cap_low, syndrome,
 				&bad_data_bit, &bad_ecc_bit);
@@ -849,7 +849,7 @@ static void mpc85xx_mc_check(struct mem_ctl_info *mci)
 	mpc85xx_mc_printk(mci, KERN_ERR, "Err addr: %#8.8x\n", err_addr);
 	mpc85xx_mc_printk(mci, KERN_ERR, "PFN: %#8.8x\n", pfn);
 
-	/*                     */
+	/* we are out of range */
 	if (row_index == mci->nr_csrows)
 		mpc85xx_mc_printk(mci, KERN_ERR, "PFN out of range!\n");
 
@@ -936,7 +936,7 @@ static void __devinit mpc85xx_init_csrows(struct mem_ctl_info *mci)
 		end   = (cs_bnds & 0x0000ffff);
 
 		if (start == end)
-			continue;	/*               */
+			continue;	/* not populated */
 
 		start <<= (24 - PAGE_SHIFT);
 		end   <<= (24 - PAGE_SHIFT);
@@ -1004,7 +1004,7 @@ static int __devinit mpc85xx_mc_err_probe(struct platform_device *op)
 
 	sdram_ctl = in_be32(pdata->mc_vbase + MPC85XX_MC_DDR_SDRAM_CFG);
 	if (!(sdram_ctl & DSC_ECC_EN)) {
-		/*        */
+		/* no ECC */
 		printk(KERN_WARNING "%s: No ECC DIMMs discovered\n", __func__);
 		res = -ENODEV;
 		goto err;
@@ -1029,12 +1029,12 @@ static int __devinit mpc85xx_mc_err_probe(struct platform_device *op)
 
 	mpc85xx_init_csrows(mci);
 
-	/*                                       */
+	/* store the original error disable bits */
 	orig_ddr_err_disable =
 	    in_be32(pdata->mc_vbase + MPC85XX_MC_ERR_DISABLE);
 	out_be32(pdata->mc_vbase + MPC85XX_MC_ERR_DISABLE, 0);
 
-	/*                      */
+	/* clear all error bits */
 	out_be32(pdata->mc_vbase + MPC85XX_MC_ERR_DETECT, ~0);
 
 	if (edac_mc_add_mc(mci)) {
@@ -1046,14 +1046,14 @@ static int __devinit mpc85xx_mc_err_probe(struct platform_device *op)
 		out_be32(pdata->mc_vbase + MPC85XX_MC_ERR_INT_EN,
 			 DDR_EIE_MBEE | DDR_EIE_SBEE);
 
-		/*                                               */
+		/* store the original error management threshold */
 		orig_ddr_err_sbe = in_be32(pdata->mc_vbase +
 					   MPC85XX_MC_ERR_SBE) & 0xff0000;
 
-		/*                                        */
+		/* set threshold to 1 error per interrupt */
 		out_be32(pdata->mc_vbase + MPC85XX_MC_ERR_SBE, 0x10000);
 
-		/*                     */
+		/* register interrupts */
 		pdata->irq = irq_of_parse_and_map(op->dev.of_node, 0);
 		res = devm_request_irq(&op->dev, pdata->irq,
 				       mpc85xx_mc_isr,
@@ -1107,7 +1107,7 @@ static int mpc85xx_mc_err_remove(struct platform_device *op)
 }
 
 static struct of_device_id mpc85xx_mc_err_of_match[] = {
-/*                                                     */
+/* deprecate the fsl,85.. forms in the future, 2.6.30? */
 	{ .compatible = "fsl,8540-memory-controller", },
 	{ .compatible = "fsl,8541-memory-controller", },
 	{ .compatible = "fsl,8544-memory-controller", },
@@ -1159,7 +1159,7 @@ static int __init mpc85xx_mc_init(void)
 	printk(KERN_INFO "Freescale(R) MPC85xx EDAC driver, "
 	       "(C) 2006 Montavista Software\n");
 
-	/*                                          */
+	/* make sure error reporting method is sane */
 	switch (edac_op_state) {
 	case EDAC_OPSTATE_POLL:
 	case EDAC_OPSTATE_INT:
@@ -1189,9 +1189,9 @@ static int __init mpc85xx_mc_init(void)
 	if ((PVR_VER(pvr) == PVR_VER_E500V1) ||
 	    (PVR_VER(pvr) == PVR_VER_E500V2)) {
 		/*
-                                                          
-                       
-   */
+		 * need to clear HID1[RFXE] to disable machine check int
+		 * so we can catch it
+		 */
 		if (edac_op_state == EDAC_OPSTATE_INT)
 			on_each_cpu(mpc85xx_mc_clear_rfxe, NULL, 0);
 	}

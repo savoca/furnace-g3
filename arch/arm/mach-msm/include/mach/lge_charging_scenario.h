@@ -33,7 +33,7 @@
 #endif
 #define DC_CURRENT_DEF   -1
 
-/*                            */
+/* Battery temperature states */
 enum lge_battemp_states {
 	CHG_BATTEMP_BL_M11,
 	CHG_BATTEMP_M10_M5,
@@ -64,7 +64,7 @@ enum lge_states_changes {
 	STS_CHE_STPCHG_TO_DECCUR,
 };
 
-/*            */
+/* BTM status */
 enum lge_btm_states {
 	BTM_HEALTH_GOOD,
 	BTM_HEALTH_OVERHEAT,

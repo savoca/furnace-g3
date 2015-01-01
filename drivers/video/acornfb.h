@@ -79,7 +79,7 @@ struct vidc_timing {
 
 	u_int	control;
 
-	/*             */
+	/* VIDC20 only */
 	u_int	pll_ctl;
 };
 
@@ -128,7 +128,7 @@ struct modex_params {
 
 #ifdef HAS_VIDC20
 /*
-                   
+ * VIDC20 registers
  */
 #define VIDC20_CTRL		0xe0000000
 #define VIDC20_CTRL_PIX_VCLK	(0 << 0)
@@ -183,7 +183,7 @@ struct modex_params {
 #define VIDC20_ECTL_VS_NCSYNC	(3 << 18)
 
 #define VIDC20_DCTL		0xf0000000
-/*                                   */
+/* 0-9 = number of words in scanline */
 #define VIDC20_DCTL_SNA		(1 << 12)
 #define VIDC20_DCTL_HDIS	(1 << 13)
 #define VIDC20_DCTL_BUS_NS	(0 << 16)

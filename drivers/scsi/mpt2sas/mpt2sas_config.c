@@ -54,28 +54,28 @@
 
 #include "mpt2sas_base.h"
 
-/*                   */
+/* local definitions */
 
-/*                                              */
+/* Timeout for config page request (in seconds) */
 #define MPT2_CONFIG_PAGE_DEFAULT_TIMEOUT 15
 
-/*                                             */
+/* Common sgl flags for READING a config page. */
 #define MPT2_CONFIG_COMMON_SGLFLAGS ((MPI2_SGE_FLAGS_SIMPLE_ELEMENT | \
     MPI2_SGE_FLAGS_LAST_ELEMENT | MPI2_SGE_FLAGS_END_OF_BUFFER \
     | MPI2_SGE_FLAGS_END_OF_LIST) << MPI2_SGE_FLAGS_SHIFT)
 
-/*                                             */
+/* Common sgl flags for WRITING a config page. */
 #define MPT2_CONFIG_COMMON_WRITE_SGLFLAGS ((MPI2_SGE_FLAGS_SIMPLE_ELEMENT | \
     MPI2_SGE_FLAGS_LAST_ELEMENT | MPI2_SGE_FLAGS_END_OF_BUFFER \
     | MPI2_SGE_FLAGS_END_OF_LIST | MPI2_SGE_FLAGS_HOST_TO_IOC) \
     << MPI2_SGE_FLAGS_SHIFT)
 
-/* 
-                                                        
-            
-                      
-                          
-  
+/**
+ * struct config_request - obtain dma memory via routine
+ * @sz: size
+ * @page: virt pointer
+ * @page_dma: phys pointer
+ *
  */
 struct config_request{
 	u16			sz;
@@ -84,16 +84,16 @@ struct config_request{
 };
 
 #ifdef CONFIG_SCSI_MPT2SAS_LOGGING
-/* 
-                                             
-                           
-                                      
-                                                            
-                                  
-                 
-  
-                                                                   
-                  
+/**
+ * _config_display_some_debug - debug routine
+ * @ioc: per adapter object
+ * @smid: system request message index
+ * @calling_function_name: string pass from calling function
+ * @mpi_reply: reply message frame
+ * Context: none.
+ *
+ * Function for displaying debug info helpful when debugging issues
+ * in this module.
  */
 static void
 _config_display_some_debug(struct MPT2SAS_ADAPTER *ioc, u16 smid,
@@ -174,14 +174,14 @@ _config_display_some_debug(struct MPT2SAS_ADAPTER *ioc, u16 smid,
 }
 #endif
 
-/* 
-                                                           
-                           
-                              
-  
-                                                                   
-  
-                                               
+/**
+ * _config_alloc_config_dma_memory - obtain physical memory
+ * @ioc: per adapter object
+ * @mem: struct config_request
+ *
+ * A wrapper for obtaining dma-able memory for config page request.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 static int
 _config_alloc_config_dma_memory(struct MPT2SAS_ADAPTER *ioc,
@@ -198,21 +198,21 @@ _config_alloc_config_dma_memory(struct MPT2SAS_ADAPTER *ioc,
 			    ioc->name, __func__, mem->sz);
 			r = -ENOMEM;
 		}
-	} else { /*                                       */
+	} else { /* use tmp buffer if less than 512 bytes */
 		mem->page = ioc->config_page;
 		mem->page_dma = ioc->config_page_dma;
 	}
 	return r;
 }
 
-/* 
-                                                              
-                           
-                              
-  
-                                                                                
-  
-                                               
+/**
+ * _config_free_config_dma_memory - wrapper to free the memory
+ * @ioc: per adapter object
+ * @mem: struct config_request
+ *
+ * A wrapper to free dma-able memory when using _config_alloc_config_dma_memory.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 static void
 _config_free_config_dma_memory(struct MPT2SAS_ADAPTER *ioc,
@@ -223,18 +223,18 @@ _config_free_config_dma_memory(struct MPT2SAS_ADAPTER *ioc,
 		    mem->page_dma);
 }
 
-/* 
-                                                       
-                           
-                                      
-                                                   
-                                                
-                 
-  
-                                                   
-  
-                                                           
-                                                     
+/**
+ * mpt2sas_config_done - config page completion routine
+ * @ioc: per adapter object
+ * @smid: system request message index
+ * @msix_index: MSIX table index supplied by the OS
+ * @reply: reply message frame(lower 32bit addr)
+ * Context: none.
+ *
+ * The callback handler when using _config_request.
+ *
+ * Return 1 meaning mf should be freed from _base_interrupt
+ *        0 means the mf is freed from this function.
  */
 u8
 mpt2sas_config_done(struct MPT2SAS_ADAPTER *ioc, u16 smid, u8 msix_index,
@@ -262,24 +262,24 @@ mpt2sas_config_done(struct MPT2SAS_ADAPTER *ioc, u16 smid, u8 msix_index,
 	return 1;
 }
 
-/* 
-                                                                  
-                           
-                                      
-                                                      
-                               
-                                            
-                                       
-                 
-  
-                                                      
-  
-                                                                              
-            
-  
-                                                        
-  
-                                               
+/**
+ * _config_request - main routine for sending config page requests
+ * @ioc: per adapter object
+ * @mpi_request: request message frame
+ * @mpi_reply: reply mf payload returned from firmware
+ * @timeout: timeout in seconds
+ * @config_page: contents of the config page
+ * @config_page_sz: size of config page
+ * Context: sleep
+ *
+ * A generic API for config page requests to firmware.
+ *
+ * The ioc->config_cmds.status flag should be MPT2_CMD_NOT_USED before calling
+ * this API.
+ *
+ * The callback index is set inside `ioc->config_cb_idx.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 static int
 _config_request(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigRequest_t
@@ -306,7 +306,7 @@ _config_request(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigRequest_t
 	retry_count = 0;
 	memset(&mem, 0, sizeof(struct config_request));
 
-	mpi_request->VF_ID = 0; /*      */
+	mpi_request->VF_ID = 0; /* TODO */
 	mpi_request->VP_ID = 0;
 
 	if (config_page) {
@@ -341,7 +341,7 @@ _config_request(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigRequest_t
 
  retry_config:
 	if (retry_count) {
-		if (retry_count > 2) { /*                        */
+		if (retry_count > 2) { /* attempt only 2 retries */
 			r = -EFAULT;
 			goto free_mem;
 		}
@@ -430,14 +430,14 @@ _config_request(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigRequest_t
 	return r;
 }
 
-/* 
-                                                                     
-                           
-                                                      
-                                            
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_manufacturing_pg0 - obtain manufacturing page 0
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_manufacturing_pg0(struct MPT2SAS_ADAPTER *ioc,
@@ -466,14 +466,14 @@ mpt2sas_config_get_manufacturing_pg0(struct MPT2SAS_ADAPTER *ioc,
 	return r;
 }
 
-/* 
-                                                                       
-                           
-                                                      
-                                            
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_manufacturing_pg10 - obtain manufacturing page 10
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_manufacturing_pg10(struct MPT2SAS_ADAPTER *ioc,
@@ -502,14 +502,14 @@ mpt2sas_config_get_manufacturing_pg10(struct MPT2SAS_ADAPTER *ioc,
 	return r;
 }
 
-/* 
-                                                   
-                           
-                                                      
-                                            
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_bios_pg2 - obtain bios page 2
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_bios_pg2(struct MPT2SAS_ADAPTER *ioc,
@@ -538,14 +538,14 @@ mpt2sas_config_get_bios_pg2(struct MPT2SAS_ADAPTER *ioc,
 	return r;
 }
 
-/* 
-                                                   
-                           
-                                                      
-                                            
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_bios_pg3 - obtain bios page 3
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_bios_pg3(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -574,14 +574,14 @@ mpt2sas_config_get_bios_pg3(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                       
-                           
-                                                      
-                                            
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_iounit_pg0 - obtain iounit page 0
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_iounit_pg0(struct MPT2SAS_ADAPTER *ioc,
@@ -610,14 +610,14 @@ mpt2sas_config_get_iounit_pg0(struct MPT2SAS_ADAPTER *ioc,
 	return r;
 }
 
-/* 
-                                                       
-                           
-                                                      
-                                            
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_iounit_pg1 - obtain iounit page 1
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_iounit_pg1(struct MPT2SAS_ADAPTER *ioc,
@@ -646,14 +646,14 @@ mpt2sas_config_get_iounit_pg1(struct MPT2SAS_ADAPTER *ioc,
 	return r;
 }
 
-/* 
-                                                    
-                           
-                                                      
-                                            
-                  
-  
-                                               
+/**
+ * mpt2sas_config_set_iounit_pg1 - set iounit page 1
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_set_iounit_pg1(struct MPT2SAS_ADAPTER *ioc,
@@ -682,14 +682,14 @@ mpt2sas_config_set_iounit_pg1(struct MPT2SAS_ADAPTER *ioc,
 	return r;
 }
 
-/* 
-                                                 
-                           
-                                                      
-                                            
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_ioc_pg8 - obtain ioc page 8
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_ioc_pg8(struct MPT2SAS_ADAPTER *ioc,
@@ -718,16 +718,16 @@ mpt2sas_config_get_ioc_pg8(struct MPT2SAS_ADAPTER *ioc,
 	return r;
 }
 
-/* 
-                                                               
-                           
-                                                      
-                                            
-                                   
-                         
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_sas_device_pg0 - obtain sas device page 0
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @form: GET_NEXT_HANDLE or HANDLE
+ * @handle: device handle
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_sas_device_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -758,16 +758,16 @@ mpt2sas_config_get_sas_device_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                               
-                           
-                                                      
-                                            
-                                   
-                         
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_sas_device_pg1 - obtain sas device page 1
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @form: GET_NEXT_HANDLE or HANDLE
+ * @handle: device handle
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_sas_device_pg1(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -798,13 +798,13 @@ mpt2sas_config_get_sas_device_pg1(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                                         
-                           
-                                                      
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_number_hba_phys - obtain number of phys on the host
+ * @ioc: per adapter object
+ * @num_phys: pointer returned with the number of phys
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_number_hba_phys(struct MPT2SAS_ADAPTER *ioc, u8 *num_phys)
@@ -843,18 +843,18 @@ mpt2sas_config_get_number_hba_phys(struct MPT2SAS_ADAPTER *ioc, u8 *num_phys)
 	return r;
 }
 
-/* 
-                                                               
-                           
-                                                      
-                                            
-                                            
-                  
-  
-                                                                   
-                                                                
-  
-                                               
+/**
+ * mpt2sas_config_get_sas_iounit_pg0 - obtain sas iounit page 0
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @sz: size of buffer passed in config_page
+ * Context: sleep.
+ *
+ * Calling function should call config_get_number_hba_phys prior to
+ * this function, so enough memory is allocated for config_page.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_sas_iounit_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -883,18 +883,18 @@ mpt2sas_config_get_sas_iounit_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                               
-                           
-                                                      
-                                            
-                                            
-                  
-  
-                                                                   
-                                                                
-  
-                                               
+/**
+ * mpt2sas_config_get_sas_iounit_pg1 - obtain sas iounit page 1
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @sz: size of buffer passed in config_page
+ * Context: sleep.
+ *
+ * Calling function should call config_get_number_hba_phys prior to
+ * this function, so enough memory is allocated for config_page.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_sas_iounit_pg1(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -923,18 +923,18 @@ mpt2sas_config_get_sas_iounit_pg1(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                             
-                           
-                                                      
-                                            
-                                            
-                  
-  
-                                                                   
-                                                                
-  
-                                               
+/**
+ * mpt2sas_config_set_sas_iounit_pg1 - send sas iounit page 1
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @sz: size of buffer passed in config_page
+ * Context: sleep.
+ *
+ * Calling function should call config_get_number_hba_phys prior to
+ * this function, so enough memory is allocated for config_page.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_set_sas_iounit_pg1(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -966,16 +966,16 @@ mpt2sas_config_set_sas_iounit_pg1(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                           
-                           
-                                                      
-                                            
-                                   
-                           
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_expander_pg0 - obtain expander page 0
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @form: GET_NEXT_HANDLE or HANDLE
+ * @handle: expander handle
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_expander_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -1006,16 +1006,16 @@ mpt2sas_config_get_expander_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                           
-                           
-                                                      
-                                            
-                          
-                           
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_expander_pg1 - obtain expander page 1
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @phy_number: phy number
+ * @handle: expander handle
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_expander_pg1(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -1049,16 +1049,16 @@ mpt2sas_config_get_expander_pg1(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                             
-                           
-                                                      
-                                            
-                                   
-                           
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_enclosure_pg0 - obtain enclosure page 0
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @form: GET_NEXT_HANDLE or HANDLE
+ * @handle: expander handle
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_enclosure_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -1089,15 +1089,15 @@ mpt2sas_config_get_enclosure_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                 
-                           
-                                                      
-                                            
-                          
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_phy_pg0 - obtain phy page 0
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @phy_number: phy number
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_phy_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -1129,15 +1129,15 @@ mpt2sas_config_get_phy_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                 
-                           
-                                                      
-                                            
-                          
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_phy_pg1 - obtain phy page 1
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @phy_number: phy number
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_phy_pg1(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -1169,16 +1169,16 @@ mpt2sas_config_get_phy_pg1(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                                 
-                           
-                                                      
-                                            
-                                   
-                         
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_raid_volume_pg1 - obtain raid volume page 1
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @form: GET_NEXT_HANDLE or HANDLE
+ * @handle: volume handle
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_raid_volume_pg1(struct MPT2SAS_ADAPTER *ioc,
@@ -1209,14 +1209,14 @@ mpt2sas_config_get_raid_volume_pg1(struct MPT2SAS_ADAPTER *ioc,
 	return r;
 }
 
-/* 
-                                                                                
-                           
-                         
-                              
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_number_pds - obtain number of phys disk assigned to volume
+ * @ioc: per adapter object
+ * @handle: volume handle
+ * @num_pds: returns pds count
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_number_pds(struct MPT2SAS_ADAPTER *ioc, u16 handle,
@@ -1258,17 +1258,17 @@ mpt2sas_config_get_number_pds(struct MPT2SAS_ADAPTER *ioc, u16 handle,
 	return r;
 }
 
-/* 
-                                                                 
-                           
-                                                      
-                                            
-                                   
-                         
-                                            
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_raid_volume_pg0 - obtain raid volume page 0
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @form: GET_NEXT_HANDLE or HANDLE
+ * @handle: volume handle
+ * @sz: size of buffer passed in config_page
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_raid_volume_pg0(struct MPT2SAS_ADAPTER *ioc,
@@ -1298,16 +1298,16 @@ mpt2sas_config_get_raid_volume_pg0(struct MPT2SAS_ADAPTER *ioc,
 	return r;
 }
 
-/* 
-                                                             
-                           
-                                                      
-                                            
-                                                      
-                                       
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_phys_disk_pg0 - obtain phys disk page 0
+ * @ioc: per adapter object
+ * @mpi_reply: reply mf payload returned from firmware
+ * @config_page: contents of the config page
+ * @form: GET_NEXT_PHYSDISKNUM, PHYSDISKNUM, DEVHANDLE
+ * @form_specific: specific to the form
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_phys_disk_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
@@ -1338,14 +1338,14 @@ mpt2sas_config_get_phys_disk_pg0(struct MPT2SAS_ADAPTER *ioc, Mpi2ConfigReply_t
 	return r;
 }
 
-/* 
-                                                                                           
-                           
-                               
-                                
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_volume_handle - returns volume handle for give hidden raid components
+ * @ioc: per adapter object
+ * @pd_handle: phys disk handle
+ * @volume_handle: volume handle
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_volume_handle(struct MPT2SAS_ADAPTER *ioc, u16 pd_handle,
@@ -1427,14 +1427,14 @@ mpt2sas_config_get_volume_handle(struct MPT2SAS_ADAPTER *ioc, u16 pd_handle,
 	return r;
 }
 
-/* 
-                                                                        
-                           
-                                
-                     
-                  
-  
-                                               
+/**
+ * mpt2sas_config_get_volume_wwid - returns wwid given the volume handle
+ * @ioc: per adapter object
+ * @volume_handle: volume handle
+ * @wwid: volume wwid
+ * Context: sleep.
+ *
+ * Returns 0 for success, non-zero for failure.
  */
 int
 mpt2sas_config_get_volume_wwid(struct MPT2SAS_ADAPTER *ioc, u16 volume_handle,

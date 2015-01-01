@@ -2,15 +2,15 @@
 #error Do not include xchg.h directly!
 #else
 /*
-                                                                
-                                                                      
-                                                     
+ * xchg/xchg_local and cmpxchg/cmpxchg_local share the same code
+ * except that local version do not have the expensive memory barrier.
+ * So this file is included twice from asm/cmpxchg.h.
  */
 
 /*
-                   
-                                                      
-                                                        
+ * Atomic exchange.
+ * Since it can be used to implement critical sections
+ * it must clobber "memory" (also for interrupts in UP).
  */
 
 static inline unsigned long
@@ -101,8 +101,8 @@ ____xchg(_u64, volatile long *m, unsigned long val)
 	return val;
 }
 
-/*                                                          
-                                                */
+/* This function doesn't exist, so you'll get a linker error
+   if something tries to do an invalid xchg().  */
 extern void __xchg_called_with_bad_pointer(void);
 
 static __always_inline unsigned long
@@ -123,14 +123,14 @@ ____xchg(, volatile void *ptr, unsigned long x, int size)
 }
 
 /*
-                                                                    
-                                                                  
-                                          
-  
-                                                                   
-                                                                   
-                                                                  
-                                                      
+ * Atomic compare and exchange.  Compare OLD with MEM, if identical,
+ * store NEW in MEM.  Return the initial value in MEM.  Success is
+ * indicated by comparing RETURN with OLD.
+ *
+ * The memory barrier should be placed in SMP only when we actually
+ * make the change. If we don't change anything (so if the returned
+ * prev is equal to old) then we aren't acquiring anything new and
+ * we don't need any memory barrier as far I can tell.
  */
 
 static inline unsigned long
@@ -233,8 +233,8 @@ ____cmpxchg(_u64, volatile long *m, unsigned long old, unsigned long new)
 	return prev;
 }
 
-/*                                                          
-                                                   */
+/* This function doesn't exist, so you'll get a linker error
+   if something tries to do an invalid cmpxchg().  */
 extern void __cmpxchg_called_with_bad_pointer(void);
 
 static __always_inline unsigned long

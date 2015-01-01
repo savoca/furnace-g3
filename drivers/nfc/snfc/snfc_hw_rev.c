@@ -1,39 +1,39 @@
 /*
-                
-    
+ *	snfc_hw_rev.c
+ *  
  */
  
 /*
-                          
+ *    Include header files
  */
 #include "snfc_gpio.h"
 #include <mach/board_lge.h>
 
 /*
-           
+ *  Defines
  */
 
 /*
-                        
+*    Internal definition
 */
   
 /*
-                       
+ *	  Internal variables
  */
-static int isopen_snfchwrev = 0; //                     
+static int isopen_snfchwrev = 0; // 0 : No open 1 : Open
 
 /*
-                         
- */
-
-/*
-                          
+ *    Function prototypes
  */
 
 /*
-               
-          
-          
+ *    Function definitions
+ */
+
+/*
+* Description :
+* Input : 
+* Output :
 */
 static int snfc_hw_rev_open (struct inode *inode, struct file *fp)
 {
@@ -55,9 +55,9 @@ static int snfc_hw_rev_open (struct inode *inode, struct file *fp)
 
 
 /*
-               
-          
-          
+* Description :
+* Input : 
+* Output :
 */
 static ssize_t snfc_hw_rev_read(struct file *pf, char *pbuf, size_t size, loff_t *pos)
 {
@@ -127,9 +127,9 @@ static ssize_t snfc_hw_rev_read(struct file *pf, char *pbuf, size_t size, loff_t
 
 
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 static int snfc_hw_rev_release (struct inode *inode, struct file *fp)
 {
@@ -170,7 +170,7 @@ static int snfc_hw_rev_init(void)
 
 	SNFC_DEBUG_MSG_MIDDLE("[snfc_hw_rev] snfc_hw_rev_init - start \n");
 
-	/*                          */
+	/* Register the device file */
 	rc = misc_register(&snfc_hw_rev_device);
 	if (rc)
 	{
@@ -187,7 +187,7 @@ static void snfc_hw_rev_exit(void)
 {
 	SNFC_DEBUG_MSG_MIDDLE("[snfc_hw_rev] snfc_pon_exit - start \n");
 
-	/*                            */
+	/* Deregister the device file */
 	misc_deregister(&snfc_hw_rev_device);
 
 	SNFC_DEBUG_MSG_MIDDLE("[snfc_hw_rev] snfc_pon_exit - end \n");

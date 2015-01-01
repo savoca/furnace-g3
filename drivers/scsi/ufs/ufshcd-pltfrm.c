@@ -38,12 +38,12 @@
 #include "ufshcd.h"
 
 #ifdef CONFIG_PM
-/* 
-                                                            
-                                 
-  
-  
-            
+/**
+ * ufshcd_pltfrm_suspend - suspend power management function
+ * @dev: pointer to device handle
+ *
+ *
+ * Returns 0
  */
 static int ufshcd_pltfrm_suspend(struct device *dev)
 {
@@ -51,21 +51,21 @@ static int ufshcd_pltfrm_suspend(struct device *dev)
 	struct ufs_hba *hba =  platform_get_drvdata(pdev);
 
 	/*
-         
-                          
-                                       
-  */
+	 * TODO:
+	 * 1. Call ufshcd_suspend
+	 * 2. Do bus specific power management
+	 */
 
 	disable_irq(hba->irq);
 
 	return 0;
 }
 
-/* 
-                                                          
-                                 
-  
-            
+/**
+ * ufshcd_pltfrm_resume - resume power management function
+ * @dev: pointer to device handle
+ *
+ * Returns 0
  */
 static int ufshcd_pltfrm_resume(struct device *dev)
 {
@@ -73,10 +73,10 @@ static int ufshcd_pltfrm_resume(struct device *dev)
 	struct ufs_hba *hba =  platform_get_drvdata(pdev);
 
 	/*
-         
-                          
-                              
-  */
+	 * TODO:
+	 * 1. Call ufshcd_resume.
+	 * 2. Do bus specific wake up
+	 */
 
 	enable_irq(hba->irq);
 
@@ -87,11 +87,11 @@ static int ufshcd_pltfrm_resume(struct device *dev)
 #define ufshcd_pltfrm_resume	NULL
 #endif
 
-/* 
-                                                    
-                                           
-  
-                                                  
+/**
+ * ufshcd_pltfrm_probe - probe routine of the driver
+ * @pdev: pointer to Platform device handle
+ *
+ * Returns 0 on success, non-zero value on failure
  */
 static int ufshcd_pltfrm_probe(struct platform_device *pdev)
 {
@@ -134,11 +134,11 @@ out:
 	return err;
 }
 
-/* 
-                                                        
-                                           
-  
-                                                  
+/**
+ * ufshcd_pltfrm_remove - remove platform driver routine
+ * @pdev: pointer to platform device handle
+ *
+ * Returns 0 on success, non-zero value on failure
  */
 static int ufshcd_pltfrm_remove(struct platform_device *pdev)
 {

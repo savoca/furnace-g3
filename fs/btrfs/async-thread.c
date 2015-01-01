@@ -29,57 +29,57 @@
 #define WORK_HIGH_PRIO_BIT 3
 
 /*
-                                                                      
-                                        
+ * container for the kthread task pointer and the list of pending work
+ * One of these is allocated per thread.
  */
 struct btrfs_worker_thread {
-	/*                   */
+	/* pool we belong to */
 	struct btrfs_workers *workers;
 
-	/*                                                        */
+	/* list of struct btrfs_work that are waiting for service */
 	struct list_head pending;
 	struct list_head prio_pending;
 
-	/*                                                  */
+	/* list of worker threads from struct btrfs_workers */
 	struct list_head worker_list;
 
-	/*         */
+	/* kthread */
 	struct task_struct *task;
 
-	/*                                      */
+	/* number of things on the pending list */
 	atomic_t num_pending;
 
-	/*                                   */
+	/* reference counter for this struct */
 	atomic_t refs;
 
 	unsigned long sequence;
 
-	/*                            */
+	/* protects the pending list. */
 	spinlock_t lock;
 
-	/*                                                               */
+	/* set to non-zero when this thread is already awake and kicking */
 	int working;
 
-	/*                       */
+	/* are we currently idle */
 	int idle;
 };
 
 static int __btrfs_start_workers(struct btrfs_workers *workers);
 
 /*
-                                                                           
-                                                                      
-                                                                       
-                                                         
-  
-                                                                         
-                                                                          
-                                      
-  
-                                                                    
-                                                                        
-                                                                         
-                  
+ * btrfs_start_workers uses kthread_run, which can block waiting for memory
+ * for a very long time.  It will actually throttle on page writeback,
+ * and so it may not make progress until after our btrfs worker threads
+ * process all of the pending work structs in their queue
+ *
+ * This means we can't use btrfs_start_workers from inside a btrfs worker
+ * thread that is used as part of cleaning dirty memory, which pretty much
+ * involves all of the worker threads.
+ *
+ * Instead we have a helper queue who never has more than one thread
+ * where we scheduler thread start operations.  This worker_start struct
+ * is used to contain the work and hold a pointer to the queue that needs
+ * another worker.
  */
 struct worker_start {
 	struct btrfs_work work;
@@ -95,8 +95,8 @@ static void start_new_worker_func(struct btrfs_work *work)
 }
 
 /*
-                                                               
-                              
+ * helper function to move a thread onto the idle list after it
+ * has finished some requests.
  */
 static void check_idle_worker(struct btrfs_worker_thread *worker)
 {
@@ -106,7 +106,7 @@ static void check_idle_worker(struct btrfs_worker_thread *worker)
 		spin_lock_irqsave(&worker->workers->lock, flags);
 		worker->idle = 1;
 
-		/*                                                      */
+		/* the list may be empty if the worker is just starting */
 		if (!list_empty(&worker->worker_list)) {
 			list_move(&worker->worker_list,
 				 &worker->workers->idle_list);
@@ -116,8 +116,8 @@ static void check_idle_worker(struct btrfs_worker_thread *worker)
 }
 
 /*
-                                                               
-                         
+ * helper function to move a thread off the idle list after new
+ * pending work is added.
  */
 static void check_busy_worker(struct btrfs_worker_thread *worker)
 {
@@ -194,11 +194,11 @@ static noinline void run_ordered_completions(struct btrfs_workers *workers,
 		if (!test_bit(WORK_DONE_BIT, &work->flags))
 			break;
 
-		/*                                                    
-                                                       
-                                                         
-                                             
-   */
+		/* we are going to call the ordered done function, but
+		 * we leave the work item on the list as a barrier so
+		 * that later work items that are done don't have their
+		 * functions called before this one returns
+		 */
 		if (test_and_set_bit(WORK_ORDER_DONE_BIT, &work->flags))
 			break;
 
@@ -206,7 +206,7 @@ static noinline void run_ordered_completions(struct btrfs_workers *workers,
 
 		work->ordered_func(work);
 
-		/*                                                   */
+		/* now take the lock again and call the freeing code */
 		spin_lock(&workers->order_lock);
 		list_del(&work->order_list);
 		work->ordered_free(work);
@@ -288,7 +288,7 @@ out_fail:
 }
 
 /*
-                                     
+ * main loop for servicing work items
  */
 static int worker_loop(void *arg)
 {
@@ -318,9 +318,9 @@ again:
 
 			atomic_dec(&worker->num_pending);
 			/*
-                                           
-                                              
-    */
+			 * unless this is an ordered work queue,
+			 * 'work' was probably freed by func above.
+			 */
 			run_ordered_completions(worker->workers, work);
 
 			check_pending_worker_creates(worker);
@@ -339,22 +339,22 @@ again:
 			if (!kthread_should_stop()) {
 				cpu_relax();
 				/*
-                                               
-               
-     */
+				 * we've dropped the lock, did someone else
+				 * jump_in?
+				 */
 				smp_mb();
 				if (!list_empty(&worker->pending) ||
 				    !list_empty(&worker->prio_pending))
 					continue;
 
 				/*
-                                              
-                                          
-                                              
-      
-                                            
-                                     
-     */
+				 * this short schedule allows more work to
+				 * come in without the queue functions
+				 * needing to go through wake_up_process()
+				 *
+				 * worker->working is still 1, so nobody
+				 * is going to try and wake us up
+				 */
 				schedule_timeout(1);
 				smp_mb();
 				if (!list_empty(&worker->pending) ||
@@ -364,7 +364,7 @@ again:
 				if (kthread_should_stop())
 					break;
 
-				/*                                     */
+				/* still no more work?, sleep for real */
 				spin_lock_irq(&worker->lock);
 				set_current_state(TASK_INTERRUPTIBLE);
 				if (!list_empty(&worker->pending) ||
@@ -375,9 +375,9 @@ again:
 				}
 
 				/*
-                                                   
-                                      
-     */
+				 * this makes sure we get a wakeup when someone
+				 * adds something new to the queue
+				 */
 				worker->working = 0;
 				spin_unlock_irq(&worker->lock);
 
@@ -396,7 +396,7 @@ again:
 }
 
 /*
-                                                        
+ * this will wait for all the worker threads to shutdown
  */
 void btrfs_stop_workers(struct btrfs_workers *workers)
 {
@@ -429,7 +429,7 @@ void btrfs_stop_workers(struct btrfs_workers *workers)
 }
 
 /*
-                                      
+ * simple init on struct btrfs_workers
  */
 void btrfs_init_workers(struct btrfs_workers *workers, char *name, int max,
 			struct btrfs_workers *async_helper)
@@ -451,8 +451,8 @@ void btrfs_init_workers(struct btrfs_workers *workers, char *name, int max,
 }
 
 /*
-                                                                   
-                                                    
+ * starts new worker threads.  This does not enforce the max worker
+ * count in case you need to temporarily go past it.
  */
 static int __btrfs_start_workers(struct btrfs_workers *workers)
 {
@@ -506,9 +506,9 @@ int btrfs_start_workers(struct btrfs_workers *workers)
 }
 
 /*
-                                                                        
-                                                                        
-                                               
+ * run through the list and find a worker thread that doesn't have a lot
+ * to do right now.  This can return null if we aren't yet at the thread
+ * count limit and all of the threads are busy.
  */
 static struct btrfs_worker_thread *next_worker(struct btrfs_workers *workers)
 {
@@ -520,11 +520,11 @@ static struct btrfs_worker_thread *next_worker(struct btrfs_workers *workers)
 		workers->max_workers;
 
 	/*
-                                                              
-                                                                 
-                                                                    
-           
-  */
+	 * if we find an idle thread, don't move it to the end of the
+	 * idle list.  This improves the chance that the next submission
+	 * will reuse the same thread, and maybe catch it while it is still
+	 * working
+	 */
 	if (!list_empty(&workers->idle_list)) {
 		next = workers->idle_list.next;
 		worker = list_entry(next, struct btrfs_worker_thread,
@@ -535,11 +535,11 @@ static struct btrfs_worker_thread *next_worker(struct btrfs_workers *workers)
 		return NULL;
 
 	/*
-                                                                 
-                                                             
-                                                                     
-                                                                     
-  */
+	 * if we pick a busy task, move the task to the end of the list.
+	 * hopefully this will keep things somewhat evenly balanced.
+	 * Do the move in batches based on the sequence number.  This groups
+	 * requests submitted at roughly the same time onto the same worker.
+	 */
 	next = workers->worker_list.next;
 	worker = list_entry(next, struct btrfs_worker_thread, worker_list);
 	worker->sequence++;
@@ -550,9 +550,9 @@ static struct btrfs_worker_thread *next_worker(struct btrfs_workers *workers)
 }
 
 /*
-                                                                       
-                                                                         
-                                    
+ * selects a worker thread to take the next job.  This will either find
+ * an idle worker, start a new worker up to the max count, or just return
+ * one of the existing busy workers.
  */
 static struct btrfs_worker_thread *find_worker(struct btrfs_workers *workers)
 {
@@ -575,7 +575,7 @@ again:
 		} else {
 			workers->num_workers_starting++;
 			spin_unlock_irqrestore(&workers->lock, flags);
-			/*                                             */
+			/* we're below the limit, start another worker */
 			ret = __btrfs_start_workers(workers);
 			spin_lock_irqsave(&workers->lock, flags);
 			if (ret)
@@ -588,9 +588,9 @@ again:
 fallback:
 	fallback = NULL;
 	/*
-                                            
-                                     
-  */
+	 * we have failed to find any workers, just
+	 * return the first one we can find.
+	 */
 	if (!list_empty(&workers->worker_list))
 		fallback = workers->worker_list.next;
 	if (!list_empty(&workers->idle_list))
@@ -600,18 +600,18 @@ fallback:
 		  struct btrfs_worker_thread, worker_list);
 found:
 	/*
-                                                               
-                         
-  */
+	 * this makes sure the worker doesn't exit before it is placed
+	 * onto a busy/idle list
+	 */
 	atomic_inc(&worker->num_pending);
 	spin_unlock_irqrestore(&workers->lock, flags);
 	return worker;
 }
 
 /*
-                                                                          
-                                                                              
-                                                                  
+ * btrfs_requeue_work just puts the work item back on the tail of the list
+ * it was taken from.  It is intended for use with long running work functions
+ * that make some progress and want to give the cpu up for others.
  */
 void btrfs_requeue_work(struct btrfs_work *work)
 {
@@ -629,9 +629,9 @@ void btrfs_requeue_work(struct btrfs_work *work)
 		list_add_tail(&work->list, &worker->pending);
 	atomic_inc(&worker->num_pending);
 
-	/*                                                      
-        
-  */
+	/* by definition we're busy, take ourselves off the idle
+	 * list
+	 */
 	if (worker->idle) {
 		spin_lock(&worker->workers->lock);
 		worker->idle = 0;
@@ -655,7 +655,7 @@ void btrfs_set_work_high_prio(struct btrfs_work *work)
 }
 
 /*
-                                                                           
+ * places a struct btrfs_work into the pending queue of one of the kthreads
  */
 void btrfs_queue_worker(struct btrfs_workers *workers, struct btrfs_work *work)
 {
@@ -663,16 +663,16 @@ void btrfs_queue_worker(struct btrfs_workers *workers, struct btrfs_work *work)
 	unsigned long flags;
 	int wake = 0;
 
-	/*                                           */
+	/* don't requeue something already on a list */
 	if (test_and_set_bit(WORK_QUEUED_BIT, &work->flags))
 		return;
 
 	worker = find_worker(workers);
 	if (workers->ordered) {
 		/*
-                                                    
-                      
-   */
+		 * you're not allowed to do ordered queues from an
+		 * interrupt handler
+		 */
 		spin_lock(&workers->order_lock);
 		if (test_bit(WORK_HIGH_PRIO_BIT, &work->flags)) {
 			list_add_tail(&work->order_list,
@@ -694,9 +694,9 @@ void btrfs_queue_worker(struct btrfs_workers *workers, struct btrfs_work *work)
 	check_busy_worker(worker);
 
 	/*
-                                                                 
-               
-  */
+	 * avoid calling into wake_up_process if this thread has already
+	 * been kicked
+	 */
 	if (!worker->working)
 		wake = 1;
 	worker->working = 1;

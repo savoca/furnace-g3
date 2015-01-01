@@ -42,16 +42,16 @@ static inline int notify_page_fault(struct pt_regs *regs, int trap)
 int exception_trace = 1;
 
 /*
-                                                                      
-                                                                      
-  
-                                                            
-                                              
-                                       
-                                        
-                                            
-                                     
-                                      
+ * This routine handles page faults. It determines the address and the
+ * problem, and then passes it off to one of the appropriate routines.
+ *
+ * ecr is the Exception Cause Register. Possible values are:
+ *   6:  Protection fault (instruction access)
+ *   15: Protection fault (read access)
+ *   16: Protection fault (write access)
+ *   20: Page not found (instruction access)
+ *   24: Page not found (read access)
+ *   28: Page not found (write access)
  */
 asmlinkage void do_page_fault(unsigned long ecr, struct pt_regs *regs)
 {
@@ -78,9 +78,9 @@ asmlinkage void do_page_fault(unsigned long ecr, struct pt_regs *regs)
 	code = SEGV_MAPERR;
 
 	/*
-                                                             
-                         
-  */
+	 * If we're in an interrupt or have no user context, we must
+	 * not take the fault...
+	 */
 	if (in_atomic() || !mm || regs->sr & SYSREG_BIT(GM))
 		goto no_context;
 
@@ -99,9 +99,9 @@ asmlinkage void do_page_fault(unsigned long ecr, struct pt_regs *regs)
 		goto bad_area;
 
 	/*
-                                                            
-                    
-  */
+	 * Ok, we have a good vm_area for this memory access, so we
+	 * can handle it...
+	 */
 good_area:
 	code = SEGV_ACCERR;
 	writeaccess = 0;
@@ -128,10 +128,10 @@ good_area:
 	}
 
 	/*
-                                                               
-                                                          
-          
-  */
+	 * If for any reason at all we couldn't handle the fault, make
+	 * sure we exit gracefully rather than endlessly redo the
+	 * fault.
+	 */
 	fault = handle_mm_fault(mm, vma, address, writeaccess ? FAULT_FLAG_WRITE : 0);
 	if (unlikely(fault & VM_FAULT_ERROR)) {
 		if (fault & VM_FAULT_OOM)
@@ -149,9 +149,9 @@ good_area:
 	return;
 
 	/*
-                                                             
-                                                          
-  */
+	 * Something tried to access memory that isn't in our memory
+	 * map. Fix it, but check if it's kernel or user first...
+	 */
 bad_area:
 	up_read(&mm->mmap_sem);
 
@@ -167,7 +167,7 @@ bad_area:
 	}
 
 no_context:
-	/*                                              */
+	/* Are we prepared to handle this kernel fault? */
 	fixup = search_exception_tables(regs->pc);
 	if (fixup) {
 		regs->pc = fixup->fixup;
@@ -175,9 +175,9 @@ no_context:
 	}
 
 	/*
-                                                              
-                                               
-  */
+	 * Oops. The kernel tried to access some bad page. We'll have
+	 * to terminate things with extreme prejudice.
+	 */
 	if (address < PAGE_SIZE)
 		printk(KERN_ALERT
 		       "Unable to handle kernel NULL pointer dereference");
@@ -205,9 +205,9 @@ no_context:
 	return;
 
 	/*
-                                                            
-                                                            
-  */
+	 * We ran out of memory, or some other thing happened to us
+	 * that made us unable to handle the page fault gracefully.
+	 */
 out_of_memory:
 	up_read(&mm->mmap_sem);
 	pagefault_out_of_memory();
@@ -218,7 +218,7 @@ out_of_memory:
 do_sigbus:
 	up_read(&mm->mmap_sem);
 
-	/*                                       */
+	/* Kernel mode? Handle exceptions or die */
 	signr = SIGBUS;
 	code = BUS_ADRERR;
 	if (!user_mode(regs))

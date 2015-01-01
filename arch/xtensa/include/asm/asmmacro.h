@@ -14,35 +14,35 @@
 #include <variant/core.h>
 
 /*
-                                                         
-                                                      
-  
-                            
-                                                         
-                                       
-                               
-                   
-  
-                                                             
-                                                    
-                                           
-                                      
-                                  
-                              
-                                               
-                                              
-  
-             
-                                                              
-  
-                       
-                                 
-                                       
-                   
+ * Some little helpers for loops. Use zero-overhead-loops
+ * where applicable and if supported by the processor.
+ *
+ * __loopi ar, at, size, inc
+ *         ar	register initialized with the start address
+ *	   at	scratch register used by macro
+ *	   size	size immediate value
+ *	   inc	increment
+ *
+ * __loops ar, as, at, inc_log2[, mask_log2][, cond][, ncond]
+ *	   ar	register initialized with the start address
+ *	   as	register initialized with the size
+ *	   at	scratch register use by macro
+ *	   inc_log2	increment [in log2]
+ *	   mask_log2	mask [in log2]
+ *	   cond		true condition (used in loop'cond')
+ *	   ncond	false condition (used in b'ncond')
+ *
+ * __loop  as
+ *	   restart loop. 'as' register must not have been modified!
+ *
+ * __endla ar, at, incr
+ *	   ar	start address (modified)
+ *	   as	scratch register used by macro
+ *	   inc	increment
  */
 
 /*
-                                   
+ * loop for given size as immediate
  */
 
 	.macro	__loopi ar, at, size, incr
@@ -58,7 +58,7 @@
 	.endm
 
 /*
-                                  
+ * loop for given size in register
  */
 
 	.macro	__loops	ar, as, at, incr_log2, mask_log2, cond, ncond
@@ -97,7 +97,7 @@
 	.endm
 
 /*
-                     
+ * loop from ar to ax
  */
 
 	.macro	__loopt	ar, as, at, incr_log2
@@ -116,7 +116,7 @@
 	.endm
 
 /*
-                                            
+ * restart loop. registers must be unchanged
  */
 
 	.macro	__loop	as
@@ -130,7 +130,7 @@
 	.endm
 
 /*
-                                                
+ * end of loop with no increment of the address.
  */
 
 	.macro	__endl	ar, as
@@ -141,7 +141,7 @@
 	.endm
 
 /*
-                                             
+ * end of loop with increment of the address.
  */
 
 	.macro	__endla	ar, as, incr
@@ -150,4 +150,4 @@
 	.endm
 
 
-#endif /*                    */
+#endif /* _XTENSA_ASMMACRO_H */

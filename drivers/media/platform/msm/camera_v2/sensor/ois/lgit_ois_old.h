@@ -1,102 +1,102 @@
 #ifndef	OIS_H
 #define	OIS_H
-//                                                                              
-//                                
-//                                                                              
+//==============================================================================
+// Ois.h Code START (2012. 11. 20)
+//==============================================================================
 #ifdef	OISINI
 	#define	OISINI__
 #else
 	#define	OISINI__		extern
 #endif
-//                                                                              
-//                                     
-//                                                                              
+//==============================================================================
+// LGIT Extern Check Var (2013. 03. 07)
+//==============================================================================
 
 
 extern unsigned char spigyrocheck;
 extern int fallingCnt;
 
 #define		FS_SEL		2		
-#define		EXE_END		0x02		//                        
-#define		EXE_HXADJ	0x06		//                                       
-#define		EXE_HYADJ	0x0A		//                                       
-#define		EXE_LXADJ	0x12		//                             
-#define		EXE_LYADJ	0x22		//                             
-#define		EXE_OCADJ	0x42		//                         
-#define		EXE_GYRADJ	0x82		//                           
-#define		EXE_ERR		0x99		//                  
-#define		EXE_XFRQ1	0x01		//                             
-#define		EXE_XFRQ2	0x02		//                             
-#define		EXE_XFRQ3	0x04		//                             
-#define		EXE_YFRQ1	0x10		//                             
-#define		EXE_YFRQ2	0x20		//                             
-#define		EXE_YFRQ3	0x40		//                             
+#define		EXE_END		0x02		// Execute End (Adjust OK)
+#define		EXE_HXADJ	0x06		// Adjust NG : X Hall NG (Gain or Offset)
+#define		EXE_HYADJ	0x0A		// Adjust NG : Y Hall NG (Gain or Offset)
+#define		EXE_LXADJ	0x12		// Adjust NG : X Loop NG (Gain)
+#define		EXE_LYADJ	0x22		// Adjust NG : Y Loop NG (Gain)
+#define		EXE_OCADJ	0x42		// Adjust NG : OSC Clock NG
+#define		EXE_GYRADJ	0x82		// Adjust NG : Gyro Offset NG
+#define		EXE_ERR		0x99		// Execute Error End
+#define		EXE_XFRQ1	0x01		// Gain Measurement FRQ1 : X NG
+#define		EXE_XFRQ2	0x02		// Gain Measurement FRQ2 : X NG
+#define		EXE_XFRQ3	0x04		// Gain Measurement FRQ3 : X NG
+#define		EXE_YFRQ1	0x10		// Gain Measurement FRQ1 : Y NG
+#define		EXE_YFRQ2	0x20		// Gain Measurement FRQ2 : Y NG
+#define		EXE_YFRQ3	0x40		// Gain Measurement FRQ3 : Y NG
 
 
-#define	SUCCESS			0x00		//        
-#define	FAILURE			0x01		//        
+#define	SUCCESS			0x00		// Success
+#define	FAILURE			0x01		// Failure
 
 #ifndef ON
- #define	ON				0x01	//   
- #define	OFF				0x00	//    
+ #define	ON				0x01	// ON
+ #define	OFF				0x00	// OFF
 #endif
 
-#define	X_DIR			0x00		//            
-#define	Y_DIR			0x01		//            
+#define	X_DIR			0x00		// X Direction
+#define	Y_DIR			0x01		// Y Direction
 
 #define	NOP_TIME		0.00004166F
 
-//                  
-#define		DAHLXO_INI		0x18CA		//                                          
-#define		DAHLXB_INI		0x32B1      //                                          
-#define		DAHLYO_INI		0x18D0		//                                          
-#define		DAHLYB_INI		0x293F		//                                          
+// Adjust Parameter 
+#define		DAHLXO_INI		0x18CA		//0xF600 //INIT VALUE CHANGE by 1st MP 07/22
+#define		DAHLXB_INI		0x32B1      //0x3100 //INIT VALUE CHANGE by 1st MP 07/22
+#define		DAHLYO_INI		0x18D0		//0xF900 //INIT VALUE CHANGE by 1st MP 07/22
+#define		DAHLYB_INI		0x293F		//0x2C00 //INIT VALUE CHANGE by 1st MP 07/22
 
-#define		LXGAIN_INI		0x2B00		//                                          
-#define		LYGAIN_INI		0x2A71		//                                          
+#define		LXGAIN_INI		0x2B00		//0x2B00 //INIT VALUE CHANGE by 1st MP 07/22
+#define		LYGAIN_INI		0x2A71		//0x2B00 //INIT VALUE CHANGE by 1st MP 07/22
 
-#define		BIAS_CUR		0x11		//      
-#define		AMP_GAIN		0x44		//    
-#define		BIAS_CUR_OFSET	0x00		//      
+#define		BIAS_CUR		0x11		//1.12mA
+#define		AMP_GAIN		0x44		//x150
+#define		BIAS_CUR_OFSET	0x00		//0.00mA
 
-#define		OSC_INI			0x91		/*          */
+#define		OSC_INI			0x91		/* VDD=3.0V */
 
-//                      
-#define		GYRLMT_S1		0x3E0BED31	//        
-#define		GYRLMT_S2		0x3E0BED31	//        
+//0.55 (0.755 86Ax FwGT)
+#define		GYRLMT_S1		0x3E0BED31	//0.136648
+#define		GYRLMT_S2		0x3E0BED31	//0.136648
 
-//   
-#define		GYRA12_HGH_DPS		0x3DB851EC		//    
-#define		GYRA12_MID_DPS		0x38D1B717	//      
+//1.0
+#define		GYRA12_HGH_DPS		0x3DB851EC		//0.09
+#define		GYRA12_MID_DPS		0x38D1B717	//0.0001
 
-#define		GYRA34_HGH_DPS		0x3DB851EC		//    
-#define		GYRA34_MID_DPS		0x38D1B717	//      
+#define		GYRA34_HGH_DPS		0x3DB851EC		//0.09
+#define		GYRA34_MID_DPS		0x38D1B717	//0.0001
 
-#define		GYRA12_HGH_DEG		0x3E06FD65		//        
-#define		GYRA12_MID_DEG		0x3CCCCCCD	//     
+#define		GYRA12_HGH_DEG		0x3E06FD65		//0.131826
+#define		GYRA12_MID_DEG		0x3CCCCCCD	//0.025
 
-#define		GYRA34_HGH_DEG		0x3E06FD65		//        
-#define		GYRA34_MID_DEG		0x3CCCCCCD	//     
+#define		GYRA34_HGH_DEG		0x3E06FD65		//0.131826
+#define		GYRA34_MID_DEG		0x3CCCCCCD	//0.025
 
-#define		GYRB12_HGH		0x3E40D0CE	//        
-#define		GYRB12_MID		0x38D1B717	//      
+#define		GYRB12_HGH		0x3E40D0CE	//0.188297
+#define		GYRB12_MID		0x38D1B717	//0.0001
 
-#define		GYRB34_HGH		0x3E40D0CE	//        
-#define		GYRB34_MID		0x38D1B717	//      
+#define		GYRB34_HGH		0x3E40D0CE	//0.188297
+#define		GYRB34_MID		0x38D1B717	//0.0001
 
-//                                         
-//                                          
-//                                          
-//                                          
-#define	TRI_LEVEL		0x00000000		/*       */
-//                                       
-#define	TRI_HIGH		0x3E99999A		/*     */
-#define	TIMELOW			0x5B			/*    */
-//                                    
-//                                      
-#define	TIMEMID			0x01			/*         */
+//#define	TRI_LEVEL		0x3c23d70a		/* 0.01 */
+//#define	TRI_LEVEL		0x3BC49BA6		/* 0.006 */
+//#define	TRI_LEVEL		0x3BA3D70A		/* 0.005 */
+//#define	TRI_LEVEL		0x3B83126F		/* 0.004 */
+#define	TRI_LEVEL		0x00000000		/* 0.000 */
+//#define	TRI_HIGH		0x3F800000		/* 1.0 */
+#define	TRI_HIGH		0x3E99999A		/* 0.3 */
+#define	TIMELOW			0x5B			/* 2s */
+//#define	TIMEMID			0x10			/* 350ms */
+//#define	TIMEMID			0x08			/* 17.50ms */
+#define	TIMEMID			0x01			/* 17.50ms */
 #define	TIMEHGH			0x01			/* */
-#define	TIMEBSE			0xFF			/*         */
+#define	TIMEBSE			0xFF			/* 21.84ms */
 #define	XMONADR			GXXFZ
 #define	YMONADR			GYXFZ
 #define	GANADR			gxlens
@@ -104,14 +104,14 @@ extern int fallingCnt;
 #define	XMAXGAIN		0x3F800000
 #define	YMINGAIN		0x00000000
 #define	YMAXGAIN		0x3F800000
-//                                                              
-#define	XSTEPUP			0x3CF00000		/*                       */
-#define	XSTEPDN			0xB9B2F4F1		/*                             */
-//                                                              
-#define	YSTEPUP			0x3CF00000		/*                       */
-#define	YSTEPDN			0xB9B2F4F1		/*                             */
+//#define	XSTEPUP			0x3995216D		/* 0.000284444		about 300msec */
+#define	XSTEPUP			0x3CF00000		/* 0.029296		about 3msec */
+#define	XSTEPDN			0xB9B2F4F1		/* -0.000341333		about 250msec */
+//#define	YSTEPUP			0x3995216D		/* 0.000284444		about 300msec */
+#define	YSTEPUP			0x3CF00000		/* 0.029296		about 3msec */
+#define	YSTEPDN			0xB9B2F4F1		/* -0.000341333		about 250msec */
 
-//                                   
+// Digital Gyro offset Initial value 
 #define		DGYRO_OFST_XH	0x00
 #define		DGYRO_OFST_XL	0x00
 #define		DGYRO_OFST_YH	0x00
@@ -120,8 +120,8 @@ extern int fallingCnt;
 #define		MECCEN_X		0x0000
 #define		MECCEN_Y		0x0000
 
-#define		GXGAIN_INI		0x3ED5DF65 //                                                        
-#define		GYGAIN_INI		0x3ED840E1 //                                                        
+#define		GXGAIN_INI		0x3ED5DF65 //0x3EDCB005 //INIT VALUE CHANGE by 1st MP 07/22 //0.41772
+#define		GYGAIN_INI		0x3ED840E1 //0x3EE31EA8 //INIT VALUE CHANGE by 1st MP 07/22 //0.42237
 
 #define		GYROFF_HIGH		0x4000
 #define		GYROFF_LOW		0xC000
@@ -131,73 +131,73 @@ extern int fallingCnt;
 
 #define		E2POFST				0x0900
 
-//                                
-/*                                        */
-//                 
+// EEPROM Address Define	0000_01FF
+/****************** page ******************/
+// X Axis Hall Data
 
-#define		CENTER_HALL_AD_X	(0x0000 + E2POFST)		//                  
-#define		MAX_HALL_BEFORE_X	(0x0002 + E2POFST)		//                               
-#define		MAX_HALL_AFTER_X	(0x0004 + E2POFST)		//                              
-#define		MIN_HALL_BEFORE_X	(0x0006 + E2POFST)		//                               
-#define		MIN_HALL_AFTER_X	(0x0008 + E2POFST)		//                              
-#define		HALL_BIAS_X			(0x000A + E2POFST)		//            
-#define		HALL_OFFSET_X		(0x000C + E2POFST)		//              
-#define		HALL_AD_OFFSET_X	(0x000E + E2POFST)		//                  
-/*                                        */
-//                 
+#define		CENTER_HALL_AD_X	(0x0000 + E2POFST)		// X Center Hall A/D
+#define		MAX_HALL_BEFORE_X	(0x0002 + E2POFST)		// X Max Hall Adjust Value Before
+#define		MAX_HALL_AFTER_X	(0x0004 + E2POFST)		// X Max Hall Adjust Value After
+#define		MIN_HALL_BEFORE_X	(0x0006 + E2POFST)		// X Min Hall Adjust Value Before
+#define		MIN_HALL_AFTER_X	(0x0008 + E2POFST)		// X Min Hall Adjust Value After
+#define		HALL_BIAS_X			(0x000A + E2POFST)		// X Hall Bias
+#define		HALL_OFFSET_X		(0x000C + E2POFST)		// X Hall Offset
+#define		HALL_AD_OFFSET_X	(0x000E + E2POFST)		// X Hall A/D Offset
+/****************** page ******************/
+// Y Axis Hall Data
 
-#define		CENTER_HALL_AD_Y	(0x0010 + E2POFST)		//                  
-#define		MAX_HALL_BEFORE_Y	(0x0012 + E2POFST)		//                               
-#define		MAX_HALL_AFTER_Y	(0x0014 + E2POFST)		//                              
-#define		MIN_HALL_BEFORE_Y	(0x0016 + E2POFST)		//                               
-#define		MIN_HALL_AFTER_Y	(0x0018 + E2POFST)		//                              
-#define		HALL_BIAS_Y			(0x001A + E2POFST)		//            
-#define		HALL_OFFSET_Y		(0x001C + E2POFST)		//              
-#define		HALL_AD_OFFSET_Y	(0x001E + E2POFST)		//                  
-/*                                        */
-//                 
+#define		CENTER_HALL_AD_Y	(0x0010 + E2POFST)		// Y Center Hall A/D
+#define		MAX_HALL_BEFORE_Y	(0x0012 + E2POFST)		// Y Max Hall Adjust Value Before
+#define		MAX_HALL_AFTER_Y	(0x0014 + E2POFST)		// Y Max Hall Adjust Value After
+#define		MIN_HALL_BEFORE_Y	(0x0016 + E2POFST)		// Y Min Hall Adjust Value Before
+#define		MIN_HALL_AFTER_Y	(0x0018 + E2POFST)		// Y Min Hall Adjust Value After
+#define		HALL_BIAS_Y			(0x001A + E2POFST)		// Y Hall Bias
+#define		HALL_OFFSET_Y		(0x001C + E2POFST)		// Y Hall Offset
+#define		HALL_AD_OFFSET_Y	(0x001E + E2POFST)		// Y Hall A/D Offset
+/****************** page ******************/
+// Loop Gain Status
 #define		LOOP_GAIN_STATUS_X	(0x0020 + E2POFST)
 #define		LOOP_GAIN_STATUS_Y	(0x0022 + E2POFST)
-//                  
+// LENS CENTER FINAL
 #define		LENS_CENTER_FINAL_X	(0x0024 + E2POFST)		
 #define		LENS_CENTER_FINAL_Y	(0x0026 + E2POFST)		
-//                        
+// Loop Gain Adjust Result
 #define		LOOP_GAIN_X			(0x0028 + E2POFST)
 #define		LOOP_GAIN_Y			(0x002A + E2POFST)
-//                
+// Gyro A/D Offset
 #define		GYRO_AD_OFFSET_X	(0x002C + E2POFST)
 #define		GYRO_AD_OFFSET_Y	(0x002E + E2POFST)
-/*                                        */
-//                           
+/****************** page ******************/
+// Adjustment Completion Flag
 #define		ADJ_COMP_FLAG		(0x0030 + E2POFST)
-//           
+// Gyro GAIN 
 #define		GYRO_GAIN_X			(0x0032 + E2POFST)
 #define		GYRO_GAIN_Y			(0x0036 + E2POFST)
 
-//          
-#define		OSC_CLK_VAL			(0x003A + E2POFST)		//              
+// OSC VALUE
+#define		OSC_CLK_VAL			(0x003A + E2POFST)		// 2Byte Setting
 
-//                        
+// F/W Version Information
 #define		SYSTEM_VERSION_INFO	(0x003E + E2POFST)
 #define		FILTER_VERSION_INFO	(0x003F + E2POFST)
 #define		SUCCESS_OIS_CAL		(0x0040 + E2POFST)
 
-/*                                        */
+/****************** page ******************/
 
 struct STHALREG {
 	unsigned short	UsRegAdd ;
 	unsigned char	UcRegDat ;
-} ;													//                         
+} ;													// Hall Register Data Table
 
 struct STHALFIL {
 	unsigned short	UsRamAdd ;
 	unsigned short	UsRamDat ;
-} ;													//                              
+} ;													// Hall Filter Coefficient Table
 
 struct STGYRFIL {
 	unsigned short	UsRamAdd ;
 	unsigned long	UlRamDat ;
-} ;													//                              
+} ;													// Gyro Filter Coefficient Table
 
 struct STCMDTBL
 {
@@ -206,7 +206,7 @@ struct STCMDTBL
 	void ( *UcCmdPtr )( void ) ;
 } ;
 
-/*                             */
+/*** caution [little-endian] ***/
 
 union	WRDVAL{
 	unsigned short	UsWrdVal ;
@@ -239,86 +239,86 @@ typedef union DWDVAL	UnDwdVal;
 typedef struct STCALDAT {
 	unsigned short	UsAdjCompF ;
 	struct {
-		unsigned short	UsHlxGan ;				//                
-		unsigned short	UsHlxOff ;				//                  
-		unsigned short	UsAdxOff ;				//                      
+		unsigned short	UsHlxGan ;				// Hall Gain Value
+		unsigned short	UsHlxOff ;				// Hall Offset Value
+		unsigned short	UsAdxOff ;				// Hall A/D Offset Value
 
-		unsigned short	UsHlyGan ;				//                
-		unsigned short	UsHlyOff ;				//                  
-		unsigned short	UsAdyOff ;				//                      
+		unsigned short	UsHlyGan ;				// Hall Gain Value
+		unsigned short	UsHlyOff ;				// Hall Offset Value
+		unsigned short	UsAdyOff ;				// Hall A/D Offset Value
 	} StHalAdj ;
 
 	struct {
-		unsigned short	UsLxgVal ;				//            
-		unsigned short	UsLygVal ;				//            
+		unsigned short	UsLxgVal ;				// Loop Gain X
+		unsigned short	UsLygVal ;				// Loop Gain Y
 	} StLopGan ;
 
 	struct {
-		unsigned short	UsLsxVal ;				//              
-		unsigned short	UsLsyVal ;				//              
+		unsigned short	UsLsxVal ;				// Lens Center X
+		unsigned short	UsLsyVal ;				// Lens Center Y
 	} StLenCen ;
 	
 	struct {
-		unsigned short	UsGxoVal ;				//                  
-		unsigned short	UsGyoVal ;				//                  
+		unsigned short	UsGxoVal ;				// Gyro A/D Offset X
+		unsigned short	UsGyoVal ;				// Gyro A/D Offset Y
 	} StGvcOff ;
 	
-	unsigned long		UlGxgVal ;				//                            
-	unsigned long		UlGygVal ;				//                               
+	unsigned long		UlGxgVal ;				// Gyro Zoom Coefficient Value
+	unsigned long		UlGygVal ;				// Gyro Zoom Coefficient ValuePRO
 
-	unsigned short		UsOscVal ;				//          
-	unsigned short		UsVerDat ;				//                    
+	unsigned short		UsOscVal ;				// OSC value
+	unsigned short		UsVerDat ;				// Version Information
 
 } stCalDat ;
 
-OISINI__	stCalDat	StCalDat ;				//                          
-OISINI__	unsigned char	UcOscAdjFlg ;		//                    
+OISINI__	stCalDat	StCalDat ;				// Execute Command Parameter
+OISINI__	unsigned char	UcOscAdjFlg ;		// For Measure trigger
 
-OISINI__ unsigned char	UcVerHig;				//               
-OISINI__ unsigned char	UcVerLow;				//               
+OISINI__ unsigned char	UcVerHig;				// System Version
+OISINI__ unsigned char	UcVerLow;				// Filter Version
 
-OISINI__ unsigned short	UsCntXof ;				/*                       */
-OISINI__ unsigned short	UsCntYof ;				/*                       */
+OISINI__ unsigned short	UsCntXof ;				/* OPTICAL Center Xvalue */
+OISINI__ unsigned short	UsCntYof ;				/* OPTICAL Center Yvalue */
 
 OISINI__ int    OnsemiI2CCheck(void);
-OISINI__ int	IniSet( void ) ;				//                     
-OISINI__ void	E2pDat( void ) ;				//                                  
-OISINI__ void	VerInf( void ) ;				//              
-OISINI__ void	IniClk( void ) ;				//              
-OISINI__ void	IniIop( void ) ;				//                         
-OISINI__ void	IniMon( void ) ;				//                                
-OISINI__ void	IniSrv( void ) ;				//                               
-OISINI__ void	IniGyr( void ) ;				//                                     
-OISINI__ int	IniHfl( void ) ;				//                                      
-OISINI__ int	IniGfl( void ) ;				//                                      
-OISINI__ void	IniAdj( void ) ;				//                         
-OISINI__ int	IniDgy( void ) ;				//                             
-OISINI__ void	GyrCon( unsigned char ) ;								//                    
-OISINI__ int	ClrGyr( unsigned char, unsigned char );					//               
+OISINI__ int	IniSet( void ) ;				// Initial Top Function
+OISINI__ void	E2pDat( void ) ;				// Read calibration data from E2PROM
+OISINI__ void	VerInf( void ) ;				// Version Check
+OISINI__ void	IniClk( void ) ;				// Clock Setting
+OISINI__ void	IniIop( void ) ;				// I/O Port Initial Setting
+OISINI__ void	IniMon( void ) ;				// Monitor & Other Initial Setting
+OISINI__ void	IniSrv( void ) ;				// Servo Register Initial Setting
+OISINI__ void	IniGyr( void ) ;				// Gyro Filter Register Initial Setting
+OISINI__ int	IniHfl( void ) ;				// Hall Filter Initial Parameter Setting
+OISINI__ int	IniGfl( void ) ;				// Gyro Filter Initial Parameter Setting
+OISINI__ void	IniAdj( void ) ;				// Adjust Fix Value Setting
+OISINI__ int	IniDgy( void ) ;				// Digital Gyro Initial Setting
+OISINI__ void	GyrCon( unsigned char ) ;								// Gyro Filter Control
+OISINI__ int	ClrGyr( unsigned char, unsigned char );					// Clear Gyro RAM
 
-OISINI__ void	WitTim( unsigned short ) ;								//     
-OISINI__ void	MemClr( unsigned char *, unsigned short ) ;				//                      
-OISINI__ int	AccWit( unsigned char ) ;								//                  
-OISINI__ void	AutoGainControlSw( unsigned char ) ;					//                     
-OISINI__ void	DrvSw( unsigned char UcDrvSw ) ;						//                             
+OISINI__ void	WitTim( unsigned short ) ;								// Wait
+OISINI__ void	MemClr( unsigned char *, unsigned short ) ;				// Memory Clear Function
+OISINI__ int	AccWit( unsigned char ) ;								// Acc Wait Function
+OISINI__ void	AutoGainControlSw( unsigned char ) ;					// Auto Gain Control Sw
+OISINI__ void	DrvSw( unsigned char UcDrvSw ) ;						// Driver Mode setting function
 
-OISINI__ void			SrvCon( unsigned char, unsigned char ) ;					//             
-OISINI__ unsigned char	RtnCen( unsigned char ) ;									//                          
-OISINI__ void			OisEna( void ) ;											//                    
-OISINI__ void			OisOff( void ) ;											//        
-OISINI__ void			S2cPro( unsigned char ) ;									//                            
-OISINI__ void 			StbOnn( void ) ;								//                    
+OISINI__ void			SrvCon( unsigned char, unsigned char ) ;					// Servo ON/OFF
+OISINI__ unsigned char	RtnCen( unsigned char ) ;									// Return to Center Function
+OISINI__ void			OisEna( void ) ;											// OIS Enable Function
+OISINI__ void			OisOff( void ) ;											// Ois Off
+OISINI__ void			S2cPro( unsigned char ) ;									// S2 Command Process Function
+OISINI__ void 			StbOnn( void ) ;								// Servo ON Slope mode
 
-//                                 
-//                                                                                               
-//                                                                                                
+//OISINI__ void power_off( void ) ;
+//OISINI__ void			E2pRed( unsigned short, unsigned char, unsigned char * ) ;	// E2P ROM Data Read
+//OISINI__ void			E2pWrt( unsigned short, unsigned char, unsigned char * ) ;	// E2P ROM Data Write
 
-OISINI__ void			SetPanTiltMode( unsigned char ) ;							/*                           */
-OISINI__ void			VSModeConvert( unsigned char ) ;				//                            
+OISINI__ void			SetPanTiltMode( unsigned char ) ;							/* Pan_Tilt control Function */
+OISINI__ void			VSModeConvert( unsigned char ) ;				// Video to Still Mode Convert
 
-//                                                                              
-//                    
-//                                                                              
+//==============================================================================
+// OisDef.h Code START
+//==============================================================================
 #define         LCXFC                   0x0001
 #define         LCX1INADD               0x0002
 #define         LCX1OUTADD              0x0003

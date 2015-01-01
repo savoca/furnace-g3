@@ -39,7 +39,7 @@
 #include <linux/slab.h>
 
 /*
-                                                   
+ * Pin configurations, see MAX7301 datasheet page 6
  */
 #define PIN_CONFIG_MASK 0x03
 #define PIN_CONFIG_IN_PULLUP 0x03
@@ -55,7 +55,7 @@ static int max7301_direction_input(struct gpio_chip *chip, unsigned offset)
 	u8 offset_bits, pin_config;
 	int ret;
 
-	/*                                           */
+	/* First 4 pins are unused in the controller */
 	offset += 4;
 	offset_bits = (offset & 3) << 1;
 
@@ -97,7 +97,7 @@ static int max7301_direction_output(struct gpio_chip *chip, unsigned offset,
 	u8 offset_bits;
 	int ret;
 
-	/*                                           */
+	/* First 4 pins are unused in the controller */
 	offset += 4;
 	offset_bits = (offset & 3) << 1;
 
@@ -123,7 +123,7 @@ static int max7301_get(struct gpio_chip *chip, unsigned offset)
 	struct max7301 *ts = container_of(chip, struct max7301, chip);
 	int config, level = -EINVAL;
 
-	/*                                           */
+	/* First 4 pins are unused in the controller */
 	offset += 4;
 
 	mutex_lock(&ts->lock);
@@ -133,12 +133,12 @@ static int max7301_get(struct gpio_chip *chip, unsigned offset)
 
 	switch (config) {
 	case PIN_CONFIG_OUT:
-		/*                             */
+		/* Output: return cached level */
 		level =  !!(ts->out_level & (1 << offset));
 		break;
 	case PIN_CONFIG_IN_WO_PULLUP:
 	case PIN_CONFIG_IN_PULLUP:
-		/*                 */
+		/* Input: read out */
 		level = ts->read(ts->dev, 0x20 + offset) & 0x01;
 	}
 	mutex_unlock(&ts->lock);
@@ -150,7 +150,7 @@ static void max7301_set(struct gpio_chip *chip, unsigned offset, int value)
 {
 	struct max7301 *ts = container_of(chip, struct max7301, chip);
 
-	/*                                           */
+	/* First 4 pins are unused in the controller */
 	offset += 4;
 
 	mutex_lock(&ts->lock);
@@ -175,7 +175,7 @@ int __devinit __max730x_probe(struct max7301 *ts)
 	mutex_init(&ts->lock);
 	dev_set_drvdata(dev, ts);
 
-	/*                                          */
+	/* Power up the chip and disable IRQ output */
 	ts->write(dev, 0x04, 0x01);
 
 	ts->input_pullup_active = pdata->input_pullup_active;
@@ -193,17 +193,17 @@ int __devinit __max730x_probe(struct max7301 *ts)
 	ts->chip.owner = THIS_MODULE;
 
 	/*
-                                                               
-                                  
-  */
+	 * initialize pullups according to platform data and cache the
+	 * register values for later use.
+	 */
 	for (i = 1; i < 8; i++) {
 		int j;
 		/*
-                                                    
-                                                        
-                                                    
-                                                     
-   */
+		 * initialize port_config with "0xAA", which means
+		 * input with internal pullup disabled. This is needed
+		 * to avoid writing zeros (in the inner for loop),
+		 * which is not allowed according to the datasheet.
+		 */
 		ts->port_config[i] = 0xAA;
 		for (j = 0; j < 4; j++) {
 			int offset = (i - 1) * 4 + j;
@@ -236,7 +236,7 @@ int __devexit __max730x_remove(struct device *dev)
 
 	dev_set_drvdata(dev, NULL);
 
-	/*                                            */
+	/* Power down the chip and disable IRQ output */
 	ts->write(dev, 0x04, 0x00);
 
 	ret = gpiochip_remove(&ts->chip);

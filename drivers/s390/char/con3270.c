@@ -31,44 +31,44 @@
 static struct raw3270_fn con3270_fn;
 
 /*
-                                         
+ * Main 3270 console view data structure.
  */
 struct con3270 {
 	struct raw3270_view view;
 	spinlock_t lock;
-	struct list_head freemem;	/*                                  */
+	struct list_head freemem;	/* list of free memory for strings. */
 
-	/*               */
-	struct list_head lines;		/*                */
-	struct list_head update;	/*                          */
-	int line_nr;			/*                              */
-	int nr_lines;			/*                  */
-	int nr_up;			/*                        */
-	unsigned long update_flags;	/*                         */
-	struct string *cline;		/*                      */
-	struct string *status;		/*                       */
-	struct raw3270_request *write;	/*                       */
+	/* Output stuff. */
+	struct list_head lines;		/* list of lines. */
+	struct list_head update;	/* list of lines to update. */
+	int line_nr;			/* line number for next update. */
+	int nr_lines;			/* # lines in list. */
+	int nr_up;			/* # lines up in history. */
+	unsigned long update_flags;	/* Update indication bits. */
+	struct string *cline;		/* current output line. */
+	struct string *status;		/* last line of display. */
+	struct raw3270_request *write;	/* single write request. */
 	struct timer_list timer;
 
-	/*              */
-	struct string *input;		/*                                */
-	struct raw3270_request *read;	/*                      */
-	struct raw3270_request *kreset;	/*                                */
-	struct tasklet_struct readlet;	/*                                */
+	/* Input stuff. */
+	struct string *input;		/* input string for read request. */
+	struct raw3270_request *read;	/* single read request. */
+	struct raw3270_request *kreset;	/* single keyboard reset request. */
+	struct tasklet_struct readlet;	/* tasklet to issue read request. */
 };
 
 static struct con3270 *condev;
 
-/*                                                        */
-#define CON_UPDATE_ERASE	1	/*                               */
-#define CON_UPDATE_LIST		2	/*                                  */
-#define CON_UPDATE_STATUS	4	/*                     */
-#define CON_UPDATE_ALL		8	/*                  */
+/* con3270->update_flags. See con3270_update for details. */
+#define CON_UPDATE_ERASE	1	/* Use EWRITEA instead of WRITE. */
+#define CON_UPDATE_LIST		2	/* Update lines in tty3270->update. */
+#define CON_UPDATE_STATUS	4	/* Update status line. */
+#define CON_UPDATE_ALL		8	/* Recreate screen. */
 
 static void con3270_update(struct con3270 *);
 
 /*
-                                                            
+ * Setup timeout for a device. On timeout trigger an update.
  */
 static void con3270_set_timer(struct con3270 *cp, int expires)
 {
@@ -79,9 +79,9 @@ static void con3270_set_timer(struct con3270 *cp, int expires)
 }
 
 /*
-                                                                      
-                                                                            
-                                           
+ * The status line is the last line of the screen. It shows the string
+ * "console view" in the lower left corner and "Running"/"More..."/"Holding"
+ * in the lower right corner of the screen.
  */
 static void
 con3270_update_status(struct con3270 *cp)
@@ -103,20 +103,20 @@ con3270_create_status(struct con3270 *cp)
 		  TO_RA,0,0,0,'R','u','n','n','i','n','g',TO_SF,TF_LOG };
 
 	cp->status = alloc_string(&cp->freemem, sizeof(blueprint));
-	/*                               */
+	/* Copy blueprint to status line */
 	memcpy(cp->status->string, blueprint, sizeof(blueprint));
-	/*                      */
+	/* Set TO_RA addresses. */
 	raw3270_buffer_address(cp->view.dev, cp->status->string + 1,
 			       cp->view.cols * (cp->view.rows - 1));
 	raw3270_buffer_address(cp->view.dev, cp->status->string + 21,
 			       cp->view.cols * cp->view.rows - 8);
-	/*                            */
+	/* Convert strings to ebcdic. */
 	codepage_convert(cp->view.ascebc, cp->status->string + 8, 12);
 	codepage_convert(cp->view.ascebc, cp->status->string + 24, 7);
 }
 
 /*
-                                                                      
+ * Set output offsets to 3270 datastream fragment of a console string.
  */
 static void
 con3270_update_string(struct con3270 *cp, struct string *s, int nr)
@@ -128,7 +128,7 @@ con3270_update_string(struct con3270 *cp, struct string *s, int nr)
 }
 
 /*
-                                          
+ * Rebuild update list to print all lines.
  */
 static void
 con3270_rebuild_update(struct con3270 *cp)
@@ -137,9 +137,9 @@ con3270_rebuild_update(struct con3270 *cp)
 	int nr;
 
 	/* 
-                                                
-                                                     
-  */
+	 * Throw away update list and create a new one,
+	 * containing all lines that will fit on the screen.
+	 */
 	list_for_each_entry_safe(s, n, &cp->update, update)
 		list_del_init(&s->update);
 	nr = cp->view.rows - 2 + cp->nr_up;
@@ -154,7 +154,7 @@ con3270_rebuild_update(struct con3270 *cp)
 }
 
 /*
-                                                                       
+ * Alloc string for size bytes. Free strings from history if necessary.
  */
 static struct string *
 con3270_alloc_string(struct con3270 *cp, size_t size)
@@ -183,7 +183,7 @@ con3270_alloc_string(struct con3270 *cp, size_t size)
 }
 
 /*
-                             
+ * Write completion callback.
  */
 static void
 con3270_write_callback(struct raw3270_request *rq, void *data)
@@ -193,7 +193,7 @@ con3270_write_callback(struct raw3270_request *rq, void *data)
 }
 
 /*
-                          
+ * Update console display.
  */
 static void
 con3270_update(struct con3270 *cp)
@@ -223,7 +223,7 @@ con3270_update(struct con3270 *cp)
 			CON_UPDATE_STATUS;
 	}
 	if (cp->update_flags & CON_UPDATE_ERASE) {
-		/*                                                  */
+		/* Use erase write alternate to initialize display. */
 		raw3270_request_set_cmd(wrq, TC_EWRITEA);
 		updated |= CON_UPDATE_ERASE;
 	} else
@@ -233,8 +233,8 @@ con3270_update(struct con3270 *cp)
 	raw3270_request_add_data(wrq, &wcc, 1);
 
 	/*
-                       
-  */
+	 * Update status line.
+	 */
 	if (cp->update_flags & CON_UPDATE_STATUS)
 		if (raw3270_request_add_data(wrq, cp->status->string,
 					     cp->status->len) == 0)
@@ -248,7 +248,7 @@ con3270_update(struct con3270 *cp)
 		raw3270_buffer_address(cp->view.dev, prolog + 1,
 				       cp->view.cols * cp->line_nr);
 		raw3270_request_add_data(wrq, prolog, 6);
-		/*                                                 */
+		/* Write strings in the update list to the screen. */
 		list_for_each_entry_safe(s, n, &cp->update, update) {
 			if (s != cp->cline)
 				con3270_update_string(cp, s, cp->line_nr);
@@ -276,7 +276,7 @@ con3270_update(struct con3270 *cp)
 }
 
 /*
-                
+ * Read tasklet.
  */
 static void
 con3270_read_tasklet(struct raw3270_request *rrq)
@@ -290,19 +290,19 @@ con3270_read_tasklet(struct raw3270_request *rrq)
 	spin_lock_irqsave(&cp->view.lock, flags);
 	nr_up = cp->nr_up;
 	deactivate = 0;
-	/*                 */
+	/* Check aid byte. */
 	switch (cp->input->string[0]) {
-	case 0x7d:	/*                        */
+	case 0x7d:	/* enter: jump to bottom. */
 		nr_up = 0;
 		break;
-	case 0xf3:	/*                                   */
+	case 0xf3:	/* PF3: deactivate the console view. */
 		deactivate = 1;
 		break;
-	case 0x6d:	/*                            */
+	case 0x6d:	/* clear: start from scratch. */
 		cp->update_flags = CON_UPDATE_ALL;
 		con3270_set_timer(cp, 1);
 		break;
-	case 0xf7:	/*                                       */
+	case 0xf7:	/* PF7: do a page up in the console log. */
 		nr_up += cp->view.rows - 2;
 		if (nr_up + cp->view.rows - 1 > cp->nr_lines) {
 			nr_up = cp->nr_lines - cp->view.rows + 1;
@@ -310,7 +310,7 @@ con3270_read_tasklet(struct raw3270_request *rrq)
 				nr_up = 0;
 		}
 		break;
-	case 0xf8:	/*                                         */
+	case 0xf8:	/* PF8: do a page down in the console log. */
 		nr_up -= cp->view.rows - 2;
 		if (nr_up < 0)
 			nr_up = 0;
@@ -324,7 +324,7 @@ con3270_read_tasklet(struct raw3270_request *rrq)
 	}
 	spin_unlock_irqrestore(&cp->view.lock, flags);
 
-	/*                               */
+	/* Start keyboard reset command. */
 	raw3270_request_reset(cp->kreset);
 	raw3270_request_set_cmd(cp->kreset, TC_WRITE);
 	raw3270_request_add_data(cp->kreset, &kreset_data, 1);
@@ -339,18 +339,18 @@ con3270_read_tasklet(struct raw3270_request *rrq)
 }
 
 /*
-                                    
+ * Read request completion callback.
  */
 static void
 con3270_read_callback(struct raw3270_request *rq, void *data)
 {
 	raw3270_get_view(rq->view);
-	/*                                        */
+	/* Schedule tasklet to pass input to tty. */
 	tasklet_schedule(&((struct con3270 *) rq->view)->readlet);
 }
 
 /*
-                                                             
+ * Issue a read request. Called only from interrupt function.
  */
 static void
 con3270_issue_read(struct con3270 *cp)
@@ -360,20 +360,20 @@ con3270_issue_read(struct con3270 *cp)
 
 	rrq = xchg(&cp->read, 0);
 	if (!rrq)
-		/*                         */
+		/* Read already scheduled. */
 		return;
 	rrq->callback = con3270_read_callback;
 	rrq->callback_data = cp;
 	raw3270_request_set_cmd(rrq, TC_READMOD);
 	raw3270_request_set_data(rrq, cp->input->string, cp->input->len);
-	/*                                  */
+	/* Issue the read modified request. */
 	rc = raw3270_start_irq(&cp->view, rrq);
 	if (rc)
 		raw3270_request_reset(rrq);
 }
 
 /*
-                              
+ * Switch to the console view.
  */
 static int
 con3270_activate(struct raw3270_view *view)
@@ -398,7 +398,7 @@ con3270_deactivate(struct raw3270_view *view)
 static int
 con3270_irq(struct con3270 *cp, struct raw3270_request *rq, struct irb *irb)
 {
-	/*                                            */
+	/* Handle ATTN. Schedule tasklet to read aid. */
 	if (irb->scsw.cmd.dstat & DEV_STAT_ATTENTION)
 		con3270_issue_read(cp);
 
@@ -406,13 +406,13 @@ con3270_irq(struct con3270 *cp, struct raw3270_request *rq, struct irb *irb)
 		if (irb->scsw.cmd.dstat & DEV_STAT_UNIT_CHECK)
 			rq->rc = -EIO;
 		else
-			/*                                  */
+			/* Normal end. Copy residual count. */
 			rq->rescnt = irb->scsw.cmd.count;
 	}
 	return RAW3270_IO_DONE;
 }
 
-/*                                */
+/* Console view to a 3270 device. */
 static struct raw3270_fn con3270_fn = {
 	.activate = con3270_activate,
 	.deactivate = con3270_deactivate,
@@ -423,7 +423,7 @@ static inline void
 con3270_cline_add(struct con3270 *cp)
 {
 	if (!list_empty(&cp->cline->list))
-		/*                */
+		/* Already added. */
 		return;
 	list_add_tail(&cp->cline->list, &cp->lines);
 	cp->nr_lines++;
@@ -447,7 +447,7 @@ con3270_cline_end(struct con3270 *cp)
 	struct string *s;
 	unsigned int size;
 
-	/*             */
+	/* Copy cline. */
 	size = (cp->cline->len < cp->view.cols - 5) ?
 		cp->cline->len + 4 : cp->view.cols;
 	s = con3270_alloc_string(cp, size);
@@ -459,7 +459,7 @@ con3270_cline_end(struct con3270 *cp)
 		while (--size > cp->cline->len)
 			s->string[size] = cp->view.ascebc[' '];
 	}
-	/*                                                      */
+	/* Replace cline with allocated line s and reset cline. */
 	list_add(&s->list, &cp->cline->list);
 	list_del_init(&cp->cline->list);
 	if (!list_empty(&cp->cline->update)) {
@@ -470,7 +470,7 @@ con3270_cline_end(struct con3270 *cp)
 }
 
 /*
-                                     
+ * Write a string to the 3270 console
  */
 static void
 con3270_write(struct console *co, const char *str, unsigned int count)
@@ -490,7 +490,7 @@ con3270_write(struct console *co, const char *str, unsigned int count)
 		if (c == '\n' || cp->cline->len >= cp->view.cols)
 			con3270_cline_end(cp);
 	}
-	/*                                                                */
+	/* Setup timer to output current console buffer after 1/10 second */
 	cp->nr_up = 0;
 	if (cp->view.dev && !timer_pending(&cp->timer))
 		con3270_set_timer(cp, HZ/10);
@@ -505,7 +505,7 @@ con3270_device(struct console *c, int *index)
 }
 
 /*
-                                 
+ * Wait for end of write request.
  */
 static void
 con3270_wait_write(struct con3270 *cp)
@@ -517,8 +517,8 @@ con3270_wait_write(struct con3270 *cp)
 }
 
 /*
-                                                       
-                                                     
+ * panic() calls con3270_flush through a panic_notifier
+ * before the system enters a disabled, endless loop.
  */
 static void
 con3270_flush(void)
@@ -562,7 +562,7 @@ static struct notifier_block on_reboot_nb = {
 };
 
 /*
-                                              
+ *  The console structure for the 3270 console
  */
 static struct console con3270 = {
 	.name	 = "tty3270",
@@ -572,7 +572,7 @@ static struct console con3270 = {
 };
 
 /*
-                                                               
+ * 3270 console initialization code called from console_init().
  */
 static int __init
 con3270_init(void)
@@ -582,11 +582,11 @@ con3270_init(void)
 	void *cbuf;
 	int i;
 
-	/*                                    */
+	/* Check if 3270 is to be the console */
 	if (!CONSOLE_IS_3270)
 		return -ENODEV;
 
-	/*                             */
+	/* Set the console mode for VM */
 	if (MACHINE_IS_VM) {
 		cpcmd("TERM CONMODE 3270", NULL, 0, NULL);
 		cpcmd("TERM AUTOCR OFF", NULL, 0, NULL);

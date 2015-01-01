@@ -35,10 +35,10 @@
 
 #include "mpc85xx.h"
 
-/*                                                        */
-#define MPC85xx_L2CTL_L2E		0x80000000 /*           */
-#define MPC85xx_L2CTL_L2I		0x40000000 /*                     */
-#define MPC85xx_L2CTL_L2SIZ_MASK	0x30000000 /*                    */
+/* A few bit definitions needed for fixups on some boards */
+#define MPC85xx_L2CTL_L2E		0x80000000 /* L2 enable */
+#define MPC85xx_L2CTL_L2I		0x40000000 /* L2 flash invalidate */
+#define MPC85xx_L2CTL_L2SIZ_MASK	0x30000000 /* L2 SRAM size (R/O) */
 
 void __init xes_mpc85xx_pic_init(void)
 {
@@ -56,18 +56,18 @@ static void xes_mpc85xx_configure_l2(void __iomem *l2_base)
 	tmp = in_be32(l2_base);
 
 	/*
-                                                                  
-                                          
-  */
+	 * xMon may have enabled part of L2 as SRAM, so we need to set it
+	 * up for all cache mode just to be safe.
+	 */
 	printk(KERN_INFO "xes_mpc85xx: Enabling L2 as cache\n");
 
 	ctl = MPC85xx_L2CTL_L2E | MPC85xx_L2CTL_L2I;
 	if (of_machine_is_compatible("MPC8540") ||
 	    of_machine_is_compatible("MPC8560"))
 		/*
-                                                   
-                                                  
-   */
+		 * Assume L2 SRAM is used fully for cache, so set
+		 * L2BLKSZ (bits 4:5) to match L2SIZ (bits 2:3).
+		 */
 		ctl |= (tmp & MPC85xx_L2CTL_L2SIZ_MASK) >> 2;
 
 	asm volatile("msync; isync");
@@ -81,14 +81,14 @@ static void xes_mpc85xx_fixups(void)
 	int err;
 
 	/*
-                                                               
-                                                         
-  */
+	 * Legacy xMon firmware on some X-ES boards does not enable L2
+	 * as cache.  We must ensure that they get enabled here.
+	 */
 	for_each_node_by_name(np, "l2-cache-controller") {
 		struct resource r[2];
 		void __iomem *l2_base;
 
-		/*                                                        */
+		/* Only MPC8548, MPC8540, and MPC8560 boards are affected */
 		if (!of_device_is_compatible(np,
 				    "fsl,mpc8548-l2-cache-controller") &&
 		    !of_device_is_compatible(np,
@@ -116,7 +116,7 @@ static int primary_phb_addr;
 #endif
 
 /*
-                         
+ * Setup the architecture
  */
 static void __init xes_mpc85xx_setup_arch(void)
 {
@@ -159,7 +159,7 @@ machine_device_initcall(xes_mpc8548, mpc85xx_common_publish_devices);
 machine_device_initcall(xes_mpc8540, mpc85xx_common_publish_devices);
 
 /*
-                                                   
+ * Called very early, device-tree isn't unflattened
  */
 static int __init xes_mpc8572_probe(void)
 {

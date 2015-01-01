@@ -19,9 +19,9 @@
 #define OMAP_MPU_TIMER_OFFSET	0x100
 
 typedef struct {
-	u32 cntl;			/*                 */
-	u32 load_tim;			/*               */
-	u32 read_tim;			/*               */
+	u32 cntl;			/* CNTL_TIMER, R/W */
+	u32 load_tim;			/* LOAD_TIM,   W */
+	u32 read_tim;			/* READ_TIM,   R */
 } xip_omap_mpu_timer_regs_t;
 
 #define xip_omap_mpu_timer_base(n)					\
@@ -39,8 +39,8 @@ static inline unsigned long xip_omap_mpu_timer_read(int nr)
 #define xip_currtime()		(~xip_omap_mpu_timer_read(0))
 
 /*
-                                                                
-                        
+ * It's permitted to do approxmation for xip_elapsed_since macro
+ * (see linux/mtd/xip.h)
  */
 
 #ifdef CONFIG_MACH_OMAP_PERSEUS2
@@ -50,12 +50,12 @@ static inline unsigned long xip_omap_mpu_timer_read(int nr)
 #endif
 
 /*
-                                                                       
-                                                                        
-                                                                          
-                                                            
+ * xip_cpu_idle() is used when waiting for a delay equal or larger than
+ * the system timer tick period.  This should put the CPU into idle mode
+ * to save power and to be woken up only when some interrupts are pending.
+ * As above, this should not rely upon standard kernel code.
  */
 
 #define xip_cpu_idle()  asm volatile ("mcr p15, 0, %0, c7, c0, 4" :: "r" (1))
 
-#endif /*                         */
+#endif /* __ARCH_OMAP_MTD_XIP_H__ */

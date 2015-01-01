@@ -31,40 +31,40 @@ void _raid_page_free(struct page *p)
 	__free_page(p);
 }
 
-/*                                                                        
-                                                                     
-  
-                                                                          
-                                                                        
-                                                                            
-       
+/* This struct is forward declare in ore_io_state, but is private to here.
+ * It is put on ios->sp2d for RAID5/6 writes only. See _gen_xor_unit.
+ *
+ * __stripe_pages_2d is a 2d array of pages, and it is also a corner turn.
+ * Ascending page index access is sp2d(p-minor, c-major). But storage is
+ * sp2d[p-minor][c-major], so it can be properlly presented to the async-xor
+ * API.
  */
 struct __stripe_pages_2d {
-	/*                                           */
+	/* Cache some hot path repeated calculations */
 	unsigned parity;
 	unsigned data_devs;
 	unsigned pages_in_unit;
 
 	bool needed ;
 
-	/*                                                               */
+	/* Array size is pages_in_unit (layout->stripe_unit / PAGE_SIZE) */
 	struct __1_page_stripe {
 		bool alloc;
 		unsigned write_count;
 		struct async_submit_ctl submit;
 		struct dma_async_tx_descriptor *tx;
 
-		/*                                              */
+		/* The size of this array is data_devs + parity */
 		struct page **pages;
 		struct page **scribble;
-		/*                                             */
+		/* bool array, size of this array is data_devs */
 		char *page_is_read;
 	} _1p_stripes[];
 };
 
-/*                                                                      
-                                                                      
-              
+/* This can get bigger then a page. So support multiple page allocations
+ * _sp2d_free should be called even if _sp2d_alloc fails (by returning
+ * none-zero).
  */
 static int _sp2d_alloc(unsigned pages_in_unit, unsigned group_width,
 		       unsigned parity, struct __stripe_pages_2d **psp2d)
@@ -87,7 +87,7 @@ static int _sp2d_alloc(unsigned pages_in_unit, unsigned group_width,
 	const unsigned sizeof__a1pa = sizeof(_aab->__a1pa[0]);
 	unsigned num_a1pa, alloc_size, i;
 
-	/*                                                 */
+	/* FIXME: check these numbers in ore_verify_layout */
 	BUG_ON(sizeof(_aab->__asp2d) > PAGE_SIZE);
 	BUG_ON(sizeof__a1pa > PAGE_SIZE);
 
@@ -106,7 +106,7 @@ static int _sp2d_alloc(unsigned pages_in_unit, unsigned group_width,
 	}
 
 	sp2d = &_aab->__asp2d.sp2d;
-	*psp2d = sp2d; /*                                */
+	*psp2d = sp2d; /* From here Just call _sp2d_free */
 
 	__a1pa = _aab->__a1pa;
 	__a1pa_end = __a1pa + num_a1pa;
@@ -123,7 +123,7 @@ static int _sp2d_alloc(unsigned pages_in_unit, unsigned group_width,
 				return -ENOMEM;
 			}
 			__a1pa_end = __a1pa + num_a1pa;
-			/*                                                */
+			/* First *pages is marked for kfree of the buffer */
 			sp2d->_1p_stripes[i].alloc = true;
 		}
 
@@ -230,7 +230,7 @@ static void _gen_xor_unit(struct __stripe_pages_2d *sp2d)
 			NULL, NULL,
 			(addr_conv_t *)_1ps->scribble);
 
-		/*             */
+		/* TODO: raid6 */
 		_1ps->tx = async_xor(_1ps->pages[sp2d->data_devs], _1ps->pages,
 				     0, sp2d->data_devs, PAGE_SIZE,
 				     &_1ps->submit);
@@ -238,10 +238,10 @@ static void _gen_xor_unit(struct __stripe_pages_2d *sp2d)
 
 	for (p = 0; p < sp2d->pages_in_unit; p++) {
 		struct __1_page_stripe *_1ps = &sp2d->_1p_stripes[p];
-		/*                                                         
-                                                            
-           
-   */
+		/* NOTE: We wait for HW synchronously (I don't have such HW
+		 * to test with.) Is parallelism needed with today's multi
+		 * cores?
+		 */
 		async_tx_issue_pending(_1ps->tx);
 	}
 }
@@ -258,7 +258,7 @@ void _ore_add_stripe_page(struct __stripe_pages_2d *sp2d,
 	++_1ps->write_count;
 
 	si->cur_pg = (si->cur_pg + 1) % sp2d->pages_in_unit;
-	/*                                               */
+	/* si->cur_comp is advanced outside at main loop */
 }
 
 void _ore_add_sg_seg(struct ore_per_dev_state *per_dev, unsigned cur_len,
@@ -275,37 +275,37 @@ void _ore_add_sg_seg(struct ore_per_dev_state *per_dev, unsigned cur_len,
 	if (!per_dev->cur_sg) {
 		sge = per_dev->sglist;
 
-		/*                                   */
+		/* First time we prepare two entries */
 		if (per_dev->length) {
 			++per_dev->cur_sg;
 			sge->offset = per_dev->offset;
 			sge->len = per_dev->length;
 		} else {
-			/*                                                  
-                                                         
-                                                        
-                          
-    */
+			/* Here the parity is the first unit of this object.
+			 * This happens every time we reach a parity device on
+			 * the same stripe as the per_dev->offset. We need to
+			 * just skip this unit.
+			 */
 			per_dev->offset += cur_len;
 			return;
 		}
 	} else {
-		/*                       */
+		/* finalize the last one */
 		sge = &per_dev->sglist[per_dev->cur_sg - 1];
 		sge->len = per_dev->length - per_dev->last_sgs_total;
 	}
 
 	if (not_last) {
-		/*                             */
+		/* Partly prepare the next one */
 		struct osd_sg_entry *next_sge = sge + 1;
 
 		++per_dev->cur_sg;
 		next_sge->offset = sge->offset + sge->len + cur_len;
-		/*                                                       */
+		/* Save cur len so we know how mutch was added next time */
 		per_dev->last_sgs_total = per_dev->length;
 		next_sge->len = 0;
 	} else if (!sge->len) {
-		/*                                             */
+		/* Optimize for when the last unit is a parity */
 		--per_dev->cur_sg;
 	}
 }
@@ -314,9 +314,9 @@ static int _alloc_read_4_write(struct ore_io_state *ios)
 {
 	struct ore_layout *layout = ios->layout;
 	int ret;
-	/*                                                            
-                                               
-  */
+	/* We want to only read those pages not in cache so worst case
+	 * is a stripe populated with every other page
+	 */
 	unsigned sgs_per_dev = ios->sp2d->pages_in_unit + 2;
 
 	ret = _ore_get_io_state(layout, ios->oc,
@@ -325,8 +325,8 @@ static int _alloc_read_4_write(struct ore_io_state *ios)
 	return ret;
 }
 
-/*                                                                      
-                                                                 
+/* @si contains info of the to-be-inserted page. Update of @si should be
+ * maintained by caller. Specificaly si->dev, si->obj_offset, ...
  */
 static int _add_to_r4w(struct ore_io_state *ios, struct ore_striping_info *si,
 		       struct page *page, unsigned pg_len)
@@ -378,7 +378,7 @@ static int _add_to_r4w(struct ore_io_state *ios, struct ore_striping_info *si,
 	return 0;
 }
 
-/*                                               */
+/* read the beginning of an unaligned first page */
 static int _add_to_r4w_first_page(struct ore_io_state *ios, struct page *page)
 {
 	struct ore_striping_info si;
@@ -395,7 +395,7 @@ static int _add_to_r4w_first_page(struct ore_io_state *ios, struct page *page)
 	return _add_to_r4w(ios, &si, page, pg_len);
 }
 
-/*                                         */
+/* read the end of an incomplete last page */
 static int _add_to_r4w_last_page(struct ore_io_state *ios, u64 *offset)
 {
 	struct ore_striping_info si;
@@ -425,7 +425,7 @@ static void _mark_read4write_pages_uptodate(struct ore_io_state *ios, int ret)
 	struct bio_vec *bv;
 	unsigned i, d;
 
-	/*                               */
+	/* loop on all devices all pages */
 	for (d = 0; d < ios->numdevs; d++) {
 		struct bio *bio = ios->per_dev[d].bio;
 
@@ -442,24 +442,24 @@ static void _mark_read4write_pages_uptodate(struct ore_io_state *ios, int ret)
 	}
 }
 
-/*                                                                    
-                                                                             
-                                                                               
-                               
-  
-                                                                               
-                                                    
-                                                                 
-                                                                           
-                                                                      
-  
-                                                                                
-                                                                 
-                                                                               
-                                                                    
-                                                                            
-                                                                   
-                                             
+/* read_4_write is hacked to read the start of the first stripe and/or
+ * the end of the last stripe. If needed, with an sg-gap at each device/page.
+ * It is assumed to be called after the to_be_written pages of the first stripe
+ * are populating ios->sp2d[][]
+ *
+ * NOTE: We call ios->r4w->lock_fn for all pages needed for parity calculations
+ * These pages are held at sp2d[p].pages[c] but with
+ * sp2d[p].page_is_read[c] = true. At _sp2d_reset these pages are
+ * ios->r4w->lock_fn(). The ios->r4w->lock_fn might signal that the page is
+ * @uptodate=true, so we don't need to read it, only unlock, after IO.
+ *
+ * TODO: The read_4_write should calc a need_to_read_pages_count, if bigger then
+ * to-be-written count, we should consider the xor-in-place mode.
+ * need_to_read_pages_count is the actual number of pages not present in cache.
+ * maybe "devs_in_group - ios->sp2d[p].write_count" is a good enough
+ * approximation? In this mode the read pages are put in the empty places of
+ * ios->sp2d[p][*], xor is calculated the same way. These pages are
+ * allocated/freed and don't go through cache
  */
 static int _read_4_write(struct ore_io_state *ios)
 {
@@ -472,7 +472,7 @@ static int _read_4_write(struct ore_io_state *ios)
 	unsigned i, c, p, min_p = sp2d->pages_in_unit, max_p = -1;
 	int ret;
 
-	if (offset == ios->offset) /*                          */
+	if (offset == ios->offset) /* Go to start collect $200 */
 		goto read_last_stripe;
 
 	min_p = _sp2d_min_pg(sp2d);
@@ -489,9 +489,9 @@ static int _read_4_write(struct ore_io_state *ios)
 
 			if (*pp) {
 				if (ios->offset % PAGE_SIZE)
-					/*                                */
+					/* Read the remainder of the page */
 					_add_to_r4w_first_page(ios, *pp);
-				/*                                */
+				/* to-be-written pages start here */
 				goto read_last_stripe;
 			}
 
@@ -503,7 +503,7 @@ static int _read_4_write(struct ore_io_state *ios)
 			if (!uptodate)
 				_add_to_r4w(ios, &read_si, *pp, PAGE_SIZE);
 
-			/*                                      */
+			/* Mark read-pages to be cache_released */
 			_1ps->page_is_read[c] = true;
 			read_si.obj_offset += PAGE_SIZE;
 			offset += PAGE_SIZE;
@@ -515,11 +515,11 @@ read_last_stripe:
 	offset = ios->offset + ios->length;
 	if (offset % PAGE_SIZE)
 		_add_to_r4w_last_page(ios, &offset);
-		/*                                     */
+		/* offset will be aligned to next page */
 
 	last_stripe_end = div_u64(offset + bytes_in_stripe - 1, bytes_in_stripe)
 				 * bytes_in_stripe;
-	if (offset == last_stripe_end) /*                               */
+	if (offset == last_stripe_end) /* Optimize for the aligned case */
 		goto read_it;
 
 	ore_calc_stripe_info(ios->layout, offset, 0, &read_si);
@@ -528,10 +528,10 @@ read_last_stripe:
 		       ios->layout->mirrors_p1, read_si.par_dev, read_si.dev);
 
 	BUG_ON(ios->si.first_stripe_start + bytes_in_stripe != last_stripe_end);
-	/*                                             */
+	/* unaligned IO must be within a single stripe */
 
 	if (min_p == sp2d->pages_in_unit) {
-		/*                  */
+		/* Didn't do it yet */
 		min_p = _sp2d_min_pg(sp2d);
 		max_p = _sp2d_max_pg(sp2d);
 	}
@@ -550,7 +550,7 @@ read_last_stripe:
 				return -ENOMEM;
 
 			_1ps->pages[c] = page;
-			/*                                      */
+			/* Mark read-pages to be cache_released */
 			_1ps->page_is_read[c] = true;
 			if (!uptodate)
 				_add_to_r4w(ios, &read_si, page, PAGE_SIZE);
@@ -572,19 +572,19 @@ read_it:
 	if (!ios_read)
 		return 0;
 
-	/*                                                                   
-                             
-  */
+	/* FIXME: Ugly to signal _sbi_read_mirror that we have bio(s). Change
+	 * to check for per_dev->bio
+	 */
 	ios_read->pages = ios->pages;
 
-	/*                        */
+	/* Now read these devices */
 	for (i = 0; i < ios_read->numdevs; i += ios_read->layout->mirrors_p1) {
 		ret = _ore_read_mirror(ios_read, i);
 		if (unlikely(ret))
 			return ret;
 	}
 
-	ret = ore_io_execute(ios_read); /*                      */
+	ret = ore_io_execute(ios_read); /* Synchronus execution */
 	if (unlikely(ret)) {
 		ORE_DBGMSG("!! ore_io_execute => %d\n", ret);
 		return ret;
@@ -594,7 +594,7 @@ read_it:
 	return 0;
 }
 
-/*                                                                            */
+/* In writes @cur_len means length left. .i.e cur_len==0 is the last parity U */
 int _ore_add_parity_unit(struct ore_io_state *ios,
 			    struct ore_striping_info *si,
 			    struct ore_per_dev_state *per_dev,
@@ -618,14 +618,14 @@ int _ore_add_parity_unit(struct ore_io_state *ios,
 		si->cur_pg = _sp2d_min_pg(sp2d);
 		num_pages  = _sp2d_max_pg(sp2d) + 1 - si->cur_pg;
 
-		if (!cur_len) /*                                       */
+		if (!cur_len) /* If last stripe operate on parity comp */
 			si->cur_comp = sp2d->data_devs;
 
 		if (!per_dev->length) {
 			per_dev->offset += si->cur_pg * PAGE_SIZE;
-			/*                                              
-                                                       
-    */
+			/* If first stripe, Read in all read4write pages
+			 * (if needed) before we calculate the first parity.
+			 */
 			_read_4_write(ios);
 		}
 
@@ -645,7 +645,7 @@ int _ore_add_parity_unit(struct ore_io_state *ios,
 		if (unlikely(ret))
 			return ret;
 
-		/*                                  */
+		/* TODO: raid6 if (last_parity_dev) */
 		_gen_xor_unit(sp2d);
 		_sp2d_reset(sp2d, ios->r4w, ios->private);
 	}
@@ -666,21 +666,21 @@ int _ore_post_alloc_raid_stuff(struct ore_io_state *ios)
 			return -ENOMEM;
 		}
 
-		/*                                  */
+		/* Round io down to last full strip */
 		first_stripe = div_u64(ios->offset, stripe_size);
 		last_stripe = div_u64(ios->offset + ios->length, stripe_size);
 
-		/*                                                        
-                                                                  
-             
-   */
+		/* If an IO spans more then a single stripe it must end at
+		 * a stripe boundary. The reminder at the end is pushed into the
+		 * next IO.
+		 */
 		if (last_stripe != first_stripe) {
 			ios->length = last_stripe * stripe_size - ios->offset;
 
 			BUG_ON(!ios->length);
 			ios->nr_pages = (ios->length + PAGE_SIZE - 1) /
 					PAGE_SIZE;
-			ios->si.length = ios->length; /*                   */
+			ios->si.length = ios->length; /*make it consistent */
 		}
 	}
 	return 0;
@@ -688,7 +688,7 @@ int _ore_post_alloc_raid_stuff(struct ore_io_state *ios)
 
 void _ore_free_raid_stuff(struct ore_io_state *ios)
 {
-	if (ios->sp2d) { /*                  */
+	if (ios->sp2d) { /* writing and raid */
 		unsigned i;
 
 		for (i = 0; i < ios->cur_par_page; i++) {
@@ -699,11 +699,11 @@ void _ore_free_raid_stuff(struct ore_io_state *ios)
 		}
 		if (ios->extra_part_alloc)
 			kfree(ios->parity_pages);
-		/*                                                    */
+		/* If IO returned an error pages might need unlocking */
 		_sp2d_reset(ios->sp2d, ios->r4w, ios->private);
 		_sp2d_free(ios->sp2d);
 	} else {
-		/*                                                   */
+		/* Will only be set if raid reading && sglist is big */
 		if (ios->extra_part_alloc)
 			kfree(ios->per_dev[0].sglist);
 	}

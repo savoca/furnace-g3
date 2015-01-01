@@ -1,9 +1,9 @@
 /*
-                   
-  
-                                                            
-                                                           
-                                                      
+ * builtin-report.c
+ *
+ * Builtin report command: Analyze the perf.data input file,
+ * look up and read DSOs and symbol information and display
+ * a histogram of results, along various sorting keys.
  */
 #include "builtin.h"
 
@@ -84,9 +84,9 @@ static int perf_report__add_branch_hist_entry(struct perf_tool *tool,
 		if (rep->hide_unresolved && !(bi[i].from.sym && bi[i].to.sym))
 			continue;
 		/*
-                                                               
-                                                              
-   */
+		 * The report shows the percentage of total branches captured
+		 * and not events sampled. Thus we use a pseudo period of 1.
+		 */
 		he = __hists__add_branch_entry(&evsel->hists, al, parent,
 				&bi[i], 1);
 		if (he) {
@@ -158,10 +158,10 @@ static int perf_evsel__add_hist_entry(struct perf_evsel *evsel,
 			return err;
 	}
 	/*
-                                                                
-                                                                  
-                         
-  */
+	 * Only in the newt browser we are doing integrated annotation,
+	 * so we don't allocated the extra space needed because the stdio
+	 * code will not use it.
+	 */
 	if (al->sym != NULL && use_browser > 0) {
 		struct annotation *notes = symbol__annotation(he->ms.sym);
 
@@ -434,17 +434,17 @@ static int __cmd_report(struct perf_report *rep)
 
 out_delete:
 	/*
-                                                       
-                       
-   
-                                                     
-                           
-   
-                                                       
-                      
-   
-                                   
-   */
+	 * Speed up the exit process, for large files this can
+	 * take quite a while.
+	 *
+	 * XXX Enable this when using valgrind or if we ever
+	 * librarize this command.
+	 *
+	 * Also experiment with obstacks to see how much speed
+	 * up we'll get here.
+	 *
+ 	 * perf_session__delete(session);
+ 	 */
 	return ret;
 }
 
@@ -456,8 +456,8 @@ parse_callchain_opt(const struct option *opt, const char *arg, int unset)
 	char *endptr;
 
 	/*
-                   
-  */
+	 * --no-call-graph
+	 */
 	if (unset) {
 		rep->dont_use_callchains = true;
 		return 0;
@@ -472,7 +472,7 @@ parse_callchain_opt(const struct option *opt, const char *arg, int unset)
 	if (!tok)
 		return -1;
 
-	/*                     */
+	/* get the output mode */
 	if (!strncmp(tok, "graph", strlen(arg)))
 		callchain_param.mode = CHAIN_GRAPH_ABS;
 
@@ -492,7 +492,7 @@ parse_callchain_opt(const struct option *opt, const char *arg, int unset)
 	else
 		return -1;
 
-	/*                        */
+	/* get the min percentage */
 	tok = strtok(NULL, ",");
 	if (!tok)
 		goto setup;
@@ -501,7 +501,7 @@ parse_callchain_opt(const struct option *opt, const char *arg, int unset)
 	if (tok == endptr)
 		return -1;
 
-	/*                     */
+	/* get the print limit */
 	tok2 = strtok(NULL, ",");
 	if (!tok2)
 		goto setup;
@@ -513,7 +513,7 @@ parse_callchain_opt(const struct option *opt, const char *arg, int unset)
 			goto setup;
 	}
 
-	/*                          */
+	/* get the call chain order */
 	if (!strcmp(tok2, "caller"))
 		callchain_param.order = ORDER_CALLER;
 	else if (!strcmp(tok2, "callee"))
@@ -668,12 +668,12 @@ int cmd_report(int argc, const char **argv, const char *prefix __used)
 	if (sort__branch_mode == -1 && has_br_stack)
 		sort__branch_mode = 1;
 
-	/*                                                   */
+	/* sort__branch_mode could be 0 if --no-branch-stack */
 	if (sort__branch_mode == 1) {
 		/*
-                                               
-                               
-   */
+		 * if no sort_order is provided, then specify
+		 * branch-mode specific order
+		 */
 		if (sort_order == default_sort_order)
 			sort_order = "comm,dso_from,symbol_from,"
 				     "dso_to,symbol_to";
@@ -690,25 +690,25 @@ int cmd_report(int argc, const char **argv, const char *prefix __used)
 	}
 
 	/*
-                                                                
-                                                                 
-                   
-  */
+	 * Only in the newt browser we are doing integrated annotation,
+	 * so don't allocate extra space that won't be used in the stdio
+	 * implementation.
+	 */
 	if (use_browser > 0) {
 		symbol_conf.priv_size = sizeof(struct annotation);
 		report.annotate_init  = symbol__annotate_init;
 		/*
-                                                        
-                                                        
-                         
-    */
+ 		 * For searching by name on the "Browse map details".
+ 		 * providing it only in verbose mode not to bloat too
+ 		 * much struct symbol.
+ 		 */
 		if (verbose) {
 			/*
-                                                       
-                                                        
-                     
-                                
-    */
+			 * XXX: Need to provide a less kludgy way to ask for
+			 * more space per symbol, the u32 is for the index on
+			 * the ui browser.
+			 * See symbol__browser_index.
+			 */
 			symbol_conf.priv_size += sizeof(u32);
 			symbol_conf.sort_by_name = true;
 		}
@@ -724,10 +724,10 @@ int cmd_report(int argc, const char **argv, const char *prefix __used)
 			goto error;
 
 		/*
-                                                 
-                                                   
-                                     
-   */
+		 * Only show the parent fields if we explicitly
+		 * sort that way. If we only use parent machinery
+		 * for filtering, we don't want it.
+		 */
 		if (!strstr(sort_order, "parent"))
 			sort_parent.elide = 1;
 	} else
@@ -735,9 +735,9 @@ int cmd_report(int argc, const char **argv, const char *prefix __used)
 
 	if (argc) {
 		/*
-                                                               
-                          
-   */
+		 * Special case: if there's an argument left then assume that
+		 * it's a symbol filter:
+		 */
 		if (argc > 1)
 			usage_with_options(report_usage, options);
 

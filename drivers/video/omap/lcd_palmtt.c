@@ -20,9 +20,9 @@
  */
 
 /*
-                  
-                        
-                        
+GPIO11 - backlight
+GPIO12 - screen blanking
+GPIO13 - screen blanking
 */
 
 #include <linux/platform_device.h>

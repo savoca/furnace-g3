@@ -33,12 +33,12 @@ void kunmap(struct page *page)
 EXPORT_SYMBOL(kunmap);
 
 /*
-                                                                             
-                                                                               
-                                         
-  
-                                                                          
-                                                          
+ * kmap_atomic/kunmap_atomic is significantly faster than kmap/kunmap because
+ * no global lock is needed and because the kmap code must perform a global TLB
+ * invalidation when the kmap pool wraps.
+ *
+ * However when holding an atomic kmap is is not legal to sleep, so atomic
+ * kmaps are appropriate for short, tight code paths only.
  */
 
 void *kmap_atomic(struct page *page)
@@ -46,7 +46,7 @@ void *kmap_atomic(struct page *page)
 	unsigned long vaddr;
 	int idx, type;
 
-	/*                                                                 */
+	/* even !CONFIG_PREEMPT needs this, for in_atomic in do_page_fault */
 	pagefault_disable();
 	if (!PageHighMem(page))
 		return page_address(page);
@@ -69,7 +69,7 @@ void __kunmap_atomic(void *kvaddr)
 	unsigned long vaddr = (unsigned long) kvaddr & PAGE_MASK;
 	int type;
 
-	if (vaddr < FIXADDR_START) { //      
+	if (vaddr < FIXADDR_START) { // FIXME
 		pagefault_enable();
 		return;
 	}
@@ -82,9 +82,9 @@ void __kunmap_atomic(void *kvaddr)
 		BUG_ON(vaddr != __fix_to_virt(FIX_KMAP_BEGIN + idx));
 
 		/*
-                                                          
-                                    
-   */
+		 * force other mappings to Oops if they'll try to access
+		 * this pte without first remap it
+		 */
 		pte_clear(&init_mm, vaddr, kmap_pte-idx);
 		local_flush_tlb_one(vaddr);
 	}
@@ -95,8 +95,8 @@ void __kunmap_atomic(void *kvaddr)
 EXPORT_SYMBOL(__kunmap_atomic);
 
 /*
-                                                                    
-                                         
+ * This is the same as kmap_atomic() but can map memory that doesn't
+ * have a struct page associated with it.
  */
 void *kmap_atomic_pfn(unsigned long pfn)
 {
@@ -131,7 +131,7 @@ void __init kmap_init(void)
 {
 	unsigned long kmap_vstart;
 
-	/*                          */
+	/* cache the first kmap pte */
 	kmap_vstart = __fix_to_virt(FIX_KMAP_BEGIN);
 	kmap_pte = kmap_get_fixmap_pte(kmap_vstart);
 }

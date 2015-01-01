@@ -27,15 +27,15 @@
 static int pio_mask = 1;
 
 /*
-                                                                          
-                            
+ * Provide our own set_mode() as we don't want to change anything that has
+ * already been configured..
  */
 static int pata_platform_set_mode(struct ata_link *link, struct ata_device **unused)
 {
 	struct ata_device *dev;
 
 	ata_for_each_dev(dev, link, ENABLED) {
-		/*                      */
+		/* We don't really care */
 		dev->pio_mode = dev->xfer_mode = XFER_PIO_0;
 		dev->xfer_shift = ATA_SHIFT_PIO;
 		dev->flags |= ATA_DFLAG_PIO;
@@ -58,7 +58,7 @@ static struct ata_port_operations pata_platform_port_ops = {
 static void pata_platform_setup_port(struct ata_ioports *ioaddr,
 				     unsigned int shift)
 {
-	/*                                                 */
+	/* Fixup the port shift for platforms that need it */
 	ioaddr->data_addr	= ioaddr->cmd_addr + (ATA_REG_DATA    << shift);
 	ioaddr->error_addr	= ioaddr->cmd_addr + (ATA_REG_ERR     << shift);
 	ioaddr->feature_addr	= ioaddr->cmd_addr + (ATA_REG_FEATURE << shift);
@@ -71,32 +71,32 @@ static void pata_platform_setup_port(struct ata_ioports *ioaddr,
 	ioaddr->command_addr	= ioaddr->cmd_addr + (ATA_REG_CMD     << shift);
 }
 
-/* 
-                                                       
-               
-                                          
-                                           
-                                                    
-                                
-                        
-  
-                                                                        
-                                     
-  
-                                                                          
-  
-                                                
-                                                
-  
-                  
-  
-                             
-  
-                                                                     
-                                                                  
-             
-  
-                                                                   
+/**
+ *	__pata_platform_probe		-	attach a platform interface
+ *	@dev: device
+ *	@io_res: Resource representing I/O base
+ *	@ctl_res: Resource representing CTL base
+ *	@irq_res: Resource representing IRQ and its flags
+ *	@ioport_shift: I/O port shift
+ *	@__pio_mask: PIO mask
+ *
+ *	Register a platform bus IDE interface. Such interfaces are PIO and we
+ *	assume do not support IRQ sharing.
+ *
+ *	Platform devices are expected to contain at least 2 resources per port:
+ *
+ *		- I/O Base (IORESOURCE_IO or IORESOURCE_MEM)
+ *		- CTL Base (IORESOURCE_IO or IORESOURCE_MEM)
+ *
+ *	and optionally:
+ *
+ *		- IRQ	   (IORESOURCE_IRQ)
+ *
+ *	If the base resources are both mem types, the ioremap() is handled
+ *	here. For IORESOURCE_IO, it's assumed that there's no remapping
+ *	necessary.
+ *
+ *	If no IRQ resource is present, PIO polling mode is used instead.
  */
 int __devinit __pata_platform_probe(struct device *dev,
 				    struct resource *io_res,
@@ -112,22 +112,22 @@ int __devinit __pata_platform_probe(struct device *dev,
 	int irq_flags = 0;
 
 	/*
-                  
-  */
+	 * Check for MMIO
+	 */
 	mmio = (( io_res->flags == IORESOURCE_MEM) &&
 		(ctl_res->flags == IORESOURCE_MEM));
 
 	/*
-               
-  */
+	 * And the IRQ
+	 */
 	if (irq_res && irq_res->start > 0) {
 		irq = irq_res->start;
 		irq_flags = irq_res->flags;
 	}
 
 	/*
-                                                      
-  */
+	 * Now that that's out of the way, wire up the port..
+	 */
 	host = ata_host_alloc(dev, 1);
 	if (!host)
 		return -ENOMEM;
@@ -138,16 +138,16 @@ int __devinit __pata_platform_probe(struct device *dev,
 	ap->flags |= ATA_FLAG_SLAVE_POSS;
 
 	/*
-                                      
-  */
+	 * Use polling mode if there's no IRQ
+	 */
 	if (!irq) {
 		ap->flags |= ATA_FLAG_PIO_POLLING;
 		ata_port_desc(ap, "no IRQ, using PIO polling");
 	}
 
 	/*
-                        
-  */
+	 * Handle the MMIO case
+	 */
 	if (mmio) {
 		ap->ioaddr.cmd_addr = devm_ioremap(dev, io_res->start,
 				resource_size(io_res));
@@ -172,18 +172,18 @@ int __devinit __pata_platform_probe(struct device *dev,
 		      (unsigned long long)io_res->start,
 		      (unsigned long long)ctl_res->start);
 
-	/*          */
+	/* activate */
 	return ata_host_activate(host, irq, irq ? ata_sff_interrupt : NULL,
 				 irq_flags, &pata_platform_sht);
 }
 EXPORT_SYMBOL_GPL(__pata_platform_probe);
 
-/* 
-                                                        
-               
-  
-                                                                   
-                                                                
+/**
+ *	__pata_platform_remove		-	unplug a platform interface
+ *	@dev: device
+ *
+ *	A platform bus ATA device has been unplugged. Perform the needed
+ *	cleanup. Also called on module unload for any active devices.
  */
 int __pata_platform_remove(struct device *dev)
 {
@@ -203,16 +203,16 @@ static int __devinit pata_platform_probe(struct platform_device *pdev)
 	struct pata_platform_info *pp_info = pdev->dev.platform_data;
 
 	/*
-                                 
-  */
+	 * Simple resource validation ..
+	 */
 	if ((pdev->num_resources != 3) && (pdev->num_resources != 2)) {
 		dev_err(&pdev->dev, "invalid number of resources\n");
 		return -EINVAL;
 	}
 
 	/*
-                          
-  */
+	 * Get the I/O base first
+	 */
 	io_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 	if (io_res == NULL) {
 		io_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -221,8 +221,8 @@ static int __devinit pata_platform_probe(struct platform_device *pdev)
 	}
 
 	/*
-                     
-  */
+	 * Then the CTL base
+	 */
 	ctl_res = platform_get_resource(pdev, IORESOURCE_IO, 1);
 	if (ctl_res == NULL) {
 		ctl_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
@@ -231,8 +231,8 @@ static int __devinit pata_platform_probe(struct platform_device *pdev)
 	}
 
 	/*
-               
-  */
+	 * And the IRQ
+	 */
 	irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (irq_res)
 		irq_res->flags = pp_info ? pp_info->irq_flags : 0;

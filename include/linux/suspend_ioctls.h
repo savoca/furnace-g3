@@ -3,9 +3,9 @@
 
 #include <linux/types.h>
 /*
-                                                                          
-                                                                  
-                               
+ * This structure is used to pass the values needed for the identification
+ * of the resume swap area from a user space to the kernel via the
+ * SNAPSHOT_SET_SWAP_AREA ioctl
  */
 struct resume_swap_area {
 	__kernel_loff_t offset;
@@ -30,4 +30,4 @@ struct resume_swap_area {
 #define SNAPSHOT_ALLOC_SWAP_PAGE	_IOR(SNAPSHOT_IOC_MAGIC, 20, __kernel_loff_t)
 #define SNAPSHOT_IOC_MAXNR	20
 
-#endif /*                         */
+#endif /* _LINUX_SUSPEND_IOCTLS_H */

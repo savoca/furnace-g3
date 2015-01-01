@@ -76,9 +76,9 @@ static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
 
-/*                                  */
+/* Download mode master kill-switch */
 static int dload_set(const char *val, struct kernel_param *kp);
-static int download_mode = 1;
+static int download_mode = 0;
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
 static int panic_prep_restart(struct notifier_block *this,
@@ -120,8 +120,8 @@ static void enable_emergency_dload_mode(void)
 				emergency_dload_mode_addr +
 				(2 * sizeof(unsigned int)));
 
-		/*                                                         
-                          */
+		/* Need disable the pmic wdt, then the emergency dload mode
+		 * will not auto reset. */
 		qpnp_pon_wd_config(0);
 		mb();
 	}
@@ -137,7 +137,7 @@ static int dload_set(const char *val, struct kernel_param *kp)
 	if (ret)
 		return ret;
 
-	/*                                              */
+	/* If download_mode is not zero or one, ignore. */
 	if (download_mode >> 1) {
 		download_mode = old_val;
 		return -EINVAL;
@@ -174,10 +174,10 @@ EXPORT_SYMBOL(msm_set_restart_mode);
 
 static bool scm_pmic_arbiter_disable_supported;
 /*
-                                                                            
-                                                                            
-                                                                           
-                       
+ * Force the SPMI PMIC arbiter to shutdown so that no more SPMI transactions
+ * are sent from the MSM to the PMIC.  This is required in order to avoid an
+ * SPMI lockup on certain PMIC chips if PS_HOLD is lowered in the middle of
+ * an SPMI transaction.
  */
 static void halt_spmi_pmic_arbiter(void)
 {
@@ -212,7 +212,7 @@ static void __msm_power_off(int lower_pshold)
 
 static void msm_power_off(void)
 {
-	/*                                        */
+	/* MSM initiated power off, lower ps_hold */
 	__msm_power_off(1);
 }
 
@@ -224,14 +224,14 @@ static void cpu_power_off(void *data)
 						smp_processor_id());
 	if (smp_processor_id() == 0) {
 		/*
-                                                              
-                  
-   */
+		 * PMIC initiated power off, do not lower ps_hold, pmic will
+		 * shut msm down
+		 */
 		__msm_power_off(0);
 
 		pet_watchdog();
 		pr_err("Calling scm to disable arbiter\n");
-		/*                                                         */
+		/* call secure manager to disable arbiter and never return */
 		rc = scm_call_atomic1(SCM_SVC_PWR,
 						SCM_IO_DISABLE_PMIC_ARBITER, 1);
 
@@ -261,26 +261,26 @@ static void msm_restart_prepare(const char *cmd)
 {
 #ifdef CONFIG_MSM_DLOAD_MODE
 
-	/*                                                */
+	/* This looks like a normal reboot at this point. */
 	set_dload_mode(0);
 
-	/*                                              */
+	/* Write download mode flags if we're panic'ing */
 	set_dload_mode(in_panic);
 
 #ifndef CONFIG_LGE_HANDLE_PANIC
-	/*                                                   */
+	/* Write download mode flags if restart_mode says so */
 	if (restart_mode == RESTART_DLOAD)
 		set_dload_mode(1);
 #endif
 
-	/*                                                 */
+	/* Kill download mode if master-kill switch is set */
 	if (!download_mode)
 		set_dload_mode(0);
 #endif
 
 	pm8xxx_reset_pwr_off(1);
 
-	/*                                                                */
+	/* Hard reset the PMIC unless memory contents must be maintained. */
 #ifdef CONFIG_MACH_LGE
 	/*                                                                          */
 	if (true || get_dload_mode() || (cmd != NULL && cmd[0] != '\0'))
@@ -336,7 +336,7 @@ void msm_restart(char mode, const char *cmd)
 		if (!(machine_is_msm8x60_fusion() ||
 		      machine_is_msm8x60_fusn_ffa())) {
 			mb();
-			 /*                         */
+			 /* Actually reset the chip */
 			__raw_writel(0, PSHOLD_CTL_SU);
 			mdelay(5000);
 			pr_notice("PS_HOLD didn't work, falling back to watchdog\n");
@@ -347,7 +347,7 @@ void msm_restart(char mode, const char *cmd)
 		__raw_writel(0x31F3, msm_tmr0_base + WDT0_BITE_TIME);
 		__raw_writel(1, msm_tmr0_base + WDT0_EN);
 	} else {
-		/*                                            */
+		/* Needed to bypass debug image on some chips */
 		msm_disable_wdog_debug();
 		halt_spmi_pmic_arbiter();
 		__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
@@ -382,8 +382,8 @@ late_initcall(msm_pmic_restart_init);
 static int __init msm_restart_init(void)
 {
 #ifdef CONFIG_LGE_HANDLE_PANIC
-	/*                                        
-                                              */
+	/* Set default restart_reason to TZ crash.
+	 * If can't be set explicit, it causes by TZ */
 	lge_set_restart_reason(LGE_RB_MAGIC | LGE_ERR_TZ);
 	if (lge_get_laf_mode() == LGE_LAF_MODE_LAF)
 		download_mode = 1;

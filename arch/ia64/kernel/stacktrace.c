@@ -1,8 +1,8 @@
 /*
-                                
-  
-                                   
-  
+ * arch/ia64/kernel/stacktrace.c
+ *
+ * Stack trace management functions
+ *
  */
 #include <linux/sched.h>
 #include <linux/stacktrace.h>
@@ -30,7 +30,7 @@ ia64_do_save_stack(struct unw_frame_info *info, void *arg)
 }
 
 /*
-                                                            
+ * Save stack-backtrace addresses into a stack_trace buffer.
  */
 void save_stack_trace(struct stack_trace *trace)
 {

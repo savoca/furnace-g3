@@ -45,9 +45,9 @@ static inline void __flush_cache_all(void)
 }
 
 /*
-                                                                      
-                                                                        
-                                                                
+ * Some ColdFire parts implement separate instruction and data caches,
+ * on those we should just flush the appropriate cache. If we don't need
+ * to do any specific flushing then this will be optimized away.
  */
 static inline void __flush_icache_all(void)
 {
@@ -72,8 +72,8 @@ static inline void __flush_dcache_all(void)
 		"nop\n\t"
 		: : "i" (CACHE_INVALIDATED) : "d0" );
 #else
-	/*                         */
+	/* Flush the wrtite buffer */
 	__asm__ __volatile__ ( "nop" );
 #endif
 }
-#endif /*                         */
+#endif /* _M68KNOMMU_CACHEFLUSH_H */

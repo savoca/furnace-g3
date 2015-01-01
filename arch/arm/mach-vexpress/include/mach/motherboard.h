@@ -2,7 +2,7 @@
 #define __MACH_MOTHERBOARD_H
 
 /*
-                                               
+ * Physical addresses, offset from V2M_PA_CS0-3
  */
 #define V2M_NOR0		(V2M_PA_CS0)
 #define V2M_NOR1		(V2M_PA_CS1)
@@ -12,7 +12,7 @@
 #define V2M_ISP1761		(V2M_PA_CS3 + 0x03000000)
 
 /*
-                                             
+ * Physical addresses, offset from V2M_PA_CS7
  */
 #define V2M_SYSREGS		(V2M_PA_CS7 + 0x00000000)
 #define V2M_SYSCTL		(V2M_PA_CS7 + 0x00001000)
@@ -40,7 +40,7 @@
 #define V2M_CLCD		(V2M_PA_CS7 + 0x0001f000)
 
 /*
-                            
+ * Offsets from SYSREGS base
  */
 #define V2M_SYS_ID		0x000
 #define V2M_SYS_SW		0x004
@@ -66,7 +66,7 @@
 
 
 /*
-                                                
+ * Interrupts.  Those in {} are for AMBA devices
  */
 #define IRQ_V2M_WDT		{ (32 + 0) }
 #define IRQ_V2M_TIMER0		(32 + 2)
@@ -89,7 +89,7 @@
 
 
 /*
-                
+ * Configuration
  */
 #define SYS_CFG_START		(1 << 31)
 #define SYS_CFG_WRITE		(1 << 30)
@@ -117,13 +117,13 @@ int v2m_cfg_read(u32 devfn, u32 *data);
 void v2m_flags_set(u32 data);
 
 /*
-                
+ * Miscellaneous
  */
 #define SYS_MISC_MASTERSITE	(1 << 14)
 #define SYS_PROCIDx_HBI_MASK	0xfff
 
 /*
-                
+ * Core tile IDs
  */
 #define V2M_CT_ID_CA9		0x0c000191
 #define V2M_CT_ID_UNSUPPORTED	0xff000191

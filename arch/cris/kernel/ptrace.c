@@ -24,8 +24,8 @@
 #include <asm/processor.h>
 
 
-/*                                               
-                                             
+/* notification of userspace execution resumption
+ * - triggered by current->work.notify_resume
  */
 extern int do_signal(int canrestart, struct pt_regs *regs);
 
@@ -33,7 +33,7 @@ extern int do_signal(int canrestart, struct pt_regs *regs);
 void do_notify_resume(int canrestart, struct pt_regs *regs,
 		      __u32 thread_info_flags)
 {
-	/*                                   */
+	/* deal with pending signal delivery */
 	if (thread_info_flags & _TIF_SIGPENDING)
 		do_signal(canrestart,regs);
 

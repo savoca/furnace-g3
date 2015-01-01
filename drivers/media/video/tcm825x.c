@@ -33,8 +33,8 @@
 #include "tcm825x.h"
 
 /*
-                                                                      
-                                      
+ * The sensor has two fps modes: the lower one just gives half the fps
+ * at the same xclk than the high one.
  */
 #define MAX_FPS 30
 #define MIN_FPS 8
@@ -50,22 +50,22 @@ struct tcm825x_sensor {
 	struct v4l2_fract timeperframe;
 };
 
-/*                                                   */
+/* list of image formats supported by TCM825X sensor */
 static const struct v4l2_fmtdesc tcm825x_formats[] = {
 	{
 		.description = "YUYV (YUV 4:2:2), packed",
 		.pixelformat = V4L2_PIX_FMT_UYVY,
 	}, {
-		/*                               
-    
-                                          
-                                                           
-    
-                            
-    
-                                          
-                                                           
-   */
+		/* Note:  V4L2 defines RGB565 as:
+		 *
+		 *      Byte 0                    Byte 1
+		 *      g2 g1 g0 r4 r3 r2 r1 r0   b4 b3 b2 b1 b0 g5 g4 g3
+		 *
+		 * We interpret RGB565 as:
+		 *
+		 *      Byte 0                    Byte 1
+		 *      g2 g1 g0 b4 b3 b2 b1 b0   r4 r3 r2 r1 r0 g5 g4 g3
+		 */
 		.description = "RGB565, le",
 		.pixelformat = V4L2_PIX_FMT_RGB565,
 	},
@@ -74,8 +74,8 @@ static const struct v4l2_fmtdesc tcm825x_formats[] = {
 #define TCM825X_NUM_CAPTURE_FORMATS	ARRAY_SIZE(tcm825x_formats)
 
 /*
-                                                                          
-             
+ * TCM825X register configuration for all combinations of pixel format and
+ * image size
  */
 static const struct tcm825x_reg subqcif	=	{ 0x20, TCM825X_PICSIZ };
 static const struct tcm825x_reg qcif	=	{ 0x18, TCM825X_PICSIZ };
@@ -87,7 +87,7 @@ static const struct tcm825x_reg vga	=	{ 0x00, TCM825X_PICSIZ };
 static const struct tcm825x_reg yuv422	=	{ 0x00, TCM825X_PICFMT };
 static const struct tcm825x_reg rgb565	=	{ 0x02, TCM825X_PICFMT };
 
-/*                           */
+/* Our own specific controls */
 #define V4L2_CID_ALC				V4L2_CID_PRIVATE_BASE
 #define V4L2_CID_H_EDGE_EN			V4L2_CID_PRIVATE_BASE + 1
 #define V4L2_CID_V_EDGE_EN			V4L2_CID_PRIVATE_BASE + 2
@@ -95,7 +95,7 @@ static const struct tcm825x_reg rgb565	=	{ 0x02, TCM825X_PICFMT };
 #define V4L2_CID_MAX_EXPOSURE_TIME		V4L2_CID_PRIVATE_BASE + 4
 #define V4L2_CID_LAST_PRIV			V4L2_CID_MAX_EXPOSURE_TIME
 
-/*                  */
+/*  Video controls  */
 static struct vcontrol {
 	struct v4l2_queryctrl qc;
 	u16 reg;
@@ -185,7 +185,7 @@ static struct vcontrol {
 		.reg = TCM825X_V_INV,
 		.start_bit = 7,
 	},
-	/*                  */
+	/* Private controls */
 	{
 		{
 			.id = V4L2_CID_ALC,
@@ -256,9 +256,9 @@ static const struct tcm825x_reg *tcm825x_fmt_reg[NUM_PIXEL_FORMATS] =
 { &yuv422, &rgb565 };
 
 /*
-                                                                          
-                     
-                                                     
+ * Read a value from a register in an TCM825X sensor device.  The value is
+ * returned in 'val'.
+ * Returns zero if successful, or non-zero otherwise.
  */
 static int tcm825x_read_reg(struct i2c_client *client, int reg)
 {
@@ -287,8 +287,8 @@ static int tcm825x_read_reg(struct i2c_client *client, int reg)
 }
 
 /*
-                                                           
-                                                     
+ * Write a value to a register in an TCM825X sensor device.
+ * Returns zero if successful, or non-zero otherwise.
  */
 static int tcm825x_write_reg(struct i2c_client *client, u8 reg, u8 val)
 {
@@ -316,16 +316,16 @@ static int __tcm825x_write_reg_mask(struct i2c_client *client,
 {
 	int rc;
 
-	/*                                  */
+	/* need to do read - modify - write */
 	rc = tcm825x_read_reg(client, reg);
 	if (rc < 0)
 		return rc;
 
-	rc &= (~mask);	/*                       */
-	val &= mask;	/*                       */
+	rc &= (~mask);	/* Clear the masked bits */
+	val &= mask;	/* Enforce mask on value */
 	val |= rc;
 
-	/*                                     */
+	/* write the new value to the register */
 	rc = tcm825x_write_reg(client, reg, val);
 	if (rc)
 		return rc;
@@ -339,10 +339,10 @@ static int __tcm825x_write_reg_mask(struct i2c_client *client,
 
 
 /*
-                                          
-                                                            
-                                          
-                                                     
+ * Initialize a list of TCM825X registers.
+ * The list of registers is terminated by the pair of values
+ * { TCM825X_REG_TERM, TCM825X_VAL_TERM }.
+ * Returns zero if successful, or non-zero otherwise.
  */
 static int tcm825x_write_default_regs(struct i2c_client *client,
 				      const struct tcm825x_reg *reglist)
@@ -378,10 +378,10 @@ static struct vcontrol *find_vctrl(int id)
 }
 
 /*
-                                                                          
-                                                                          
-                                                                          
-                                            
+ * Find the best match for a requested image capture size.  The best match
+ * is chosen as the nearest match that has the same number or fewer pixels
+ * as the requested size, or the smallest image size if the requested size
+ * has fewer pixels than the smallest image.
  */
 static enum image_size tcm825x_find_size(struct v4l2_int_device *s,
 					 unsigned int width,
@@ -406,10 +406,10 @@ static enum image_size tcm825x_find_size(struct v4l2_int_device *s,
 }
 
 /*
-                                                                  
-                                                                     
-                                                                   
-                                           
+ * Configure the TCM825X for current image size, pixel format, and
+ * frame period. fper is the frame period (in seconds) expressed as a
+ * fraction. Returns zero if successful, or non-zero otherwise. The
+ * actual frame period is returned in fper.
  */
 static int tcm825x_configure(struct v4l2_int_device *s)
 {
@@ -422,13 +422,13 @@ static int tcm825x_configure(struct v4l2_int_device *s)
 	u32 tgt_fps;
 	u8 val;
 
-	/*                                */
+	/* common register initialization */
 	err = tcm825x_write_default_regs(
 		sensor->i2c_client, sensor->platform_data->default_regs());
 	if (err)
 		return err;
 
-	/*                      */
+	/* configure image size */
 	val = tcm825x_siz_reg[isize]->val;
 	dev_dbg(&sensor->i2c_client->dev,
 		"configuring image size %d\n", isize);
@@ -437,7 +437,7 @@ static int tcm825x_configure(struct v4l2_int_device *s)
 	if (err)
 		return err;
 
-	/*                        */
+	/* configure pixel format */
 	switch (pix->pixelformat) {
 	default:
 	case V4L2_PIX_FMT_RGB565:
@@ -458,9 +458,9 @@ static int tcm825x_configure(struct v4l2_int_device *s)
 		return err;
 
 	/*
-                                                               
-                                                   
-  */
+	 * For frame rate < 15, the FPS reg (addr 0x02, bit 7) must be
+	 * set. Frame rate will be halved from the normal.
+	 */
 	tgt_fps = fper->denominator / fper->numerator;
 	if (tgt_fps <= HIGH_FPS_MODE_LOWER_LIMIT) {
 		val = tcm825x_read_reg(sensor->i2c_client, 0x02);
@@ -494,7 +494,7 @@ static int ioctl_g_ctrl(struct v4l2_int_device *s,
 	int val, r;
 	struct vcontrol *lvc;
 
-	/*                                                     */
+	/* exposure time is special, spread across 2 registers */
 	if (vc->id == V4L2_CID_EXPOSURE) {
 		int val_lower, val_upper;
 
@@ -539,7 +539,7 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s,
 	struct vcontrol *lvc;
 	int val = vc->value;
 
-	/*                                                     */
+	/* exposure time is special, spread across 2 registers */
 	if (vc->id == V4L2_CID_EXPOSURE) {
 		int val_lower, val_upper;
 		val_lower = val & TCM825X_MASK(TCM825X_ESRSPD_L);
@@ -613,7 +613,7 @@ static int ioctl_try_fmt_cap(struct v4l2_int_device *s,
 			break;
 
 	if (ifmt == TCM825X_NUM_CAPTURE_FORMATS)
-		ifmt = 0;	/*                     */
+		ifmt = 0;	/* Default = YUV 4:2:2 */
 
 	pix->pixelformat = tcm825x_formats[ifmt].pixelformat;
 	pix->field = V4L2_FIELD_NONE;
@@ -687,7 +687,7 @@ static int ioctl_s_parm(struct v4l2_int_device *s,
 {
 	struct tcm825x_sensor *sensor = s->priv;
 	struct v4l2_fract *timeperframe = &a->parm.capture.timeperframe;
-	u32 tgt_fps;	/*                           */
+	u32 tgt_fps;	/* target frames per secound */
 	int rval;
 
 	if (a->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
@@ -724,19 +724,19 @@ static int ioctl_s_power(struct v4l2_int_device *s, int on)
 }
 
 /*
-                                                                     
-                                                       
-  
-                                               
-                                                                
+ * Given the image capture format in pix, the nominal frame period in
+ * timeperframe, calculate the required xclk frequency.
+ *
+ * TCM825X input frequency characteristics are:
+ *     Minimum 11.9 MHz, Typical 24.57 MHz and maximum 25/27 MHz
  */
 
 static int ioctl_g_ifparm(struct v4l2_int_device *s, struct v4l2_ifparm *p)
 {
 	struct tcm825x_sensor *sensor = s->priv;
 	struct v4l2_fract *timeperframe = &sensor->timeperframe;
-	u32 tgt_xclk;	/*             */
-	u32 tgt_fps;	/*                           */
+	u32 tgt_xclk;	/* target xclk */
+	u32 tgt_fps;	/* target frames per secound */
 	int rval;
 
 	rval = sensor->platform_data->ifparm(p);
@@ -866,7 +866,7 @@ static int tcm825x_probe(struct i2c_client *client,
 	sensor->i2c_client = client;
 	i2c_set_clientdata(client, sensor);
 
-	/*                                             */
+	/* Make the default capture format QVGA RGB565 */
 	sensor->pix.width = tcm825x_sizes[QVGA].width;
 	sensor->pix.height = tcm825x_sizes[QVGA].height;
 	sensor->pix.pixelformat = V4L2_PIX_FMT_RGB565;
@@ -879,7 +879,7 @@ static int tcm825x_remove(struct i2c_client *client)
 	struct tcm825x_sensor *sensor = i2c_get_clientdata(client);
 
 	if (!client->adapter)
-		return -ENODEV;	/*                           */
+		return -ENODEV;	/* our client isn't attached */
 
 	v4l2_int_device_unregister(sensor->v4l2_int_device);
 
@@ -926,8 +926,8 @@ static void __exit tcm825x_exit(void)
 }
 
 /*
-                                                               
-                         
+ * FIXME: Menelaus isn't ready (?) at module_init stage, so use
+ * late_initcall for now.
  */
 late_initcall(tcm825x_init);
 module_exit(tcm825x_exit);

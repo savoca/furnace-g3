@@ -66,7 +66,7 @@ static int pcr_modify(struct cmp_connection *c,
 				buffer, 8);
 
 		if (rcode == RCODE_COMPLETE) {
-			if (buffer[0] == old_arg) /*          */
+			if (buffer[0] == old_arg) /* success? */
 				break;
 
 			if (check) {
@@ -92,11 +92,11 @@ bus_reset:
 }
 
 
-/* 
-                                                         
-                                           
-                                     
-                                                          
+/**
+ * cmp_connection_init - initializes a connection manager
+ * @c: the connection manager to initialize
+ * @unit: a unit of the target device
+ * @ipcr_index: the index of the iPCR on the target device
  */
 int cmp_connection_init(struct cmp_connection *c,
 			struct fw_unit *unit,
@@ -132,9 +132,9 @@ int cmp_connection_init(struct cmp_connection *c,
 }
 EXPORT_SYMBOL(cmp_connection_init);
 
-/* 
-                                                             
-                             
+/**
+ * cmp_connection_destroy - free connection manager resources
+ * @c: the connection manager
  */
 void cmp_connection_destroy(struct cmp_connection *c)
 {
@@ -171,16 +171,16 @@ static int ipcr_set_check(struct cmp_connection *c, __be32 ipcr)
 	return 0;
 }
 
-/* 
-                                                                  
-                             
-                                                                            
-  
-                                                                       
-                                                                          
-                                                                              
-                                                                         
-           
+/**
+ * cmp_connection_establish - establish a connection to the target
+ * @c: the connection manager
+ * @max_payload_bytes: the amount of data (including CIP headers) per packet
+ *
+ * This function establishes a point-to-point connection from the local
+ * computer to the target by allocating isochronous resources (channel and
+ * bandwidth) and setting the target's input plug control register.  When this
+ * function succeeds, the caller is responsible for starting transmitting
+ * packets.
  */
 int cmp_connection_establish(struct cmp_connection *c,
 			     unsigned int max_payload_bytes)
@@ -225,15 +225,15 @@ err_mutex:
 }
 EXPORT_SYMBOL(cmp_connection_establish);
 
-/* 
-                                                                  
-                             
-  
-                                                                                
-                                              
-  
-                                                                       
-                                                                          
+/**
+ * cmp_connection_update - update the connection after a bus reset
+ * @c: the connection manager
+ *
+ * This function must be called from the driver's .update handler to reestablish
+ * any connection that might have been active.
+ *
+ * Returns zero on success, or a negative error code.  On an error, the
+ * connection is broken and the caller must stop transmitting iso packets.
  */
 int cmp_connection_update(struct cmp_connection *c)
 {
@@ -275,13 +275,13 @@ static __be32 ipcr_break_modify(struct cmp_connection *c, __be32 ipcr)
 	return ipcr & ~cpu_to_be32(IPCR_BCAST_CONN | IPCR_P2P_CONN_MASK);
 }
 
-/* 
-                                                            
-                             
-  
-                                                                            
-                                                                           
-                                                                       
+/**
+ * cmp_connection_break - break the connection to the target
+ * @c: the connection manager
+ *
+ * This function deactives the connection in the target's input plug control
+ * register, and frees the isochronous resources of the connection.  Before
+ * calling this function, the caller should cease transmitting packets.
  */
 void cmp_connection_break(struct cmp_connection *c)
 {

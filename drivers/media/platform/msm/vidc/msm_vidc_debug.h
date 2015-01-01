@@ -19,10 +19,10 @@
 
 #define VIDC_DBG_TAG "msm_vidc: %d: "
 
-/*                                       
-                                   
-  
-                                                  
+/* To enable messages OR these values and
+ * echo the result to debugfs file.
+ *
+ * To enable all messages set debug_level = 0x101F
  */
 
 enum vidc_msg_prio {

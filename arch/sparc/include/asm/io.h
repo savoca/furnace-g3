@@ -7,10 +7,10 @@
 #endif
 
 /*
-                                            
+ * Defines used for both SPARC32 and SPARC64
  */
 
-/*                                                   */
+/* Big endian versions of memory read/write routines */
 #define readb_be(__addr)	__raw_readb(__addr)
 #define readw_be(__addr)	__raw_readw(__addr)
 #define readl_be(__addr)	__raw_readl(__addr)

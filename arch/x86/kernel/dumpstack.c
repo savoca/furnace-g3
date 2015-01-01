@@ -66,10 +66,10 @@ print_ftrace_graph_addr(unsigned long addr, void *data,
 #endif
 
 /*
-                                             
-                
-                  
-                                                                               
+ * x86-64 can have up to three kernel stacks:
+ * process stack
+ * interrupt stack
+ * severe exception (double fault, nmi, stack fault, debug, mce) hardware stack
  */
 
 static inline int valid_stack_ptr(struct thread_info *tinfo,
@@ -145,7 +145,7 @@ static int print_trace_stack(void *data, char *name)
 }
 
 /*
-                                             
+ * Print one address/symbol entries per line.
  */
 static void print_trace_address(void *data, unsigned long addr, int reliable)
 {
@@ -180,7 +180,7 @@ void show_stack(struct task_struct *task, unsigned long *sp)
 }
 
 /*
-                                                    
+ * The architecture-independent dump_stack generator
  */
 void dump_stack(void)
 {
@@ -208,12 +208,12 @@ unsigned __kprobes long oops_begin(void)
 
 	oops_enter();
 
-	/*                                         */
+	/* racy, but better than risking deadlock. */
 	raw_local_irq_save(flags);
 	cpu = smp_processor_id();
 	if (!arch_spin_trylock(&die_lock)) {
 		if (cpu == die_owner)
-			/*                                     */;
+			/* nested oops. should stop eventually */;
 		else
 			arch_spin_lock(&die_lock);
 	}
@@ -235,7 +235,7 @@ void __kprobes oops_end(unsigned long flags, struct pt_regs *regs, int signr)
 	add_taint(TAINT_DIE);
 	die_nest_count--;
 	if (!die_nest_count)
-		/*                                            */
+		/* Nest count reaches zero, release the lock. */
 		arch_spin_unlock(&die_lock);
 	raw_local_irq_restore(flags);
 	oops_exit();
@@ -284,7 +284,7 @@ int __kprobes __die(const char *str, struct pt_regs *regs, long err)
 	print_symbol("%s", regs->ip);
 	printk(" SS:ESP %04x:%08lx\n", ss, sp);
 #else
-	/*                                                  */
+	/* Executive summary in case the oops scrolled away */
 	printk(KERN_ALERT "RIP ");
 	printk_address(regs->ip, 1);
 	printk(" RSP <%016lx>\n", regs->sp);
@@ -293,8 +293,8 @@ int __kprobes __die(const char *str, struct pt_regs *regs, long err)
 }
 
 /*
-                                                                           
-                                 
+ * This is gone through when something in the kernel has done something bad
+ * and is about to be terminated:
  */
 void die(const char *str, struct pt_regs *regs, long err)
 {

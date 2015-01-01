@@ -25,7 +25,7 @@
 #ifdef CONFIG_PPC_MMU_NOHASH
 
 /*
-                                                       
+ * On 40x and 8xx, we directly inline tlbia and tlbivax
  */
 #if defined(CONFIG_40x) || defined(CONFIG_8xx)
 static inline void _tlbil_all(void)
@@ -38,7 +38,7 @@ static inline void _tlbil_pid(unsigned int pid)
 }
 #define _tlbil_pid_noind(pid)	_tlbil_pid(pid)
 
-#else /*                          */
+#else /* CONFIG_40x || CONFIG_8xx */
 extern void _tlbil_all(void);
 extern void _tlbil_pid(unsigned int pid);
 #ifdef CONFIG_PPC_BOOK3E
@@ -46,10 +46,10 @@ extern void _tlbil_pid_noind(unsigned int pid);
 #else
 #define _tlbil_pid_noind(pid)	_tlbil_pid(pid)
 #endif
-#endif /*                             */
+#endif /* !(CONFIG_40x || CONFIG_8xx) */
 
 /*
-                                                           
+ * On 8xx, we directly inline tlbie, on others, it's extern
  */
 #ifdef CONFIG_8xx
 static inline void _tlbil_va(unsigned long address, unsigned int pid,
@@ -67,7 +67,7 @@ static inline void _tlbil_va(unsigned long address, unsigned int pid,
 {
 	__tlbil_va(address, pid);
 }
-#endif /*            */
+#endif /* CONIFG_8xx */
 
 #if defined(CONFIG_PPC_BOOK3E) || defined(CONFIG_PPC_47x)
 extern void _tlbivax_bcast(unsigned long address, unsigned int pid,
@@ -80,7 +80,7 @@ static inline void _tlbivax_bcast(unsigned long address, unsigned int pid,
 }
 #endif
 
-#else /*                       */
+#else /* CONFIG_PPC_MMU_NOHASH */
 
 extern void hash_preload(struct mm_struct *mm, unsigned long ea,
 			 unsigned long access, unsigned long trap);
@@ -89,7 +89,7 @@ extern void hash_preload(struct mm_struct *mm, unsigned long ea,
 extern void _tlbie(unsigned long address);
 extern void _tlbia(void);
 
-#endif /*                       */
+#endif /* CONFIG_PPC_MMU_NOHASH */
 
 #ifdef CONFIG_PPC32
 
@@ -107,11 +107,11 @@ struct hash_pte;
 extern struct hash_pte *Hash, *Hash_end;
 extern unsigned long Hash_size, Hash_mask;
 
-#endif /*              */
+#endif /* CONFIG_PPC32 */
 
 #ifdef CONFIG_PPC64
 extern int map_kernel_page(unsigned long ea, unsigned long pa, int flags);
-#endif /*              */
+#endif /* CONFIG_PPC64 */
 
 extern unsigned long ioremap_bot;
 extern unsigned long __max_low_memory;
@@ -129,8 +129,8 @@ extern unsigned long wii_mmu_mapin_mem2(unsigned long top);
 extern void wii_memory_fixups(void);
 #endif
 
-/*                                                                         
-                         
+/* ...and now those things that may be slightly different between processor
+ * architectures.  -- Dan
  */
 #if defined(CONFIG_8xx)
 #define MMU_init_hw()		do { } while(0)
@@ -159,7 +159,7 @@ struct tlbcam {
 	u32	MAS7;
 };
 #elif defined(CONFIG_PPC32)
-/*                                   */
+/* anything 32-bit except 4xx or 8xx */
 extern void MMU_init_hw(void);
 extern unsigned long mmu_mapin_ram(unsigned long top);
 #endif

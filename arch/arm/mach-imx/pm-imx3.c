@@ -15,9 +15,9 @@
 #include "crmregs-imx3.h"
 
 /*
-                                                                         
-                                                
-                                         
+ * Set cpu low power mode before WFI instruction. This function is called
+ * mx3 because it can be used for mx31 and mx35.
+ * Currently only WAIT_MODE is supported.
  */
 void mx3_cpu_lp_set(enum mx3_cpu_pwr_mode mode)
 {

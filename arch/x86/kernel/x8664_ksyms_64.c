@@ -1,5 +1,5 @@
-/*                            
-                                                      */
+/* Exports for assembly files.
+   All C exports should go in the respective C files. */
 
 #include <linux/module.h>
 #include <linux/smp.h>
@@ -13,7 +13,7 @@
 #include <asm/ftrace.h>
 
 #ifdef CONFIG_FUNCTION_TRACER
-/*                               */
+/* mcount is defined in assembly */
 EXPORT_SYMBOL(mcount);
 #endif
 
@@ -38,8 +38,8 @@ EXPORT_SYMBOL(clear_page);
 EXPORT_SYMBOL(csum_partial);
 
 /*
-                                                                              
-                                                
+ * Export string functions. We normally rely on gcc builtin for most of these,
+ * but gcc sometimes decides not to inline them.
  */
 #undef memcpy
 #undef memset

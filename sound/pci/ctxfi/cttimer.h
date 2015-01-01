@@ -1,5 +1,5 @@
 /*
-                 
+ * Timer handling
  */
 
 #ifndef __CTTIMER_H
@@ -26,4 +26,4 @@ void ct_timer_start(struct ct_timer_instance *ti);
 void ct_timer_stop(struct ct_timer_instance *ti);
 void ct_timer_prepare(struct ct_timer_instance *ti);
 
-#endif /*             */
+#endif /* __CTTIMER_H */

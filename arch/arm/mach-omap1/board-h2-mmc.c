@@ -46,9 +46,9 @@ static void mmc_cleanup(struct device *dev)
 }
 
 /*
-                                               
-                                                
-                                       
+ * H2 could use the following functions tested:
+ * - mmc_get_cover_state that uses OMAP_MPUIO(1)
+ * - mmc_get_wp that uses OMAP_MPUIO(3)
  */
 static struct omap_mmc_platform_data mmc1_data = {
 	.nr_slots                       = 1,

@@ -45,7 +45,7 @@ MODULE_SUPPORTED_DEVICE("{{ALSA,Dummy soundcard}}");
 #define MAX_PCM_SUBSTREAMS	128
 #define MAX_MIDI_DEVICES	2
 
-/*          */
+/* defaults */
 #define MAX_BUFFER_SIZE		(64*1024)
 #define MIN_PERIOD_SIZE		64
 #define MAX_PERIOD_SIZE		MAX_BUFFER_SIZE
@@ -58,13 +58,13 @@ MODULE_SUPPORTED_DEVICE("{{ALSA,Dummy soundcard}}");
 #define USE_PERIODS_MIN 	1
 #define USE_PERIODS_MAX 	1024
 
-static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;	/*             */
-static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;	/*                  */
+static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;	/* Index 0-MAX */
+static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;	/* ID for this card */
 static bool enable[SNDRV_CARDS] = {1, [1 ... (SNDRV_CARDS - 1)] = 0};
 static char *model[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = NULL};
 static int pcm_devs[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 1};
 static int pcm_substreams[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 8};
-//                                                                    
+//static int midi_devs[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS - 1)] = 2};
 #ifdef CONFIG_HIGH_RES_TIMERS
 static bool hrtimer = 1;
 #endif
@@ -82,8 +82,8 @@ module_param_array(pcm_devs, int, NULL, 0444);
 MODULE_PARM_DESC(pcm_devs, "PCM devices # (0-4) for dummy driver.");
 module_param_array(pcm_substreams, int, NULL, 0444);
 MODULE_PARM_DESC(pcm_substreams, "PCM substreams # (1-128) for dummy driver.");
-//                                               
-//                                                                      
+//module_param_array(midi_devs, int, NULL, 0444);
+//MODULE_PARM_DESC(midi_devs, "MIDI devices # (0-2) for dummy driver.");
 module_param(fake_buffer, bool, 0444);
 MODULE_PARM_DESC(fake_buffer, "Fake buffer allocations.");
 #ifdef CONFIG_HIGH_RES_TIMERS
@@ -138,7 +138,7 @@ struct snd_dummy {
 };
 
 /*
-              
+ * card models
  */
 
 static int emu10k1_playback_constraints(struct snd_pcm_runtime *runtime)
@@ -224,17 +224,17 @@ struct dummy_model *dummy_models[] = {
 };
 
 /*
-                         
+ * system timer interface
  */
 
 struct dummy_systimer_pcm {
 	spinlock_t lock;
 	struct timer_list timer;
 	unsigned long base_time;
-	unsigned int frac_pos;	/*                                       */
+	unsigned int frac_pos;	/* fractional sample position (based HZ) */
 	unsigned int frac_period_rest;
-	unsigned int frac_buffer_size;	/*                  */
-	unsigned int frac_period_size;	/*                  */
+	unsigned int frac_buffer_size;	/* buffer_size * HZ */
+	unsigned int frac_period_size;	/* period_size * HZ */
 	unsigned int rate;
 	int elapsed;
 	struct snd_pcm_substream *substream;
@@ -361,7 +361,7 @@ static struct dummy_timer_ops dummy_systimer_ops = {
 
 #ifdef CONFIG_HIGH_RES_TIMERS
 /*
-                    
+ * hrtimer interface
  */
 
 struct dummy_hrtimer_pcm {
@@ -483,10 +483,10 @@ static struct dummy_timer_ops dummy_hrtimer_ops = {
 	.pointer =	dummy_hrtimer_pointer,
 };
 
-#endif /*                        */
+#endif /* CONFIG_HIGH_RES_TIMERS */
 
 /*
-                
+ * PCM interface
  */
 
 static int dummy_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
@@ -541,7 +541,7 @@ static int dummy_pcm_hw_params(struct snd_pcm_substream *substream,
 			       struct snd_pcm_hw_params *hw_params)
 {
 	if (fake_buffer) {
-		/*                                                         */
+		/* runtime->dma_bytes has to be set manually to allow mmap */
 		substream->runtime->dma_bytes = params_buffer_bytes(hw_params);
 		return 0;
 	}
@@ -607,7 +607,7 @@ static int dummy_pcm_close(struct snd_pcm_substream *substream)
 }
 
 /*
-                        
+ * dummy buffer handling
  */
 
 static void *dummy_page[2];
@@ -644,20 +644,20 @@ static int dummy_pcm_copy(struct snd_pcm_substream *substream,
 			  int channel, snd_pcm_uframes_t pos,
 			  void __user *dst, snd_pcm_uframes_t count)
 {
-	return 0; /*            */
+	return 0; /* do nothing */
 }
 
 static int dummy_pcm_silence(struct snd_pcm_substream *substream,
 			     int channel, snd_pcm_uframes_t pos,
 			     snd_pcm_uframes_t count)
 {
-	return 0; /*            */
+	return 0; /* do nothing */
 }
 
 static struct page *dummy_pcm_page(struct snd_pcm_substream *substream,
 				   unsigned long offset)
 {
-	return virt_to_page(dummy_page[substream->stream]); /*               */
+	return virt_to_page(dummy_page[substream->stream]); /* the same page */
 }
 
 static struct snd_pcm_ops dummy_pcm_ops = {
@@ -716,7 +716,7 @@ static int __devinit snd_card_dummy_pcm(struct snd_dummy *dummy, int device,
 }
 
 /*
-                  
+ * mixer interface
  */
 
 #define DUMMY_VOLUME(xname, xindex, addr) \
@@ -849,7 +849,7 @@ static int __devinit snd_card_dummy_new_mixer(struct snd_dummy *dummy)
 
 #if defined(CONFIG_SND_DEBUG) && defined(CONFIG_PROC_FS)
 /*
-                 
+ * proc interface
  */
 static void print_formats(struct snd_dummy *dummy,
 			  struct snd_info_buffer *buffer)
@@ -975,7 +975,7 @@ static void __devinit dummy_proc_init(struct snd_dummy *chip)
 }
 #else
 #define dummy_proc_init(x)
-#endif /*                                    */
+#endif /* CONFIG_SND_DEBUG && CONFIG_PROC_FS */
 
 static int __devinit snd_dummy_probe(struct platform_device *devptr)
 {

@@ -1,10 +1,10 @@
 /*
-                
-  
+ *  felicagpio.c
+ *
  */
 
 /*
-                              
+ *    INCLUDE FILES FOR MODULE
  */
 #include <linux/gpio.h>
 
@@ -12,13 +12,13 @@
 
 
 
-/*                       */
-/*                          */
+/* Debug message feature */
+/* #define FELICA_DEBUG_MSG */
 
 /*
-               
-         
-          
+* Description :
+* Input :
+* Output :
 */
 int felica_gpio_open(int gpionum, int direction, int value)
 {
@@ -92,9 +92,9 @@ int felica_gpio_open(int gpionum, int direction, int value)
 }
 
 /*
-               
-         
-          
+* Description :
+* Input :
+* Output :
 */
 void felica_gpio_write(int gpionum, int value)
 {
@@ -102,22 +102,22 @@ void felica_gpio_write(int gpionum, int value)
 }
 
 /*
-               
-         
-          
+* Description :
+* Input :
+* Output :
 */
 int felica_gpio_read(int gpionum)
 {
   return gpio_get_value(gpionum);
 }
 /*
-               
-         
-          
+* Description :
+* Input :
+* Output :
 */
 int felica_get_rfs_gpio_num(void)
 {
-/*                                                                         */
+/* If it has different GPIO number each HW version, please use this route. */
 
   int gpionum = GPIO_FELICA_RFS;
 
@@ -147,13 +147,13 @@ int felica_get_rfs_gpio_num(void)
 }
 
 /*
-               
-         
-          
+* Description :
+* Input :
+* Output :
 */
 int felica_get_int_gpio_num(void)
 {
-/*                                                                         */	
+/* If it has different GPIO number each HW version, please use this route. */	
 #ifdef CONFIG_LGE_FELICA_NFC_DCM
   int gpionum = GPIO_FELICA_INT;
 

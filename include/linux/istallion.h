@@ -1,4 +1,4 @@
-/*                                                                           */
+/*****************************************************************************/
 
 /*
  *	istallion.h  -- stallion intelligent multiport serial driver.
@@ -21,13 +21,13 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-/*                                                                           */
+/*****************************************************************************/
 #ifndef	_ISTALLION_H
 #define	_ISTALLION_H
-/*                                                                           */
+/*****************************************************************************/
 
 /*
-                                          
+ *	Define important driver constants here.
  */
 #define	STL_MAXBRDS		4
 #define	STL_MAXPANELS		4
@@ -37,17 +37,17 @@
 
 
 /*
-                                                                   
-                                                                    
-                              
+ *	Define a set of structures to hold all the board/panel/port info
+ *	for our ports. These will be dynamically allocated as required at
+ *	driver initialization time.
  */
 
 /*
-                                                                   
-                                                                    
-                                                            
-                                                                  
-         
+ *	Port and board structures to hold status info about each object.
+ *	The board structure contains pointers to structures for each port
+ *	connected to it. Panels are not distinguished here, since
+ *	communication with the slave board will always be on a per port
+ *	basis.
  */
 struct stliport {
 	unsigned long		magic;
@@ -79,8 +79,8 @@ struct stliport {
 };
 
 /*
-                                                                     
-                                                                          
+ *	Use a structure of function pointers to do board level operations.
+ *	These include, enable/disable, paging shared memory, interrupting, etc.
  */
 struct stlibrd {
 	unsigned long	magic;
@@ -114,10 +114,10 @@ struct stlibrd {
 
 
 /*
-                                                  
+ *	Define MAGIC numbers used for above structures.
  */
 #define	STLI_PORTMAGIC	0xe671c7a1
 #define	STLI_BOARDMAGIC	0x4bc6c825
 
-/*                                                                           */
+/*****************************************************************************/
 #endif

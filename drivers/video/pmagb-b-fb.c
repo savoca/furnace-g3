@@ -93,7 +93,7 @@ static inline void gp0_write(struct pmagbbfb_par *par, u32 v)
 
 
 /*
-                   
+ * Set the palette.
  */
 static int pmagbbfb_setcolreg(unsigned int regno, unsigned int red,
 			      unsigned int green, unsigned int blue,
@@ -104,9 +104,9 @@ static int pmagbbfb_setcolreg(unsigned int regno, unsigned int red,
 	if (regno >= info->cmap.len)
 		return 1;
 
-	red   >>= 8;	/*                                */
-	green >>= 8;	/*                                 */
-	blue  >>= 8;	/*                                */
+	red   >>= 8;	/* The cmap fields are 16 bits    */
+	green >>= 8;	/* wide, but the hardware colormap */
+	blue  >>= 8;	/* registers are only 8 bits wide */
 
 	mb();
 	dac_write(par, BT459_ADDR_LO, regno);
@@ -131,7 +131,7 @@ static struct fb_ops pmagbbfb_ops = {
 
 
 /*
-                                
+ * Turn the hardware cursor off.
  */
 static void __init pmagbbfb_erase_cursor(struct fb_info *info)
 {
@@ -145,7 +145,7 @@ static void __init pmagbbfb_erase_cursor(struct fb_info *info)
 }
 
 /*
-                            
+ * Set up screen parameters.
  */
 static void __devinit pmagbbfb_screen_setup(struct fb_info *info)
 {
@@ -177,7 +177,7 @@ static void __devinit pmagbbfb_screen_setup(struct fb_info *info)
 };
 
 /*
-                                      
+ * Determine oscillator configuration.
  */
 static void __devinit pmagbbfb_osc_setup(struct fb_info *info)
 {
@@ -191,12 +191,12 @@ static void __devinit pmagbbfb_osc_setup(struct fb_info *info)
 	u32 freq0, freq1, freqtc = tc_get_speed(tbus) / 250;
 	int i, j;
 
-	gp0_write(par, 0);				/*             */
+	gp0_write(par, 0);				/* select Osc0 */
 	for (j = 0; j < 16; j++) {
 		mb();
 		sfb_write(par, SFB_REG_TCCLK_COUNT, 0);
 		mb();
-		for (i = 0; i < 100; i++) {	/*                       */
+		for (i = 0; i < 100; i++) {	/* nominally max. 20.5us */
 			if (sfb_read(par, SFB_REG_TCCLK_COUNT) == 0)
 				break;
 			udelay(1);
@@ -204,12 +204,12 @@ static void __devinit pmagbbfb_osc_setup(struct fb_info *info)
 		count0 += sfb_read(par, SFB_REG_VIDCLK_COUNT);
 	}
 
-	gp0_write(par, 1);				/*             */
+	gp0_write(par, 1);				/* select Osc1 */
 	for (j = 0; j < 16; j++) {
 		mb();
 		sfb_write(par, SFB_REG_TCCLK_COUNT, 0);
 
-		for (i = 0; i < 100; i++) {	/*                       */
+		for (i = 0; i < 100; i++) {	/* nominally max. 20.5us */
 			if (sfb_read(par, SFB_REG_TCCLK_COUNT) == 0)
 				break;
 			udelay(1);
@@ -238,7 +238,7 @@ static void __devinit pmagbbfb_osc_setup(struct fb_info *info)
 	    par->osc1 - par->osc0 <= (par->osc0 + par->osc1 + 256) / 512)
 		par->osc1 = 0;
 
-	gp0_write(par, par->osc1 != 0);			/*               */
+	gp0_write(par, par->osc1 != 0);			/* reselect OscX */
 
 	info->var.pixclock = par->osc1 ?
 			     (1000000000 + par->osc1 / 2) / par->osc1 :
@@ -277,7 +277,7 @@ static int __devinit pmagbbfb_probe(struct device *dev)
 	info->var = pmagbbfb_defined;
 	info->flags = FBINFO_DEFAULT;
 
-	/*                                */
+	/* Request the I/O MEM resource.  */
 	start = tdev->resource.start;
 	len = tdev->resource.end - start + 1;
 	if (!request_mem_region(start, len, dev_name(dev))) {
@@ -287,7 +287,7 @@ static int __devinit pmagbbfb_probe(struct device *dev)
 		goto err_cmap;
 	}
 
-	/*                      */
+	/* MMIO mapping setup.  */
 	info->fix.mmio_start = start;
 	par->mmio = ioremap_nocache(info->fix.mmio_start, info->fix.mmio_len);
 	if (!par->mmio) {
@@ -298,7 +298,7 @@ static int __devinit pmagbbfb_probe(struct device *dev)
 	par->sfb = par->mmio + PMAGB_B_SFB;
 	par->dac = par->mmio + PMAGB_B_BT459;
 
-	/*                              */
+	/* Frame buffer mapping setup.  */
 	info->fix.smem_start = start + PMAGB_B_FBMEM;
 	par->smem = ioremap_nocache(info->fix.smem_start, info->fix.smem_len);
 	if (!par->smem) {
@@ -375,7 +375,7 @@ static int __exit pmagbbfb_remove(struct device *dev)
 
 
 /*
-                              
+ * Initialize the framebuffer.
  */
 static const struct tc_device_id pmagbbfb_tc_table[] = {
 	{ "DEC     ", "PMAGB-BA" },

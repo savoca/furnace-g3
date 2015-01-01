@@ -25,14 +25,14 @@
 #include <asm/smp.h>
 
 /*
-                          
+ * initialise the GDB stub
  */
 void gdbstub_io_init(void)
 {
 	u16 tmp;
 
-	/*                        */
-	GDBPORT_SERIAL_LCR = UART_LCR_WLEN8; /*     */
+	/* set up the serial port */
+	GDBPORT_SERIAL_LCR = UART_LCR_WLEN8; /* 1N8 */
 	GDBPORT_SERIAL_FCR = (UART_FCR_ENABLE_FIFO | UART_FCR_CLEAR_RCVR |
 			      UART_FCR_CLEAR_XMIT);
 
@@ -41,7 +41,7 @@ void gdbstub_io_init(void)
 
 	gdbstub_io_set_baud(115200);
 
-	/*                                          */
+	/* we want to get serial receive interrupts */
 	XIRQxICR(GDBPORT_SERIAL_IRQ) = 0;
 	tmp = XIRQxICR(GDBPORT_SERIAL_IRQ);
 
@@ -71,13 +71,13 @@ void gdbstub_io_init(void)
 
 	GDBPORT_SERIAL_IER = UART_IER_RDI | UART_IER_RLSI;
 
-	/*                                   */
+	/* permit level 0 IRQs to take place */
 	arch_local_change_intr_mask_level(
 		NUM2EPSW_IM(CONFIG_GDBSTUB_IRQ_LEVEL + 1));
 }
 
 /*
-                                                   
+ * set up the GDB stub serial port baud rate timers
  */
 void gdbstub_io_set_baud(unsigned baud)
 {
@@ -94,7 +94,7 @@ void gdbstub_io_set_baud(unsigned baud)
 }
 
 /*
-                                                 
+ * wait for a character to come from the debugger
  */
 int gdbstub_io_rx_char(unsigned char *_ch, int nonblock)
 {
@@ -113,7 +113,7 @@ int gdbstub_io_rx_char(unsigned char *_ch, int nonblock)
 	}
 
  try_again:
-	/*                              */
+	/* pull chars out of the buffer */
 	ix = gdbstub_rx_outp;
 	barrier();
 	if (ix == gdbstub_rx_inp) {
@@ -145,18 +145,18 @@ int gdbstub_io_rx_char(unsigned char *_ch, int nonblock)
 }
 
 /*
-                                   
+ * send a character to the debugger
  */
 void gdbstub_io_tx_char(unsigned char ch)
 {
 	FLOWCTL_SET(DTR);
 	LSR_WAIT_FOR(THRE);
-	/*                        */
+	/* FLOWCTL_WAIT_FOR(CTS); */
 
 	if (ch == 0x0a) {
 		GDBPORT_SERIAL_TX = 0x0d;
 		LSR_WAIT_FOR(THRE);
-		/*                        */
+		/* FLOWCTL_WAIT_FOR(CTS); */
 	}
 	GDBPORT_SERIAL_TX = ch;
 
@@ -164,7 +164,7 @@ void gdbstub_io_tx_char(unsigned char ch)
 }
 
 /*
-                                   
+ * send a character to the debugger
  */
 void gdbstub_io_tx_flush(void)
 {

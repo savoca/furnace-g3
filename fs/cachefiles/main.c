@@ -49,7 +49,7 @@ static void cachefiles_object_init_once(void *_object)
 }
 
 /*
-                                   
+ * initialise the fs caching module
  */
 static int __init cachefiles_init(void)
 {
@@ -59,7 +59,7 @@ static int __init cachefiles_init(void)
 	if (ret < 0)
 		goto error_dev;
 
-	/*                      */
+	/* create an object jar */
 	ret = -ENOMEM;
 	cachefiles_object_jar =
 		kmem_cache_create("cachefiles_object_jar",
@@ -92,7 +92,7 @@ error_dev:
 fs_initcall(cachefiles_init);
 
 /*
-                             
+ * clean up on module removal
  */
 static void __exit cachefiles_exit(void)
 {

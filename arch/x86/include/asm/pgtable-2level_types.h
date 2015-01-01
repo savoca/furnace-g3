@@ -14,13 +14,13 @@ typedef union {
 	pteval_t pte;
 	pteval_t pte_low;
 } pte_t;
-#endif	/*               */
+#endif	/* !__ASSEMBLY__ */
 
 #define SHARED_KERNEL_PMD	0
 #define PAGETABLE_LEVELS	2
 
 /*
-                                               
+ * traditional i386 two-level paging structure:
  */
 
 #define PGDIR_SHIFT	22
@@ -28,10 +28,10 @@ typedef union {
 
 
 /*
-                                                     
-                            
+ * the i386 is two-level, so we don't really have any
+ * PMD directory physically.
  */
 
 #define PTRS_PER_PTE	1024
 
-#endif /*                                */
+#endif /* _ASM_X86_PGTABLE_2LEVEL_DEFS_H */

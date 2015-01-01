@@ -35,8 +35,8 @@ struct wm831x_on {
 };
 
 /*
-                                                                    
-                                                       
+ * The chip gives us an interrupt when the ON pin is asserted but we
+ * then need to poll to see when the pin is deasserted.
  */
 static void wm831x_poll_on(struct work_struct *work)
 {

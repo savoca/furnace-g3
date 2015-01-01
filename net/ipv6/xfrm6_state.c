@@ -1,14 +1,14 @@
 /*
-                                        
-  
-           
-                       
-                            
-                                               
-                 
-                            
-                                 
-  
+ * xfrm6_state.c: based on xfrm4_state.c
+ *
+ * Authors:
+ *	Mitsuru KANDA @USAGI
+ * 	Kazunori MIYAZAWA @USAGI
+ * 	Kunihiro Ishiguro <kunihiro@ipinfusion.com>
+ * 		IPv6 support
+ * 	YOSHIFUJI Hideaki @USAGI
+ * 		Split up af-specific portion
+ *
  */
 
 #include <net/xfrm.h>
@@ -25,8 +25,8 @@ __xfrm6_init_tempsel(struct xfrm_selector *sel, const struct flowi *fl)
 {
 	const struct flowi6 *fl6 = &fl->u.ip6;
 
-	/*                                            
-                        */
+	/* Initialize temporary selector matching only
+	 * to current session. */
 	*(struct in6_addr *)&sel->daddr = fl6->daddr;
 	*(struct in6_addr *)&sel->saddr = fl6->saddr;
 	sel->dport = xfrm_flowi_dport(fl, &fl6->uli);
@@ -55,7 +55,7 @@ xfrm6_init_temprop(struct xfrm_state *x, const struct xfrm_tmpl *tmpl,
 	x->props.family = AF_INET6;
 }
 
-/*                                                                  */
+/* distribution counting sort function for xfrm_state and xfrm_tmpl */
 static int
 __xfrm6_sort(void **dst, void **src, int n, int (*cmp)(void *p), int maxclass)
 {
@@ -83,13 +83,13 @@ __xfrm6_sort(void **dst, void **src, int n, int (*cmp)(void *p), int maxclass)
 }
 
 /*
-                       
-  
-                                           
-                                             
-                                    
-                              
-                 
+ * Rule for xfrm_state:
+ *
+ * rule 1: select IPsec transport except AH
+ * rule 2: select MIPv6 RO or inbound trigger
+ * rule 3: select IPsec transport AH
+ * rule 4: select IPsec tunnel
+ * rule 5: others
  */
 static int __xfrm6_state_sort_cmp(void *p)
 {
@@ -121,12 +121,12 @@ __xfrm6_state_sort(struct xfrm_state **dst, struct xfrm_state **src, int n)
 }
 
 /*
-                      
-  
-                                 
-                                             
-                              
-                 
+ * Rule for xfrm_tmpl:
+ *
+ * rule 1: select IPsec transport
+ * rule 2: select MIPv6 RO or inbound trigger
+ * rule 3: select IPsec tunnel
+ * rule 4: others
  */
 static int __xfrm6_tmpl_sort_cmp(void *p)
 {

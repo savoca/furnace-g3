@@ -26,7 +26,7 @@
 #include "vx_cmd.h"
 
 /*
-                        
+ * Array of DSP commands
  */
 static struct vx_cmd_info vx_dsp_cmds[] = {
 [CMD_VERSION] =			{ 0x010000, 2, RMH_SSIZE_FIXED, 1 },
@@ -83,8 +83,8 @@ static struct vx_cmd_info vx_dsp_cmds[] = {
 [CMD_READ_BOARD_FREQ] =		{ 0x030000, 1, RMH_SSIZE_FIXED, 2 },
 [CMD_GET_STREAM_LEVELS] =	{ 0x8c0000, 1, RMH_SSIZE_FIXED, 3 },
 [CMD_PURGE_PIPE_DCMDS] =	{ 0x4f8000, 3, RMH_SSIZE_FIXED, 0 },
-//                                                                     
-//                                                                     
+// [CMD_SET_STREAM_OUT_EFFECTS] =	{ 0x888000, 34, RMH_SSIZE_FIXED, 0 },
+// [CMD_GET_STREAM_OUT_EFFECTS] =	{ 0x928000, 2, RMH_SSIZE_FIXED, 32 },
 [CMD_CONNECT_MONITORING] =	{ 0xC00000, 1, RMH_SSIZE_FIXED, 0 },
 [CMD_STREAM2_OUT_SET_N_LEVELS] = { 0x938000, 3, RMH_SSIZE_FIXED, 0 },
 [CMD_CANCEL_R_BUFFERS] =	{ 0x948000, 4, RMH_SSIZE_FIXED, 0 },
@@ -92,10 +92,10 @@ static struct vx_cmd_info vx_dsp_cmds[] = {
 [CMD_GET_STREAM_VU_METER] =	{ 0x95A000, 2, RMH_SSIZE_ARG, 0 },
 };
 
-/* 
-                                            
-                                          
-                                  
+/**
+ * vx_init_rmh - initialize the RMH instance
+ * @rmh: the rmh pointer to be initialized
+ * @cmd: the rmh command to be set
  */
 void vx_init_rmh(struct vx_rmh *rmh, unsigned int cmd)
 {

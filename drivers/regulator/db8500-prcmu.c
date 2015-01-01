@@ -72,7 +72,7 @@ static int db8500_regulator_is_enabled(struct regulator_dev *rdev)
 	return info->is_enabled;
 }
 
-/*                             */
+/* db8500 regulator operations */
 static struct regulator_ops db8500_regulator_ops = {
 	.enable			= db8500_regulator_enable,
 	.disable		= db8500_regulator_disable,
@@ -80,7 +80,7 @@ static struct regulator_ops db8500_regulator_ops = {
 };
 
 /*
-               
+ * EPOD control
  */
 static bool epod_on[NUM_EPOD_ID];
 static bool epod_ramret[NUM_EPOD_ID];
@@ -134,7 +134,7 @@ static int disable_epod(u16 epod_id, bool ramret)
 }
 
 /*
-                   
+ * Regulator switch
  */
 static int db8500_regulator_switch_enable(struct regulator_dev *rdev)
 {
@@ -205,7 +205,7 @@ static struct regulator_ops db8500_regulator_switch_ops = {
 };
 
 /*
-                        
+ * Regulator information
  */
 static struct dbx500_regulator_info
 dbx500_regulator_info[DB8500_NUM_REGULATORS] = {
@@ -416,16 +416,16 @@ static int __devinit db8500_regulator_probe(struct platform_device *pdev)
 					dev_get_platdata(&pdev->dev);
 	int i, err;
 
-	/*                         */
+	/* register all regulators */
 	for (i = 0; i < ARRAY_SIZE(dbx500_regulator_info); i++) {
 		struct dbx500_regulator_info *info;
 		struct regulator_init_data *init_data = &db8500_init_data[i];
 
-		/*                           */
+		/* assign per-regulator data */
 		info = &dbx500_regulator_info[i];
 		info->dev = &pdev->dev;
 
-		/*                                       */
+		/* register with the regulator framework */
 		info->rdev = regulator_register(&info->desc, &pdev->dev,
 				init_data, info, NULL);
 		if (IS_ERR(info->rdev)) {
@@ -433,7 +433,7 @@ static int __devinit db8500_regulator_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "failed to register %s: err %i\n",
 				info->desc.name, err);
 
-			/*                                               */
+			/* if failing, unregister all earlier regulators */
 			while (--i >= 0) {
 				info = &dbx500_regulator_info[i];
 				regulator_unregister(info->rdev);

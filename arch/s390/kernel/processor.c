@@ -21,7 +21,7 @@
 static DEFINE_PER_CPU(struct cpuid, cpu_id);
 
 /*
-                                                
+ * cpu_init - initializes state that is per-CPU.
  */
 void __cpuinit cpu_init(void)
 {
@@ -35,7 +35,7 @@ void __cpuinit cpu_init(void)
 }
 
 /*
-                                                               
+ * show_cpuinfo - Get information on one CPU for use by procfs.
  */
 static int show_cpuinfo(struct seq_file *m, void *v)
 {

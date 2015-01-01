@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-        
-  
-                                     
+/**
+ * @file
+ *
+ * @brief QP host function prototypes
  */
 
 

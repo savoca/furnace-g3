@@ -48,13 +48,13 @@
 #define CONTROL_ALS                   0x01
 #define CONTROL_PS                    0x02
 
-/*                            */
+/* POWER SUPPLY VOLTAGE RANGE */
 #define CM36283_VDD_MIN_UV	2700000
 #define CM36283_VDD_MAX_UV	3300000
 #define CM36283_VI2C_MIN_UV	1750000
 #define CM36283_VI2C_MAX_UV	1950000
 
-/*                            */
+/* cm36283 polling rate in ms */
 #define CM36283_LS_MIN_POLL_DELAY	1
 #define CM36283_LS_MAX_POLL_DELAY	1000
 #define CM36283_LS_DEFAULT_POLL_DELAY	100
@@ -139,7 +139,7 @@ struct cm36283_info {
 
 	int ls_calibrate;
 	
-	int (*power)(int, uint8_t); /*                   */
+	int (*power)(int, uint8_t); /* power to the chip */
 
 	uint32_t als_kadc;
 	uint32_t als_gadc;
@@ -305,7 +305,7 @@ static int get_ls_adc_value(uint16_t *als_step, bool resume)
 	if (als_step == NULL)
 		return -EFAULT;
 
-	/*                */
+	/* Read ALS data: */
 	ret = _cm36283_I2C_Read_Word(lpi->slave_addr, ALS_DATA, als_step);
 	if (ret < 0) {
 		dev_err(&lpi->i2c_client->dev, "%s: I2C read word failed.\n",
@@ -382,7 +382,7 @@ static int get_stable_ps_adc_value(uint16_t *ps_adc)
 	struct cm36283_info *lpi = lp_info;
 
 	for (i = 0; i < 3; i++) {
-		/*                        */
+		/*wait interrupt GPIO high*/
 		while (gpio_get_value(lpi->intr_pin) == 0) {
 			msleep(10);
 			wait_count++;
@@ -400,7 +400,7 @@ static int get_stable_ps_adc_value(uint16_t *ps_adc)
 			return -EIO;
 		}
 
-		if (wait_count < 60/10) {/*                        */
+		if (wait_count < 60/10) {/*wait gpio less than 60ms*/
 			msleep(60 - (10*wait_count));
 		}
 		wait_count = 0;
@@ -525,7 +525,7 @@ static int als_power(int enable)
 
 static void ls_initial_cmd(struct cm36283_info *lpi)
 {	
-	/*                                                  *//*                */
+	/*must disable l-sensor interrupt befrore IST create*//*disable ALS func*/
 	lpi->ls_cmd &= CM36283_ALS_INT_MASK;
   lpi->ls_cmd |= CM36283_ALS_SD;
   _cm36283_I2C_Write_Word(lpi->slave_addr, ALS_CONF, lpi->ls_cmd);  
@@ -533,7 +533,7 @@ static void ls_initial_cmd(struct cm36283_info *lpi)
 
 static void psensor_initial_cmd(struct cm36283_info *lpi)
 {
-	/*                                                  */
+	/*must disable p-sensor interrupt befrore IST create*/
 	lpi->ps_conf1_val |= CM36283_PS_SD;
 	lpi->ps_conf1_val &= CM36283_PS_INT_MASK;
 	_cm36283_I2C_Write_Word(lpi->slave_addr, PS_CONF1, lpi->ps_conf1_val);
@@ -613,7 +613,7 @@ static int psensor_release(struct inode *inode, struct file *file)
 	lpi->psensor_opened = 0;
 
 	return psensor_disable(lpi);
-	//         
+	//return 0;
 }
 
 static long psensor_ioctl(struct file *file, unsigned int cmd,
@@ -1421,7 +1421,7 @@ static int cm36283_setup(struct cm36283_info *lpi)
 		goto fail_free_intr_pin;
 	}
 	
-	/*                                     */
+	/*Default disable P sensor and L sensor*/
 	ls_initial_cmd(lpi);
 	psensor_initial_cmd(lpi);
 
@@ -1655,12 +1655,12 @@ static int cm36283_probe(struct i2c_client *client,
 
 
 	/*
-                            
-                                                       
-                                                 
-                            
-                                               
-  */
+	 * SET LUX STEP FACTOR HERE
+	 * if adc raw value one step = 5/100 = 1/20 = 0.05 lux
+	 * the following will set the factor 0.05 = 1/20
+	 * and lpi->golden_adc = 1;
+	 * set als_kadc = (ALS_CALIBRATED << 16) | 20;
+	 */
 
 	als_kadc = (ALS_CALIBRATED << 16) | 10;
 	lpi->golden_adc = 100;
@@ -1837,7 +1837,7 @@ static int control_and_report(struct cm36283_info *lpi, uint8_t mode,
       			  if (*(lpi->cali_table + i))
       				  break;
       		  }
-      		  if ( i == 9) {/*                                                  */
+      		  if ( i == 9) {/*avoid  i = 10, because 'cali_table' of size is 10 */
       			  level = i;
       			  break;
       		  }
@@ -1849,7 +1849,7 @@ static int control_and_report(struct cm36283_info *lpi, uint8_t mode,
       			  if (*(lpi->adc_table + i))
       				  break;
       		  }
-      		  if ( i == 9) {/*                                                  */
+      		  if ( i == 9) {/*avoid  i = 10, because 'cali_table' of size is 10 */
       			  level = i;
       			  break;
       		  }

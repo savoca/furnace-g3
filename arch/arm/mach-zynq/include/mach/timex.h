@@ -15,8 +15,8 @@
 #ifndef __MACH_TIMEX_H__
 #define __MACH_TIMEX_H__
 
-/*                                                                    
-                                                           
+/* the following is needed for the system to build but will be removed
+   in the future, the value is not important but won't hurt
 */
 #define CLOCK_TICK_RATE	(100 * HZ)
 

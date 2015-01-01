@@ -46,7 +46,7 @@ static inline int oxygen_uart_input_ready(struct oxygen *chip)
 static void oxygen_read_uart(struct oxygen *chip)
 {
 	if (unlikely(!oxygen_uart_input_ready(chip))) {
-		/*                                                    */
+		/* no data, but read it anyway to clear the interrupt */
 		oxygen_read8(chip, OXYGEN_MPU401);
 		return;
 	}
@@ -104,7 +104,7 @@ static irqreturn_t oxygen_interrupt(int dummy, void *dev_id)
 		i = oxygen_read32(chip, OXYGEN_SPDIF_CONTROL);
 		if (i & (OXYGEN_SPDIF_SENSE_INT | OXYGEN_SPDIF_LOCK_INT |
 			 OXYGEN_SPDIF_RATE_INT)) {
-			/*                                     */
+			/* write the interrupt bit(s) to clear */
 			oxygen_write32(chip, OXYGEN_SPDIF_CONTROL, i);
 			schedule_work(&chip->spdif_input_bits_work);
 		}
@@ -134,10 +134,10 @@ static void oxygen_spdif_input_bits_changed(struct work_struct *work)
 	u32 reg;
 
 	/*
-                                                                     
-                                                                     
-            
-  */
+	 * This function gets called when there is new activity on the SPDIF
+	 * input, or when we lose lock on the input signal, or when the rate
+	 * changes.
+	 */
 	msleep(1);
 	spin_lock_irq(&chip->reg_lock);
 	reg = oxygen_read32(chip, OXYGEN_SPDIF_CONTROL);
@@ -145,9 +145,9 @@ static void oxygen_spdif_input_bits_changed(struct work_struct *work)
 		    OXYGEN_SPDIF_LOCK_STATUS))
 	    == OXYGEN_SPDIF_SENSE_STATUS) {
 		/*
-                                                                
-                                                   
-   */
+		 * If we detect activity on the SPDIF input but cannot lock to
+		 * a signal, the clock bit is likely to be wrong.
+		 */
 		reg ^= OXYGEN_SPDIF_IN_CLOCK_MASK;
 		oxygen_write32(chip, OXYGEN_SPDIF_CONTROL, reg);
 		spin_unlock_irq(&chip->reg_lock);
@@ -157,13 +157,13 @@ static void oxygen_spdif_input_bits_changed(struct work_struct *work)
 		if ((reg & (OXYGEN_SPDIF_SENSE_STATUS |
 			    OXYGEN_SPDIF_LOCK_STATUS))
 		    == OXYGEN_SPDIF_SENSE_STATUS) {
-			/*                                             */
+			/* nothing detected with either clock; give up */
 			if ((reg & OXYGEN_SPDIF_IN_CLOCK_MASK)
 			    == OXYGEN_SPDIF_IN_CLOCK_192) {
 				/*
-                                               
-                                            
-     */
+				 * Reset clock to <= 96 kHz because this is
+				 * more likely to be received next time.
+				 */
 				reg &= ~OXYGEN_SPDIF_IN_CLOCK_MASK;
 				reg |= OXYGEN_SPDIF_IN_CLOCK_96;
 				oxygen_write32(chip, OXYGEN_SPDIF_CONTROL, reg);
@@ -180,9 +180,9 @@ static void oxygen_spdif_input_bits_changed(struct work_struct *work)
 		spin_unlock_irq(&chip->reg_lock);
 
 		/*
-                                                             
-                                                            
-   */
+		 * We don't actually know that any channel status bits have
+		 * changed, but let's send a notification just to be sure.
+		 */
 		snd_ctl_notify(chip->card, SNDRV_CTL_EVENT_MASK_VALUE,
 			       &chip->controls[CONTROL_SPDIF_INPUT_BITS]->id);
 	}
@@ -260,24 +260,24 @@ oxygen_search_pci_id(struct oxygen *chip, const struct pci_device_id ids[])
 	u16 subdevice;
 
 	/*
-                                                                    
-                                                              
-  */
+	 * Make sure the EEPROM pins are available, i.e., not used for SPI.
+	 * (This function is called before we initialize or use SPI.)
+	 */
 	oxygen_clear_bits8(chip, OXYGEN_FUNCTION,
 			   OXYGEN_FUNCTION_ENABLE_SPI_4_5);
 	/*
-                                                                      
-                                                         
-  */
+	 * Read the subsystem device ID directly from the EEPROM, because the
+	 * chip didn't if the first EEPROM word was overwritten.
+	 */
 	subdevice = oxygen_read_eeprom(chip, 2);
-	/*                                     */
+	/* use default ID if EEPROM is missing */
 	if (subdevice == 0xffff && oxygen_read_eeprom(chip, 1) == 0xffff)
 		subdevice = 0x8788;
 	/*
-                                                                   
-                                                                    
-                              
-  */
+	 * We use only the subsystem device ID for searching because it is
+	 * unique even without the subsystem vendor ID, which may have been
+	 * overwritten in the EEPROM.
+	 */
 	for (; ids->vendor; ++ids)
 		if (ids->subdevice == subdevice &&
 		    ids->driver_data != BROKEN_EEPROM_DRIVER_DATA)
@@ -294,13 +294,13 @@ static void oxygen_restore_eeprom(struct oxygen *chip,
 	if (eeprom_id != OXYGEN_EEPROM_ID &&
 	    (eeprom_id != 0xffff || id->subdevice != 0x8788)) {
 		/*
-                                                               
-                                                            
-                                                             
-                                                             
-                                                              
-              
-   */
+		 * This function gets called only when a known card model has
+		 * been detected, i.e., we know there is a valid subsystem
+		 * product ID at index 2 in the EEPROM.  Therefore, we have
+		 * been able to deduce the correct subsystem vendor ID, and
+		 * this is enough information to restore the original EEPROM
+		 * contents.
+		 */
 		oxygen_write_eeprom(chip, 1, id->subvendor);
 		oxygen_write_eeprom(chip, 0, OXYGEN_EEPROM_ID);
 
@@ -339,22 +339,22 @@ static void configure_pcie_bridge(struct pci_dev *pci)
 		return;
 
 	switch (id->driver_data) {
-	case PEX811X:	/*                                     */
+	case PEX811X:	/* PLX PEX8111/PEX8112 PCIe/PCI bridge */
 		pci_read_config_dword(bridge, 0x48, &tmp);
-		tmp |= 1;	/*                          */
-		tmp |= 1 << 11;	/*                          */
+		tmp |= 1;	/* enable blind prefetching */
+		tmp |= 1 << 11;	/* enable beacon generation */
 		pci_write_config_dword(bridge, 0x48, tmp);
 
 		pci_write_config_dword(bridge, 0x84, 0x0c);
 		pci_read_config_dword(bridge, 0x88, &tmp);
 		tmp &= ~(7 << 27);
-		tmp |= 2 << 27;	/*                                */
+		tmp |= 2 << 27;	/* set prefetch size to 128 bytes */
 		pci_write_config_dword(bridge, 0x88, tmp);
 		break;
 
-	case PI7C9X110:	/*                                   */
+	case PI7C9X110:	/* Pericom PI7C9X110 PCIe/PCI bridge */
 		pci_read_config_dword(bridge, 0x40, &tmp);
-		tmp |= 1;	/*                                        */
+		tmp |= 1;	/* park the PCI arbiter to the sound chip */
 		pci_write_config_dword(bridge, 0x40, tmp);
 		break;
 	}
@@ -529,7 +529,7 @@ static void oxygen_init(struct oxygen *chip)
 		oxygen_write_ac97(chip, 0, AC97_SURROUND_MASTER, 0x8080);
 		oxygen_ac97_clear_bits(chip, 0, CM9780_GPIO_STATUS,
 				       CM9780_GPO0);
-		/*                                 */
+		/* power down unused ADCs and DACs */
 		oxygen_ac97_set_bits(chip, 0, AC97_POWERDOWN,
 				     AC97_PD_PR0 | AC97_PD_PR1);
 		oxygen_ac97_set_bits(chip, 0, AC97_EXTENDED_STATUS,
@@ -821,7 +821,7 @@ int oxygen_pci_resume(struct pci_dev *pci)
 	return 0;
 }
 EXPORT_SYMBOL(oxygen_pci_resume);
-#endif /*           */
+#endif /* CONFIG_PM */
 
 void oxygen_pci_shutdown(struct pci_dev *pci)
 {

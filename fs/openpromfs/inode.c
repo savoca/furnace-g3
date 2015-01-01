@@ -77,7 +77,7 @@ static int property_show(struct seq_file *f, void *v)
 
 			seq_printf(f, "%s", (char *) pval);
 
-			/*                               */
+			/* Skip over the NULL byte too.  */
 			pval += n + 1;
 			len -= n + 1;
 
@@ -130,7 +130,7 @@ static void *property_next(struct seq_file *f, void *v, loff_t *pos)
 
 static void property_stop(struct seq_file *f, void *v)
 {
-	/*               */
+	/* Nothing to do */
 }
 
 static const struct seq_operations property_op = {
@@ -280,7 +280,7 @@ static int openpromfs_readdir(struct file * filp, void * dirent, filldir_t filld
 			goto out;
 		i++;
 		filp->f_pos++;
-		/*           */
+		/* fall thru */
 	case 1:
 		if (filldir(dirent, "..", 2, i,
 			    (dp->parent == NULL ?
@@ -289,11 +289,11 @@ static int openpromfs_readdir(struct file * filp, void * dirent, filldir_t filld
 			goto out;
 		i++;
 		filp->f_pos++;
-		/*           */
+		/* fall thru */
 	default:
 		i -= 2;
 
-		/*                                            */
+		/* First, the children nodes as directories.  */
 		child = dp->child;
 		while (i && child) {
 			child = child->sibling;
@@ -310,7 +310,7 @@ static int openpromfs_readdir(struct file * filp, void * dirent, filldir_t filld
 			child = child->sibling;
 		}
 
-		/*                                 */
+		/* Next, the properties as files.  */
 		prop = dp->properties;
 		while (i && prop) {
 			prop = prop->next;
@@ -464,9 +464,9 @@ static void __exit exit_openprom_fs(void)
 {
 	unregister_filesystem(&openprom_fs_type);
 	/*
-                                                               
-                  
-  */
+	 * Make sure all delayed rcu free inodes are flushed before we
+	 * destroy cache.
+	 */
 	rcu_barrier();
 	kmem_cache_destroy(op_inode_cachep);
 }

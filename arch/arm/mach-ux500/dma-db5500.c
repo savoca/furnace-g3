@@ -37,7 +37,7 @@ static struct resource dma40_resources[] = {
 	}
 };
 
-/*                                           */
+/* Default configuration for physical memcpy */
 static struct stedma40_chan_cfg dma40_memcpy_conf_phy = {
 	.mode = STEDMA40_MODE_PHYSICAL,
 	.dir = STEDMA40_MEM_TO_MEM,
@@ -51,7 +51,7 @@ static struct stedma40_chan_cfg dma40_memcpy_conf_phy = {
 	.dst_info.flow_ctrl = STEDMA40_NO_FLOW_CTRL,
 };
 
-/*                                          */
+/* Default configuration for logical memcpy */
 static struct stedma40_chan_cfg dma40_memcpy_conf_log = {
 	.dir = STEDMA40_MEM_TO_MEM,
 
@@ -65,11 +65,11 @@ static struct stedma40_chan_cfg dma40_memcpy_conf_log = {
 };
 
 /*
-                                                                          
-                                                                             
-                                                                          
-                                                                              
-       
+ * Mapping between soruce event lines and physical device address This was
+ * created assuming that the event line is tied to a device and therefore the
+ * address is constant, however this is not true for at least USB, and the
+ * values are just placeholders for USB.  This table is preserved and used for
+ * now.
  */
 static const dma_addr_t dma40_rx_map[DB5500_DMA_NR_DEV] = {
 	[DB5500_DMA_DEV24_SDMMC0_RX] = -1,
@@ -83,7 +83,7 @@ static const dma_addr_t dma40_rx_map[DB5500_DMA_NR_DEV] = {
 	[DB5500_DMA_DEV4_USB_OTG_IEP_1_9] = -1,
 };
 
-/*                                                                     */
+/* Mapping between destination event lines and physical device address */
 static const dma_addr_t dma40_tx_map[DB5500_DMA_NR_DEV] = {
 	[DB5500_DMA_DEV24_SDMMC0_TX] = -1,
 	[DB5500_DMA_DEV38_USB_OTG_OEP_8] = -1,

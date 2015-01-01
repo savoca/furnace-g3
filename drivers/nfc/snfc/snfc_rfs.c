@@ -1,10 +1,10 @@
 /*
-              
-  
+ *  snfc_rfs.c
+ *
  */
 
  /*
-                            
+  *     Include header files
   */
 
 #include "snfc_rfs.h"
@@ -12,30 +12,30 @@
 #include <mach/board_lge.h>
 
 /*
-               
+*       Defines
 */
 
 /*
-                       
+ *   Function prototype
  */
 
 /*
-                        
+ *   Internal definition
  */
 
 /*
-                          
+*       Internal variables
 */
-static int isopen_snfcrfs = 0; //                     
+static int isopen_snfcrfs = 0; // 0 : No open 1 : Open
 
 /*
-                           
+*       Function definition
 */
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int snfc_rfs_open (struct inode *inode, struct file *fp)
 {
@@ -49,7 +49,7 @@ static int snfc_rfs_open (struct inode *inode, struct file *fp)
 
         SNFC_DEBUG_MSG_LOW("[snfc_rfs] snfc_rfs_open - start \n");
 
-        //                                                                 
+        //rc = snfc_gpio_open(gpio_rfs, GPIO_DIRECTION_IN, GPIO_LOW_VALUE);
         rc = gpio_request(gpio_rfs,"snfc_rfs");
 
         SNFC_DEBUG_MSG_LOW("[snfc_rfs] snfc_rfs_open - end \n");
@@ -60,9 +60,9 @@ static int snfc_rfs_open (struct inode *inode, struct file *fp)
 
 
 /*
-               
-         
-                                   
+ * Description:
+ * Input:
+ * Output: RFS low : 1 RFS high : 0
  */
 static ssize_t snfc_rfs_read(struct file *pf, char *pbuf, size_t size, loff_t *pos)
 {
@@ -72,14 +72,14 @@ static ssize_t snfc_rfs_read(struct file *pf, char *pbuf, size_t size, loff_t *p
 
         SNFC_DEBUG_MSG_LOW("[snfc_rfs] snfc_rfs_read - start \n");
 
-        /*                  */
-        if(pf == NULL || pbuf == NULL /*               */ /*             */)
+        /* Check Parameters */
+        if(pf == NULL || pbuf == NULL /*|| size == NULL*/ /*||pos == NULL*/)
         {
                 SNFC_DEBUG_MSG("[snfc_rfs] parameters ERROR pf = %p, pbuf = %p, size = %d, pos = %p\n",pf,pbuf,(int)size,pos);
                 return -1;
         }
 
-        /*                */
+        /* Get GPIO value */
         getvalue = snfc_gpio_read(gpio_rfs);
 
         if((getvalue != GPIO_LOW_VALUE)&&(getvalue != GPIO_HIGH_VALUE))
@@ -88,8 +88,8 @@ static ssize_t snfc_rfs_read(struct file *pf, char *pbuf, size_t size, loff_t *p
                 return -2;
         }
 
-        /*                           */
-        //                                                      
+        /* Copy value to user memory */
+        //getvalue = getvalue ? GPIO_LOW_VALUE: GPIO_HIGH_VALUE;
         SNFC_DEBUG_MSG_LOW("[snfc_rfs] RFS pin status : %d \n", getvalue);
 
         if(getvalue)
@@ -112,9 +112,9 @@ static ssize_t snfc_rfs_read(struct file *pf, char *pbuf, size_t size, loff_t *p
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int snfc_rfs_release (struct inode *inode, struct file *fp)
 {
@@ -154,14 +154,14 @@ static int snfc_rfs_init(void)
 
         SNFC_DEBUG_MSG_LOW("[snfc_rfs] snfc_rfs_init - start \n");
 
-        /*                          */
+        /* register the device file */
         rc = misc_register(&snfc_rfs_device);
         if (rc < 0)
         {
                 SNFC_DEBUG_MSG("[snfc_rfs] FAIL!! can not register snfc_rfs \n");
                 return rc;
         }
-        gpio_rfs = snfc_get_rfs_gpio_num(); //                     
+        gpio_rfs = snfc_get_rfs_gpio_num(); //sungwook.ahn 29 -> 94
 
         SNFC_DEBUG_MSG_LOW("[snfc_rfs] snfc_rfs_init - end \n");
 
@@ -172,7 +172,7 @@ static void snfc_rfs_exit(void)
 {
         SNFC_DEBUG_MSG_LOW("[snfc_rfs] snfc_rfs_exit - start \n");
 
-        /*                            */
+        /* deregister the device file */
         misc_deregister(&snfc_rfs_device);
 
         SNFC_DEBUG_MSG_LOW("[snfc_rfs] snfc_rfs_exit - end \n");

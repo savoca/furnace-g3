@@ -17,15 +17,15 @@
  */
 
 /*
-                                             
-  
-                                        
-  
-                             
+ * Broadcom Common Firmware Environment (CFE)
+ *
+ * CFE's global error code list is here.
+ *
+ * Author:  Mitch Lichtenberg
  */
 
 #define CFE_OK			 0
-#define CFE_ERR                 -1	/*               */
+#define CFE_ERR                 -1	/* generic error */
 #define CFE_ERR_INV_COMMAND	-2
 #define CFE_ERR_EOF		-3
 #define CFE_ERR_IOERR		-4

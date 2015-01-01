@@ -169,7 +169,7 @@ static int vmw_fb_set_par(struct fb_info *info)
 		return ret;
 
 	if (vmw_priv->capabilities & SVGA_CAP_DISPLAY_TOPOLOGY) {
-		/*                                        */
+		/* TODO check if pitch and offset changes */
 		vmw_write(vmw_priv, SVGA_REG_NUM_GUEST_DISPLAYS, 1);
 		vmw_write(vmw_priv, SVGA_REG_DISPLAY_ID, 0);
 		vmw_write(vmw_priv, SVGA_REG_DISPLAY_IS_PRIMARY, true);
@@ -180,9 +180,9 @@ static int vmw_fb_set_par(struct fb_info *info)
 		vmw_write(vmw_priv, SVGA_REG_DISPLAY_ID, SVGA_ID_INVALID);
 	}
 
-	/*                                                    
-                                                
-  */
+	/* This is really helpful since if this fails the user
+	 * can probably not see anything on the screen.
+	 */
 	WARN_ON(vmw_read(vmw_priv, SVGA_REG_FB_OFFSET) != 0);
 
 	return 0;
@@ -200,7 +200,7 @@ static int vmw_fb_blank(int blank, struct fb_info *info)
 }
 
 /*
-             
+ * Dirty code
  */
 
 static void vmw_fb_dirty_flush(struct vmw_fb_par *par)
@@ -272,8 +272,8 @@ static void vmw_fb_dirty_mark(struct vmw_fb_par *par,
 		par->dirty.y1 = y1;
 		par->dirty.x2 = x2;
 		par->dirty.y2 = y2;
-		/*                                      
-                                             */
+		/* if we are active start the dirty work
+		 * we share the work with the defio system */
 		if (par->dirty.active)
 			schedule_delayed_work(&info->deferred_work, VMW_DIRTY_DELAY);
 	} else {
@@ -328,7 +328,7 @@ struct fb_deferred_io vmw_defio = {
 };
 
 /*
-            
+ * Draw code
  */
 
 static void vmw_fb_fillrect(struct fb_info *info, const struct fb_fillrect *rect)
@@ -353,7 +353,7 @@ static void vmw_fb_imageblit(struct fb_info *info, const struct fb_image *image)
 }
 
 /*
-                
+ * Bring up code
  */
 
 static struct fb_ops vmw_fb_ops = {
@@ -377,7 +377,7 @@ static int vmw_fb_create_bo(struct vmw_private *vmw_priv,
 
 	ne_placement.lpfn = (size + PAGE_SIZE - 1) >> PAGE_SHIFT;
 
-	/*               */
+	/* interuptable? */
 	ret = ttm_write_lock(&vmw_priv->fbdev_master.lock, false);
 	if (unlikely(ret != 0))
 		return ret;
@@ -391,7 +391,7 @@ static int vmw_fb_create_bo(struct vmw_private *vmw_priv,
 			      false,
 			      &vmw_dmabuf_bo_free);
 	if (unlikely(ret != 0))
-		goto err_unlock; /*                                  */
+		goto err_unlock; /* init frees the buffer on failure */
 
 	*out = vmw_bo;
 
@@ -417,7 +417,7 @@ int vmw_fb_init(struct vmw_private *vmw_priv)
 	fb_bpp = 32;
 	fb_depth = 24;
 
-	/*                                    */
+	/* XXX As shouldn't these be as well. */
 	fb_width = min(vmw_priv->fb_max_width, (unsigned)2048);
 	fb_height = min(vmw_priv->fb_max_height, (unsigned)2048);
 
@@ -433,8 +433,8 @@ int vmw_fb_init(struct vmw_private *vmw_priv)
 		return -ENOMEM;
 
 	/*
-       
-  */
+	 * Par
+	 */
 	vmw_priv->fb_info = info;
 	par = info->par;
 	par->vmw_priv = vmw_priv;
@@ -445,8 +445,8 @@ int vmw_fb_init(struct vmw_private *vmw_priv)
 	par->max_height = fb_height;
 
 	/*
-                                   
-  */
+	 * Create buffers and alloc memory
+	 */
 	par->vmalloc = vmalloc(fb_size);
 	if (unlikely(par->vmalloc == NULL)) {
 		ret = -ENOMEM;
@@ -467,14 +467,14 @@ int vmw_fb_init(struct vmw_private *vmw_priv)
 	par->bo_size = fb_size;
 
 	/*
-                 
-  */
+	 * Fixed and var
+	 */
 	strcpy(info->fix.id, "svgadrmfb");
 	info->fix.type = FB_TYPE_PACKED_PIXELS;
 	info->fix.visual = FB_VISUAL_TRUECOLOR;
 	info->fix.type_aux = 0;
-	info->fix.xpanstep = 1; /*                */
-	info->fix.ypanstep = 1; /*                */
+	info->fix.xpanstep = 1; /* doing it in hw */
+	info->fix.ypanstep = 1; /* doing it in hw */
 	info->fix.ywrapstep = 0;
 	info->fix.accel = FB_ACCEL_NONE;
 	info->fix.line_length = fb_pitch;
@@ -489,7 +489,7 @@ int vmw_fb_init(struct vmw_private *vmw_priv)
 	info->flags = FBINFO_DEFAULT;
 	info->fbops = &vmw_fb_ops;
 
-	/*                      */
+	/* 24 depth per default */
 	info->var.red.offset = 16;
 	info->var.green.offset = 8;
 	info->var.blue.offset = 0;
@@ -511,7 +511,7 @@ int vmw_fb_init(struct vmw_private *vmw_priv)
 	info->var.xres = initial_width;
 	info->var.yres = initial_height;
 
-	/*                                                                    */
+	/* Use default scratch pixmap (info->pixmap.flags = FB_PIXMAP_SYSTEM) */
 
 	info->apertures = alloc_apertures(1);
 	if (!info->apertures) {
@@ -522,8 +522,8 @@ int vmw_fb_init(struct vmw_private *vmw_priv)
 	info->apertures->ranges[0].size = vmw_priv->vram_size;
 
 	/*
-                       
-  */
+	 * Dirty & Deferred IO
+	 */
 	par->dirty.x1 = par->dirty.x2 = 0;
 	par->dirty.y1 = par->dirty.y2 = 0;
 	par->dirty.active = true;
@@ -565,7 +565,7 @@ int vmw_fb_close(struct vmw_private *vmw_priv)
 	bo = &par->vmw_bo->base;
 	par->vmw_bo = NULL;
 
-	/*           */
+	/* ??? order */
 	fb_deferred_io_cleanup(info);
 	unregister_framebuffer(info);
 
@@ -618,11 +618,11 @@ int vmw_fb_on(struct vmw_private *vmw_priv)
 	info = vmw_priv->fb_info;
 	par = info->par;
 
-	/*                       */
+	/* we are already active */
 	if (par->bo_ptr != NULL)
 		return 0;
 
-	/*                                                          */
+	/* Make sure that all overlays are stoped when we take over */
 	vmw_overlay_stop_all(vmw_priv);
 
 	ret = vmw_dmabuf_to_start_of_vram(vmw_priv, par->vmw_bo, true, false);
@@ -647,8 +647,8 @@ err_no_buffer:
 
 	vmw_fb_dirty_mark(par, 0, 0, info->var.xres, info->var.yres);
 
-	/*                                         
-                                           */
+	/* If there already was stuff dirty we wont
+	 * schedule a new work, so lets do it now */
 	schedule_delayed_work(&info->deferred_work, 0);
 
 	return 0;

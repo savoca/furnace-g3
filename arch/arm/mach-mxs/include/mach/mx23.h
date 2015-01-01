@@ -22,13 +22,13 @@
 #include <mach/mxs.h>
 
 /*
-        
+ * OCRAM
  */
 #define MX23_OCRAM_BASE_ADDR		0x00000000
 #define MX23_OCRAM_SIZE			SZ_32K
 
 /*
-     
+ * IO
  */
 #define MX23_IO_BASE_ADDR		0x80000000
 #define MX23_IO_SIZE			SZ_1M
@@ -72,7 +72,7 @@
 #define MX23_IO_ADDRESS(x)		IOMEM(MX23_IO_P2V(x))
 
 /*
-      
+ * IRQ
  */
 #define MX23_INT_DUART			0
 #define MX23_INT_COMMS_RX		1
@@ -143,7 +143,7 @@
 #define MX23_INT_DCDC4P2_BO		65
 
 /*
-           
+ * APBH DMA
  */
 #define MX23_DMA_SSP1			1
 #define MX23_DMA_SSP2			2
@@ -153,7 +153,7 @@
 #define MX23_DMA_GPMI3			7
 
 /*
-           
+ * APBX DMA
  */
 #define MX23_DMA_ADC			0
 #define MX23_DMA_DAC			1
@@ -166,4 +166,4 @@
 #define MX23_DMA_UART1_TX		9
 #define MX23_DMA_SAIF1			10
 
-#endif /*                 */
+#endif /* __MACH_MX23_H__ */

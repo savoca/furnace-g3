@@ -28,9 +28,9 @@
 #include "cx18-gpio.h"
 #include "tuner-xc2028.h"
 
-/*                                                     */
+/********************* GPIO stuffs *********************/
 
-/*                */
+/* GPIO registers */
 #define CX18_REG_GPIO_IN     0xc72010
 #define CX18_REG_GPIO_OUT1   0xc78100
 #define CX18_REG_GPIO_DIR1   0xc78108
@@ -38,16 +38,16 @@
 #define CX18_REG_GPIO_DIR2   0xc7810c
 
 /*
-                                             
-  
-                                    
-                                                           
-                            
-                           
+ * HVR-1600 GPIO pins, courtesy of Hauppauge:
+ *
+ * gpio0: zilog ir process reset pin
+ * gpio1: zilog programming pin (you should never use this)
+ * gpio12: cx24227 reset pin
+ * gpio13: cs5345 reset pin
 */
 
 /*
-                               
+ * File scope utility functions
  */
 static void gpio_write(struct cx18 *cx)
 {
@@ -88,22 +88,22 @@ static void gpio_reset_seq(struct cx18 *cx, u32 active_lo, u32 active_hi,
 		return;
 
 	/*
-                                                                      
-                                                                      
-                       
-  */
+	 * Assuming that active_hi and active_lo are a subsets of the bits in
+	 * gpio_dir.  Also assumes that active_lo and active_hi don't overlap
+	 * in any bit position
+	 */
 
-	/*        */
+	/* Assert */
 	gpio_update(cx, mask, ~active_lo);
 	schedule_timeout_uninterruptible(msecs_to_jiffies(assert_msecs));
 
-	/*          */
+	/* Deassert */
 	gpio_update(cx, mask, ~active_hi);
 	schedule_timeout_uninterruptible(msecs_to_jiffies(recovery_msecs));
 }
 
 /*
-                                    
+ * GPIO Multiplexer - logical device
  */
 static int gpiomux_log_status(struct v4l2_subdev *sd)
 {
@@ -121,10 +121,10 @@ static int gpiomux_s_radio(struct v4l2_subdev *sd)
 	struct cx18 *cx = v4l2_get_subdevdata(sd);
 
 	/*
-                                                              
-                                                           
-                                                        
-  */
+	 * FIXME - work out the cx->active/audio_input mess - this is
+	 * intended to handle the switch to radio mode and set the
+	 * audio routing, but we need to update the state in cx
+	 */
 	gpio_update(cx, cx->card->gpio_audio_input.mask,
 			cx->card->gpio_audio_input.radio);
 	return 0;
@@ -144,10 +144,10 @@ static int gpiomux_s_std(struct v4l2_subdev *sd, v4l2_std_id norm)
 		break;
 	default:
 		/*
-                                                               
-                                                              
-                                                         
-   */
+		 * FIXME - work out the cx->active/audio_input mess - this is
+		 * intended to handle the switch from radio mode and set the
+		 * audio routing, but we need to update the state in cx
+		 */
 		data = cx->card->gpio_audio_input.tuner;
 		break;
 	}
@@ -198,7 +198,7 @@ static const struct v4l2_subdev_ops gpiomux_ops = {
 };
 
 /*
-                                         
+ * GPIO Reset Controller - logical device
  */
 static int resetctrl_log_status(struct v4l2_subdev *sd)
 {
@@ -224,19 +224,19 @@ static int resetctrl_reset(struct v4l2_subdev *sd, u32 val)
 		break;
 	case CX18_GPIO_RESET_Z8F0811:
 		/*
-                                                      
-                                                               
-                
-                                                                
-                                                        
-                                                               
-                                                               
-                                                          
-                
-                                                          
-                                                                
-                                                             
-   */
+		 * Assert timing for the Z8F0811 on HVR-1600 boards:
+		 * 1. Assert RESET for min of 4 clock cycles at 18.432 MHz to
+		 *    initiate
+		 * 2. Reset then takes 66 WDT cycles at 10 kHz + 16 xtal clock
+		 *    cycles (6,601,085 nanoseconds ~= 7 milliseconds)
+		 * 3. DBG pin must be high before chip exits reset for normal
+		 *    operation.  DBG is open drain and hopefully pulled high
+		 *    since we don't normally drive it (GPIO 1?) for the
+		 *    HVR-1600
+		 * 4. Z8F0811 won't exit reset until RESET is deasserted
+		 * 5. Zilog comes out of reset, loads reset vector address and
+		 *    executes from there. Required recovery delay unknown.
+		 */
 		gpio_reset_seq(cx, p->ir_reset_mask, 0,
 			       p->msecs_asserted, p->msecs_recovery);
 		break;
@@ -259,7 +259,7 @@ static const struct v4l2_subdev_ops resetctrl_ops = {
 };
 
 /*
-                        
+ * External entry points
  */
 void cx18_gpio_init(struct cx18 *cx)
 {
@@ -328,9 +328,9 @@ void cx18_reset_ir_gpio(void *data)
 			 core, reset, CX18_GPIO_RESET_Z8F0811);
 }
 EXPORT_SYMBOL(cx18_reset_ir_gpio);
-/*                                                                   */
+/* This symbol is exported for use by lirc_pvr150 for the IR-blaster */
 
-/*                             */
+/* Xceive tuner reset function */
 int cx18_reset_tuner_gpio(void *dev, int component, int cmd, int value)
 {
 	struct i2c_algo_bit_data *algo = dev;

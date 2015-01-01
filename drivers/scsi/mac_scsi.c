@@ -26,7 +26,7 @@
  */
 
 /*
-                          
+ * $Log: mac_NCR5380.c,v $
  */
 
 #include <linux/types.h>
@@ -52,7 +52,7 @@
 #include <scsi/scsi_host.h>
 #include "mac_scsi.h"
 
-/*                                                      */
+/* These control the behaviour of the generic 5380 core */
 #define AUTOSENSE
 #define PSEUDO_DMA
 
@@ -83,9 +83,9 @@ static int setup_use_tagged_queuing = -1;
 #endif
 static int setup_hostid = -1;
 
-/*                                                                            
-                                                                           
-                                        */
+/* Time (in jiffies) to wait after a reset; the SCSI standard calls for 250ms,
+ * we usually do 0.5s to be on the safe side. But Toshiba CD-ROMs once more
+ * need ten times the standard value... */
 #define TOSHIBA_DELAY
 
 #ifdef TOSHIBA_DELAY
@@ -100,11 +100,11 @@ static volatile unsigned char *mac_scsi_nodrq = NULL;
 
 
 /*
-                                     
+ * NCR 5380 register access functions
  */
 
 #if 0
-/*                */
+/* Debug versions */
 #define CTRL(p,v) (*ctrl = (v))
 
 static char macscsi_read(struct Scsi_Host *instance, int reg)
@@ -131,7 +131,7 @@ static void macscsi_write(struct Scsi_Host *instance, int reg, int value)
 }
 #else
 
-/*               */
+/* Fast versions */
 static __inline__ char macscsi_read(struct Scsi_Host *instance, int reg)
 {
   return in_8(instance->io_port + (reg<<4));
@@ -145,12 +145,12 @@ static __inline__ void macscsi_write(struct Scsi_Host *instance, int reg, int va
 
 
 /*
-                                       
-  
-                                                                       
-  
-                                                 
-  
+ * Function : mac_scsi_setup(char *str)
+ *
+ * Purpose : booter command line initialization of the overrides array,
+ *
+ * Inputs : str - comma delimited list of options
+ *
  */
 
 static int __init mac_scsi_setup(char *str) {
@@ -168,7 +168,7 @@ static int __init mac_scsi_setup(char *str) {
 	    
 	if (ints[0] >= 1) {
 		if (ints[1] > 0)
-			/*                             */
+			/* no limits on this, just > 0 */
 			setup_can_queue = ints[1];
 	}
 	if (ints[0] >= 2) {
@@ -178,13 +178,13 @@ static int __init mac_scsi_setup(char *str) {
 	if (ints[0] >= 3) {
 		if (ints[3] >= 0) {
 			setup_sg_tablesize = ints[3];
-			/*                         */
+			/* Must be <= SG_ALL (255) */
 			if (setup_sg_tablesize > SG_ALL)
 				setup_sg_tablesize = SG_ALL;
 		}
 	}
 	if (ints[0] >= 4) {
-		/*                         */
+		/* Must be between 0 and 7 */
 		if (ints[4] >= 0 && ints[4] <= 7)
 			setup_hostid = ints[4];
 		else if (ints[4] > 7)
@@ -205,24 +205,24 @@ static int __init mac_scsi_setup(char *str) {
 	    if (ints[5] >= 0)
 		setup_use_pdma = ints[5];
 	}
-#endif /*              */
+#endif /* SUPPORT_TAGS */
 	
-#endif /*              */
+#endif /* DRIVER_SETUP */
 	return 1;
 }
 
 __setup("mac5380=", mac_scsi_setup);
 
 /*
-                                                                  
-  
-                                                        
-                                                        
-  
-                                                  
-  
-                                                     
-  
+ * Function : int macscsi_detect(struct scsi_host_template * tpnt)
+ *
+ * Purpose : initializes mac NCR5380 driver based on the
+ *	command line / compile time port and irq definitions.
+ *
+ * Inputs : tpnt - template for this SCSI adapter.
+ *
+ * Returns : 1 if a host adapter was found, 0 if not.
+ *
  */
  
 int __init macscsi_detect(struct scsi_host_template * tpnt)
@@ -237,7 +237,7 @@ int __init macscsi_detect(struct scsi_host_template * tpnt)
     if (macintosh_config->scsi_type != MAC_SCSI_OLD)
 	return( 0 );
 
-    /*                 */
+    /* setup variables */
     tpnt->can_queue =
 	(setup_can_queue > 0) ? setup_can_queue : CAN_QUEUE;
     tpnt->cmd_per_lun =
@@ -248,7 +248,7 @@ int __init macscsi_detect(struct scsi_host_template * tpnt)
     if (setup_hostid >= 0)
 	tpnt->this_id = setup_hostid;
     else {
-	/*                  */
+	/* use 7 as default */
 	tpnt->this_id = 7;
     }
 
@@ -257,15 +257,15 @@ int __init macscsi_detect(struct scsi_host_template * tpnt)
 	setup_use_tagged_queuing = USE_TAGGED_QUEUING;
 #endif
 
-    /*                                                       
-                                */
+    /* Once we support multiple 5380s (e.g. DuoDock) we'll do
+       something different here */
     instance = scsi_register (tpnt, sizeof(struct NCR5380_hostdata));
 
     if (macintosh_config->ident == MAC_MODEL_IIFX) {
 	mac_scsi_regp  = via1+0x8000;
 	mac_scsi_drq   = via1+0xE000;
 	mac_scsi_nodrq = via1+0xC000;
-	/*                                                                     */
+	/* The IIFX should be able to do true DMA, but pseudo-dma doesn't work */
 	flags = FLAG_NO_PSEUDO_DMA;
     } else {
 	mac_scsi_regp  = via1+0x10000;
@@ -321,7 +321,7 @@ int macscsi_release (struct Scsi_Host *shpnt)
 
 #ifdef RESET_BOOT
 /*
-                                   
+ * Our 'bus reset on boot' function
  */
 
 static void mac_scsi_reset_boot(struct Scsi_Host *instance)
@@ -332,21 +332,21 @@ static void mac_scsi_reset_boot(struct Scsi_Host *instance)
 	NCR5380_setup(instance);
 	
 	/*
-                                                                         
-                                                         
-  */
+	 * Do a SCSI reset to clean up the bus during initialization. No messing
+	 * with the queues, interrupts, or locks necessary here.
+	 */
 
 	printk(KERN_INFO "Macintosh SCSI: resetting the SCSI bus..." );
 
-	/*              */
+	/* get in phase */
 	NCR5380_write( TARGET_COMMAND_REG,
 		      PHASE_SR_TO_TCR( NCR5380_read(STATUS_REG) ));
 
-	/*            */
+	/* assert RST */
 	NCR5380_write( INITIATOR_COMMAND_REG, ICR_BASE | ICR_ASSERT_RST );
-	/*                                                            */
+	/* The min. reset hold time is 25us, so 40us should be enough */
 	udelay( 50 );
-	/*                         */
+	/* reset RST and interrupt */
 	NCR5380_write( INITIATOR_COMMAND_REG, ICR_BASE );
 	NCR5380_read( RESET_PARITY_INTERRUPT_REG );
 
@@ -362,14 +362,14 @@ const char * macscsi_info (struct Scsi_Host *spnt) {
 }
 
 /* 
-                           
-                                                                      
-                          
-                                                                 
-                                             
-                                                                    
-                                                                        
-                                                                 
+   Pseudo-DMA: (Ove Edlund)
+   The code attempts to catch bus errors that occur if one for example
+   "trips over the cable".
+   XXX: Since bus errors in the PDMA routines never happen on my 
+   computer, the bus error code is untested. 
+   If the code works as intended, a bus error results in Pseudo-DMA 
+   beeing disabled, meaning that the driver switches to slow handshake. 
+   If bus errors are NOT extremely rare, this has to be changed. 
 */
 
 #define CP_IO_TO_MEM(s,d,len)				\
@@ -443,7 +443,7 @@ static int macscsi_pread (struct Scsi_Host *instance,
    s = mac_scsi_drq+0x60;
    d = dst;
 
-/*                                         */
+/* These conditions are derived from MacOS */
 
    while (!(NCR5380_read(BUS_AND_STATUS_REG) & BASR_DRQ) 
          && !(NCR5380_read(STATUS_REG) & SR_REQ))
@@ -535,7 +535,7 @@ static int macscsi_pwrite (struct Scsi_Host *instance,
    s = src;
    d = mac_scsi_drq;
    
-/*                                         */
+/* These conditions are derived from MacOS */
 
    while (!(NCR5380_read(BUS_AND_STATUS_REG) & BASR_DRQ) 
          && (!(NCR5380_read(STATUS_REG) & SR_REQ) 

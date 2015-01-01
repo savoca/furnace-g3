@@ -49,7 +49,7 @@ static void __init sbc8560_pic_init(void)
 }
 
 /*
-                         
+ * Setup the architecture
  */
 #ifdef CONFIG_CPM2
 struct cpm_pin {
@@ -57,17 +57,17 @@ struct cpm_pin {
 };
 
 static const struct cpm_pin sbc8560_pins[] = {
-	/*      */
+	/* SCC1 */
 	{3, 29, CPM_PIN_OUTPUT | CPM_PIN_PRIMARY},
 	{3, 30, CPM_PIN_OUTPUT | CPM_PIN_SECONDARY},
 	{3, 31, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
 
-	/*      */
+	/* SCC2 */
 	{3, 26, CPM_PIN_OUTPUT | CPM_PIN_PRIMARY},
 	{3, 27, CPM_PIN_OUTPUT | CPM_PIN_PRIMARY},
 	{3, 28, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
 
-	/*      */
+	/* FCC2 */
 	{1, 18, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
 	{1, 19, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
 	{1, 20, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
@@ -82,10 +82,10 @@ static const struct cpm_pin sbc8560_pins[] = {
 	{1, 29, CPM_PIN_OUTPUT | CPM_PIN_SECONDARY},
 	{1, 30, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
 	{1, 31, CPM_PIN_OUTPUT | CPM_PIN_PRIMARY},
-	{2, 18, CPM_PIN_INPUT | CPM_PIN_PRIMARY}, /*       */
-	{2, 19, CPM_PIN_INPUT | CPM_PIN_PRIMARY}, /*       */
+	{2, 18, CPM_PIN_INPUT | CPM_PIN_PRIMARY}, /* CLK14 */
+	{2, 19, CPM_PIN_INPUT | CPM_PIN_PRIMARY}, /* CLK13 */
 
-	/*      */
+	/* FCC3 */
 	{1, 4, CPM_PIN_OUTPUT | CPM_PIN_PRIMARY},
 	{1, 5, CPM_PIN_OUTPUT | CPM_PIN_PRIMARY},
 	{1, 6, CPM_PIN_OUTPUT | CPM_PIN_PRIMARY},
@@ -100,8 +100,8 @@ static const struct cpm_pin sbc8560_pins[] = {
 	{1, 15, CPM_PIN_OUTPUT | CPM_PIN_PRIMARY},
 	{1, 16, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
 	{1, 17, CPM_PIN_INPUT | CPM_PIN_PRIMARY},
-	{2, 16, CPM_PIN_INPUT | CPM_PIN_SECONDARY}, /*       */
-	{2, 17, CPM_PIN_INPUT | CPM_PIN_SECONDARY}, /*       */
+	{2, 16, CPM_PIN_INPUT | CPM_PIN_SECONDARY}, /* CLK16 */
+	{2, 17, CPM_PIN_INPUT | CPM_PIN_SECONDARY}, /* CLK15 */
 };
 
 static void __init init_ioports(void)
@@ -155,7 +155,7 @@ static void sbc8560_show_cpuinfo(struct seq_file *m)
 	seq_printf(m, "PVR\t\t: 0x%x\n", pvid);
 	seq_printf(m, "SVR\t\t: 0x%x\n", svid);
 
-	/*                         */
+	/* Display cpu Pll setting */
 	phid1 = mfspr(SPRN_HID1);
 	seq_printf(m, "PLL setting\t: 0x%x\n", ((phid1 >> 24) & 0x3f));
 }
@@ -163,7 +163,7 @@ static void sbc8560_show_cpuinfo(struct seq_file *m)
 machine_device_initcall(sbc8560, mpc85xx_common_publish_devices);
 
 /*
-                                                   
+ * Called very early, device-tree isn't unflattened
  */
 static int __init sbc8560_probe(void)
 {
@@ -202,7 +202,7 @@ static int __init sbc8560_rtc_init(void)
 
 arch_initcall(sbc8560_rtc_init);
 
-#endif	/*        */
+#endif	/* M48T59 */
 
 static __u8 __iomem *brstcr;
 

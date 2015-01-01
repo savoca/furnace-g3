@@ -12,7 +12,7 @@
  */
 
 /*
-                                    
+ * PROC COMM TEST Driver source file
  */
 
 #include <linux/types.h>

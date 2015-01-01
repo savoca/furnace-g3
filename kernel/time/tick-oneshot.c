@@ -21,8 +21,8 @@
 
 #include "tick-internal.h"
 
-/* 
-                     
+/**
+ * tick_program_event
  */
 int tick_program_event(ktime_t expires, int force)
 {
@@ -31,8 +31,8 @@ int tick_program_event(ktime_t expires, int force)
 	return clockevents_program_event(dev, expires, force);
 }
 
-/* 
-                                           
+/**
+ * tick_resume_onshot - resume oneshot mode
  */
 void tick_resume_oneshot(void)
 {
@@ -42,8 +42,8 @@ void tick_resume_oneshot(void)
 	clockevents_program_event(dev, ktime_get(), true);
 }
 
-/* 
-                                                                              
+/**
+ * tick_setup_oneshot - setup the event device for oneshot mode (hres or nohz)
  */
 void tick_setup_oneshot(struct clock_event_device *newdev,
 			void (*handler)(struct clock_event_device *),
@@ -54,8 +54,8 @@ void tick_setup_oneshot(struct clock_event_device *newdev,
 	clockevents_program_event(newdev, next_event, true);
 }
 
-/* 
-                                                  
+/**
+ * tick_switch_to_oneshot - switch to oneshot mode
  */
 int tick_switch_to_oneshot(void (*handler)(struct clock_event_device *))
 {
@@ -86,10 +86,10 @@ int tick_switch_to_oneshot(void (*handler)(struct clock_event_device *))
 	return 0;
 }
 
-/* 
-                                                                        
-  
-                                                                  
+/**
+ * tick_check_oneshot_mode - check whether the system is in oneshot mode
+ *
+ * returns 1 when either nohz or highres are enabled. otherwise 0.
  */
 int tick_oneshot_mode_active(void)
 {
@@ -104,10 +104,10 @@ int tick_oneshot_mode_active(void)
 }
 
 #ifdef CONFIG_HIGH_RES_TIMERS
-/* 
-                                                     
-  
-                                   
+/**
+ * tick_init_highres - switch to high resolution mode
+ *
+ * Called with interrupts disabled.
  */
 int tick_init_highres(void)
 {

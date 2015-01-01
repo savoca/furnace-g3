@@ -28,7 +28,7 @@
 #include <asm/mach/mmc.h>
 
 /*
-        
+ * UARTs
  */
 
 static struct resource resources_uart1[] = {
@@ -92,7 +92,7 @@ struct platform_device msm_device_uart3 = {
 };
 
 /*
-        
+ * SSBIs
  */
 
 #ifdef CONFIG_MSM_SSBI
@@ -153,10 +153,10 @@ struct platform_device msm_device_ssbi3 = {
 	.resource	= msm_ssbi3_resources,
 };
 
-#endif /*                 */
+#endif /* CONFIG_I2C_SSBI */
 
 /*
-       
+ * GSBI
  */
 
 #ifdef CONFIG_I2C_QUP
@@ -192,10 +192,10 @@ struct platform_device msm_gsbi1_qup_i2c_device = {
 	.resource	= gsbi1_qup_i2c_resources,
 };
 
-#endif /*                */
+#endif /* CONFIG_I2C_QUP */
 
 /*
-       
+ * NAND
  */
 
 #define MSM_NAND_PHYS		0x81600000
@@ -242,7 +242,7 @@ struct platform_device msm_device_nand = {
 };
 
 /*
-      
+ * SMD
  */
 
 struct platform_device msm_device_smd = {
@@ -251,7 +251,7 @@ struct platform_device msm_device_smd = {
 };
 
 /*
-      
+ * ADM
  */
 
 static struct resource msm_dmov_resource[] = {
@@ -282,7 +282,7 @@ struct platform_device msm_device_dmov = {
 };
 
 /*
-      
+ * SDC
  */
 
 #define MSM_SDC1_PHYS		0x80A00000
@@ -333,7 +333,7 @@ int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat)
 }
 
 /*
-       
+ * QFEC
  */
 
 # define QFEC_MAC_IRQ           INT_SBD_IRQ
@@ -377,7 +377,7 @@ struct platform_device qfec_device = {
 };
 
 /*
-       
+ * FUSE
  */
 
 #if defined(CONFIG_QFP_FUSE)
@@ -403,7 +403,7 @@ struct platform_device fsm_qfp_fuse_device = {
 #endif
 
 /*
-     
+ * XO
  */
 
 struct platform_device fsm_xo_device = {
@@ -412,7 +412,7 @@ struct platform_device fsm_xo_device = {
 };
 
 /*
-           
+ * Watchdog
  */
 
 static struct msm_watchdog_pdata fsm_watchdog_pdata = {

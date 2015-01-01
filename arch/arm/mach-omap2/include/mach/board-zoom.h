@@ -1,5 +1,5 @@
 /*
-                          
+ * Defines for zoom boards
  */
 #include <video/omapdss.h>
 

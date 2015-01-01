@@ -44,7 +44,7 @@ enum vsg_states {
 struct vsg_buf_info {
 	struct mdp_buf_info mdp_buf_info;
 	struct timespec time;
-	/*          */
+	/* Internal */
 	struct list_head node;
 	uint32_t flags;
 };
@@ -58,7 +58,7 @@ struct vsg_msg_ops {
 struct vsg_context {
 	struct vsg_buf_info free_queue, busy_queue;
 	struct vsg_msg_ops vmops;
-	/*                                           */
+	/* All time related values below in nanosecs */
 	int64_t frame_interval, max_frame_interval, frame_interval_variance;
 	struct workqueue_struct *work_queue;
 	struct hrtimer threshold_timer;
@@ -90,7 +90,7 @@ struct vsg_encode_work {
 #define VSG_DQ_BUFFER  _IOR(VSG_MAGIC_IOCTL, 6, struct vsg_out_buf *)
 #define VSG_RETURN_IP_BUFFER _IOW(VSG_MAGIC_IOCTL, 7, struct vsg_buf_info *)
 #define VSG_ENCODE_DONE _IO(VSG_MAGIC_IOCTL, 8)
-/*                                                                        */
+/* Time related arguments for frame interval ioctls are always in nanosecs*/
 #define VSG_SET_FRAME_INTERVAL _IOW(VSG_MAGIC_IOCTL, 9, int64_t *)
 #define VSG_GET_FRAME_INTERVAL _IOR(VSG_MAGIC_IOCTL, 10, int64_t *)
 #define VSG_SET_FRAME_INTERVAL_VARIANCE _IOW(VSG_MAGIC_IOCTL, 11, int64_t *)
@@ -102,4 +102,4 @@ struct vsg_encode_work {
 extern int vsg_init(struct v4l2_subdev *sd, u32 val);
 extern long vsg_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg);
 
-#endif /*                  */
+#endif /* _WFD_VSG_SUBDEV_ */

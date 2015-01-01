@@ -77,7 +77,7 @@
 #define DHD_NOCHECKDIED_ON()	(dhd_msg_level & DHD_NOCHECKDIED_VAL)
 #define DHD_PNO_ON()		(dhd_msg_level & DHD_PNO_VAL)
 
-#else /*                                       */
+#else /* defined(BCMDBG) || defined(DHD_DEBUG) */
 
 #define DHD_ERROR(args)		do {if (USE_NET_RATELIMIT) printf args;} while (0)
 #define DHD_TRACE(args)
@@ -129,7 +129,7 @@
 #define DHD_NONE(args)
 extern int dhd_msg_level;
 
-/*                  */
+/* Defines msg bits */
 #include <dhdioctl.h>
 
-#endif /*           */
+#endif /* _dhd_dbg_ */

@@ -64,4 +64,4 @@ typedef struct
 } wpt_os_timer;
 
 
-#endif //                      
+#endif // __WLAN_QCT_OS_TIMER_H

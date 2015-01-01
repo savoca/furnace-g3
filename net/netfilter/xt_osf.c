@@ -44,17 +44,17 @@ struct xt_osf_finger {
 };
 
 enum osf_fmatch_states {
-	/*                                       */
+	/* Packet does not match the fingerprint */
 	FMATCH_WRONG = 0,
-	/*                                */
+	/* Packet matches the fingerprint */
 	FMATCH_OK,
-	/*                                                       */
+	/* Options do not match the fingerprint, but header does */
 	FMATCH_OPT_WRONG,
 };
 
 /*
-                                
-                                                    
+ * Indexed by dont-fragment bit.
+ * It is the only constant value in the fingerprint.
  */
 static struct list_head xt_osf_fingers[2];
 
@@ -97,8 +97,8 @@ static int xt_osf_add_callback(struct sock *ctnl, struct sk_buff *skb,
 	}
 
 	/*
-                                   
-  */
+	 * We are protected by nfnl mutex.
+	 */
 	if (kf)
 		list_add_tail_rcu(&kf->finger_entry, &xt_osf_fingers[!!f->df]);
 
@@ -123,8 +123,8 @@ static int xt_osf_remove_callback(struct sock *ctnl, struct sk_buff *skb,
 			continue;
 
 		/*
-                                    
-   */
+		 * We are protected by nfnl mutex.
+		 */
 		list_del_rcu(&sf->finger_entry);
 		kfree_rcu(sf, rcu_head);
 
@@ -237,12 +237,12 @@ xt_osf_match_packet(const struct sk_buff *skb, struct xt_action_param *p)
 			int foptsize, optnum;
 
 			/*
-                                                                  
-    */
+			 * Should not happen if userspace parser was written correctly.
+			 */
 			if (f->wss.wc >= OSF_WSS_MAX)
 				continue;
 
-			/*               */
+			/* Check options */
 
 			foptsize = 0;
 			for (optnum = 0; optnum < f->opt_num; ++optnum)
@@ -294,11 +294,11 @@ xt_osf_match_packet(const struct sk_buff *skb, struct xt_action_param *p)
 					break;
 				case OSF_WSS_MSS:
 					/*
-                                                 
-                                                    
-                                                   
-               
-      */
+					 * Some smart modems decrease mangle MSS to 
+					 * SMART_MSS_2, so we check standard, decreased
+					 * and the one provided in the fingerprint MSS
+					 * values.
+					 */
 #define SMART_MSS_1	1460
 #define SMART_MSS_2	1448
 					if (window == f->wss.val * mss ||

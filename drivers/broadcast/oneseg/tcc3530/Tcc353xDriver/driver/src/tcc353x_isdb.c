@@ -1,13 +1,13 @@
+/*--------------------------------------------------------------------------*/
+/*    FileName    : Tcc353x_isdb.c                                          */
+/*    Description : isdb Function                                           */
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*   TCC Version : 1.0.0                                                    */
 /*   Copyright (c) Telechips, Inc.                                          */
+/*   ALL RIGHTS RESERVED                                                    */
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #include "tcc353x_isdb.h"
 #include "tcc353x_command_control.h"
@@ -28,7 +28,7 @@ static I32S Tcc353xFlushPidFilterTable (I32S _moduleIndex)
 	TcpalMemset (&Tcc353xHandle[_moduleIndex][0].pidTable[0], 
 		     0x00, sizeof(I32U)*MAX_PID_FILTER_CNT);
 
-	/*                                       */
+	/* Reset Pid Filtering values to disable */
 	TcpalMemset (&input[0], 0x00, sizeof(I32U)*16);
 	Tcc353xMiscWriteExIncrease(_moduleIndex, 0, MISC_OP_REG_CTRL, 
 			   TC3XREG_OP_PID00, 
@@ -110,10 +110,10 @@ void Tcc353xInitIsdbProcess(Tcc353xHandle_t * _handle)
 {
 	I32U input[2];
 
-	/*                       */
+	/* disable pid filtering */
 	Tcc353xEnablePidFiltering (_handle->moduleIndex, 0);
 
-	/*              */
+	/* Init CAS PID */
 	TcpalMemset (&input[0], 0x00, sizeof(I32U)*2);
 	Tcc353xMiscWriteExIncrease(_handle->moduleIndex, 0, MISC_OP_REG_CTRL, 
 			   TC3XREG_OP_CAS_PID0100, &input[0], 2);
@@ -141,7 +141,7 @@ I32S Tcc353xAddPidsFiltering (I32S _moduleIndex, Tcc353xpidTable_t *
 	}
 
 	for (i=0; i<_pidTableControl->numberOfPid; i++)	{
-		/*                                  */
+		/* check exist pid & get empty slot */
 		slot = checkPidTable (_moduleIndex, _pidTableControl->Pid[i]);
 
 		if(slot == -1)	{
@@ -154,7 +154,7 @@ I32S Tcc353xAddPidsFiltering (I32S _moduleIndex, Tcc353xpidTable_t *
 
 			TcpalPrintLog((I08S *)"[TCC353X] Add PID[0x%x]\n",
 				_pidTableControl->Pid[i]);
-			/*                             */
+			/* apply pid table to register */
 			idx = ((I32U)(slot)>>1);
 
 			if(slot & 0x01)
@@ -190,7 +190,7 @@ I32S Tcc353xRemovePidsFiltering (I32S _moduleIndex, Tcc353xpidTable_t *
 	}
 
 	for (i=0; i<_pidTableControl->numberOfPid; i++)	{
-		/*                                  */
+		/* check exist pid & get empty slot */
 		slot = findPidTable (_moduleIndex, _pidTableControl->Pid[i]);
 
 		if(slot == -1)	{
@@ -205,7 +205,7 @@ I32S Tcc353xRemovePidsFiltering (I32S _moduleIndex, Tcc353xpidTable_t *
 
 			TcpalPrintLog((I08S *)"[TCC353X] Remove PID[0x%x]\n",
 				_pidTableControl->Pid[i]);
-			/*                             */
+			/* apply pid table to register */
 			idx = ((I32U)(slot)>>1);
 
 			if((slot & 0x01) && (slot>0))

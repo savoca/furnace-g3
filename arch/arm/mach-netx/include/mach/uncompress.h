@@ -18,12 +18,12 @@
  */
 
 /*
-                                                              
-                                                                  
-                                                                  
-                                                                     
-  
-                                 
+ * The following code assumes the serial port has already been
+ * initialized by the bootloader.  We search for the first enabled
+ * port in the most probable order.  If you didn't setup a port in
+ * your bootloader then nothing will appear (which might be desired).
+ *
+ * This does not append a newline
  */
 
 #define REG(x) (*(volatile unsigned long *)(x))
@@ -70,7 +70,7 @@ static inline void flush(void)
 }
 
 /*
-                
+ * nothing to do
  */
 #define arch_decomp_setup()
 #define arch_decomp_wdog()

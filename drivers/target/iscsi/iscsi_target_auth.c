@@ -90,8 +90,8 @@ static void chap_gen_challenge(
 	chap_binaryhex_to_asciihex(challenge_asciihex, chap->challenge,
 				CHAP_CHALLENGE_LENGTH);
 	/*
-                                                            
-  */
+	 * Set CHAP_C, and copy the generated challenge into c_str.
+	 */
 	*c_len += sprintf(c_str + *c_len, "CHAP_C=0x%s", challenge_asciihex);
 	*c_len += 1;
 
@@ -122,30 +122,30 @@ static struct iscsi_chap *chap_server_open(
 
 	chap = conn->auth_protocol;
 	/*
-                                      
-  */
+	 * We only support MD5 MDA presently.
+	 */
 	if (strncmp(a_str, "CHAP_A=5", 8)) {
 		pr_err("CHAP_A is not MD5.\n");
 		return NULL;
 	}
 	pr_debug("[server] Got CHAP_A=5\n");
 	/*
-                                
-  */
+	 * Send back CHAP_A set to MD5.
+	 */
 	*aic_len = sprintf(aic_str, "CHAP_A=5");
 	*aic_len += 1;
 	chap->digest_type = CHAP_DIGEST_MD5;
 	pr_debug("[server] Sending CHAP_A=%d\n", chap->digest_type);
 	/*
-                   
-  */
+	 * Set Identifier.
+	 */
 	chap->id = ISCSI_TPG_C(conn)->tpg_chap_id++;
 	*aic_len += sprintf(aic_str + *aic_len, "CHAP_I=%d", chap->id);
 	*aic_len += 1;
 	pr_debug("[server] Sending CHAP_I=%d\n", chap->id);
 	/*
-                       
-  */
+	 * Generate Challenge.
+	 */
 	chap_gen_challenge(conn, 1, aic_str, aic_len);
 
 	return chap;
@@ -199,8 +199,8 @@ static int chap_server_compute_md5(
 		goto out;
 	}
 	/*
-                   
-  */
+	 * Extract CHAP_N.
+	 */
 	if (extract_param(nr_in_ptr, "CHAP_N", MAX_CHAP_N_SIZE, chap_n,
 				&type) < 0) {
 		pr_err("Could not find CHAP_N.\n");
@@ -217,8 +217,8 @@ static int chap_server_compute_md5(
 	}
 	pr_debug("[server] Got CHAP_N=%s\n", chap_n);
 	/*
-                   
-  */
+	 * Extract CHAP_R.
+	 */
 	if (extract_param(nr_in_ptr, "CHAP_R", MAX_RESPONSE_LENGTH, chap_r,
 				&type) < 0) {
 		pr_err("Could not find CHAP_R.\n");
@@ -289,17 +289,17 @@ static int chap_server_compute_md5(
 		pr_debug("[server] MD5 Digests match, CHAP connetication"
 				" successful.\n\n");
 	/*
-                                                              
-                                  
-  */
+	 * One way authentication has succeeded, return now if mutual
+	 * authentication is not enabled.
+	 */
 	if (!auth->authenticate_target) {
 		kfree(challenge);
 		kfree(challenge_binhex);
 		return 0;
 	}
 	/*
-               
-  */
+	 * Get CHAP_I.
+	 */
 	if (extract_param(nr_in_ptr, "CHAP_I", 10, identifier, &type) < 0) {
 		pr_err("Could not find CHAP_I.\n");
 		goto out;
@@ -314,12 +314,12 @@ static int chap_server_compute_md5(
 		goto out;
 	}
 	/*
-                                                            
-  */
+	 * RFC 1994 says Identifier is no more than octet (8 bits).
+	 */
 	pr_debug("[server] Got CHAP_I=%lu\n", id);
 	/*
-               
-  */
+	 * Get CHAP_C.
+	 */
 	if (extract_param(nr_in_ptr, "CHAP_C", CHAP_CHALLENGE_STR_LEN,
 			challenge, &type) < 0) {
 		pr_err("Could not find CHAP_C.\n");
@@ -338,8 +338,8 @@ static int chap_server_compute_md5(
 		goto out;
 	}
 	/*
-                                                         
-  */
+	 * Generate CHAP_N and CHAP_R for mutual authentication.
+	 */
 	tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
 	if (IS_ERR(tfm)) {
 		pr_err("Unable to allocate struct crypto_hash\n");
@@ -373,8 +373,8 @@ static int chap_server_compute_md5(
 		goto out;
 	}
 	/*
-                                             
-  */
+	 * Convert received challenge to binary hex.
+	 */
 	sg_init_one(&sg, challenge_binhex, challenge_len);
 	ret = crypto_hash_update(&desc, &sg, challenge_len);
 	if (ret < 0) {
@@ -391,14 +391,14 @@ static int chap_server_compute_md5(
 	}
 	crypto_free_hash(tfm);
 	/*
-                               
-  */
+	 * Generate CHAP_N and CHAP_R.
+	 */
 	*nr_out_len = sprintf(nr_out_ptr, "CHAP_N=%s", auth->userid_mutual);
 	*nr_out_len += 1;
 	pr_debug("[server] Sending CHAP_N=%s\n", auth->userid_mutual);
 	/*
-                                                   
-  */
+	 * Convert response from binary hex to ascii hext.
+	 */
 	chap_binaryhex_to_asciihex(response, digest, MD5_SIGNATURE_SIZE);
 	*nr_out_len += sprintf(nr_out_ptr + *nr_out_len, "CHAP_R=0x%s",
 			response);

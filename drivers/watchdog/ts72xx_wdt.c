@@ -38,14 +38,14 @@ static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Disable watchdog shutdown on close");
 
-/* 
-                                                 
-                                           
-                                                                
-                                                  
-                                          
-                                    
-                                      
+/**
+ * struct ts72xx_wdt - watchdog control structure
+ * @lock: lock that protects this structure
+ * @regval: watchdog timeout value suitable for control register
+ * @flags: flags controlling watchdog device state
+ * @control_reg: watchdog control register
+ * @feed_reg: watchdog feed register
+ * @pdev: back pointer to platform dev
  */
 struct ts72xx_wdt {
 	struct mutex	lock;
@@ -64,24 +64,24 @@ struct ts72xx_wdt {
 struct platform_device *ts72xx_wdt_pdev;
 
 /*
-                                                              
-                        
-                    
-                            
-                         
-             
-             
-          
-                
-          
-          
-          
-  
-                                                    
-                     
-  
-                                                       
-                                               
+ * TS-72xx Watchdog supports following timeouts (value written
+ * to control register):
+ *	value	description
+ *	-------------------------
+ *	0x00	watchdog disabled
+ *	0x01	250ms
+ *	0x02	500ms
+ *	0x03	1s
+ *	0x04	reserved
+ *	0x05	2s
+ *	0x06	4s
+ *	0x07	8s
+ *
+ * Timeouts below 1s are not very usable so we don't
+ * allow them at all.
+ *
+ * We provide two functions that convert between these:
+ * timeout_to_regval() and regval_to_timeout().
  */
 static const struct {
 	int	timeout;
@@ -93,19 +93,19 @@ static const struct {
 	{ 8, 7 },
 };
 
-/* 
-                                                                         
-                                                   
-  
-                                                                 
-                                                                   
-                                           
+/**
+ * timeout_to_regval() - converts given timeout to control register value
+ * @new_timeout: timeout in seconds to be converted
+ *
+ * Function converts given @new_timeout into valid value that can
+ * be programmed into watchdog control register. When conversion is
+ * not possible, function returns %-EINVAL.
  */
 static int timeout_to_regval(int new_timeout)
 {
 	int i;
 
-	/*                                 */
+	/* first limit it to 1 - 8 seconds */
 	new_timeout = clamp_val(new_timeout, 1, 8);
 
 	for (i = 0; i < ARRAY_SIZE(ts72xx_wdt_map); i++) {
@@ -116,12 +116,12 @@ static int timeout_to_regval(int new_timeout)
 	return -EINVAL;
 }
 
-/* 
-                                                                   
-                                                  
-  
-                                                                        
-                                                             
+/**
+ * regval_to_timeout() - converts control register value to timeout
+ * @regval: control register value to be converted
+ *
+ * Function converts given @regval to timeout in seconds (1, 2, 4 or 8).
+ * If @regval cannot be converted, function returns %-EINVAL.
  */
 static int regval_to_timeout(int regval)
 {
@@ -135,42 +135,42 @@ static int regval_to_timeout(int regval)
 	return -EINVAL;
 }
 
-/* 
-                                        
-                              
-  
-                               
+/**
+ * ts72xx_wdt_kick() - kick the watchdog
+ * @wdt: watchdog to be kicked
+ *
+ * Called with @wdt->lock held.
  */
 static inline void ts72xx_wdt_kick(struct ts72xx_wdt *wdt)
 {
 	__raw_writeb(TS72XX_WDT_FEED_VAL, wdt->feed_reg);
 }
 
-/* 
-                                                 
-                               
-  
-                                                   
-                 
-  
-                               
+/**
+ * ts72xx_wdt_start() - starts the watchdog timer
+ * @wdt: watchdog to be started
+ *
+ * This function programs timeout to watchdog timer
+ * and starts it.
+ *
+ * Called with @wdt->lock held.
  */
 static void ts72xx_wdt_start(struct ts72xx_wdt *wdt)
 {
 	/*
-                                                  
-                                                       
-                   
-  */
+	 * To program the wdt, it first must be "fed" and
+	 * only after that (within 30 usecs) the configuration
+	 * can be changed.
+	 */
 	ts72xx_wdt_kick(wdt);
 	__raw_writeb((u8)wdt->regval, wdt->control_reg);
 }
 
-/* 
-                                               
-                               
-  
-                               
+/**
+ * ts72xx_wdt_stop() - stops the watchdog timer
+ * @wdt: watchdog to be stopped
+ *
+ * Called with @wdt->lock held.
  */
 static void ts72xx_wdt_stop(struct ts72xx_wdt *wdt)
 {
@@ -184,9 +184,9 @@ static int ts72xx_wdt_open(struct inode *inode, struct file *file)
 	int regval;
 
 	/*
-                                                    
-                
-  */
+	 * Try to convert default timeout to valid register
+	 * value first.
+	 */
 	regval = timeout_to_regval(timeout);
 	if (regval < 0) {
 		dev_err(&wdt->pdev->dev,
@@ -227,10 +227,10 @@ static int ts72xx_wdt_release(struct inode *inode, struct file *file)
 			 "TS-72XX WDT device closed unexpectly. "
 			 "Watchdog timer will not stop!\n");
 		/*
-                                                      
-                                                   
-             
-   */
+		 * Kick it one more time, to give userland some time
+		 * to recover (for example, respawning the kicker
+		 * daemon).
+		 */
 		ts72xx_wdt_kick(wdt);
 	}
 
@@ -256,18 +256,18 @@ static ssize_t ts72xx_wdt_write(struct file *file,
 	ts72xx_wdt_kick(wdt);
 
 	/*
-                                                     
-                                                         
-                                                     
-                                         
-  */
+	 * Support for magic character closing. User process
+	 * writes 'V' into the device, just before it is closed.
+	 * This means that we know that the wdt timer can be
+	 * stopped after user closes the device.
+	 */
 	if (!nowayout) {
 		int i;
 
 		for (i = 0; i < len; i++) {
 			char c;
 
-			/*                             */
+			/* In case it was set long ago */
 			wdt->flags &= ~TS72XX_WDT_EXPECT_CLOSE_FLAG;
 
 			if (get_user(c, data + i)) {
@@ -358,7 +358,7 @@ static long ts72xx_wdt_ioctl(struct file *file, unsigned int cmd,
 		if (error)
 			break;
 
-		/*           */
+		/*FALLTHROUGH*/
 	}
 
 	case WDIOC_GETTIMEOUT:
@@ -449,7 +449,7 @@ static __devinit int ts72xx_wdt_probe(struct platform_device *pdev)
 	wdt->pdev = pdev;
 	mutex_init(&wdt->lock);
 
-	/*                                         */
+	/* make sure that the watchdog is disabled */
 	ts72xx_wdt_stop(wdt);
 
 	error = misc_register(&ts72xx_wdt_miscdev);

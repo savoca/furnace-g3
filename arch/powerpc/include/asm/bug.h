@@ -5,12 +5,12 @@
 #include <asm/asm-compat.h>
 
 /*
-                                              
-                                                          
-                                                          
+ * Define an illegal instr to trap on the bug.
+ * We don't use 0 because that marks the end of a function
+ * in the ELF ABI.  That's "Boo Boo" in case you wonder...
  */
-#define BUG_OPCODE .long 0x00b00b00  /*         */
-#define BUG_ILLEGAL_INSTR "0x00b00b00" /*               */
+#define BUG_OPCODE .long 0x00b00b00  /* For asm */
+#define BUG_ILLEGAL_INSTR "0x00b00b00" /* For BUG macro */
 
 #ifdef CONFIG_BUG
 
@@ -35,11 +35,11 @@
 	 .org 5001b+BUG_ENTRY_SIZE
 	 .previous
 .endm
-#endif /*         */
+#endif /* verbose */
 
-#else /*               */
-/*                                                                     
-                                          */
+#else /* !__ASSEMBLY__ */
+/* _EMIT_BUG_ENTRY expects args %0,%1,%2,%3 to be FILE, LINE, flags and
+   sizeof(struct bug_entry), respectively */
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 #define _EMIT_BUG_ENTRY				\
 	".section __bug_table,\"a\"\n"		\
@@ -57,9 +57,9 @@
 #endif
 
 /*
-                                                                      
-                                                                      
-                                                          
+ * BUG_ON() and WARN_ON() do their best to cooperate with compile-time
+ * optimisations. However depending on the complexity of the condition
+ * some compiler versions may not produce optimal results.
  */
 
 #define BUG() do {						\
@@ -114,15 +114,15 @@
 #define HAVE_ARCH_BUG
 #define HAVE_ARCH_BUG_ON
 #define HAVE_ARCH_WARN_ON
-#endif /*               */
+#endif /* __ASSEMBLY __ */
 #else
 #ifdef __ASSEMBLY__
 .macro EMIT_BUG_ENTRY addr,file,line,flags
 .endm
-#else /*               */
+#else /* !__ASSEMBLY__ */
 #define _EMIT_BUG_ENTRY
 #endif
-#endif /*            */
+#endif /* CONFIG_BUG */
 
 #include <asm-generic/bug.h>
 
@@ -135,7 +135,7 @@ extern void _exception(int, struct pt_regs *, int, unsigned long);
 extern void die(const char *, struct pt_regs *, long);
 extern void print_backtrace(unsigned long *);
 
-#endif /*               */
+#endif /* !__ASSEMBLY__ */
 
-#endif /*            */
-#endif /*                    */
+#endif /* __KERNEL__ */
+#endif /* _ASM_POWERPC_BUG_H */

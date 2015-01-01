@@ -24,11 +24,11 @@ static cycle_t read_cycle_count(struct clocksource *cs)
 }
 
 /*
-                                                                        
-                                                                     
-                                                                    
-                                                                     
-                                                              
+ * The architectural cycle count registers are a fine clocksource unless
+ * the system idle loop use sleep states like "idle":  the CPU cycles
+ * measured by COUNT (and COMPARE) don't happen during sleep states.
+ * Their duration also changes if cpufreq changes the CPU clock rate.
+ * So we rate the clocksource using COUNT as very low quality.
  */
 static struct clocksource counter = {
 	.name		= "avr32_counter",
@@ -46,9 +46,9 @@ static irqreturn_t timer_interrupt(int irq, void *dev_id)
 		return IRQ_NONE;
 
 	/*
-                                                        
-                  
-  */
+	 * Disable the interrupt until the clockevent subsystem
+	 * reprograms it.
+	 */
 	sysreg_write(COMPARE, 0);
 
 	evdev->event_handler(evdev);
@@ -57,7 +57,7 @@ static irqreturn_t timer_interrupt(int irq, void *dev_id)
 
 static struct irqaction timer_irqaction = {
 	.handler	= timer_interrupt,
-	/*                                                                   */
+	/* Oprofile uses the same irq as the timer, so allow it to be shared */
 	.flags		= IRQF_TIMER | IRQF_DISABLED | IRQF_SHARED,
 	.name		= "avr32_comparator",
 };
@@ -69,9 +69,9 @@ static int comparator_next_event(unsigned long delta,
 
 	raw_local_irq_save(flags);
 
-	/*                                                        
-                                                           
-  */
+	/* The time to read COUNT then update COMPARE must be less
+	 * than the min_delta_ns value for this clockevent source.
+	 */
 	sysreg_write(COMPARE, (sysreg_read(COUNT) + delta) ? : 1);
 
 	raw_local_irq_restore(flags);
@@ -85,7 +85,7 @@ static void comparator_mode(enum clock_event_mode mode,
 	switch (mode) {
 	case CLOCK_EVT_MODE_ONESHOT:
 		pr_debug("%s: start\n", evdev->name);
-		/*             */
+		/* FALLTHROUGH */
 	case CLOCK_EVT_MODE_RESUME:
 		cpu_disable_idle_sleep();
 		break;
@@ -120,13 +120,13 @@ void __init time_init(void)
 	unsigned long counter_hz;
 	int ret;
 
-	/*                         */
+	/* figure rate for counter */
 	counter_hz = clk_get_rate(boot_cpu_data.clk);
 	ret = clocksource_register_hz(&counter, counter_hz);
 	if (ret)
 		pr_debug("timer: could not register clocksource: %d\n", ret);
 
-	/*                          */
+	/* setup COMPARE clockevent */
 	comparator.mult = div_sc(counter_hz, NSEC_PER_SEC, comparator.shift);
 	comparator.max_delta_ns = clockevent_delta2ns((u32)~0, &comparator);
 	comparator.min_delta_ns = clockevent_delta2ns(50, &comparator) + 1;

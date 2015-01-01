@@ -32,7 +32,7 @@
 
 struct diag_bridge_dev *diag_bridge;
 
-/*                                                                        */
+/* diagfwd_connect_bridge is called when the USB mdm channel is connected */
 int diagfwd_connect_bridge(int process_cable)
 {
 	uint8_t i;
@@ -50,7 +50,7 @@ void connect_bridge(int process_cable, uint8_t index)
 	int err;
 
 	mutex_lock(&diag_bridge[index].bridge_mutex);
-	/*                                     */
+	/* If the usb cable is being connected */
 	if (process_cable) {
 		err = usb_diag_alloc_req(diag_bridge[index].ch, N_MDM_WRITE,
 			       N_MDM_READ);
@@ -78,8 +78,8 @@ void connect_bridge(int process_cable, uint8_t index)
 			diag_hsic[index].hsic_data_requested)) {
 			diag_hsic[index].in_busy_hsic_read_on_device = 0;
 			diag_hsic[index].in_busy_hsic_write = 0;
-			/*                                   
-                         */
+			/* If the HSIC (diag_bridge) platform
+			 * device is not open */
 			if (!diag_hsic[index].hsic_device_opened) {
 				hsic_diag_bridge_ops[index].ctxt =
 							(void *)(int)(index);
@@ -97,18 +97,18 @@ void connect_bridge(int process_cable, uint8_t index)
 				pr_debug("diag: HSIC channel already open\n");
 			}
 			/*
-                                                  
-                                          
-                
-    */
+			 * Turn on communication over usb mdm and HSIC,
+			 * if the HSIC device driver is enabled
+			 * and opened
+			 */
 			if (diag_hsic[index].hsic_device_opened) {
 				diag_hsic[index].hsic_ch = 1;
-				/*                                        */
+				/* Poll USB mdm channel to check for data */
 				if (driver->logging_mode == USB_MODE)
 					queue_work(diag_bridge[index].wq,
 						   &diag_bridge[index].
 							diag_read_work);
-				/*                                     */
+				/* Poll HSIC channel to check for data */
 				queue_work(diag_bridge[index].wq,
 					   &diag_hsic[index].
 					   diag_read_hsic_work);
@@ -119,8 +119,8 @@ void connect_bridge(int process_cable, uint8_t index)
 }
 
 /*
-                                                               
-                                                               
+ * diagfwd_disconnect_bridge is called when the USB mdm channel
+ * is disconnected. So disconnect should happen for all bridges
  */
 int diagfwd_disconnect_bridge(int process_cable)
 {
@@ -130,7 +130,7 @@ int diagfwd_disconnect_bridge(int process_cable)
 	for (i = 0; i < MAX_BRIDGES; i++) {
 		if (diag_bridge[i].enabled) {
 			mutex_lock(&diag_bridge[i].bridge_mutex);
-			/*                                        */
+			/* If the usb cable is being disconnected */
 			if (process_cable) {
 				diag_bridge[i].usb_connected = 0;
 				usb_diag_free_req(diag_bridge[i].ch);
@@ -143,9 +143,9 @@ int diagfwd_disconnect_bridge(int process_cable)
 					driver->lcid = LCID_INVALID;
 					driver->smux_connected = 0;
 					/*
-                                       
-                
-      */
+					 * Turn off communication over usb
+					 * and smux
+					 */
 					msm_smux_close(LCID_VALID);
 				}
 			}  else {
@@ -155,8 +155,8 @@ int diagfwd_disconnect_bridge(int process_cable)
 					diag_hsic[i].
 						in_busy_hsic_read_on_device = 1;
 					diag_hsic[i].in_busy_hsic_write = 1;
-					/*                                
-                 */
+					/* Turn off communication over usb
+					 * and HSIC */
 					diag_hsic_close(i);
 				}
 			}
@@ -166,12 +166,12 @@ int diagfwd_disconnect_bridge(int process_cable)
 	return 0;
 }
 
-/*                                                                         */
+/* Called after the asychronous usb_diag_read() on mdm channel is complete */
 int diagfwd_read_complete_bridge(struct diag_request *diag_read_ptr)
 {
 	 int index = (int)(diag_read_ptr->context);
 
-	/*                                                              */
+	/* The read of the usb on the mdm (not HSIC/SMUX) has completed */
 	diag_bridge[index].read_len = diag_read_ptr->actual;
 
 	if (index == SMUX) {
@@ -183,7 +183,7 @@ int diagfwd_read_complete_bridge(struct diag_request *diag_read_ptr)
 		}
 	}
 
-	/*                                     */
+	/* If SMUX not enabled, check for HSIC */
 	diag_hsic[index].in_busy_hsic_read_on_device = 0;
 	if (!diag_hsic[index].hsic_ch) {
 		pr_err("DIAG in %s: hsic_ch == 0, ch %d\n", __func__, index);
@@ -191,20 +191,20 @@ int diagfwd_read_complete_bridge(struct diag_request *diag_read_ptr)
 	}
 
 	/*
-                                                                
-                                                              
-                                                             
-                            
-  */
+	 * The read of the usb driver on the mdm channel has completed.
+	 * If there is no write on the HSIC in progress, check if the
+	 * read has data to pass on to the HSIC. If so, pass the usb
+	 * mdm data on to the HSIC.
+	 */
 	if (!diag_hsic[index].in_busy_hsic_write &&
 		diag_bridge[index].usb_buf_out &&
 		(diag_bridge[index].read_len > 0)) {
 
 		/*
-                                               
-                                          
-                                              
-   */
+		 * Initiate the HSIC write. The HSIC write is
+		 * asynchronous. When complete the write
+		 * complete callback function will be called
+		 */
 		int err;
 		diag_hsic[index].in_busy_hsic_write = 1;
 		err = diag_bridge_write(index, diag_bridge[index].usb_buf_out,
@@ -213,20 +213,20 @@ int diagfwd_read_complete_bridge(struct diag_request *diag_read_ptr)
 			pr_err_ratelimited("diag: mdm data on HSIC write err: %d\n",
 					err);
 			/*
-                                             
-                                           
-                                                
-                                         
-    */
+			 * If the error is recoverable, then clear
+			 * the write flag, so we will resubmit a
+			 * write on the next frame.  Otherwise, don't
+			 * resubmit a write on the next frame.
+			 */
 			if ((-ENODEV) != err)
 				diag_hsic[index].in_busy_hsic_write = 0;
 		}
 	}
 
 	/*
-                                                   
-                
-  */
+	 * If there is no write of the usb mdm data on the
+	 * HSIC channel
+	 */
 	if (!diag_hsic[index].in_busy_hsic_write)
 		queue_work(diag_bridge[index].wq,
 			 &diag_bridge[index].diag_read_work);
@@ -379,7 +379,7 @@ void diagfwd_bridge_exit(void)
 	}
 	platform_driver_unregister(&msm_hsic_ch_driver);
 	platform_driver_unregister(&msm_diagfwd_smux_driver);
-	/*                                    */
+	/* destroy USB MDM specific variables */
 	for (i = 0; i < MAX_BRIDGES; i++) {
 		if (diag_bridge[i].enabled) {
 #ifdef CONFIG_DIAG_OVER_USB

@@ -1,5 +1,5 @@
-/*                                  
-                   
+/* IEEE754 floating point arithmetic
+ * single precision
  */
 /*
  * MIPS floating point support
@@ -28,7 +28,7 @@
 
 ieee754sp ieee754sp_flong(s64 x)
 {
-	u64 xm;		/*                                */
+	u64 xm;		/* <--- need 64-bit mantissa temp */
 	int xe;
 	int xs;
 
@@ -44,7 +44,7 @@ ieee754sp ieee754sp_flong(s64 x)
 	xs = (x < 0);
 	if (xs) {
 		if (x == (1ULL << 63))
-			xm = (1ULL << 63);	/*                                 */
+			xm = (1ULL << 63);	/* max neg can't be safely negated */
 		else
 			xm = -x;
 	} else {
@@ -53,13 +53,13 @@ ieee754sp ieee754sp_flong(s64 x)
 	xe = SP_MBITS + 3;
 
 	if (xm >> (SP_MBITS + 1 + 3)) {
-		/*                        
-   */
+		/* shunt out overflow bits
+		 */
 		while (xm >> (SP_MBITS + 1 + 3)) {
 			SPXSRSX1();
 		}
 	} else {
-		/*                                            */
+		/* normalize in grs extended single precision */
 		while ((xm >> (SP_MBITS + 3)) == 0) {
 			xm <<= 1;
 			xe--;

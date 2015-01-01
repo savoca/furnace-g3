@@ -1,8 +1,8 @@
 /*
-                                        
-  
-                       
-  
+ * Driver for CPM (SCC/SMC) serial ports
+ *
+ * definitions for cpm2
+ *
  */
 
 #ifndef CPM_UART_CPM2_H

@@ -31,8 +31,8 @@ struct ps2if {
 };
 
 /*
-                                                           
-                                           
+ * Read all bytes waiting in the PS2 port.  There should be
+ * at the most one, but we loop for safety.
  */
 static irqreturn_t altera_ps2_rxint(int irq, void *dev_id)
 {
@@ -49,7 +49,7 @@ static irqreturn_t altera_ps2_rxint(int irq, void *dev_id)
 }
 
 /*
-                                
+ * Write a byte to the PS2 port.
  */
 static int altera_ps2_write(struct serio *io, unsigned char val)
 {
@@ -63,11 +63,11 @@ static int altera_ps2_open(struct serio *io)
 {
 	struct ps2if *ps2if = io->port_data;
 
-	/*            */
+	/* clear fifo */
 	while (readl(ps2if->base) & 0xffff0000)
-		/*       */;
+		/* empty */;
 
-	writel(1, ps2if->base + 4); /*               */
+	writel(1, ps2if->base + 4); /* enable rx irq */
 	return 0;
 }
 
@@ -75,11 +75,11 @@ static void altera_ps2_close(struct serio *io)
 {
 	struct ps2if *ps2if = io->port_data;
 
-	writel(0, ps2if->base); /*                */
+	writel(0, ps2if->base); /* disable rx irq */
 }
 
 /*
-                                 
+ * Add one device to this driver.
  */
 static int __devinit altera_ps2_probe(struct platform_device *pdev)
 {
@@ -157,7 +157,7 @@ static int __devinit altera_ps2_probe(struct platform_device *pdev)
 }
 
 /*
-                                      
+ * Remove one device from this driver.
  */
 static int __devexit altera_ps2_remove(struct platform_device *pdev)
 {
@@ -180,10 +180,10 @@ static const struct of_device_id altera_ps2_match[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(of, altera_ps2_match);
-#endif /*           */
+#endif /* CONFIG_OF */
 
 /*
-                              
+ * Our device driver structure
  */
 static struct platform_driver altera_ps2_driver = {
 	.probe		= altera_ps2_probe,

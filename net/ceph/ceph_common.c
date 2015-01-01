@@ -27,7 +27,7 @@
 
 
 /*
-                                                        
+ * find filename portion of a path (/foo/bar/baz -> baz)
  */
 const char *ceph_file_part(const char *s, int len)
 {
@@ -72,7 +72,7 @@ const char *ceph_msg_type_name(int type)
 EXPORT_SYMBOL(ceph_msg_type_name);
 
 /*
-                                                       
+ * Initially learn our fsid, or verify an fsid matches.
  */
 int ceph_check_fsid(struct ceph_client *client, struct ceph_fsid *fsid)
 {
@@ -142,7 +142,7 @@ int ceph_compare_options(struct ceph_options *new_opt,
 		}
 	}
 
-	/*                                     */
+	/* any matching mon ip implies a match */
 	for (i = 0; i < opt1->num_mon; i++) {
 		if (ceph_monmap_contains(client->monc.monmap,
 				 &opt1->mon_addr[i]))
@@ -185,7 +185,7 @@ static int parse_fsid(const char *str, struct ceph_fsid *fsid)
 }
 
 /*
-               
+ * ceph options
  */
 enum {
 	Opt_osdtimeout,
@@ -193,14 +193,14 @@ enum {
 	Opt_mount_timeout,
 	Opt_osd_idle_ttl,
 	Opt_last_int,
-	/*                */
+	/* int args above */
 	Opt_fsid,
 	Opt_name,
 	Opt_secret,
 	Opt_key,
 	Opt_ip,
 	Opt_last_string,
-	/*                   */
+	/* string args above */
 	Opt_share,
 	Opt_noshare,
 	Opt_crc,
@@ -212,13 +212,13 @@ static match_table_t opt_tokens = {
 	{Opt_osdkeepalivetimeout, "osdkeepalive=%d"},
 	{Opt_mount_timeout, "mount_timeout=%d"},
 	{Opt_osd_idle_ttl, "osd_idle_ttl=%d"},
-	/*                */
+	/* int args above */
 	{Opt_fsid, "fsid=%s"},
 	{Opt_name, "name=%s"},
 	{Opt_secret, "secret=%s"},
 	{Opt_key, "key=%s"},
 	{Opt_ip, "ip=%s"},
-	/*                   */
+	/* string args above */
 	{Opt_share, "share"},
 	{Opt_noshare, "noshare"},
 	{Opt_crc, "crc"},
@@ -239,7 +239,7 @@ void ceph_destroy_options(struct ceph_options *opt)
 }
 EXPORT_SYMBOL(ceph_destroy_options);
 
-/*                           */
+/* get secret from key store */
 static int get_secret(struct ceph_crypto_key *dst, const char *name) {
 	struct key *ukey;
 	int key_err;
@@ -248,8 +248,8 @@ static int get_secret(struct ceph_crypto_key *dst, const char *name) {
 
 	ukey = request_key(&key_type_ceph, name, NULL);
 	if (!ukey || IS_ERR(ukey)) {
-		/*                                                
-                                              */
+		/* request_key errors don't map nicely to mount(2)
+		   errors; don't even try, but still printk */
 		key_err = PTR_ERR(ukey);
 		switch (key_err) {
 		case -ENOKEY:
@@ -273,7 +273,7 @@ static int get_secret(struct ceph_crypto_key *dst, const char *name) {
 	err = ceph_crypto_key_clone(dst, ckey);
 	if (err)
 		goto out_key;
-	/*                        */
+	/* pass through, err is 0 */
 
 out_key:
 	key_put(ukey);
@@ -303,21 +303,21 @@ ceph_parse_options(char *options, const char *dev_name,
 	dout("parse_options %p options '%s' dev_name '%s'\n", opt, options,
 	     dev_name);
 
-	/*                     */
+	/* start with defaults */
 	opt->flags = CEPH_OPT_DEFAULT;
 	opt->osd_timeout = CEPH_OSD_TIMEOUT_DEFAULT;
 	opt->osd_keepalive_timeout = CEPH_OSD_KEEPALIVE_DEFAULT;
-	opt->mount_timeout = CEPH_MOUNT_TIMEOUT_DEFAULT; /*         */
-	opt->osd_idle_ttl = CEPH_OSD_IDLE_TTL_DEFAULT;   /*         */
+	opt->mount_timeout = CEPH_MOUNT_TIMEOUT_DEFAULT; /* seconds */
+	opt->osd_idle_ttl = CEPH_OSD_IDLE_TTL_DEFAULT;   /* seconds */
 
-	/*               */
-	/*                              */
+	/* get mon ip(s) */
+	/* ip1[:port1][,ip2[:port2]...] */
 	err = ceph_parse_ips(dev_name, dev_name_end, opt->mon_addr,
 			     CEPH_MAX_MON, &opt->num_mon);
 	if (err < 0)
 		goto out;
 
-	/*                     */
+	/* parse mount options */
 	while ((c = strsep(&options, ",")) != NULL) {
 		int token, intval, ret;
 		if (!*c)
@@ -325,7 +325,7 @@ ceph_parse_options(char *options, const char *dev_name,
 		err = -EINVAL;
 		token = match_token((char *)c, opt_tokens, argstr);
 		if (token < 0 && parse_extra_token) {
-			/*        */
+			/* extra? */
 			err = parse_extra_token((char *)c, private);
 			if (err < 0) {
 				pr_err("bad option at '%s'\n", c);
@@ -389,7 +389,7 @@ ceph_parse_options(char *options, const char *dev_name,
 				goto out;
 			break;
 
-			/*      */
+			/* misc */
 		case Opt_osdtimeout:
 			opt->osd_timeout = intval;
 			break;
@@ -422,7 +422,7 @@ ceph_parse_options(char *options, const char *dev_name,
 		}
 	}
 
-	/*         */
+	/* success */
 	return opt;
 
 out:
@@ -438,7 +438,7 @@ u64 ceph_client_id(struct ceph_client *client)
 EXPORT_SYMBOL(ceph_client_id);
 
 /*
-                                 
+ * create a fresh client instance
  */
 struct ceph_client *ceph_create_client(struct ceph_options *opt, void *private,
 				       unsigned supported_features,
@@ -465,7 +465,7 @@ struct ceph_client *ceph_create_client(struct ceph_options *opt, void *private,
 	client->required_features = CEPH_FEATURE_REQUIRED_DEFAULT |
 		required_features;
 
-	/*      */
+	/* msgr */
 	if (ceph_test_opt(client, MYIP))
 		myaddr = &client->options->my_addr;
 	client->msgr = ceph_messenger_create(myaddr,
@@ -477,7 +477,7 @@ struct ceph_client *ceph_create_client(struct ceph_options *opt, void *private,
 	}
 	client->msgr->nocrc = ceph_test_opt(client, NOCRC);
 
-	/*            */
+	/* subsystems */
 	err = ceph_monc_init(&client->monc, client);
 	if (err < 0)
 		goto fail_msgr;
@@ -501,14 +501,14 @@ void ceph_destroy_client(struct ceph_client *client)
 {
 	dout("destroy_client %p\n", client);
 
-	/*         */
+	/* unmount */
 	ceph_osdc_stop(&client->osdc);
 
 	/*
-                                                             
-                                                           
-                     
-  */
+	 * make sure osd connections close out before destroying the
+	 * auth module, which is needed to free those connections'
+	 * ceph_authorizers.
+	 */
 	ceph_msgr_flush();
 
 	ceph_monc_stop(&client->monc);
@@ -525,7 +525,7 @@ void ceph_destroy_client(struct ceph_client *client)
 EXPORT_SYMBOL(ceph_destroy_client);
 
 /*
-                                                                 
+ * true if we have the mon map (and have thus joined the cluster)
  */
 static int have_mon_and_osd_map(struct ceph_client *client)
 {
@@ -534,14 +534,14 @@ static int have_mon_and_osd_map(struct ceph_client *client)
 }
 
 /*
-                                                         
+ * mount: join the ceph cluster, and open root directory.
  */
 int __ceph_open_session(struct ceph_client *client, unsigned long started)
 {
 	int err;
 	unsigned long timeout = client->options->mount_timeout * HZ;
 
-	/*                                             */
+	/* open session, and wait for mon and osd maps */
 	err = ceph_monc_open_session(&client->monc);
 	if (err < 0)
 		return err;
@@ -551,7 +551,7 @@ int __ceph_open_session(struct ceph_client *client, unsigned long started)
 		if (timeout && time_after_eq(jiffies, started + timeout))
 			return err;
 
-		/*      */
+		/* wait */
 		dout("mount waiting for mon_map\n");
 		err = wait_event_interruptible_timeout(client->auth_wq,
 			have_mon_and_osd_map(client) || (client->auth_err < 0),
@@ -570,7 +570,7 @@ EXPORT_SYMBOL(__ceph_open_session);
 int ceph_open_session(struct ceph_client *client)
 {
 	int ret;
-	unsigned long started = jiffies;  /*                     */
+	unsigned long started = jiffies;  /* note the start time */
 
 	dout("open_session start\n");
 	mutex_lock(&client->mount_mutex);

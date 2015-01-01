@@ -30,7 +30,7 @@
 static int rose_create_facilities(unsigned char *buffer, struct rose_sock *rose);
 
 /*
-                                                   
+ *	This routine purges all of the queues of frames.
  */
 void rose_clear_queues(struct sock *sk)
 {
@@ -39,9 +39,9 @@ void rose_clear_queues(struct sock *sk)
 }
 
 /*
-                                                                     
-                                                                       
-               
+ * This routine purges the input queue of those frames that have been
+ * acknowledged. This replaces the boxes labelled "V(a) <- N(r)" on the
+ * SDL diagram.
  */
 void rose_frames_acked(struct sock *sk, unsigned short nr)
 {
@@ -49,8 +49,8 @@ void rose_frames_acked(struct sock *sk, unsigned short nr)
 	struct rose_sock *rose = rose_sk(sk);
 
 	/*
-                                                    
-  */
+	 * Remove all the ack-ed frames from the ack queue.
+	 */
 	if (rose->va != nr) {
 		while (skb_peek(&rose->ack_queue) != NULL && rose->va != nr) {
 			skb = skb_dequeue(&rose->ack_queue);
@@ -65,10 +65,10 @@ void rose_requeue_frames(struct sock *sk)
 	struct sk_buff *skb, *skb_prev = NULL;
 
 	/*
-                                                                     
-                                                                   
-                       
-  */
+	 * Requeue all the un-ack-ed frames on the output queue to be picked
+	 * up by rose_kick. This arrangement handles the possibility of an
+	 * empty output queue.
+	 */
 	while ((skb = skb_dequeue(&rose_sk(sk)->ack_queue)) != NULL) {
 		if (skb_prev == NULL)
 			skb_queue_head(&sk->sk_write_queue, skb);
@@ -79,8 +79,8 @@ void rose_requeue_frames(struct sock *sk)
 }
 
 /*
-                                                                     
-                     
+ *	Validate that the value of nr is between va and vs. Return true or
+ *	false for testing.
  */
 int rose_validate_nr(struct sock *sk, unsigned short nr)
 {
@@ -96,8 +96,8 @@ int rose_validate_nr(struct sock *sk, unsigned short nr)
 }
 
 /*
-                                                                       
-                  
+ *  This routine is called when the packet layer internally generates a
+ *  control frame.
  */
 void rose_write_internal(struct sock *sk, int frametype)
 {
@@ -127,8 +127,8 @@ void rose_write_internal(struct sock *sk, int frametype)
 		return;
 
 	/*
-                                   
-  */
+	 *	Space for AX.25 header and PID.
+	 */
 	skb_reserve(skb, AX25_BPQ_HEADER_LEN + AX25_MAX_HEADER_LEN + 1);
 
 	dptr = skb_put(skb, skb_tailroom(skb));
@@ -154,8 +154,8 @@ void rose_write_internal(struct sock *sk, int frametype)
 		*dptr++ = ROSE_GFI | lci1;
 		*dptr++ = lci2;
 		*dptr++ = frametype;
-		*dptr++ = 0x00;		/*                */
-		*dptr++ = 0;		/*                   */
+		*dptr++ = 0x00;		/* Address length */
+		*dptr++ = 0;		/* Facilities length */
 		break;
 
 	case ROSE_CLEAR_REQUEST:
@@ -366,7 +366,7 @@ static int rose_parse_ccitt(unsigned char *p, struct rose_facilities_struct *fac
 				return -1;
 			l = p[1];
 
-			/*                  */
+			/* Prevent overflows*/
 			if (l < 10 || l > 20)
 				return -1;
 
@@ -407,11 +407,11 @@ int rose_parse_facilities(unsigned char *p, unsigned packet_len,
 		p++;
 
 		switch (*p) {
-		case FAC_NATIONAL:		/*          */
+		case FAC_NATIONAL:		/* National */
 			len = rose_parse_national(p + 1, facilities, facilities_len - 1);
 			break;
 
-		case FAC_CCITT:		/*       */
+		case FAC_CCITT:		/* CCITT */
 			len = rose_parse_ccitt(p + 1, facilities, facilities_len - 1);
 			break;
 
@@ -439,7 +439,7 @@ static int rose_create_facilities(unsigned char *buffer, struct rose_sock *rose)
 	char buf[11];
 	int len, nb;
 
-	/*                     */
+	/* National Facilities */
 	if (rose->rand != 0 || rose->source_ndigis == 1 || rose->dest_ndigis == 1) {
 		*p++ = 0x00;
 		*p++ = FAC_NATIONAL;
@@ -450,7 +450,7 @@ static int rose_create_facilities(unsigned char *buffer, struct rose_sock *rose)
 			*p++ = (rose->rand >> 0) & 0xFF;
 		}
 
-		/*                              */
+		/* Sent before older facilities */
 		if ((rose->source_ndigis > 0) || (rose->dest_ndigis > 0)) {
 			int maxdigi = 0;
 			*p++ = FAC_NATIONAL_DIGIS;
@@ -471,7 +471,7 @@ static int rose_create_facilities(unsigned char *buffer, struct rose_sock *rose)
 			}
 		}
 
-		/*                   */
+		/* For compatibility */
 		if (rose->source_ndigis > 0) {
 			*p++ = FAC_NATIONAL_SRC_DIGI;
 			*p++ = AX25_ADDR_LEN;
@@ -479,7 +479,7 @@ static int rose_create_facilities(unsigned char *buffer, struct rose_sock *rose)
 			p   += AX25_ADDR_LEN;
 		}
 
-		/*                   */
+		/* For compatibility */
 		if (rose->dest_ndigis > 0) {
 			*p++ = FAC_NATIONAL_DEST_DIGI;
 			*p++ = AX25_ADDR_LEN;
@@ -496,7 +496,7 @@ static int rose_create_facilities(unsigned char *buffer, struct rose_sock *rose)
 	callsign = ax2asc(buf, &rose->dest_call);
 
 	*p++ = strlen(callsign) + 10;
-	*p++ = (strlen(callsign) + 9) * 2;		/*     */
+	*p++ = (strlen(callsign) + 9) * 2;		/* ??? */
 
 	*p++ = 0x47; *p++ = 0x00; *p++ = 0x11;
 	*p++ = ROSE_ADDR_LEN * 2;
@@ -511,7 +511,7 @@ static int rose_create_facilities(unsigned char *buffer, struct rose_sock *rose)
 	callsign = ax2asc(buf, &rose->source_call);
 
 	*p++ = strlen(callsign) + 10;
-	*p++ = (strlen(callsign) + 9) * 2;		/*     */
+	*p++ = (strlen(callsign) + 9) * 2;		/* ??? */
 
 	*p++ = 0x47; *p++ = 0x00; *p++ = 0x11;
 	*p++ = ROSE_ADDR_LEN * 2;

@@ -1,4 +1,4 @@
-/*                                                                          */
+/****************************************************************************/
 
 /*
  *	mcf.c -- Freescale ColdFire UART driver
@@ -11,7 +11,7 @@
  * (at your option) any later version.
  */
 
-/*                                                                          */
+/****************************************************************************/
 
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -28,13 +28,13 @@
 #include <asm/mcfuart.h>
 #include <asm/nettel.h>
 
-/*                                                                          */
+/****************************************************************************/
 
 /*
-                                                                 
-                                                                 
-                                                              
-                         
+ *	Some boards implement the DTR/DCD lines using GPIO lines, most
+ *	don't. Dummy out the access macros for those that don't. Those
+ *	that do should define these macros somewhere in there board
+ *	specific inlude files.
  */
 #if !defined(mcf_getppdcd)
 #define	mcf_getppdcd(p)		(1)
@@ -46,18 +46,18 @@
 #define	mcf_setppdtr(p, v)	do { } while (0)
 #endif
 
-/*                                                                          */
+/****************************************************************************/
 
 /*
-                            
+ *	Local per-uart structure.
  */
 struct mcf_uart {
 	struct uart_port	port;
-	unsigned int		sigs;		/*                         */
-	unsigned char		imr;		/*                  */
+	unsigned int		sigs;		/* Local copy of line sigs */
+	unsigned char		imr;		/* Local IMR mirror */
 };
 
-/*                                                                          */
+/****************************************************************************/
 
 static unsigned int mcf_tx_empty(struct uart_port *port)
 {
@@ -65,7 +65,7 @@ static unsigned int mcf_tx_empty(struct uart_port *port)
 		TIOCSER_TEMT : 0;
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static unsigned int mcf_get_mctrl(struct uart_port *port)
 {
@@ -81,7 +81,7 @@ static unsigned int mcf_get_mctrl(struct uart_port *port)
 	return sigs;
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_set_mctrl(struct uart_port *port, unsigned int sigs)
 {
@@ -95,7 +95,7 @@ static void mcf_set_mctrl(struct uart_port *port, unsigned int sigs)
 		writeb(MCFUART_UOP_RTS, port->membase + MCFUART_UOP0);
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_start_tx(struct uart_port *port)
 {
@@ -105,7 +105,7 @@ static void mcf_start_tx(struct uart_port *port)
 	writeb(pp->imr, port->membase + MCFUART_UIMR);
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_stop_tx(struct uart_port *port)
 {
@@ -115,7 +115,7 @@ static void mcf_stop_tx(struct uart_port *port)
 	writeb(pp->imr, port->membase + MCFUART_UIMR);
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_stop_rx(struct uart_port *port)
 {
@@ -125,7 +125,7 @@ static void mcf_stop_rx(struct uart_port *port)
 	writeb(pp->imr, port->membase + MCFUART_UIMR);
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_break_ctl(struct uart_port *port, int break_state)
 {
@@ -139,13 +139,13 @@ static void mcf_break_ctl(struct uart_port *port, int break_state)
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_enable_ms(struct uart_port *port)
 {
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static int mcf_startup(struct uart_port *port)
 {
@@ -154,15 +154,15 @@ static int mcf_startup(struct uart_port *port)
 
 	spin_lock_irqsave(&port->lock, flags);
 
-	/*                                        */
+	/* Reset UART, get it into known state... */
 	writeb(MCFUART_UCR_CMDRESETRX, port->membase + MCFUART_UCR);
 	writeb(MCFUART_UCR_CMDRESETTX, port->membase + MCFUART_UCR);
 
-	/*                                          */
+	/* Enable the UART transmitter and receiver */
 	writeb(MCFUART_UCR_RXENABLE | MCFUART_UCR_TXENABLE,
 		port->membase + MCFUART_UCR);
 
-	/*                          */
+	/* Enable RX interrupts now */
 	pp->imr = MCFUART_UIR_RXREADY;
 	writeb(pp->imr, port->membase + MCFUART_UIMR);
 
@@ -171,7 +171,7 @@ static int mcf_startup(struct uart_port *port)
 	return 0;
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_shutdown(struct uart_port *port)
 {
@@ -180,18 +180,18 @@ static void mcf_shutdown(struct uart_port *port)
 
 	spin_lock_irqsave(&port->lock, flags);
 
-	/*                            */
+	/* Disable all interrupts now */
 	pp->imr = 0;
 	writeb(pp->imr, port->membase + MCFUART_UIMR);
 
-	/*                                       */
+	/* Disable UART transmitter and receiver */
 	writeb(MCFUART_UCR_CMDRESETRX, port->membase + MCFUART_UCR);
 	writeb(MCFUART_UCR_CMDRESETTX, port->membase + MCFUART_UCR);
 
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_set_termios(struct uart_port *port, struct ktermios *termios,
 	struct ktermios *old)
@@ -267,7 +267,7 @@ static void mcf_set_termios(struct uart_port *port, struct ktermios *termios,
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_rx_chars(struct mcf_uart *pp)
 {
@@ -313,7 +313,7 @@ static void mcf_rx_chars(struct mcf_uart *pp)
 	tty_flip_buffer_push(port->state->port.tty);
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_tx_chars(struct mcf_uart *pp)
 {
@@ -321,7 +321,7 @@ static void mcf_tx_chars(struct mcf_uart *pp)
 	struct circ_buf *xmit = &port->state->xmit;
 
 	if (port->x_char) {
-		/*                                           */
+		/* Send special char - probably flow control */
 		writeb(port->x_char, port->membase + MCFUART_UTB);
 		port->x_char = 0;
 		port->icount.tx++;
@@ -345,7 +345,7 @@ static void mcf_tx_chars(struct mcf_uart *pp)
 	}
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static irqreturn_t mcf_interrupt(int irq, void *data)
 {
@@ -370,14 +370,14 @@ static irqreturn_t mcf_interrupt(int irq, void *data)
 	return ret;
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_config_port(struct uart_port *port, int flags)
 {
 	port->type = PORT_MCF;
 	port->fifosize = MCFUART_TXFIFOSIZE;
 
-	/*                                        */
+	/* Clear mask, so no surprise interrupts. */
 	writeb(0, port->membase + MCFUART_UIMR);
 
 	if (request_irq(port->irq, mcf_interrupt, 0, "UART", port))
@@ -385,29 +385,29 @@ static void mcf_config_port(struct uart_port *port, int flags)
 			"interrupt vector=%d\n", port->line, port->irq);
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static const char *mcf_type(struct uart_port *port)
 {
 	return (port->type == PORT_MCF) ? "ColdFire UART" : NULL;
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static int mcf_request_port(struct uart_port *port)
 {
-	/*                      */
+	/* UARTs always present */
 	return 0;
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_release_port(struct uart_port *port)
 {
-	/*                       */
+	/* Nothing to release... */
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static int mcf_verify_port(struct uart_port *port, struct serial_struct *ser)
 {
@@ -416,10 +416,10 @@ static int mcf_verify_port(struct uart_port *port, struct serial_struct *ser)
 	return 0;
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 /*
-                                                
+ *	Define the basic serial functions we support.
  */
 static const struct uart_ops mcf_uart_ops = {
 	.tx_empty	= mcf_tx_empty,
@@ -444,9 +444,9 @@ static struct mcf_uart mcf_ports[4];
 
 #define	MCF_MAXPORTS	ARRAY_SIZE(mcf_ports)
 
-/*                                                                          */
+/****************************************************************************/
 #if defined(CONFIG_SERIAL_MCF_CONSOLE)
-/*                                                                          */
+/****************************************************************************/
 
 int __init early_mcf_setup(struct mcf_platform_uart *platp)
 {
@@ -471,7 +471,7 @@ int __init early_mcf_setup(struct mcf_platform_uart *platp)
 	return 0;
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_console_putc(struct console *co, const char c)
 {
@@ -489,7 +489,7 @@ static void mcf_console_putc(struct console *co, const char c)
 	}
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void mcf_console_write(struct console *co, const char *s, unsigned int count)
 {
@@ -500,7 +500,7 @@ static void mcf_console_write(struct console *co, const char *s, unsigned int co
 	}
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static int __init mcf_console_setup(struct console *co, char *options)
 {
@@ -522,7 +522,7 @@ static int __init mcf_console_setup(struct console *co, char *options)
 	return uart_set_options(port, co, baud, parity, bits, flow);
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static struct uart_driver mcf_driver;
 
@@ -546,18 +546,18 @@ console_initcall(mcf_console_init);
 
 #define	MCF_CONSOLE	&mcf_console
 
-/*                                                                          */
+/****************************************************************************/
 #else
-/*                                                                          */
+/****************************************************************************/
 
 #define	MCF_CONSOLE	NULL
 
-/*                                                                          */
-#endif /*                    */
-/*                                                                          */
+/****************************************************************************/
+#endif /* CONFIG_MCF_CONSOLE */
+/****************************************************************************/
 
 /*
-                                        
+ *	Define the mcf UART driver structure.
  */
 static struct uart_driver mcf_driver = {
 	.owner		= THIS_MODULE,
@@ -569,7 +569,7 @@ static struct uart_driver mcf_driver = {
 	.cons		= MCF_CONSOLE,
 };
 
-/*                                                                          */
+/****************************************************************************/
 
 static int __devinit mcf_probe(struct platform_device *pdev)
 {
@@ -597,7 +597,7 @@ static int __devinit mcf_probe(struct platform_device *pdev)
 	return 0;
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static int __devexit mcf_remove(struct platform_device *pdev)
 {
@@ -613,7 +613,7 @@ static int __devexit mcf_remove(struct platform_device *pdev)
 	return 0;
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static struct platform_driver mcf_platform_driver = {
 	.probe		= mcf_probe,
@@ -624,7 +624,7 @@ static struct platform_driver mcf_platform_driver = {
 	},
 };
 
-/*                                                                          */
+/****************************************************************************/
 
 static int __init mcf_init(void)
 {
@@ -641,7 +641,7 @@ static int __init mcf_init(void)
 	return 0;
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 static void __exit mcf_exit(void)
 {
@@ -649,7 +649,7 @@ static void __exit mcf_exit(void)
 	uart_unregister_driver(&mcf_driver);
 }
 
-/*                                                                          */
+/****************************************************************************/
 
 module_init(mcf_init);
 module_exit(mcf_exit);
@@ -659,4 +659,4 @@ MODULE_DESCRIPTION("Freescale ColdFire UART driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:mcfuart");
 
-/*                                                                          */
+/****************************************************************************/

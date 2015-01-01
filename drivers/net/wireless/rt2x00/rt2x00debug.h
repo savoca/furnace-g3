@@ -19,8 +19,8 @@
  */
 
 /*
-                    
-                                               
+	Module: rt2x00debug
+	Abstract: Data structures for the rt2x00debug.
  */
 
 #ifndef RT2X00DEBUG_H
@@ -28,11 +28,11 @@
 
 struct rt2x00_dev;
 
-/* 
-                                                                   
-  
-                                                                   
-                                                              
+/**
+ * enum rt2x00debugfs_entry_flags: Flags for debugfs registry entry
+ *
+ * @RT2X00DEBUGFS_OFFSET: rt2x00lib should pass the register offset
+ *	as argument when using the callback function read()/write()
  */
 enum rt2x00debugfs_entry_flags {
 	RT2X00DEBUGFS_OFFSET	= (1 << 0),
@@ -54,17 +54,17 @@ struct reg##__name {						\
 
 struct rt2x00debug {
 	/*
-                                       
-  */
+	 * Reference to the modules structure.
+	 */
 	struct module *owner;
 
 	/*
-                            
-  */
+	 * Register access entries.
+	 */
 	RT2X00DEBUGFS_REGISTER_ENTRY(csr, u32);
 	RT2X00DEBUGFS_REGISTER_ENTRY(eeprom, u16);
 	RT2X00DEBUGFS_REGISTER_ENTRY(bbp, u8);
 	RT2X00DEBUGFS_REGISTER_ENTRY(rf, u32);
 };
 
-#endif /*               */
+#endif /* RT2X00DEBUG_H */

@@ -32,12 +32,12 @@ unsigned long uart_base;
 #define UCR1_UARTEN 1
 
 /*
-                                                              
-                                                                  
-                                                                  
-                                                                     
-  
-                                 
+ * The following code assumes the serial port has already been
+ * initialized by the bootloader.  We search for the first enabled
+ * port in the most probable order.  If you didn't setup a port in
+ * your bootloader then nothing will appear (which might be desired).
+ *
+ * This does not append a newline
  */
 
 static void putc(int ch)
@@ -129,4 +129,4 @@ static __inline__ void __arch_decomp_setup(unsigned long arch_id)
 #define arch_decomp_setup()	__arch_decomp_setup(arch_id)
 #define arch_decomp_wdog()
 
-#endif				/*                               */
+#endif				/* __ASM_ARCH_MXC_UNCOMPRESS_H__ */

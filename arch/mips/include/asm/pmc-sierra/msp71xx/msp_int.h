@@ -26,10 +26,10 @@
 #define _MSP_INT_H
 
 /*
-                                                                       
-                                                                   
-                                                                    
-                                           
+ * The PMC-Sierra MSP product line has at least two different interrupt
+ * controllers, the SLP register based scheme and the CIC interrupt
+ * controller block mechanism.  This file distinguishes between them
+ * so that devices see a uniform interface.
  */
 
 #if defined(CONFIG_IRQ_MSP_SLP)
@@ -40,4 +40,4 @@
 	#error "What sort of interrupt controller does *your* MSP have?"
 #endif
 
-#endif /*             */
+#endif /* !_MSP_INT_H */

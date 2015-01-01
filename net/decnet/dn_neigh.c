@@ -57,7 +57,7 @@ static int dn_phase3_output(struct neighbour *, struct sk_buff *);
 
 
 /*
-                                                   
+ * For talking to broadcast devices: Ethernet & PPP
  */
 static const struct neigh_ops dn_long_ops = {
 	.family =		AF_DECnet,
@@ -67,7 +67,7 @@ static const struct neigh_ops dn_long_ops = {
 };
 
 /*
-                                                                   
+ * For talking to pointopoint and multidrop devices: DDCMP and X.25
  */
 static const struct neigh_ops dn_short_ops = {
 	.family =		AF_DECnet,
@@ -77,11 +77,11 @@ static const struct neigh_ops dn_short_ops = {
 };
 
 /*
-                                        
+ * For talking to DECnet phase III nodes
  */
 static const struct neigh_ops dn_phase3_ops = {
 	.family =		AF_DECnet,
-	.error_report =		dn_short_error_report, /*                            */
+	.error_report =		dn_short_error_report, /* Can use short version here */
 	.output =		dn_phase3_output,
 	.connected_output =	dn_phase3_output,
 };
@@ -168,18 +168,18 @@ static int dn_neigh_construct(struct neighbour *neigh)
 	}
 
 	/*
-                                                                  
-                                                                 
-                                                                  
-                                                              
-                                                                   
-                                         
-   
-                                                                  
-                                                                    
-                                                                      
-                                     
-  */
+	 * Make an estimate of the remote block size by assuming that its
+	 * two less then the device mtu, which it true for ethernet (and
+	 * other things which support long format headers) since there is
+	 * an extra length field (of 16 bits) which isn't part of the
+	 * ethernet headers and which the DECnet specs won't admit is part
+	 * of the DECnet routing headers either.
+	 *
+	 * If we over estimate here its no big deal, the NSP negotiations
+	 * will prevent us from sending packets which are too large for the
+	 * remote node to handle. In any case this figure is normally updated
+	 * by a hello message in most cases.
+	 */
 	dn->blksize = dev->mtu - 2;
 
 	return 0;
@@ -251,7 +251,7 @@ static int dn_long_output(struct neighbour *neigh, struct sk_buff *skb)
 	lp = (struct dn_long_packet *)(data+3);
 
 	*((__le16 *)data) = cpu_to_le16(skb->len - 2);
-	*(data + 2) = 1 | DN_RT_F_PF; /*         */
+	*(data + 2) = 1 | DN_RT_F_PF; /* Padding */
 
 	lp->msgflg   = DN_RT_PKT_LONG|(cb->rt_flags&(DN_RT_F_IE|DN_RT_F_RQR|DN_RT_F_RTS));
 	lp->d_area   = lp->d_subarea = 0;
@@ -308,8 +308,8 @@ static int dn_short_output(struct neighbour *neigh, struct sk_buff *skb)
 }
 
 /*
-                                                          
-                                               
+ * Phase 3 output is the same is short output, execpt that
+ * it clears the area bits before transmission.
  */
 static int dn_phase3_output(struct neighbour *neigh, struct sk_buff *skb)
 {
@@ -349,14 +349,14 @@ static int dn_phase3_output(struct neighbour *neigh, struct sk_buff *skb)
 }
 
 /*
-                                                                
-                                                                 
-                                                                    
-                                                    
+ * Unfortunately, the neighbour code uses the device in its hash
+ * function, so we don't get any advantage from it. This function
+ * basically does a neigh_lookup(), but without comparing the device
+ * field. This is required for the On-Ethernet cache
  */
 
 /*
-                                            
+ * Pointopoint link receives a hello message
  */
 void dn_neigh_pointopoint_hello(struct sk_buff *skb)
 {
@@ -364,7 +364,7 @@ void dn_neigh_pointopoint_hello(struct sk_buff *skb)
 }
 
 /*
-                                         
+ * Ethernet router hello message received
  */
 int dn_neigh_router_hello(struct sk_buff *skb)
 {
@@ -408,7 +408,7 @@ int dn_neigh_router_hello(struct sk_buff *skb)
 			}
 		}
 
-		/*                              */
+		/* Only use routers in our area */
 		if ((le16_to_cpu(src)>>10) == (le16_to_cpu((decnet_address))>>10)) {
 			if (!dn_db->router) {
 				dn_db->router = neigh_clone(neigh);
@@ -426,7 +426,7 @@ int dn_neigh_router_hello(struct sk_buff *skb)
 }
 
 /*
-                                 
+ * Endnode hello message received
  */
 int dn_neigh_endnode_hello(struct sk_buff *skb)
 {
@@ -469,12 +469,12 @@ static char *dn_find_slot(char *base, int max, int priority)
 	int i;
 	unsigned char *min = NULL;
 
-	base += 6; /*               */
+	base += 6; /* skip first id */
 
 	for(i = 0; i < max; i++) {
 		if (!min || (*base < *min))
 			min = base;
-		base += 7; /*                    */
+		base += 7; /* find next priority */
 	}
 
 	if (!min)

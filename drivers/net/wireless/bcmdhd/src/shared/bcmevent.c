@@ -71,7 +71,7 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_PFN_NET_LOST, "PFNLOST_IND" },
 #if defined(IBSS_PEER_DISCOVERY_EVENT)
 	{ WLC_E_IBSS_ASSOC, "IBSS_ASSOC" },
-#endif /*                                    */
+#endif /* defined(IBSS_PEER_DISCOVERY_EVENT) */
 	{ WLC_E_RADIO, "RADIO" },
 	{ WLC_E_PSM_WATCHDOG, "PSM_WATCHDOG" },
 	{ WLC_E_PROBREQ_MSG, "PROBE_REQ_MSG" },
@@ -101,7 +101,7 @@ const bcmevent_name_t bcmevent_names[] = {
 #ifdef BCMWAPI_WAI
 	{ WLC_E_WAI_STA_EVENT, "WAI_STA_EVENT" },
 	{ WLC_E_WAI_MSG, "WAI_MSG" },
-#endif /*             */
+#endif /* BCMWAPI_WAI */
 	{ WLC_E_ESCAN_RESULT, "WLC_E_ESCAN_RESULT" },
 	{ WLC_E_ACTION_FRAME_OFF_CHAN_COMPLETE, "WLC_E_AF_OFF_CHAN_COMPLETE" },
 #ifdef WLP2P
@@ -130,11 +130,11 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_ACTION_FRAME_RX_NDIS, "WLC_E_ACTION_FRAME_RX_NDIS" },
 #ifdef WLTDLS
 	{ WLC_E_TDLS_PEER_EVENT, "TDLS_PEER_EVENT" },
-#endif /*        */
+#endif /* WLTDLS */
 	{ WLC_E_NATIVE, "NATIVE" },
 #ifdef WLPKTDLYSTAT
 	{ WLC_E_PKTDELAY_IND, "PKTDELAY_IND" },
-#endif /*              */
+#endif /* WLPKTDLYSTAT */
 	{ WLC_E_SERVICE_FOUND, "SERVICE_FOUND" },
 	{ WLC_E_GAS_FRAGMENT_RX, "GAS_FRAGMENT_RX" },
 	{ WLC_E_GAS_COMPLETE, "GAS_COMPLETE" },
@@ -142,7 +142,7 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_P2PO_DEL_DEVICE, "P2PO_DEV_LOST" },
 #ifdef WLWNM
 	{ WLC_E_WNM_STA_SLEEP, "WMM_STA_SLEEP" },
-#endif /*       */
+#endif /* WLWNM */
 #if defined(WL_PROXDETECT)
 	{ WLC_E_PROXD, "WLC_E_PROXD" },
 #endif

@@ -161,10 +161,10 @@ static __devinit int arizona_micsupp_probe(struct platform_device *pdev)
 	micsupp->arizona = arizona;
 
 	/*
-                                                          
-                                                           
-                              
-  */
+	 * Since the chip usually supplies itself we provide some
+	 * default init_data for it.  This will be overridden with
+	 * platform data if provided.
+	 */
 	micsupp->init_data = arizona_micsupp_default;
 	micsupp->init_data.consumer_supplies = micsupp->supply;
 	micsupp->init_data.num_consumer_supplies = ARRAY_SIZE(micsupp->supply);
@@ -180,7 +180,7 @@ static __devinit int arizona_micsupp_probe(struct platform_device *pdev)
 	else
 		init_data = &micsupp->init_data;
 
-	/*                                                         */
+	/* Default to regulated mode until the API supports bypass */
 	regmap_update_bits(arizona->regmap, ARIZONA_MIC_CHARGE_PUMP_1,
 			   ARIZONA_CPMIC_BYPASS, 0);
 
@@ -220,7 +220,7 @@ static struct platform_driver arizona_micsupp_driver = {
 
 module_platform_driver(arizona_micsupp_driver);
 
-/*                    */
+/* Module information */
 MODULE_AUTHOR("Mark Brown <broonie@opensource.wolfsonmicro.com>");
 MODULE_DESCRIPTION("Arizona microphone supply driver");
 MODULE_LICENSE("GPL");

@@ -20,7 +20,7 @@
  */
 
 /*
-                                                                           
+ * This driver supports an interface for DCA clients and providers to meet.
  */
 
 #include <linux/kernel.h>
@@ -109,7 +109,7 @@ static void unregister_dca_providers(void)
 		return;
 	}
 
-	/*                                                       */
+	/* at this point only one domain in the list is expected */
 	domain = list_first_entry(&dca_domains, struct dca_domain, node);
 
 	list_for_each_entry_safe(dca, _dca, &domain->dca_providers, node)
@@ -179,9 +179,9 @@ static struct dca_provider *dca_find_provider_by_dev(struct device *dev)
 	return NULL;
 }
 
-/* 
-                                                   
-                                           
+/**
+ * dca_add_requester - add a dca client to the list
+ * @dev - the device that wants dca service
  */
 int dca_add_requester(struct device *dev)
 {
@@ -196,7 +196,7 @@ int dca_add_requester(struct device *dev)
 
 	raw_spin_lock_irqsave(&dca_lock, flags);
 
-	/*                                                   */
+	/* check if the requester has not been added already */
 	dca = dca_find_provider_by_dev(dev);
 	if (dca) {
 		raw_spin_unlock_irqrestore(&dca_lock, flags);
@@ -234,9 +234,9 @@ int dca_add_requester(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(dca_add_requester);
 
-/* 
-                                                           
-                                           
+/**
+ * dca_remove_requester - remove a dca client from the list
+ * @dev - the device that wants dca service
  */
 int dca_remove_requester(struct device *dev)
 {
@@ -265,10 +265,10 @@ int dca_remove_requester(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(dca_remove_requester);
 
-/* 
-                                                                        
-                                           
-                                            
+/**
+ * dca_common_get_tag - return the dca tag (serves both new and old api)
+ * @dev - the device that wants dca service
+ * @cpu - the cpuid as returned by get_cpu()
  */
 u8 dca_common_get_tag(struct device *dev, int cpu)
 {
@@ -289,11 +289,11 @@ u8 dca_common_get_tag(struct device *dev, int cpu)
 	return tag;
 }
 
-/* 
-                                                            
-                                             
-                                           
-                                            
+/**
+ * dca3_get_tag - return the dca tag to the requester device
+ *                for the given cpu (new api)
+ * @dev - the device that wants dca service
+ * @cpu - the cpuid as returned by get_cpu()
  */
 u8 dca3_get_tag(struct device *dev, int cpu)
 {
@@ -304,9 +304,9 @@ u8 dca3_get_tag(struct device *dev, int cpu)
 }
 EXPORT_SYMBOL_GPL(dca3_get_tag);
 
-/* 
-                                                               
-                                            
+/**
+ * dca_get_tag - return the dca tag for the given cpu (old api)
+ * @cpu - the cpuid as returned by get_cpu()
  */
 u8 dca_get_tag(int cpu)
 {
@@ -316,10 +316,10 @@ u8 dca_get_tag(int cpu)
 }
 EXPORT_SYMBOL_GPL(dca_get_tag);
 
-/* 
-                                                                     
-                                                              
-                                                                  
+/**
+ * alloc_dca_provider - get data struct for describing a dca provider
+ * @ops - pointer to struct of dca operation function pointers
+ * @priv_size - size of extra mem to be added for provider's needs
  */
 struct dca_provider *alloc_dca_provider(struct dca_ops *ops, int priv_size)
 {
@@ -336,10 +336,10 @@ struct dca_provider *alloc_dca_provider(struct dca_ops *ops, int priv_size)
 }
 EXPORT_SYMBOL_GPL(alloc_dca_provider);
 
-/* 
-                                                           
-                                                              
-                                                                  
+/**
+ * free_dca_provider - release the dca provider data struct
+ * @ops - pointer to struct of dca operation function pointers
+ * @priv_size - size of extra mem to be added for provider's needs
  */
 void free_dca_provider(struct dca_provider *dca)
 {
@@ -347,10 +347,10 @@ void free_dca_provider(struct dca_provider *dca)
 }
 EXPORT_SYMBOL_GPL(free_dca_provider);
 
-/* 
-                                                  
-                                                
-                                       
+/**
+ * register_dca_provider - register a dca provider
+ * @dca - struct created by alloc_dca_provider()
+ * @dev - device providing dca services
  */
 int register_dca_provider(struct dca_provider *dca, struct device *dev)
 {
@@ -387,7 +387,7 @@ int register_dca_provider(struct dca_provider *dca, struct device *dev)
 		if (!newdomain)
 			return -ENODEV;
 		raw_spin_lock_irqsave(&dca_lock, flags);
-		/*                                                      */
+		/* Recheck, we might have raced after dropping the lock */
 		domain = dca_get_domain(dev);
 		if (!domain) {
 			domain = newdomain;
@@ -405,9 +405,9 @@ int register_dca_provider(struct dca_provider *dca, struct device *dev)
 }
 EXPORT_SYMBOL_GPL(register_dca_provider);
 
-/* 
-                                                  
-                                                
+/**
+ * unregister_dca_provider - remove a dca provider
+ * @dca - struct created by alloc_dca_provider()
  */
 void unregister_dca_provider(struct dca_provider *dca, struct device *dev)
 {
@@ -433,8 +433,8 @@ void unregister_dca_provider(struct dca_provider *dca, struct device *dev)
 }
 EXPORT_SYMBOL_GPL(unregister_dca_provider);
 
-/* 
-                                                              
+/**
+ * dca_register_notify - register a client's notifier callback
  */
 void dca_register_notify(struct notifier_block *nb)
 {
@@ -442,8 +442,8 @@ void dca_register_notify(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(dca_register_notify);
 
-/* 
-                                                              
+/**
+ * dca_unregister_notify - remove a client's notifier callback
  */
 void dca_unregister_notify(struct notifier_block *nb)
 {

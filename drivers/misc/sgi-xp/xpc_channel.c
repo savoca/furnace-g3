@@ -7,21 +7,21 @@
  */
 
 /*
-                                                       
-  
-                                                        
-                                                                
-  
+ * Cross Partition Communication (XPC) channel support.
+ *
+ *	This is the part of XPC that manages the channels and
+ *	sends/receives messages across them to/from other partitions.
+ *
  */
 
 #include <linux/device.h>
 #include "xpc.h"
 
 /*
-                                                     
-  
-                                                                 
-                                                               
+ * Process a connect message from a remote partition.
+ *
+ * Note: xpc_process_connect() is expecting to be called with the
+ * spin_lock_irqsave held and will leave it locked upon return.
  */
 static void
 xpc_process_connect(struct xpc_channel *ch, unsigned long *irq_flags)
@@ -32,7 +32,7 @@ xpc_process_connect(struct xpc_channel *ch, unsigned long *irq_flags)
 
 	if (!(ch->flags & XPC_C_OPENREQUEST) ||
 	    !(ch->flags & XPC_C_ROPENREQUEST)) {
-		/*                            */
+		/* nothing more to do for now */
 		return;
 	}
 	DBUG_ON(!(ch->flags & XPC_C_CONNECTING));
@@ -70,11 +70,11 @@ xpc_process_connect(struct xpc_channel *ch, unsigned long *irq_flags)
 	dev_info(xpc_chan, "channel %d to partition %d connected\n",
 		 ch->number, ch->partid);
 
-	ch->flags = (XPC_C_CONNECTED | XPC_C_SETUP);	/*                */
+	ch->flags = (XPC_C_CONNECTED | XPC_C_SETUP);	/* clear all else */
 }
 
 /*
-                                                       
+ * spin_lock_irqsave() is expected to be held on entry.
  */
 static void
 xpc_process_disconnect(struct xpc_channel *ch, unsigned long *irq_flags)
@@ -89,7 +89,7 @@ xpc_process_disconnect(struct xpc_channel *ch, unsigned long *irq_flags)
 
 	DBUG_ON(!(ch->flags & XPC_C_CLOSEREQUEST));
 
-	/*                                               */
+	/* make sure all activity has settled down first */
 
 	if (atomic_read(&ch->kthreads_assigned) > 0 ||
 	    atomic_read(&ch->references) > 0) {
@@ -99,13 +99,13 @@ xpc_process_disconnect(struct xpc_channel *ch, unsigned long *irq_flags)
 		!(ch->flags & XPC_C_DISCONNECTINGCALLOUT_MADE));
 
 	if (part->act_state == XPC_P_AS_DEACTIVATING) {
-		/*                                                       */
+		/* can't proceed until the other side disengages from us */
 		if (xpc_arch_ops.partition_engaged(ch->partid))
 			return;
 
 	} else {
 
-		/*                                                      */
+		/* as long as the other side is up do the full protocol */
 
 		if (!(ch->flags & XPC_C_RCLOSEREQUEST))
 			return;
@@ -119,13 +119,13 @@ xpc_process_disconnect(struct xpc_channel *ch, unsigned long *irq_flags)
 			return;
 	}
 
-	/*                                          */
+	/* wake those waiting for notify completion */
 	if (atomic_read(&ch->n_to_notify) > 0) {
-		/*                                                           */
+		/* we do callout while holding ch->lock, callout can't block */
 		xpc_arch_ops.notify_senders_of_disconnect(ch);
 	}
 
-	/*                                 */
+	/* both sides are disconnected now */
 
 	if (ch->flags & XPC_C_DISCONNECTINGCALLOUT_MADE) {
 		spin_unlock_irqrestore(&ch->lock, *irq_flags);
@@ -135,7 +135,7 @@ xpc_process_disconnect(struct xpc_channel *ch, unsigned long *irq_flags)
 
 	DBUG_ON(atomic_read(&ch->n_to_notify) != 0);
 
-	/*                                                    */
+	/* it's now safe to free the channel's message queues */
 	xpc_arch_ops.teardown_msg_structures(ch);
 
 	ch->func = NULL;
@@ -147,11 +147,11 @@ xpc_process_disconnect(struct xpc_channel *ch, unsigned long *irq_flags)
 	ch->kthreads_idle_limit = 0;
 
 	/*
-                                                                      
-                                   
-                                                             
-                                      
-  */
+	 * Mark the channel disconnected and clear all other flags, including
+	 * XPC_C_SETUP (because of call to
+	 * xpc_arch_ops.teardown_msg_structures()) but not including
+	 * XPC_C_WDISCONNECT (if it was set).
+	 */
 	ch->flags = (XPC_C_DISCONNECTED | (ch->flags & XPC_C_WDISCONNECT));
 
 	atomic_dec(&part->nchannels_active);
@@ -162,11 +162,11 @@ xpc_process_disconnect(struct xpc_channel *ch, unsigned long *irq_flags)
 	}
 
 	if (ch->flags & XPC_C_WDISCONNECT) {
-		/*                                                    */
+		/* we won't lose the CPU since we're holding ch->lock */
 		complete(&ch->wdisconnect_wait);
 	} else if (ch->delayed_chctl_flags) {
 		if (part->act_state != XPC_P_AS_DEACTIVATING) {
-			/*                                                */
+			/* time to take action on any delayed chctl flags */
 			spin_lock(&part->chctl_lock);
 			part->chctl.flags[ch->number] |=
 			    ch->delayed_chctl_flags;
@@ -177,7 +177,7 @@ xpc_process_disconnect(struct xpc_channel *ch, unsigned long *irq_flags)
 }
 
 /*
-                                                             
+ * Process a change in the channel's remote connection state.
  */
 static void
 xpc_process_openclose_chctl_flags(struct xpc_partition *part, int ch_number,
@@ -198,9 +198,9 @@ again:
 	if ((ch->flags & XPC_C_DISCONNECTED) &&
 	    (ch->flags & XPC_C_WDISCONNECT)) {
 		/*
-                                                                 
-                                                              
-   */
+		 * Delay processing chctl flags until thread waiting disconnect
+		 * has had a chance to see that the channel is disconnected.
+		 */
 		ch->delayed_chctl_flags |= chctl_flags;
 		goto out;
 	}
@@ -212,10 +212,10 @@ again:
 			ch->partid, ch->number);
 
 		/*
-                                                        
-                                                             
-                                                
-   */
+		 * If RCLOSEREQUEST is set, we're probably waiting for
+		 * RCLOSEREPLY. We should find it and a ROPENREQUEST packed
+		 * with this RCLOSEREQUEST in the chctl_flags.
+		 */
 
 		if (ch->flags & XPC_C_RCLOSEREQUEST) {
 			DBUG_ON(!(ch->flags & XPC_C_DISCONNECTING));
@@ -227,7 +227,7 @@ again:
 			chctl_flags &= ~XPC_CHCTL_CLOSEREPLY;
 			ch->flags |= XPC_C_RCLOSEREPLY;
 
-			/*                                        */
+			/* both sides have finished disconnecting */
 			xpc_process_disconnect(ch, &irq_flags);
 			DBUG_ON(!(ch->flags & XPC_C_DISCONNECTED));
 			goto again;
@@ -258,9 +258,9 @@ again:
 		    XPC_CHCTL_OPENCOMPLETE);
 
 		/*
-                                                             
-                                                    
-   */
+		 * The meaningful CLOSEREQUEST connection state fields are:
+		 *      reason = reason connection is to be closed
+		 */
 
 		ch->flags |= XPC_C_RCLOSEREQUEST;
 
@@ -308,7 +308,7 @@ again:
 		ch->flags |= XPC_C_RCLOSEREPLY;
 
 		if (ch->flags & XPC_C_CLOSEREPLY) {
-			/*                                        */
+			/* both sides have finished disconnecting */
 			xpc_process_disconnect(ch, &irq_flags);
 		}
 	}
@@ -335,12 +335,12 @@ again:
 				     XPC_C_OPENREPLY | XPC_C_CONNECTED));
 
 		/*
-                                                            
-                                                          
-                                                            
-   */
+		 * The meaningful OPENREQUEST connection state fields are:
+		 *      entry_size = size of channel's messages in bytes
+		 *      local_nentries = remote partition's local_nentries
+		 */
 		if (args->entry_size == 0 || args->local_nentries == 0) {
-			/*                                           */
+			/* assume OPENREQUEST was delayed by mistake */
 			goto out;
 		}
 
@@ -386,12 +386,12 @@ again:
 		DBUG_ON(ch->flags & XPC_C_CONNECTED);
 
 		/*
-                                                          
-                                                        
-                                                        
-                                                            
-                                                              
-   */
+		 * The meaningful OPENREPLY connection state fields are:
+		 *      local_msgqueue_pa = physical address of remote
+		 *                          partition's local_msgqueue
+		 *      local_nentries = remote partition's local_nentries
+		 *      remote_nentries = remote partition's remote_nentries
+		 */
 		DBUG_ON(args->local_msgqueue_pa == 0);
 		DBUG_ON(args->local_nentries == 0);
 		DBUG_ON(args->remote_nentries == 0);
@@ -459,7 +459,7 @@ out:
 }
 
 /*
-                                                                   
+ * Attempt to establish a channel connection to a remote partition.
  */
 static enum xp_retval
 xpc_connect_channel(struct xpc_channel *ch)
@@ -486,7 +486,7 @@ xpc_connect_channel(struct xpc_channel *ch)
 		return ch->reason;
 	}
 
-	/*                                                               */
+	/* add info from the channel connect registration to the channel */
 
 	ch->kthreads_assigned_limit = registration->assigned_limit;
 	ch->kthreads_idle_limit = registration->idle_limit;
@@ -502,17 +502,17 @@ xpc_connect_channel(struct xpc_channel *ch)
 
 	if (ch->flags & XPC_C_ROPENREQUEST) {
 		if (registration->entry_size != ch->entry_size) {
-			/*                                            */
+			/* the local and remote sides aren't the same */
 
 			/*
-                                                      
-                                                         
-                                                          
-                                                       
-                                                      
-                                                       
-                                 
-    */
+			 * Because XPC_DISCONNECT_CHANNEL() can block we're
+			 * forced to up the registration sema before we unlock
+			 * the channel lock. But that's okay here because we're
+			 * done with the part that required the registration
+			 * sema. XPC_DISCONNECT_CHANNEL() requires that the
+			 * channel lock be locked and will unlock and relock
+			 * the channel lock as needed.
+			 */
 			mutex_unlock(&registration->mutex);
 			XPC_DISCONNECT_CHANNEL(ch, xpUnequalMsgSizes,
 					       &irq_flags);
@@ -530,7 +530,7 @@ xpc_connect_channel(struct xpc_channel *ch)
 
 	mutex_unlock(&registration->mutex);
 
-	/*                         */
+	/* initiate the connection */
 
 	ch->flags |= (XPC_C_OPENREQUEST | XPC_C_CONNECTING);
 	xpc_arch_ops.send_chctl_openrequest(ch, &irq_flags);
@@ -554,26 +554,26 @@ xpc_process_sent_chctl_flags(struct xpc_partition *part)
 	chctl.all_flags = xpc_arch_ops.get_chctl_all_flags(part);
 
 	/*
-                                                         
-   
-                                                                      
-                                                  
-  */
+	 * Initiate channel connections for registered channels.
+	 *
+	 * For each connected channel that has pending messages activate idle
+	 * kthreads and/or create new kthreads as needed.
+	 */
 
 	for (ch_number = 0; ch_number < part->nchannels; ch_number++) {
 		ch = &part->channels[ch_number];
 
 		/*
-                                                                 
-                                                              
-   */
+		 * Process any open or close related chctl flags, and then deal
+		 * with connecting or disconnecting the channel as required.
+		 */
 
 		if (chctl.flags[ch_number] & XPC_OPENCLOSE_CHCTL_FLAGS) {
 			xpc_process_openclose_chctl_flags(part, ch_number,
 							chctl.flags[ch_number]);
 		}
 
-		ch_flags = ch->flags;	/*                                  */
+		ch_flags = ch->flags;	/* need an atomic snapshot of flags */
 
 		if (ch_flags & XPC_C_DISCONNECTING) {
 			spin_lock_irqsave(&ch->lock, irq_flags);
@@ -594,10 +594,10 @@ xpc_process_sent_chctl_flags(struct xpc_partition *part)
 		}
 
 		/*
-                                                              
-                                                               
-                                   
-   */
+		 * Process any message related chctl flags, this may involve
+		 * the activation of kthreads to deliver any pending messages
+		 * sent from the other partition.
+		 */
 
 		if (chctl.flags[ch_number] & XPC_MSG_CHCTL_FLAGS)
 			xpc_arch_ops.process_msg_chctl_flags(part, ch_number);
@@ -605,13 +605,13 @@ xpc_process_sent_chctl_flags(struct xpc_partition *part)
 }
 
 /*
-                                                                             
-                                                                         
-                                                     
-  
-                                                                            
-                                                                            
-                    
+ * XPC's heartbeat code calls this function to inform XPC that a partition is
+ * going down.  XPC responds by tearing down the XPartition Communication
+ * infrastructure used for the just downed partition.
+ *
+ * XPC's heartbeat code will never call this function and xpc_partition_up()
+ * at the same time. Nor will it ever make multiple calls to either function
+ * at the same time.
  */
 void
 xpc_partition_going_down(struct xpc_partition *part, enum xp_retval reason)
@@ -624,11 +624,11 @@ xpc_partition_going_down(struct xpc_partition *part, enum xp_retval reason)
 		XPC_PARTID(part), reason);
 
 	if (!xpc_part_ref(part)) {
-		/*                                                          */
+		/* infrastructure for this partition isn't currently set up */
 		return;
 	}
 
-	/*                                                              */
+	/* disconnect channels associated with the partition going down */
 
 	for (ch_number = 0; ch_number < part->nchannels; ch_number++) {
 		ch = &part->channels[ch_number];
@@ -648,8 +648,8 @@ xpc_partition_going_down(struct xpc_partition *part, enum xp_retval reason)
 }
 
 /*
-                                                                       
-                                                                   
+ * Called by XP at the time of channel connection registration to cause
+ * XPC to establish connections to all currently active partitions.
  */
 void
 xpc_initiate_connect(int ch_number)
@@ -667,9 +667,9 @@ xpc_initiate_connect(int ch_number)
 			ch = &part->channels[ch_number];
 
 			/*
-                                                       
-                                                       
-    */
+			 * Initiate the establishment of a connection on the
+			 * newly registered channel to the remote partition.
+			 */
 			xpc_wakeup_channel_mgr(part);
 			xpc_part_deref(part);
 		}
@@ -679,7 +679,7 @@ xpc_initiate_connect(int ch_number)
 void
 xpc_connected_callout(struct xpc_channel *ch)
 {
-	/*                                                                */
+	/* let the registerer know that a connection has been established */
 
 	if (ch->func != NULL) {
 		dev_dbg(xpc_chan, "ch->func() called, reason=xpConnected, "
@@ -694,17 +694,17 @@ xpc_connected_callout(struct xpc_channel *ch)
 }
 
 /*
-                                                                         
-                                                                     
-  
-                                                                             
-                                                                           
-                                                                            
-                                              
-  
-             
-  
-                                       
+ * Called by XP at the time of channel connection unregistration to cause
+ * XPC to teardown all current connections for the specified channel.
+ *
+ * Before returning xpc_initiate_disconnect() will wait until all connections
+ * on the specified channel have been closed/torndown. So the caller can be
+ * assured that they will not be receiving any more callouts from XPC to the
+ * function they registered via xpc_connect().
+ *
+ * Arguments:
+ *
+ *	ch_number - channel # to unregister.
  */
 void
 xpc_initiate_disconnect(int ch_number)
@@ -716,7 +716,7 @@ xpc_initiate_disconnect(int ch_number)
 
 	DBUG_ON(ch_number < 0 || ch_number >= XPC_MAX_NCHANNELS);
 
-	/*                                                            */
+	/* initiate the channel disconnect for every active partition */
 	for (partid = 0; partid < xp_max_npartitions; partid++) {
 		part = &xpc_partitions[partid];
 
@@ -744,13 +744,13 @@ xpc_initiate_disconnect(int ch_number)
 }
 
 /*
-                                                                          
-  
-                                                                 
-                                                                        
-                         
-  
-                                                                                
+ * To disconnect a channel, and reflect it back to all who may be waiting.
+ *
+ * An OPEN is not allowed until XPC_C_DISCONNECTING is cleared by
+ * xpc_process_disconnect(), and if set, XPC_C_WDISCONNECT is cleared by
+ * xpc_disconnect_wait().
+ *
+ * THE CHANNEL IS TO BE LOCKED BY THE CALLER AND WILL REMAIN LOCKED UPON RETURN.
  */
 void
 xpc_disconnect_channel(const int line, struct xpc_channel *ch,
@@ -771,7 +771,7 @@ xpc_disconnect_channel(const int line, struct xpc_channel *ch,
 	XPC_SET_REASON(ch, reason, line);
 
 	ch->flags |= (XPC_C_CLOSEREQUEST | XPC_C_DISCONNECTING);
-	/*                                     */
+	/* some of these may not have been set */
 	ch->flags &= ~(XPC_C_OPENREQUEST | XPC_C_OPENREPLY |
 		       XPC_C_ROPENREQUEST | XPC_C_ROPENREPLY |
 		       XPC_C_CONNECTING | XPC_C_CONNECTED);
@@ -783,17 +783,17 @@ xpc_disconnect_channel(const int line, struct xpc_channel *ch,
 
 	spin_unlock_irqrestore(&ch->lock, *irq_flags);
 
-	/*                                         */
+	/* wake all idle kthreads so they can exit */
 	if (atomic_read(&ch->kthreads_idle) > 0) {
 		wake_up_all(&ch->idle_wq);
 
 	} else if ((ch->flags & XPC_C_CONNECTEDCALLOUT_MADE) &&
 		   !(ch->flags & XPC_C_DISCONNECTINGCALLOUT)) {
-		/*                                                          */
+		/* start a kthread that will do the xpDisconnecting callout */
 		xpc_create_kthreads(ch, 1, 1);
 	}
 
-	/*                                                                  */
+	/* wake those waiting to allocate an entry from the local msg queue */
 	if (atomic_read(&ch->n_on_msg_allocate_wq) > 0)
 		wake_up(&ch->msg_allocate_wq);
 
@@ -804,10 +804,10 @@ void
 xpc_disconnect_callout(struct xpc_channel *ch, enum xp_retval reason)
 {
 	/*
-                                                               
-                                                                      
-                                        
-  */
+	 * Let the channel's registerer know that the channel is being
+	 * disconnected. We don't want to do this if the registerer was never
+	 * informed of a connection being made.
+	 */
 
 	if (ch->func != NULL) {
 		dev_dbg(xpc_chan, "ch->func() called, reason=%d, partid=%d, "
@@ -821,8 +821,8 @@ xpc_disconnect_callout(struct xpc_channel *ch, enum xp_retval reason)
 }
 
 /*
-                                                                          
-                                          
+ * Wait for a message entry to become available for the specified channel,
+ * but don't wait any longer than 1 jiffy.
  */
 enum xp_retval
 xpc_allocate_msg_wait(struct xpc_channel *ch)
@@ -851,22 +851,22 @@ xpc_allocate_msg_wait(struct xpc_channel *ch)
 }
 
 /*
-                                                                           
-                                        
-  
-                                                                         
-                                                        
-  
-                                                                            
-                                                  
-  
-             
-  
-                                                              
-                                            
-                                    
-                                                        
-                                               
+ * Send a message that contains the user's payload on the specified channel
+ * connected to the specified partition.
+ *
+ * NOTE that this routine can sleep waiting for a message entry to become
+ * available. To not sleep, pass in the XPC_NOWAIT flag.
+ *
+ * Once sent, this routine will not wait for the message to be received, nor
+ * will notification be given when it does happen.
+ *
+ * Arguments:
+ *
+ *	partid - ID of partition to which the channel is connected.
+ *	ch_number - channel # to send message on.
+ *	flags - see xp.h for valid flags.
+ *	payload - pointer to the payload which is to be sent.
+ *	payload_size - size of the payload in bytes.
  */
 enum xp_retval
 xpc_initiate_send(short partid, int ch_number, u32 flags, void *payload,
@@ -892,32 +892,32 @@ xpc_initiate_send(short partid, int ch_number, u32 flags, void *payload,
 }
 
 /*
-                                                                           
-                                        
-  
-                                                                         
-                                                        
-  
-                                                                     
-  
-                                                                            
-                                                                           
-                                                                       
-                                                                          
-                     
-  
-                                                                              
-  
-             
-  
-                                                              
-                                            
-                                    
-                                                        
-                                               
-                                                                    
-                                                  
-                                                                        
+ * Send a message that contains the user's payload on the specified channel
+ * connected to the specified partition.
+ *
+ * NOTE that this routine can sleep waiting for a message entry to become
+ * available. To not sleep, pass in the XPC_NOWAIT flag.
+ *
+ * This routine will not wait for the message to be sent or received.
+ *
+ * Once the remote end of the channel has received the message, the function
+ * passed as an argument to xpc_initiate_send_notify() will be called. This
+ * allows the sender to free up or re-use any buffers referenced by the
+ * message, but does NOT mean the message has been processed at the remote
+ * end by a receiver.
+ *
+ * If this routine returns an error, the caller's function will NOT be called.
+ *
+ * Arguments:
+ *
+ *	partid - ID of partition to which the channel is connected.
+ *	ch_number - channel # to send message on.
+ *	flags - see xp.h for valid flags.
+ *	payload - pointer to the payload which is to be sent.
+ *	payload_size - size of the payload in bytes.
+ *	func - function to call with asynchronous notification of message
+ *		  receipt. THIS FUNCTION MUST BE NON-BLOCKING.
+ *	key - user-defined key to be passed to the function when it's called.
  */
 enum xp_retval
 xpc_initiate_send_notify(short partid, int ch_number, u32 flags, void *payload,
@@ -943,7 +943,7 @@ xpc_initiate_send_notify(short partid, int ch_number, u32 flags, void *payload,
 }
 
 /*
-                                                         
+ * Deliver a message's payload to its intended recipient.
  */
 void
 xpc_deliver_payload(struct xpc_channel *ch)
@@ -954,10 +954,10 @@ xpc_deliver_payload(struct xpc_channel *ch)
 	if (payload != NULL) {
 
 		/*
-                                                               
-                                                              
-                                                  
-   */
+		 * This ref is taken to protect the payload itself from being
+		 * freed before the user is finished with it, which the user
+		 * indicates by calling xpc_initiate_received().
+		 */
 		xpc_msgqueue_ref(ch);
 
 		atomic_inc(&ch->kthreads_active);
@@ -967,7 +967,7 @@ xpc_deliver_payload(struct xpc_channel *ch)
 				"partid=%d channel=%d\n", payload, ch->partid,
 				ch->number);
 
-			/*                                               */
+			/* deliver the message to its intended recipient */
 			ch->func(xpMsgReceived, ch->partid, ch->number, payload,
 				 ch->key);
 
@@ -981,18 +981,18 @@ xpc_deliver_payload(struct xpc_channel *ch)
 }
 
 /*
-                                                        
-  
-                                                                           
-                                                                         
-                                                                   
-  
-             
-  
-                                                              
-                                             
-                                                      
-                                                       
+ * Acknowledge receipt of a delivered message's payload.
+ *
+ * This function, although called by users, does not call xpc_part_ref() to
+ * ensure that the partition infrastructure is in place. It relies on the
+ * fact that we called xpc_msgqueue_ref() in xpc_deliver_payload().
+ *
+ * Arguments:
+ *
+ *	partid - ID of partition to which the channel is connected.
+ *	ch_number - channel # message received on.
+ *	payload - pointer to the payload area allocated via
+ *			xpc_initiate_send() or xpc_initiate_send_notify().
  */
 void
 xpc_initiate_received(short partid, int ch_number, void *payload)
@@ -1006,6 +1006,6 @@ xpc_initiate_received(short partid, int ch_number, void *payload)
 	ch = &part->channels[ch_number];
 	xpc_arch_ops.received_payload(ch, payload);
 
-	/*                                                                   */
+	/* the call to xpc_msgqueue_ref() was done by xpc_deliver_payload()  */
 	xpc_msgqueue_deref(ch);
 }

@@ -27,11 +27,11 @@ __init void early_shadow_write(struct console *con, const char *s,
 {
 	unsigned int i;
 	/*
-                                               
-                                                                                 
-  */
+	 * save 2 bytes for the double null at the end
+	 * once we fail on a long line, make sure we don't write a short line afterwards
+	 */
 	if ((shadow_console_buffer + n) <= (char *)(SHADOW_CONSOLE_END - 2)) {
-		/*                                                */
+		/* can't use memcpy - it may not be relocated yet */
 		for (i = 0; i <= n; i++)
 			shadow_console_buffer[i] = s[i];
 		shadow_console_buffer += n;
@@ -65,7 +65,7 @@ __init void enable_shadow_console(void)
 {
 	if (!shadow_console_enabled()) {
 		register_console(&early_shadow_console);
-		/*                                          */
+		/* for now, assume things are going to fail */
 		mark_shadow_error();
 	}
 }
@@ -73,11 +73,11 @@ __init void enable_shadow_console(void)
 static __init int disable_shadow_console(void)
 {
 	/*
-                                                                    
-                                                            
-                                                                  
-                                             
-  */
+	 * by the time pure_initcall runs, the standard console is enabled,
+	 * and the early_console is off, so unset the magic numbers
+	 * unregistering the console is taken care of in common code (See
+	 * ./kernel/printk:disable_boot_consoles() )
+	 */
 	int *loc = (int *)SHADOW_CONSOLE_MAGIC_LOC;
 
 	loc[0] = 0;
@@ -87,14 +87,14 @@ static __init int disable_shadow_console(void)
 pure_initcall(disable_shadow_console);
 
 /*
-                                                               
+ * since we can't use printk, dump numbers (as hex), n = # bits
  */
 __init void early_shadow_reg(unsigned long reg, unsigned int n)
 {
 	/*
-                                                      
-                                                     
-  */
+	 * can't use any "normal" kernel features, since thay
+	 * may not be relocated to their execute address yet
+	 */
 	int i;
 	char ascii[11] = " 0x";
 

@@ -1,13 +1,13 @@
-/*                                                              */
+/* net/atm/common.h - ATM sockets (common part for PVC and SVC) */
 
-/*                                                       */
+/* Written 1995-2000 by Werner Almesberger, EPFL LRC/ICA */
 
 
 #ifndef NET_ATM_COMMON_H
 #define NET_ATM_COMMON_H
 
 #include <linux/net.h>
-#include <linux/poll.h> /*                */
+#include <linux/poll.h> /* for poll_table */
 
 
 int vcc_create(struct net *net, struct socket *sock, int protocol, int family);
@@ -44,11 +44,11 @@ static inline int atm_proc_init(void)
 
 static inline void atm_proc_exit(void)
 {
-	/*         */
+	/* nothing */
 }
-#endif /*                */
+#endif /* CONFIG_PROC_FS */
 
-/*     */
+/* SVC */
 int svc_change_qos(struct atm_vcc *vcc,struct atm_qos *qos);
 
 void atm_dev_release_vccs(struct atm_dev *dev);

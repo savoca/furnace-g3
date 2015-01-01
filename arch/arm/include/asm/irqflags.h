@@ -6,7 +6,7 @@
 #include <asm/ptrace.h>
 
 /*
-                               
+ * CPU interrupt mask handling.
  */
 #if __LINUX_ARM_ARCH__ >= 6
 
@@ -44,7 +44,7 @@ static inline void arch_local_irq_disable(void)
 #else
 
 /*
-                                                         
+ * Save the current interrupt enable state & disable IRQs
  */
 static inline unsigned long arch_local_irq_save(void)
 {
@@ -61,7 +61,7 @@ static inline unsigned long arch_local_irq_save(void)
 }
 
 /*
-              
+ * Enable IRQs
  */
 static inline void arch_local_irq_enable(void)
 {
@@ -76,7 +76,7 @@ static inline void arch_local_irq_enable(void)
 }
 
 /*
-               
+ * Disable IRQs
  */
 static inline void arch_local_irq_disable(void)
 {
@@ -91,7 +91,7 @@ static inline void arch_local_irq_disable(void)
 }
 
 /*
-              
+ * Enable FIQs
  */
 #define local_fiq_enable()					\
 	({							\
@@ -106,7 +106,7 @@ static inline void arch_local_irq_disable(void)
 	})
 
 /*
-               
+ * Disable FIQs
  */
 #define local_fiq_disable()					\
 	({							\
@@ -123,7 +123,7 @@ static inline void arch_local_irq_disable(void)
 #endif
 
 /*
-                                           
+ * Save the current interrupt enable state.
  */
 static inline unsigned long arch_local_save_flags(void)
 {
@@ -135,7 +135,7 @@ static inline unsigned long arch_local_save_flags(void)
 }
 
 /*
-                                
+ * restore saved IRQ & FIQ state
  */
 static inline void arch_local_irq_restore(unsigned long flags)
 {

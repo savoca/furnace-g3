@@ -22,7 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 /*
-                                                                  
+ * Authors: Thomas Hellström <thomas-at-tungstengraphics-dot-com>
  */
 
 #include "drmP.h"
@@ -78,7 +78,7 @@ int via_final_context(struct drm_device *dev, int context)
 	via_release_futex(dev_priv, context);
 
 	/* Linux specific until context tracking code gets ported to BSD */
-	/*                               */
+	/* Last context, perform cleanup */
 	if (dev->ctx_count == 1 && dev->dev_private) {
 		DRM_DEBUG("Last Context\n");
 		drm_irq_uninstall(dev);

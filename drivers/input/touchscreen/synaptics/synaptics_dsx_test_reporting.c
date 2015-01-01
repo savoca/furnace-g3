@@ -25,17 +25,17 @@
 #include <linux/input.h>
 #include <linux/ctype.h>
 #include <linux/hrtimer.h>
-#include <linux/input/synaptics_dsx_g2.h>	/*                                   */
+#include <linux/input/synaptics_dsx_g2.h>	/* kyle.jeon to avoid merge conflict */
 #include "synaptics_dsx_i2c.h"
 
 #define WATCHDOG_HRTIMER
 #define WATCHDOG_TIMEOUT_S 2
 #define FORCE_TIMEOUT_100MS 10
-#define STATUS_WORK_INTERVAL 20 /*    */
+#define STATUS_WORK_INTERVAL 20 /* ms */
 
 /*
-               
-                      
+#define RAW_HEX
+#define HUMAN_READABLE
 */
 
 #define STATUS_IDLE 0
@@ -359,13 +359,13 @@ enum f54_report_types {
 struct f54_query {
 	union {
 		struct {
-			/*         */
+			/* query 0 */
 			unsigned char num_of_rx_electrodes;
 
-			/*         */
+			/* query 1 */
 			unsigned char num_of_tx_electrodes;
 
-			/*         */
+			/* query 2 */
 			unsigned char f54_query2_b0__1:2;
 			unsigned char has_baseline:1;
 			unsigned char has_image8:1;
@@ -373,17 +373,17 @@ struct f54_query {
 			unsigned char has_image16:1;
 			unsigned char f54_query2_b7:1;
 
-			/*                     */
+			/* queries 3.0 and 3.1 */
 			unsigned short clock_rate;
 
-			/*         */
+			/* query 4 */
 			unsigned char touch_controller_family;
 
-			/*         */
+			/* query 5 */
 			unsigned char has_pixel_touch_threshold_adjustment:1;
 			unsigned char f54_query5_b1__7:7;
 
-			/*         */
+			/* query 6 */
 			unsigned char has_sensor_assignment:1;
 			unsigned char has_interference_metric:1;
 			unsigned char has_sense_frequency_control:1;
@@ -393,11 +393,11 @@ struct f54_query {
 			unsigned char has_one_byte_report_rate:1;
 			unsigned char has_relaxation_control:1;
 
-			/*         */
+			/* query 7 */
 			unsigned char curve_compensation_mode:2;
 			unsigned char f54_query7_b2__7:6;
 
-			/*         */
+			/* query 8 */
 			unsigned char f54_query8_b0:1;
 			unsigned char has_iir_filter:1;
 			unsigned char has_cmn_removal:1;
@@ -407,7 +407,7 @@ struct f54_query {
 			unsigned char has_per_frequency_noise_control:1;
 			unsigned char has_enhanced_stretch:1;
 
-			/*         */
+			/* query 9 */
 			unsigned char has_force_fast_relaxation:1;
 			unsigned char has_multi_metric_state_machine:1;
 			unsigned char has_signal_clarity:1;
@@ -417,11 +417,11 @@ struct f54_query {
 			unsigned char has_status:1;
 			unsigned char has_slew_metric:1;
 
-			/*               */
+			/* queries 10 11 */
 			unsigned char f54_query10;
 			unsigned char f54_query11;
 
-			/*          */
+			/* query 12 */
 			unsigned char number_of_sensing_frequencies:4;
 			unsigned char f54_query12_b4__7:4;
 		} __packed;
@@ -488,18 +488,18 @@ struct f54_control_3 {
 struct f54_control_4__6 {
 	union {
 		struct {
-			/*           */
+			/* control 4 */
 			unsigned char rx_feedback_cap:2;
 			unsigned char bias_current:2;
 			unsigned char f54_ctrl4_b4__7:4;
 
-			/*           */
+			/* control 5 */
 			unsigned char low_ref_cap:2;
 			unsigned char low_ref_feedback_cap:2;
 			unsigned char low_ref_polarity:1;
 			unsigned char f54_ctrl5_b5__7:3;
 
-			/*           */
+			/* control 6 */
 			unsigned char high_ref_cap:2;
 			unsigned char high_ref_feedback_cap:2;
 			unsigned char high_ref_polarity:1;
@@ -530,11 +530,11 @@ struct f54_control_7 {
 struct f54_control_8__9 {
 	union {
 		struct {
-			/*           */
+			/* control 8 */
 			unsigned short integration_duration:10;
 			unsigned short f54_ctrl8_b10__15:6;
 
-			/*           */
+			/* control 9 */
 			unsigned char reset_duration;
 		} __packed;
 		struct {
@@ -572,10 +572,10 @@ struct f54_control_11 {
 struct f54_control_12__13 {
 	union {
 		struct {
-			/*            */
+			/* control 12 */
 			unsigned char slow_relaxation_rate;
 
-			/*            */
+			/* control 13 */
 			unsigned char fast_relaxation_rate;
 		} __packed;
 		struct {
@@ -680,19 +680,19 @@ struct f54_control_21 {
 struct f54_control_22__26 {
 	union {
 		struct {
-			/*            */
+			/* control 22 */
 			unsigned char f54_ctrl22;
 
-			/*            */
+			/* control 23 */
 			unsigned short medium_noise_threshold;
 
-			/*            */
+			/* control 24 */
 			unsigned short high_noise_threshold;
 
-			/*            */
+			/* control 25 */
 			unsigned char noise_density;
 
-			/*            */
+			/* control 26 */
 			unsigned char frame_count;
 		} __packed;
 		struct {
@@ -729,7 +729,7 @@ struct f54_control_28 {
 struct f54_control_29 {
 	union {
 		struct {
-			/*            */
+			/* control 29 */
 			unsigned char f54_ctrl29_b0__6:7;
 			unsigned char cmn_filter_disable:1;
 		} __packed;
@@ -767,16 +767,16 @@ struct f54_control_31 {
 struct f54_control_32__35 {
 	union {
 		struct {
-			/*            */
+			/* control 32 */
 			unsigned short rx_low_edge_comp;
 
-			/*            */
+			/* control 33 */
 			unsigned short rx_high_edge_comp;
 
-			/*            */
+			/* control 34 */
 			unsigned short tx_low_edge_comp;
 
-			/*            */
+			/* control 35 */
 			unsigned short tx_high_edge_comp;
 		} __packed;
 		struct {
@@ -2301,7 +2301,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 
 	num_of_sensing_freqs = f54->query.number_of_sensing_frequencies;
 
-	/*           */
+	/* control 0 */
 	attrs_ctrl_regs_exist[reg_num] = true;
 	control->reg_0 = kzalloc(sizeof(*(control->reg_0)),
 			GFP_KERNEL);
@@ -2311,7 +2311,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	reg_addr += sizeof(control->reg_0->data);
 	reg_num++;
 
-	/*           */
+	/* control 1 */
 	if ((f54->query.touch_controller_family == 0) ||
 			(f54->query.touch_controller_family == 1)) {
 		attrs_ctrl_regs_exist[reg_num] = true;
@@ -2324,7 +2324,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*           */
+	/* control 2 */
 	attrs_ctrl_regs_exist[reg_num] = true;
 	control->reg_2 = kzalloc(sizeof(*(control->reg_2)),
 			GFP_KERNEL);
@@ -2334,7 +2334,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	reg_addr += sizeof(control->reg_2->data);
 	reg_num++;
 
-	/*           */
+	/* control 3 */
 	if (f54->query.has_pixel_touch_threshold_adjustment == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_3 = kzalloc(sizeof(*(control->reg_3)),
@@ -2346,7 +2346,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*                */
+	/* controls 4 5 6 */
 	if ((f54->query.touch_controller_family == 0) ||
 			(f54->query.touch_controller_family == 1)) {
 		attrs_ctrl_regs_exist[reg_num] = true;
@@ -2359,7 +2359,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*           */
+	/* control 7 */
 	if (f54->query.touch_controller_family == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_7 = kzalloc(sizeof(*(control->reg_7)),
@@ -2371,7 +2371,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*              */
+	/* controls 8 9 */
 	if ((f54->query.touch_controller_family == 0) ||
 			(f54->query.touch_controller_family == 1)) {
 		attrs_ctrl_regs_exist[reg_num] = true;
@@ -2384,7 +2384,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 10 */
 	if (f54->query.has_interference_metric == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_10 = kzalloc(sizeof(*(control->reg_10)),
@@ -2396,7 +2396,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 11 */
 	if (f54->query.has_ctrl11 == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_11 = kzalloc(sizeof(*(control->reg_11)),
@@ -2408,7 +2408,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*                */
+	/* controls 12 13 */
 	if (f54->query.has_relaxation_control == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_12__13 = kzalloc(sizeof(*(control->reg_12__13)),
@@ -2420,7 +2420,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*                   */
+	/* controls 14 15 16 */
 	if (f54->query.has_sensor_assignment == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 
@@ -2457,7 +2457,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*                   */
+	/* controls 17 18 19 */
 	if (f54->query.has_sense_frequency_control == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 
@@ -2501,7 +2501,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 20 */
 	attrs_ctrl_regs_exist[reg_num] = true;
 	control->reg_20 = kzalloc(sizeof(*(control->reg_20)),
 			GFP_KERNEL);
@@ -2511,7 +2511,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	reg_addr += sizeof(control->reg_20->data);
 	reg_num++;
 
-	/*            */
+	/* control 21 */
 	if (f54->query.has_sense_frequency_control == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_21 = kzalloc(sizeof(*(control->reg_21)),
@@ -2523,7 +2523,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*                         */
+	/* controls 22 23 24 25 26 */
 	if (f54->query.has_firmware_noise_mitigation == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_22__26 = kzalloc(sizeof(*(control->reg_22__26)),
@@ -2535,7 +2535,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 27 */
 	if (f54->query.has_iir_filter == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_27 = kzalloc(sizeof(*(control->reg_27)),
@@ -2547,7 +2547,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 28 */
 	if (f54->query.has_firmware_noise_mitigation == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_28 = kzalloc(sizeof(*(control->reg_28)),
@@ -2559,7 +2559,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 29 */
 	if (f54->query.has_cmn_removal == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_29 = kzalloc(sizeof(*(control->reg_29)),
@@ -2571,7 +2571,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 30 */
 	if (f54->query.has_cmn_maximum == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_30 = kzalloc(sizeof(*(control->reg_30)),
@@ -2583,7 +2583,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 31 */
 	if (f54->query.has_touch_hysteresis == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_31 = kzalloc(sizeof(*(control->reg_31)),
@@ -2595,7 +2595,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*                      */
+	/* controls 32 33 34 35 */
 	if (f54->query.has_edge_compensation == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_32__35 = kzalloc(sizeof(*(control->reg_32__35)),
@@ -2607,7 +2607,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 36 */
 	if ((f54->query.curve_compensation_mode == 1) ||
 			(f54->query.curve_compensation_mode == 2)) {
 		attrs_ctrl_regs_exist[reg_num] = true;
@@ -2633,7 +2633,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 37 */
 	if (f54->query.curve_compensation_mode == 2) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 
@@ -2652,7 +2652,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*                   */
+	/* controls 38 39 40 */
 	if (f54->query.has_per_frequency_noise_control == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 
@@ -2694,7 +2694,7 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 41 */
 	if (f54->query.has_signal_clarity == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_41 = kzalloc(sizeof(*(control->reg_41)),
@@ -2706,19 +2706,19 @@ static int synaptics_rmi4_f54_set_ctrl(void)
 	}
 	reg_num++;
 
-	/*            */
+	/* control 42 */
 	if (f54->query.has_variance_metric == 1)
 		reg_addr += CONTROL_42_SIZE;
 
-	/*                                              */
+	/* controls 43 44 45 46 47 48 49 50 51 52 53 54 */
 	if (f54->query.has_multi_metric_state_machine == 1)
 		reg_addr += CONTROL_43_54_SIZE;
 
-	/*                */
+	/* controls 55 56 */
 	if (f54->query.has_0d_relaxation_control == 1)
 		reg_addr += CONTROL_55_56_SIZE;
 
-	/*            */
+	/* control 57 */
 	if (f54->query.has_0d_acquisition_control == 1) {
 		attrs_ctrl_regs_exist[reg_num] = true;
 		control->reg_57 = kzalloc(sizeof(*(control->reg_57)),
@@ -2942,11 +2942,11 @@ f54_found:
 			synaptics_rmi4_f54_status_work);
 
 #ifdef WATCHDOG_HRTIMER
-	/*                                                        */
+	/* Watchdog timer to catch unanswered get report commands */
 	hrtimer_init(&f54->watchdog, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	f54->watchdog.function = get_report_timeout;
 
-	/*                                        */
+	/* Work function to do actual cleaning up */
 	INIT_WORK(&f54->timeout_work, timeout_set_status);
 #endif
 

@@ -239,23 +239,23 @@ static void vid_enc_output_frame_done(struct video_client_ctx *client_ctx,
 		&phy_addr, &pmem_fd, &file,
 		&buffer_index)) {
 
-		/*                              */
+		/* Buffer address in user space */
 		venc_msg->venc_msg_info.buf.ptrbuffer =	(u8 *) user_vaddr;
-		/*                              */
+		/* Buffer address in user space */
 		venc_msg->venc_msg_info.buf.clientdata = (void *)
 		vcd_frame_data->frm_clnt_data;
-		/*             */
+		/* Data length */
 		venc_msg->venc_msg_info.buf.len =
 			vcd_frame_data->data_len;
 		venc_msg->venc_msg_info.buf.flags =
 			vcd_frame_data->flags;
-		/*                                         */
+		/* Timestamp pass-through from input frame */
 		venc_msg->venc_msg_info.buf.timestamp =
 			vcd_frame_data->time_stamp;
 		venc_msg->venc_msg_info.buf.sz =
 			vcd_frame_data->alloc_len;
 
-		/*                                  */
+		/* Decoded picture width and height */
 		venc_msg->venc_msg_info.msgdata_size =
 			sizeof(struct venc_buffer);
 	} else {

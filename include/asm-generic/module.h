@@ -2,8 +2,8 @@
 #define __ASM_GENERIC_MODULE_H
 
 /*
-                                               
-                                     
+ * Many architectures just need a simple module
+ * loader without arch specific data.
  */
 struct mod_arch_specific
 {
@@ -19,4 +19,4 @@ struct mod_arch_specific
 #define Elf_Ehdr Elf32_Ehdr
 #endif
 
-#endif /*                        */
+#endif /* __ASM_GENERIC_MODULE_H */

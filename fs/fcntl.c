@@ -115,7 +115,7 @@ out_unlock:
 
 SYSCALL_DEFINE2(dup2, unsigned int, oldfd, unsigned int, newfd)
 {
-	if (unlikely(newfd == oldfd)) { /*             */
+	if (unlikely(newfd == oldfd)) { /* corner case */
 		struct files_struct *files = current->files;
 		int retval = oldfd;
 
@@ -151,18 +151,18 @@ static int setfl(int fd, struct file * filp, unsigned long arg)
 	int error = 0;
 
 	/*
-                                                                   
-                                   
-  */
+	 * O_APPEND cannot be cleared if the file is marked as append-only
+	 * and the file is open for write.
+	 */
 	if (((arg ^ filp->f_flags) & O_APPEND) && IS_APPEND(inode))
 		return -EPERM;
 
-	/*                                                     */
+	/* O_NOATIME can only be set by the owner or superuser */
 	if ((arg & O_NOATIME) && !(filp->f_flags & O_NOATIME))
 		if (!inode_owner_or_capable(inode))
 			return -EPERM;
 
-	/*                                     */
+	/* required for strict SunOS emulation */
 	if (O_NONBLOCK != O_NDELAY)
 	       if (arg & O_NDELAY)
 		   arg |= O_NONBLOCK;
@@ -179,8 +179,8 @@ static int setfl(int fd, struct file * filp, unsigned long arg)
 		return error;
 
 	/*
-                                                         
-  */
+	 * ->fasync() is responsible for setting the FASYNC bit.
+	 */
 	if (((arg ^ filp->f_flags) & FASYNC) && filp->f_op &&
 			filp->f_op->fasync) {
 		error = filp->f_op->fasync(fd, filp, (arg & FASYNC) != 0);
@@ -378,12 +378,12 @@ static long do_fcntl(int fd, unsigned int cmd, unsigned long arg,
 		break;
 	case F_GETOWN:
 		/*
-                                           
-                                             
-                                          
-                                              
-                                 
-   */
+		 * XXX If f_owner is a process group, the
+		 * negative return value will get converted
+		 * into an error.  Oops.  If we keep the
+		 * current syscall conventions, the only way
+		 * to fix this will be in libc.
+		 */
 		err = f_getown(filp);
 		force_successful_syscall_return();
 		break;
@@ -400,7 +400,7 @@ static long do_fcntl(int fd, unsigned int cmd, unsigned long arg,
 		err = filp->f_owner.signum;
 		break;
 	case F_SETSIG:
-		/*                                      */
+		/* arg == 0 restores default behaviour. */
 		if (!valid_signal(arg)) {
 			break;
 		}
@@ -513,15 +513,15 @@ out:
 }
 #endif
 
-/*                                                            */
+/* Table to convert sigio signal codes into poll band bitmaps */
 
 static const long band_table[NSIGPOLL] = {
-	POLLIN | POLLRDNORM,			/*         */
-	POLLOUT | POLLWRNORM | POLLWRBAND,	/*          */
-	POLLIN | POLLRDNORM | POLLMSG,		/*          */
-	POLLERR,				/*          */
-	POLLPRI | POLLRDBAND,			/*          */
-	POLLHUP | POLLERR			/*          */
+	POLLIN | POLLRDNORM,			/* POLL_IN */
+	POLLOUT | POLLWRNORM | POLLWRBAND,	/* POLL_OUT */
+	POLLIN | POLLRDNORM | POLLMSG,		/* POLL_MSG */
+	POLLERR,				/* POLL_ERR */
+	POLLPRI | POLLRDBAND,			/* POLL_PRI */
+	POLLHUP | POLLERR			/* POLL_HUP */
 };
 
 static inline int sigio_perm(struct task_struct *p,
@@ -545,9 +545,9 @@ static void send_sigio_to_task(struct task_struct *p,
 			       int fd, int reason, int group)
 {
 	/*
-                                                           
-                                                           
-  */
+	 * F_SETSIG can change ->signum lockless in parallel, make
+	 * sure we read it once and use the same value throughout.
+	 */
 	int signum = ACCESS_ONCE(fown->signum);
 
 	if (!sigio_perm(p, fown, signum))
@@ -556,18 +556,18 @@ static void send_sigio_to_task(struct task_struct *p,
 	switch (signum) {
 		siginfo_t si;
 		default:
-			/*                                                 
-                                                 
-                                                 
-                                                   
-                                                      
-                                        */
+			/* Queue a rt signal with the appropriate fd as its
+			   value.  We use SI_SIGIO as the source, not 
+			   SI_KERNEL, since kernel signals always get 
+			   delivered even if we can't queue.  Failure to
+			   queue in this case _should_ be reported; we fall
+			   back to SIGIO in that case. --sct */
 			si.si_signo = signum;
 			si.si_errno = 0;
 		        si.si_code  = reason;
-			/*                                               
-                                                        
-                  */
+			/* Make sure we are called with one of the POLL_*
+			   reasons, otherwise we could leak kernel stack into
+			   userspace.  */
 			BUG_ON((reason & __SI_MASK) != __SI_POLL);
 			if (reason - POLL_IN >= NSIGPOLL)
 				si.si_band  = ~0L;
@@ -576,7 +576,7 @@ static void send_sigio_to_task(struct task_struct *p,
 			si.si_fd    = fd;
 			if (!do_send_sig_info(signum, &si, p, group))
 				break;
-		/*                                                       */
+		/* fall-through: fall back on the old plain SIGIO signal */
 		case 0:
 			do_send_sig_info(SIGIO, SEND_SIG_PRIV, p, group);
 	}
@@ -659,13 +659,13 @@ static void fasync_free_rcu(struct rcu_head *head)
 }
 
 /*
-                                                         
-                                                          
-                           
-  
-                                                         
-                                                  
-  
+ * Remove a fasync entry. If successfully removed, return
+ * positive and clear the FASYNC flag. If no entry exists,
+ * do nothing and return 0.
+ *
+ * NOTE! It is very important that the FASYNC flag always
+ * match the state "is the filp on a fasync list".
+ *
  */
 int fasync_remove_entry(struct file *filp, struct fasync_struct **fapp)
 {
@@ -699,9 +699,9 @@ struct fasync_struct *fasync_alloc(void)
 }
 
 /*
-                                                         
-                                                        
-                                                        
+ * NOTE! This can be used only for unused fasync entries:
+ * entries that actually got inserted on the fasync list
+ * need to be released by rcu - see fasync_remove_entry.
  */
 void fasync_free(struct fasync_struct *new)
 {
@@ -709,11 +709,11 @@ void fasync_free(struct fasync_struct *new)
 }
 
 /*
-                                                                      
-                                        
-  
-                                                         
-                                                  
+ * Insert a new entry into the fasync list.  Return the pointer to the
+ * old one if we didn't use the new one.
+ *
+ * NOTE! It is very important that the FASYNC flag always
+ * match the state "is the filp on a fasync list".
  */
 struct fasync_struct *fasync_insert_entry(int fd, struct file *filp, struct fasync_struct **fapp, struct fasync_struct *new)
 {
@@ -746,8 +746,8 @@ out:
 }
 
 /*
-                                                            
-                                                             
+ * Add a fasync entry. Return negative on error, positive if
+ * added, and zero if did nothing but change an existing one.
  */
 static int fasync_add_entry(int fd, struct file *filp, struct fasync_struct **fapp)
 {
@@ -758,12 +758,12 @@ static int fasync_add_entry(int fd, struct file *filp, struct fasync_struct **fa
 		return -ENOMEM;
 
 	/*
-                                                           
-               
-   
-                                                          
-                                                          
-  */
+	 * fasync_insert_entry() returns the old (update) entry if
+	 * it existed.
+	 *
+	 * So free the (unused) new entry and return 0 to let the
+	 * caller know that we didn't add any new fasync entries.
+	 */
 	if (fasync_insert_entry(fd, filp, fapp, new)) {
 		fasync_free(new);
 		return 0;
@@ -773,10 +773,10 @@ static int fasync_add_entry(int fd, struct file *filp, struct fasync_struct **fa
 }
 
 /*
-                                                                 
-                                                                
-                                                                   
-                                              
+ * fasync_helper() is used by almost all character device drivers
+ * to set up the fasync queue, and for regular files by the file
+ * lease code. It returns negative on error, 0 if it did no changes
+ * and positive if it added/deleted the entry.
  */
 int fasync_helper(int fd, struct file * filp, int on, struct fasync_struct **fapp)
 {
@@ -788,7 +788,7 @@ int fasync_helper(int fd, struct file * filp, int on, struct fasync_struct **fap
 EXPORT_SYMBOL(fasync_helper);
 
 /*
-                          
+ * rcu_read_lock() is held
  */
 static void kill_fasync_rcu(struct fasync_struct *fa, int sig, int band)
 {
@@ -804,9 +804,9 @@ static void kill_fasync_rcu(struct fasync_struct *fa, int sig, int band)
 		spin_lock_irqsave(&fa->fa_lock, flags);
 		if (fa->fa_file) {
 			fown = &fa->fa_file->f_owner;
-			/*                                                    
-                                                          
-                 */
+			/* Don't send SIGURG to processes which have not set a
+			   queued signum: SIGURG has its own default signalling
+			   mechanism. */
 			if (!(sig == SIGURG && fown->signum == 0))
 				send_sigio(fown, fa->fa_fd, band);
 		}
@@ -817,9 +817,9 @@ static void kill_fasync_rcu(struct fasync_struct *fa, int sig, int band)
 
 void kill_fasync(struct fasync_struct **fp, int sig, int band)
 {
-	/*                                            
-                      
-  */
+	/* First a quick test without locking: usually
+	 * the list is empty.
+	 */
 	if (*fp) {
 		rcu_read_lock();
 		kill_fasync_rcu(rcu_dereference(*fp), sig, band);
@@ -831,14 +831,14 @@ EXPORT_SYMBOL(kill_fasync);
 static int __init fcntl_init(void)
 {
 	/*
-                                                             
-                                                                  
-                                                                 
-  */
-	BUILD_BUG_ON(19 - 1 /*                      */ != HWEIGHT32(
+	 * Please add new bits here to ensure allocation uniqueness.
+	 * Exceptions: O_NONBLOCK is a two bit define on parisc; O_NDELAY
+	 * is defined as O_NONBLOCK on some platforms and not on others.
+	 */
+	BUILD_BUG_ON(19 - 1 /* for O_RDONLY being 0 */ != HWEIGHT32(
 		O_RDONLY	| O_WRONLY	| O_RDWR	|
 		O_CREAT		| O_EXCL	| O_NOCTTY	|
-		O_TRUNC		| O_APPEND	| /*              */
+		O_TRUNC		| O_APPEND	| /* O_NONBLOCK	| */
 		__O_SYNC	| O_DSYNC	| FASYNC	|
 		O_DIRECT	| O_LARGEFILE	| O_DIRECTORY	|
 		O_NOFOLLOW	| O_NOATIME	| O_CLOEXEC	|

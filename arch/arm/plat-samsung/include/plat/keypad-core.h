@@ -16,11 +16,11 @@
 #ifndef __ASM_ARCH_KEYPAD_CORE_H
 #define __ASM_ARCH_KEYPAD_CORE_H
 
-/*                                                                    
-                                       
+/* These function are only for use with the core support code, such as
+ * the cpu specific initialisation code
  */
 
-/*                                             */
+/* re-define device name depending on support. */
 static inline void samsung_keypad_setname(char *name)
 {
 #ifdef CONFIG_SAMSUNG_DEV_KEYPAD
@@ -28,4 +28,4 @@ static inline void samsung_keypad_setname(char *name)
 #endif
 }
 
-#endif /*                          */
+#endif /* __ASM_ARCH_KEYPAD_CORE_H */

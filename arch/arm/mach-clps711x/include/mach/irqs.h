@@ -19,7 +19,7 @@
  */
 
 /*
-                         
+ * Interrupts from INTSR1
  */
 #define IRQ_CSINT			4
 #define IRQ_EINT1			5
@@ -38,13 +38,13 @@
 #define INT1_ACK_IRQS			(0x00004f10)
 
 /*
-                         
+ * Interrupts from INTSR2
  */
-#define IRQ_KBDINT			(16+0)	/*       */
-#define IRQ_SS2RX			(16+1)	/*       */
-#define IRQ_SS2TX			(16+2)	/*       */
-#define IRQ_UTXINT2			(16+12)	/*        */
-#define IRQ_URXINT2			(16+13)	/*        */
+#define IRQ_KBDINT			(16+0)	/* bit 0 */
+#define IRQ_SS2RX			(16+1)	/* bit 1 */
+#define IRQ_SS2TX			(16+2)	/* bit 2 */
+#define IRQ_UTXINT2			(16+12)	/* bit 12 */
+#define IRQ_URXINT2			(16+13)	/* bit 13 */
 
 #define INT2_IRQS			(0x30070000)
 #define INT2_ACK_IRQS			(0x00010000)

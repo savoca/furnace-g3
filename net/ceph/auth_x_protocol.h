@@ -5,7 +5,7 @@
 #define CEPHX_GET_PRINCIPAL_SESSION_KEY 0x0200
 #define CEPHX_GET_ROTATING_KEY          0x0400
 
-/*             */
+/* common bits */
 struct ceph_x_ticket_blob {
 	__u8 struct_v;
 	__le64 secret_id;
@@ -14,7 +14,7 @@ struct ceph_x_ticket_blob {
 } __attribute__ ((packed));
 
 
-/*                              */
+/* common request/reply headers */
 struct ceph_x_request_header {
 	__le16 op;
 } __attribute__ ((packed));
@@ -25,9 +25,9 @@ struct ceph_x_reply_header {
 } __attribute__ ((packed));
 
 
-/*                        */
+/* authenticate handshake */
 
-/*                                 */
+/* initial hello (no reply header) */
 struct ceph_x_server_challenge {
 	__u8 struct_v;
 	__le64 server_challenge;
@@ -37,7 +37,7 @@ struct ceph_x_authenticate {
 	__u8 struct_v;
 	__le64 client_challenge;
 	__le64 key;
-	/*             */
+	/* ticket blob */
 } __attribute__ ((packed));
 
 struct ceph_x_service_ticket_request {
@@ -52,12 +52,12 @@ struct ceph_x_challenge_blob {
 
 
 
-/*                     */
+/* authorize handshake */
 
 /*
-                                         
-                               
-                                  
+ * The authorizer consists of two pieces:
+ *  a - service id, ticket blob
+ *  b - encrypted with session key
  */
 struct ceph_x_authorize_a {
 	__u8 struct_v;
@@ -78,7 +78,7 @@ struct ceph_x_authorize_reply {
 
 
 /*
-                   
+ * encyption bundle
  */
 #define CEPHX_ENC_MAGIC 0xff009cad8826aa55ull
 

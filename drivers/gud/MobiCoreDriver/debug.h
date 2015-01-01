@@ -11,7 +11,7 @@
 
 #ifndef _MC_DEBUG_H_
 #define _MC_DEBUG_H_
-/*                 */
+/* Found in main.c */
 extern struct device *mcd;
 
 #define MCDRV_DBG_ERROR(dev, txt, ...) \
@@ -19,12 +19,12 @@ extern struct device *mcd;
 		__func__, \
 		##__VA_ARGS__)
 
-/*                              */
+/* dummy function helper macro. */
 #define DUMMY_FUNCTION()	do {} while (0)
 
 #if defined(DEBUG)
 
-/*                       */
+/* #define DEBUG_VERBOSE */
 #if defined(DEBUG_VERBOSE)
 #define MCDRV_DBG_VERBOSE	MCDRV_DBG
 #else
@@ -57,6 +57,6 @@ extern struct device *mcd;
 
 #define MCDRV_ASSERT(...)	DUMMY_FUNCTION()
 
-#endif /*                      */
+#endif /* [not] defined(DEBUG) */
 
-#endif /*              */
+#endif /* _MC_DEBUG_H_ */

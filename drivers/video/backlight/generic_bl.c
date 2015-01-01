@@ -21,7 +21,7 @@ static int genericbl_intensity;
 static struct backlight_device *generic_backlight_device;
 static struct generic_bl_info *bl_machinfo;
 
-/*                                        */
+/* Flag to signal when the battery is low */
 #define GENERICBL_BATTLOW       BL_CORE_DRIVER1
 
 static int genericbl_send_intensity(struct backlight_device *bd)
@@ -53,8 +53,8 @@ static int genericbl_get_intensity(struct backlight_device *bd)
 }
 
 /*
-                                                                   
-                                                             
+ * Called when the battery is low to limit the backlight intensity.
+ * If limit==0 clear any limit, otherwise limit the intensity
  */
 void genericbl_limit_intensity(int limit)
 {

@@ -391,11 +391,11 @@ enum camerab_mode_t {
 };
 
 struct msm_sensor_init_params {
-	/*                                 */
+	/* mask of modes supported: 2D, 3D */
 	int                 modes_supported;
-	/*                              */
+	/* sensor position: front, back */
 	enum camb_position_t position;
-	/*                    */
+	/* sensor mount angle */
 	uint32_t            sensor_mount_angle;
 	int					ois_supported; /*                                                       */
 };
@@ -530,8 +530,8 @@ struct reg_settings_t {
 };
 
 struct region_params_t {
-	/*                                      
-                                       
+	/* [0] = ForwardDirection Macro boundary
+	   [1] = ReverseDirection Inf boundary
         */
 	uint16_t step_bound[2];
 	uint16_t code_per_step;
@@ -638,7 +638,7 @@ struct msm_actuator_reg_params_t {
 
 enum msm_camera_led_config_t {
 	MSM_CAMERA_LED_OFF,
-	MSM_CAMERA_LED_LOW,		//                       
+	MSM_CAMERA_LED_LOW,		//For pre-Flash, Snapshot
 	MSM_CAMERA_LED_HIGH,
 	MSM_CAMERA_LED_INIT,
 	MSM_CAMERA_LED_RELEASE,
@@ -654,7 +654,7 @@ enum msm_camera_led_config_t {
                                     
                                 
  */
-	MSM_CAMERA_LED_TORCH,	//                          
+	MSM_CAMERA_LED_TORCH,	//For torch, Video recording
 #endif
 };
 
@@ -691,6 +691,6 @@ struct msm_camera_led_cfg_t {
 #define VIDIOC_MSM_SENSOR_GET_AF_STATUS \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 9, uint32_t)
 
-#define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /*      */
+#define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
 
-#endif /*                          */
+#endif /* __LINUX_MSM_CAM_SENSOR_H */

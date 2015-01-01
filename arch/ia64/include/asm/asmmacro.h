@@ -25,10 +25,10 @@ name:
 	.endp name
 
 /*
-                                                         
+ * Helper macros to make unwind directives more readable:
  */
 
-/*              */
+/* prologue_gr: */
 #define ASM_UNW_PRLG_RP			0x8
 #define ASM_UNW_PRLG_PFS		0x4
 #define ASM_UNW_PRLG_PSP		0x2
@@ -36,14 +36,14 @@ name:
 #define ASM_UNW_PRLG_GRSAVE(ninputs)	(32+(ninputs))
 
 /*
-                                           
-  
-                                                                    
-                                                                       
-                                 
+ * Helper macros for accessing user memory.
+ *
+ * When adding any new .section/.previous entries here, make sure to
+ * also add it to the DISCARD section in arch/ia64/kernel/gate.lds.S or
+ * unpleasant things will happen.
  */
 
-	.section "__ex_table", "a"		//                                     
+	.section "__ex_table", "a"		// declare section & section attributes
 	.previous
 
 # define EX(y,x...)				\
@@ -54,10 +54,10 @@ name:
   [99:]	x
 
 /*
-                                          
+ * Tag MCA recoverable instruction ranges.
  */
 
-	.section "__mca_table", "a"		//                                     
+	.section "__mca_table", "a"		// declare section & section attributes
 	.previous
 
 # define MCA_RECOVER_RANGE(y)			\
@@ -65,12 +65,12 @@ name:
   [99:]
 
 /*
-                                                                        
-                                                                            
-                                                                        
-                                                                
+ * Mark instructions that need a load of a virtual address patched to be
+ * a load of a physical address.  We use this either in critical performance
+ * path (ivt.S - TLB miss processing) or in places where it might not be
+ * safe to use a "tpa" instruction (mca_asm.S - error recovery).
  */
-	.section ".data..patch.vtop", "a"	//                                     
+	.section ".data..patch.vtop", "a"	// declare section & section attributes
 	.previous
 
 #define	LOAD_PHYSICAL(pr, reg, obj)		\
@@ -78,15 +78,15 @@ name:
 	.xdata4 ".data..patch.vtop", 1b-.
 
 /*
-                                                                                     
-                                                                                 
+ * For now, we always put in the McKinley E9 workaround.  On CPUs that don't need it,
+ * we'll patch out the work-around bundles with NOPs, so their impact is minimal.
  */
 #define DO_MCKINLEY_E9_WORKAROUND
 
 #ifdef DO_MCKINLEY_E9_WORKAROUND
 	.section ".data..patch.mckinley_e9", "a"
 	.previous
-/*                                    */
+/* workaround for Itanium 2 Errata 9: */
 # define FSYS_RETURN					\
 	.xdata4 ".data..patch.mckinley_e9", 1f-.;	\
 1:{ .mib;						\
@@ -104,8 +104,8 @@ name:
 #endif
 
 /*
-                                                                       
-                                                 
+ * If physical stack register size is different from DEF_NUM_STACK_REG,
+ * dynamically patch the kernel for correct size.
  */
 	.section ".data..patch.phys_stack_reg", "a"
 	.previous
@@ -114,9 +114,9 @@ name:
 	.xdata4 ".data..patch.phys_stack_reg", 1b-.
 
 /*
-                                                                               
-                                                                                    
-             
+ * Up until early 2004, use of .align within a function caused bad unwind info.
+ * TEXT_ALIGN(n) expands into ".align n" if a fixed GAS is available or into nothing
+ * otherwise.
  */
 #ifdef HAVE_WORKING_TEXT_ALIGN
 # define TEXT_ALIGN(n)	.align n
@@ -132,4 +132,4 @@ name:
 # define dv_serialize_instruction
 #endif
 
-#endif /*                      */
+#endif /* _ASM_IA64_ASMMACRO_H */

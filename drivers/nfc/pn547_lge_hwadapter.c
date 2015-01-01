@@ -48,7 +48,7 @@ void pn547_shutdown_cb(struct pn547_dev *pn547_dev)
 #if defined(CONFIG_LGE_NFC_HW_QCT_MSM8660)
     dprintk("================ pn547_shutdown() start ================\n");
 
-    //                             
+    // Make all output GPIOs to Low
     gpio_set_value(pn547_dev->ven_gpio, 0);
     gpio_set_value(pn547_dev->firm_gpio, 0);
     msleep(10);
@@ -67,7 +67,7 @@ void pn547_shutdown_cb(struct pn547_dev *pn547_dev)
 #ifdef CONFIG_LGE_NFC_USE_PMIC
 void pn547_get_clk_source(struct pn547_dev *pn547_dev)
 {
-#if 0 //    
+#if 0 // RFU
     pn547_dev->clk_cont = clk_get(&pn547_client->dev, "xo_cont");
     if (pn547_dev->clk_cont == NULL) {
         pr_err("%s: PN547 could not get cont. clock!\n", __func__);
@@ -76,11 +76,11 @@ void pn547_get_clk_source(struct pn547_dev *pn547_dev)
     if (pn547_dev->clk_pin == NULL) {
         pr_err("%s: PN547 could not get pin clock!\n", __func__);
     }
-    //                                                                                                           
+    // pr_err("%s: xo_cont = %p, xo_pin = %p\n", __func__, pn547_dev->clk_cont, pn547_dev->clk_pin); // for debug
 #else
     pn547_dev->clk_cont = &cxo_d1.c;
     pn547_dev->clk_pin = &cxo_d1_pin.c;
-    //                                                                                                           
+    // pr_err("%s: xo_cont = %p, xo_pin = %p\n", __func__, pn547_dev->clk_cont, pn547_dev->clk_pin); // for debug
 #endif
 }
 #endif

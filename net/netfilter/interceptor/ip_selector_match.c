@@ -300,8 +300,8 @@ const char *debug_str_ip_selector_fields(void *buf, const void *data, int len)
 	    format_ipaddress(p + offset, p_len - offset,
 			     fields->source_address);
 
-	if (fields->ip_protocol == /*      */ 1 ||
-	    fields->ip_protocol == /*        */ 58 ||
+	if (fields->ip_protocol == /* ICMP */ 1 ||
+	    fields->ip_protocol == /* ICMPv6 */ 58 ||
 	    fields->source_port < 0) {
 		offset += snprintf(p + offset, p_len - offset, "] -> [");
 	} else {
@@ -316,8 +316,8 @@ const char *debug_str_ip_selector_fields(void *buf, const void *data, int len)
 
 	if (fields->destination_port < 0) {
 		offset += snprintf(p + offset, p_len - offset, "]");
-	} else if (fields->ip_protocol == /*      */ 1 ||
-		   fields->ip_protocol == /*        */ 58) {
+	} else if (fields->ip_protocol == /* ICMP */ 1 ||
+		   fields->ip_protocol == /* ICMPv6 */ 58) {
 		offset +=
 		    snprintf(p + offset,
 			     p_len - offset,

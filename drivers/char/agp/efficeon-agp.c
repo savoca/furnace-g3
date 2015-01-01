@@ -1,23 +1,23 @@
 /*
-                                       
-  
-                                                  
-  
-                                                                  
-                                          
+ * Transmeta's Efficeon AGPGART driver.
+ *
+ * Based upon a diff by Linus around November '02.
+ *
+ * Ported to the 2.6 kernel by Carlos Puchol <cpglinux@puchol.com>
+ * and H. Peter Anvin <hpa@transmeta.com>.
  */
 
 /*
-                   
-  
-                                                           
-                                                         
-                      
-                                      
-                                                            
-                                                
-                                                           
-                                                            
+ * NOTE-cpg-040217:
+ *
+ *   - when compiled as a module, after loading the module,
+ *     it will refuse to unload, indicating it is in use,
+ *     when it is not.
+ *   - no s3 (suspend to ram) testing.
+ *   - tested on the efficeon integrated nothbridge for tens
+ *     of iterations of starting x and glxgears.
+ *   - tested with radeon 9000 and radeon mobility m9 cards
+ *   - tested with c3/c4 enabled (with the mobility m9 card)
  */
 
 #include <linux/module.h>
@@ -31,27 +31,27 @@
 #include "intel-agp.h"
 
 /*
-                                                  
-                                                    
-                                               
-  
-                                                        
-                                                            
-                                
-                                            
-                                      
-                                                  
-                                                     
-                                
-                  
-                                  
-                                                      
-  
-                                                          
-                                                    
+ * The real differences to the generic AGP code is
+ * in the GART mappings - a two-level setup with the
+ * first level being an on-chip 64-entry table.
+ *
+ * The page array is filled through the ATTPAGE register
+ * (Aperture Translation Table Page Register) at 0xB8. Bits:
+ *  31:20: physical page address
+ *   11:9: Page Attribute Table Index (PATI)
+ *	   must match the PAT index for the
+ *	   mapped pages (the 2nd level page table pages
+ *	   themselves should be just regular WB-cacheable,
+ *	   so this is normally zero.)
+ *      8: Present
+ *    7:6: reserved, write as zero
+ *    5:0: GATT directory index: which 1st-level entry
+ *
+ * The Efficeon AGP spec requires pages to be WB-cacheable
+ * but to be explicitly CLFLUSH'd after any changes.
  */
 #define EFFICEON_ATTPAGE	0xb8
-#define EFFICEON_L1_SIZE	64	/*                     */
+#define EFFICEON_L1_SIZE	64	/* Number of PDE pages */
 
 #define EFFICEON_PATI		(0 << 9)
 #define EFFICEON_PRESENT	(1 << 8)
@@ -65,7 +65,7 @@ static const struct gatt_mask efficeon_generic_masks[] =
 	{.mask = 0x00000001, .type = 0}
 };
 
-/*                                                                        */
+/* This function does the same thing as mask_memory() for this chipset... */
 static inline unsigned long efficeon_mask_memory(struct page *page)
 {
 	unsigned long addr = page_to_phys(page);
@@ -81,8 +81,8 @@ static const struct aper_size_info_lvl2 efficeon_generic_sizes[4] =
 };
 
 /*
-                                              
-                           
+ * Control interfaces are largely identical to
+ * the legacy Intel 440BX..
  */
 
 static int efficeon_fetch_size(void)
@@ -136,22 +136,22 @@ static int efficeon_configure(void)
 
 	current_size = A_SIZE_LVL2(agp_bridge->current_size);
 
-	/*               */
+	/* aperture size */
 	pci_write_config_word(agp_bridge->dev, INTEL_APSIZE,
 			      current_size->size_value);
 
-	/*                   */
+	/* address to map to */
 	pci_read_config_dword(agp_bridge->dev, AGP_APBASE, &temp);
 	agp_bridge->gart_bus_addr = (temp & PCI_BASE_ADDRESS_MEM_MASK);
 
-	/*         */
+	/* agpctrl */
 	pci_write_config_dword(agp_bridge->dev, INTEL_AGPCTRL, 0x2280);
 
-	/*               */
+	/* paccfg/nbxcfg */
 	pci_read_config_word(agp_bridge->dev, INTEL_NBXCFG, &temp2);
 	pci_write_config_word(agp_bridge->dev, INTEL_NBXCFG,
 			      (temp2 & ~(1 << 10)) | (1 << 9) | (1 << 11));
-	/*                                     */
+	/* clear any possible error conditions */
 	pci_write_config_byte(agp_bridge->dev, INTEL_ERRSTS + 1, 7);
 	return 0;
 }
@@ -179,8 +179,8 @@ static int efficeon_free_gatt_table(struct agp_bridge_data *bridge)
 
 
 /*
-                                                    
-                             
+ * Since we don't need contiguous memory we just try
+ * to get the gatt table once
  */
 
 #define GET_PAGE_DIR_OFF(addr) (addr >> 22)
@@ -203,7 +203,7 @@ static int efficeon_create_gatt_table(struct agp_bridge_data *bridge)
 
 	printk(KERN_DEBUG PFX "efficeon_create_gatt_table(%d)\n", num_entries);
 
-	/*                                       */
+	/* There are 2^10 PTE pages per PDE page */
 	BUG_ON(num_entries & 0x3ff);
 	l1_pages = num_entries >> 10;
 
@@ -269,7 +269,7 @@ static int efficeon_insert_memory(struct agp_memory * mem, off_t pg_start, int t
 		page += (index & 0x3ff);
 		*page = insert;
 
-		/*                                                    */
+		/* clflush is slow, so don't clflush until we have to */
 		if (last_page &&
 		    (((unsigned long)page^(unsigned long)last_page) &
 		     clflush_mask))
@@ -326,14 +326,14 @@ static const struct agp_bridge_driver efficeon_driver = {
 	.agp_enable		= agp_generic_enable,
 	.cache_flush		= global_cache_flush,
 
-	//                                                         
+	// Efficeon-specific GATT table setup / populate / teardown
 	.create_gatt_table	= efficeon_create_gatt_table,
 	.free_gatt_table	= efficeon_free_gatt_table,
 	.insert_memory		= efficeon_insert_memory,
 	.remove_memory		= efficeon_remove_memory,
-	.cant_use_aperture	= false,	//                      
+	.cant_use_aperture	= false,	// true might be faster?
 
-	//        
+	// Generic
 	.alloc_by_type		= agp_generic_alloc_by_type,
 	.free_by_type		= agp_generic_free_by_type,
 	.agp_alloc_page		= agp_generic_alloc_page,
@@ -354,7 +354,7 @@ static int __devinit agp_efficeon_probe(struct pci_dev *pdev,
 	if (!cap_ptr)
 		return -ENODEV;
 
-	/*                               */
+	/* Probe for Efficeon controller */
 	if (pdev->device != PCI_DEVICE_ID_EFFICEON) {
 		printk(KERN_ERR PFX "Unsupported Efficeon chipset (device id: %04x)\n",
 		    pdev->device);
@@ -372,10 +372,10 @@ static int __devinit agp_efficeon_probe(struct pci_dev *pdev,
 	bridge->capndx = cap_ptr;
 
 	/*
-                                                                      
-                                                        
-                            
- */
+	* If the device has not been properly setup, the following will catch
+	* the problem and should stop the system from crashing.
+	* 20030610 - hamish@zot.org
+	*/
 	if (pci_enable_device(pdev)) {
 		printk(KERN_ERR PFX "Unable to Enable PCI device\n");
 		agp_put_bridge(bridge);
@@ -383,10 +383,10 @@ static int __devinit agp_efficeon_probe(struct pci_dev *pdev,
 	}
 
 	/*
-                                                                 
-                                         
-                            
- */
+	* The following fixes the case where the BIOS has "forgotten" to
+	* provide an address range for the GART.
+	* 20030610 - hamish@zot.org
+	*/
 	r = &pdev->resource[0];
 	if (!r->start && r->end) {
 		if (pci_assign_resource(pdev, 0)) {
@@ -396,7 +396,7 @@ static int __devinit agp_efficeon_probe(struct pci_dev *pdev,
 		}
 	}
 
-	/*                           */
+	/* Fill in the mode register */
 	if (cap_ptr) {
 		pci_read_config_dword(pdev,
 				bridge->capndx+PCI_AGP_STATUS,

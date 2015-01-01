@@ -85,9 +85,9 @@ extern unsigned long __invalid_cmpxchg_size(volatile void *,
 					    unsigned long, unsigned long, int);
 
 /*
-                                                                    
-                                                                  
-                                          
+ * Atomic compare and exchange.  Compare OLD with MEM, if identical,
+ * store NEW in MEM.  Return the initial value in MEM.  Success is
+ * indicated by comparing RETURN with OLD.
  */
 #ifdef CONFIG_RMW_INSNS
 #define __HAVE_ARCH_CMPXCHG	1
@@ -127,8 +127,8 @@ static inline unsigned long __cmpxchg(volatile void *p, unsigned long old,
 #else
 
 /*
-                                                                            
-                  
+ * cmpxchg_local and cmpxchg64_local are atomic wrt current CPU. Always make
+ * them available.
  */
 #define cmpxchg_local(ptr, o, n)				  	       \
 	((__typeof__(*(ptr)))__cmpxchg_local_generic((ptr), (unsigned long)(o),\
@@ -138,4 +138,4 @@ static inline unsigned long __cmpxchg(volatile void *p, unsigned long old,
 
 #endif
 
-#endif /*                       */
+#endif /* __ARCH_M68K_CMPXCHG__ */

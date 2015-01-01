@@ -35,18 +35,18 @@
 #include <asm/pgtable.h>
 
 /*
-                                                                          
-  
-                                                                         
-                                                                          
-                                                                       
-                                                            
-  
-                               
-                                
-                 
-                       
-                            
+ * Copy the thread state to a regset that can be interpreted by userspace.
+ *
+ * It doesn't matter what our internal pt_regs structure looks like.  The
+ * important thing is that we export a consistent view of the thread state
+ * to userspace.  As such, we need to make sure that the regset remains
+ * ABI compatible as defined by the struct user_regs_struct:
+ *
+ * (Each item is a 32-bit word)
+ * r0 = 0 (exported for clarity)
+ * 31 GPRS r1-r31
+ * PC (Program counter)
+ * SR (Supervision register)
  */
 static int genregs_get(struct task_struct *target,
 		       const struct user_regset *regset,
@@ -56,7 +56,7 @@ static int genregs_get(struct task_struct *target,
 	const struct pt_regs *regs = task_pt_regs(target);
 	int ret;
 
-	/*    */
+	/* r0 */
 	ret = user_regset_copyout_zero(&pos, &count, &kbuf, &ubuf, 0, 4);
 
 	if (!ret)
@@ -76,7 +76,7 @@ static int genregs_get(struct task_struct *target,
 }
 
 /*
-                                                          
+ * Set the thread state from a regset passed in via ptrace
  */
 static int genregs_set(struct task_struct *target,
 		       const struct user_regset *regset,
@@ -86,20 +86,20 @@ static int genregs_set(struct task_struct *target,
 	struct pt_regs *regs = task_pt_regs(target);
 	int ret;
 
-	/*           */
+	/* ignore r0 */
 	ret = user_regset_copyin_ignore(&pos, &count, &kbuf, &ubuf, 0, 4);
-	/*          */
+	/* r1 - r31 */
 	if (!ret)
 		ret = user_regset_copyin(&pos, &count, &kbuf, &ubuf,
 					 regs->gpr+1, 4, 4*32);
-	/*    */
+	/* PC */
 	if (!ret)
 		ret = user_regset_copyin(&pos, &count, &kbuf, &ubuf,
 				 &regs->pc, 4*32, 4*33);
 	/*
-                                                                     
-                            
-  */
+	 * Skip SR and padding... userspace isn't allowed to changes bits in
+	 * the Supervision register
+	 */
 	if (!ret)
 		ret = user_regset_copyin_ignore(&pos, &count, &kbuf, &ubuf,
 						4*33, -1);
@@ -108,7 +108,7 @@ static int genregs_set(struct task_struct *target,
 }
 
 /*
-                                                             
+ * Define the register sets available on OpenRISC under Linux
  */
 enum or1k_regset {
 	REGSET_GENERAL,
@@ -138,15 +138,15 @@ const struct user_regset_view *task_user_regset_view(struct task_struct *task)
 }
 
 /*
-                                                       
-                            
+ * does not yet catch signals sent when the child dies.
+ * in exit.c or in signal.c.
  */
 
 
 /*
-                                             
-  
-                                            
+ * Called by kernel/ptrace.c when detaching..
+ *
+ * Make sure the single step bit is not set.
  */
 void ptrace_disable(struct task_struct *child)
 {
@@ -171,8 +171,8 @@ long arch_ptrace(struct task_struct *child, long request, unsigned long addr,
 }
 
 /*
-                                         
-                                             
+ * Notification of system call entry/exit
+ * - triggered by current->work.syscall_trace
  */
 asmlinkage long do_syscall_trace_enter(struct pt_regs *regs)
 {
@@ -181,10 +181,10 @@ asmlinkage long do_syscall_trace_enter(struct pt_regs *regs)
 	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
 	    tracehook_report_syscall_entry(regs))
 		/*
-                                                    
-                                                      
-                                                         
-   */
+		 * Tracing decided this syscall should not happen.
+		 * We'll return a bogus call number to get an ENOSYS
+		 * error, but leave the original number in <something>.
+		 */
 		ret = -1L;
 
 	audit_syscall_entry(audit_arch(), regs->gpr[11],

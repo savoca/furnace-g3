@@ -20,8 +20,8 @@
 #include "rtl_core.h"
 #include "r8192E_hw.h"
 #include "r8192E_cmdpkt.h"
-/*                                                                           */
-/*               */
+/*---------------------------Define Local Constant---------------------------*/
+/* Debug constant*/
 #define		CMPK_DEBOUNCE_CNT			1
 #define		CMPK_PRINT(Address)\
 {\
@@ -33,7 +33,7 @@
 		printk(KERN_INFO "\r\n %08x", temp[i]);\
 }
 
-/*                                                                            */
+/*---------------------------Define functions---------------------------------*/
 bool cmpk_message_handle_tx(
 	struct net_device *dev,
 	u8	*code_virtual_address,
@@ -100,7 +100,7 @@ bool cmpk_message_handle_tx(
 	write_nic_byte(dev, TPPoll, TPPoll_CQ);
 Failed:
 	return rt_status;
-}	/*                        */
+}	/* CMPK_Message_Handle_Tx */
 
 static	void
 cmpk_count_txstatistic(
@@ -150,7 +150,7 @@ cmpk_count_txstatistic(
 	priv->stats.txretrycount += pstx_fb->retry_cnt;
 	priv->stats.txfeedbackretry += pstx_fb->retry_cnt;
 
-}	/*                       */
+}	/* cmpk_CountTxStatistic */
 
 
 
@@ -165,7 +165,7 @@ static void cmpk_handle_tx_feedback(struct net_device *dev, u8 *pmsg)
 	memcpy((u8 *)&rx_tx_fb, pmsg, sizeof(struct cmpk_txfb));
 	cmpk_count_txstatistic(dev, &rx_tx_fb);
 
-}	/*                         */
+}	/* cmpk_Handle_Tx_Feedback */
 
 static void cmdpkt_beacontimerinterrupt_819xusb(struct net_device *dev)
 {
@@ -220,7 +220,7 @@ static void cmpk_handle_interrupt_status(struct net_device *dev, u8 *pmsg)
 
 	DMESG("<---- cmpk_handle_interrupt_status()\n");
 
-}	/*                              */
+}	/* cmpk_handle_interrupt_status */
 
 
 static	void cmpk_handle_query_config_rx(struct net_device *dev, u8 *pmsg)
@@ -238,7 +238,7 @@ static	void cmpk_handle_query_config_rx(struct net_device *dev, u8 *pmsg)
 	rx_query_cfg.mask = (pmsg[12] << 24) | (pmsg[13] << 16) |
 			    (pmsg[14] << 8) | (pmsg[15] << 0);
 
-}	/*                             */
+}	/* cmpk_Handle_Query_Config_Rx */
 
 
 static void cmpk_count_tx_status(struct net_device *dev,
@@ -280,7 +280,7 @@ static void cmpk_count_tx_status(struct net_device *dev,
 	priv->stats.txbytesunicast		+= pstx_status->txuclength;
 
 	priv->stats.last_packet_rate		= pstx_status->rate;
-}	/*                    */
+}	/* cmpk_CountTxStatus */
 
 
 
@@ -351,9 +351,9 @@ u32 cmpk_message_handle_rx(struct net_device *dev,
 	RT_TRACE(COMP_CMDPKT, "---->cmpk_message_handle_rx()\n");
 
 	if (pstats == NULL) {
-		/*                      */
-		/*                               
-                                              */
+		/* Print error message. */
+		/*RT_TRACE(COMP_SEND, DebugLevel,
+				("\n\r[CMPK]-->Err queue id or pointer"));*/
 		return 0;
 	}
 

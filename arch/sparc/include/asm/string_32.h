@@ -11,7 +11,7 @@
 
 #include <asm/page.h>
 
-/*                                                          */
+/* Really, userland/ksyms should not see any of this stuff. */
 
 #ifdef __KERNEL__
 
@@ -19,7 +19,7 @@ extern void __memmove(void *,const void *,__kernel_size_t);
 
 #ifndef EXPORT_SYMTAB_STROPS
 
-/*                          */
+/* First the mem*() things. */
 #define __HAVE_ARCH_MEMMOVE
 #undef memmove
 #define memmove(_to, _from, _n) \
@@ -56,7 +56,7 @@ extern void __memmove(void *,const void *,__kernel_size_t);
 #define __HAVE_ARCH_MEMCMP
 extern int memcmp(const void *,const void *,__kernel_size_t);
 
-/*                         */
+/* Now the str*() stuff... */
 #define __HAVE_ARCH_STRLEN
 extern __kernel_size_t strlen(const char *);
 
@@ -124,8 +124,8 @@ static inline int __constant_strncmp(const char *src, const char *dest, __kernel
  __constant_strncmp(__arg0, __arg1, __arg2) : \
  __strncmp(__arg0, __arg1, __arg2))
 
-#endif /*                       */
+#endif /* !EXPORT_SYMTAB_STROPS */
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*                       */
+#endif /* !(__SPARC_STRING_H__) */

@@ -30,20 +30,20 @@ enum {
 struct device;
 struct module;
 
-/* 
-                                            
-                           
-                                                              
-                      
-                                           
-                            
-                          
-                              
-                              
-                                                                              
-                                               
-                                                                           
-            
+/**
+ * struct subsys_desc - subsystem descriptor
+ * @name: name of subsystem
+ * @depends_on: subsystem this subsystem depends on to operate
+ * @dev: parent device
+ * @owner: module the descriptor belongs to
+ * @start: Start a subsystem
+ * @stop: Stop a subsystem
+ * @shutdown: Stop a subsystem
+ * @powerup: Start a subsystem
+ * @crash_shutdown: Shutdown a subsystem when the system crashes (can't sleep)
+ * @ramdump: Collect a ramdump of the subsystem
+ * @is_not_loadable: Indicate if subsystem firmware is not loadable via pil
+ * framework
  */
 struct subsys_desc {
 	const char *name;
@@ -132,6 +132,6 @@ static inline bool subsys_get_crash_status(struct subsys_device *dev)
 	return false;
 }
 
-#endif /*                              */
+#endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 
 #endif

@@ -1,5 +1,5 @@
 /*
-                                                
+ * Information for the Marvell Armada MMP camera
  */
 
 struct mmp_camera_platform_data {

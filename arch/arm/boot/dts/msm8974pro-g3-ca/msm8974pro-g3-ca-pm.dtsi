@@ -39,6 +39,7 @@
 			compatible = "ti,bq24296-charger";
 			status = "ok";
 			revision = "...evb1","rev_b...rev_d","rev_f...";
+			ti,pre-input-current-ma = <1000>;
 		};
 	};
 

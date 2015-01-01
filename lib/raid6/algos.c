@@ -11,9 +11,9 @@
  * ----------------------------------------------------------------------- */
 
 /*
-                
-  
-                                                    
+ * raid6/algos.c
+ *
+ * Algorithm list and algorithm selection for RAID-6
  */
 
 #include <linux/raid/pq.h>
@@ -24,7 +24,7 @@
 #else
 #include <linux/gfp.h>
 #if !RAID6_USE_EMPTY_ZERO_PAGE
-/*                        */
+/* In .bss so it's zeroed */
 const char raid6_empty_zero_page[PAGE_SIZE] __attribute__((aligned(256)));
 EXPORT_SYMBOL(raid6_empty_zero_page);
 #endif
@@ -67,13 +67,13 @@ const struct raid6_calls * const raid6_algos[] = {
 #ifdef __KERNEL__
 #define RAID6_TIME_JIFFIES_LG2	4
 #else
-/*                                          */
+/* Need more time to be stable in userspace */
 #define RAID6_TIME_JIFFIES_LG2	9
 #define time_before(x, y) ((x) < (y))
 #endif
 
-/*                                */
-/*                                                                */
+/* Try to pick the best algorithm */
+/* This code uses the gfmul table as convenient data set to abuse */
 
 int __init raid6_select_algo(void)
 {
@@ -91,7 +91,7 @@ int __init raid6_select_algo(void)
 		dptrs[i] = ((char *)raid6_gfmul) + PAGE_SIZE*i;
 	}
 
-	/*                                                            */
+	/* Normal code - use a 2-page allocation to avoid D$ conflict */
 	syndromes = (void *) __get_free_pages(GFP_KERNEL, 1);
 
 	if ( !syndromes ) {

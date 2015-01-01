@@ -15,8 +15,8 @@
 #define PARPORT_PC_MAX_PORTS	PARPORT_MAX
 
 /*
-                                                                             
-                                        
+ * While sparc64 doesn't have an ISA DMA API, we provide something that looks
+ * close enough to make parport_pc happy
  */
 #define HAS_DMA
 
@@ -80,7 +80,7 @@ static inline void disable_dma(unsigned int dmanr)
 
 static inline void clear_dma_ff(unsigned int dmanr)
 {
-	/*         */
+	/* nothing */
 }
 
 static inline void set_dma_mode(unsigned int dmanr, char mode)
@@ -151,8 +151,8 @@ static int __devinit ecpp_probe(struct platform_device *op)
 
 	ebus_dma_irq_enable(&sparc_ebus_dmas[slot].info, 1);
 
-	/*                                       */
-	/*                                        */
+	/* Configure IRQ to Push Pull, Level Low */
+	/* Enable ECP, set bit 2 of the CTR first */
 	outb(0x04, base + 0x02);
 	ns87303_modify(config, PCR,
 		       PCR_EPP_ENABLE |
@@ -161,7 +161,7 @@ static int __devinit ecpp_probe(struct platform_device *op)
 		       PCR_ECP_CLK_ENA |
 		       PCR_IRQ_POLAR);
 
-	/*                                      */
+	/* CTR bit 5 controls direction of port */
 	ns87303_modify(config, PTR,
 		       0, PTR_LPT_REG_DIR);
 
@@ -250,4 +250,4 @@ static int parport_pc_find_nonpci_ports(int autoirq, int autodma)
 	return platform_driver_register(&ecpp_driver);
 }
 
-#endif /*                          */
+#endif /* !(_ASM_SPARC64_PARPORT_H */

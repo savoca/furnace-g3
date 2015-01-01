@@ -30,8 +30,8 @@
 #include <asm/unistd.h>
 
 /*
-                                                                   
-                              
+ * Do a system call from kernel instead of calling sys_execve so we
+ * end up with proper pt_regs.
  */
 int kernel_execve(const char *filename,
 		  const char *const argv[],

@@ -70,7 +70,7 @@ void __iomem *sun3_ioremap(unsigned long phys, unsigned long size,
 	if(!size)
 		return NULL;
 
-	/*            */
+	/* page align */
 	offset = phys & (PAGE_SIZE-1);
 	phys &= ~(PAGE_SIZE-1);
 

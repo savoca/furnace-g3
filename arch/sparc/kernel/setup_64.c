@@ -57,22 +57,22 @@
 #include "entry.h"
 #include "kernel.h"
 
-/*                                                                 
-                              
+/* Used to synchronize accesses to NatSemi SUPER I/O chip configure
+ * operations in asm/ns87303.h
  */
 DEFINE_SPINLOCK(ns87303_lock);
 EXPORT_SYMBOL(ns87303_lock);
 
 struct screen_info screen_info = {
-	0, 0,			/*                */
-	0,			/*        */
-	0,			/*                 */
-	0,			/*                 */
-	128,			/*                 */
-	0, 0, 0,		/*                        */
-	54,			/*                  */
-	0,                      /*                  */
-	16                      /*                   */
+	0, 0,			/* orig-x, orig-y */
+	0,			/* unused */
+	0,			/* orig-video-page */
+	0,			/* orig-video-mode */
+	128,			/* orig-video-cols */
+	0, 0, 0,		/* unused, ega_bx, unused */
+	54,			/* orig-video-lines */
+	0,                      /* orig-video-isVGA */
+	16                      /* orig-video-points */
 };
 
 static void
@@ -81,7 +81,7 @@ prom_console_write(struct console *con, const char *s, unsigned n)
 	prom_write(s, n);
 }
 
-/*                                     */
+/* Exported for mm/init.c:paging_init. */
 unsigned long cmdline_memory_size = 0;
 
 static struct console prom_early_console = {
@@ -92,8 +92,8 @@ static struct console prom_early_console = {
 };
 
 /* 
-                                                                
-                                                      
+ * Process kernel command line switches that are specific to the
+ * SPARC or that require special low-level processing.
  */
 static void __init process_switch(char c)
 {
@@ -109,7 +109,7 @@ static void __init process_switch(char c)
 		prom_early_console.flags &= ~CON_BOOT;
 		break;
 	case 'P':
-		/*                                  */
+		/* Force UltraSPARC-III P-Cache on. */
 		if (tlb_type != cheetah) {
 			printk("BOOT: Ignoring P-Cache force option.\n");
 			break;
@@ -128,11 +128,11 @@ static void __init process_switch(char c)
 static void __init boot_flags_init(char *commands)
 {
 	while (*commands) {
-		/*                                           */
+		/* Move to the start of the next "argument". */
 		while (*commands && *commands == ' ')
 			commands++;
 
-		/*                                                  */
+		/* Process any command switches, otherwise skip it. */
 		if (*commands == '\0')
 			break;
 		if (*commands == '-') {
@@ -143,9 +143,9 @@ static void __init boot_flags_init(char *commands)
 		}
 		if (!strncmp(commands, "mem=", 4)) {
 			/*
-                                                 
-                  
-    */
+			 * "mem=XXX[kKmM]" overrides the PROM-reported
+			 * memory size.
+			 */
 			cmdline_memory_size = simple_strtoul(commands + 4,
 							     &commands, 0);
 			if (*commands == 'K' || *commands == 'k') {
@@ -325,7 +325,7 @@ void __init boot_cpu_id_too_large(int cpu)
 }
 #endif
 
-/*                                                  */
+/* On Ultra, we support all of the v8 capabilities. */
 unsigned long sparc64_elf_hwcap = (HWCAP_SPARC_FLUSH | HWCAP_SPARC_STBAR |
 				   HWCAP_SPARC_SWAP | HWCAP_SPARC_MULDIV |
 				   HWCAP_SPARC_V9);
@@ -335,9 +335,9 @@ static const char *hwcaps[] = {
 	"flush", "stbar", "swap", "muldiv", "v9",
 	"ultra3", "blkinit", "n2",
 
-	/*                                                            
-                                        
-  */
+	/* These strings are as they appear in the machine description
+	 * 'hwcap-list' property for cpu nodes.
+	 */
 	"mul32", "div32", "fsmuld", "v8plus", "popc", "vis", "vis2",
 	"ASIBlkInit", "fmaf", "vis3", "hpc", "random", "trans", "fjfmau",
 	"ima", "cspare",
@@ -422,8 +422,8 @@ out:
 	return caps;
 }
 
-/*                                                                 
-                                     
+/* This yields a mask that user programs can use to figure out what
+ * instruction set this cpu supports.
  */
 static void __init init_sparc64_elf_hwcap(void)
 {
@@ -489,7 +489,7 @@ static void __init init_sparc64_elf_hwcap(void)
 
 void __init setup_arch(char **cmdline_p)
 {
-	/*                                           */
+	/* Initialize PROM console and command line. */
 	*cmdline_p = prom_getbootargs();
 	strcpy(boot_command_line, *cmdline_p);
 	parse_early_param();
@@ -542,7 +542,7 @@ void __init setup_arch(char **cmdline_p)
 	}
 #endif
 
-	/*                                         */
+	/* Get boot processor trap_block[] setup.  */
 	init_cur_cpu_trap(current_thread_info());
 
 	paging_init();

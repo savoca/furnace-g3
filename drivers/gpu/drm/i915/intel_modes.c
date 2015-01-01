@@ -32,9 +32,9 @@
 #include "intel_drv.h"
 #include "i915_drv.h"
 
-/* 
-                  
-  
+/**
+ * intel_ddc_probe
+ *
  */
 bool intel_ddc_probe(struct intel_encoder *intel_encoder, int ddc_bus)
 {
@@ -59,12 +59,12 @@ bool intel_ddc_probe(struct intel_encoder *intel_encoder, int ddc_bus)
 	return i2c_transfer(&dev_priv->gmbus[ddc_bus].adapter, msgs, 2) == 2;
 }
 
-/* 
-                                                  
-                                          
-                        
-  
-                                                                
+/**
+ * intel_ddc_get_modes - get modelist from monitor
+ * @connector: DRM connector device to use
+ * @adapter: i2c adapter
+ *
+ * Fetch the EDID information from @connector using the DDC bus.
  */
 int intel_ddc_get_modes(struct drm_connector *connector,
 			struct i2c_adapter *adapter)

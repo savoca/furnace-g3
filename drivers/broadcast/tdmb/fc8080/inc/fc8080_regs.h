@@ -31,25 +31,25 @@
 extern "C" {
 #endif
 
-	/*           */
+	/* INTERFACE */
 #define FC8080_SPI
-/*                  */
-/*                  */
+/*#define FC8080_I2C*/
+/*#define FC8080_PPI*/
 
-	/*                               */
-/*                               */
-/*                               */
-#define FC8080_FREQ_XTAL    19200 //        
-//                               
-/*                               */
-/*                               */
-/*                               */
-/*                               */
-/*                               */
-/*                               */
-/*                               */
+	/* X-TAL Frequency Configuration */
+/*#define FC8080_FREQ_XTAL  16000*/
+/*#define FC8080_FREQ_XTAL  16384*/
+#define FC8080_FREQ_XTAL    19200 // 19.2MHz
+//#define FC8080_FREQ_XTAL  24576
+/*#define FC8080_FREQ_XTAL  24000*/
+/*#define FC8080_FREQ_XTAL  24576*/
+/*#define FC8080_FREQ_XTAL  26000*/
+/*#define FC8080_FREQ_XTAL  27000*/
+/*#define FC8080_FREQ_XTAL  27120*/
+/*#define FC8080_FREQ_XTAL  32000*/
+/*#define FC8080_FREQ_XTAL  38400*/
 
-	/*                  */
+	/* INTERRUPT SOURCE */
 #define BBM_MF_INT                  0x0001
 #define BBM_WAGC_INT                0x0002
 #define BBM_RECFG_INT               0x0004
@@ -57,7 +57,7 @@ extern "C" {
 #define BBM_SYNC_INT                0x0010
 #define BBM_I2C_INT                 0x0020
 
-	/*        */
+	/* COMMON */
 #define BBM_AP2APB_LT               0x0000
 #define BBM_MD_RESET                0x0001
 #define BBM_MD_INT_CLR              0x0002
@@ -83,7 +83,7 @@ extern "C" {
 #define BBM_DM_CTRL		            0x0039
 #define BBM_OVERRUN_GAP				0x003c
 
-	/*         */
+	/* RxFRONT */
 #define BBM_SYNC_RST_REQ_EN         0x0100
 #define BBM_QDD_COMMAND             0x0104
 #define BBM_DCE_CTRL                0x0111
@@ -111,7 +111,7 @@ extern "C" {
 #define BBM_PGA_GAIN_MIN            0x0145
 #define BBM_UNLOCK_DETECT_EN        0x0150
 
-	/*      */
+	/* SYNC */
 #define BBM_SYNC_MTH                0x0235
 #define BBM_SYNC_CNTRL              0x0236
 #define BBM_OFDM_DET                0x0220
@@ -130,7 +130,7 @@ extern "C" {
 #define BBM_RESYNC_AUTO_CONDITION_EN 0x02a1
 #define BBM_RESYNC_CONDITION_INFO   0x02a2
 
-	/*      */
+	/* DIDP */
 #define BBM_DIDP_MODE               0x0601
 #define BBM_SCH0_SET_IDI            0x0602
 #define BBM_SCH1_SET_IDI            0x0603
@@ -142,7 +142,7 @@ extern "C" {
 #define BBM_PS2_BB_ENABLE           0x060e
 #define BBM_PS2_BB_ADD_SHIFT        0x060f
 
-	/*     */
+	/* BUF */
 #define BBM_BUF_STATUS              0x0900
 #define BBM_BUF_OVERRUN             0x0902
 #define BBM_BUF_ENABLE              0x0904
@@ -170,7 +170,7 @@ extern "C" {
 #define BBM_BUF_CH3_THR             0x0948
 #define BBM_BUF_FIC_THR             0x0952
 
-	/*     */
+	/* I2C */
 #define BBM_RF_PRER                 0x0a00
 #define BBM_RF_CTR                  0x0a02
 #define BBM_RF_RXR                  0x0a03
@@ -179,7 +179,7 @@ extern "C" {
 #define BBM_RF_CR                   0x0a06
 #define BBM_AP_FLAG                 0x0a07
 
-	/*     */
+	/* FEC */
 #define BBM_FEC_RST                 0x0e00
 #define BBM_FEC_ON                  0x0e02
 #define BBM_FIC_CFG_CRC16           0x0e08
@@ -187,10 +187,10 @@ extern "C" {
 #define BBM_MSC_CFG_SCH1            0x0e0b
 #define BBM_MSC_CFG_SPD             0x0e0e
 
-	/*    */
+	/* DM */
 #define BBM_DM                      0xf000
 
-	/*                   */
+	/* BUFFER MANAGEMENT */
 #define FIC_BUF_START   0x0000
 #define FIC_BUF_LENGTH  (32 * 24)
 #define FIC_BUF_END     (FIC_BUF_START + FIC_BUF_LENGTH - 1)
@@ -207,8 +207,8 @@ extern "C" {
 #define CH1_BUF_THR     (CH1_BUF_LENGTH / 2 - 1)
 
 #define CH2_BUF_START   (CH1_BUF_START + CH1_BUF_LENGTH)
-//                                                                           
-#define CH2_BUF_LENGTH  (128 * 12) //          
+// 20130726 - The first complete DAB frame should be handed to DMB Framework.
+#define CH2_BUF_LENGTH  (128 * 12) // (128 * 6)
 #define CH2_BUF_END     (CH2_BUF_START + CH2_BUF_LENGTH - 1)
 #define CH2_BUF_THR     (CH2_BUF_LENGTH / 2 - 1)
 
@@ -220,5 +220,5 @@ internal buffer is 16K, your setting value is big !!!!!!!!!!!!!!!
 }
 #endif
 
-#endif /*                   */
+#endif /* __FC8080_REGS_H__ */
 

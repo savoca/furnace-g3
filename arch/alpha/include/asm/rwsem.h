@@ -2,8 +2,8 @@
 #define _ALPHA_RWSEM_H
 
 /*
-                                                               
-                                                      
+ * Written by Ivan Kokshaysky <ink@jurassic.park.msu.ru>, 2001.
+ * Based on asm-alpha/semaphore.h and asm-i386/rwsem.h
  */
 
 #ifndef _LINUX_RWSEM_H
@@ -46,7 +46,7 @@ static inline void __down_read(struct rw_semaphore *sem)
 }
 
 /*
-                                                                  
+ * trylock for reading -- returns 1 if successful, 0 if contention
  */
 static inline int __down_read_trylock(struct rw_semaphore *sem)
 {
@@ -88,7 +88,7 @@ static inline void __down_write(struct rw_semaphore *sem)
 }
 
 /*
-                                                                  
+ * trylock for writing -- returns 1 if successful, 0 if contention
  */
 static inline int __down_write_trylock(struct rw_semaphore *sem)
 {
@@ -151,7 +151,7 @@ static inline void __up_write(struct rw_semaphore *sem)
 }
 
 /*
-                                    
+ * downgrade write lock to read lock
  */
 static inline void __downgrade_write(struct rw_semaphore *sem)
 {
@@ -219,5 +219,5 @@ static inline long rwsem_atomic_update(long val, struct rw_semaphore *sem)
 #endif
 }
 
-#endif /*            */
-#endif /*                */
+#endif /* __KERNEL__ */
+#endif /* _ALPHA_RWSEM_H */

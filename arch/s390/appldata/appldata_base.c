@@ -37,17 +37,17 @@
 #include "appldata.h"
 
 
-#define APPLDATA_CPU_INTERVAL	10000		/*                       
-                             
-                      */
+#define APPLDATA_CPU_INTERVAL	10000		/* default (CPU) time for
+						   sampling interval in
+						   milliseconds */
 
-#define TOD_MICRO	0x01000			/*                       
-                           */
+#define TOD_MICRO	0x01000			/* nr. of TOD clock units
+						   for 1 microsecond */
 
 static struct platform_device *appldata_pdev;
 
 /*
-                         
+ * /proc entries (sysctl)
  */
 static const char appldata_proc_name[APPLDATA_PROC_NAME_LENGTH] = "appldata";
 static int appldata_timer_handler(ctl_table *ctl, int write,
@@ -82,7 +82,7 @@ static struct ctl_table appldata_dir_table[] = {
 };
 
 /*
-        
+ * Timer
  */
 static DEFINE_PER_CPU(struct vtimer_list, appldata_timer);
 static atomic_t appldata_expire_count = ATOMIC_INIT(0);
@@ -93,7 +93,7 @@ static int appldata_timer_active;
 static int appldata_timer_suspended = 0;
 
 /*
-             
+ * Work queue
  */
 static struct workqueue_struct *appldata_wq;
 static void appldata_work_fn(struct work_struct *work);
@@ -101,17 +101,17 @@ static DECLARE_WORK(appldata_work, appldata_work_fn);
 
 
 /*
-           
+ * Ops list
  */
 static DEFINE_MUTEX(appldata_ops_mutex);
 static LIST_HEAD(appldata_ops_list);
 
 
-/*                                                                           */
+/*************************** timer, work, DIAG *******************************/
 /*
-                            
-  
-                                     
+ * appldata_timer_function()
+ *
+ * schedule work and reschedule timer
  */
 static void appldata_timer_function(unsigned long data)
 {
@@ -122,9 +122,9 @@ static void appldata_timer_function(unsigned long data)
 }
 
 /*
-                     
-  
-                                                        
+ * appldata_work_fn()
+ *
+ * call data gathering function for each (active) module
  */
 static void appldata_work_fn(struct work_struct *work)
 {
@@ -144,35 +144,35 @@ static void appldata_work_fn(struct work_struct *work)
 }
 
 /*
-                  
-  
-                                          
+ * appldata_diag()
+ *
+ * prepare parameter list, issue DIAG 0xDC
  */
 int appldata_diag(char record_nr, u16 function, unsigned long buffer,
 			u16 length, char *mod_lvl)
 {
 	struct appldata_product_id id = {
 		.prod_nr    = {0xD3, 0xC9, 0xD5, 0xE4,
-			       0xE7, 0xD2, 0xD9},	/*           */
-		.prod_fn    = 0xD5D3,			/*      */
-		.version_nr = 0xF2F6,			/*      */
-		.release_nr = 0xF0F1,			/*      */
+			       0xE7, 0xD2, 0xD9},	/* "LINUXKR" */
+		.prod_fn    = 0xD5D3,			/* "NL" */
+		.version_nr = 0xF2F6,			/* "26" */
+		.release_nr = 0xF0F1,			/* "01" */
 	};
 
 	id.record_nr = record_nr;
 	id.mod_lvl = (mod_lvl[0]) << 8 | mod_lvl[1];
 	return appldata_asm(&id, function, (void *) buffer, length);
 }
-/*                                                                           */
+/************************ timer, work, DIAG <END> ****************************/
 
 
-/*                                                                           */
+/****************************** /proc stuff **********************************/
 
 /*
-                             
-  
-                                                                            
-                              
+ * appldata_mod_vtimer_wrap()
+ *
+ * wrapper function for mod_virt_timer(), because smp_call_function_single()
+ * accepts only one parameter.
  */
 static void __appldata_mod_vtimer_wrap(void *p) {
 	struct {
@@ -187,10 +187,10 @@ static void __appldata_mod_vtimer_wrap(void *p) {
 #define APPLDATA_MOD_TIMER	2
 
 /*
-                            
-  
-                                                           
-                                                            
+ * __appldata_vtimer_setup()
+ *
+ * Add, delete or modify virtual timers on all online cpus.
+ * The caller needs to get the appldata_timer_lock spinlock.
  */
 static void
 __appldata_vtimer_setup(int cmd)
@@ -239,9 +239,9 @@ __appldata_vtimer_setup(int cmd)
 }
 
 /*
-                           
-  
-                                                                      
+ * appldata_timer_handler()
+ *
+ * Start/Stop timer, show status of timer (0 = not active, 1 = active)
  */
 static int
 appldata_timer_handler(ctl_table *ctl, int write,
@@ -280,10 +280,10 @@ out:
 }
 
 /*
-                              
-  
-                                                                          
-                          
+ * appldata_interval_handler()
+ *
+ * Set (CPU) timer interval for collection of data (in milliseconds), show
+ * current timer interval.
  */
 static int
 appldata_interval_handler(ctl_table *ctl, int write,
@@ -326,10 +326,10 @@ out:
 }
 
 /*
-                             
-  
-                                                         
-                                                  
+ * appldata_generic_handler()
+ *
+ * Generic start/stop monitoring and DIAG, show status of
+ * monitoring (0 = not in process, 1 = in process)
  */
 static int
 appldata_generic_handler(ctl_table *ctl, int write,
@@ -353,7 +353,7 @@ appldata_generic_handler(ctl_table *ctl, int write,
 		return -ENODEV;
 	}
 	ops = ctl->data;
-	if (!try_module_get(ops->owner)) {	//                      
+	if (!try_module_get(ops->owner)) {	// protect this function
 		mutex_unlock(&appldata_ops_mutex);
 		return -ENODEV;
 	}
@@ -383,13 +383,13 @@ appldata_generic_handler(ctl_table *ctl, int write,
 
 	mutex_lock(&appldata_ops_mutex);
 	if ((buf[0] == '1') && (ops->active == 0)) {
-		//                            
+		// protect work queue callback
 		if (!try_module_get(ops->owner)) {
 			mutex_unlock(&appldata_ops_mutex);
 			module_put(ops->owner);
 			return -ENODEV;
 		}
-		ops->callback(ops->data);	//            
+		ops->callback(ops->data);	// init record
 		rc = appldata_diag(ops->record_nr,
 					APPLDATA_START_INTERVAL_REC,
 					(unsigned long) ops->data, ops->size,
@@ -418,14 +418,14 @@ out:
 	return 0;
 }
 
-/*                                                                           */
+/*************************** /proc stuff <END> *******************************/
 
 
-/*                                                                           */
+/************************* module-ops management *****************************/
 /*
-                          
-  
-                                              
+ * appldata_register_ops()
+ *
+ * update ops list, register /proc/sys entries
  */
 int appldata_register_ops(struct appldata_ops *ops)
 {
@@ -463,9 +463,9 @@ out:
 }
 
 /*
-                            
-  
-                                                                    
+ * appldata_unregister_ops()
+ *
+ * update ops list, unregister /proc entries, stop DIAG if necessary
  */
 void appldata_unregister_ops(struct appldata_ops *ops)
 {
@@ -475,10 +475,10 @@ void appldata_unregister_ops(struct appldata_ops *ops)
 	unregister_sysctl_table(ops->sysctl_header);
 	kfree(ops->ctl_table);
 }
-/*                                                                           */
+/********************** module-ops management <END> **************************/
 
 
-/*                                                                           */
+/**************************** suspend / resume *******************************/
 static int appldata_freeze(struct device *dev)
 {
 	struct appldata_ops *ops;
@@ -529,7 +529,7 @@ static int appldata_restore(struct device *dev)
 	list_for_each(lh, &appldata_ops_list) {
 		ops = list_entry(lh, struct appldata_ops, list);
 		if (ops->active == 1) {
-			ops->callback(ops->data);	//            
+			ops->callback(ops->data);	// init record
 			rc = appldata_diag(ops->record_nr,
 					APPLDATA_START_INTERVAL_REC,
 					(unsigned long) ops->data, ops->size,
@@ -562,10 +562,10 @@ static struct platform_driver appldata_pdrv = {
 		.pm	= &appldata_pm_ops,
 	},
 };
-/*                                                                           */
+/************************* suspend / resume <END> ****************************/
 
 
-/*                                                                           */
+/******************************* init / exit *********************************/
 
 static void __cpuinit appldata_online_cpu(int cpu)
 {
@@ -615,9 +615,9 @@ static struct notifier_block __cpuinitdata appldata_nb = {
 };
 
 /*
-                  
-  
-                                     
+ * appldata_init()
+ *
+ * init timer, register /proc entries
  */
 static int __init appldata_init(void)
 {
@@ -644,7 +644,7 @@ static int __init appldata_init(void)
 		appldata_online_cpu(i);
 	put_online_cpus();
 
-	/*                               */
+	/* Register cpu hotplug notifier */
 	register_hotcpu_notifier(&appldata_nb);
 
 	appldata_sysctl_header = register_sysctl_table(appldata_dir_table);
@@ -659,7 +659,7 @@ out_driver:
 
 __initcall(appldata_init);
 
-/*                                                                           */
+/**************************** init / exit <END> ******************************/
 
 EXPORT_SYMBOL_GPL(appldata_register_ops);
 EXPORT_SYMBOL_GPL(appldata_unregister_ops);

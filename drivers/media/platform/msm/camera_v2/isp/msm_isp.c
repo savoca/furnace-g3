@@ -57,7 +57,7 @@ static struct msm_isp_buf_mgr vfe_buf_mgr;
 static int __devinit vfe_probe(struct platform_device *pdev)
 {
 	struct vfe_device *vfe_dev;
-	/*                                   */
+	/*struct msm_cam_subdev_info sd_info;*/
 	const struct of_device_id *match_dev;
 	int rc = 0;
 

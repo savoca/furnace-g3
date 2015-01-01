@@ -14,7 +14,7 @@
 	     (bit) < (size);					\
 	     (bit) = find_next_bit((addr), (size), (bit) + 1))
 
-/*                                                               */
+/* same as for_each_set_bit() but use bit as value to start with */
 #define for_each_set_bit_from(bit, addr, size) \
 	for ((bit) = find_next_bit((addr), (size), (bit));	\
 	     (bit) < (size);					\
@@ -43,11 +43,11 @@ static inline unsigned long hweight_long(unsigned long w)
 
 #define BITOP_WORD(nr)		((nr) / BITS_PER_LONG)
 
-/* 
-                                  
-                            
-  
-                                                                    
+/**
+ * __ffs - find first bit in word.
+ * @word: The word to search
+ *
+ * Undefined if no bit exists, so code should check against 0 first.
  */
 static __always_inline unsigned long __ffs(unsigned long word)
 {
@@ -81,7 +81,7 @@ static __always_inline unsigned long __ffs(unsigned long word)
 }
 
 /*
-                                             
+ * Find the first set bit in a memory region.
  */
 static inline unsigned long
 find_first_bit(const unsigned long *addr, unsigned long size)
@@ -100,14 +100,14 @@ find_first_bit(const unsigned long *addr, unsigned long size)
 		return result;
 
 	tmp = (*p) & (~0UL >> (BITS_PER_LONG - size));
-	if (tmp == 0UL)		/*                   */
-		return result + size;	/*       */
+	if (tmp == 0UL)		/* Are any bits set? */
+		return result + size;	/* Nope. */
 found:
 	return result + __ffs(tmp);
 }
 
 /*
-                                            
+ * Find the next set bit in a memory region.
  */
 static inline unsigned long
 find_next_bit(const unsigned long *addr, unsigned long size, unsigned long offset)
@@ -142,8 +142,8 @@ find_next_bit(const unsigned long *addr, unsigned long size, unsigned long offse
 
 found_first:
 	tmp &= (~0UL >> (BITS_PER_LONG - size));
-	if (tmp == 0UL)		/*                   */
-		return result + size;	/*       */
+	if (tmp == 0UL)		/* Are any bits set? */
+		return result + size;	/* Nope. */
 found_middle:
 	return result + __ffs(tmp);
 }

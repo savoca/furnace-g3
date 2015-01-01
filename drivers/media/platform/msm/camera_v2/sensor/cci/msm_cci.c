@@ -31,14 +31,14 @@
 
 /*                                                                      */
 #if 1
-#define CCI_TIMEOUT msecs_to_jiffies(300) //             
-#else /*          */
+#define CCI_TIMEOUT msecs_to_jiffies(300) //timeout 300ms
+#else /* original */
 #define CCI_TIMEOUT msecs_to_jiffies(100)
 #endif
 /*                                                                      */
 
 
-/*                               */
+/* TODO move this somewhere else */
 #define MSM_CCI_DRV_NAME "msm_cci"
 
 #undef CDBG
@@ -48,7 +48,7 @@
 #define CDBG(fmt, args...) do { } while (0)
 #endif
 
-/*                                                     */
+/* Max bytes that can be read per CCI read transaction */
 #define CCI_READ_MAX 12
 #define CCI_I2C_READ_MAX_RETRIES 3
 #define CCI_I2C_MAX_READ 8192
@@ -112,10 +112,10 @@ static void msm_cci_flush_queue(struct cci_device *cci_dev,
 	} else if (rc == 0) {
 		pr_err("%s:%d wait timeout\n", __func__, __LINE__);
 
-		/*                                */
+		/* Set reset pending flag to TRUE */
 		cci_dev->cci_master_info[master].reset_pending = TRUE;
 
-		/*                                                      */
+		/* Set proper mask to RESET CMD address based on MASTER */
 		if (master == MASTER_0)
 			msm_camera_io_w(CCI_M0_RESET_RMSK,
 				cci_dev->base + CCI_RESET_CMD_ADDR);
@@ -123,7 +123,7 @@ static void msm_cci_flush_queue(struct cci_device *cci_dev,
 			msm_camera_io_w(CCI_M1_RESET_RMSK,
 				cci_dev->base + CCI_RESET_CMD_ADDR);
 
-		/*                         */
+		/* wait for reset done irq */
 		rc = wait_for_completion_interruptible_timeout(
 			&cci_dev->cci_master_info[master].reset_complete,
 			CCI_TIMEOUT);
@@ -218,7 +218,7 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 		pr_err("%s failed line %d\n", __func__, __LINE__);
 		return -EINVAL;
 	}
-	/*                                        */
+	/* assume total size within the max queue */
 	while (cmd_size) {
 		CDBG("%s cmd_size %d addr 0x%x data 0x%x", __func__,
 			cmd_size, i2c_cmd->reg_addr, i2c_cmd->reg_data);
@@ -226,14 +226,14 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 		data[i++] = CCI_I2C_WRITE_CMD;
 		if (i2c_cmd->reg_addr)
 			reg_addr = i2c_cmd->reg_addr;
-		/*                          */
+		/* either byte or word addr */
 		if (i2c_msg->addr_type == MSM_CAMERA_I2C_BYTE_ADDR)
 			data[i++] = reg_addr;
 		else {
 			data[i++] = (reg_addr & 0xFF00) >> 8;
 			data[i++] = reg_addr & 0x00FF;
 		}
-		/*                      */
+		/* max of 10 data bytes */
 		do {
 			if (i2c_msg->data_type == MSM_CAMERA_I2C_BYTE_DATA) {
 				data[i++] = i2c_cmd->reg_data;
@@ -241,9 +241,9 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 			} else {
 				if ((i + 1) <= 10) {
 					data[i++] = (i2c_cmd->reg_data &
-						0xFF00) >> 8; /*     */
+						0xFF00) >> 8; /* MSB */
 					data[i++] = i2c_cmd->reg_data &
-						0x00FF; /*     */
+						0x00FF; /* LSB */
 					reg_addr += 2;
 				} else
 					break;
@@ -323,10 +323,10 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	mutex_lock(&cci_dev->cci_master_info[master].mutex);
 
 	/*
-                                                                    
-                                                                    
-                                       
-  */
+	 * Call validate queue to make sure queue is empty before starting.
+	 * If this call fails, don't proceed with i2c_read call. This is to
+	 * avoid overflow / underflow of queue
+	 */
 	rc = msm_cci_validate_queue(cci_dev,
 		cci_dev->cci_i2c_queue_info[master][queue].max_queue_size - 1,
 		master, queue);
@@ -545,10 +545,10 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 	mutex_lock(&cci_dev->cci_master_info[master].mutex);
 
 	/*
-                                                                    
-                                                                     
-                                       
-  */
+	 * Call validate queue to make sure queue is empty before starting.
+	 * If this call fails, don't proceed with i2c_write call. This is to
+	 * avoid overflow / underflow of queue
+	 */
 	rc = msm_cci_validate_queue(cci_dev,
 		cci_dev->cci_i2c_queue_info[master][queue].max_queue_size - 1,
 		master, queue);
@@ -676,16 +676,16 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		CDBG("%s:%d master %d\n", __func__, __LINE__, master);
 		if (master < MASTER_MAX && master >= 0) {
 			mutex_lock(&cci_dev->cci_master_info[master].mutex);
-			/*                                */
+			/* Set reset pending flag to TRUE */
 			cci_dev->cci_master_info[master].reset_pending = TRUE;
-			/*                                      */
+			/* Set proper mask to RESET CMD address */
 			if (master == MASTER_0)
 				msm_camera_io_w(CCI_M0_RESET_RMSK,
 					cci_dev->base + CCI_RESET_CMD_ADDR);
 			else
 				msm_camera_io_w(CCI_M1_RESET_RMSK,
 					cci_dev->base + CCI_RESET_CMD_ADDR);
-			/*                         */
+			/* wait for reset done irq */
 			rc = wait_for_completion_interruptible_timeout(
 				&cci_dev->cci_master_info[master].
 				reset_complete,
@@ -804,7 +804,7 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 		break;
 	case MSM_CCI_I2C_WRITE:
 /*                                                                                                       */
-#if 1 //         
+#if 1 // QCT Test
 	    do{
 			   rc = msm_cci_i2c_write(sd, cci_ctrl);
 			   if(rc < 0)

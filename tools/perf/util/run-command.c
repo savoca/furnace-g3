@@ -21,9 +21,9 @@ int start_command(struct child_process *cmd)
 	int fdin[2], fdout[2], fderr[2];
 
 	/*
-                                                           
-                                                
-  */
+	 * In case of errors we must keep the promise to close FDs
+	 * that have been passed in via ->in and ->out.
+	 */
 
 	need_in = !cmd->no_stdin && cmd->in < 0;
 	if (need_in) {

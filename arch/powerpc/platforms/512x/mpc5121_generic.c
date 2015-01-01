@@ -24,7 +24,7 @@
 #include "mpc512x.h"
 
 /*
-                           
+ * list of supported boards
  */
 static const char *board[] __initdata = {
 	"prt,prtlvt",
@@ -32,7 +32,7 @@ static const char *board[] __initdata = {
 };
 
 /*
-                                                               
+ * Called very early, MMU is off, device-tree isn't unflattened
  */
 static int __init mpc5121_generic_probe(void)
 {

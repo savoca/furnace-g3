@@ -28,13 +28,13 @@ DEFINE_MSM_MUTEX(imx132_mut);
 static struct msm_sensor_ctrl_t imx132_s_ctrl;
 
 static struct msm_sensor_power_setting imx132_power_setting[] = {
-	{  /*                                                */
+	{  /* Set GPIO_RESET to low to disable power on reset*/
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
 		.config_val = GPIO_OUT_LOW,
 		.delay = 1,
 	},
-	{										//                  
+	{										//VDIG, PMIC_GPIO 10
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_VDIG,
 		.config_val = GPIO_OUT_HIGH,

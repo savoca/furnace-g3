@@ -37,48 +37,48 @@
 #include "mmu_decl.h"
 
 /*
-                                                              
-                                                              
-                                                            
-                                   
+ * This address range defaults to a value that is safe for all
+ * platforms which currently set CONFIG_NOT_COHERENT_CACHE. It
+ * can be further configured for specific applications under
+ * the "Advanced Setup" menu. -Matt
  */
 #define CONSISTENT_BASE		(IOREMAP_TOP)
 #define CONSISTENT_END 		(CONSISTENT_BASE + CONFIG_CONSISTENT_SIZE)
 #define CONSISTENT_OFFSET(x)	(((unsigned long)(x) - CONSISTENT_BASE) >> PAGE_SHIFT)
 
 /*
-                                                                             
+ * This is the page table (2MB) covering uncached, DMA consistent allocations
  */
 static DEFINE_SPINLOCK(consistent_lock);
 
 /*
-                              
-  
-                                                                           
-                                                    
-  
-                                                        
-  
-                      
-                              
-                          
-                          
-                            
-                              
-      
-  
-                                                                    
-                              
-  
-                                     
-                                                   
-                             
-                          
-      
-  
-                                                                            
-                                                                             
-                                                                              
+ * VM region handling support.
+ *
+ * This should become something generic, handling VM region allocations for
+ * vmalloc and similar (ioremap, module space, etc).
+ *
+ * I envisage vmalloc()'s supporting vm_struct becoming:
+ *
+ *  struct vm_struct {
+ *    struct vm_region	region;
+ *    unsigned long	flags;
+ *    struct page	**pages;
+ *    unsigned int	nr_pages;
+ *    unsigned long	phys_addr;
+ *  };
+ *
+ * get_vm_area() would then call vm_region_alloc with an appropriate
+ * struct vm_region head (eg):
+ *
+ *  struct vm_region vmalloc_head = {
+ *	.vm_list	= LIST_HEAD_INIT(vmalloc_head.vm_list),
+ *	.vm_start	= VMALLOC_START,
+ *	.vm_end		= VMALLOC_END,
+ *  };
+ *
+ * However, vmalloc_head.vm_start is variable (typically, it is dependent on
+ * the amount of RAM found at boot time.)  I would imagine that get_vm_area()
+ * would have to initialise this each time prior to calling vm_region_alloc().
  */
 struct ppc_vm_region {
 	struct list_head	vm_list;
@@ -117,8 +117,8 @@ ppc_vm_region_alloc(struct ppc_vm_region *head, size_t size, gfp_t gfp)
 
  found:
 	/*
-                                                
-  */
+	 * Insert this entry _before_ the one we found.
+	 */
 	list_add_tail(&new->vm_list, &c->vm_list);
 	new->vm_start = addr;
 	new->vm_end = addr + size;
@@ -147,8 +147,8 @@ static struct ppc_vm_region *ppc_vm_region_find(struct ppc_vm_region *head, unsi
 }
 
 /*
-                                                                         
-                                          
+ * Allocate DMA-coherent memory space and return both the kernel remapped
+ * virtual and bus address for that space.
  */
 void *
 __dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t gfp)
@@ -162,9 +162,9 @@ __dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t 
 		mask = dev->coherent_dma_mask;
 
 		/*
-                                                         
-                                                      
-   */
+		 * Sanity check the DMA mask - it must be non-zero, and
+		 * must be able to be satisfied by a DMA allocation.
+		 */
 		if (mask == 0) {
 			dev_warn(dev, "coherent DMA mask is unset\n");
 			goto no_page;
@@ -190,7 +190,7 @@ __dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t 
 
 	order = get_order(size);
 
-	/*                                                           */
+	/* Might be useful if we ever have a real legacy DMA zone... */
 	if (mask != 0xffffffff)
 		gfp |= GFP_DMA;
 
@@ -199,9 +199,9 @@ __dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t 
 		goto no_page;
 
 	/*
-                                                    
-                                               
-  */
+	 * Invalidate any data that might be lurking in the
+	 * kernel direct-mapped region for device DMA.
+	 */
 	{
 		unsigned long kaddr = (unsigned long)page_address(page);
 		memset(page_address(page), 0, size);
@@ -209,8 +209,8 @@ __dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t 
 	}
 
 	/*
-                                                                
-  */
+	 * Allocate a virtual address in the consistent mapping region.
+	 */
 	c = ppc_vm_region_alloc(&consistent_head, size,
 			    gfp & ~(__GFP_DMA | __GFP_HIGHMEM));
 	if (c) {
@@ -220,8 +220,8 @@ __dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t 
 		split_page(page, order);
 
 		/*
-                         
-   */
+		 * Set the "dma handle"
+		 */
 		*handle = page_to_phys(page);
 
 		do {
@@ -233,8 +233,8 @@ __dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t 
 		} while (size -= PAGE_SIZE);
 
 		/*
-                                     
-   */
+		 * Free the otherwise unused pages.
+		 */
 		while (page < end) {
 			__free_page(page);
 			page++;
@@ -251,7 +251,7 @@ __dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t 
 EXPORT_SYMBOL(__dma_alloc_coherent);
 
 /*
-                                               
+ * free a page as defined by the above mapping.
  */
 void __dma_free_coherent(size_t size, void *vaddr)
 {
@@ -313,7 +313,7 @@ void __dma_free_coherent(size_t size, void *vaddr)
 EXPORT_SYMBOL(__dma_free_coherent);
 
 /*
-                           
+ * make an area consistent.
  */
 void __dma_sync(void *vaddr, size_t size, int direction)
 {
@@ -325,18 +325,18 @@ void __dma_sync(void *vaddr, size_t size, int direction)
 		BUG();
 	case DMA_FROM_DEVICE:
 		/*
-                                                               
-                                                                 
-   */
+		 * invalidate only when cache-line aligned otherwise there is
+		 * the potential for discarding uncommitted data from the cache
+		 */
 		if ((start & (L1_CACHE_BYTES - 1)) || (size & (L1_CACHE_BYTES - 1)))
 			flush_dcache_range(start, end);
 		else
 			invalidate_dcache_range(start, end);
 		break;
-	case DMA_TO_DEVICE:		/*                */
+	case DMA_TO_DEVICE:		/* writeback only */
 		clean_dcache_range(start, end);
 		break;
-	case DMA_BIDIRECTIONAL:	/*                          */
+	case DMA_BIDIRECTIONAL:	/* writeback and invalidate */
 		flush_dcache_range(start, end);
 		break;
 	}
@@ -345,13 +345,13 @@ EXPORT_SYMBOL(__dma_sync);
 
 #ifdef CONFIG_HIGHMEM
 /*
-                                                              
-                                                                
-                                                                 
-                                                       
-  
-                                                                
-                         
+ * __dma_sync_page() implementation for systems using highmem.
+ * In this case, each page of a buffer must be kmapped/kunmapped
+ * in order to have a virtual address for __dma_sync(). This must
+ * not sleep so kmap_atomic()/kunmap_atomic() are used.
+ *
+ * Note: yes, it is possible and correct to have a buffer extend
+ * beyond the first page.
  */
 static inline void __dma_sync_page_highmem(struct page *page,
 		unsigned long offset, size_t size, int direction)
@@ -367,26 +367,26 @@ static inline void __dma_sync_page_highmem(struct page *page,
 	do {
 		start = (unsigned long)kmap_atomic(page + seg_nr) + seg_offset;
 
-		/*                          */
+		/* Sync this buffer segment */
 		__dma_sync((void *)start, seg_size, direction);
 		kunmap_atomic((void *)start);
 		seg_nr++;
 
-		/*                                    */
+		/* Calculate next buffer segment size */
 		seg_size = min((size_t)PAGE_SIZE, size - cur_size);
 
-		/*                                           */
+		/* Add the segment size to our running total */
 		cur_size += seg_size;
 		seg_offset = 0;
 	} while (seg_nr < nr_segs);
 
 	local_irq_restore(flags);
 }
-#endif /*                */
+#endif /* CONFIG_HIGHMEM */
 
 /*
-                                                                        
-                                                   
+ * __dma_sync_page makes memory consistent. identical to __dma_sync, but
+ * takes a struct page instead of a virtual address
  */
 void __dma_sync_page(struct page *page, unsigned long offset,
 	size_t size, int direction)
@@ -401,15 +401,15 @@ void __dma_sync_page(struct page *page, unsigned long offset,
 EXPORT_SYMBOL(__dma_sync_page);
 
 /*
-                                                             
-                                                            
+ * Return the PFN for a given cpu virtual address returned by
+ * __dma_alloc_coherent. This is used by dma_mmap_coherent()
  */
 unsigned long __dma_get_coherent_pfn(unsigned long cpu_addr)
 {
-	/*                                                        
-                                                       
-                                 
-  */
+	/* This should always be populated, so we don't test every
+	 * level. If that fails, we'll have a nice crash which
+	 * will be as good as a BUG_ON()
+	 */
 	pgd_t *pgd = pgd_offset_k(cpu_addr);
 	pud_t *pud = pud_offset(pgd, cpu_addr);
 	pmd_t *pmd = pmd_offset(pud, cpu_addr);

@@ -12,7 +12,7 @@
 #include "sizes.h"
 
 /*
-                    
+ * gzip declarations
  */
 #define STATIC static
 
@@ -22,7 +22,7 @@
 #define memmove memmove
 #define memzero(s, n) memset((s), 0, (n))
 
-/*                                   */
+/* Symbols defined by linker scripts */
 extern char input_data[];
 extern int input_len;
 extern char _text, _end;
@@ -113,13 +113,13 @@ static void error(char *x)
 }
 
 /*
-                                                                        
-                                                                         
-                                                                      
-                                                                        
-                                                                          
-                                                                       
-         
+ * Safe guard the ipl parameter block against a memory area that will be
+ * overwritten. The validity check for the ipl parameter block is complex
+ * (see cio_get_iplinfo and ipl_save_parameters) but if the pointer to
+ * the ipl parameter block intersects with the passed memory area we can
+ * safely assume that we can read from that memory. In that case just copy
+ * the memory to IPL_PARMBLOCK_ORIGIN even if there is no ipl parameter
+ * block.
  */
 static void check_ipl_parmblock(void *start, unsigned long size)
 {
@@ -147,9 +147,9 @@ unsigned long decompress_kernel(void)
 
 #ifdef CONFIG_BLK_DEV_INITRD
 	/*
-                                                            
-                 
-  */
+	 * Move the initrd right behind the end of the decompressed
+	 * kernel image.
+	 */
 	if (INITRD_START && INITRD_SIZE &&
 	    INITRD_START < (unsigned long) output + SZ__bss_start) {
 		check_ipl_parmblock(output + SZ__bss_start,

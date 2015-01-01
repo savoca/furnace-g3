@@ -25,10 +25,10 @@
 extern int ath6kl_printk(const char *level, const char *fmt, ...);
 
 /*
-                                                                    
-                                                                        
-                                                                         
-                 
+ * Reflects the version of binary interface exposed by ATH6KL target
+ * firmware. Needs to be incremented by 1 for any change in the firmware
+ * that requires upgrade of the driver on the host side for the change to
+ * work correctly
  */
 #define ATH6KL_ABI_VERSION        1
 
@@ -41,7 +41,7 @@ enum {
 };
 
 /*
-            
+ * Data Path
  */
 
 #define WMI_MAX_TX_DATA_FRAME_LENGTH	      \
@@ -49,7 +49,7 @@ enum {
 	 sizeof(struct ethhdr) +      \
 	 sizeof(struct ath6kl_llc_snap_hdr))
 
-/*                */ /*                                        */
+/* An AMSDU frame */ /* The MAX AMSDU length of AR6003 is 3839 */
 #define WMI_MAX_AMSDU_RX_DATA_FRAME_LENGTH    \
 	(3840 + sizeof(struct wmi_data_hdr) + \
 	 sizeof(struct ethhdr) +      \
@@ -81,4 +81,4 @@ enum htc_credit_dist_reason;
 struct ath6kl_htc_credit_info;
 
 struct sk_buff *ath6kl_buf_alloc(int size);
-#endif /*          */
+#endif /* COMMON_H */

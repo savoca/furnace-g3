@@ -25,7 +25,7 @@
  *
  **************************************************************************/
 /*
-                                                           
+ * Authors: Thomas Hellstrom <thellstrom-at-vmware-dot-com>
  */
 
 #include "vmwgfx_drv.h"

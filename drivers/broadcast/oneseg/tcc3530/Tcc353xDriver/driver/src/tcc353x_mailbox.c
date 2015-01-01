@@ -1,13 +1,13 @@
+/*--------------------------------------------------------------------------*/
+/*    FileName    : Tcc353x_mailbox.c                                       */
+/*    Description : mailbox control Function                                */
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*   TCC Version : 1.0.0                                                    */
 /*   Copyright (c) Telechips, Inc.                                          */
+/*   ALL RIGHTS RESERVED                                                    */
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #include "tcc353x_mailbox.h"
 #include "tcc353x_register_control.h"
@@ -18,7 +18,7 @@ extern TcpalSemaphore_t
 extern TcpalSemaphore_t
     Tcc353xOpMailboxSema[TCC353X_MAX][TCC353X_DIVERSITY_MAX];
 
-#define MAXWAIT_MAILBOX 1000	/*            */
+#define MAXWAIT_MAILBOX 1000	/* about 1sec */
 
 static I32U Tcc353xMailboxStatus(I32U input, I32U WFlag)
 {
@@ -64,7 +64,7 @@ static void Tcc353xMailboxTx(Tcc353xHandle_t * _handle, I32S rw_flag,
 
 	do {
 		if (!(_handle->sysEnValue & TC3XREG_SYS_EN_DSP)) {
-			/*                   */
+			/* Exceptional Error */
 			TcpalPrintErr((I08S *)
 				      "[TCC353X] [Error] MailBox - OP Disabled!!! \n");
 			return;
@@ -104,7 +104,7 @@ static I32S Tcc353xMailboxRx(Tcc353xHandle_t * _handle,
 
 	do {
 		if (!(_handle->sysEnValue & TC3XREG_SYS_EN_DSP)) {
-			/*                   */
+			/* Exceptional Error */
 			TcpalPrintErr((I08S *)
 				      "[TCC353X] [Error] MailBox - OP Disabled!!! \n");
 			return TCC353X_RETURN_FAIL;
@@ -129,14 +129,14 @@ static I32S Tcc353xMailboxRx(Tcc353xHandle_t * _handle,
 	total_byte_num = (temp >> 2) & 0x3f;
 	total_word_num = (total_byte_num >> 2);
 
-	/*           */
+	/* LSB First */
 	Tcc353xGetRegMailboxFifoWindow(_handle, (I08U *) (&cmd), 1 << 2);
 	Tcc353xGetRegMailboxFifoWindow(_handle,
 				       (I08U
 					*) (&p_mailbox->data_array[0]),
 				       (total_word_num - 1) << 2);
 
-	/*            */
+	/* mark check */
 	if ((cmd >> 24) != MB_SLAVEMAIL) {
 		I32U mailstat;
 
@@ -221,7 +221,7 @@ I32S Tcc353xMailboxTxOnly(Tcc353xHandle_t * _handle, I32U cmd,
 				 "[TCC353X] [ERR] MailboxTX [cmd:0x%x]\n",
 				 cmd);
 
-		/*                               */
+		/* one more time set and give up */
 		TcpalPrintErr((I08S *) "[TCC353X] [M] Mailbox Retry\n");
 		ret =
 		    Tcc353xMailboxTxOnlySub(_handle, cmd, data_array,
@@ -308,7 +308,7 @@ I32S Tcc353xMailboxTxRx(Tcc353xHandle_t * _handle, mailbox_t * p_mailbox,
 				 "[TCC353X] [ERR] MailboxTXRX [cmd:0x%x]\n",
 				 cmd);
 
-		/*                               */
+		/* one more time set and give up */
 		TcpalPrintErr((I08S *) "[TCC353X] [M] Mailbox Retry\n");
 		ret =
 		    Tcc353xMailboxTxRxSub(_handle, p_mailbox, cmd,

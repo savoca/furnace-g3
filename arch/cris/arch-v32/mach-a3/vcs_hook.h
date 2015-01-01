@@ -1,5 +1,5 @@
 /*
-                                
+ * Simulator hook call mechanism
  */
 
 #ifndef __hook_h__

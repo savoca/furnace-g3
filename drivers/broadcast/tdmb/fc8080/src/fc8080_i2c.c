@@ -50,7 +50,7 @@ static fci_s32 i2c_dataread(HANDLE handle, fci_u8 chip, fci_u16 addr, fci_u8 *da
 
 fci_s32 fc8080_i2c_init(HANDLE handle, fci_u16 param1, fci_u16 param2)
 {
-	/*                */
+	/*ts_initialize();*/
 
 	return BBM_OK;
 }
@@ -156,7 +156,7 @@ fci_s32 fc8080_i2c_dataread(HANDLE handle, fci_u16 addr, fci_u8 *data, fci_u32 l
 
 fci_s32 fc8080_i2c_deinit(HANDLE handle)
 {
-	/*                      */
+	/*ts_receiver_disable();*/
 	return BBM_OK;
 }
 

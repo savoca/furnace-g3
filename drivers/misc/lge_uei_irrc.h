@@ -13,4 +13,4 @@ struct uei_irrc_pdata_type {
 #endif
 };
 
-#endif /*                  */
+#endif /* _UEI_IRRC_UART_H */

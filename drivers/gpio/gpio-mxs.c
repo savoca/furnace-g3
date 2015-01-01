@@ -60,7 +60,7 @@ struct mxs_gpio_port {
 	struct bgpio_chip bgc;
 };
 
-/*                                                                */
+/* Note: This driver assumes 32 GPIOs are handled in one register */
 
 static int mxs_gpio_set_irq_type(struct irq_data *d, unsigned int type)
 {
@@ -88,14 +88,14 @@ static int mxs_gpio_set_irq_type(struct irq_data *d, unsigned int type)
 		return -EINVAL;
 	}
 
-	/*                   */
+	/* set level or edge */
 	pin_addr = port->base + PINCTRL_IRQLEV(port->id);
 	if (edge & GPIO_INT_LEV_MASK)
 		writel(pin_mask, pin_addr + MXS_SET);
 	else
 		writel(pin_mask, pin_addr + MXS_CLR);
 
-	/*              */
+	/* set polarity */
 	pin_addr = port->base + PINCTRL_IRQPOL(port->id);
 	if (edge & GPIO_INT_POL_MASK)
 		writel(pin_mask, pin_addr + MXS_SET);
@@ -108,7 +108,7 @@ static int mxs_gpio_set_irq_type(struct irq_data *d, unsigned int type)
 	return 0;
 }
 
-/*                                       */
+/* MXS has one interrupt *per* gpio port */
 static void mxs_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 {
 	u32 irq_stat;
@@ -128,13 +128,13 @@ static void mxs_gpio_irq_handler(u32 irq, struct irq_desc *desc)
 }
 
 /*
-                                                              
-                                                                       
-                                                                           
-                                
-                                               
-                                                              
-                                                    
+ * Set interrupt number "irq" in the GPIO as a wake-up source.
+ * While system is running, all registered GPIO interrupts need to have
+ * wake-up enabled. When system is suspended, only selected GPIO interrupts
+ * need to have wake-up enabled.
+ * @param  irq          interrupt source number
+ * @param  enable       enable as wake-up if equal to non-zero
+ * @return       This function returns 0 on success.
  */
 static int mxs_gpio_set_wake_irq(struct irq_data *d, unsigned int enable)
 {
@@ -194,9 +194,9 @@ static int __devinit mxs_gpio_probe(struct platform_device *pdev)
 	port->virtual_irq_start = MXS_GPIO_IRQ_START + port->id * 32;
 
 	/*
-                                                      
-                      
-  */
+	 * map memory region only once, as all the gpio ports
+	 * share the same one
+	 */
 	if (!base) {
 		iores = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 		if (!iores) {
@@ -225,19 +225,19 @@ static int __devinit mxs_gpio_probe(struct platform_device *pdev)
 	}
 
 	/*
-                                                        
-                          
-  */
+	 * select the pin interrupt functionality but initially
+	 * disable the interrupts
+	 */
 	writel(~0U, port->base + PINCTRL_PIN2IRQ(port->id));
 	writel(0, port->base + PINCTRL_IRQEN(port->id));
 
-	/*                                                    */
+	/* clear address has to be used to clear IRQSTAT bits */
 	writel(~0U, port->base + PINCTRL_IRQSTAT(port->id) + MXS_CLR);
 
-	/*                                    */
+	/* gpio-mxs can be a generic irq chip */
 	mxs_gpio_init_gc(port);
 
-	/*                                  */
+	/* setup one handler for each entry */
 	irq_set_chained_handler(port->irq, mxs_gpio_irq_handler);
 	irq_set_handler_data(port->irq, port);
 

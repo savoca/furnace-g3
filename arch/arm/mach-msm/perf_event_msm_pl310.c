@@ -27,12 +27,12 @@
 static u32 rev1;
 
 /*
-                                             
-                                            
+ * Store dynamic PMU type after registration,
+ * to uniquely identify this PMU at runtime.
  */
 static u32 pmu_type;
 
-/*                                         */
+/* This controller only supports 16 Events.*/
 PMU_FORMAT_ATTR(l2_config, "config:0-4");
 
 static struct attribute *arm_l2_ev_formats[] = {
@@ -41,8 +41,8 @@ static struct attribute *arm_l2_ev_formats[] = {
 };
 
 /*
-                                                           
-                         
+ * Format group is essential to access PMU's from userspace
+ * via their .name field.
  */
 static struct attribute_group arm_l2_pmu_format_group = {
 	.name = "format",
@@ -57,12 +57,12 @@ static const struct attribute_group *arm_l2_pmu_attr_grps[] = {
 #define L2X0_AUX_CTRL_EVENT_MONITOR_SHIFT	20
 #define L2X0_INTR_MASK_ECNTR		1
 
-/*                                          */
+/* L220/PL310 Event control register values */
 #define L2X0_EVENT_CNT_ENABLE_MASK		1
 #define L2X0_EVENT_CNT_ENABLE			1
 #define L2X0_EVENT_CNT_RESET(x)			(1 << (x+1))
 
-/*                                         */
+/* Bit-shifted event counter config values */
 enum l2x0_perf_types {
 	L2X0_EVENT_CNT_CFG_DISABLED		= 0x0,
 	L2X0_EVENT_CNT_CFG_CO			= 0x1,
@@ -75,7 +75,7 @@ enum l2x0_perf_types {
 	L2X0_EVENT_CNT_CFG_IRREQ		= 0x8,
 	L2X0_EVENT_CNT_CFG_WA			= 0x9,
 
-	/*            */
+	/* PL310 only */
 	L2X0_EVENT_CNT_CFG_IPFALLOC		= 0xA,
 	L2X0_EVENT_CNT_CFG_EPFHIT		= 0xB,
 	L2X0_EVENT_CNT_CFG_EPFALLOC		= 0xC,
@@ -196,10 +196,10 @@ static u32 l2x0pmu_read_counter(int idx)
 static void l2x0pmu_write_counter(int idx, u32 val)
 {
 	/*
-                                                                
-                                                                 
-                                         
-  */
+	 * L2X0 counters can only be written to when they are disabled.
+	 * As perf core does not disable counters before writing to them
+	 * under interrupts, we must do so here.
+	 */
 	u32 cfg = l2x0pmu_disable_counter(idx);
 	writel_relaxed(val, COUNTER_ADDR(idx));
 	l2x0pmu_write_cfg(cfg, idx);
@@ -273,7 +273,7 @@ static int l2x0pmu_get_event_idx(struct pmu_hw_events *events,
 {
 	int idx;
 
-	/*                                               */
+	/* Counters are identical. Just grab a free one. */
 	for (idx = 0; idx < L2X0_NUM_COUNTERS; ++idx) {
 		if (!test_and_set_bit(idx, l2x0pmu_hw_events.used_mask))
 			return idx;
@@ -283,9 +283,9 @@ static int l2x0pmu_get_event_idx(struct pmu_hw_events *events,
 }
 
 /*
-                                                                           
-                                                                             
-                                                  
+ * As System PMUs are affine to CPU0, the fact that interrupts are disabled
+ * during interrupt handling is enough to serialise our actions and make this
+ * safe. We do not need to grab our pmu_lock here.
  */
 static irqreturn_t l2x0pmu_handle_irq(int irq, void *dev)
 {
@@ -308,11 +308,11 @@ static irqreturn_t l2x0pmu_handle_irq(int irq, void *dev)
 		hwc = &event->hw;
 
 		/*
-                                                            
-                                                            
-                                                            
-             
-   */
+		 * The armpmu_* functions expect counters to overflow, but
+		 * L220/PL310 counters saturate instead. Fake the overflow
+		 * here so the hardware is in sync with what the framework
+		 * expects.
+		 */
 		l2x0pmu_write_counter(idx, 0);
 
 		armpmu_event_update(event, hwc, idx);
@@ -404,7 +404,7 @@ static int __devinit l2x0pmu_device_probe(struct platform_device *pdev)
 
 	pr_info("L2CC PMU device found. DEBUG_CTRL: %x\n", debug);
 
-	/*                                              */
+	/* Get value of dynamically allocated PMU type. */
 	if (!armpmu_register(&l2x0_pmu, "msm-l2", -1))
 		pmu_type = l2x0_pmu.pmu.type;
 	else {
@@ -416,7 +416,7 @@ static int __devinit l2x0pmu_device_probe(struct platform_device *pdev)
 }
 
 /*
-                                               
+ * PMU platform driver and devicetree bindings.
  */
 static struct of_device_id l2pmu_of_device_ids[] = {
 	{.compatible = "qcom,l2-pmu"},

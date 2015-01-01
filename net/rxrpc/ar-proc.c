@@ -26,7 +26,7 @@ static const char *const rxrpc_conn_states[] = {
 };
 
 /*
-                                                                    
+ * generate a list of extant and dead calls in /proc/net/rxrpc_calls
  */
 static void *rxrpc_call_seq_start(struct seq_file *seq, loff_t *_pos)
 {
@@ -107,7 +107,7 @@ const struct file_operations rxrpc_call_seq_fops = {
 };
 
 /*
-                                                                         
+ * generate a list of extant virtual connections in /proc/net/rxrpc_conns
  */
 static void *rxrpc_connection_seq_start(struct seq_file *seq, loff_t *_pos)
 {

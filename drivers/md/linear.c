@@ -25,7 +25,7 @@
 #include "linear.h"
 
 /*
-                                               
+ * find which device holds a particular offset 
  */
 static inline struct dev_info *which_dev(struct mddev *mddev, sector_t sector)
 {
@@ -37,8 +37,8 @@ static inline struct dev_info *which_dev(struct mddev *mddev, sector_t sector)
 	conf = rcu_dereference(mddev->private);
 
 	/*
-                 
-  */
+	 * Binary Search
+	 */
 
 	while (hi > lo) {
 
@@ -52,13 +52,13 @@ static inline struct dev_info *which_dev(struct mddev *mddev, sector_t sector)
 	return conf->disks + lo;
 }
 
-/* 
-                                                                        
-                    
-                              
-                                                   
-  
-                                                    
+/**
+ *	linear_mergeable_bvec -- tell bio layer if two requests can be merged
+ *	@q: request queue
+ *	@bvm: properties of new bio
+ *	@biovec: the request that could be merged to it.
+ *
+ *	Return amount of bytes we can take at this offset
  */
 static int linear_mergeable_bvec(struct request_queue *q,
 				 struct bvec_merge_data *bvm,
@@ -179,8 +179,8 @@ static struct linear_conf *linear_conf(struct mddev *mddev, int raid_disks)
 	}
 
 	/*
-                                         
-  */
+	 * Here we calculate the device offsets.
+	 */
 	conf->disks[0].end_sector = conf->disks[0].rdev->sectors;
 
 	for (i = 1; i < raid_disks; i++)
@@ -223,14 +223,14 @@ static int linear_run (struct mddev *mddev)
 
 static int linear_add(struct mddev *mddev, struct md_rdev *rdev)
 {
-	/*                                                           
-                                                              
-                                                      
-                                                                  
-                                                   
-                                                              
-                      
-  */
+	/* Adding a drive to a linear array allows the array to grow.
+	 * It is permitted if the new drive has a matching superblock
+	 * already on it, with raid_disk equal to raid_disks.
+	 * It is achieved by creating a new linear_private_data structure
+	 * and swapping it in in-place of the current one.
+	 * The current one is never freed until the array is stopped.
+	 * This avoids races.
+	 */
 	struct linear_conf *newconf, *oldconf;
 
 	if (rdev->saved_raid_disk != mddev->raid_disks)
@@ -259,14 +259,14 @@ static int linear_stop (struct mddev *mddev)
 	struct linear_conf *conf = mddev->private;
 
 	/*
-                                               
-                                                  
-                                     
-                                                    
-                 
-  */
+	 * We do not require rcu protection here since
+	 * we hold reconfig_mutex for both linear_add and
+	 * linear_stop, so they cannot race.
+	 * We should make sure any old 'conf's are properly
+	 * freed though.
+	 */
 	rcu_barrier();
-	blk_sync_queue(mddev->queue); /*                                */
+	blk_sync_queue(mddev->queue); /* the unplug fn references 'conf'*/
 	kfree(conf);
 	mddev->private = NULL;
 
@@ -306,9 +306,9 @@ static void linear_make_request(struct mddev *mddev, struct bio *bio)
 	}
 	if (unlikely(bio->bi_sector + (bio->bi_size >> 9) >
 		     tmp_dev->end_sector)) {
-		/*                                                  
-              
-   */
+		/* This bio crosses a device boundary, so we have to
+		 * split it.
+		 */
 		struct bio_pair *bp;
 		sector_t end_sector = tmp_dev->end_sector;
 
@@ -364,6 +364,6 @@ module_init(linear_init);
 module_exit(linear_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Linear device concatenation personality for MD");
-MODULE_ALIAS("md-personality-1"); /*                    */
+MODULE_ALIAS("md-personality-1"); /* LINEAR - deprecated*/
 MODULE_ALIAS("md-linear");
 MODULE_ALIAS("md-level--1");

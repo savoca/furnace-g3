@@ -50,7 +50,7 @@ struct slvl_board
 };
 
 /*
-                                  
+ *	Network driver support routines
  */
 
 static inline struct slvl_device* dev_to_chan(struct net_device *dev)
@@ -59,13 +59,13 @@ static inline struct slvl_device* dev_to_chan(struct net_device *dev)
 }
 
 /*
-                                                             
-                               
+ *	Frame receive. Simple for our card as we do HDLC and there
+ *	is no funny garbage involved
  */
 
 static void sealevel_input(struct z8530_channel *c, struct sk_buff *skb)
 {
-	/*                                                                */
+	/* Drop the CRC - it's not a good idea to try and negotiate it ;) */
 	skb_trim(skb, skb->len - 2);
 	skb->protocol = hdlc_type_trans(skb, c->netdevice);
 	skb_reset_mac_header(skb);
@@ -74,7 +74,7 @@ static void sealevel_input(struct z8530_channel *c, struct sk_buff *skb)
 }
 
 /*
-                                    
+ *	We've been placed in the UP state
  */
 
 static int sealevel_open(struct net_device *d)
@@ -84,8 +84,8 @@ static int sealevel_open(struct net_device *d)
 	int unit = slvl->channel;
 
 	/*
-                  
-  */
+	 *	Link layer up.
+	 */
 
 	switch (unit) {
 		case 0:
@@ -115,8 +115,8 @@ static int sealevel_open(struct net_device *d)
 	slvl->chan->rx_function = sealevel_input;
 
 	/*
-            
-  */
+	 *	Go go go
+	 */
 	netif_start_queue(d);
 	return 0;
 }
@@ -127,8 +127,8 @@ static int sealevel_close(struct net_device *d)
 	int unit = slvl->channel;
 
 	/*
-                      
-  */
+	 *	Discard new frames
+	 */
 
 	slvl->chan->rx_function = z8530_null_rx;
 
@@ -148,13 +148,13 @@ static int sealevel_close(struct net_device *d)
 
 static int sealevel_ioctl(struct net_device *d, struct ifreq *ifr, int cmd)
 {
-	/*                                         
-                                             */
+	/* struct slvl_device *slvl=dev_to_chan(d);
+	   z8530_ioctl(d,&slvl->sync.chanA,ifr,cmd) */
 	return hdlc_ioctl(d, ifr, cmd);
 }
 
 /*
-                                             
+ *	Passed network frames, fire them downwind.
  */
 
 static netdev_tx_t sealevel_queue_xmit(struct sk_buff *skb,
@@ -203,7 +203,7 @@ static int slvl_setup(struct slvl_device *sv, int iobase, int irq)
 
 
 /*
-                                     
+ *	Allocate and setup Sealevel board.
  */
 
 static __init struct slvl_board *slvl_init(int iobase, int irq,
@@ -213,8 +213,8 @@ static __init struct slvl_board *slvl_init(int iobase, int irq,
 	struct slvl_board *b;
 
 	/*
-                            
-  */
+	 *	Get the needed I/O space
+	 */
 
 	if (!request_region(iobase, 8, "Sealevel 4021")) {
 		pr_warn("I/O 0x%X already in use\n", iobase);
@@ -234,16 +234,16 @@ static __init struct slvl_board *slvl_init(int iobase, int irq,
 	dev = &b->board;
 
 	/*
-                               
-  */
+	 *	Stuff in the I/O addressing
+	 */
 
 	dev->active = 0;
 
 	b->iobase = iobase;
 
 	/*
-                                        
-  */
+	 *	Select 8530 delays for the old board
+	 */
 
 	if (slow)
 		iobase |= Z8530_PORT_SLEEP;
@@ -257,14 +257,14 @@ static __init struct slvl_board *slvl_init(int iobase, int irq,
 	dev->chanB.irqs = &z8530_nop;
 
 	/*
-                         
-  */
+	 *	Assert DTR enable DMA
+	 */
 
 	outb(3 | (1 << 7), b->iobase + 4);
 
 
-	/*                                                                      
-                                                    */
+	/* We want a fast IRQ for this device. Actually we'd like an even faster
+	   IRQ ;) - This is one driver RtLinux is made for */
 
 	if (request_irq(irq, z8530_interrupt, IRQF_DISABLED,
 			"SeaLevel", dev) < 0) {
@@ -289,8 +289,8 @@ static __init struct slvl_board *slvl_init(int iobase, int irq,
 	disable_irq(irq);
 
 	/*
-                           
-  */
+	 *	Begin normal initialise
+	 */
 
 	if (z8530_init(dev) != 0) {
 		pr_err("Z8530 series device not found\n");
@@ -306,8 +306,8 @@ static __init struct slvl_board *slvl_init(int iobase, int irq,
 	}
 
 	/*
-                           
-  */
+	 *	Now we can take the IRQ
+	 */
 
 	enable_irq(irq);
 
@@ -351,7 +351,7 @@ static void __exit slvl_shutdown(struct slvl_board *b)
 	free_irq(b->board.irq, &b->board);
 	free_dma(b->board.chanA.rxdma);
 	free_dma(b->board.chanA.txdma);
-	/*                               */
+	/* DMA off on the card, drop DTR */
 	outb(0, b->iobase);
 	release_region(b->iobase, 8);
 	kfree(b);

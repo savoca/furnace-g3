@@ -27,15 +27,15 @@
 #include <asm/mach/pci.h>
 
 /*
-                                                              
-  
-                                                         
-  
-                                                                 
-                                                             
-                                                       
-                                         
-  
+ * these spaces are mapped using the following base registers:
+ *
+ * Usage Local Bus Memory         Base/Map registers used
+ *
+ * Mem   50000000 - 5FFFFFFF      LB_BASE0/LB_MAP0,  non prefetch
+ * Mem   60000000 - 6FFFFFFF      LB_BASE1/LB_MAP1,  prefetch
+ * IO    44000000 - 4FFFFFFF      LB_BASE2/LB_MAP2,  IO
+ * Cfg   42000000 - 42FFFFFF	  PCI config
+ *
  */
 #define __IO_ADDRESS(n) ((void __iomem *)(unsigned long)IO_ADDRESS(n))
 #define SYS_PCICTL		__IO_ADDRESS(VERSATILE_SYS_PCICTL)
@@ -80,8 +80,8 @@ static void __iomem *__pci_addr(struct pci_bus *bus,
 	unsigned int busnr = bus->number;
 
 	/*
-                           
-  */
+	 * Trap out illegal values
+	 */
 	if (offset > 255)
 		BUG();
 	if (busnr > 255)
@@ -101,7 +101,7 @@ static int versatile_read_config(struct pci_bus *bus, unsigned int devfn, int wh
 	int slot = PCI_SLOT(devfn);
 
 	if (pci_slot_ignore & (1 << slot)) {
-		/*                  */
+		/* Ignore this slot */
 		switch (size) {
 		case 1:
 			v = 0xff;
@@ -214,10 +214,10 @@ static int __init pci_versatile_setup_resources(struct pci_sys_data *sys)
 	}
 
 	/*
-                                
-                                 
-                                          
-  */
+	 * the IO resource for this bus
+	 * the mem resource for this bus
+	 * the prefetch mem resource for this bus
+	 */
 	pci_add_resource_offset(&sys->resources, &io_mem, sys->io_offset);
 	pci_add_resource_offset(&sys->resources, &non_mem, sys->mem_offset);
 	pci_add_resource_offset(&sys->resources, &pre_mem, sys->mem_offset);
@@ -260,9 +260,9 @@ int __init pci_versatile_setup(int nr, struct pci_sys_data *sys)
 	}
 
 	/*
-                                                               
-                                             
-  */
+	 *  We need to discover the PCI core first to configure itself
+	 *  before the main PCI probing is performed
+	 */
 	for (i=0; i<32; i++)
 		if ((__raw_readl(VERSATILE_PCI_VIRT_BASE+(i<<11)+DEVICE_ID_OFFSET) == VP_PCI_DEVICE_ID) &&
 		    (__raw_readl(VERSATILE_PCI_VIRT_BASE+(i<<11)+CLASS_ID_OFFSET) == VP_PCI_CLASS_ID)) {
@@ -286,15 +286,15 @@ int __init pci_versatile_setup(int nr, struct pci_sys_data *sys)
 	__raw_writel(val, local_pci_cfg_base + CSR_OFFSET);
 
 	/*
-                                                                      
-  */
+	 * Configure the PCI inbound memory windows to be 1:1 mapped to SDRAM
+	 */
 	__raw_writel(PHYS_OFFSET, local_pci_cfg_base + PCI_BASE_ADDRESS_0);
 	__raw_writel(PHYS_OFFSET, local_pci_cfg_base + PCI_BASE_ADDRESS_1);
 	__raw_writel(PHYS_OFFSET, local_pci_cfg_base + PCI_BASE_ADDRESS_2);
 
 	/*
-                                                             
-  */
+	 * Do not to map Versatile FPGA PCI device into memory space
+	 */
 	pci_slot_ignore |= (1 << myslot);
 	ret = 1;
 
@@ -326,19 +326,19 @@ void __init pci_versatile_preinit(void)
 }
 
 /*
-                                                                                               
+ * map the specified device/slot/pin to an IRQ.   Different backplanes may need to modify this.
  */
 static int __init versatile_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
 	int irq;
 	int devslot = PCI_SLOT(dev->devfn);
 
-	/*                
-                    
-                    
-                    
-                    
-  */
+	/* slot,  pin,	irq
+	 *  24     1     27
+	 *  25     1     28
+	 *  26     1     29
+	 *  27     1     30
+	 */
 	irq = 27 + ((slot + pin - 1) & 3);
 
 	printk("PCI map irq: slot %d, pin %d, devslot %d, irq: %d\n",slot,pin,devslot,irq);

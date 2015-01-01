@@ -57,10 +57,10 @@ static const struct irda_entry irda_dirs[] = {
 };
 
 /*
-                                     
-  
-                                              
-  
+ * Function irda_proc_register (void)
+ *
+ *    Register irda entry in /proc file system
+ *
  */
 void __init irda_proc_register(void)
 {
@@ -76,10 +76,10 @@ void __init irda_proc_register(void)
 }
 
 /*
-                                       
-  
-                                                
-  
+ * Function irda_proc_unregister (void)
+ *
+ *    Unregister irda entry in /proc file system
+ *
  */
 void irda_proc_unregister(void)
 {

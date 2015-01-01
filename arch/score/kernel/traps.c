@@ -33,7 +33,7 @@
 unsigned long exception_handlers[32];
 
 /*
-                                                    
+ * The architecture-independent show_stack generator
  */
 void show_stack(struct task_struct *task, unsigned long *sp)
 {
@@ -113,7 +113,7 @@ static void show_code(unsigned int *pc)
 }
 
 /*
-                                                                            
+ * FIXME: really the generic show_regs should take a const pointer argument.
  */
 void show_regs(struct pt_regs *regs)
 {
@@ -150,7 +150,7 @@ static void show_registers(struct pt_regs *regs)
 }
 
 /*
-                                                    
+ * The architecture-independent dump_stack generator
  */
 void dump_stack(void)
 {
@@ -277,17 +277,17 @@ asmlinkage void do_ccu(struct pt_regs *regs)
 asmlinkage void do_reserved(struct pt_regs *regs)
 {
 	/*
-                                                                       
-                                                            
-                        
-  */
+	 * Game over - no way to handle this if it ever occurs.  Most probably
+	 * caused by a new unknown cpu type or after another deadly
+	 * hard/software error.
+	 */
 	die_if_kernel("do_reserved execution Exception", regs);
 	show_regs(regs);
 	panic("Caught reserved exception - should not happen.");
 }
 
 /*
-                         
+ * NMI exception handler.
  */
 void nmi_exception_handler(struct pt_regs *regs)
 {
@@ -295,7 +295,7 @@ void nmi_exception_handler(struct pt_regs *regs)
 	die("NMI", regs);
 }
 
-/*                               */
+/* Install CPU exception handler */
 void *set_except_vector(int n, void *addr)
 {
 	unsigned long handler = (unsigned long) addr;
@@ -310,16 +310,16 @@ void __init trap_init(void)
 	int i;
 
 	pgd_current = (unsigned long)init_mm.pgd;
-	/*                 */
+	/* DEBUG EXCEPTION */
 	memcpy((void *)DEBUG_VECTOR_BASE_ADDR,
 			&debug_exception_vector, DEBUG_VECTOR_SIZE);
-	/*               */
+	/* NMI EXCEPTION */
 	memcpy((void *)GENERAL_VECTOR_BASE_ADDR,
 			&general_exception_vector, GENERAL_VECTOR_SIZE);
 
 	/*
-                                 
-  */
+	 * Initialise exception handlers
+	 */
 	for (i = 0; i <= 31; i++)
 		set_except_vector(i, handle_reserved);
 

@@ -24,10 +24,10 @@
 
 /*
 
-                                                                
-                                                                   
-                                                               
-                                                            
+   This module connects the pvrusb2 driver to the I2C chip level
+   driver which handles device video processing.  This interface is
+   used internally by the driver; higher level code should only
+   interact through the interface provided by pvrusb2-hdw.h.
 
 */
 
@@ -35,14 +35,14 @@
 #include "pvrusb2-hdw-internal.h"
 void pvr2_cs53l32a_subdev_update(struct pvr2_hdw *, struct v4l2_subdev *);
 
-#endif /*                            */
+#endif /* __PVRUSB2_AUDIO_CS53L32A_H */
 
 /*
-                                                                         
-                          
-                 
-                         
-                      
-                           
-              
+  Stuff for Emacs to see, in order to encourage consistent editing style:
+  *** Local Variables: ***
+  *** mode: c ***
+  *** fill-column: 70 ***
+  *** tab-width: 8 ***
+  *** c-basic-offset: 8 ***
+  *** End: ***
   */

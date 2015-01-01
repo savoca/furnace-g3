@@ -23,7 +23,7 @@
 
 
 
-/*                                                          */
+/* Support unconventional sample rates 12000, 24000 as well */
 #define USE_RATE                \
 			(SNDRV_PCM_RATE_8000_48000 | SNDRV_PCM_RATE_KNOT)
 
@@ -56,8 +56,8 @@ struct msm_audio {
 	struct snd_pcm_substream *substream;
 	unsigned int pcm_size;
 	unsigned int pcm_count;
-	unsigned int pcm_irq_pos;       /*              */
-	uint16_t source; /*                          */
+	unsigned int pcm_irq_pos;       /* IRQ position */
+	uint16_t source; /* Encoding source bit mask */
 
 	struct audio_client *audio_client;
 
@@ -67,17 +67,17 @@ struct msm_audio {
 	uint32_t channel_mode;
 	uint32_t dsp_cnt;
 
-	int abort; /*                                           */
+	int abort; /* set when error, like sample rate mismatch */
 
 	int enabled;
 	int close_ack;
 	int cmd_ack;
 	/*
-                                                                    
-                                                 
-                                                                   
-                
-  */
+	 * cmd_ack doesn't tell if paticular command has been sent so can't
+	 * determine if it needs to wait for completion.
+	 * Use cmd_pending instead when checking whether a command is been
+	 * sent or not.
+	 */
 	unsigned long cmd_pending;
 	atomic_t start;
 	atomic_t stop;
@@ -108,4 +108,4 @@ struct msm_plat_data {
 	int perf_mode;
 };
 
-#endif /*          */
+#endif /*_MSM_PCM_H*/

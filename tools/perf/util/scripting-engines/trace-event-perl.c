@@ -221,7 +221,7 @@ static void define_event_symbols(struct event *event,
 		define_event_symbols(event, ev_name, args->op.right);
 		break;
 	default:
-		/*                   */
+		/* we should warn... */
 		return;
 	}
 
@@ -298,7 +298,7 @@ static void perl_process_tracepoint(union perf_event *pevent __unused,
 	XPUSHs(sv_2mortal(newSViv(pid)));
 	XPUSHs(sv_2mortal(newSVpv(comm, 0)));
 
-	/*                                                           */
+	/* common fields other than pid can be accessed via xsub fns */
 
 	for (field = event->format.fields; field; field = field->next) {
 		if (field->flags & FIELD_IS_STRING) {
@@ -309,7 +309,7 @@ static void perl_process_tracepoint(union perf_event *pevent __unused,
 			} else
 				offset = field->offset;
 			XPUSHs(sv_2mortal(newSVpv((char *)data + offset, 0)));
-		} else { /*                  */
+		} else { /* FIELD_IS_NUMERIC */
 			val = read_size(data + field->offset, field->size);
 			if (field->flags & FIELD_IS_SIGNED) {
 				XPUSHs(sv_2mortal(newSViv(val)));
@@ -376,7 +376,7 @@ static void perl_process_event(union perf_event *pevent,
 
 static void run_start_sub(void)
 {
-	dSP; /*                      */
+	dSP; /* access to Perl stack */
 	PUSHMARK(SP);
 
 	if (get_cv("main::trace_begin", 0))
@@ -384,7 +384,7 @@ static void run_start_sub(void)
 }
 
 /*
-                     
+ * Start trace script
  */
 static int perl_start_script(const char *script, int argc, const char **argv)
 {
@@ -428,11 +428,11 @@ error:
 }
 
 /*
-                    
+ * Stop trace script
  */
 static int perl_stop_script(void)
 {
-	dSP; /*                      */
+	dSP; /* access to Perl stack */
 	PUSHMARK(SP);
 
 	if (get_cv("main::trace_end", 0))

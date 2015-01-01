@@ -48,7 +48,7 @@ unx_destroy(struct rpc_auth *auth)
 }
 
 /*
-                                             
+ * Lookup AUTH_UNIX creds for current process
  */
 static struct rpc_cred *
 unx_lookup_cred(struct rpc_auth *auth, struct auth_cred *acred, int flags)
@@ -107,9 +107,9 @@ unx_destroy_cred(struct rpc_cred *cred)
 }
 
 /*
-                                                   
-                                                                      
-                                              
+ * Match credentials against current process creds.
+ * The root_override argument takes care of cases where the caller may
+ * request root creds (e.g. for NFS swapping).
  */
 static int
 unx_match(struct auth_cred *acred, struct rpc_cred *rcred, int flags)
@@ -136,8 +136,8 @@ unx_match(struct auth_cred *acred, struct rpc_cred *rcred, int flags)
 }
 
 /*
-                       
-                                                                    
+ * Marshal credentials.
+ * Maybe we should keep a cached credential for performance reasons.
  */
 static __be32 *
 unx_marshal(struct rpc_task *task, __be32 *p)
@@ -152,8 +152,8 @@ unx_marshal(struct rpc_task *task, __be32 *p)
 	*p++ = htonl(jiffies/HZ);
 
 	/*
-                                                               
-  */
+	 * Copy the UTS nodename captured when the client was created.
+	 */
 	p = xdr_encode_array(p, clnt->cl_nodename, clnt->cl_nodelen);
 
 	*p++ = htonl((u32) cred->uc_uid);
@@ -161,8 +161,8 @@ unx_marshal(struct rpc_task *task, __be32 *p)
 	hold = p++;
 	for (i = 0; i < 16 && cred->uc_gids[i] != (gid_t) NOGROUP; i++)
 		*p++ = htonl((u32) cred->uc_gids[i]);
-	*hold = htonl(p - hold - 1);		/*                  */
-	*base = htonl((p - base - 1) << 2);	/*             */
+	*hold = htonl(p - hold - 1);		/* gid array length */
+	*base = htonl((p - base - 1) << 2);	/* cred length */
 
 	*p++ = htonl(RPC_AUTH_NULL);
 	*p++ = htonl(0);
@@ -171,7 +171,7 @@ unx_marshal(struct rpc_task *task, __be32 *p)
 }
 
 /*
-                                                     
+ * Refresh credentials. This is a no-op for AUTH_UNIX
  */
 static int
 unx_refresh(struct rpc_task *task)
@@ -228,7 +228,7 @@ const struct rpc_authops authunix_ops = {
 static
 struct rpc_auth		unix_auth = {
 	.au_cslack	= UNX_WRITESLACK,
-	.au_rslack	= 2,			/*                       */
+	.au_rslack	= 2,			/* assume AUTH_NULL verf */
 	.au_ops		= &authunix_ops,
 	.au_flavor	= RPC_AUTH_UNIX,
 	.au_count	= ATOMIC_INIT(0),

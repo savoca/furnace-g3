@@ -12,7 +12,7 @@
 #define __MT9T112_H__
 
 #define MT9T112_FLAG_PCLK_RISING_EDGE	(1 << 0)
-#define MT9T112_FLAG_DATAWIDTH_8	(1 << 1) /*                     */
+#define MT9T112_FLAG_DATAWIDTH_8	(1 << 1) /* default width is 10 */
 
 struct mt9t112_pll_divider {
 	u8 m, n;
@@ -20,11 +20,11 @@ struct mt9t112_pll_divider {
 };
 
 /*
-                      
+ * mt9t112 camera info
  */
 struct mt9t112_camera_info {
 	u32 flags;
 	struct mt9t112_pll_divider divider;
 };
 
-#endif /*               */
+#endif /* __MT9T112_H__ */

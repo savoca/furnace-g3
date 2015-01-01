@@ -1,13 +1,13 @@
+/*--------------------------------------------------------------------------*/
+/*    FileName    : Tcc353x_core.c                                          */
+/*    Description : core Function                                           */
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*   TCC Version : 1.0.0                                                    */
 /*   Copyright (c) Telechips, Inc.                                          */
+/*   ALL RIGHTS RESERVED                                                    */
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #include "tcpal_os.h"
 #include "tcpal_i2c.h"
@@ -19,7 +19,7 @@
 #include "tcc353x_isdb.h"
 #include "tcc353x_command_control.h"
 
-/*                  */
+/* static functions */
 static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 				      Tcc353xBoot_t * pBOOTBin);
 static void Tcc353xSetGpio(Tcc353xHandle_t * _handle);
@@ -113,14 +113,14 @@ static void Tcc353xRfSwitching(I32S _moduleIndex, I32S _diversityIndex,
 #define MUL(A,B)    ((A*B)>>SCALE)
 #define DIV(A,B)    (Tcc353xDiv64((A<<SCALE), B))
 
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/* Driver core version 8bit.8bit.8bit                                       */
 
 I32U Tcc353xCoreVersion = ((0<<16) | (1<<8) | (50));
 
 /*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 Tcc353xHandle_t Tcc353xHandle[TCC353X_MAX][TCC353X_DIVERSITY_MAX];
 
@@ -136,69 +136,69 @@ Tcc353xRegisterConfig_t
 
 I32U OriginalOpConfig[TCC353X_MAX][TCC353X_DIVERSITY_MAX][16];
 
-/*                       */
-#define PLL_ISDB_T_FULLSEG              0xAA8E	/*          */
-#define PLL_ISDB_T_FULLSEG_31           0xB18E  /*          */
-#define PLL_ISDB_T_FULLSEG_30           0xB08E  /*          */
-#define PLL_ISDB_T_FULLSEG_2F           0xAF8E  /*          */
-#define PLL_ISDB_T_FULLSEG_2E           0xAE8E  /*          */
-#define PLL_ISDB_T_FULLSEG_2D           0xAD8E  /*          */
-#define PLL_ISDB_T_FULLSEG_2C           0xAC8E  /*          */
-#define PLL_ISDB_T_FULLSEG_2B           0xAB8E  /*          */
-#define PLL_ISDB_T_FULLSEG_2A           0xAA8E  /*          */
+/* PLL SET for OSC 38400 */
+#define PLL_ISDB_T_FULLSEG              0xAA8E	/* 103.2MHz */
+#define PLL_ISDB_T_FULLSEG_31           0xB18E  /* 120.0MHz */
+#define PLL_ISDB_T_FULLSEG_30           0xB08E  /* 117.6MHz */
+#define PLL_ISDB_T_FULLSEG_2F           0xAF8E  /* 115.2MHz */
+#define PLL_ISDB_T_FULLSEG_2E           0xAE8E  /* 112.8MHz */
+#define PLL_ISDB_T_FULLSEG_2D           0xAD8E  /* 110.4MHz */
+#define PLL_ISDB_T_FULLSEG_2C           0xAC8E  /* 108.0MHz */
+#define PLL_ISDB_T_FULLSEG_2B           0xAB8E  /* 105.6MHz */
+#define PLL_ISDB_T_FULLSEG_2A           0xAA8E  /* 103.2MHz */
 
-#define PLL_ISDB_T_PARTIAL_1_SEG        0x8f0E	/*          */
-#define PLL_ISDB_T_PARTIAL_1_SEG_384    0x8f0E  /*          */
-#define PLL_ISDB_T_PARTIAL_1_SEG_408    0x900E  /*          */
-#define PLL_ISDB_T_PARTIAL_1_SEG_416    0x9916  /*          */
-#define PLL_ISDB_T_PARTIAL_1_SEG_432    0x910E  /*          */
-#define PLL_ISDB_T_PARTIAL_1_SEG_456    0x920E  /*          */
-#define PLL_ISDB_T_PARTIAL_1_SEG_464    0x9c16  /*          */
-#define PLL_ISDB_T_PARTIAL_1_SEG_496    0x9e16  /*          */
-#define PLL_ISDB_T_PARTIAL_1_SEG_512    0x9f16  /*          */
-#define PLL_ISDB_T_PARTIAL_1_SEG_528    0xa016  /*          */
+#define PLL_ISDB_T_PARTIAL_1_SEG        0x8f0E	/*  38.4MHz */
+#define PLL_ISDB_T_PARTIAL_1_SEG_384    0x8f0E  /*  38.4MHz */
+#define PLL_ISDB_T_PARTIAL_1_SEG_408    0x900E  /*  40.8MHz */
+#define PLL_ISDB_T_PARTIAL_1_SEG_416    0x9916  /*  41.6MHz */
+#define PLL_ISDB_T_PARTIAL_1_SEG_432    0x910E  /*  43.2MHz */
+#define PLL_ISDB_T_PARTIAL_1_SEG_456    0x920E  /*  45.6MHz */
+#define PLL_ISDB_T_PARTIAL_1_SEG_464    0x9c16  /*  46.4MHz */
+#define PLL_ISDB_T_PARTIAL_1_SEG_496    0x9e16  /*  49.6MHz */
+#define PLL_ISDB_T_PARTIAL_1_SEG_512    0x9f16  /*  51.2MHz */
+#define PLL_ISDB_T_PARTIAL_1_SEG_528    0xa016  /*  52.8MHz */
 
-#define PLL_ISDB_TMM_FULLSEG            0xAA16  /*          */
+#define PLL_ISDB_TMM_FULLSEG            0xAA16  /*  68.8MHz */
 
-#define PLL_ISDB_TMM_PARTIAL_1_SEG      0x8f0E  /*          */
-#define PLL_ISDB_TMM_PARTIAL_1_SEG_384  0x8f0E  /*          */
-#define PLL_ISDB_TMM_PARTIAL_1_SEG_456  0x920E  /*          */
+#define PLL_ISDB_TMM_PARTIAL_1_SEG      0x8f0E  /*  38.4MHz */
+#define PLL_ISDB_TMM_PARTIAL_1_SEG_384  0x8f0E  /*  38.4MHz */
+#define PLL_ISDB_TMM_PARTIAL_1_SEG_456  0x920E  /*  45.6MHz */
 
-#define PLL_ISDB_TSB                    0x9816  /*          */
+#define PLL_ISDB_TSB                    0x9816  /*  40.0MHz */
 
-/*                       */
-#define OSC_192_PLL_ISDB_T_FULLSEG			0xAA86  /*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2A			0xAA86  /*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2B			0xAB86  /*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2C			0xAC86  /*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2D			0xAD86  /*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2E			0xAE86  /*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2F			0xAF86  /*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_30			0xB086  /*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_31			0xB186  /*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG		0x8F06  /*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384		0x8F06  /*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_408		0x9006  /*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_432		0x9106  /*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_456		0x9206  /*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_504		0x9406  /*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_528		0x9506  /*          */
-#define OSC_192_PLL_ISDB_TMM_FULLSEG			0x9C06  /*          */
-#define OSC_192_PLL_ISDB_TMM_FULLSEG_1C		0x9C06  /*          */
-#define OSC_192_PLL_ISDB_TMM_FULLSEG_1D		0x9D06  /*          */
-#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG		0x8F06  /*          */
-#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384	0x8F06  /*          */
-#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_456	0x9206  /*          */
-#define OSC_192_PLL_ISDB_TSB				0x8F06  /*          */
+/* PLL SET for OSC 19200 */
+#define OSC_192_PLL_ISDB_T_FULLSEG			0xAA86  /* 103.2MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2A			0xAA86  /* 103.2MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2B			0xAB86  /* 105.6MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2C			0xAC86  /* 108.0MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2D			0xAD86  /* 110.4MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2E			0xAE86  /* 112.8MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2F			0xAF86  /* 115.2MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_30			0xB086  /* 117.6MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_31			0xB186  /* 120.0MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG		0x8F06  /*  38.4MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384		0x8F06  /*  38.4MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_408		0x9006  /*  40.8MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_432		0x9106  /*  43.2MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_456		0x9206  /*  45.6MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_504		0x9406  /*  50.4MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_528		0x9506  /*  52.8MHz */
+#define OSC_192_PLL_ISDB_TMM_FULLSEG			0x9C06  /*  69.6MHz */
+#define OSC_192_PLL_ISDB_TMM_FULLSEG_1C		0x9C06  /*  69.6MHz */
+#define OSC_192_PLL_ISDB_TMM_FULLSEG_1D		0x9D06  /*  72.0MHz */
+#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG		0x8F06  /*  38.4MHz */
+#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384	0x8F06  /*  38.4MHz */
+#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_456	0x9206  /*  45.6MHz */
+#define OSC_192_PLL_ISDB_TSB				0x8F06  /*  38.4MHz */
 
-/*                         */
+/* spur suppression tables */
 
 #if defined (_SUPPORT_OSC_38400_)
 #define _MAX_TMM_1SEG_FREQ_NUM_    22
 I32U DpllTable_TMM_1SEG [_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
-	/*           */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
+	/* Pattern-A */
 	207857, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
 	208286, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
 	208714, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
@@ -207,7 +207,7 @@ I32U DpllTable_TMM_1SEG [_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
 	210000, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
 	210429, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
 	
-	/*           */
+	/* Pattern-B */
 	213429, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
 	213857, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
 	214286, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
@@ -216,7 +216,7 @@ I32U DpllTable_TMM_1SEG [_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
 	215571, PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B,	0xDFC6F7F1,	0x0A,
 	216000, PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B,	0xDFC6F7F1,	0x0A,
 	
-	/*           */
+	/* Pattern-C */
 	219000, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
 	219429, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
 	219857, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
@@ -230,9 +230,9 @@ I32U DpllTable_TMM_1SEG [_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
 
 #define _MAX_TMM_13SEG_FREQ_NUM_	5
 I32U DpllTable_TMM_13SEG [_MAX_TMM_13SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
-	/*               */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
+	/* Pattern A/B/C */
 	213429, PLL_ISDB_TMM_FULLSEG,   0x0E,   0x1499D87F,     0x02,
 	219000, PLL_ISDB_TMM_FULLSEG,   0x0E,   0x1499D87F,     0x02,
 	210429, PLL_ISDB_TMM_FULLSEG,   0x0E,   0x1499D87F,     0x02,
@@ -243,8 +243,8 @@ I32U DpllTable_TMM_13SEG [_MAX_TMM_13SEG_FREQ_NUM_ * 5] = {
 
 #define _MAX_TMM_USER_1SEG_FREQ_NUM_    34
 I32U DpllTable_TMM_USER_1SEG [_MAX_TMM_USER_1SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 	207857, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
 	208286, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
 	208714, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27,	0x47C9D1F2,	0x28,
@@ -283,8 +283,8 @@ I32U DpllTable_TMM_USER_1SEG [_MAX_TMM_USER_1SEG_FREQ_NUM_ * 5] = {
 
 #define _MAX_TMM_USER_13SEG_FREQ_NUM_    34
 I32U DpllTable_TMM_USER_13SEG [_MAX_TMM_USER_13SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 	207857, PLL_ISDB_TMM_FULLSEG,	0x0E,	0x1499D87F,	0x02,
 	208286, PLL_ISDB_TMM_FULLSEG,	0x0E,	0x1499D87F,	0x02,
 	208714, PLL_ISDB_TMM_FULLSEG,	0x0E,	0x1499D87F,	0x02,
@@ -323,10 +323,10 @@ I32U DpllTable_TMM_USER_13SEG [_MAX_TMM_USER_13SEG_FREQ_NUM_ * 5] = {
 
 #define _MAX_PARTIAL_1SEG_FREQ_NUM_	93
 I32U DpllTable_Partial1Seg [_MAX_PARTIAL_1SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 
-	/*               */
+	/* isdb-tmm 1seg */
 	207857, PLL_ISDB_TMM_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
 	208286, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	208714, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
@@ -348,7 +348,7 @@ I32U DpllTable_Partial1Seg [_MAX_PARTIAL_1SEG_FREQ_NUM_ * 5] = {
 	220714, PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 	221143, PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 	221571, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
-	/*                              */
+	/* ISDB-T 1-seg, VHF japan only */
 	93143,	PLL_ISDB_T_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
 	99143,	PLL_ISDB_T_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
 	105143, PLL_ISDB_T_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
@@ -356,17 +356,17 @@ I32U DpllTable_Partial1Seg [_MAX_PARTIAL_1SEG_FREQ_NUM_ * 5] = {
 	179143, PLL_ISDB_T_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
 	185143, PLL_ISDB_T_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
 	191143, PLL_ISDB_T_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
-	/*                               */
+	/* ISDB-T 1-seg, VHF brazil only */
 	177143, PLL_ISDB_T_PARTIAL_1_SEG_496,	0x2E, 0x4578FCB9, 0x0A,
 	183143, PLL_ISDB_T_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
 	189143, PLL_ISDB_T_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
-	/*                   */
+	/* ISDB-T 1-seg, VHF */
 	195143, PLL_ISDB_T_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
 	201143, PLL_ISDB_T_PARTIAL_1_SEG_464,	0x1F, 0xCEAD7815, 0x0A,
 	207143, PLL_ISDB_T_PARTIAL_1_SEG_408,	0x01, 0x0929ABB3, 0x0A,
 	213143, PLL_ISDB_T_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
 	219143, PLL_ISDB_T_PARTIAL_1_SEG_408,	0x01, 0x0929ABB3, 0x0A,
-	/*                   */
+	/* ISDB-T 1-seg, UHF */
 	473143, PLL_ISDB_T_PARTIAL_1_SEG_384,	0x27, 0x47C9D1F2, 0x28,
 	479143, PLL_ISDB_T_PARTIAL_1_SEG_464,	0x1F, 0xCEAD7815, 0x0A,
 	485143, PLL_ISDB_T_PARTIAL_1_SEG_464,	0x1F, 0xCEAD7815, 0x0A,
@@ -428,16 +428,16 @@ I32U DpllTable_Partial1Seg [_MAX_PARTIAL_1SEG_FREQ_NUM_ * 5] = {
 
 #define _MAX_FULLSEG_FREQ_NUM_		127
 I32U DpllTable_FullSeg [_MAX_FULLSEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 
-	/*          */
+	/* isdb-tmm */
 	213429, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 	219000, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 	210429, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 	216000, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 
-	/*                                   */
+	/* isdbt full seg - VHF - Japan only */
 	93143,	PLL_ISDB_T_FULLSEG_30,	0x2B, 0xB4099EA4, 0x03,
 	99143,	PLL_ISDB_T_FULLSEG_2A,	0x0E, 0x1499D87F, 0x03,
 	105143, PLL_ISDB_T_FULLSEG_31,	0x27, 0x47C9D1F2, 0x21,
@@ -445,17 +445,17 @@ I32U DpllTable_FullSeg [_MAX_FULLSEG_FREQ_NUM_ * 5] = {
 	179143, PLL_ISDB_T_FULLSEG_2E,	0x22, 0xAB5BBB2E, 0x03,
 	185143, PLL_ISDB_T_FULLSEG_2C,	0x18, 0xD51B8A9C, 0x03,
 	191143, PLL_ISDB_T_FULLSEG_31,	0x2F, 0xF2FF2FF2, 0x03,
-	/*                                    */
+	/* isdbt full seg - VHF - Brazil only */
 	177143, PLL_ISDB_T_FULLSEG_2D,	0x1D, 0xDB9AF156, 0x03,
 	183143, PLL_ISDB_T_FULLSEG_2D,	0x27, 0x47C9D1F2, 0x21,
 	189143, PLL_ISDB_T_FULLSEG_2D,	0x1D, 0xDB9AF156, 0x03,
-	/*                      */
+	/* isdbt full seg - VHF */
 	195143, PLL_ISDB_T_FULLSEG_2A,	0x0E, 0x1499D87F, 0x03,
 	201143, PLL_ISDB_T_FULLSEG_31,	0x27, 0x47C9D1F2, 0x21,
 	207143, PLL_ISDB_T_FULLSEG_31,	0x27, 0x47C9D1F2, 0x21,
 	213143, PLL_ISDB_T_FULLSEG_31,	0x2F, 0xF2FF2FF2, 0x03,
 	219143, PLL_ISDB_T_FULLSEG_2A,	0x27, 0x47C9D1F2, 0x21,
-	/*                      */
+	/* JAPAN_BAND_MID_TABLE */
 	111143, PLL_ISDB_T_FULLSEG_2F,	0x27, 0x47C9D1F2, 0x03,
 	117143, PLL_ISDB_T_FULLSEG_2E,	0x22, 0xAB5BBB2E, 0x03,
 	123143, PLL_ISDB_T_FULLSEG_2A,	0x0E, 0x1499D87F, 0x03,
@@ -466,7 +466,7 @@ I32U DpllTable_FullSeg [_MAX_FULLSEG_FREQ_NUM_ * 5] = {
 	153143, PLL_ISDB_T_FULLSEG_2B,	0x13, 0x9421FC4E, 0x03,
 	159143, PLL_ISDB_T_FULLSEG_2A,	0x27, 0x47C9D1F2, 0x21,
 	167143, PLL_ISDB_T_FULLSEG_2A,	0x27, 0x47C9D1F2, 0x21,
-	/*                      */
+	/* JAPAN_BAND_SHB_TABLE */
 	225143, PLL_ISDB_T_FULLSEG_2C, 	0x18, 0xD51B8A9C, 0x03,
 	231143, PLL_ISDB_T_FULLSEG_2D,	0x1D, 0xDB9AF156, 0x03,
 	237143, PLL_ISDB_T_FULLSEG_2A,	0x0E, 0x1499D87F, 0x03,
@@ -508,7 +508,7 @@ I32U DpllTable_FullSeg [_MAX_FULLSEG_FREQ_NUM_ * 5] = {
 	453143, PLL_ISDB_T_FULLSEG_2A,	0x27, 0x47C9D1F2, 0x21,
 	459143, PLL_ISDB_T_FULLSEG_2A,	0x0E, 0x1499D87F, 0x03,
 	465143, PLL_ISDB_T_FULLSEG_2B,	0x27, 0x47C9D1F2, 0x21,
-	/*                      */
+	/* isdbt full seg - UHF */
 	473143, PLL_ISDB_T_FULLSEG_2C,	0x18, 0xD51B8A9C, 0x03,
 	479143, PLL_ISDB_T_FULLSEG_2C,	0x18, 0xD51B8A9C, 0x03,
 	485143, PLL_ISDB_T_FULLSEG_30,	0x27, 0x47C9D1F2, 0x21,
@@ -572,9 +572,9 @@ I32U DpllTable_FullSeg [_MAX_FULLSEG_FREQ_NUM_ * 5] = {
 #if defined (_SUPPORT_OSC_19200_)
 #define _OSC_19200_MAX_TMM_1SEG_FREQ_NUM_ 	22
 I32U OSC_19200_DpllTable_TMM_1SEG [_OSC_19200_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
-	/*           */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
+	/* Pattern-A */
 	207857, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	208286, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	208714, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
@@ -583,7 +583,7 @@ I32U OSC_19200_DpllTable_TMM_1SEG [_OSC_19200_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
 	210000, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	210429, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 
-	/*           */
+	/* Pattern-B */
 	213429, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	213857, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	214286, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
@@ -592,7 +592,7 @@ I32U OSC_19200_DpllTable_TMM_1SEG [_OSC_19200_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
 	215571, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 	216000, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 
-	/*           */
+	/* Pattern-C */
 	219000, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	219429, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	219857, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
@@ -606,16 +606,16 @@ I32U OSC_19200_DpllTable_TMM_1SEG [_OSC_19200_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
 
 #define _OSC_19200_MAX_TMM_13SEG_FREQ_NUM_	5
 I32U OSC_19200_DpllTable_TMM_13SEG [_OSC_19200_MAX_TMM_13SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
-	/*           */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
+	/* Pattern-A */
 	213429, OSC_192_PLL_ISDB_TMM_FULLSEG_1C, 0x10, 0xDC74C45A, 0x02,
 
-	/*           */
+	/* Pattern-B */
 	210429, OSC_192_PLL_ISDB_TMM_FULLSEG_1D, 0x18, 0xD51B8A9C, 0x02,
 	219000, OSC_192_PLL_ISDB_TMM_FULLSEG_1C, 0x10, 0xDC74C45A, 0x02,
 
-	/*           */
+	/* Pattern-C */
 	216000, OSC_192_PLL_ISDB_TMM_FULLSEG_1C, 0x10, 0xDC74C45A, 0x02,
 
 	0, OSC_192_PLL_ISDB_TMM_FULLSEG, 0x00, 0x00000000, 0x00
@@ -624,8 +624,8 @@ I32U OSC_19200_DpllTable_TMM_13SEG [_OSC_19200_MAX_TMM_13SEG_FREQ_NUM_ * 5] = {
 #define _OSC_19200_MAX_TMM_USER_1SEG_FREQ_NUM_	34
 I32U OSC_19200_DpllTable_TMM_USER_1SEG 
     [_OSC_19200_MAX_TMM_USER_1SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 	207857, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	208286, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	208714, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
@@ -665,8 +665,8 @@ I32U OSC_19200_DpllTable_TMM_USER_1SEG
 #define _OSC_19200_MAX_TMM_USER_13SEG_FREQ_NUM_	34
 I32U OSC_19200_DpllTable_TMM_USER_13SEG 
     [_OSC_19200_MAX_TMM_USER_13SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 	207857, OSC_192_PLL_ISDB_TMM_FULLSEG_1C, 0x10, 0xDC74C45A, 0x02,
 	208286, OSC_192_PLL_ISDB_TMM_FULLSEG_1C, 0x10, 0xDC74C45A, 0x02,
 	208714, OSC_192_PLL_ISDB_TMM_FULLSEG_1C, 0x10, 0xDC74C45A, 0x02,
@@ -706,10 +706,10 @@ I32U OSC_19200_DpllTable_TMM_USER_13SEG
 #define _OSC_19200_MAX_PARTIAL_1SEG_FREQ_NUM_	88
 I32U OSC_19200_DpllTable_Partial1Seg 
     [_OSC_19200_MAX_PARTIAL_1SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 
-	/*               */
+	/* isdb-tmm 1seg */
 	207857, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	208286, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	208714, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
@@ -731,20 +731,20 @@ I32U OSC_19200_DpllTable_Partial1Seg
 	220714, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 	221143, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 	221571, OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
-	/*                              */
+	/* ISDB-T 1-seg, VHF japan only */
 	93143,  OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	99143,  OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	105143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_528, 0x3A, 0xFB71A796, 0x0A,
-	/*                               */
+	/* ISDB-T 1-seg, VHF brazil only */
 	177143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 	183143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	189143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
-	/*                   */
+	/* ISDB-T 1-seg, VHF */
 	195143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 	201143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_528, 0x3A, 0xFB71A796, 0x0A,
 	207143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_408, 0x01, 0x0929ABB3, 0x0A,
 	213143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
-	/*                   */
+	/* ISDB-T 1-seg, UHF */
 	473143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	479143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	485143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_528, 0x3A, 0xFB71A796, 0x0A,
@@ -796,7 +796,7 @@ I32U OSC_19200_DpllTable_Partial1Seg
 	761143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	767143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_504, 0x31, 0x99B404E6, 0x0A,
 
-	/*                               */
+	/* ISDB-T 1-seg, UHF Brazil Only */
 	773143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_528, 0x3A, 0xFB71A796, 0x0A,
 	779143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x24,
 	785143, OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_408, 0x01, 0x0929ABB3, 0x0A,
@@ -808,29 +808,29 @@ I32U OSC_19200_DpllTable_Partial1Seg
 
 #define _OSC_19200_MAX_FULLSEG_FREQ_NUM_	71
 I32U OSC_19200_DpllTable_FullSeg [_OSC_19200_MAX_FULLSEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 
-	/*          */
+	/* isdb-tmm */
 	210429, OSC_192_PLL_ISDB_TMM_FULLSEG_1D, 0x18, 0xD51B8A9C, 0x02,
 	213429, OSC_192_PLL_ISDB_TMM_FULLSEG_1C, 0x10, 0xDC74C45A, 0x02,
 	216000, OSC_192_PLL_ISDB_TMM_FULLSEG_1C, 0x10, 0xDC74C45A, 0x02,
 	219000, OSC_192_PLL_ISDB_TMM_FULLSEG_1C, 0x10, 0xDC74C45A, 0x02,
 
-	/*                                   */
+	/* isdbt full seg - VHF - Japan only */
 	93143,  OSC_192_PLL_ISDB_T_FULLSEG_30, 0x2B, 0xB4099EA4, 0x03,
 	99143,  OSC_192_PLL_ISDB_T_FULLSEG_2A, 0x0E, 0x1499D87F, 0x03,
 	105143, OSC_192_PLL_ISDB_T_FULLSEG_31, 0x2F, 0xF2FF2FF2, 0x03,
-	/*                                    */
+	/* isdbt full seg - VHF - Brazil only */
 	177143, OSC_192_PLL_ISDB_T_FULLSEG_2D, 0x1D, 0xDB9AF156, 0x03,
 	183143, OSC_192_PLL_ISDB_T_FULLSEG_2D, 0x1D, 0xDB9AF156, 0x03,
 	189143, OSC_192_PLL_ISDB_T_FULLSEG_2D, 0x1D, 0xDB9AF156, 0x03,
-	/*                      */
+	/* isdbt full seg - VHF */
 	195143, OSC_192_PLL_ISDB_T_FULLSEG_2A, 0x0E, 0x1499D87F, 0x03,
 	201143, OSC_192_PLL_ISDB_T_FULLSEG_31, 0x2F, 0xF2FF2FF2, 0x03,
 	207143, OSC_192_PLL_ISDB_T_FULLSEG_31, 0x2F, 0xF2FF2FF2, 0x03,
 	213143, OSC_192_PLL_ISDB_T_FULLSEG_31, 0x2F, 0xF2FF2FF2, 0x03,
-	/*                      */
+	/* isdbt full seg - UHF */
 	473143, OSC_192_PLL_ISDB_T_FULLSEG_2C, 0x18, 0xD51B8A9C, 0x03,
 	479143, OSC_192_PLL_ISDB_T_FULLSEG_2C, 0x18, 0xD51B8A9C, 0x03,
 	485143, OSC_192_PLL_ISDB_T_FULLSEG_30, 0x2B, 0xB4099EA4, 0x03,
@@ -882,7 +882,7 @@ I32U OSC_19200_DpllTable_FullSeg [_OSC_19200_MAX_FULLSEG_FREQ_NUM_ * 5] = {
 	761143, OSC_192_PLL_ISDB_T_FULLSEG_2A, 0x0E, 0x1499D87F, 0x03,
 	767143, OSC_192_PLL_ISDB_T_FULLSEG_2C, 0x18, 0xD51B8A9C, 0x03,
 
-	/*                                  */
+	/* ISDB-T full-seg, UHF Brazil Only */
 	773143, OSC_192_PLL_ISDB_T_FULLSEG_2C, 0x18, 0xD51B8A9C, 0x03,
 	779143, OSC_192_PLL_ISDB_T_FULLSEG_2C, 0x18, 0xD51B8A9C, 0x03,
 	785143, OSC_192_PLL_ISDB_T_FULLSEG_2B, 0x13, 0x9421FC4E, 0x03,
@@ -927,7 +927,7 @@ I32S Tcc353xClose(I32S _moduleIndex)
 	if (Tcc353xHandle[_moduleIndex][0].handleOpen == 0)
 		return TCC353X_RETURN_FAIL_INVALID_HANDLE;
 
-	/*                           */
+	/* interrupt clr and disable */
 	if (Tcc353xHandle[_moduleIndex][0].options.useInterrupt) {
 		Tcc353xSetRegIrqEnable(&Tcc353xHandle[_moduleIndex][0], 0);
 		Tcc353xIrqClear(_moduleIndex, TC3XREG_IRQ_STATCLR_ALL);
@@ -953,7 +953,7 @@ I32S Tcc353xInit(I32S _moduleIndex, I08U * _coldbootData, I32S _codeSize)
 		return TCC353X_RETURN_FAIL_INVALID_HANDLE;
 
 
-	/*                             */
+	/* asm download and addressing */
 	ret =
 	    Tcc353xInitBroadcasting(_moduleIndex, _coldbootData,
 				    _codeSize);
@@ -963,13 +963,13 @@ I32S Tcc353xInit(I32S _moduleIndex, I08U * _coldbootData, I32S _codeSize)
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		I08U xtalbias_value = 7;
 
-		/*                                    */
+		/* stream / int / gpio / etc settings */
 		Tcc353xSetStreamControl(&Tcc353xHandle[_moduleIndex][i]);
 		Tcc353xSetInterruptControl(&Tcc353xHandle[_moduleIndex]
 					   [i]);
 		Tcc353xSetGpio(&Tcc353xHandle[_moduleIndex][i]);
 
-		/*                               */
+		/* Restart System for stablility */
 		TcpalSemaphoreLock(&Tcc353xOpMailboxSema[_moduleIndex][i]);
 		Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex][i], 
 				       TC3XREG_SYS_EN_OPCLK);
@@ -983,19 +983,19 @@ I32S Tcc353xInit(I32S _moduleIndex, I08U * _coldbootData, I32S _codeSize)
 		Tcc353xGetAccessMail(&Tcc353xHandle[_moduleIndex][i]);
 		TcpalSemaphoreUnLock(&Tcc353xOpMailboxSema[_moduleIndex][i]);
 
-		/*                             */
-		/*                 */
+		/* display code binary version */
+		/* Get ASM Version */
 		Tcc353xMailboxTxRx(&Tcc353xHandle[_moduleIndex][i],
 				   &MailBox, MBPARA_SYS_ASM_VER, NULL, 0);
 
-		/*                                          */
+		/* option - change ldo volatage 1.2 to 1.8v */
 		/*
-                                                          
-                
-  */
+		Tcc353xSetRegLdoConfig (&Tcc353xHandle[_moduleIndex][i],
+				      0x1C);
+		*/
 
-		/*                       */
-		/*                         */
+		/* write values to sdram */
+		/* sdram controller config */
 		if(i==0) {
 			Tcc353xMiscWrite(_moduleIndex, i, 
 					 MISC_SDRAM_REG_CTRL, 9, 0x56);
@@ -1049,20 +1049,20 @@ I32S Tcc353xInit(I32S _moduleIndex, I08U * _coldbootData, I32S _codeSize)
 					 MISC_SDRAM_REG_CTRL, 13, 0x80000E00);
 		}
 
-		/*                     */
+		/* Xtal Bias Key Setup */
 		/*
-                                                      
-                      
-      
-                      
-  */
+		if (Tcc353xCurrentDiversityCount[_moduleIndex] == 1)
+			xtalbias_value = 0;
+		else
+			xtalbias_value = 1;
+		*/
 
 		Tcc353xSetRegXtalBias(&Tcc353xHandle[_moduleIndex][i],
 				      xtalbias_value);
 		Tcc353xSetRegXtalBiasKey(&Tcc353xHandle[_moduleIndex][i],
 					 0x5e);
 
-		/*                              */
+		/* get program id, code version */
 		Tcc353xGetRegProgramId(&Tcc353xHandle[_moduleIndex][0],
 				       &progId);
 		Tcc353xHandle[_moduleIndex][i].dspCodeVersion =
@@ -1091,7 +1091,7 @@ I32S Tcc353xInit(I32S _moduleIndex, I08U * _coldbootData, I32S _codeSize)
 			      "[TCC353X] ----------------------\n");
 	}
 
-	/*         */
+	/* rf init */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		ret = Tcc353xRfInit(_moduleIndex, i);
 		if(ret!=TCC353X_RETURN_SUCCESS)
@@ -1263,9 +1263,9 @@ static void Tcc353xRfSwitching(I32S _moduleIndex, I32S _diversityIndex,
 		BITSET(gpioDRoriginal, MaskIdx[gpioIdx]);
 
 		if (_frequency < 300000) {
-			BITCLR(gpioLRoriginal, MaskIdx[gpioIdx]);	/*     */
+			BITCLR(gpioLRoriginal, MaskIdx[gpioIdx]);	/* vhf */
 		} else {
-			BITSET(gpioLRoriginal, MaskIdx[gpioIdx]);	/*     */
+			BITSET(gpioLRoriginal, MaskIdx[gpioIdx]);	/* uhf */
 		}
 
 		Tcc353xSetRegGpioDR(&Tcc353xHandle[_moduleIndex]
@@ -1289,7 +1289,7 @@ static I32U Tcc353xSearchDpllValue (I32U _frequencyInfo, I32U *_tables,
 	for(i = 0; i<_maxFreqNum; i++)	{
 		index = (i*5);
 		if(_tables[index] == 0) {
-			/*                                     */
+			/* last search, can't search frequency */
 			pll = _tables[index+1];
 			break;
 		}
@@ -1306,7 +1306,7 @@ static I32S Tcc353xSendStoppingCommand(I32S _moduleIndex)
 {
 	I32U i;
 	
-	/*                                             */
+	/* stop mail -> pause mail (for receiving ack) */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		I32U temp = 0;
 		I16S j = 0;
@@ -1327,7 +1327,7 @@ static I32S Tcc353xSendStoppingCommand(I32S _moduleIndex)
 				TcpalmDelay(1);
 		}
 	}
-	TcpalmDelay(2);	/*               */
+	TcpalmDelay(2);	/* for stability */
 
 	return TCC353X_RETURN_SUCCESS;
 }
@@ -1503,13 +1503,13 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 	if (Tcc353xHandle[_moduleIndex][0].handleOpen == 0)
 		return TCC353X_RETURN_FAIL_INVALID_HANDLE;
 
-	/*                                    */
+	/* stopping old channel stream output */
 
-	/*                                             */
+	/* stop mail -> pause mail (for receiving ack) */
 	Tcc353xSendStoppingCommand(_moduleIndex);
 
 	if (Tcc353xHandle[_moduleIndex][0].streamStarted) {
-		/*             */
+		/* stream stop */
 		Tcc353xStreamStop(_moduleIndex);
 	}
 
@@ -1517,7 +1517,7 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 						TCC353X_STREAM_IO_MAINIO) {
 		I08U fifothr[2];
 		
-		/*                          */
+		/* change buffer A end size */
 		switch (_tuneOption->segmentType) {
 		case TCC353X_ISDBT_1_OF_13SEG:
 		case TCC353X_ISDBTSB_1SEG:
@@ -1536,7 +1536,7 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 			    _tuneOption->tmmSet == C_1st_13Seg ||
 			    _tuneOption->tmmSet == C_2nd_13Seg ||
 			    _tuneOption->tmmSet == UserDefine_Tmm13Seg) {
-				/*      */
+				/*13seg */
 				bufferEndAddress = 0x00027F57;
 			} else {
 				bufferEndAddress = 0x00019F5B;
@@ -1565,11 +1565,11 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 	TcpalMemcpy(&Tcc353xHandle[_moduleIndex][0].TuneOptions,
 		    _tuneOption, sizeof(Tcc353xTuneOptions));
 
-	/*                                     */
+	/* center frequency shift for isdb-tmm */
 	switch (_tuneOption->segmentType) {
 	case TCC353X_ISDBT_1_OF_13SEG:
 	case TCC353X_ISDBT_13SEG:
-		/*        */
+		/* ISDB-T */
 		TcpalPrintLog((I08S *)
 			      "[TCC353X] [BB %d] Tune frequency [ISDB-T]: %d\n",
 			      _moduleIndex, _frequency);
@@ -1578,14 +1578,14 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 	case TCC353X_ISDBTSB_1SEG:
 	case TCC353X_ISDBTSB_3SEG:
 	case TCC353X_ISDBTSB_1_OF_3SEG:
-		/*          */
+		/* ISDB-Tsb */
 		TcpalPrintLog((I08S *)
 			      "[TCC353X] [BB %d] Tune frequency [ISDB-Tsb]: %d\n",
 			      _moduleIndex, _frequency);
 		break;
 
 	case TCC353X_ISDBTMM:
-		/*          */
+		/* ISDB-TMM */
 		Inputfrequency =
 		    Tcc353xShiftCenterFrequency(_moduleIndex, _frequency,
 						_tuneOption);
@@ -1597,15 +1597,15 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 			      _moduleIndex, _frequency, Inputfrequency);
 		break;
 	default:
-		/*        */
+		/* ISDB-T */
 		TcpalPrintLog((I08S *)
 			      "[TCC353X] [BB %d] Tune frequency [ISDB-T]: %d\n",
 			      _moduleIndex, _frequency);
 		break;
 	}
 
-	/*                              */
-	/*                                                   */
+	/* check pll change need or not */
+	/* change full seg to partial 1seg or isdb-t <-> tmm */
 	if(Tcc353xHandle[_moduleIndex][0].useDefaultPLL == 1)
 	{
 		if(Tcc353xHandle[_moduleIndex][0].options.oscKhz == 38400)
@@ -1614,12 +1614,12 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 		else if (Tcc353xHandle[_moduleIndex][0].options.oscKhz == 19200)
 			newPll = Tcc353xGetNewPLL_19200
 				    (_moduleIndex, _tuneOption, Inputfrequency);
-		else	/*               */
+		else	/* default 38400 */
 			newPll = Tcc353xGetNewPLL_38400
 				    (_moduleIndex, _tuneOption, Inputfrequency);
 
-		/*            */
-		#ifdef TCC79X	/*              */
+		/* change pll */
+		#ifdef TCC79X	/* for 79x muse */
 		Tcc353xChangePll(_moduleIndex, newPll);
 		#else
 		if (newPll != Tcc353xHandle[_moduleIndex][0].options.pll)
@@ -1643,18 +1643,18 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 					 &opConfig[i][0], 
 					 (I32U)(Inputfrequency));
 
-		/*                                                 */
+		/* op configure it need dsp disable->reset->enable */
 		Tcc353xSetOpConfig(_moduleIndex, i,
 				   &opConfig[i][0], firstOpconfigWrite);
 	}
 
 	Tcc353xHandle[_moduleIndex][0].tuned = 1;
 
-	/*                                            */
+	/* stream start & dsp reset & send start mail */
 	Tcc353xInitIsdbProcess(&Tcc353xHandle[_moduleIndex][0]);
 	Tcc353xStreamStartPrepare (_moduleIndex);
 
-	/*                                                     */
+	/* dsp disable to enable, ep reset & peripheral enable */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		Tcc353xDspEpReopenForStreamStart(_moduleIndex, i);
 		Tcc353xSendStartMail(&Tcc353xHandle[_moduleIndex][i]);
@@ -1709,11 +1709,11 @@ I32S Tcc35xSelectLayer(I32S _moduleIndex, I32S _layer)
 
 I32U Tcc353xSendStartMail(Tcc353xHandle_t * _handle)
 {
-	/*                                              */
+	/* start / stop mail (toggle) for dp stablility */
 	mailbox_t mailbox;
 	I32S retmail;
 
-	/*           */
+	/* any value */
 	I32U data = 0x11;
 
 	retmail =
@@ -1728,7 +1728,7 @@ I32U Tcc353xSendStartMail(Tcc353xHandle_t * _handle)
 I32S Tcc353xStreamStopAll(I32S _moduleIndex)
 {
 
-	/*                 */
+	/* stopping stream */
 	Tcc353xStreamStop(_moduleIndex);
 
 	return TCC353X_RETURN_SUCCESS;
@@ -1742,13 +1742,13 @@ I32S Tcc353xStreamStop(I32S _moduleIndex)
 	if (Tcc353xHandle[_moduleIndex][0].handleOpen == 0)
 		return TCC353X_RETURN_FAIL_INVALID_HANDLE;
 
-	/*                           */
+	/* interrupt clr and disable */
 	if (Tcc353xHandle[_moduleIndex][0].options.useInterrupt) {
 		Tcc353xSetRegIrqEnable(&Tcc353xHandle[_moduleIndex][0], 0);
 		Tcc353xIrqClear(_moduleIndex, TC3XREG_IRQ_STATCLR_ALL);
 	}
 
-	/*                            */
+	/* disable stream data config */
 	streamDataConfig_0x1E =
 	    Tcc353xHandle[_moduleIndex][0].options.
 	    Config->streamDataConfig_0x1E;
@@ -1759,7 +1759,7 @@ I32S Tcc353xStreamStop(I32S _moduleIndex)
 	Tcc353xSetRegStreamConfig3(&Tcc353xHandle[_moduleIndex][0],
 				   streamDataConfig_0x1E);
 
-	/*                */
+	/* disable buffer */
 	bufferConfig0 =
 	    Tcc353xHandle[_moduleIndex][0].options.
 	    Config->bufferConfig_0x4E;
@@ -1769,7 +1769,7 @@ I32S Tcc353xStreamStop(I32S _moduleIndex)
 	Tcc353xSetRegOutBufferConfig(&Tcc353xHandle[_moduleIndex][0],
 				     bufferConfig0);
 
-	/*                        */
+	/* peripheral disable clr */
 	Tcc353xPeripheralOnOff(&Tcc353xHandle[_moduleIndex][0], 0);
 
 	Tcc353xHandle[_moduleIndex][0].streamStarted = 0;
@@ -1788,7 +1788,7 @@ static I32S Tcc353xStreamStartPrepare(I32S _moduleIndex)
 
 	Tcc353xHandle[_moduleIndex][0].streamStarted = 1;
 
-	/*                             */
+	/* buffer init & enable buffer */
 	Tcc353xSetRegOutBufferInit(&Tcc353xHandle[_moduleIndex][0],
 				   Tcc353xHandle[_moduleIndex][0].
 				   options.Config->bufferConfig_0x4F);
@@ -1834,15 +1834,15 @@ static I32S Tcc353xStreamStartPrepare(I32S _moduleIndex)
 
 static I32S Tcc353xStreamOn (I32S _moduleIndex)
 {
-	/*                       */
+	/* peripheral enable clr */
 	Tcc353xPeripheralOnOff(&Tcc353xHandle[_moduleIndex][0], 1);
 
-	/*                  */
+	/* interrupt enable */
 	if (Tcc353xHandle[_moduleIndex][0].options.useInterrupt)
 		Tcc353xSetRegIrqEnable(&Tcc353xHandle[_moduleIndex][0],
 				       TC3XREG_IRQ_EN_FIFOAINIT|
 				       TC3XREG_IRQ_EN_FIFO_OVER
-				       /*                       */ );
+				       /*TC3XREG_IRQ_EN_DATAINT */ );
 	return TCC353X_RETURN_SUCCESS;
 }
 
@@ -1850,28 +1850,28 @@ static I32S Tcc353xDspEpReopenForStreamStart(I32S _moduleIndex, I32S _diversityI
 {
 	TcpalSemaphoreLock(&Tcc353xOpMailboxSema[_moduleIndex][_diversityIndex]);
 	
-	/*             */
+	/* DSP disable */
 	Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex]
 			       [_diversityIndex],
 			       TC3XREG_SYS_EN_EP |
 			       TC3XREG_SYS_EN_OPCLK |
 			       TC3XREG_SYS_EN_RF);
-	/*           */
+	/* DSP reset */
 	Tcc353xSetRegSysReset(&Tcc353xHandle[_moduleIndex]
 			      [_diversityIndex], TC3XREG_SYS_RESET_DSP, 
 			      _LOCK_);
 	TcpalmDelay(1);
 
-	/*          */
+	/* EP reset */
 	Tcc353xSetRegSysReset(&Tcc353xHandle[_moduleIndex]
 			      [_diversityIndex], TC3XREG_SYS_RESET_EP, 
 			      _LOCK_);
 
-	/*                   */
+	/* peripheral enable */
 	if(_diversityIndex==0)
 		Tcc353xStreamOn (_moduleIndex);
 
-	/*            */
+	/* DSP Enable */
 	Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex]
 			       [_diversityIndex],
 			       TC3XREG_SYS_EN_EP |
@@ -1888,10 +1888,10 @@ static I32S Tcc353xDspEpReopenForStreamStart(I32S _moduleIndex, I32S _diversityI
 I32S Tcc353xStreamStart(I32S _moduleIndex)
 {
 	I32S i;
-	/*                                            */
+	/* stream start & dsp reset & send start mail */
 	Tcc353xStreamStartPrepare (_moduleIndex);
 
-	/*                                                     */
+	/* dsp disable to enable, ep reset & peripheral enable */
 	for (i = 0; i < (I32S)Tcc353xCurrentDiversityCount[_moduleIndex]; 
 	    i++) {
 		Tcc353xDspEpReopenForStreamStart(_moduleIndex, i);
@@ -1905,13 +1905,13 @@ I32S Tcc353xInterruptBuffClr(I32S _moduleIndex)
 {
 	I32U i;
 
-	/*                   */
+	/* send stop command */
 	Tcc353xSendStoppingCommand (_moduleIndex);
 
-	/*                 */
+	/* stopping stream */
 	Tcc353xStreamStop(_moduleIndex);
 
-	/*               */
+	/* send opconfig */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		I32U temp = 0;
 		Tcc353xMiscRead(_moduleIndex, i, MISC_OP_REG_CTRL, 
@@ -1921,7 +1921,7 @@ I32S Tcc353xInterruptBuffClr(I32S _moduleIndex)
 				TC3XREG_OP_CFG06, temp);
 	}
 
-	/*                 */
+	/* send start mail */
 	Tcc353xStreamStart(_moduleIndex);
 	return TCC353X_RETURN_SUCCESS;
 }
@@ -1935,7 +1935,7 @@ static I32S Tcc353xAttach(I32S _moduleIndex,
 	I08U chipId = 0;
 	I08U progId = 0;
 
-	/*                    */
+	/* init global values */
 	switch (_Tcc353xOption[0].boardType) {
 	case TCC353X_BOARD_SINGLE:
 		Tcc353xCurrentDiversityCount[_moduleIndex] = 1;
@@ -1972,8 +1972,8 @@ static I32S Tcc353xAttach(I32S _moduleIndex,
 		    sizeof(Tcc353xHandle_t) *
 		    Tcc353xCurrentDiversityCount[_moduleIndex]);
 
-	/*                                    */
-	/*             */
+	/* connect command interface function */
+	/* set address */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		Tcc353xSaveOption(_moduleIndex, i, &_Tcc353xOption[i]);
 		Tcc353xHandle[_moduleIndex][i].handleOpen = 1;
@@ -1982,7 +1982,7 @@ static I32S Tcc353xAttach(I32S _moduleIndex,
 			options.commandInterface);
 	}
 
-	/*                                        */
+	/* interface semaphore only one semaphore */
 	if (pTcc353xInterfaceSema == NULL) {
 		TcpalCreateSemaphore(&Tcc353xInterfaceSema,
 				     (I08S *) "InterfaceSemaphore", 1);
@@ -1993,10 +1993,10 @@ static I32S Tcc353xAttach(I32S _moduleIndex,
 	}
 
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
-		/*                   */
+		/* mailbox semaphore */
 		TcpalCreateSemaphore(&Tcc353xMailboxSema[_moduleIndex][i],
 				     MailSemaphoreName[_moduleIndex][i], 1);
-		/*                        */
+		/* op & mailbox semaphore */
 		TcpalCreateSemaphore(&Tcc353xOpMailboxSema[_moduleIndex]
 				     [i], OPMailboxSemaphoreName[_moduleIndex][i],
 				     1);
@@ -2019,31 +2019,31 @@ static I32S Tcc353xAttach(I32S _moduleIndex,
 I32S Tcc353xDetach(I32S _moduleIndex)
 {
 	I32U i;
-	/*                     */
+	/* link Dummy Function */
 	TcpalSemaphoreLock(&Tcc353xInterfaceSema);
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		Tcc353xHandle[_moduleIndex][i].Read = DummyFunction0;
 		Tcc353xHandle[_moduleIndex][i].Write = DummyFunction1;
 	}
 
-	/*                 */
+	/* Dealloc handles */
 	TcpalMemset(&Tcc353xHandle[_moduleIndex][0], 0,
 		    sizeof(Tcc353xHandle_t) *
 		    Tcc353xCurrentDiversityCount[_moduleIndex]);
 
-	/*                                   */
+	/* for stability Link Dummy Function */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		Tcc353xHandle[_moduleIndex][i].Read = DummyFunction0;
 		Tcc353xHandle[_moduleIndex][i].Write = DummyFunction1;
 	}
 	TcpalSemaphoreUnLock(&Tcc353xInterfaceSema);
 
-	/*                                        */
-	/*                    */
+	/* interface semaphore only one semaphore */
+	/* delete all drivers */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
-		/*                   */
+		/* mailbox semaphore */
 		TcpalDeleteSemaphore(&Tcc353xMailboxSema[_moduleIndex][i]);
-		/*                        */
+		/* op & mailbox semaphore */
 		TcpalDeleteSemaphore(&Tcc353xOpMailboxSema[_moduleIndex]
 				     [i]);
 	}
@@ -2053,7 +2053,7 @@ I32S Tcc353xDetach(I32S _moduleIndex)
 		TcpalDeleteSemaphore(&Tcc353xInterfaceSema);
 		pTcc353xInterfaceSema = NULL;
 
-		/*                    */
+		/* init global values */
 		Tcc353xCurrentDiversityCount[_moduleIndex] = 1;
 	}
 
@@ -2071,7 +2071,7 @@ static I32S Tcc353xCodeDownload(I32S _moduleIndex, I08U * _coldbootData,
 
 	if (Tcc353xColdbootParserUtil(_coldbootData, _codeSize, &boot) ==
 	    TCC353X_RETURN_SUCCESS) {
-		coldsize = boot.coldbootDataSize - 4;	/*                 */
+		coldsize = boot.coldbootDataSize - 4;	/* Except CRC Size */
 		Tcc353xDspAsmWrite(&Tcc353xHandle[_moduleIndex][0],
 				   boot.coldbootDataPtr, coldsize);
 		ret =
@@ -2140,7 +2140,7 @@ static I32S Tcc353xInitBroadcasting(I32S _moduleIndex,
 	I32S broadcastingFlag = 0;
 	I16U plls = PLL_ISDB_T_FULLSEG;
 
-	/*                     */
+	/* broad casting write */
 	if (Tcc353xCurrentDiversityCount[_moduleIndex] > 1) {
 		broadcastingFlag = 1;
 		if (Tcc353xHandle[_moduleIndex][0].
@@ -2159,10 +2159,10 @@ static I32S Tcc353xInitBroadcasting(I32S _moduleIndex,
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++)
 		TcpalSemaphoreLock(&Tcc353xOpMailboxSema[_moduleIndex][i]);
 
-	/*                   */
+	/* ALL Parts Disable */
 	Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex][0], 0);
 
-	/*         */
+	/* set pll */
 	if(Tcc353xHandle[_moduleIndex][0].options.pll == 0)
 		Tcc353xHandle[_moduleIndex][0].useDefaultPLL = 1;
 	else
@@ -2177,20 +2177,20 @@ static I32S Tcc353xInitBroadcasting(I32S _moduleIndex,
 
 	Tcc353xSetPll(_moduleIndex, 0, 0, plls);
 	
-	/*          */
+	/* EP Reset */
 	Tcc353xSetRegSysReset(&Tcc353xHandle[_moduleIndex][0],
 			      TC3XREG_SYS_RESET_EP, _LOCK_);
-	/*           */
+	/* EP Enable */
 	Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex][0],
 			       TC3XREG_SYS_EN_EP);
 
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++)
 		TcpalSemaphoreUnLock(&Tcc353xOpMailboxSema[_moduleIndex][i]);
 
-	/*       */
+	/* remap */
 	Tcc353xSetRegRemap(&Tcc353xHandle[_moduleIndex][0], 0x00);
 
-	/*                                                 */
+	/* asm code download and roll-back current address */
 	if (_coldbootData == NULL) {
 		subret = TCC353X_RETURN_SUCCESS;
 		if (Tcc353xCurrentDiversityCount[_moduleIndex] > 1) {
@@ -2235,7 +2235,7 @@ static I32S Tcc353xInitBroadcasting(I32S _moduleIndex,
 
 static void Tcc353xSetInterruptControl(Tcc353xHandle_t * _handle)
 {
-	/*                  */
+	/* init irq disable */
 	Tcc353xSetRegIrqMode(_handle,
 			     _handle->options.Config->irqMode_0x02);
 	Tcc353xSetRegIrqClear(_handle, TC3XREG_IRQ_STATCLR_ALL);
@@ -2312,7 +2312,7 @@ static void Tcc353xSetStreamControl(Tcc353xHandle_t * _handle)
 	Tcc353xSetRegPeripheralConfig(_handle, &data[0]);
 
 	if ((_handle->options.Config->periConfig_0x30 & 0x30) == 0x10) {
-		/*        */
+		/* spi ms */
 		I64U temp;
 		I64U temp2;
 		dlr =
@@ -2326,7 +2326,7 @@ static void Tcc353xSetStreamControl(Tcc353xHandle_t * _handle)
 			      streamClkSpeed, dlr);
 	} else if ((_handle->options.Config->periConfig_0x30 & 0x30) ==
 		   0x20) {
-		/*    */
+		/* ts */
 		I64U temp;
 		I64U temp2;
 		dlr = (_handle->options.Config->periConfig_0x31 & 0x07);
@@ -2337,7 +2337,7 @@ static void Tcc353xSetStreamControl(Tcc353xHandle_t * _handle)
 			      "[TCC353X] SET TS Clk : %d khz [DLR : %d]\n",
 			      streamClkSpeed, dlr);
 	} else {
-		;		/*     */
+		;		/*none */
 	}
 
 }
@@ -2429,7 +2429,7 @@ static I32S Tcc353xSetPll(I32S _moduleIndex, I32S _deviceIndex,
 	PLL6 = (h->options.pll >> 8) & 0x007f;
 	PLL7 = ((h->options.pll) & 0xFF);
 
-	/*                */
+	/* for stablility */
 	Tcc353xSetRegPll8(h, 0x28, lockFlag);
 	Tcc353xSetRegPll9(h, 0x64, lockFlag);
 
@@ -2437,7 +2437,7 @@ static I32S Tcc353xSetPll(I32S _moduleIndex, I32S _deviceIndex,
 	Tcc353xSetRegPll7(h, PLL7, lockFlag);
 	
 	Tcc353xSetRegPll6(h, PLL6 | 0x80, lockFlag);
-	TcpalmDelay(1);		/*                   */
+	TcpalmDelay(1);		/* 1ms (orig: 340us) */
 
 	pll_m = ((PLL6 & 0x40) >> 6);
 	pll_f = (PLL6 & 0x3f) + 1;
@@ -2463,31 +2463,31 @@ static I32S Tcc353xChangePll(I32S _moduleIndex, I16U _pllValue)
 {
 	I32S i;
 
-	/*                    */
+	/* lock all interface */
 	for (i = Tcc353xCurrentDiversityCount[_moduleIndex]-1; i >= 0 ; i--)
 		TcpalSemaphoreLock(&Tcc353xOpMailboxSema[_moduleIndex][i]);
 
-	/*            */
-	/*                           */
+	/* change pll */
+	/* slave first for stability */
 	for (i = Tcc353xCurrentDiversityCount[_moduleIndex]-1; i >= 0 ; i--) {
-		/*                   */
+		/* ALL Parts Disable */
 		Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex][i], 
 				       TC3XREG_SYS_EN_OPCLK);
 		TcpalmDelay(1);
 
-		/*           */
+		/* dsp reset */
 		Tcc353xSetRegSysReset(
 			&Tcc353xHandle[_moduleIndex][i], 
 			TC3XREG_SYS_RESET_DSP, _UNLOCK_);
 		TcpalmDelay(1);
-		/*          */
+		/* ep reset */
 		Tcc353xSetRegSysReset(
 			&Tcc353xHandle[_moduleIndex][i], 
 			TC3XREG_SYS_RESET_EP, _UNLOCK_);
-		/*            */
+		/* change pll */
 		Tcc353xSetPll(_moduleIndex, i, 1, _pllValue);
 
-		/*            */
+		/* DSP Enable */
 		Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex][i],
 				       TC3XREG_SYS_EN_EP |
 				       TC3XREG_SYS_EN_DSP |
@@ -2610,18 +2610,18 @@ static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 	I32U BootSize[5];
 
 	/*
-                               
-                               
-                               
-                               
-                               
-                          
-                          
-  */
+	 * coldboot         0x00000001
+	 * dagu             0x00000002
+	 * dint             0x00000003
+	 * rand             0x00000004
+	 * col_order        0x00000005
+	 * sizebyte         4byte
+	 * data             nbyte
+	 */
 
 	TcpalMemset(BootSize, 0, sizeof(I32U) * 5);
 
-	/*           */
+	/* cold boot */
 	idx = 0;
 	if (pData[idx + 3] != 0x01) {
 		return TCC353X_RETURN_FAIL;
@@ -2637,7 +2637,7 @@ static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 	idx += length;
 	size -= (length + 8);
 
-	/*      */
+	/* dagu */
 	if (pData[idx + 3] != 0x02) {
 		return TCC353X_RETURN_FAIL;
 	}
@@ -2656,7 +2656,7 @@ static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 	}
 	size -= (length + 8);
 
-	/*      */
+	/* dint */
 	if (pData[idx + 3] != 0x03) {
 		return TCC353X_RETURN_FAIL;
 	}
@@ -2676,7 +2676,7 @@ static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 	}
 	size -= (length + 8);
 
-	/*      */
+	/* rand */
 	if (pData[idx + 3] != 0x04) {
 		return TCC353X_RETURN_FAIL;
 	}
@@ -2820,7 +2820,7 @@ static I32U Tcc353xSearchDpllTable (I32U _frequencyInfo, I32U *_tables,
 		index = (i*5);
 		
 		if(_tables[index] == 0) {
-			/*                                     */
+			/* last search, can't search frequency */
 			pll = _tables[index+1];
 			break;
 		}
@@ -2843,7 +2843,7 @@ static I32S Tcc353xApplySpurSuppression_38400 (I32S _moduleIndex,
 {
 #if defined (_SUPPORT_OSC_38400_)
 	I32U pllValue;
-	/*                                                        */
+	/* 0 : not match, 1:partial 1seg match, 13:full seg match */
 	I64U changeRcStep = _rcStep[0];
 	I32U changeadcClkCfg = _adcClkCfg[0];
 
@@ -2864,8 +2864,8 @@ static I32S Tcc353xApplySpurSuppression_38400 (I32S _moduleIndex,
 					&changeRcStep, &changeadcClkCfg,
 					PLL_ISDB_T_FULLSEG);
 		
-		if (pllValue == PLL_ISDB_TMM_FULLSEG) /*                  */
-			_icic[0] = 0; /*                               */
+		if (pllValue == PLL_ISDB_TMM_FULLSEG) /* isdb-tmm 13 case */
+			_icic[0] = 0; /* icic value change for isdb-tmm*/
 		break;
 	case TCC353X_ISDBTMM:
 		if (_tuneOption->tmmSet == UserDefine_Tmm13Seg)
@@ -2916,7 +2916,7 @@ static I32S Tcc353xApplySpurSuppression_19200 (I32S _moduleIndex,
 {
 #if defined (_SUPPORT_OSC_19200_)
 	I32U pllValue;
-	/*                                                        */
+	/* 0 : not match, 1:partial 1seg match, 13:full seg match */
 	I64U changeRcStep = _rcStep[0];
 	I32U changeadcClkCfg = _adcClkCfg[0];
 
@@ -2937,8 +2937,8 @@ static I32S Tcc353xApplySpurSuppression_19200 (I32S _moduleIndex,
 					&changeRcStep, &changeadcClkCfg,
 					OSC_192_PLL_ISDB_T_FULLSEG);
 		
-		if (pllValue == OSC_192_PLL_ISDB_TMM_FULLSEG) /*                  */
-			_icic[0] = 0; /*                               */
+		if (pllValue == OSC_192_PLL_ISDB_TMM_FULLSEG) /* isdb-tmm 13 case */
+			_icic[0] = 0; /* icic value change for isdb-tmm*/
 		break;
 	case TCC353X_ISDBTMM:
 		if (_tuneOption->tmmSet == UserDefine_Tmm13Seg)
@@ -2987,7 +2987,7 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 				     Tcc353xTuneOptions * _tuneOption,
 				     I32U * _opConfig, I32U _frequencyInfo)
 {
-	/*                                     */
+	/* opconfig version higher than 0.0.15 */
 	I32U LSEL, TDF_SEL, OU, DIV_CFG, AH, GMODE, TMODE, CT_OM,
 	    START_SUB_CH, S_TYPE, S, ICIC, ASE;
 	I32U ADC_CLK_CFG, FP_CLK_CFG, DIV_CLK_CFG;
@@ -3017,7 +3017,7 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 	TMODE = 0;
 	GMODE = 0;
 	AH = 1;
-	TDF_SEL = 2;	/*                    */
+	TDF_SEL = 2;	/* 1seg - low if -> 1 */
 	LSEL = 0;
 	OM_MODE = 0;
 	CFO_ER = 3;
@@ -3043,31 +3043,31 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 	case TCC353X_ISDBT_1_OF_13SEG:
 		S_TYPE = 0;
 		START_SUB_CH = 21;
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		OU = 1;
 		break;
 	case TCC353X_ISDBT_13SEG:
 		S_TYPE = 2;
 		START_SUB_CH = 3;
-		ICIC = 1;	/*                 */
+		ICIC = 1;	/*ICI cancellation */
 		OU = 0;
 		break;
 	case TCC353X_ISDBTSB_1SEG:
 		S_TYPE = 0;
 		START_SUB_CH = 3;
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		OU = 0;
 		break;
 	case TCC353X_ISDBTSB_3SEG:
 		S_TYPE = 1;
 		START_SUB_CH = 3;
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		OU = 0;
 		break;
 	case TCC353X_ISDBTSB_1_OF_3SEG:
 		S_TYPE = 0;
 		START_SUB_CH = 21;
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		OU = 0;
 		break;
 	case TCC353X_ISDBTMM:
@@ -3078,7 +3078,7 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 		    _tuneOption->tmmSet == C_1st_13Seg ||
 		    _tuneOption->tmmSet == C_2nd_13Seg ||
 		    _tuneOption->tmmSet == UserDefine_Tmm13Seg) {
-			/*      */
+			/*13seg */
 			OU = 0;
 			S_TYPE = 2;
 			START_SUB_CH = 3;
@@ -3097,22 +3097,22 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 				START_SUB_CH =
 				    (_tuneOption->tmmSet - C_1st_1Seg) * 3;
 		}
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		break;
 	default:
 		S_TYPE = 2;
 		START_SUB_CH = 3;
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		OU = 0;
 		break;
 	}
 
 	if (S_TYPE == 0)
-		ADC_CLK_CFG = 0x28;	/*                    */
+		ADC_CLK_CFG = 0x28;	/* 1seg, partial 1seg */
 	else if (S_TYPE == 1)
-		ADC_CLK_CFG = 0x24;	/*      */
+		ADC_CLK_CFG = 0x24;	/* 3seg */
 	else
-		ADC_CLK_CFG = 0x21;	/*       */
+		ADC_CLK_CFG = 0x21;	/* 13seg */
 
 	if(Tcc353xHandle[_moduleIndex][0].options.streamInterface== 
 						TCC353X_STREAM_IO_MAINIO) {
@@ -3145,21 +3145,21 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 	DC_CFG = 0x0001969A;
 
 	if (S_TYPE == 0) {
-		/*                    */
+		/* 1seg, partial 1seg */
 		TMCC_SEG_FLAG = 0x01;
 		CFO_SEG_FLAG = 0x01;
 		TDF_SEL = 1;
 	} else if (S_TYPE == 1) {
-		/*      */
+		/* 3seg */
 		TMCC_SEG_FLAG = 0x07;
 		CFO_SEG_FLAG = 0x05;
 	} else {
-		/*       */
+		/* 13seg */
 		TMCC_SEG_FLAG = 0x1803;
 		CFO_SEG_FLAG = 0x404;
 	}
 
-	/*                          */
+	/* Spur - ADC Clock Control */
 	if(Tcc353xHandle[_moduleIndex][0].options.oscKhz == 38400)
 		Tcc353xApplySpurSuppression_38400(_moduleIndex, _tuneOption, 
 					    &RC_STEP, &ADC_CLK_CFG, 
@@ -3177,7 +3177,7 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 	    (OU << 25) | (DIV_CFG << 16) | (AH << 15) | (GMODE << 13) |
 	    (TMODE << 11) | (CT_OM << 9) | (START_SUB_CH << 3) | (S_TYPE <<
 								  1) | (S);
-	_opConfig[1] = 0x368285E5;	/*                                 */
+	_opConfig[1] = 0x368285E5;	/* layer - A only ts resync enable */
 	_opConfig[2] =
 	   (DIV_NUM_CFG<<31) | (AGC_TR_SPEED<<21) | (semiRfFlag<<20) | 
 	   (CFO_ER<<18) | (ADC_CLK_CFG << 12) | 
@@ -3445,7 +3445,7 @@ I32S Tcc353xUserCommand(I32S _moduleIndex, I32S _diversityIndex,
 	return ret;
 }
 
-/*                 */
+/* Dummy functions */
 
 I32S DummyFunction0(I32S _moduleIndex, I32S _chipAddress,
 		    I08U _inputData, I08U * _outData, I32S _size)

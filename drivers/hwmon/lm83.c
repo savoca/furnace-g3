@@ -43,9 +43,9 @@
 #include <linux/sysfs.h>
 
 /*
-                    
-                                                                        
-             
+ * Addresses to scan
+ * Address is selected using 2 three-level pins, resulting in 9 possible
+ * addresses.
  */
 
 static const unsigned short normal_i2c[] = {
@@ -54,8 +54,8 @@ static const unsigned short normal_i2c[] = {
 enum chips { lm83, lm82 };
 
 /*
-                     
-                                                      
+ * The LM83 registers
+ * Manufacturer ID is 0x01 for National Semiconductor.
  */
 
 #define LM83_REG_R_MAN_ID		0xFE
@@ -80,8 +80,8 @@ enum chips { lm83, lm82 };
 #define LM83_REG_W_TCRIT		0x5A
 
 /*
-                                 
-                                                                 
+ * Conversions and various macros
+ * The LM83 uses signed 8-bit values with LSB = 1 degree Celsius.
  */
 
 #define TEMP_FROM_REG(val)	((val) * 1000)
@@ -111,7 +111,7 @@ static const u8 LM83_REG_W_HIGH[] = {
 };
 
 /*
-                        
+ * Functions declaration
  */
 
 static int lm83_detect(struct i2c_client *new_client,
@@ -122,7 +122,7 @@ static int lm83_remove(struct i2c_client *client);
 static struct lm83_data *lm83_update_device(struct device *dev);
 
 /*
-                                      
+ * Driver data (common to all clients)
  */
 
 static const struct i2c_device_id lm83_id[] = {
@@ -145,24 +145,24 @@ static struct i2c_driver lm83_driver = {
 };
 
 /*
-                                         
+ * Client data (each client gets its own)
  */
 
 struct lm83_data {
 	struct device *hwmon_dev;
 	struct mutex update_lock;
-	char valid; /*                                       */
-	unsigned long last_updated; /*            */
+	char valid; /* zero until following fields are valid */
+	unsigned long last_updated; /* in jiffies */
 
-	/*                  */
-	s8 temp[9];	/*                 
-                           
-                           */
-	u16 alarms; /*                     */
+	/* registers values */
+	s8 temp[9];	/* 0..3: input 1-4,
+			   4..7: high limit 1-4,
+			   8   : critical limit */
+	u16 alarms; /* bitvector, combined */
 };
 
 /*
-              
+ * Sysfs stuff
  */
 
 static ssize_t show_temp(struct device *dev, struct device_attribute *devattr,
@@ -230,7 +230,7 @@ static SENSOR_DEVICE_ATTR(temp3_crit, S_IWUSR | S_IRUGO, show_temp,
 	set_temp, 8);
 static SENSOR_DEVICE_ATTR(temp4_crit, S_IRUGO, show_temp, NULL, 8);
 
-/*                        */
+/* Individual alarm files */
 static SENSOR_DEVICE_ATTR(temp1_crit_alarm, S_IRUGO, show_alarm, NULL, 0);
 static SENSOR_DEVICE_ATTR(temp3_crit_alarm, S_IRUGO, show_alarm, NULL, 1);
 static SENSOR_DEVICE_ATTR(temp3_fault, S_IRUGO, show_alarm, NULL, 2);
@@ -242,7 +242,7 @@ static SENSOR_DEVICE_ATTR(temp4_fault, S_IRUGO, show_alarm, NULL, 10);
 static SENSOR_DEVICE_ATTR(temp4_max_alarm, S_IRUGO, show_alarm, NULL, 12);
 static SENSOR_DEVICE_ATTR(temp2_fault, S_IRUGO, show_alarm, NULL, 13);
 static SENSOR_DEVICE_ATTR(temp2_max_alarm, S_IRUGO, show_alarm, NULL, 15);
-/*                                  */
+/* Raw alarm file for compatibility */
 static DEVICE_ATTR(alarms, S_IRUGO, show_alarms, NULL);
 
 static struct attribute *lm83_attributes[] = {
@@ -288,10 +288,10 @@ static const struct attribute_group lm83_group_opt = {
 };
 
 /*
-            
+ * Real code
  */
 
-/*                                                        */
+/* Return 0 if detection is successful, -ENODEV otherwise */
 static int lm83_detect(struct i2c_client *new_client,
 		       struct i2c_board_info *info)
 {
@@ -302,7 +302,7 @@ static int lm83_detect(struct i2c_client *new_client,
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA))
 		return -ENODEV;
 
-	/*           */
+	/* Detection */
 	if ((i2c_smbus_read_byte_data(new_client, LM83_REG_R_STATUS1) & 0xA8) ||
 	    (i2c_smbus_read_byte_data(new_client, LM83_REG_R_STATUS2) & 0x48) ||
 	    (i2c_smbus_read_byte_data(new_client, LM83_REG_R_CONFIG) & 0x41)) {
@@ -311,9 +311,9 @@ static int lm83_detect(struct i2c_client *new_client,
 		return -ENODEV;
 	}
 
-	/*                */
+	/* Identification */
 	man_id = i2c_smbus_read_byte_data(new_client, LM83_REG_R_MAN_ID);
-	if (man_id != 0x01)	/*                        */
+	if (man_id != 0x01)	/* National Semiconductor */
 		return -ENODEV;
 
 	chip_id = i2c_smbus_read_byte_data(new_client, LM83_REG_R_CHIP_ID);
@@ -325,7 +325,7 @@ static int lm83_detect(struct i2c_client *new_client,
 		name = "lm82";
 		break;
 	default:
-		/*                       */
+		/* identification failed */
 		dev_info(&adapter->dev,
 			 "Unsupported chip (man_id=0x%02X, chip_id=0x%02X)\n",
 			 man_id, chip_id);
@@ -354,11 +354,11 @@ static int lm83_probe(struct i2c_client *new_client,
 	mutex_init(&data->update_lock);
 
 	/*
-                        
-                                                         
-                                                        
-                                                               
-  */
+	 * Register sysfs hooks
+	 * The LM82 can only monitor one external diode which is
+	 * at the same register as the LM83 temp3 entry - so we
+	 * declare 1 and 3 common, and then 2 and 4 only for the LM83.
+	 */
 
 	err = sysfs_create_group(&new_client->dev.kobj, &lm83_group);
 	if (err)

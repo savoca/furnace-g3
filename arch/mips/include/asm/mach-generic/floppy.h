@@ -25,7 +25,7 @@
 #include <asm/pgtable.h>
 
 /*
-                                     
+ * How to access the FDC's registers.
  */
 static inline unsigned char fd_inb(unsigned int port)
 {
@@ -38,7 +38,7 @@ static inline void fd_outb(unsigned char value, unsigned int port)
 }
 
 /*
-                                          
+ * How to access the floppy DMA functions.
  */
 static inline void fd_enable_dma(void)
 {
@@ -131,9 +131,9 @@ static inline void fd_dma_mem_free(unsigned long addr, unsigned long size)
 static inline unsigned long fd_drive_type(unsigned long n)
 {
 	if (n == 0)
-		return 4;	/*              */
+		return 4;	/* 3,5", 1.44mb */
 
 	return 0;
 }
 
-#endif /*                             */
+#endif /* __ASM_MACH_GENERIC_FLOPPY_H */

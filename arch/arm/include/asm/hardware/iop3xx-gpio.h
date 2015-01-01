@@ -58,8 +58,8 @@ static inline int gpio_cansleep(unsigned gpio)
 }
 
 /*
-                                             
-                                          
+ * The GPIOs are not generating any interrupt
+ * Note : manuals are not clear about this
  */
 static inline int gpio_to_irq(int gpio)
 {

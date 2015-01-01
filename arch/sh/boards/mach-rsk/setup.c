@@ -73,7 +73,7 @@ static int __init rsk_devices_setup(void)
 device_initcall(rsk_devices_setup);
 
 /*
-                     
+ * The Machine Vector
  */
 static struct sh_machine_vector mv_rsk __initmv = {
 	.mv_name        = "RSK+",

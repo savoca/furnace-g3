@@ -31,7 +31,7 @@
 #include <mach/leds-netxbig.h>
 
 /*
-                      
+ * GPIO extension bus.
  */
 
 static DEFINE_SPINLOCK(gpio_ext_lock);
@@ -54,7 +54,7 @@ static void gpio_ext_set_data(struct netxbig_gpio_ext *gpio_ext, int data)
 
 static void gpio_ext_enable_select(struct netxbig_gpio_ext *gpio_ext)
 {
-	/*                                            */
+	/* Enable select is done on the raising edge. */
 	gpio_set_value(gpio_ext->enable, 0);
 	gpio_set_value(gpio_ext->enable, 1);
 }
@@ -79,21 +79,21 @@ static int __devinit gpio_ext_init(struct netxbig_gpio_ext *gpio_ext)
 	if (unlikely(!gpio_ext))
 		return -EINVAL;
 
-	/*                          */
+	/* Configure address GPIOs. */
 	for (i = 0; i < gpio_ext->num_addr; i++) {
 		err = gpio_request_one(gpio_ext->addr[i], GPIOF_OUT_INIT_LOW,
 				       "GPIO extension addr");
 		if (err)
 			goto err_free_addr;
 	}
-	/*                       */
+	/* Configure data GPIOs. */
 	for (i = 0; i < gpio_ext->num_data; i++) {
 		err = gpio_request_one(gpio_ext->data[i], GPIOF_OUT_INIT_LOW,
 				   "GPIO extension data");
 		if (err)
 			goto err_free_data;
 	}
-	/*                                 */
+	/* Configure "enable select" GPIO. */
 	err = gpio_request_one(gpio_ext->enable, GPIOF_OUT_INIT_LOW,
 			       "GPIO extension enable");
 	if (err)
@@ -124,7 +124,7 @@ static void gpio_ext_free(struct netxbig_gpio_ext *gpio_ext)
 }
 
 /*
-                    
+ * Class LED driver.
  */
 
 struct netxbig_led_data {
@@ -169,7 +169,7 @@ static int netxbig_led_blink_set(struct led_classdev *led_cdev,
 	int mode_val;
 	int ret;
 
-	/*                                                         */
+	/* Look for a LED mode with the requested timer frequency. */
 	ret = netxbig_led_get_timer_mode(&mode, *delay_on, *delay_off,
 					 led_dat->timer, led_dat->num_timer);
 	if (ret < 0)
@@ -209,7 +209,7 @@ static void netxbig_led_set(struct led_classdev *led_cdev,
 			mode = NETXBIG_LED_SATA;
 		else if (led_dat->mode == NETXBIG_LED_OFF)
 			mode = NETXBIG_LED_ON;
-		else /*                    */
+		else /* Keep 'timer' mode. */
 			mode = led_dat->mode;
 	}
 	mode_val = led_dat->mode_val[mode];
@@ -217,10 +217,10 @@ static void netxbig_led_set(struct led_classdev *led_cdev,
 	gpio_ext_set_value(led_dat->gpio_ext, led_dat->mode_addr, mode_val);
 	led_dat->mode = mode;
 	/*
-                                                               
-                                                             
-                                        
-  */
+	 * Note that the brightness register is shared between all the
+	 * SATA LEDs. So, change the brightness setting for a single
+	 * SATA LED will affect all the others.
+	 */
 	if (set_brightness) {
 		bright_val = DIV_ROUND_UP(value * led_dat->bright_max,
 					  LED_FULL);
@@ -258,7 +258,7 @@ static ssize_t netxbig_led_sata_store(struct device *dev,
 
 	if (led_dat->mode != NETXBIG_LED_ON &&
 	    led_dat->mode != NETXBIG_LED_SATA)
-		mode = led_dat->mode; /*                               */
+		mode = led_dat->mode; /* Keep modes 'off' and 'timer'. */
 	else if (enable)
 		mode = NETXBIG_LED_SATA;
 	else
@@ -316,15 +316,15 @@ create_netxbig_led(struct platform_device *pdev,
 	led_dat->cdev.blink_set = netxbig_led_blink_set;
 	led_dat->cdev.brightness_set = netxbig_led_set;
 	/*
-                                                                
-                                                          
-                                                                   
-                                
-   
-                                                          
-                                                                 
-                                              
-  */
+	 * Because the GPIO extension bus don't allow to read registers
+	 * value, there is no way to probe the LED initial state.
+	 * So, the initial sysfs LED value for the "brightness" and "sata"
+	 * attributes are inconsistent.
+	 *
+	 * Note that the initial LED state can't be reconfigured.
+	 * The reason is that the LED behaviour must stay uniform during
+	 * the whole boot process (bootloader+linux).
+	 */
 	led_dat->sata = 0;
 	led_dat->cdev.brightness = LED_OFF;
 	led_dat->cdev.flags |= LED_CORE_SUSPENDRESUME;
@@ -340,9 +340,9 @@ create_netxbig_led(struct platform_device *pdev,
 		return ret;
 
 	/*
-                                                                   
-                             
-  */
+	 * If available, expose the SATA activity blink capability through
+	 * a "sata" sysfs attribute.
+	 */
 	if (led_dat->mode_val[NETXBIG_LED_SATA] != NETXBIG_LED_INVALID_MODE) {
 		ret = device_create_file(led_dat->cdev.dev, &dev_attr_sata);
 		if (ret)

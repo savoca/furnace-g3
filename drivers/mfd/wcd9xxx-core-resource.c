@@ -112,9 +112,9 @@ int wcd9xxx_core_res_suspend(
 
 	pr_debug("%s: enter\n", __func__);
 	/*
-                                                                       
-                                                                
-  */
+	 * pm_qos_update_request() can be called after this suspend chain call
+	 * started. thus suspend can be called while lock is being held
+	 */
 	mutex_lock(&wcd9xxx_core_res->pm_lock);
 	if (wcd9xxx_core_res->pm_state == WCD9XXX_PM_SLEEPABLE) {
 		pr_debug("%s: suspending system, state %d, wlock %d\n",
@@ -123,9 +123,9 @@ int wcd9xxx_core_res_suspend(
 		wcd9xxx_core_res->pm_state = WCD9XXX_PM_ASLEEP;
 	} else if (wcd9xxx_core_res->pm_state == WCD9XXX_PM_AWAKE) {
 		/*
-                                                        
-                                  
-   */
+		 * unlock to wait for pm_state == WCD9XXX_PM_SLEEPABLE
+		 * then set to WCD9XXX_PM_ASLEEP
+		 */
 		pr_debug("%s: waiting to suspend system, state %d, wlock %d\n",
 			 __func__, wcd9xxx_core_res->pm_state,
 			 wcd9xxx_core_res->wlock_holders);

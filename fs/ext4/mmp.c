@@ -7,8 +7,8 @@
 #include "ext4.h"
 
 /*
-                                                                       
-          
+ * Write the MMP block using WRITE_SYNC to try to get the block on-disk
+ * faster.
  */
 static int write_mmp_block(struct buffer_head *bh)
 {
@@ -25,8 +25,8 @@ static int write_mmp_block(struct buffer_head *bh)
 }
 
 /*
-                                                                         
-                               
+ * Read the MMP block. It _must_ be read from disk and hence we clear the
+ * uptodate flag on the buffer.
  */
 static int read_mmp_block(struct super_block *sb, struct buffer_head **bh,
 			  ext4_fsblk_t mmp_block)
@@ -36,9 +36,9 @@ static int read_mmp_block(struct super_block *sb, struct buffer_head **bh,
 	if (*bh)
 		clear_buffer_uptodate(*bh);
 
-	/*                                                                 
-                                                                      
-                                    */
+	/* This would be sb_bread(sb, mmp_block), except we need to be sure
+	 * that the MD RAID device cache has been bypassed, and that the read
+	 * is not blocked in the elevator. */
 	if (!*bh)
 		*bh = sb_getblk(sb, mmp_block);
 	if (*bh) {
@@ -66,7 +66,7 @@ static int read_mmp_block(struct super_block *sb, struct buffer_head **bh,
 }
 
 /*
-                                                          
+ * Dump as much information as possible to help the admin.
  */
 void __dump_mmp_msg(struct super_block *sb, struct mmp_struct *mmp,
 		    const char *function, unsigned int line, const char *msg)
@@ -80,7 +80,7 @@ void __dump_mmp_msg(struct super_block *sb, struct mmp_struct *mmp,
 }
 
 /*
-                                                                         
+ * kmmpd will update the MMP sequence every s_mmp_update_interval seconds
  */
 static int kmmpd(void *data)
 {
@@ -101,9 +101,9 @@ static int kmmpd(void *data)
 	mmp = (struct mmp_struct *)(bh->b_data);
 	mmp->mmp_time = cpu_to_le64(get_seconds());
 	/*
-                                                             
-                                           
-  */
+	 * Start with the higher mmp_check_interval and reduce it if
+	 * the MMP block is being updated on time.
+	 */
 	mmp_check_interval = max(EXT4_MMP_CHECK_MULT * mmp_update_interval,
 				 EXT4_MMP_MIN_CHECK_INTERVAL);
 	mmp->mmp_check_interval = cpu_to_le16(mmp_check_interval);
@@ -122,9 +122,9 @@ static int kmmpd(void *data)
 
 		retval = write_mmp_block(bh);
 		/*
-                                                        
-                                          
-   */
+		 * Don't spew too many error messages. Print one every
+		 * (s_mmp_update_interval * 60) seconds.
+		 */
 		if (retval) {
 			if ((failed_writes % 60) == 0)
 				ext4_error(sb, "Error writing to MMP block");
@@ -152,10 +152,10 @@ static int kmmpd(void *data)
 						       HZ - diff);
 
 		/*
-                                                           
-                                                                
-                                                        
-   */
+		 * We need to make sure that more than mmp_check_interval
+		 * seconds have not passed since writing. If that has happened
+		 * we need to check if the MMP block is as we left it.
+		 */
 		diff = jiffies - last_update_time;
 		if (diff > mmp_check_interval * HZ) {
 			struct buffer_head *bh_check = NULL;
@@ -185,9 +185,9 @@ static int kmmpd(void *data)
 		}
 
 		 /*
-                                                             
-                                             
-   */
+		 * Adjust the mmp_check_interval depending on how much time
+		 * it took for the MMP block to be written.
+		 */
 		mmp_check_interval = max(min(EXT4_MMP_CHECK_MULT * diff / HZ,
 					     EXT4_MMP_MAX_CHECK_INTERVAL),
 					 EXT4_MMP_MIN_CHECK_INTERVAL);
@@ -195,8 +195,8 @@ static int kmmpd(void *data)
 	}
 
 	/*
-                              
-  */
+	 * Unmount seems to be clean.
+	 */
 	mmp->mmp_seq = cpu_to_le32(EXT4_MMP_SEQ_CLEAN);
 	mmp->mmp_time = cpu_to_le64(get_seconds());
 
@@ -209,8 +209,8 @@ failed:
 }
 
 /*
-                                                                        
-                    
+ * Get a random new sequence number but make sure it is not greater than
+ * EXT4_MMP_SEQ_MAX.
  */
 static unsigned int mmp_new_seq(void)
 {
@@ -224,7 +224,7 @@ static unsigned int mmp_new_seq(void)
 }
 
 /*
-                                                            
+ * Protect the filesystem from being mounted more than once.
  */
 int ext4_multi_mount_protect(struct super_block *sb,
 				    ext4_fsblk_t mmp_block)
@@ -254,9 +254,9 @@ int ext4_multi_mount_protect(struct super_block *sb,
 		mmp_check_interval = EXT4_MMP_MIN_CHECK_INTERVAL;
 
 	/*
-                                                                 
-                                        
-  */
+	 * If check_interval in MMP block is larger, use that instead of
+	 * update_interval from the superblock.
+	 */
 	if (le16_to_cpu(mmp->mmp_check_interval) > mmp_check_interval)
 		mmp_check_interval = le16_to_cpu(mmp->mmp_check_interval);
 
@@ -272,7 +272,7 @@ int ext4_multi_mount_protect(struct super_block *sb,
 	wait_time = min(mmp_check_interval * 2 + 1,
 			mmp_check_interval + 60);
 
-	/*                                          */
+	/* Print MMP interval if more than 20 secs. */
 	if (wait_time > EXT4_MMP_MIN_CHECK_INTERVAL * 4)
 		ext4_warning(sb, "MMP interval %u higher than expected, please"
 			     " wait.\n", wait_time * 2);
@@ -294,8 +294,8 @@ int ext4_multi_mount_protect(struct super_block *sb,
 
 skip:
 	/*
-                                       
-  */
+	 * write a new random sequence number.
+	 */
 	seq = mmp_new_seq();
 	mmp->mmp_seq = cpu_to_le32(seq);
 
@@ -304,8 +304,8 @@ skip:
 		goto failed;
 
 	/*
-                                            
-  */
+	 * wait for MMP interval and check mmp_seq.
+	 */
 	if (schedule_timeout_interruptible(HZ * wait_time) != 0) {
 		ext4_warning(sb, "MMP startup interrupted, failing mount\n");
 		goto failed;
@@ -330,8 +330,8 @@ skip:
 	mmpd_data->bh = bh;
 
 	/*
-                                                               
-  */
+	 * Start a kernel thread to update the MMP block periodically.
+	 */
 	EXT4_SB(sb)->s_mmp_tsk = kthread_run(kmmpd, mmpd_data, "kmmpd-%s",
 					     bdevname(bh->b_bdev,
 						      mmp->mmp_bdevname));

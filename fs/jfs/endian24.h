@@ -19,10 +19,10 @@
 #define	_H_ENDIAN24
 
 /*
-              
-  
-                                     
-  
+ *	endian24.h:
+ *
+ * Endian conversion for 24-byte data
+ *
  */
 #define __swab24(x) \
 ({ \
@@ -46,4 +46,4 @@
 	#define le24_to_cpu __le24_to_cpu
 #endif
 
-#endif				/*              */
+#endif				/* !_H_ENDIAN24 */

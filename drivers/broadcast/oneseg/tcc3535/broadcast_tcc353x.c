@@ -25,7 +25,7 @@ TcpalSemaphore_t Tcc353xDrvSem;
 
 static struct msm_xo_voter *xo_handle_tcc;
 
-/*                           */
+/*#define _NOT_USE_WAKE_LOCK_*/
 
 struct broadcast_tcc3530_ctrl_data
 {
@@ -116,16 +116,16 @@ static int broadcast_Isdb_i2c_probe(struct i2c_client *client, const struct i2c_
 		TcpalPrintErr("need I2C_FUNC_I2C\n");
 		return -ENODEV;
 	}
-	/*                                                                 */
-	addr = client->addr; //          
+	/* taew00k.kang added for Device Tree Structure 2013-06-04 [start] */
+	addr = client->addr; //Slave Addr
 	pr_err("[1seg] i2c Slaveaddr [%x] \n", addr);
-	/*                                                               */
+	/* taew00k.kang added for Device Tree Structure 2013-06-04 [end] */
 
 	TcpalCreateSemaphore(&Tcc353xDrvSem,
 			     (I08S *) "Tcc353xDriverControlSemaphore", 1);
 
 	IsdbCtrlInfo.pclient = client;
-	//                                                         
+	//i2c_set_clientdata(client, (void*)&IsdbCtrlInfo.pclient);
 
 	TchalInit();
 #ifndef _NOT_USE_WAKE_LOCK_
@@ -164,21 +164,21 @@ static int broadcast_Isdb_i2c_resume(struct i2c_client* client)
 }
 
 static const struct i2c_device_id isdbt_tcc3530_id[] = {
-/*                                                                 */
+/* taew00k.kang added for Device Tree Structure 2013-06-04 [start] */
 	{"tcc3535_i2c",	0},
-/*                                                               */
+/* taew00k.kang added for Device Tree Structure 2013-06-04 [end] */
 	{},
 };
 
 MODULE_DEVICE_TABLE(i2c, isdbt_tcc3530_id);
 
 
-/*                                                                 */
+/* taew00k.kang added for Device Tree Structure 2013-06-04 [start] */
 static struct of_device_id tcc3535_i2c_table[] = {
-{ .compatible = "telechips,tcc3535-i2c",}, //                              
+{ .compatible = "telechips,tcc3535-i2c",}, //Compatible node must match dts
 { },
 };
-/*                                                               */
+/* taew00k.kang added for Device Tree Structure 2013-06-04 [end] */
 
 static struct i2c_driver broadcast_Isdb_driver = {
 	.driver = {

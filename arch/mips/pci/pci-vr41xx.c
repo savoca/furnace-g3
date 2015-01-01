@@ -21,9 +21,9 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 /*
-           
-                                                
-                                                        
+ * Changes:
+ *  MontaVista Software Inc. <source@mvista.com>
+ *  - New creation, NEC VR4122 and VR4131 are supported.
  */
 #include <linux/init.h>
 #include <linux/pci.h>
@@ -128,16 +128,16 @@ static int __init vr41xx_pciu_init(void)
 		return -EBUSY;
 	}
 
-	/*                       */
+	/* Disable PCI interrupt */
 	vr41xx_disable_pciint();
 
-	/*                        */
+	/* Supply VTClock to PCIU */
 	vr41xx_supply_clock(PCIU_CLOCK);
 
-	/*                                             */
+	/* Dummy write, waiting for supply of VTClock. */
 	vr41xx_disable_pciint();
 
-	/*                  */
+	/* Select PCI clock */
 	if (setup->pci_clock_max != 0)
 		pci_clock_max = setup->pci_clock_max;
 	else
@@ -158,7 +158,7 @@ static int __init vr41xx_pciu_init(void)
 		return -EINVAL;
 	}
 
-	/*                             */
+	/* Supply PCI clock by PCI bus */
 	vr41xx_supply_clock(PCI_CLOCK);
 
 	if (setup->master_memory1 != NULL) {
@@ -284,7 +284,7 @@ static int __init vr41xx_pciu_init(void)
 	                       PCI_COMMAND_MASTER | PCI_COMMAND_PARITY |
 			       PCI_COMMAND_SERR);
 
-	/*                 */
+	/* Clear bus error */
 	pciu_read(BUSERRADREG);
 
 	pciu_write(PCIENREG, PCIU_CONFIG_DONE);

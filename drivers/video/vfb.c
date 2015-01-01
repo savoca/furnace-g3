@@ -24,13 +24,13 @@
 #include <linux/init.h>
 
     /*
-                                                                            
-            
-      
-                                                                           
+     *  RAM we reserve for the frame buffer. This defines the maximum screen
+     *  size
+     *
+     *  The default can be overridden if the driver is compiled as a module
      */
 
-#define VIDEOMEMSIZE	(1*1024*1024)	/*      */
+#define VIDEOMEMSIZE	(1*1024*1024)	/* 1 MB */
 
 static void *videomemory;
 static u_long videomemorysize = VIDEOMEMSIZE;
@@ -43,11 +43,11 @@ MODULE_PARM_DESC(mode_option, "Initial video mode e.g. '648x480-8@60'");
 module_param(bpp, int, 0);
 
 
-/*                                                                     
-  
-                    
-  
-                                                                      */
+/**********************************************************************
+ *
+ * Memory management
+ *
+ **********************************************************************/
 static void *rvmalloc(unsigned long size)
 {
 	void *mem;
@@ -58,7 +58,7 @@ static void *rvmalloc(unsigned long size)
 	if (!mem)
 		return NULL;
 
-	memset(mem, 0, size); /*                                        */
+	memset(mem, 0, size); /* Clear the ram out, no junk to the user */
 	adr = (unsigned long) mem;
 	while (size > 0) {
 		SetPageReserved(vmalloc_to_page((void *)adr));
@@ -117,7 +117,7 @@ static struct fb_fix_screeninfo vfb_fix __devinitdata = {
 	.accel =	FB_ACCEL_NONE,
 };
 
-static bool vfb_enable __initdata = 0;	/*                     */
+static bool vfb_enable __initdata = 0;	/* disabled by default */
 module_param(vfb_enable, bool, 0);
 
 static int vfb_check_var(struct fb_var_screeninfo *var,
@@ -144,7 +144,7 @@ static struct fb_ops vfb_ops = {
 };
 
     /*
-                         
+     *  Internal routines
      */
 
 static u_long get_line_length(int xres_virtual, int bpp)
@@ -158,11 +158,11 @@ static u_long get_line_length(int xres_virtual, int bpp)
 }
 
     /*
-                                                             
-                                                            
-                                                          
-                                                                
-                                        
+     *  Setting the video mode has been split into two parts.
+     *  First part, xxxfb_check_var, must not write anything
+     *  to hardware, it should only verify and adjust var.
+     *  This means it doesn't alter par but it does use hardware
+     *  data from it to check this var. 
      */
 
 static int vfb_check_var(struct fb_var_screeninfo *var,
@@ -171,9 +171,9 @@ static int vfb_check_var(struct fb_var_screeninfo *var,
 	u_long line_length;
 
 	/*
-                                                           
-                                                    
-  */
+	 *  FB_VMODE_CONUPDATE and FB_VMODE_SMOOTH_XPAN are equal!
+	 *  as FB_VMODE_SMOOTH_XPAN is only used internally
+	 */
 
 	if (var->vmode & FB_VMODE_CONUPDATE) {
 		var->vmode |= FB_VMODE_YWRAP;
@@ -182,8 +182,8 @@ static int vfb_check_var(struct fb_var_screeninfo *var,
 	}
 
 	/*
-                           
-  */
+	 *  Some very basic checks
+	 */
 	if (!var->xres)
 		var->xres = 1;
 	if (!var->yres)
@@ -211,18 +211,18 @@ static int vfb_check_var(struct fb_var_screeninfo *var,
 		var->yres_virtual = var->yoffset + var->yres;
 
 	/*
-                 
-  */
+	 *  Memory limit
+	 */
 	line_length =
 	    get_line_length(var->xres_virtual, var->bits_per_pixel);
 	if (line_length * var->yres_virtual > videomemorysize)
 		return -ENOMEM;
 
 	/*
-                                                                           
-                                                                         
-                                                           
-  */
+	 * Now that we checked it we alter var. The reason being is that the video
+	 * mode passed in might not work but slight changes to it might make it 
+	 * work. This way we let the user know what is acceptable.
+	 */
 	switch (var->bits_per_pixel) {
 	case 1:
 	case 8:
@@ -235,7 +235,7 @@ static int vfb_check_var(struct fb_var_screeninfo *var,
 		var->transp.offset = 0;
 		var->transp.length = 0;
 		break;
-	case 16:		/*           */
+	case 16:		/* RGBA 5551 */
 		if (var->transp.length) {
 			var->red.offset = 0;
 			var->red.length = 5;
@@ -245,7 +245,7 @@ static int vfb_check_var(struct fb_var_screeninfo *var,
 			var->blue.length = 5;
 			var->transp.offset = 15;
 			var->transp.length = 1;
-		} else {	/*         */
+		} else {	/* RGB 565 */
 			var->red.offset = 0;
 			var->red.length = 5;
 			var->green.offset = 5;
@@ -256,7 +256,7 @@ static int vfb_check_var(struct fb_var_screeninfo *var,
 			var->transp.length = 0;
 		}
 		break;
-	case 24:		/*         */
+	case 24:		/* RGB 888 */
 		var->red.offset = 0;
 		var->red.length = 8;
 		var->green.offset = 8;
@@ -266,7 +266,7 @@ static int vfb_check_var(struct fb_var_screeninfo *var,
 		var->transp.offset = 0;
 		var->transp.length = 0;
 		break;
-	case 32:		/*           */
+	case 32:		/* RGBA 8888 */
 		var->red.offset = 0;
 		var->red.length = 8;
 		var->green.offset = 8;
@@ -285,9 +285,9 @@ static int vfb_check_var(struct fb_var_screeninfo *var,
 	return 0;
 }
 
-/*                                                                 
-                                                                     
-                                                      
+/* This routine actually sets the video mode. It's in here where we
+ * the hardware state info->par and fix which can be affected by the 
+ * change in par. For this driver it doesn't do much. 
  */
 static int vfb_set_par(struct fb_info *info)
 {
@@ -297,51 +297,51 @@ static int vfb_set_par(struct fb_info *info)
 }
 
     /*
-                                                                    
-                                                                     
-                                                                     
+     *  Set a single color register. The values supplied are already
+     *  rounded down to the hardware's capabilities (according to the
+     *  entries in the var structure). Return != 0 for invalid regno.
      */
 
 static int vfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
 			 u_int transp, struct fb_info *info)
 {
-	if (regno >= 256)	/*                     */
+	if (regno >= 256)	/* no. of hw registers */
 		return 1;
 	/*
-                                                        
-  */
+	 * Program hardware... do anything you want with transp
+	 */
 
-	/*                                                  */
+	/* grayscale works only partially under directcolor */
 	if (info->var.grayscale) {
-		/*                                      */
+		/* grayscale = 0.30*R + 0.59*G + 0.11*B */
 		red = green = blue =
 		    (red * 77 + green * 151 + blue * 28) >> 8;
 	}
 
-	/*             
-                                                    
-                                                     
-                                                 
-                                                                                           
-                                                   
-   
-                
-                                                                        
-                                                                         
-                                                  
-                                                                                
-                                          
-                       
-                                                    
-   
-              
-                                               
-                                                     
-                                                      
-                                                                            
-                                                                          
-                            
-  */
+	/* Directcolor:
+	 *   var->{color}.offset contains start of bitfield
+	 *   var->{color}.length contains length of bitfield
+	 *   {hardwarespecific} contains width of RAMDAC
+	 *   cmap[X] is programmed to (X << red.offset) | (X << green.offset) | (X << blue.offset)
+	 *   RAMDAC[X] is programmed to (red, green, blue)
+	 *
+	 * Pseudocolor:
+	 *    var->{color}.offset is 0 unless the palette index takes less than
+	 *                        bits_per_pixel bits and is stored in the upper
+	 *                        bits of the pixel value
+	 *    var->{color}.length is set so that 1 << length is the number of available
+	 *                        palette entries
+	 *    cmap is not used
+	 *    RAMDAC[X] is programmed to (red, green, blue)
+	 *
+	 * Truecolor:
+	 *    does not use DAC. Usually 3 are present.
+	 *    var->{color}.offset contains start of bitfield
+	 *    var->{color}.length contains length of bitfield
+	 *    cmap is programmed to (red << red.offset) | (green << green.offset) |
+	 *                      (blue << blue.offset) | (transp << transp.offset)
+	 *    RAMDAC does not exist
+	 */
 #define CNVT_TOHW(val,width) ((((val)<<(width))+0x7FFF-(val))>>16)
 	switch (info->fix.visual) {
 	case FB_VISUAL_TRUECOLOR:
@@ -352,15 +352,15 @@ static int vfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
 		transp = CNVT_TOHW(transp, info->var.transp.length);
 		break;
 	case FB_VISUAL_DIRECTCOLOR:
-		red = CNVT_TOHW(red, 8);	/*                  */
+		red = CNVT_TOHW(red, 8);	/* expect 8 bit DAC */
 		green = CNVT_TOHW(green, 8);
 		blue = CNVT_TOHW(blue, 8);
-		/*                                         */
+		/* hey, there is bug in transp handling... */
 		transp = CNVT_TOHW(transp, 8);
 		break;
 	}
 #undef CNVT_TOHW
-	/*                                            */
+	/* Truecolor has hardware independent palette */
 	if (info->fix.visual == FB_VISUAL_TRUECOLOR) {
 		u32 v;
 
@@ -388,9 +388,9 @@ static int vfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
 }
 
     /*
-                               
-      
-                                                                            
+     *  Pan or Wrap the Display
+     *
+     *  This call looks only at xoffset, yoffset and the FB_VMODE_YWRAP flag
      */
 
 static int vfb_pan_display(struct fb_var_screeninfo *var,
@@ -416,7 +416,7 @@ static int vfb_pan_display(struct fb_var_screeninfo *var,
 }
 
     /*
-                                                        
+     *  Most drivers don't need their own mmap function 
      */
 
 static int vfb_mmap(struct fb_info *info,
@@ -446,15 +446,15 @@ static int vfb_mmap(struct fb_info *info,
 			size = 0;
 	}
 
-	vma->vm_flags |= VM_RESERVED;	/*                            */
+	vma->vm_flags |= VM_RESERVED;	/* avoid to swap out this VMA */
 	return 0;
 
 }
 
 #ifndef MODULE
 /*
-                                                               
-                                                             
+ * The virtual framebuffer driver is only enabled if explicitly
+ * requested by passing 'video=vfb:' (or any actual options).
  */
 static int __init vfb_setup(char *options)
 {
@@ -473,7 +473,7 @@ static int __init vfb_setup(char *options)
 	while ((this_opt = strsep(&options, ",")) != NULL) {
 		if (!*this_opt)
 			continue;
-		/*                                          */
+		/* Test disable for backwards compatibility */
 		if (!strcmp(this_opt, "disable"))
 			vfb_enable = 0;
 		else if (!strncmp(this_opt, "bpp=", 4)) {
@@ -487,10 +487,10 @@ static int __init vfb_setup(char *options)
 	}
 	return 1;
 }
-#endif  /*          */
+#endif  /*  MODULE  */
 
     /*
-                      
+     *  Initialisation
      */
 
 static int __devinit vfb_probe(struct platform_device *dev)
@@ -499,17 +499,17 @@ static int __devinit vfb_probe(struct platform_device *dev)
 	int retval = -ENOMEM;
 
 	/*
-                                        
-  */
+	 * For real video cards we use ioremap.
+	 */
 	if (!(videomemory = rvmalloc(videomemorysize)))
 		return retval;
 
 	/*
-                                                
-                          
-                                              
-                                            
-  */
+	 * VFB must clear memory to prevent kernel info
+	 * leakage into userspace
+	 * VGA-based drivers MUST NOT clear memory if
+	 * they want to be able to take over vgacon
+	 */
 	memset(videomemory, 0, videomemorysize);
 
 	info = framebuffer_alloc(sizeof(u32) * 256, &dev->dev);
@@ -622,4 +622,4 @@ static void __exit vfb_exit(void)
 module_exit(vfb_exit);
 
 MODULE_LICENSE("GPL");
-#endif				/*        */
+#endif				/* MODULE */

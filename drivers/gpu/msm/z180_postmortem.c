@@ -18,22 +18,22 @@
 
 #define Z180_STREAM_PACKET_CALL 0x7C000275
 
-/*                                             */
+/* Postmortem Dump formatted Output parameters */
 
-/*                                    */
+/* Number of Words per dump data line */
 #define WORDS_PER_LINE 8
 
-/*                                     */
+/* Number of spaces per dump data line */
 #define NUM_SPACES (WORDS_PER_LINE - 1)
 
 /*
-                                                                 
-                                      
+ * Output dump data is formatted as string, hence number of chars
+ * per line for line string allocation
  */
 #define CHARS_PER_LINE  \
 	((WORDS_PER_LINE * (2*sizeof(unsigned int))) + NUM_SPACES + 1)
 
-/*                                            */
+/* Z180 registers (byte offsets) to be dumped */
 static const unsigned int regs_to_dump[] = {
 		ADDR_VGC_VERSION,
 		ADDR_VGC_SYSSTATUS,
@@ -48,10 +48,10 @@ static const unsigned int regs_to_dump[] = {
 		ADDR_VGC_FIFOFREE,
 };
 
-/* 
-                                                                                
-                                       
-                                                
+/**
+ * z180_dump_regs - Dumps all of Z180 external registers. Prints the word offset
+ * of the register in each output line.
+ * @device: kgsl_device pointer to the Z180 core
  */
 static void z180_dump_regs(struct kgsl_device *device)
 {
@@ -69,9 +69,9 @@ static void z180_dump_regs(struct kgsl_device *device)
 	}
 }
 
-/* 
-                                                                   
-                                                
+/**
+ * z180_dump_ringbuffer - Dumps the Z180 core's ringbuffer contents
+ * @device: kgsl_device pointer to the z180 core
  */
 static void z180_dump_ringbuffer(struct kgsl_device *device)
 {
@@ -142,7 +142,7 @@ static void z180_dump_ib(struct kgsl_device *device)
 
 	pt_base = kgsl_mmu_get_current_ptbase(&device->mmu);
 
-	/*                     */
+	/* Dump the current IB */
 	for (i = 0; i < rb_words; i++) {
 		if (rb_hostptr[i] == Z180_STREAM_PACKET_CALL) {
 
@@ -199,11 +199,11 @@ static void z180_dump_ib(struct kgsl_device *device)
 }
 
 
-/* 
-                                                                             
-                 
-            
-                                                
+/**
+ * z180_dump - Dumps the Z180 ringbuffer and registers (and IBs if asked for)
+ * for postmortem
+ * analysis.
+ * @device: kgsl_device pointer to the Z180 core
  */
 int z180_dump(struct kgsl_device *device, int manual)
 {
@@ -215,17 +215,17 @@ int z180_dump(struct kgsl_device *device, int manual)
 	KGSL_LOG_DUMP(device,
 			"Current Timestamp: %d\n", z180_dev->current_timestamp);
 
-	/*                 */
+	/* Dump ringbuffer */
 	z180_dump_ringbuffer(device);
 
-	/*                */
+	/* Dump registers */
 	z180_dump_regs(device);
 
-	/*                        */
+	/* Dump IBs, if asked for */
 	if (device->pm_ib_enabled)
 		z180_dump_ib(device);
 
-	/*                                               */
+	/* Get the stack trace if the dump was automatic */
 	if (!manual)
 		BUG_ON(1);
 

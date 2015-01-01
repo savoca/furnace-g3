@@ -17,7 +17,7 @@
  */
 #include <xfs.h>
 
-/*                                  */
+/* IRIX interpretation of an uuid_t */
 typedef struct {
 	__be32	uu_timelow;
 	__be16	uu_timemid;
@@ -27,10 +27,10 @@ typedef struct {
 } xfs_uu_t;
 
 /*
-                                                              
-  
-                                                               
-                                                               
+ * uuid_getnodeuniq - obtain the node unique fields of a UUID.
+ *
+ * This is not in any way a standard or condoned UUID function;
+ * it just something that's needed for user-level file handles.
  */
 void
 uuid_getnodeuniq(uuid_t *uuid, int fsid [2])
@@ -50,10 +50,10 @@ uuid_is_nil(uuid_t *uuid)
 
 	if (uuid == NULL)
 		return 0;
-	/*                                         */
+	/* implied check of version number here... */
 	for (i = 0; i < sizeof *uuid; i++)
-		if (*cp++) return 0;	/*         */
-	return 1;	/*        */
+		if (*cp++) return 0;	/* not nil */
+	return 1;	/* is nil */
 }
 
 int

@@ -29,7 +29,7 @@ static int apicid_phys_pkg_id(int initial_apic_id, int index_msb)
 }
 
 /*
-                                                                  
+ * Check the APIC IDs in bios_cpu_apicid and choose the APIC mode.
  */
 void __init default_setup_apic_routing(void)
 {
@@ -49,12 +49,12 @@ void __init default_setup_apic_routing(void)
 	}
 
 	if (is_vsmp_box()) {
-		/*                            */
+		/* need to update phys_pkg_id */
 		apic->phys_pkg_id = apicid_phys_pkg_id;
 	}
 }
 
-/*                                  */
+/* Same for both flat and physical. */
 
 void apic_send_IPI_self(int vector)
 {

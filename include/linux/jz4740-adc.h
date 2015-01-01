@@ -5,13 +5,13 @@
 struct device;
 
 /*
-                                                        
-                                       
-                                             
-                        
-  
-                                                                           
-                                         
+ * jz4740_adc_set_config - Configure a JZ4740 adc device
+ * @dev: Pointer to a jz4740-adc device
+ * @mask: Mask for the config value to be set
+ * @val: Value to be set
+ *
+ * This function can be used by the JZ4740 ADC mfd cells to configure their
+ * options in the shared config register.
 */
 int jz4740_adc_set_config(struct device *dev, uint32_t mask, uint32_t val);
 

@@ -12,7 +12,7 @@
 #define __ASM_ARCH_IRQS_H
 
 /*
-                           
+ * Low Interrupt Controller
  */
 #define IRQ_KIRKWOOD_HIGH_SUM	0
 #define IRQ_KIRKWOOD_BRIDGE	1
@@ -38,7 +38,7 @@
 #define IRQ_KIRKWOOD_TDMI	31
 
 /*
-                            
+ * High Interrupt Controller
  */
 #define IRQ_KIRKWOOD_UART_0	33
 #define IRQ_KIRKWOOD_UART_1	34
@@ -54,7 +54,7 @@
 #define IRQ_KIRKWOOD_RTC        53
 
 /*
-                                
+ * KIRKWOOD General Purpose Pins
  */
 #define IRQ_KIRKWOOD_GPIO_START	64
 #define NR_GPIO_IRQS		50

@@ -35,7 +35,7 @@
 struct gpio_fan_data {
 	struct platform_device	*pdev;
 	struct device		*hwmon_dev;
-	struct mutex		lock; /*                        */
+	struct mutex		lock; /* lock GPIOs operations. */
 	int			num_ctrl;
 	unsigned		*ctrl;
 	int			num_speed;
@@ -50,7 +50,7 @@ struct gpio_fan_data {
 };
 
 /*
-              
+ * Alarm GPIO.
  */
 
 static void fan_alarm_notify(struct work_struct *ws)
@@ -108,9 +108,9 @@ static int fan_alarm_init(struct gpio_fan_data *fan_data,
 		goto err_free_gpio;
 
 	/*
-                                                          
-                                                       
-  */
+	 * If the alarm GPIO don't support interrupts, just leave
+	 * without initializing the fail notification support.
+	 */
 	alarm_irq = gpio_to_irq(alarm->gpio);
 	if (alarm_irq < 0)
 		return 0;
@@ -144,10 +144,10 @@ static void fan_alarm_free(struct gpio_fan_data *fan_data)
 }
 
 /*
-                 
+ * Control GPIOs.
  */
 
-/*                                                                        */
+/* Must be called with fan_data->lock held, except during initialization. */
 static void __set_fan_ctrl(struct gpio_fan_data *fan_data, int ctrl_val)
 {
 	int i;
@@ -170,7 +170,7 @@ static int __get_fan_ctrl(struct gpio_fan_data *fan_data)
 	return ctrl_val;
 }
 
-/*                                                                        */
+/* Must be called with fan_data->lock held, except during initialization. */
 static void set_fan_speed(struct gpio_fan_data *fan_data, int speed_index)
 {
 	if (fan_data->speed_index == speed_index)
@@ -267,7 +267,7 @@ static ssize_t set_pwm_enable(struct device *dev, struct device_attribute *attr,
 
 	fan_data->pwm_enable = val;
 
-	/*                                                     */
+	/* Disable manual control mode: set fan at full speed. */
 	if (val == 0)
 		set_fan_speed(fan_data, fan_data->num_speed - 1);
 
@@ -380,7 +380,7 @@ static int fan_ctrl_init(struct gpio_fan_data *fan_data,
 	fan_data->ctrl = ctrl;
 	fan_data->num_speed = pdata->num_speed;
 	fan_data->speed = pdata->speed;
-	fan_data->pwm_enable = true; /*                                  */
+	fan_data->pwm_enable = true; /* Enable manual fan speed control. */
 	fan_data->speed_index = get_fan_speed_index(fan_data);
 	if (fan_data->speed_index < 0) {
 		err = -ENODEV;
@@ -411,7 +411,7 @@ static void fan_ctrl_free(struct gpio_fan_data *fan_data)
 }
 
 /*
-                   
+ * Platform driver.
  */
 
 static ssize_t show_name(struct device *dev,
@@ -439,14 +439,14 @@ static int __devinit gpio_fan_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, fan_data);
 	mutex_init(&fan_data->lock);
 
-	/*                                    */
+	/* Configure alarm GPIO if available. */
 	if (pdata->alarm) {
 		err = fan_alarm_init(fan_data, pdata->alarm);
 		if (err)
 			goto err_free_data;
 	}
 
-	/*                                       */
+	/* Configure control GPIOs if available. */
 	if (pdata->ctrl && pdata->num_ctrl > 0) {
 		if (!pdata->speed || pdata->num_speed <= 1) {
 			err = -EINVAL;
@@ -461,7 +461,7 @@ static int __devinit gpio_fan_probe(struct platform_device *pdev)
 	if (err)
 		goto err_free_ctrl;
 
-	/*                                       */
+	/* Make this driver part of hwmon class. */
 	fan_data->hwmon_dev = hwmon_device_register(&pdev->dev);
 	if (IS_ERR(fan_data->hwmon_dev)) {
 		err = PTR_ERR(fan_data->hwmon_dev);

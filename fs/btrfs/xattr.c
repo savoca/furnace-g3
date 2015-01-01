@@ -43,7 +43,7 @@ ssize_t __btrfs_getxattr(struct inode *inode, const char *name,
 	if (!path)
 		return -ENOMEM;
 
-	/*                          */
+	/* lookup the xattr by name */
 	di = btrfs_lookup_xattr(NULL, root, path, btrfs_ino(inode), name,
 				strlen(name), 0);
 	if (!di) {
@@ -55,25 +55,25 @@ ssize_t __btrfs_getxattr(struct inode *inode, const char *name,
 	}
 
 	leaf = path->nodes[0];
-	/*                                                       */
+	/* if size is 0, that means we want the size of the attr */
 	if (!size) {
 		ret = btrfs_dir_data_len(leaf, di);
 		goto out;
 	}
 
-	/*                                      */
+	/* now get the data out of our dir_item */
 	if (btrfs_dir_data_len(leaf, di) > size) {
 		ret = -ERANGE;
 		goto out;
 	}
 
 	/*
-                                                        
-                                     
-                                                                  
-                                                                    
-                                               
-  */
+	 * The way things are packed into the leaf is like this
+	 * |struct btrfs_dir_item|name|data|
+	 * where name is the xattr name, so security.foo, and data is the
+	 * content of the xattr.  data_ptr points to the location in memory
+	 * where the data starts in the in memory leaf
+	 */
 	data_ptr = (unsigned long)((char *)(di + 1) +
 				   btrfs_dir_name_len(leaf, di));
 	read_extent_buffer(leaf, buffer, data_ptr,
@@ -118,8 +118,8 @@ static int do_setxattr(struct btrfs_trans_handle *trans,
 		btrfs_release_path(path);
 
 		/*
-                         
-   */
+		 * remove the attribute
+		 */
 		if (!value)
 			goto out;
 	}
@@ -128,13 +128,13 @@ again:
 	ret = btrfs_insert_xattr_item(trans, root, path, btrfs_ino(inode),
 				      name, name_len, value, size);
 	/*
-                                                                     
-                                                                        
-                                                                       
-                                                                        
-                                                                       
-                                           
-  */
+	 * If we're setting an xattr to a new value but the new value is say
+	 * exactly BTRFS_MAX_XATTR_SIZE, we could end up with EOVERFLOW getting
+	 * back from split_leaf.  This is because it thinks we'll be extending
+	 * the existing item size, but we're asking for enough space to add the
+	 * item itself.  So if we get EOVERFLOW just set ret to EEXIST and let
+	 * the rest of the function figure it out.
+	 */
 	if (ret == -EOVERFLOW)
 		ret = -EEXIST;
 
@@ -142,10 +142,10 @@ again:
 		if (flags & XATTR_CREATE)
 			goto out;
 		/*
-                                                                  
-                                                         
-                                   
-   */
+		 * We can't use the path we already have since we won't have the
+		 * proper locking for a delete, so release the path and
+		 * re-lookup to delete the thing.
+		 */
 		btrfs_release_path(path);
 		di = btrfs_lookup_xattr(trans, root, path, btrfs_ino(inode),
 					name, name_len, -1);
@@ -153,7 +153,7 @@ again:
 			ret = PTR_ERR(di);
 			goto out;
 		} else if (!di) {
-			/*                                      */
+			/* Shouldn't happen but just in case... */
 			btrfs_release_path(path);
 			goto again;
 		}
@@ -163,8 +163,8 @@ again:
 			goto out;
 
 		/*
-                                                                 
-   */
+		 * We have a value to set, so go back and try to insert it now.
+		 */
 		if (value) {
 			btrfs_release_path(path);
 			goto again;
@@ -176,7 +176,7 @@ out:
 }
 
 /*
-                                                           
+ * @value: "" makes the attribute to empty, NULL removes it
  */
 int __btrfs_setxattr(struct btrfs_trans_handle *trans,
 		     struct inode *inode, const char *name,
@@ -218,10 +218,10 @@ ssize_t btrfs_listxattr(struct dentry *dentry, char *buffer, size_t size)
 	size_t name_len;
 
 	/*
-                                                   
-                                                                  
-                                             
-  */
+	 * ok we want all objects associated with this id.
+	 * NOTE: we set key.offset = 0; because we want to start with the
+	 * first xattr that we find and walk forward
+	 */
 	key.objectid = btrfs_ino(inode);
 	btrfs_set_key_type(&key, BTRFS_XATTR_ITEM_KEY);
 	key.offset = 0;
@@ -231,7 +231,7 @@ ssize_t btrfs_listxattr(struct dentry *dentry, char *buffer, size_t size)
 		return -ENOMEM;
 	path->reada = 2;
 
-	/*                       */
+	/* search for our xattrs */
 	ret = btrfs_search_slot(NULL, root, &key, path, 0, 0);
 	if (ret < 0)
 		goto err;
@@ -240,12 +240,12 @@ ssize_t btrfs_listxattr(struct dentry *dentry, char *buffer, size_t size)
 		leaf = path->nodes[0];
 		slot = path->slots[0];
 
-		/*                                                 */
+		/* this is where we start walking through the path */
 		if (slot >= btrfs_header_nritems(leaf)) {
 			/*
-                                                         
-                                                 
-    */
+			 * if we've reached the last slot in this leaf we need
+			 * to go to the next leaf and reset everything
+			 */
 			ret = btrfs_next_leaf(root, path);
 			if (ret < 0)
 				goto err;
@@ -256,7 +256,7 @@ ssize_t btrfs_listxattr(struct dentry *dentry, char *buffer, size_t size)
 
 		btrfs_item_key_to_cpu(leaf, &found_key, slot);
 
-		/*                                              */
+		/* check to make sure this item is what we want */
 		if (found_key.objectid != key.objectid)
 			break;
 		if (btrfs_key_type(&found_key) != BTRFS_XATTR_ITEM_KEY)
@@ -269,7 +269,7 @@ ssize_t btrfs_listxattr(struct dentry *dentry, char *buffer, size_t size)
 		name_len = btrfs_dir_name_len(leaf, di);
 		total_size += name_len + 1;
 
-		/*                                                        */
+		/* we are just looking for how big our buffer needs to be */
 		if (!size)
 			goto next;
 
@@ -296,8 +296,8 @@ err:
 }
 
 /*
-                                                                       
-                                   
+ * List of handlers for synthetic system.* attributes.  All real ondisk
+ * attributes are handled directly.
  */
 const struct xattr_handler *btrfs_xattr_handlers[] = {
 #ifdef CONFIG_BTRFS_FS_POSIX_ACL
@@ -308,10 +308,10 @@ const struct xattr_handler *btrfs_xattr_handlers[] = {
 };
 
 /*
-                                                      
-  
-                                                                          
-             
+ * Check if the attribute is in a supported namespace.
+ *
+ * This applied after the check for the synthetic attributes in the system
+ * namespace.
  */
 static bool btrfs_is_valid_xattr(const char *name)
 {
@@ -326,10 +326,10 @@ ssize_t btrfs_getxattr(struct dentry *dentry, const char *name,
 		       void *buffer, size_t size)
 {
 	/*
-                                                                  
-                                                                 
-                           
-  */
+	 * If this is a request for a synthetic attribute in the system.*
+	 * namespace use the generic infrastructure to resolve a handler
+	 * for it via sb->s_xattr.
+	 */
 	if (!strncmp(name, XATTR_SYSTEM_PREFIX, XATTR_SYSTEM_PREFIX_LEN))
 		return generic_getxattr(dentry, name, buffer, size);
 
@@ -344,17 +344,17 @@ int btrfs_setxattr(struct dentry *dentry, const char *name, const void *value,
 	struct btrfs_root *root = BTRFS_I(dentry->d_inode)->root;
 
 	/*
-                                                            
-                    
-  */
+	 * The permission on security.* and system.* is not checked
+	 * in permission().
+	 */
 	if (btrfs_root_readonly(root))
 		return -EROFS;
 
 	/*
-                                                                  
-                                                                 
-                           
-  */
+	 * If this is a request for a synthetic attribute in the system.*
+	 * namespace use the generic infrastructure to resolve a handler
+	 * for it via sb->s_xattr.
+	 */
 	if (!strncmp(name, XATTR_SYSTEM_PREFIX, XATTR_SYSTEM_PREFIX_LEN))
 		return generic_setxattr(dentry, name, value, size, flags);
 
@@ -362,7 +362,7 @@ int btrfs_setxattr(struct dentry *dentry, const char *name, const void *value,
 		return -EOPNOTSUPP;
 
 	if (size == 0)
-		value = "";  /*                         */
+		value = "";  /* empty EA, do not remove */
 
 	return __btrfs_setxattr(NULL, dentry->d_inode, name, value, size,
 				flags);
@@ -373,17 +373,17 @@ int btrfs_removexattr(struct dentry *dentry, const char *name)
 	struct btrfs_root *root = BTRFS_I(dentry->d_inode)->root;
 
 	/*
-                                                            
-                    
-  */
+	 * The permission on security.* and system.* is not checked
+	 * in permission().
+	 */
 	if (btrfs_root_readonly(root))
 		return -EROFS;
 
 	/*
-                                                                  
-                                                                 
-                           
-  */
+	 * If this is a request for a synthetic attribute in the system.*
+	 * namespace use the generic infrastructure to resolve a handler
+	 * for it via sb->s_xattr.
+	 */
 	if (!strncmp(name, XATTR_SYSTEM_PREFIX, XATTR_SYSTEM_PREFIX_LEN))
 		return generic_removexattr(dentry, name);
 

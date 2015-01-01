@@ -23,7 +23,7 @@
 #include <asm/vr41xx/capcella.h>
 
 /*
-            
+ * Shortcuts
  */
 #define INT1	RTL8139_1_IRQ
 #define INT2	RTL8139_2_IRQ
@@ -43,7 +43,7 @@ int __init pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 	return irq_tab_capcella[slot][pin];
 }
 
-/*                                                                        */
+/* Do platform specific device initialization at pci_enable_device() time */
 int pcibios_plat_dev_init(struct pci_dev *dev)
 {
 	return 0;

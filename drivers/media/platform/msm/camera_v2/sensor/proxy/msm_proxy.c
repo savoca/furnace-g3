@@ -23,7 +23,7 @@
 #include "msm_cci.h"
 #include "msm_proxy_i2c.h"
 
-//                                                           
+//******************************** babybear registers cut 1.1
 #define IDENTIFICATION__MODEL_ID					0x000
 #define IDENTIFICATION__REVISION_ID				0x002
 #define REVISION_NOT_CALIBRATED					0x02
@@ -60,8 +60,8 @@
 #define SYSTEM__INTERRUPT_CONFIG_GPIO			0x014
 #define RANGE__RANGE_SCALER						0x096
 #define SYSRANGE__PART_TO_PART_RANGE_OFFSET		0x024
-//                                                           
-//                              
+//******************************** babybear registers cut 1.1
+/// HIGH LIGHT OPTIMIZATION DATA
 #define LOW_LIGHT_RETURN_RATE	 1800
 #define HIGH_LIGHT_RETURN_RATE	5000
 
@@ -71,10 +71,10 @@
 #define LOW_LIGHT_IGNORETHRES_RATIO		100
 #define HIGH_LIGHT_IGNORETHRES_RATIO 	 28
 
-#define DEFAULT_CROSSTALK     4 //                                
-#define DEFAULT_IGNORETHRES   0 //                                 
+#define DEFAULT_CROSSTALK     4 // 12 for ST Glass; 2 for LG Glass
+#define DEFAULT_IGNORETHRES   0 // 32 fior ST Glass; 0 for LG Glass
 
-//               
+// Filter defines
 #define FILTERNBOFSAMPLES		10
 #define FILTERSTDDEVSAMPLES		6
 #define MINFILTERSTDDEVSAMPLES	3
@@ -83,17 +83,17 @@
 
 #define it_eep_reg 0x800
 #define fj_eep_reg 0x8B0
-//                  
+//Wrap around filter
 #define COMPLEX_FILTER
 
 uint32_t MeasurementIndex = 0;
-//                             
+// Lite Filter global variables
 uint32_t Default_ZeroVal = 0;
 uint32_t Default_VAVGVal = 0;
 uint32_t NoDelay_ZeroVal = 0;
 uint32_t NoDelay_VAVGVal = 0;
 uint32_t Previous_VAVGDiff = 0;
-//                                
+// Complex Filter global variables
 uint16_t LastTrueRange[FILTERNBOFSAMPLES];
 uint32_t LastReturnRates[FILTERNBOFSAMPLES];
 uint32_t PreviousRangeStdDev = 0;
@@ -123,7 +123,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 	.i2c_read = msm_camera_cci_i2c_read,
 	.i2c_read_seq = msm_camera_cci_i2c_read_seq,
 	.i2c_write = msm_camera_cci_i2c_write,
-	.i2c_write_seq = msm_camera_cci_i2c_write_seq,	//                 
+	.i2c_write_seq = msm_camera_cci_i2c_write_seq,	//sungmin.woo added
 	.i2c_write_table = msm_camera_cci_i2c_write_table,
 	.i2c_write_seq_table = msm_camera_cci_i2c_write_seq_table,
 	.i2c_write_table_w_microdelay =
@@ -135,7 +135,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
 	.i2c_read = msm_camera_qup_i2c_read,
 	.i2c_read_seq = msm_camera_qup_i2c_read_seq,
 	.i2c_write = msm_camera_qup_i2c_write,
-	.i2c_write_seq = msm_camera_qup_i2c_write_seq,	//                 
+	.i2c_write_seq = msm_camera_qup_i2c_write_seq,	//sungmin.woo added
 	.i2c_write_table = msm_camera_qup_i2c_write_table,
 	.i2c_write_seq_table = msm_camera_qup_i2c_write_seq_table,
 	.i2c_write_table_w_microdelay =
@@ -143,8 +143,8 @@ static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
 };
 
 static const struct v4l2_subdev_internal_ops msm_proxy_internal_ops = {
-//                        
-//                          
+//	.open = msm_proxy_open,
+//	.close = msm_proxy_close,
 };
 
 int32_t proxy_i2c_read(uint32_t addr, uint16_t *data, enum msm_camera_i2c_data_type data_type)
@@ -238,15 +238,15 @@ int16_t OffsetCalibration(void)
 
 		pr_err("OffsetCalibration start!\n");
 
-            //                  
+            //Set offset to zero
            proxy_i2c_write( SYSRANGE__PART_TO_PART_RANGE_OFFSET,0, 1);
 
-            //                              
+            // Disable CrossTalkCompensation
            proxy_i2c_write( SYSRANGE__CROSSTALK_COMPENSATION_RATE, 0, 1);
            proxy_i2c_write( SYSRANGE__CROSSTALK_COMPENSATION_RATE+1, 0, 1);
 
             for(i=0;i<10;i++){
-                     //                              
+                     // Run ten measurements in a row
                      proxy_i2c_write( SYSRANGE__START, 1, 1);
                      TimeOut = 0;
                      do{
@@ -259,7 +259,7 @@ int16_t OffsetCalibration(void)
 
                       }while(!(((statusCode&0x01)==0x01)&&(chipidRangeStart==0x00)));
 
-                      //              
+                      // Read distance
                      proxy_i2c_read( RESULT__RANGE_VAL, &distance, 1);
                       distance *= 3;
 
@@ -279,7 +279,7 @@ uint16_t proxy_get_from_sensor(void)
 	uint16_t dist = 0;
 	uint16_t chipidInter = 0;
 	int i = 0;
-	int UseAveraging = 0; //                                                  
+	int UseAveraging = 0; // 1= do rolling averaring; 0 = no rolling averaging
 	int NbOfValidData = 0;
 	int MinValidData = 4;
 	uint16_t DistAcc = 0;
@@ -304,10 +304,10 @@ uint16_t proxy_get_from_sensor(void)
 	uint16_t statusCode = 0;
 	uint16_t errorCode = 0;
 
-	//                            
+	//pr_err("get proxy start\n");
 
 	proxy_i2c_read( SYSRANGE__START, &chipidRangeStart, 1);
-	//               
+	//Read Error Code
 	proxy_i2c_read( RESULT__RANGE_STATUS, &statusCode, 1);
 	errorCode = statusCode>>4;
 
@@ -384,16 +384,16 @@ uint16_t proxy_get_from_sensor(void)
 	BabyBear_ParameterOptimization((uint32_t) m_rtnAmbientRate);
 
 	if(((statusCode&0x01)==0x01)&&(chipidRangeStart==0x00)){
-		//                         
+		// Do the rolling averaging
 		if(UseAveraging==1){
 			for(i=0;i<7;i++){
 				LastMeasurements[i]=LastMeasurements[i+1];
 			}
 			if(m_rawRange_mm!=255){
-				//            
+				// Valid Value
 				LastMeasurements[7] = dist;
 			} else{
-				//                    
+				// Not a valid measure
 				LastMeasurements[7] = 65535;
 			}
 			if(CurrentIndex<8){
@@ -405,10 +405,10 @@ uint16_t proxy_get_from_sensor(void)
 
 			NbOfValidData = 0;
 			DistAcc = 0;
-			NewDistance = 255*3; //                                           
+			NewDistance = 255*3; // Max distance, equivalent as when no target
 			for(i=7;i>=0; i--){
 				if(LastMeasurements[i] !=65535){
-					//                          
+					// This measurement is valid
 					NbOfValidData = NbOfValidData+1;
 					DistAcc = DistAcc + LastMeasurements[i];
 					if(NbOfValidData>=MinValidData){
@@ -417,7 +417,7 @@ uint16_t proxy_get_from_sensor(void)
 					}
 				}
 			}
-			//                      
+			// Copy the new distance
 			dist = NewDistance;
 		}
 
@@ -427,7 +427,7 @@ uint16_t proxy_get_from_sensor(void)
 			dist = VL6180_LiteFilter(dist, m_rawRange_mm*3, m_rtnSignalRate, m_rtnAmbientRate, errorCode);
 	#endif
 
-		//                      
+		// Start new measurement
 		proxy_i2c_write( SYSRANGE__START, 0x01, 1);
 		m_chipid = dist;
 
@@ -435,13 +435,13 @@ uint16_t proxy_get_from_sensor(void)
 
 	else
 	{
-	   //                                       
+	   // Return immediately with previous value
 	   dist = m_chipid;
 
 	}
-	//                              
-	//                            
-	//                          
+	//need to check rc value here //
+	//CDBG("proxy = %d\n",  dist);
+	//pr_err("get proxy end\n");
 	msm_proxy_t.proxy_stat.proxy_val = dist;
 	msm_proxy_t.proxy_stat.proxy_conv = calcConvTime;
 	msm_proxy_t.proxy_stat.proxy_sig = m_rtnSignalRate;
@@ -464,26 +464,26 @@ static void get_proxy(struct work_struct *work)
 	
 	while(1)
 	{
-		//                                                                
+		//pr_err("pause_workqueue = %d\n", proxy_struct->pause_workqueue);
 
 		if(!proxy_struct->pause_workqueue)
 		{
 			if(proxy_struct->proxy_cal)
 			{
 				#if 0
-				proxy_struct->proxy_stat.cal_done = 0;  //        
+				proxy_struct->proxy_stat.cal_done = 0;  //cal done
 				offset = OffsetCalibration();
 				pr_err("write offset = %d to eeprom\n", offset);
 				if ((offset <= 10) && (offset >= (-20))) {
 					proxy_i2c_e2p_read(0x800, &cal_count, 2);
-					calCountShift = (cal_count & 0xff) >> 8;                  //                        
+					calCountShift = (cal_count & 0xff) >> 8;                  //seperate cal count value
 
 					fin_val = (offset & 0xff) | (calCountShift << 8);
-					proxy_i2c_e2p_write(0x800, fin_val, 2);                    //                                            
+					proxy_i2c_e2p_write(0x800, fin_val, 2);                    //write whole offset value and cal count value
 					pr_err("KSY read cal count1 = %d to eeprom\n", calCountShift);
 					if(calCountShift >= 200)
 						calCountShift = 0;
-						//                                 
+						//proxy_i2c_e2p_write(0x801, 0, 1);
 					else {
 						calCountShift++;
 						pr_err("KSY writed\n");
@@ -496,15 +496,15 @@ static void get_proxy(struct work_struct *work)
 					pr_err("KSY read cal count2 = %d to eeprom\n", calCountShift);
 					proxy_struct->proxy_stat.cal_count = calCountShift;
 					proxy_struct->proxy_cal = 0;
-					proxy_struct->proxy_stat.cal_done = 1;  //        
+					proxy_struct->proxy_stat.cal_done = 1;  //cal done
 					msm_proxy_t.proxy_cal = 0;
 				}
-				else{   //                               
-					proxy_struct->proxy_stat.cal_done = 2;  //        
+				else{   // Calibration failed by spec out
+					proxy_struct->proxy_stat.cal_done = 2;  //cal fail
 					msm_proxy_t.proxy_cal = 0;
 				}
 				#else
-				proxy_struct->proxy_stat.cal_done = 0;  //        
+				proxy_struct->proxy_stat.cal_done = 0;  //cal done
 				offset = OffsetCalibration();
 				pr_err("write offset = %x to eeprom\n", offset);
 				
@@ -514,7 +514,7 @@ static void get_proxy(struct work_struct *work)
 				
 				if ((offset < 11) && (offset > (-21))) {
 					
-					if((shift_module_id == 0x01) || (shift_module_id == 0x02))	//          
+					if((shift_module_id == 0x01) || (shift_module_id == 0x02))	// It module
 					{
 						proxy_i2c_e2p_read(it_eep_reg, &fin_val, 2);
 						cal_count=fin_val>>8;
@@ -540,11 +540,11 @@ static void get_proxy(struct work_struct *work)
 						
 					proxy_struct->proxy_stat.cal_count = cal_count;
 					proxy_struct->proxy_cal = 0;
-					proxy_struct->proxy_stat.cal_done = 1;  //        
+					proxy_struct->proxy_stat.cal_done = 1;  //cal done
 					msm_proxy_t.proxy_cal = 0;
 				}
-				else{   //                               
-					proxy_struct->proxy_stat.cal_done = 2;  //        
+				else{   // Calibration failed by spec out
+					proxy_struct->proxy_stat.cal_done = 2;  //cal fail
 					msm_proxy_t.proxy_cal = 0;
 				}
 
@@ -671,11 +671,11 @@ static int32_t msm_proxy_i2c_probe(struct i2c_client *client,
 		act_ctrl_t->i2c_client.client,
 		act_ctrl_t->act_v4l2_subdev_ops);
 	v4l2_set_subdevdata(&act_ctrl_t->msm_sd.sd, act_ctrl_t);
-	//                                                             
+	//act_ctrl_t->msm_sd.sd.internal_ops = &msm_proxy_internal_ops;
 	act_ctrl_t->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	media_entity_init(&act_ctrl_t->msm_sd.sd.entity, 0, NULL, 0);
 	act_ctrl_t->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
-	//                                                                
+	//act_ctrl_t->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_PROXY;
 	msm_sd_register(&act_ctrl_t->msm_sd);
 	CDBG("succeeded\n");
 	pr_err("Exit\n");
@@ -726,7 +726,7 @@ static int32_t msm_proxy_platform_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	msm_proxy_t.i2c_client.cci_client->sid = 0x29;    //             
+	msm_proxy_t.i2c_client.cci_client->sid = 0x29;    //Slave address
 	msm_proxy_t.i2c_client.cci_client->retries = 3;
 	msm_proxy_t.i2c_client.cci_client->id_map = 0;
 
@@ -739,13 +739,13 @@ static int32_t msm_proxy_platform_probe(struct platform_device *pdev)
 	v4l2_subdev_init(&msm_proxy_t.msm_sd.sd,
 		msm_proxy_t.act_v4l2_subdev_ops);
 	v4l2_set_subdevdata(&msm_proxy_t.msm_sd.sd, &msm_proxy_t);
-	//                                                             
+	//msm_proxy_t.msm_sd.sd.internal_ops = &msm_proxy_internal_ops;
 	msm_proxy_t.msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	snprintf(msm_proxy_t.msm_sd.sd.name,
 		ARRAY_SIZE(msm_proxy_t.msm_sd.sd.name), "msm_proxy");
 	media_entity_init(&msm_proxy_t.msm_sd.sd.entity, 0, NULL, 0);
 	msm_proxy_t.msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
-	//                                                                
+	//msm_proxy_t.msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_PROXY;
 	msm_sd_register(&msm_proxy_t.msm_sd);
 
 	msm_proxy_t.sid_proxy = msm_proxy_t.i2c_client.cci_client->sid;
@@ -813,20 +813,20 @@ int msm_init_proxy(void)
 	int8_t offsetByte;
 	int16_t fin_val;
 	uint8_t cal_count;
-	//                
-	//                     
+	//s8 check_offset;
+	//int8_t rangeTemp = 0;
 	uint16_t modelID = 0;
 	uint16_t revID = 0;
 	uint16_t chipidRange = 0;
-	//                          
+	//uint16_t chipidOffset = 0;
 	uint16_t chipidRangeMax = 0;
-	//                          
+	//uint16_t chipidscalar = 0;
 	uint16_t chipidgpio = 0;
 	uint32_t shift, dataMask;
-	//                             
+	//int32_t  readI2C =0x00000000;
 	uint16_t readI2C =0x0;
 	uint32_t ninepointseven=0;
-	//        
+	//seonyung
 	uint16_t CrosstalkHeight;
 	uint16_t IgnoreThreshold;
 	uint16_t IgnoreThresholdHeight;
@@ -857,15 +857,15 @@ int msm_init_proxy(void)
 
 	proxy_i2c_read( IDENTIFICATION__MODEL_ID, &modelID, 1);
 	proxy_i2c_read( IDENTIFICATION__REVISION_ID, &revID, 1);
-	//                   
-	pr_err("Model ID : 0x%X, REVISION ID : 0x%X\n", modelID, revID);   //                                                       
+	//revID = revID >> 4;
+	pr_err("Model ID : 0x%X, REVISION ID : 0x%X\n", modelID, revID);   //if revID == 2;(not calibrated), revID == 3 (calibrated)
 	if(revID != REVISION_CALIBRATED)
 	{
 		pr_err("not calibrated!\n");
-		//          
+		//return -1;
 	}
 
-	//              
+	//waitForStandby
 	for(i=0; i<100; i++){
 	proxy_i2c_read( FIRMWARE__BOOTUP, &modelID, 1);
 		if( (modelID & 0x01) == 1 ){
@@ -873,7 +873,7 @@ int msm_init_proxy(void)
 		}
 	}
 
-	//                  
+	//range device ready
 	for(i=0; i<100; i++){
 		proxy_i2c_read( RESULT__RANGE_STATUS, &modelID, 1);
 		if( (modelID & 0x01) == 1){
@@ -881,7 +881,7 @@ int msm_init_proxy(void)
 			}
 	}
 
-	//                           
+	//performRegisterTuningCut1_1
 	proxy_i2c_write( GPIO_HV_PAD01__CONFIG, 0x30, 1);
 	proxy_i2c_write( 0x0207, 0x01, 1);
 	proxy_i2c_write( 0x0208, 0x01, 1);
@@ -896,7 +896,7 @@ int msm_init_proxy(void)
 	proxy_i2c_write( 0x00f5, 0x02, 1);
 	proxy_i2c_write( 0x00D9, 0x05, 1);
 	
-	//                    
+	// AMB P2P calibration
 	proxy_i2c_read(SYSTEM__FRESH_OUT_OF_RESET, &dataByte, 1);
 	if(dataByte==0x01)
 	{
@@ -910,7 +910,7 @@ int msm_init_proxy(void)
 		ambpart2partCalib2 = ambpart2partCalib2 + dataByte;
 		if(ambpart2partCalib1!=0)
 		{
-			//               
+			// p2p calibrated
 			proxy_i2c_write( 0xDA, (ambpart2partCalib1>>8)&0xFF, 1);
 			proxy_i2c_write( 0xDB, ambpart2partCalib1&0xFF, 1);
 			proxy_i2c_write( 0xDC, (ambpart2partCalib2>>8)&0xFF, 1);
@@ -918,7 +918,7 @@ int msm_init_proxy(void)
 		}
 		else
 		{
-			//                                         
+			// No p2p Calibration, use default settings
 			proxy_i2c_write( 0xDB, 0xCE, 1);
 			proxy_i2c_write( 0xDC, 0x03, 1);
 			proxy_i2c_write( 0xDD, 0xF8, 1);
@@ -954,30 +954,30 @@ int msm_init_proxy(void)
 	proxy_i2c_write( 0x00d2, 0x01, 1);
 	proxy_i2c_write( 0x00f2, 0x01, 1);
 
-	//                           
+	// RangeSetMaxConvergenceTime
 	proxy_i2c_write( SYSRANGE__MAX_CONVERGENCE_TIME, 0x3F, 1);
 	proxy_i2c_read( SYSRANGE__RANGE_CHECK_ENABLES, &chipidRangeMax, 1);
-	chipidRangeMax = chipidRangeMax & 0xFE; //        
-	chipidRangeMax = chipidRangeMax | 0x02; //              
+	chipidRangeMax = chipidRangeMax & 0xFE; // off ECE
+	chipidRangeMax = chipidRangeMax | 0x02; // on ignore thr
 	proxy_i2c_write( SYSRANGE__RANGE_CHECK_ENABLES, chipidRangeMax, 1);
 
 
-	proxy_i2c_write( SYSRANGE__MAX_AMBIENT_LEVEL_MULT, 0xFF, 1);//   
-	//                                   
+	proxy_i2c_write( SYSRANGE__MAX_AMBIENT_LEVEL_MULT, 0xFF, 1);//SNR
+	//proxy_i2c_write( 0x0B8+3, 0x28, 1);
 
 
-	//                           
+	// ClearSystemFreshOutofReset
 	proxy_i2c_write( SYSTEM__FRESH_OUT_OF_RESET, 0x0, 1);
 
 	#if 0
-	//               
+	//readRangeOffset
 	proxy_i2c_read( SYSRANGE__PART_TO_PART_RANGE_OFFSET, &chipidscalar, 1);
 	rangeTemp = (int8_t)chipidscalar;
 	if(chipidscalar > 0x7F) {
 		rangeTemp -= 0xFF;
 		}
 	#endif
-	//         
+	//Multiread
 	#if 0
 	for(i =0; i < 2;  i++){
 		proxy_i2c_read( RANGE__RANGE_SCALER+i, &chipidOffset, 1);
@@ -987,7 +987,7 @@ int msm_init_proxy(void)
 	ProxyRead16bit(RANGE__RANGE_SCALER, &readI2C);
 	#endif
 
-	//                
+	//Range_Set_scalar
 	for(i = 0; i < sizeof(u16); i++)
 	{
 		shift = (sizeof(u16) - i - 1)* 0x08;
@@ -995,7 +995,7 @@ int msm_init_proxy(void)
 		byteArray[i] = (u8)(((u16)((u16)85 & 0x01ff) & dataMask) >> shift);
 		proxy_i2c_write( RANGE__RANGE_SCALER + i, byteArray[i], 1);
 	}
-	//               
+	//readRangeOffset
 	#if 0
 	proxy_i2c_read( SYSRANGE__PART_TO_PART_RANGE_OFFSET, &chipidRangeMax, 1);
 	rangeTemp = (int8_t)chipidRangeMax;
@@ -1004,16 +1004,16 @@ int msm_init_proxy(void)
 		}
 	rangeTemp /= 3;
 
-	rangeTemp = rangeTemp +1; //      
-	//                
-	offsetByte = *((u8*)(&rangeTemp)); //      
+	rangeTemp = rangeTemp +1; //roundg
+	//Range_Set_Offset
+	offsetByte = *((u8*)(&rangeTemp)); // round
 	proxy_i2c_write( SYSRANGE__PART_TO_PART_RANGE_OFFSET,(u8)offsetByte, 1);
 	#else
 	proxy_i2c_e2p_read(0x700, &module_id, 2);	
 	shift_module_id = module_id >> 8;
 	pr_err("KSY module ID : %d\n", shift_module_id);
 		
-	if((shift_module_id == 0x01) || (shift_module_id == 0x02))  //          
+	if((shift_module_id == 0x01) || (shift_module_id == 0x02))  // It module
 	{
 		proxy_i2c_e2p_read(it_eep_reg, &fin_val, 2);
 		offsetByte = 0x00FF & fin_val;
@@ -1023,13 +1023,13 @@ int msm_init_proxy(void)
 			cal_count = 0;		
 			offsetByte = 0;
 		}
-		//                   
+		//	offsetByte -= 255;
 		msm_proxy_t.proxy_stat.cal_count = cal_count;
 		pr_err("inot read offset = %d from eeprom\n", offsetByte);
 		proxy_i2c_write( SYSRANGE__PART_TO_PART_RANGE_OFFSET, offsetByte, 1);
 
 	}
-	else if(shift_module_id == 0x03)           //         
+	else if(shift_module_id == 0x03)           //fj module
  	{	
 		proxy_i2c_e2p_read(fj_eep_reg, &fin_val, 2);
 		offsetByte = 0x00FF & fin_val;
@@ -1039,7 +1039,7 @@ int msm_init_proxy(void)
 			cal_count = 0;		
 			offsetByte = 0;
 		}
-		//                   
+		//	offsetByte -= 255;
 		msm_proxy_t.proxy_stat.cal_count = cal_count;
 		pr_err("fj read offset = %d from eeprom\n", offsetByte);
 		proxy_i2c_write( SYSRANGE__PART_TO_PART_RANGE_OFFSET, offsetByte, 1);
@@ -1049,7 +1049,7 @@ int msm_init_proxy(void)
 	
 	#endif
 
-	//                       
+	// Babybear_SetStraylight
 	ninepointseven=25;
 	proxy_i2c_write( SYSRANGE__CROSSTALK_COMPENSATION_RATE,(ninepointseven>>8)&0xFF, 1);
 	proxy_i2c_write( SYSRANGE__CROSSTALK_COMPENSATION_RATE+1,ninepointseven&0xFF, 1);
@@ -1058,25 +1058,25 @@ int msm_init_proxy(void)
 	proxy_i2c_write( SYSRANGE__CROSSTALK_VALID_HEIGHT,CrosstalkHeight&0xFF, 1);
 
 
-	//                                                              
-	IgnoreThreshold = 64; //             
-	IgnoreThresholdHeight = 33; //                    
+	// Will ignore all low distances (<100mm) with a low return rate
+	IgnoreThreshold = 64; // 64 = 0.5Mcps
+	IgnoreThresholdHeight = 33; // 33 * scaler3 = 99mm
 	proxy_i2c_write( SYSRANGE__RANGE_IGNORE_THRESHOLD, (IgnoreThreshold>>8)&0xFF, 1);
 	proxy_i2c_write( SYSRANGE__RANGE_IGNORE_THRESHOLD+1,IgnoreThreshold&0xFF, 1);
 	proxy_i2c_write( SYSRANGE__RANGE_IGNORE_VALID_HEIGHT,IgnoreThresholdHeight&0xFF, 1);
 
-	//                                                    
+	// Init of Averaging samples : in case of adding glass
 	for(i=0; i<8;i++){
-		LastMeasurements[i]=65535; //                          
+		LastMeasurements[i]=65535; // 65535 means no valid data
 	}
 	CurrentIndex = 0;
 
-	//                                    
+	// SetSystemInterruptConfigGPIORanging
 	proxy_i2c_read( SYSTEM__INTERRUPT_CONFIG_GPIO, &chipidgpio, 1);
 	proxy_i2c_write( SYSTEM__INTERRUPT_CONFIG_GPIO, (chipidgpio | 0x04), 1);
 
 
-	//                  
+	//RangeSetSystemMode
 	chipidRange = 0x01;
 	proxy_i2c_write( SYSRANGE__START, chipidRange, 1);
 
@@ -1093,18 +1093,18 @@ uint16_t msm_get_proxy(struct msm_sensor_proxy_info_t* proxy_info)
 {
 	uint16_t proxy;
 	proxy = msm_proxy_t.last_proxy;
-	//                                    
+	//proxy_info = msm_proxy_t.proxy_stat;
 
 	memcpy(proxy_info, &msm_proxy_t.proxy_stat, sizeof(msm_proxy_t.proxy_stat));
 
-	//                                                         
-	//                                                          
-	//                                                         
-	//                                                         
-	//                                                         
-	//                                                        
+	//proxy_info->proxy_val = msm_proxy_t.proxy_stat.proxy_val;
+	//proxy_info->proxy_conv= msm_proxy_t.proxy_stat.proxy_conv;
+	//proxy_info->proxy_sig = msm_proxy_t.proxy_stat.proxy_sig;
+	//proxy_info->proxy_amb = msm_proxy_t.proxy_stat.proxy_amb;
+	//proxy_info->proxy_raw = msm_proxy_t.proxy_stat.proxy_raw;
+	//proxy_info->cal_done = 	msm_proxy_t.proxy_stat.cal_done;
 
-	//                              
+	//pr_err("proxy = %d\n", proxy);
 
 	return proxy;
 }
@@ -1112,15 +1112,15 @@ uint16_t msm_get_proxy(struct msm_sensor_proxy_info_t* proxy_info)
 {
 	uint32_t newCrossTalk;
 	uint32_t newIgnoreThreshold;
-	//                                                                 
-	//                   
+	//CDBG("KSY  BabyBear_ParameterOptimization = %d\n",  ambientRate);
+	// Compute new values
 	newCrossTalk = BabyBear_damper(DEFAULT_CROSSTALK, ambientRate, LOW_LIGHT_XTALK_RATIO, HIGH_LIGHT_XTALK_RATIO);
 	newIgnoreThreshold = BabyBear_damper(DEFAULT_IGNORETHRES, ambientRate, LOW_LIGHT_IGNORETHRES_RATIO, HIGH_LIGHT_IGNORETHRES_RATIO);
 
-	//                                                                               
-	//                                                                                          
+	//CDBG("KSY  BabyBear_ParameterOptimization newCrossTalk = %d\n",  newCrossTalk);
+	//CDBG("KSY  BabyBear_ParameterOptimization newIgnoreThreshold= %d\n",  newIgnoreThreshold);
 
-	//                   
+	// Program new values
 	proxy_i2c_write( SYSRANGE__CROSSTALK_COMPENSATION_RATE, (newCrossTalk>>8)&0xFF, 1);
 	proxy_i2c_write( SYSRANGE__CROSSTALK_COMPENSATION_RATE+1,newCrossTalk&0xFF, 1);
 #if 0
@@ -1149,7 +1149,7 @@ uint16_t msm_get_proxy(struct msm_sensor_proxy_info_t* proxy_info)
 		}
 		else
 		{
-			//              
+			// Interpolation
 			Weight = (int)LowLightRatio + ( ((int)ambientRate - LOW_LIGHT_RETURN_RATE) * ((int)HighLightRatio - (int)LowLightRatio) / (HIGH_LIGHT_RETURN_RATE - LOW_LIGHT_RETURN_RATE) );
 		}
 	}
@@ -1177,7 +1177,7 @@ uint16_t VL6180_LiteFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, uint
     uint16_t MaxOrInvalidDistance;
 
     uint16_t registerValue;
- //                     
+ //   uint16_t dataByte;
     uint32_t register32BitsValue1;
     uint32_t register32BitsValue2;
     uint16_t bypassFilter = 0;
@@ -1187,7 +1187,7 @@ uint16_t VL6180_LiteFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, uint
     uint32_t MinVAVGDiff;
     uint32_t MaxVAVGDiff;
 
-    //                  
+    // Filter parameters
     uint16_t WrapAroundLowRawRangeLimit = 20;
     uint32_t WrapAroundLowReturnRateLimit = 800;
     uint16_t WrapAroundLowRawRangeLimit2 = 55;
@@ -1200,14 +1200,14 @@ uint16_t VL6180_LiteFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, uint
     uint32_t WrapAroundMaximumAmbientRateFilterLimit = 7500;
 
     uint32_t MAX_VAVGDiff = 1800;
-    //                      
+    // End Filter parameters
 
     uint8_t WrapAroundDetected = 0;
 
-    //                        
+    // Determines max distance
     MaxOrInvalidDistance = (uint16_t)(255 * 3);
 
-    //                                  
+    // Check if distance is Valid or not
     switch (errorCode)
     {
         case 0x0C:
@@ -1236,7 +1236,7 @@ uint16_t VL6180_LiteFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, uint
 
     if (m_rtnAmbientRate > WrapAroundMaximumAmbientRateFilterLimit)
     {
-        //                      
+        // Too high ambient rate
         bypassFilter = 1;
     }
 
@@ -1248,13 +1248,13 @@ uint16_t VL6180_LiteFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, uint
     proxy_i2c_read( 0x01AC, &registerValue, 1);
     if (bypassFilter == 1)
     {
-        //                             
+        // Do not go through the filter
         if (registerValue != 0x3E)
 			proxy_i2c_write( 0x01AC, 0x3E, 1);
     }
     else
     {
-        //                      
+        // Go through the filter
         #if 0
 		proxy_i2c_read( 0x010C, &dataByte, 1);
         register32BitsValue1 = (uint32_t)dataByte << 24;
@@ -1293,14 +1293,14 @@ uint16_t VL6180_LiteFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, uint
 			proxy_i2c_write( 0x01AC, 0x3E, 1);
         }
 
-        //                          
+        // Computes current VAVGDiff
         if (Default_VAVGVal > NoDelay_VAVGVal)
             VAVGDiff = Default_VAVGVal - NoDelay_VAVGVal;
         else
             VAVGDiff = 0;
         Previous_VAVGDiff = VAVGDiff;
 
-        //                   
+        // Check the VAVGDiff
         IdealVAVGDiff = Default_ZeroVal - NoDelay_ZeroVal;
         if (IdealVAVGDiff > MAX_VAVGDiff)
             MinVAVGDiff = IdealVAVGDiff - MAX_VAVGDiff;
@@ -1380,7 +1380,7 @@ uint16_t VL6180_ComplexFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, u
     uint16_t bypassFilter = 0;
 
     uint16_t registerValue;
-   //                   
+   // uint16_t dataByte;
     uint32_t register32BitsValue1;
     uint32_t register32BitsValue2;
 
@@ -1408,7 +1408,7 @@ uint16_t VL6180_ComplexFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, u
     uint32_t MinVAVGDiff;
     uint32_t MaxVAVGDiff;
 
-    //                  
+    // Filter Parameters
     uint16_t WrapAroundLowRawRangeLimit = 20;
     uint32_t WrapAroundLowReturnRateLimit = 800;
     uint16_t WrapAroundLowRawRangeLimit2 = 55;
@@ -1420,16 +1420,16 @@ uint16_t VL6180_ComplexFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, u
 
     uint32_t WrapAroundMaximumAmbientRateFilterLimit = 7500;
 
-    //                                      
+    // Temporal filter data and flush values
     uint32_t MinReturnRateFilterFlush = 75;
     uint32_t MaxReturnRateChangeFilterFlush = 50;
 
-    //                                
+    // STDDEV values and damper values
     uint32_t StdDevLimit = 300;
     uint32_t StdDevLimitLowLight = 300;
-    uint32_t StdDevLimitLowLightSNR = 30; //    
+    uint32_t StdDevLimitLowLightSNR = 30; // 0.3
     uint32_t StdDevLimitHighLight = 2500;
-    uint32_t StdDevLimitHighLightSNR = 5; //    
+    uint32_t StdDevLimitHighLightSNR = 5; //0.05
 
     uint32_t StdDevHighConfidenceSNRLimit = 8;
 
@@ -1439,18 +1439,18 @@ uint16_t VL6180_ComplexFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, u
 
     uint32_t MAX_VAVGDiff = 1800;
 
-    //                              
+    // WrapAroundDetection variables
     uint16_t WrapAroundNoDelayCheckPeriod = 2;
 
-    //                       
+    // Reads Filtering values
     uint16_t StdFilteredReadsIncrement = 2;
     uint16_t StdMaxFilteredReads = 4;
 
-    //                      
+    // End Filter Parameters
 
     MaxOrInvalidDistance = (uint16_t)(255 * 3);
 
-    //                                  
+    // Check if distance is Valid or not
     switch (errorCode)
     {
         case 0x0C:
@@ -1474,31 +1474,31 @@ uint16_t VL6180_ComplexFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, u
     }
     m_newTrueRange_mm = m_trueRange_mm;
 
-    //                         
+    // Checks on low range data
     if ((m_rawRange_mm < WrapAroundLowRawRangeLimit) && (m_rtnSignalRate < WrapAroundLowReturnRateLimit))
     {
-        //                  
+        //Not Valid distance
         m_newTrueRange_mm = MaxOrInvalidDistance;
         bypassFilter = 1;
     }
     if ((m_rawRange_mm < WrapAroundLowRawRangeLimit2) && (m_rtnSignalRate < WrapAroundLowReturnRateLimit2))
     {
-        //                  
+        //Not Valid distance
         m_newTrueRange_mm = MaxOrInvalidDistance;
         bypassFilter = 1;
     }
 
-    //                             
+    // Checks on Ambient rate level
     if (m_rtnAmbientRate > WrapAroundMaximumAmbientRateFilterLimit)
     {
-        //                      
+        // Too high ambient rate
         FlushFilter = 1;
         bypassFilter = 1;
     }
-    //                       
+    // Checks on Filter flush
     if (m_rtnSignalRate < MinReturnRateFilterFlush)
     {
-        //                                            
+        // Completely lost target, so flush the filter
         FlushFilter = 1;
         bypassFilter = 1;
     }
@@ -1539,16 +1539,16 @@ uint16_t VL6180_ComplexFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, u
         LastTrueRange[0] = FILTERINVALIDDISTANCE;
     LastReturnRates[0] = m_rtnSignalRate;
 
-    //                                                 
+    // Check if we need to go through the filter or not
     if (!(((m_rawRange_mm < WrapAroundHighRawRangeFilterLimit) && (m_rtnSignalRate < WrapAroundLowReturnRateFilterLimit)) ||
         ((m_rawRange_mm >= WrapAroundHighRawRangeFilterLimit) && (m_rtnSignalRate < WrapAroundHighReturnRateFilterLimit))
         ))
         bypassFilter = 1;
 
-    //                                              
+    // Check which kind of measurement has been made
 	proxy_i2c_read( 0x01AC, &registerValue, 1);
 
-    //                        
+    // Read data for filtering
 
 	#if 0
 	proxy_i2c_read( 0x010C, &dataByte, 1);
@@ -1589,17 +1589,17 @@ uint16_t VL6180_ComplexFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, u
 
     if (bypassFilter == 1)
     {
-        //                             
+        // Do not go through the filter
         if (registerValue != 0x3E)
 			proxy_i2c_write( 0x01AC, 0x3E, 1);
-        //                                          
+        // Set both Defaut and NoDelay To same value
         Default_ZeroVal = register32BitsValue1;
         Default_VAVGVal = register32BitsValue2;
         NoDelay_ZeroVal = register32BitsValue1;
         NoDelay_VAVGVal = register32BitsValue2;
         MeasurementIndex = 0;
 
-        //                   
+        // Return immediately
         return m_newTrueRange_mm;
     }
 
@@ -1611,14 +1611,14 @@ uint16_t VL6180_ComplexFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, u
 
     MeasurementIndex = (uint16_t)(MeasurementIndex + 1);
 
-    //                          
+    // Computes current VAVGDiff
     if (Default_VAVGVal > NoDelay_VAVGVal)
         VAVGDiff = Default_VAVGVal - NoDelay_VAVGVal;
     else
         VAVGDiff = 0;
     Previous_VAVGDiff = VAVGDiff;
 
-    //                   
+    // Check the VAVGDiff
     if(Default_ZeroVal>NoDelay_ZeroVal)
         IdealVAVGDiff = Default_ZeroVal - NoDelay_ZeroVal;
     else
@@ -1634,12 +1634,12 @@ uint16_t VL6180_ComplexFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, u
     }
     else
     {
-        //                           
+        // Go through filtering check
 
-        //                          
+        // StdDevLimit Damper on SNR
         StdDevLimit = VL6180_StdDevDamper(m_rtnAmbientRate, m_rtnSignalRate, StdDevLimitLowLight, StdDevLimitLowLightSNR, StdDevLimitHighLight, StdDevLimitHighLightSNR);
 
-        //                                 
+        // Standard deviations computations
         StdDevSamples = 0;
         StdDevDistanceSum = 0;
         StdDevDistanceMean = 0;
@@ -1684,20 +1684,20 @@ uint16_t VL6180_ComplexFilter(uint16_t m_trueRange_mm, uint16_t m_rawRange_mm, u
 			StdDevRate = 0;
         }
 
-        //                                     
+        // Check Return rate standard deviation
         if (StdDevRate < StdDevMovingTargetStdDevLimit)
         {
             if (StdDevSamples < MINFILTERVALIDSTDDEVSAMPLES)
             {
 				if(MeasurementIndex<FILTERSTDDEVSAMPLES)
-					//                                                   
+					// Not enough samples to check on standard deviations
 					m_newTrueRange_mm = 800;
 				else
 					m_newTrueRange_mm = MaxOrInvalidDistance;
             }
             else
             {
-                //                                  
+                // Check distance standard deviation
                 if (StdDevRate < StdDevMovingTargetReturnRateLimit)
                     StdDevLimitWithTargetMove = StdDevLimit + (((StdDevMovingTargetStdDevForReturnRateLimit - StdDevLimit) * StdDevRate) / StdDevMovingTargetReturnRateLimit);
                 else
@@ -1811,7 +1811,7 @@ static struct msm_proxy_ctrl_t msm_proxy_t = {
 	.i2c_driver = &msm_proxy_i2c_driver,
 	.pdriver = &msm_proxy_platform_driver,
 	.act_v4l2_subdev_ops = &msm_proxy_subdev_ops,
-	//                                
+	//.proxy_mutex = &msm_proxy_mutex,
 };
 
 module_init(msm_proxy_init_module);

@@ -14,11 +14,11 @@
 #include <asm-generic/gpio.h>
 
 /*
-                                                                    
-                                              
-  
-                                                                   
-                   
+ * SoCs with GIC interrupt controller have 160 IRQs, those with TZIC
+ * have 128 IRQs, and those with AVIC have 64.
+ *
+ * To support single image, the biggest number should be defined on
+ * top of the list.
  */
 #if defined CONFIG_ARM_GIC
 #define MXC_INTERNAL_IRQS	160
@@ -31,10 +31,10 @@
 #define MXC_GPIO_IRQ_START	MXC_INTERNAL_IRQS
 
 /*
-                                                                 
-                                                                  
-                                                                 
-                          
+ * The next 16 interrupts are for board specific purposes.  Since
+ * the kernel can only run on one machine at a time, we can re-use
+ * these.  If you need more, increase MXC_BOARD_IRQS, but keep it
+ * within sensible limits.
  */
 #define MXC_BOARD_IRQ_START	(MXC_INTERNAL_IRQS + ARCH_NR_GPIOS)
 
@@ -51,15 +51,15 @@
 #else
 #define MX3_IPU_IRQS 0
 #endif
-/*                                */
+/* REVISIT: Add IPU irqs on IMX51 */
 
 #define NR_IRQS			(MXC_IPU_IRQ_START + MX3_IPU_IRQS)
 
 extern int imx_irq_set_priority(unsigned char irq, unsigned char prio);
 
-/*                             */
+/* all normal IRQs can be FIQs */
 #define FIQ_START	0
-/*                            */
+/* switch between IRQ and FIQ */
 extern int mxc_set_irq_fiq(unsigned int irq, unsigned int type);
 
-#endif /*                         */
+#endif /* __ASM_ARCH_MXC_IRQS_H__ */

@@ -40,22 +40,22 @@
 #include "sym_glue.h"
 
 /*
-                                                     
-                                             
-  
-                                                        
-                                                  
-                                                                
-                                                                
-                                                             
-                                                 
-  
-                                                               
-                                                              
-                
-                                                               
-                                                                
-                         
+ *  Simple power of two buddy-like generic allocator.
+ *  Provides naturally aligned memory chunks.
+ *
+ *  This simple code is not intended to be fast, but to 
+ *  provide power of 2 aligned memory allocations.
+ *  Since the SCRIPTS processor only supplies 8 bit arithmetic, 
+ *  this allocator allows simple and fast address calculations  
+ *  from the SCRIPTS code. In addition, cache line alignment 
+ *  is guaranteed for power of 2 cache line size.
+ *
+ *  This allocator has been developed for the Linux sym53c8xx  
+ *  driver, since this O/S does not provide naturally aligned 
+ *  allocations.
+ *  It has the advantage of allowing the driver to use private 
+ *  pages of memory that will be useful if we ever need to deal 
+ *  with IO MMUs for PCI.
  */
 static void *___sym_malloc(m_pool_p mp, int size)
 {
@@ -101,7 +101,7 @@ static void *___sym_malloc(m_pool_p mp, int size)
 }
 
 /*
-                                          
+ *  Counter-part of the generic allocator.
  */
 static void ___sym_mfree(m_pool_p mp, void *ptr, int size)
 {
@@ -153,7 +153,7 @@ static void ___sym_mfree(m_pool_p mp, void *ptr, int size)
 }
 
 /*
-                                                                       
+ *  Verbose and zeroing allocator that wrapps to the generic allocator.
  */
 static void *__sym_calloc2(m_pool_p mp, int size, char *name, int uflags)
 {
@@ -174,7 +174,7 @@ static void *__sym_calloc2(m_pool_p mp, int size, char *name, int uflags)
 #define __sym_calloc(mp, s, n)	__sym_calloc2(mp, s, n, SYM_MEM_WARN)
 
 /*
-                     
+ *  Its counter-part.
  */
 static void __sym_mfree(m_pool_p mp, void *ptr, int size, char *name)
 {
@@ -185,10 +185,10 @@ static void __sym_mfree(m_pool_p mp, void *ptr, int size, char *name)
 }
 
 /*
-                                                         
-  
-                                                         
-                                                              
+ *  Default memory pool we donnot need to involve in DMA.
+ *
+ *  With DMA abstraction, we use functions (methods), to 
+ *  distinguish between non DMAable memory and DMAable memory.
  */
 static void *___mp0_get_mem_cluster(m_pool_p mp)
 {
@@ -215,11 +215,11 @@ static struct sym_m_pool mp0 = {
 };
 
 /*
-                                                                       
-                                                                    
-                                                      
+ *  Methods that maintains DMAable pools according to user allocations.
+ *  New pools are created on the fly when a new pool id is provided.
+ *  They are deleted on the fly when they get emptied.
  */
-/*                                                                       */
+/* Get a memory cluster that matches the DMA constraints of a given pool */
 static void * ___get_dma_mem_cluster(m_pool_p mp)
 {
 	m_vtob_p vbp;
@@ -242,7 +242,7 @@ out_err:
 }
 
 #ifdef	SYM_MEM_FREE_UNUSED
-/*                                                        */
+/* Free a memory cluster and associated resources for DMA */
 static void ___free_dma_mem_cluster(m_pool_p mp, void *m)
 {
 	m_vtob_p *vbpp, vbp;
@@ -261,7 +261,7 @@ static void ___free_dma_mem_cluster(m_pool_p mp, void *m)
 }
 #endif
 
-/*                                                                  */
+/* Fetch the memory pool for a given pool id (i.e. DMA constraints) */
 static inline m_pool_p ___get_dma_pool(m_pool_ident_t dev_dmat)
 {
 	m_pool_p mp;
@@ -271,7 +271,7 @@ static inline m_pool_p ___get_dma_pool(m_pool_ident_t dev_dmat)
 	return mp;
 }
 
-/*                                                      */
+/* Create a new memory DMAable pool (when fetch failed) */
 static m_pool_p ___cre_dma_pool(m_pool_ident_t dev_dmat)
 {
 	m_pool_p mp = __sym_calloc(&mp0, sizeof(*mp), "MPOOL");
@@ -289,7 +289,7 @@ static m_pool_p ___cre_dma_pool(m_pool_ident_t dev_dmat)
 }
 
 #ifdef	SYM_MEM_FREE_UNUSED
-/*                                                  */
+/* Destroy a DMAable memory pool (when got emptied) */
 static void ___del_dma_pool(m_pool_p p)
 {
 	m_pool_p *pp = &mp0.next;
@@ -303,11 +303,11 @@ static void ___del_dma_pool(m_pool_p p)
 }
 #endif
 
-/*                                                      */
+/* This lock protects only the memory allocation/free.  */
 static DEFINE_SPINLOCK(sym53c8xx_lock);
 
 /*
-                                        
+ *  Actual allocator for DMAable memory.
  */
 void *__sym_calloc_dma(m_pool_ident_t dev_dmat, int size, char *name)
 {
@@ -351,8 +351,8 @@ void __sym_mfree_dma(m_pool_ident_t dev_dmat, void *m, int size, char *name)
 }
 
 /*
-                                                      
-                                          
+ *  Actual virtual to bus physical address translator 
+ *  for 32 bit addressable DMAable memory.
  */
 dma_addr_t __vtobus(m_pool_ident_t dev_dmat, void *m)
 {

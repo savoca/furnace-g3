@@ -16,17 +16,17 @@
 #include "hfs_fs.h"
 #include "btree.h"
 
-/*                                                       */
+/*================ File-local data types ================*/
 
 /*
-                                        
-  
-                                                                      
-                                      
-  
-                                                               
-  
-                            
+ * The HFS Master Directory Block (MDB).
+ *
+ * Also known as the Volume Information Block (VIB), this structure is
+ * the HFS equivalent of a superblock.
+ *
+ * Reference: _Inside Macintosh: Files_ pages 2-59 through 2-62
+ *
+ * modified for HFS Extended
  */
 
 static int hfs_get_last_session(struct super_block *sb,
@@ -36,7 +36,7 @@ static int hfs_get_last_session(struct super_block *sb,
 	struct cdrom_tocentry te;
 	int res;
 
-	/*                */
+	/* default values */
 	*start = 0;
 	*size = sb->s_bdev->bd_inode->i_size >> 9;
 
@@ -59,10 +59,10 @@ static int hfs_get_last_session(struct super_block *sb,
 }
 
 /*
-                
-  
-                                                    
-                                     
+ * hfs_mdb_get()
+ *
+ * Build the in-core MDB for a filesystem, including
+ * the B-trees and the volume bitmap.
  */
 int hfs_mdb_get(struct super_block *sb)
 {
@@ -75,7 +75,7 @@ int hfs_mdb_get(struct super_block *sb)
 	loff_t off;
 	__be16 attrib;
 
-	/*                                          */
+	/* set the device driver to 512-byte blocks */
 	size = sb_min_blocksize(sb, HFS_SECTOR_SIZE);
 	if (!size)
 		return -EINVAL;
@@ -83,7 +83,7 @@ int hfs_mdb_get(struct super_block *sb)
 	if (hfs_get_last_session(sb, &part_start, &part_size))
 		return -EINVAL;
 	while (1) {
-		/*                                  */
+		/* See if this is an HFS filesystem */
 		bh = sb_bread512(sb, part_start + HFS_MDB_BLK, mdb);
 		if (!bh)
 			goto out;
@@ -92,9 +92,9 @@ int hfs_mdb_get(struct super_block *sb)
 			break;
 		brelse(bh);
 
-		/*                            
-                                                
-   */
+		/* check for a partition block
+		 * (should do this only for cdrom/loop though)
+		 */
 		if (hfs_part_find(sb, &part_start, &part_size))
 			goto out;
 	}
@@ -106,14 +106,14 @@ int hfs_mdb_get(struct super_block *sb)
 	}
 
 	size = min(HFS_SB(sb)->alloc_blksz, (u32)PAGE_SIZE);
-	/*                                */
+	/* size must be a multiple of 512 */
 	while (size & (size - 1))
 		size -= HFS_SECTOR_SIZE;
 	sect = be16_to_cpu(mdb->drAlBlSt) + part_start;
-	/*                                  */
+	/* align block size to first sector */
 	while (sect & ((size - 1) >> HFS_SECTOR_SIZE_BITS))
 		size >>= 1;
-	/*                                      */
+	/* align block size to weird alloc size */
 	while (HFS_SB(sb)->alloc_blksz & (size - 1))
 		size >>= 1;
 	brelse(bh);
@@ -131,7 +131,7 @@ int hfs_mdb_get(struct super_block *sb)
 	HFS_SB(sb)->mdb_bh = bh;
 	HFS_SB(sb)->mdb = mdb;
 
-	/*                                                           */
+	/* These parameters are read from the MDB, and never written */
 	HFS_SB(sb)->part_start = part_start;
 	HFS_SB(sb)->fs_ablocks = be16_to_cpu(mdb->drNmAlBlks);
 	HFS_SB(sb)->fs_div = HFS_SB(sb)->alloc_blksz >> sb->s_blocksize_bits;
@@ -142,7 +142,7 @@ int hfs_mdb_get(struct super_block *sb)
 	HFS_SB(sb)->fs_start = (be16_to_cpu(mdb->drAlBlSt) + part_start) >>
 			       (sb->s_blocksize_bits - HFS_SECTOR_SIZE_BITS);
 
-	/*                                                       */
+	/* These parameters are read from and written to the MDB */
 	HFS_SB(sb)->free_ablocks = be16_to_cpu(mdb->drFreeBks);
 	HFS_SB(sb)->next_id = be32_to_cpu(mdb->drNxtCNID);
 	HFS_SB(sb)->root_files = be16_to_cpu(mdb->drNmFls);
@@ -150,7 +150,7 @@ int hfs_mdb_get(struct super_block *sb)
 	HFS_SB(sb)->file_count = be32_to_cpu(mdb->drFilCnt);
 	HFS_SB(sb)->folder_count = be32_to_cpu(mdb->drDirCnt);
 
-	/*                                        */
+	/* TRY to get the alternate (backup) MDB. */
 	sect = part_start + part_size - 2;
 	bh = sb_bread512(sb, sect, mdb2);
 	if (bh) {
@@ -170,7 +170,7 @@ int hfs_mdb_get(struct super_block *sb)
 	if (!HFS_SB(sb)->bitmap)
 		goto out;
 
-	/*                    */
+	/* read in the bitmap */
 	block = be16_to_cpu(mdb->drVBMSt) + part_start;
 	off = (loff_t)block << HFS_SECTOR_SIZE_BITS;
 	size = (HFS_SB(sb)->fs_ablocks + 8) / 8;
@@ -212,7 +212,7 @@ int hfs_mdb_get(struct super_block *sb)
 		sb->s_flags |= MS_RDONLY;
 	}
 	if (!(sb->s_flags & MS_RDONLY)) {
-		/*                                                      */
+		/* Mark the volume uncleanly unmounted in case we crash */
 		attrib &= cpu_to_be16(~HFS_SB_ATTRIB_UNMNT);
 		attrib |= cpu_to_be16(HFS_SB_ATTRIB_INCNSTNT);
 		mdb->drAtrb = attrib;
@@ -233,35 +233,35 @@ out:
 }
 
 /*
-                   
-  
-               
-                                                                   
-                                                               
-                                                               
-                                                        
-                     
-                                                
-                
-                      
-         
-           
-         
-                 
-                                                
-                  
-                                                                     
-                                                                     
-                           
-                                                                   
-                                                                  
+ * hfs_mdb_commit()
+ *
+ * Description:
+ *   This updates the MDB on disk (look also at hfs_write_super()).
+ *   It does not check, if the superblock has been modified, or
+ *   if the filesystem has been mounted read-only. It is mainly
+ *   called by hfs_write_super() and hfs_btree_extend().
+ * Input Variable(s):
+ *   struct hfs_mdb *mdb: Pointer to the hfs MDB
+ *   int backup;
+ * Output Variable(s):
+ *   NONE
+ * Returns:
+ *   void
+ * Preconditions:
+ *   'mdb' points to a "valid" (struct hfs_mdb).
+ * Postconditions:
+ *   The HFS MDB and on disk will be updated, by copying the possibly
+ *   modified fields from the in memory MDB (in native byte order) to
+ *   the disk block buffer.
+ *   If 'backup' is non-zero then the alternate MDB is also written
+ *   and the function doesn't return until it is actually on disk.
  */
 void hfs_mdb_commit(struct super_block *sb)
 {
 	struct hfs_mdb *mdb = HFS_SB(sb)->mdb;
 
 	if (test_and_clear_bit(HFS_FLG_MDB_DIRTY, &HFS_SB(sb)->flags)) {
-		/*                                                             */
+		/* These parameters may have been modified, so write them back */
 		mdb->drLsMod = hfs_mtime();
 		mdb->drFreeBks = cpu_to_be16(HFS_SB(sb)->free_ablocks);
 		mdb->drNxtCNID = cpu_to_be32(HFS_SB(sb)->next_id);
@@ -270,13 +270,13 @@ void hfs_mdb_commit(struct super_block *sb)
 		mdb->drFilCnt = cpu_to_be32(HFS_SB(sb)->file_count);
 		mdb->drDirCnt = cpu_to_be32(HFS_SB(sb)->folder_count);
 
-		/*                   */
+		/* write MDB to disk */
 		mark_buffer_dirty(HFS_SB(sb)->mdb_bh);
 	}
 
-	/*                                                         
-                                                               
-                */
+	/* write the backup MDB, not returning until it is written.
+	 * we only do this when either the catalog or extents overflow
+	 * files grow. */
 	if (test_and_clear_bit(HFS_FLG_ALT_MDB_DIRTY, &HFS_SB(sb)->flags) &&
 	    HFS_SB(sb)->alt_mdb) {
 		hfs_inode_write_fork(HFS_SB(sb)->ext_tree->inode, mdb->drXTExtRec,
@@ -321,7 +321,7 @@ void hfs_mdb_commit(struct super_block *sb)
 
 void hfs_mdb_close(struct super_block *sb)
 {
-	/*                          */
+	/* update volume attributes */
 	if (sb->s_flags & MS_RDONLY)
 		return;
 	HFS_SB(sb)->mdb->drAtrb |= cpu_to_be16(HFS_SB_ATTRIB_UNMNT);
@@ -330,18 +330,18 @@ void hfs_mdb_close(struct super_block *sb)
 }
 
 /*
-                
-  
-                                                           */
+ * hfs_mdb_put()
+ *
+ * Release the resources associated with the in-core MDB.  */
 void hfs_mdb_put(struct super_block *sb)
 {
 	if (!HFS_SB(sb))
 		return;
-	/*                  */
+	/* free the B-trees */
 	hfs_btree_close(HFS_SB(sb)->ext_tree);
 	hfs_btree_close(HFS_SB(sb)->cat_tree);
 
-	/*                                                         */
+	/* free the buffers holding the primary and alternate MDBs */
 	brelse(HFS_SB(sb)->mdb_bh);
 	brelse(HFS_SB(sb)->alt_mdb_bh);
 

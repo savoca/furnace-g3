@@ -129,7 +129,7 @@ extern int broadcast_drv_if_user_stop(int mode);
 extern int broadcast_drv_if_select_antenna(unsigned int sel);
 extern int broadcast_drv_if_isr(void);
 
-//                                                          
+//20130516_wonhee.jeong Code for revision separation [START]
 #if defined (CONFIG_MACH_MSM8974_Z_KR)
 extern int broadcast_drv_if_power_on_fci(void);
 extern int broadcast_drv_if_power_off_fci(void);
@@ -145,5 +145,5 @@ extern int broadcast_drv_if_user_stop_fci(int mode);
 extern int broadcast_drv_if_select_antenna_fci(unsigned int sel);
 extern int broadcast_drv_if_isr_fci(void);
 #endif
-//                                                        
+//20130516_wonhee.jeong Code for revision separation [END]
 #endif

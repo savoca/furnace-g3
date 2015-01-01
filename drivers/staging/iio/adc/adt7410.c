@@ -20,7 +20,7 @@
 #include "../events.h"
 
 /*
-                               
+ * ADT7410 registers definition
  */
 
 #define ADT7410_TEMPERATURE		0
@@ -34,7 +34,7 @@
 #define ADT7410_RESET			0x2F
 
 /*
-                 
+ * ADT7410 status
  */
 #define ADT7410_STAT_T_LOW		0x10
 #define ADT7410_STAT_T_HIGH		0x20
@@ -42,7 +42,7 @@
 #define ADT7410_STAT_NOT_RDY		0x80
 
 /*
-                 
+ * ADT7410 config
  */
 #define ADT7410_FAULT_QUEUE_MASK	0x3
 #define ADT7410_CT_POLARITY		0x4
@@ -55,7 +55,7 @@
 #define ADT7410_RESOLUTION		0x80
 
 /*
-                
+ * ADT7410 masks
  */
 #define ADT7410_T16_VALUE_SIGN			0x8000
 #define ADT7410_T16_VALUE_FLOAT_OFFSET		7
@@ -72,7 +72,7 @@
 #define ADT7410_IRQS				2
 
 /*
-                                                      
+ * struct adt7410_chip_info - chip specifc information
  */
 
 struct adt7410_chip_info {
@@ -81,7 +81,7 @@ struct adt7410_chip_info {
 };
 
 /*
-                                 
+ * adt7410 register access by I2C
  */
 
 static int adt7410_i2c_read_word(struct adt7410_chip_info *chip, u8 reg, u16 *data)
@@ -295,7 +295,7 @@ static ssize_t adt7410_convert_temperature(struct adt7410_chip_info *chip,
 
 	if (chip->config & ADT7410_RESOLUTION) {
 		if (data & ADT7410_T16_VALUE_SIGN) {
-			/*                                      */
+			/* convert supplement to positive value */
 			data = (u16)((ADT7410_T16_VALUE_SIGN << 1) - (u32)data);
 			sign = '-';
 		}
@@ -304,7 +304,7 @@ static ssize_t adt7410_convert_temperature(struct adt7410_chip_info *chip,
 				(data & ADT7410_T16_VALUE_FLOAT_MASK) * 78125);
 	} else {
 		if (data & ADT7410_T13_VALUE_SIGN) {
-			/*                                      */
+			/* convert supplement to positive value */
 			data >>= ADT7410_T13_VALUE_OFFSET;
 			data = (ADT7410_T13_VALUE_SIGN << 1) - data;
 			sign = '-';
@@ -554,14 +554,14 @@ static inline ssize_t adt7410_set_t_bound(struct device *dev,
 			(tmp2 & ADT7410_T16_VALUE_FLOAT_MASK);
 
 		if (tmp1 < 0)
-			/*                                      */
+			/* convert positive value to supplyment */
 			data = (u16)((ADT7410_T16_VALUE_SIGN << 1) - (u32)data);
 	} else {
 		data = (data << ADT7410_T13_VALUE_FLOAT_OFFSET) |
 			(tmp2 & ADT7410_T13_VALUE_FLOAT_MASK);
 
 		if (tmp1 < 0)
-			/*                                      */
+			/* convert positive value to supplyment */
 			data = (ADT7410_T13_VALUE_SIGN << 1) - data;
 		data <<= ADT7410_T13_VALUE_OFFSET;
 	}
@@ -710,7 +710,7 @@ static const struct iio_info adt7410_info = {
 };
 
 /*
-                          
+ * device probe and remove
  */
 
 static int __devinit adt7410_probe(struct i2c_client *client,
@@ -727,7 +727,7 @@ static int __devinit adt7410_probe(struct i2c_client *client,
 		goto error_ret;
 	}
 	chip = iio_priv(indio_dev);
-	/*                                               */
+	/* this is only used for device removal purposes */
 	i2c_set_clientdata(client, indio_dev);
 
 	chip->client = client;
@@ -737,7 +737,7 @@ static int __devinit adt7410_probe(struct i2c_client *client,
 	indio_dev->info = &adt7410_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	/*                                      */
+	/* CT critcal temperature event. line 0 */
 	if (client->irq) {
 		ret = request_threaded_irq(client->irq,
 					   NULL,
@@ -749,7 +749,7 @@ static int __devinit adt7410_probe(struct i2c_client *client,
 			goto error_free_dev;
 	}
 
-	/*                                           */
+	/* INT bound temperature alarm event. line 1 */
 	if (adt7410_platform_data[0]) {
 		ret = request_threaded_irq(adt7410_platform_data[0],
 					   NULL,
@@ -769,7 +769,7 @@ static int __devinit adt7410_probe(struct i2c_client *client,
 			goto error_unreg_int_irq;
 		}
 
-		/*                            */
+		/* set irq polarity low level */
 		chip->config &= ~ADT7410_CT_POLARITY;
 
 		if (adt7410_platform_data[1] & IRQF_TRIGGER_HIGH)

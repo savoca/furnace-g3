@@ -13,10 +13,10 @@
 
 #include "xilinx_axienet.h"
 
-#define MAX_MDIO_FREQ		2500000 /*         */
+#define MAX_MDIO_FREQ		2500000 /* 2.5 MHz */
 #define DEFAULT_CLOCK_DIVISOR	XAE_MDIO_DIV_DFT
 
-/*                                                               */
+/* Wait till MDIO interface is ready to accept a new transaction.*/
 int axienet_mdio_wait_until_ready(struct axienet_local *lp)
 {
 	long end = jiffies + 2;
@@ -31,17 +31,17 @@ int axienet_mdio_wait_until_ready(struct axienet_local *lp)
 	return 0;
 }
 
-/* 
-                                                   
-                                     
-                                     
-                             
-  
-                                                                     
-  
-                                                                      
-                                                                        
-                                                               
+/**
+ * axienet_mdio_read - MDIO interface read function
+ * @bus:	Pointer to mii bus structure
+ * @phy_id:	Address of the PHY device
+ * @reg:	PHY register to read
+ *
+ * returns:	The register contents on success, -ETIMEDOUT on a timeout
+ *
+ * Reads the contents of the requested register from the requested PHY
+ * address by first writing the details into MCR register. After a while
+ * the register MRD is read to obtain the PHY register content.
  */
 static int axienet_mdio_read(struct mii_bus *bus, int phy_id, int reg)
 {
@@ -73,18 +73,18 @@ static int axienet_mdio_read(struct mii_bus *bus, int phy_id, int reg)
 	return rc;
 }
 
-/* 
-                                                     
-                                     
-                                     
-                                 
-                                              
-  
-                                                 
-  
-                                                                        
-                                                                      
-                                 
+/**
+ * axienet_mdio_write - MDIO interface write function
+ * @bus:	Pointer to mii bus structure
+ * @phy_id:	Address of the PHY device
+ * @reg:	PHY register to write to
+ * @val:	Value to be written into the register
+ *
+ * returns:	0 on success, -ETIMEDOUT on a timeout
+ *
+ * Writes the value to the requested register by first writing the value
+ * into MWD register. The the MCR register is then appropriately setup
+ * to finish the write operation.
  */
 static int axienet_mdio_write(struct mii_bus *bus, int phy_id, int reg,
 			      u16 val)
@@ -114,17 +114,17 @@ static int axienet_mdio_write(struct mii_bus *bus, int phy_id, int reg,
 	return 0;
 }
 
-/* 
-                                           
-                                                 
-                               
-  
-                                                               
-                                                                   
-  
-                                                                             
-                                                           
-  */
+/**
+ * axienet_mdio_setup - MDIO setup function
+ * @lp:		Pointer to axienet local data structure.
+ * @np:		Pointer to device node
+ *
+ * returns:	0 on success, -ETIMEDOUT on a timeout, -ENOMEM when
+ *		mdiobus_alloc (to allocate memory for mii bus structure) fails.
+ *
+ * Sets up the MDIO interface by initializing the MDIO clock and enabling the
+ * MDIO interface in hardware. Register the MDIO interface.
+ **/
 int axienet_mdio_setup(struct axienet_local *lp, struct device_node *np)
 {
 	int ret;
@@ -134,30 +134,30 @@ int axienet_mdio_setup(struct axienet_local *lp, struct device_node *np)
 	struct resource res;
 	struct device_node *np1;
 
-	/*                                                            
-                                       
-   
-                                      
-                                          
-   
-                
-                                                
-   
-                
-                                                
-   
-                
-                                          
-   
-       
-                                      
-   
-                
-                                    
-   
-                                                                
-                                  
-  */
+	/* clk_div can be calculated by deriving it from the equation:
+	 * fMDIO = fHOST / ((1 + clk_div) * 2)
+	 *
+	 * Where fMDIO <= 2500000, so we get:
+	 * fHOST / ((1 + clk_div) * 2) <= 2500000
+	 *
+	 * Then we get:
+	 * 1 / ((1 + clk_div) * 2) <= (2500000 / fHOST)
+	 *
+	 * Then we get:
+	 * 1 / (1 + clk_div) <= ((2500000 * 2) / fHOST)
+	 *
+	 * Then we get:
+	 * 1 / (1 + clk_div) <= (5000000 / fHOST)
+	 *
+	 * So:
+	 * (1 + clk_div) >= (fHOST / 5000000)
+	 *
+	 * And finally:
+	 * clk_div >= (fHOST / 5000000) - 1
+	 *
+	 * fHOST can be read from the flattened device tree as property
+	 * "clock-frequency" from the CPU
+	 */
 
 	np1 = of_find_node_by_name(NULL, "cpu");
 	if (!np1) {
@@ -180,9 +180,9 @@ int axienet_mdio_setup(struct axienet_local *lp, struct device_node *np)
 
 	host_clock = be32_to_cpup(property_p);
 	clk_div = (host_clock / (MAX_MDIO_FREQ * 2)) - 1;
-	/*                                               
-                                                    
-                                                              */
+	/* If there is any remainder from the division of
+	 * fHOST / (MAX_MDIO_FREQ * 2), then we need to add
+	 * 1 to the clock divisor or we will surely be above 2.5 MHz */
 	if (host_clock % (MAX_MDIO_FREQ * 2))
 		clk_div++;
 
@@ -212,7 +212,7 @@ issue:
 	bus->read = axienet_mdio_read;
 	bus->write = axienet_mdio_write;
 	bus->parent = lp->dev;
-	bus->irq = lp->mdio_irqs; /*                        */
+	bus->irq = lp->mdio_irqs; /* preallocated IRQ table */
 	lp->mii_bus = bus;
 
 	ret = of_mdiobus_register(bus, np1);
@@ -223,11 +223,11 @@ issue:
 	return 0;
 }
 
-/* 
-                                               
-                                                 
-  
-                                                                   
+/**
+ * axienet_mdio_teardown - MDIO remove function
+ * @lp:		Pointer to axienet local data structure.
+ *
+ * Unregisters the MDIO and frees any associate memory for mii bus.
  */
 void axienet_mdio_teardown(struct axienet_local *lp)
 {

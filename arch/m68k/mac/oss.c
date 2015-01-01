@@ -1,17 +1,17 @@
 /*
-                                                
-                                                   
-  
-  
-                                                                         
-                                              
-  
-                                                                              
-                                                   
-                                                                             
-                                                                
-                                                                 
-                                                 
+ *	Operating System Services (OSS) chip handling
+ *	Written by Joshua M. Thompson (funaho@jurai.org)
+ *
+ *
+ *	This chip is used in the IIfx in place of VIA #2. It acts like a fancy
+ *	VIA chip with prorammable interrupt levels.
+ *
+ * 990502 (jmt) - Major rewrite for new interrupt architecture as well as some
+ *		  recent insights into OSS operational details.
+ * 990610 (jmt) - Now taking full advantage of the OSS. Interrupts are mapped
+ *		  to mostly match the A/UX interrupt scheme supported on the
+ *		  VIA side. Also added support for enabling the ISM irq again
+ *		  since we now have a functional IOP manager.
  */
 
 #include <linux/types.h>
@@ -31,10 +31,10 @@ int oss_present;
 volatile struct mac_oss *oss;
 
 /*
-                     
-  
-                                                                            
-                                                                    
+ * Initialize the OSS
+ *
+ * The OSS "detection" code is actually in via_init() which is always called
+ * before us. Thus we can count on oss_present being valid on entry.
  */
 
 void __init oss_init(void)
@@ -45,8 +45,8 @@ void __init oss_init(void)
 
 	oss = (struct mac_oss *) OSS_BASE;
 
-	/*                                                          */
-	/*                                                          */
+	/* Disable all interrupts. Unlike a VIA it looks like we    */
+	/* do this by setting the source's interrupt level to zero. */
 
 	for (i = 0; i <= OSS_NUM_SOURCES; i++) {
 		oss->irq_level[i] = 0;
@@ -54,7 +54,7 @@ void __init oss_init(void)
 }
 
 /*
-                                  
+ * Initialize OSS for Nubus access
  */
 
 void __init oss_nubus_init(void)
@@ -62,7 +62,7 @@ void __init oss_nubus_init(void)
 }
 
 /*
-                                       
+ * Handle miscellaneous OSS interrupts.
  */
 
 static void oss_irq(unsigned int irq, struct irq_desc *desc)
@@ -94,9 +94,9 @@ static void oss_irq(unsigned int irq, struct irq_desc *desc)
 }
 
 /*
-                               
-  
-                                                                    
+ * Nubus IRQ handler, OSS style
+ *
+ * Unlike the VIA/RBV this is on its own autovector interrupt level.
  */
 
 static void oss_nubus_irq(unsigned int irq, struct irq_desc *desc)
@@ -112,7 +112,7 @@ static void oss_nubus_irq(unsigned int irq, struct irq_desc *desc)
 		printk("oss_nubus_irq: events = 0x%04X\n", events);
 	}
 #endif
-	/*                                                */
+	/* There are only six slots on the OSS, not seven */
 
 	i = 6;
 	irq_bit = 0x40;
@@ -127,12 +127,12 @@ static void oss_nubus_irq(unsigned int irq, struct irq_desc *desc)
 }
 
 /*
-                                                    
-  
-                                                                              
-                                                                              
-                                                                              
-                                               
+ * Register the OSS and NuBus interrupt dispatchers.
+ *
+ * This IRQ mapping is laid out with two things in mind: first, we try to keep
+ * things on their own levels to avoid having to do double-dispatches. Second,
+ * the levels match as closely as possible the alternate IRQ mapping mode (aka
+ * "A/UX mode") available on some VIA machines.
  */
 
 #define OSS_IRQLEV_IOPISM    IRQ_AUTO_1
@@ -149,17 +149,17 @@ void __init oss_register_interrupts(void)
 	irq_set_chained_handler(OSS_IRQLEV_IOPSCC, oss_irq);
 	irq_set_chained_handler(OSS_IRQLEV_VIA1,   via1_irq);
 
-	/*                                                                  */
+	/* OSS_VIA1 gets enabled here because it has no machspec interrupt. */
 	oss->irq_level[OSS_VIA1] = IRQ_AUTO_6;
 }
 
 /*
-                          
-  
-                                                                         
-                                                                      
-                                                                         
-                                                                 
+ * Enable an OSS interrupt
+ *
+ * It looks messy but it's rather straightforward. The switch() statement
+ * just maps the machspec interrupt numbers to the right OSS interrupt
+ * source (if the OSS handles that interrupt) and then sets the interrupt
+ * level for that source to nonzero, thus enabling the interrupt.
  */
 
 void oss_irq_enable(int irq) {
@@ -192,10 +192,10 @@ void oss_irq_enable(int irq) {
 }
 
 /*
-                           
-  
-                                                                    
-                            
+ * Disable an OSS interrupt
+ *
+ * Same as above except we set the source's interrupt level to zero,
+ * to disable the interrupt.
  */
 
 void oss_irq_disable(int irq) {

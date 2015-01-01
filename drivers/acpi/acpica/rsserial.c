@@ -1,8 +1,8 @@
-/*                                                                              
-  
-                                                               
-  
-                                                                              */
+/*******************************************************************************
+ *
+ * Module Name: rsserial - GPIO/serial_bus resource descriptors
+ *
+ ******************************************************************************/
 
 /*
  * Copyright (C) 2000 - 2012, Intel Corp.
@@ -48,11 +48,11 @@
 #define _COMPONENT          ACPI_RESOURCES
 ACPI_MODULE_NAME("rsserial")
 
-/*                                                                              
-  
-                       
-  
-                                                                              */
+/*******************************************************************************
+ *
+ * acpi_rs_convert_gpio
+ *
+ ******************************************************************************/
 struct acpi_rsconvert_info acpi_rs_convert_gpio[17] = {
 	{ACPI_RSC_INITGET, ACPI_RESOURCE_TYPE_GPIO,
 	 ACPI_RS_SIZE(struct acpi_resource_gpio),
@@ -63,10 +63,10 @@ struct acpi_rsconvert_info acpi_rs_convert_gpio[17] = {
 	 0},
 
 	/*
-                                                                   
-               
-                   
-  */
+	 * These fields are contiguous in both the source and destination:
+	 * revision_id
+	 * connection_type
+	 */
 	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.gpio.revision_id),
 	 AML_OFFSET(gpio.revision_id),
 	 2},
@@ -96,15 +96,15 @@ struct acpi_rsconvert_info acpi_rs_convert_gpio[17] = {
 	 1},
 
 	/*
-                                                                   
-                  
-                    
-  */
+	 * These fields are contiguous in both the source and destination:
+	 * drive_strength
+	 * debounce_timeout
+	 */
 	{ACPI_RSC_MOVE16, ACPI_RS_OFFSET(data.gpio.drive_strength),
 	 AML_OFFSET(gpio.drive_strength),
 	 2},
 
-	/*           */
+	/* Pin Table */
 
 	{ACPI_RSC_COUNT_GPIO_PIN, ACPI_RS_OFFSET(data.gpio.pin_table_length),
 	 AML_OFFSET(gpio.pin_table_offset),
@@ -114,7 +114,7 @@ struct acpi_rsconvert_info acpi_rs_convert_gpio[17] = {
 	 AML_OFFSET(gpio.pin_table_offset),
 	 0},
 
-	/*                 */
+	/* Resource Source */
 
 	{ACPI_RSC_MOVE8, ACPI_RS_OFFSET(data.gpio.resource_source.index),
 	 AML_OFFSET(gpio.res_source_index),
@@ -130,7 +130,7 @@ struct acpi_rsconvert_info acpi_rs_convert_gpio[17] = {
 	 AML_OFFSET(gpio.res_source_offset),
 	 0},
 
-	/*             */
+	/* Vendor Data */
 
 	{ACPI_RSC_COUNT_GPIO_VEN, ACPI_RS_OFFSET(data.gpio.vendor_length),
 	 AML_OFFSET(gpio.vendor_length),
@@ -141,11 +141,11 @@ struct acpi_rsconvert_info acpi_rs_convert_gpio[17] = {
 	 0},
 };
 
-/*                                                                              
-  
-                                 
-  
-                                                                              */
+/*******************************************************************************
+ *
+ * acpi_rs_convert_i2c_serial_bus
+ *
+ ******************************************************************************/
 
 struct acpi_rsconvert_info acpi_rs_convert_i2c_serial_bus[16] = {
 	{ACPI_RSC_INITGET, ACPI_RESOURCE_TYPE_SERIAL_BUS,
@@ -183,7 +183,7 @@ struct acpi_rsconvert_info acpi_rs_convert_i2c_serial_bus[16] = {
 	 AML_OFFSET(common_serial_bus.type_data_length),
 	 1},
 
-	/*             */
+	/* Vendor data */
 
 	{ACPI_RSC_COUNT_SERIAL_VEN,
 	 ACPI_RS_OFFSET(data.common_serial_bus.vendor_length),
@@ -195,7 +195,7 @@ struct acpi_rsconvert_info acpi_rs_convert_i2c_serial_bus[16] = {
 	 0,
 	 sizeof(struct aml_resource_i2c_serialbus)},
 
-	/*                 */
+	/* Resource Source */
 
 	{ACPI_RSC_MOVE8,
 	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.index),
@@ -212,7 +212,7 @@ struct acpi_rsconvert_info acpi_rs_convert_i2c_serial_bus[16] = {
 	 AML_OFFSET(common_serial_bus.type_data_length),
 	 sizeof(struct aml_resource_common_serialbus)},
 
-	/*                       */
+	/* I2C bus type specific */
 
 	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.i2c_serial_bus.access_mode),
 	 AML_OFFSET(i2c_serial_bus.type_specific_flags),
@@ -227,11 +227,11 @@ struct acpi_rsconvert_info acpi_rs_convert_i2c_serial_bus[16] = {
 	 1},
 };
 
-/*                                                                              
-  
-                                 
-  
-                                                                              */
+/*******************************************************************************
+ *
+ * acpi_rs_convert_spi_serial_bus
+ *
+ ******************************************************************************/
 
 struct acpi_rsconvert_info acpi_rs_convert_spi_serial_bus[20] = {
 	{ACPI_RSC_INITGET, ACPI_RESOURCE_TYPE_SERIAL_BUS,
@@ -269,7 +269,7 @@ struct acpi_rsconvert_info acpi_rs_convert_spi_serial_bus[20] = {
 	 AML_OFFSET(common_serial_bus.type_data_length),
 	 1},
 
-	/*             */
+	/* Vendor data */
 
 	{ACPI_RSC_COUNT_SERIAL_VEN,
 	 ACPI_RS_OFFSET(data.common_serial_bus.vendor_length),
@@ -281,7 +281,7 @@ struct acpi_rsconvert_info acpi_rs_convert_spi_serial_bus[20] = {
 	 0,
 	 sizeof(struct aml_resource_spi_serialbus)},
 
-	/*                 */
+	/* Resource Source */
 
 	{ACPI_RSC_MOVE8,
 	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.index),
@@ -298,7 +298,7 @@ struct acpi_rsconvert_info acpi_rs_convert_spi_serial_bus[20] = {
 	 AML_OFFSET(common_serial_bus.type_data_length),
 	 sizeof(struct aml_resource_common_serialbus)},
 
-	/*                        */
+	/* Spi bus type specific  */
 
 	{ACPI_RSC_1BITFLAG, ACPI_RS_OFFSET(data.spi_serial_bus.wire_mode),
 	 AML_OFFSET(spi_serial_bus.type_specific_flags),
@@ -329,11 +329,11 @@ struct acpi_rsconvert_info acpi_rs_convert_spi_serial_bus[20] = {
 	 1},
 };
 
-/*                                                                              
-  
-                                  
-  
-                                                                              */
+/*******************************************************************************
+ *
+ * acpi_rs_convert_uart_serial_bus
+ *
+ ******************************************************************************/
 
 struct acpi_rsconvert_info acpi_rs_convert_uart_serial_bus[22] = {
 	{ACPI_RSC_INITGET, ACPI_RESOURCE_TYPE_SERIAL_BUS,
@@ -371,7 +371,7 @@ struct acpi_rsconvert_info acpi_rs_convert_uart_serial_bus[22] = {
 	 AML_OFFSET(common_serial_bus.type_data_length),
 	 1},
 
-	/*             */
+	/* Vendor data */
 
 	{ACPI_RSC_COUNT_SERIAL_VEN,
 	 ACPI_RS_OFFSET(data.common_serial_bus.vendor_length),
@@ -383,7 +383,7 @@ struct acpi_rsconvert_info acpi_rs_convert_uart_serial_bus[22] = {
 	 0,
 	 sizeof(struct aml_resource_uart_serialbus)},
 
-	/*                 */
+	/* Resource Source */
 
 	{ACPI_RSC_MOVE8,
 	 ACPI_RS_OFFSET(data.common_serial_bus.resource_source.index),
@@ -400,7 +400,7 @@ struct acpi_rsconvert_info acpi_rs_convert_uart_serial_bus[22] = {
 	 AML_OFFSET(common_serial_bus.type_data_length),
 	 sizeof(struct aml_resource_common_serialbus)},
 
-	/*                         */
+	/* Uart bus type specific  */
 
 	{ACPI_RSC_2BITFLAG, ACPI_RS_OFFSET(data.uart_serial_bus.flow_control),
 	 AML_OFFSET(uart_serial_bus.type_specific_flags),

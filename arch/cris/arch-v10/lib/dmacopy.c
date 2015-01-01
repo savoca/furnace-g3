@@ -1,5 +1,5 @@
 /*
-                                                                             
+ * memcpy for large blocks, using memory-memory DMA channels 6 and 7 in Etrax
  */
 
 #include <asm/svinto.h>
@@ -33,7 +33,7 @@ void *dma_memcpy(void *pdst,
 	*R_DMA_CH7_CMD = IO_STATE(R_DMA_CH7_CMD, cmd, start);
 
 	while (*R_DMA_CH7_CMD == 1)
-		/*                     */;
+		/* wait for completion */;
 
 	D(printk(KERN_DEBUG "done\n"));
 }

@@ -19,7 +19,7 @@
 #include "acorn.h"
 
 /*
-                                        
+ * Partition types. (Oh for reusability)
  */
 #define PARTITION_RISCIX_MFM	1
 #define PARTITION_RISCIX_SCSI	2
@@ -173,18 +173,18 @@ int adfspart_check_CUMANA(struct parsed_partitions *state)
 	int slot = 1;
 
 	/*
-                                                                   
-                                 
-   
-                                                                     
-                                                                   
-          
-   
-                                  
-   
-                                                                    
-                                        
-  */
+	 * Try Cumana style partitions - sector 6 contains ADFS boot block
+	 * with pointer to next 'drive'.
+	 *
+	 * There are unknowns in this code - is the 'cylinder number' of the
+	 * next partition relative to the start of this one - I'm assuming
+	 * it is.
+	 *
+	 * Also, which ID did Cumana use?
+	 *
+	 * This is totally unfinished, and will require more work to get it
+	 * going. Hence it is totally untested.
+	 */
 	do {
 		struct adfs_discrecord *dr;
 		unsigned int nr_sects;
@@ -212,15 +212,15 @@ int adfspart_check_CUMANA(struct parsed_partitions *state)
 		first = 0;
 		first_sector += nr_sects;
 		start_blk += nr_sects >> (BLOCK_SIZE_BITS - 9);
-		nr_sects = 0; /*                                */
+		nr_sects = 0; /* hmm - should be partition size */
 
 		switch (data[0x1fc] & 15) {
-		case 0: /*                      */
+		case 0: /* No partition / ADFS? */
 			break;
 
 #ifdef CONFIG_ACORN_PARTITION_RISCIX
 		case PARTITION_RISCIX_SCSI:
-			/*                                                  */
+			/* RISCiX - we don't know how to find the next one. */
 			slot = riscix_partition(state, first_sector, slot,
 						nr_sects);
 			break;
@@ -242,16 +242,16 @@ int adfspart_check_CUMANA(struct parsed_partitions *state)
 
 #ifdef CONFIG_ACORN_PARTITION_ADFS
 /*
-                                     
-  
-                                                                       
-                                      
-  
-                                                             
-  
-                              
-                                            
-                                 
+ * Purpose: allocate ADFS partitions.
+ *
+ * Params : hd		- pointer to gendisk structure to store partition info.
+ *	    dev		- device number to access.
+ *
+ * Returns: -1 on error, 0 for no ADFS boot sector, 1 for ok.
+ *
+ * Alloc  : hda  = whole drive
+ *	    hda1 = ADFS partition on first drive.
+ *	    hda2 = non-ADFS partition.
  */
 int adfspart_check_ADFS(struct parsed_partitions *state)
 {
@@ -279,8 +279,8 @@ int adfspart_check_ADFS(struct parsed_partitions *state)
 	put_dev_sector(sect);
 
 	/*
-                                         
-  */
+	 * Work out start of non-adfs partition.
+	 */
 	nr_sects = (state->bdev->bd_inode->i_size >> 9) - start_sect;
 
 	if (start_sect) {
@@ -328,7 +328,7 @@ static int adfspart_check_ICSLinux(struct parsed_partitions *state,
 }
 
 /*
-                                                      
+ * Check for a valid ICS partition using the checksum.
  */
 static inline int valid_ics_sector(const unsigned char *data)
 {
@@ -344,14 +344,14 @@ static inline int valid_ics_sector(const unsigned char *data)
 }
 
 /*
-                                    
-                                                                       
-                                      
-                                                                 
-                              
-                                              
-                                              
-           
+ * Purpose: allocate ICS partitions.
+ * Params : hd		- pointer to gendisk structure to store partition info.
+ *	    dev		- device number to access.
+ * Returns: -1 on error, 0 for no ICS table, 1 for partitions ok.
+ * Alloc  : hda  = whole drive
+ *	    hda1 = ADFS partition 0 on first drive.
+ *	    hda2 = ADFS partition 1 on first drive.
+ *		..etc..
  */
 int adfspart_check_ICS(struct parsed_partitions *state)
 {
@@ -361,8 +361,8 @@ int adfspart_check_ICS(struct parsed_partitions *state)
 	Sector sect;
 
 	/*
-                                                                
-  */
+	 * Try ICS style partitions - sector 0 contains partition info.
+	 */
 	data = read_part_sector(state, 0, &sect);
 	if (!data)
 	    	return -1;
@@ -376,25 +376,25 @@ int adfspart_check_ICS(struct parsed_partitions *state)
 
 	for (slot = 1, p = (const struct ics_part *)data; p->size; p++) {
 		u32 start = le32_to_cpu(p->start);
-		s32 size = le32_to_cpu(p->size); /*                   */
+		s32 size = le32_to_cpu(p->size); /* yes, it's signed. */
 
 		if (slot == state->limit)
 			break;
 
 		/*
-                                                         
-                                                          
-                                
-   */
+		 * Negative sizes tell the RISC OS ICS driver to ignore
+		 * this partition - in effect it says that this does not
+		 * contain an ADFS filesystem.
+		 */
 		if (size < 0) {
 			size = -size;
 
 			/*
-                                                 
-                                                 
-                                                  
-                        
-    */
+			 * Our own extension - We use the first sector
+			 * of the partition to identify what type this
+			 * partition is.  We must not make this visible
+			 * to the filesystem.
+			 */
 			if (size > 1 && adfspart_check_ICSLinux(state, start)) {
 				start += 1;
 				size -= 1;
@@ -427,9 +427,9 @@ static inline int valid_ptec_sector(const unsigned char *data)
 	int i;
 
 	/*
-                                                 
-                            
-  */
+	 * If it looks like a PC/BIOS partition, then it
+	 * probably isn't PowerTec.
+	 */
 	if (data[510] == 0x55 && data[511] == 0xaa)
 		return 0;
 
@@ -440,14 +440,14 @@ static inline int valid_ptec_sector(const unsigned char *data)
 }
 
 /*
-                                    
-                                                                       
-                                      
-                                                                 
-                              
-                                              
-                                              
-           
+ * Purpose: allocate ICS partitions.
+ * Params : hd		- pointer to gendisk structure to store partition info.
+ *	    dev		- device number to access.
+ * Returns: -1 on error, 0 for no ICS table, 1 for partitions ok.
+ * Alloc  : hda  = whole drive
+ *	    hda1 = ADFS partition 0 on first drive.
+ *	    hda2 = ADFS partition 1 on first drive.
+ *		..etc..
  */
 int adfspart_check_POWERTEC(struct parsed_partitions *state)
 {
@@ -493,7 +493,7 @@ struct eesox_part {
 };
 
 /*
-                                 
+ * Guess who created this format?
  */
 static const char eesox_name[] = {
 	'N', 'e', 'i', 'l', ' ',
@@ -501,14 +501,14 @@ static const char eesox_name[] = {
 };
 
 /*
-                               
-  
-                                                                      
-                                                                     
-  
-                                                         
-                                                                          
-                                           
+ * EESOX SCSI partition format.
+ *
+ * This is a goddamned awful partition format.  We don't seem to store
+ * the size of the partition in this table, only the start addresses.
+ *
+ * There are two possibilities where the size comes from:
+ *  1. The individual ADFS boot block entries that are placed on the disk.
+ *  2. The start address of the next entry.
  */
 int adfspart_check_EESOX(struct parsed_partitions *state)
 {
@@ -524,8 +524,8 @@ int adfspart_check_EESOX(struct parsed_partitions *state)
 		return -1;
 
 	/*
-                                                    
-  */
+	 * "Decrypt" the partition table.  God knows why...
+	 */
 	for (i = 0; i < 256; i++)
 		buffer[i] = data[i] ^ eesox_name[i & 15];
 

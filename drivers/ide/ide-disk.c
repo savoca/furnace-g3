@@ -7,11 +7,11 @@
  */
 
 /*
-                                                 
-                                                         
-                                                         
-  
-                                                                   
+ *  Mostly written by Mark Lord <mlord@pobox.com>
+ *                and Gadi Oxman <gadio@netvision.net.il>
+ *                and Andre Hedrick <andre@linux-ide.org>
+ *
+ * This is the IDE/ATA disk driver, as evolved from hd.c and ide.c.
  */
 
 #include <linux/types.h>
@@ -75,8 +75,8 @@ static void ide_tf_set_cmd(ide_drive_t *drive, struct ide_cmd *cmd, u8 dma)
 }
 
 /*
-                                                               
-                                                                
+ * __ide_do_rw_disk() issues READ and WRITE commands to a disk,
+ * using LBA if supported, or CHS otherwise, to address sectors.
  */
 static ide_startstop_t __ide_do_rw_disk(ide_drive_t *drive, struct request *rq,
 					sector_t block)
@@ -162,7 +162,7 @@ static ide_startstop_t __ide_do_rw_disk(ide_drive_t *drive, struct request *rq,
 	rc = do_rw_taskfile(drive, &cmd);
 
 	if (rc == ide_stopped && dma) {
-		/*                 */
+		/* fallback to PIO */
 		cmd.tf_flags |= IDE_TFLAG_DMA_PIO_FALLBACK;
 		ide_tf_set_cmd(drive, &cmd, 0);
 		ide_init_sg_cmd(&cmd, nsectors << 9);
@@ -173,9 +173,9 @@ static ide_startstop_t __ide_do_rw_disk(ide_drive_t *drive, struct request *rq,
 }
 
 /*
-                                         
-                                              
-                                                         
+ * 268435455  == 137439 MB or 28bit limit
+ * 320173056  == 163929 MB or 48bit addressing
+ * 1073741822 == 549756 MB or 48bit addressing fake drive
  */
 
 static ide_startstop_t ide_do_rw_disk(ide_drive_t *drive, struct request *rq,
@@ -200,8 +200,8 @@ static ide_startstop_t ide_do_rw_disk(ide_drive_t *drive, struct request *rq,
 }
 
 /*
-                                                  
-                                                               
+ * Queries for true maximum capacity of the drive.
+ * Returns maximum LBA address (> 0) of the drive, 0 if failed.
  */
 static u64 idedisk_read_native_max_address(ide_drive_t *drive, int lba48)
 {
@@ -226,7 +226,7 @@ static u64 idedisk_read_native_max_address(ide_drive_t *drive, int lba48)
 
 	ide_no_data_taskfile(drive, &cmd);
 
-	/*                                      */
+	/* if OK, compute maximum address value */
 	if (!(tf->status & ATA_ERR))
 		addr = ide_get_lba_addr(&cmd, lba48) + 1;
 
@@ -234,8 +234,8 @@ static u64 idedisk_read_native_max_address(ide_drive_t *drive, int lba48)
 }
 
 /*
-                                                 
-                                                                 
+ * Sets maximum virtual LBA address of the drive.
+ * Returns new maximum virtual LBA address (> 0) or 0 on failure.
  */
 static u64 idedisk_set_max_address(ide_drive_t *drive, u64 addr_req, int lba48)
 {
@@ -270,7 +270,7 @@ static u64 idedisk_set_max_address(ide_drive_t *drive, u64 addr_req, int lba48)
 
 	ide_no_data_taskfile(drive, &cmd);
 
-	/*                                      */
+	/* if OK, compute maximum address value */
 	if (!(tf->status & ATA_ERR))
 		addr_set = ide_get_lba_addr(&cmd, lba48) + 1;
 
@@ -279,14 +279,14 @@ static u64 idedisk_set_max_address(ide_drive_t *drive, u64 addr_req, int lba48)
 
 static unsigned long long sectors_to_MB(unsigned long long n)
 {
-	n <<= 9;		/*               */
-	do_div(n, 1000000);	/*            */
+	n <<= 9;		/* make it bytes */
+	do_div(n, 1000000);	/* make it MB */
 	return n;
 }
 
 /*
-                                                       
-                                              
+ * Some disks report total number of sectors instead of
+ * maximum sector address.  We list them here.
  */
 static const struct drive_list_entry hpa_list[] = {
 	{ "ST340823A",	NULL },
@@ -304,9 +304,9 @@ static u64 ide_disk_hpa_get_native_capacity(ide_drive_t *drive, int lba48)
 
 	if (ide_in_drive_list(drive->id, hpa_list)) {
 		/*
-                                                             
-                                                           
-   */
+		 * Since we are inclusive wrt to firmware revisions do this
+		 * extra check and apply the workaround only when needed.
+		 */
 		if (set_max == capacity + 1)
 			set_max--;
 	}
@@ -358,15 +358,15 @@ static int ide_disk_get_capacity(ide_drive_t *drive)
 	int lba;
 
 	if (ata_id_lba48_enabled(id)) {
-		/*                         */
+		/* drive speaks 48-bit LBA */
 		lba = 1;
 		drive->capacity64 = ata_id_u64(id, ATA_ID_LBA_CAPACITY_2);
 	} else if (ata_id_has_lba(id) && ata_id_is_lba_capacity_ok(id)) {
-		/*                         */
+		/* drive speaks 28-bit LBA */
 		lba = 1;
 		drive->capacity64 = ata_id_u32(id, ATA_ID_LBA_CAPACITY);
 	} else {
-		/*                                    */
+		/* drive speaks boring old 28-bit CHS */
 		lba = 0;
 		drive->capacity64 = drive->cyl * drive->head * drive->sect;
 	}
@@ -377,14 +377,14 @@ static int ide_disk_get_capacity(ide_drive_t *drive)
 		drive->dev_flags |= IDE_DFLAG_LBA;
 
 		/*
-                                                                
-                                                              
-  */
+		* If this device supports the Host Protected Area feature set,
+		* then we may need to change our opinion about its capacity.
+		*/
 		if (ata_id_hpa_enabled(id))
 			idedisk_check_hpa(drive);
 	}
 
-	/*                                                       */
+	/* limit drive capacity to 137GB if LBA48 cannot be used */
 	if ((drive->dev_flags & IDE_DFLAG_LBA48) == 0 &&
 	    drive->capacity64 > 1ULL << 28) {
 		printk(KERN_WARNING "%s: cannot use LBA48 - full capacity "
@@ -417,14 +417,14 @@ static void ide_disk_unlock_native_capacity(ide_drive_t *drive)
 		return;
 
 	/*
-                                                              
-                                                             
-  */
+	 * according to the spec the SET MAX ADDRESS command shall be
+	 * immediately preceded by a READ NATIVE MAX ADDRESS command
+	 */
 	if (!ide_disk_hpa_get_native_capacity(drive, lba48))
 		return;
 
 	if (ide_disk_hpa_set_capacity(drive, drive->probed_capacity, lba48))
-		drive->dev_flags |= IDE_DFLAG_NOHPA; /*                       */
+		drive->dev_flags |= IDE_DFLAG_NOHPA; /* disable HPA on resume */
 }
 
 static int idedisk_prep_fn(struct request_queue *q, struct request *rq)
@@ -442,7 +442,7 @@ static int idedisk_prep_fn(struct request_queue *q, struct request *rq)
 		cmd = kzalloc(sizeof(*cmd), GFP_ATOMIC);
 	}
 
-	/*                                             */
+	/* FIXME: map struct ide_taskfile on rq->cmd[] */
 	BUG_ON(cmd == NULL);
 
 	if (ata_id_flush_ext_enabled(drive->id) &&
@@ -464,8 +464,8 @@ static int idedisk_prep_fn(struct request_queue *q, struct request *rq)
 ide_devset_get(multcount, mult_count);
 
 /*
-                                                                   
-                                                                    
+ * This is tightly woven into the driver->do_special can not touch.
+ * DON'T do it again until a total personality rewrite is committed.
  */
 static int set_multcount(ide_drive_t *drive, int arg)
 {
@@ -529,13 +529,13 @@ static void update_flush(ide_drive_t *drive)
 		unsigned long long capacity;
 		int barrier;
 		/*
-                                                    
-                                                        
-                                                        
-                                                      
-                                                        
-                                                    
-   */
+		 * We must avoid issuing commands a drive does not
+		 * understand or we may crash it. We check flush cache
+		 * is supported. We also check we have the LBA48 flush
+		 * cache if the drive capacity is too large. By this
+		 * time we have trimmed the drive capacity if LBA48 is
+		 * not available so we don't need to recheck that.
+		 */
 		capacity = ide_gd_capacity(drive);
 		barrier = ata_id_flush_enabled(id) &&
 			(drive->dev_flags & IDE_DFLAG_NOFLUSH) == 0 &&
@@ -613,10 +613,10 @@ static int set_acoustic(ide_drive_t *drive, int arg)
 ide_devset_get_flag(addressing, IDE_DFLAG_LBA48);
 
 /*
-                     
-            
-            
-                                 
+ * drive->addressing:
+ *	0: 28-bit
+ *	1: 48-bit
+ *	2: 48-bit capable doing 28-bit
  */
 static int set_addressing(ide_drive_t *drive, int arg)
 {
@@ -666,8 +666,8 @@ static void ide_disk_setup(ide_drive_t *drive)
 
 	if (drive->dev_flags & IDE_DFLAG_REMOVABLE) {
 		/*
-                                                      
-   */
+		 * Removable disks (eg. SYQUEST); ignore 'WD' drives
+		 */
 		if (m[0] != 'W' || m[1] != 'D')
 			drive->dev_flags |= IDE_DFLAG_DOORLOCKING;
 	}
@@ -689,24 +689,24 @@ static void ide_disk_setup(ide_drive_t *drive)
 	if (ata_id_is_ssd(id))
 		queue_flag_set_unlocked(QUEUE_FLAG_NONROT, q);
 
-	/*                                                      */
+	/* calculate drive capacity, and select LBA if possible */
 	ide_disk_get_capacity(drive);
 
 	/*
-                                                        
-                            
-  */
+	 * if possible, give fdisk access to more of the drive,
+	 * by correcting bios_cyls:
+	 */
 	capacity = ide_gd_capacity(drive);
 
 	if ((drive->dev_flags & IDE_DFLAG_FORCED_GEOM) == 0) {
 		if (ata_id_lba48_enabled(drive->id)) {
-			/*               */
+			/* compatibility */
 			drive->bios_sect = 63;
 			drive->bios_head = 255;
 		}
 
 		if (drive->bios_sect && drive->bios_head) {
-			unsigned int cap0 = capacity; /*                     */
+			unsigned int cap0 = capacity; /* truncate to 32 bits */
 			unsigned int cylsz, cyl;
 
 			if (cap0 != capacity)
@@ -724,14 +724,14 @@ static void ide_disk_setup(ide_drive_t *drive)
 	printk(KERN_INFO "%s: %llu sectors (%llu MB)",
 			 drive->name, capacity, sectors_to_MB(capacity));
 
-	/*                                             */
+	/* Only print cache size when it was specified */
 	if (id[ATA_ID_BUF_SIZE])
 		printk(KERN_CONT " w/%dKiB Cache", id[ATA_ID_BUF_SIZE] / 2);
 
 	printk(KERN_CONT ", CHS=%d/%d/%d\n",
 			 drive->bios_cyl, drive->bios_head, drive->bios_sect);
 
-	/*                      */
+	/* write cache enabled? */
 	if ((id[ATA_ID_CSFO] & 1) || ata_id_wcache_enabled(id))
 		drive->dev_flags |= IDE_DFLAG_WCACHE;
 

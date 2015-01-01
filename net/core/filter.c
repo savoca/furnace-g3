@@ -39,9 +39,9 @@
 #include <linux/reciprocal_div.h>
 #include <linux/ratelimit.h>
 
-/*                        
-  
-                                        
+/* No hurry in this branch
+ *
+ * Exported for the bpf jit load helper.
  */
 void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, unsigned int size)
 {
@@ -65,17 +65,17 @@ static inline void *load_pointer(const struct sk_buff *skb, int k,
 	return bpf_internal_load_pointer_neg_helper(skb, k, size);
 }
 
-/* 
-                                                   
-                                     
-                         
-  
-                                                                         
-                                                                        
-                                                                 
-                                                              
-                                                        
-  
+/**
+ *	sk_filter - run a packet through a socket filter
+ *	@sk: sock associated with &sk_buff
+ *	@skb: buffer to filter
+ *
+ * Run the filter code and then cut skb->data to correct size returned by
+ * sk_run_filter. If pkt_len is 0 we toss packet. If skb->len is smaller
+ * than pkt_len we keep whole skb->data. This is the socket level
+ * wrapper to sk_run_filter. It returns 0 if the packet should
+ * be accepted or -EPERM if the packet should be tossed.
+ *
  */
 int sk_filter(struct sock *sk, struct sk_buff *skb)
 {
@@ -99,31 +99,31 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
 }
 EXPORT_SYMBOL(sk_filter);
 
-/* 
-                                           
-                                    
-                           
-  
-                                                         
-                                                             
-                                                          
-                                                                  
-                                                                     
-                                                                
+/**
+ *	sk_run_filter - run a filter on a socket
+ *	@skb: buffer to run the filter on
+ *	@fentry: filter to apply
+ *
+ * Decode and apply filter instructions to the skb->data.
+ * Return length to keep, 0 for none. @skb is the data we are
+ * filtering, @filter is the array of filter instructions.
+ * Because all jumps are guaranteed to be before last instruction,
+ * and last instruction guaranteed to be a RET, we dont need to check
+ * flen. (We used to pass to this function the length of filter)
  */
 unsigned int sk_run_filter(const struct sk_buff *skb,
 			   const struct sock_filter *fentry)
 {
 	void *ptr;
-	u32 A = 0;			/*             */
-	u32 X = 0;			/*                */
-	u32 mem[BPF_MEMWORDS];		/*                      */
+	u32 A = 0;			/* Accumulator */
+	u32 X = 0;			/* Index Register */
+	u32 mem[BPF_MEMWORDS];		/* Scratch Memory Store */
 	u32 tmp;
 	int k;
 
 	/*
-                                         
-  */
+	 * Process array of filter instructions.
+	 */
 	for (;; fentry++) {
 #if defined(CONFIG_X86_32)
 #define	K (fentry->k)
@@ -365,17 +365,17 @@ load_b:
 EXPORT_SYMBOL(sk_run_filter);
 
 /*
-             
-                                                                        
-                                                          
-                                                                     
-                                                                         
-                                                                         
-                                            
+ * Security :
+ * A BPF program is able to use 16 cells of memory to store intermediate
+ * values (check u32 mem[BPF_MEMWORDS] in sk_run_filter())
+ * As we dont want to clear mem[] array for each packet going through
+ * sk_run_filter(), we check that filter loaded by user never try to read
+ * a cell if not previously written, and we check all branches to be sure
+ * a malicious user doesn't try to abuse us.
  */
 static int check_load_and_stores(struct sock_filter *filter, int flen)
 {
-	u16 *masks, memvalid = 0; /*                            */
+	u16 *masks, memvalid = 0; /* one bit per cell, 16 cells */
 	int pc, ret = 0;
 
 	BUILD_BUG_ON(BPF_MEMWORDS > 16);
@@ -400,7 +400,7 @@ static int check_load_and_stores(struct sock_filter *filter, int flen)
 			}
 			break;
 		case BPF_S_JMP_JA:
-			/*                                 */
+			/* a jump must set masks on target */
 			masks[pc + 1 + filter[pc].k] &= memvalid;
 			memvalid = ~0;
 			break;
@@ -412,7 +412,7 @@ static int check_load_and_stores(struct sock_filter *filter, int flen)
 		case BPF_S_JMP_JGT_X:
 		case BPF_S_JMP_JSET_X:
 		case BPF_S_JMP_JSET_K:
-			/*                                  */
+			/* a jump must set masks on targets */
 			masks[pc + 1 + filter[pc].jt] &= memvalid;
 			masks[pc + 1 + filter[pc].jf] &= memvalid;
 			memvalid = ~0;
@@ -424,26 +424,26 @@ error:
 	return ret;
 }
 
-/* 
-                                            
-                            
-                          
-  
-                                                    
-                                                           
-                                                           
-                                                     
-  
-                                                
-  
-                                                        
+/**
+ *	sk_chk_filter - verify socket filter code
+ *	@filter: filter to verify
+ *	@flen: length of filter
+ *
+ * Check the user's filter code. If we let some ugly
+ * filter code slip through kaboom! The filter must contain
+ * no references or jumps that are out of range, no illegal
+ * instructions, and must end with a RET instruction.
+ *
+ * All jumps are forward as they are not signed.
+ *
+ * Returns 0 if the rule set is legal or -EINVAL if not.
  */
 int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
 {
 	/*
-                                                
-                                              
-  */
+	 * Valid instructions are initialized to non-0.
+	 * Invalid instructions are initialized to 0.
+	 */
 	static const u8 codes[] = {
 		[BPF_ALU|BPF_ADD|BPF_K]  = BPF_S_ALU_ADD_K,
 		[BPF_ALU|BPF_ADD|BPF_X]  = BPF_S_ALU_ADD_X,
@@ -496,7 +496,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
 	if (flen == 0 || flen > BPF_MAXINSNS)
 		return -EINVAL;
 
-	/*                           */
+	/* check the filter code now */
 	for (pc = 0; pc < flen; pc++) {
 		struct sock_filter *ftest = &filter[pc];
 		u16 code = ftest->code;
@@ -506,10 +506,10 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
 		code = codes[code];
 		if (!code)
 			return -EINVAL;
-		/*                                       */
+		/* Some instructions need special checks */
 		switch (code) {
 		case BPF_S_ALU_DIV_K:
-			/*                            */
+			/* check for division by zero */
 			if (ftest->k == 0)
 				return -EINVAL;
 			ftest->k = reciprocal_value(ftest->k);
@@ -518,16 +518,16 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
 		case BPF_S_LDX_MEM:
 		case BPF_S_ST:
 		case BPF_S_STX:
-			/*                                    */
+			/* check for invalid memory addresses */
 			if (ftest->k >= BPF_MEMWORDS)
 				return -EINVAL;
 			break;
 		case BPF_S_JMP_JA:
 			/*
-                                                 
-                                                
-                                               
-    */
+			 * Note, the large ftest->k might cause loops.
+			 * Compare this with conditional jumps below,
+			 * where offsets are limited. --ANK (981016)
+			 */
 			if (ftest->k >= (unsigned)(flen-pc-1))
 				return -EINVAL;
 			break;
@@ -539,7 +539,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
 		case BPF_S_JMP_JGT_X:
 		case BPF_S_JMP_JSET_X:
 		case BPF_S_JMP_JSET_K:
-			/*                                    */
+			/* for conditionals both must be safe */
 			if (pc + ftest->jt + 1 >= flen ||
 			    pc + ftest->jf + 1 >= flen)
 				return -EINVAL;
@@ -566,7 +566,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
 		ftest->code = code;
 	}
 
-	/*                                     */
+	/* last instruction must be a RET code */
 	switch (filter[flen - 1].code) {
 	case BPF_S_RET_K:
 	case BPF_S_RET_A:
@@ -576,9 +576,9 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
 }
 EXPORT_SYMBOL(sk_chk_filter);
 
-/* 
-                                                               
-                                                     
+/**
+ * 	sk_filter_release_rcu - Release a socket filter by rcu_head
+ *	@rcu: rcu_head that contains the sk_filter to free
  */
 void sk_filter_release_rcu(struct rcu_head *rcu)
 {
@@ -589,15 +589,15 @@ void sk_filter_release_rcu(struct rcu_head *rcu)
 }
 EXPORT_SYMBOL(sk_filter_release_rcu);
 
-/* 
-                                            
-                             
-                         
-  
-                                                                    
-                                                               
-                                                                   
-                                                         
+/**
+ *	sk_attach_filter - attach a socket filter
+ *	@fprog: the filter program
+ *	@sk: the socket to use
+ *
+ * Attach the user's filter code. We first run some sanity checks on
+ * it to make sure it does not explode on us later. If an error
+ * occurs or there is insufficient memory for the filter a negative
+ * errno code is returned. On success the return is zero.
  */
 int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
 {
@@ -605,7 +605,7 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
 	unsigned int fsize = sizeof(struct sock_filter) * fprog->len;
 	int err;
 
-	/*                                                         */
+	/* Make sure new filter is there and in the right amounts. */
 	if (fprog->filter == NULL)
 		return -EINVAL;
 

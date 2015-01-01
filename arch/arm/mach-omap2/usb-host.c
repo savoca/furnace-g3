@@ -50,9 +50,9 @@ static struct omap_device_pm_latency omap_uhhtll_latency[] = {
 	  },
 };
 
-/*                            */
+/* MUX settings for EHCI pins */
 /*
-                                                        
+ * setup_ehci_io_mux - initialize IO pad mux for USBHOST
  */
 static void __init setup_ehci_io_mux(const enum usbhs_omap_port_mode *port_mode)
 {
@@ -98,7 +98,7 @@ static void __init setup_ehci_io_mux(const enum usbhs_omap_port_mode *port_mode)
 			OMAP_PIN_INPUT_PULLDOWN);
 		break;
 	case OMAP_USBHS_PORT_MODE_UNUSED:
-		/*             */
+		/* FALLTHROUGH */
 	default:
 		break;
 	}
@@ -153,7 +153,7 @@ static void __init setup_ehci_io_mux(const enum usbhs_omap_port_mode *port_mode)
 			OMAP_PIN_INPUT_PULLDOWN);
 		break;
 	case OMAP_USBHS_PORT_MODE_UNUSED:
-		/*             */
+		/* FALLTHROUGH */
 	default:
 		break;
 	}
@@ -189,7 +189,7 @@ static void __init setup_ehci_io_mux(const enum usbhs_omap_port_mode *port_mode)
 			OMAP_PIN_INPUT_PULLDOWN);
 		break;
 	case OMAP_USBHS_PORT_MODE_UNUSED:
-		/*             */
+		/* FALLTHROUGH */
 	default:
 		break;
 	}
@@ -327,16 +327,16 @@ static void __init setup_ohci_io_mux(const enum usbhs_omap_port_mode *port_mode)
 			OMAP_PIN_INPUT_PULLDOWN);
 		omap_mux_init_signal("mm1_rxdm",
 			OMAP_PIN_INPUT_PULLDOWN);
-		/*             */
+		/* FALLTHROUGH */
 	case OMAP_OHCI_PORT_MODE_PHY_4PIN_DPDM:
 	case OMAP_OHCI_PORT_MODE_TLL_4PIN_DPDM:
 		omap_mux_init_signal("mm1_rxrcv",
 			OMAP_PIN_INPUT_PULLDOWN);
-		/*             */
+		/* FALLTHROUGH */
 	case OMAP_OHCI_PORT_MODE_PHY_3PIN_DATSE0:
 	case OMAP_OHCI_PORT_MODE_TLL_3PIN_DATSE0:
 		omap_mux_init_signal("mm1_txen_n", OMAP_PIN_OUTPUT);
-		/*             */
+		/* FALLTHROUGH */
 	case OMAP_OHCI_PORT_MODE_TLL_2PIN_DATSE0:
 	case OMAP_OHCI_PORT_MODE_TLL_2PIN_DPDM:
 		omap_mux_init_signal("mm1_txse0",
@@ -345,7 +345,7 @@ static void __init setup_ohci_io_mux(const enum usbhs_omap_port_mode *port_mode)
 			OMAP_PIN_INPUT_PULLDOWN);
 		break;
 	case OMAP_USBHS_PORT_MODE_UNUSED:
-		/*             */
+		/* FALLTHROUGH */
 	default:
 		break;
 	}
@@ -358,16 +358,16 @@ static void __init setup_ohci_io_mux(const enum usbhs_omap_port_mode *port_mode)
 			OMAP_PIN_INPUT_PULLDOWN);
 		omap_mux_init_signal("mm2_rxdm",
 			OMAP_PIN_INPUT_PULLDOWN);
-		/*             */
+		/* FALLTHROUGH */
 	case OMAP_OHCI_PORT_MODE_PHY_4PIN_DPDM:
 	case OMAP_OHCI_PORT_MODE_TLL_4PIN_DPDM:
 		omap_mux_init_signal("mm2_rxrcv",
 			OMAP_PIN_INPUT_PULLDOWN);
-		/*             */
+		/* FALLTHROUGH */
 	case OMAP_OHCI_PORT_MODE_PHY_3PIN_DATSE0:
 	case OMAP_OHCI_PORT_MODE_TLL_3PIN_DATSE0:
 		omap_mux_init_signal("mm2_txen_n", OMAP_PIN_OUTPUT);
-		/*             */
+		/* FALLTHROUGH */
 	case OMAP_OHCI_PORT_MODE_TLL_2PIN_DATSE0:
 	case OMAP_OHCI_PORT_MODE_TLL_2PIN_DPDM:
 		omap_mux_init_signal("mm2_txse0",
@@ -376,7 +376,7 @@ static void __init setup_ohci_io_mux(const enum usbhs_omap_port_mode *port_mode)
 			OMAP_PIN_INPUT_PULLDOWN);
 		break;
 	case OMAP_USBHS_PORT_MODE_UNUSED:
-		/*             */
+		/* FALLTHROUGH */
 	default:
 		break;
 	}
@@ -389,16 +389,16 @@ static void __init setup_ohci_io_mux(const enum usbhs_omap_port_mode *port_mode)
 			OMAP_PIN_INPUT_PULLDOWN);
 		omap_mux_init_signal("mm3_rxdm",
 			OMAP_PIN_INPUT_PULLDOWN);
-		/*             */
+		/* FALLTHROUGH */
 	case OMAP_OHCI_PORT_MODE_PHY_4PIN_DPDM:
 	case OMAP_OHCI_PORT_MODE_TLL_4PIN_DPDM:
 		omap_mux_init_signal("mm3_rxrcv",
 			OMAP_PIN_INPUT_PULLDOWN);
-		/*             */
+		/* FALLTHROUGH */
 	case OMAP_OHCI_PORT_MODE_PHY_3PIN_DATSE0:
 	case OMAP_OHCI_PORT_MODE_TLL_3PIN_DATSE0:
 		omap_mux_init_signal("mm3_txen_n", OMAP_PIN_OUTPUT);
-		/*             */
+		/* FALLTHROUGH */
 	case OMAP_OHCI_PORT_MODE_TLL_2PIN_DATSE0:
 	case OMAP_OHCI_PORT_MODE_TLL_2PIN_DPDM:
 		omap_mux_init_signal("mm3_txse0",
@@ -407,7 +407,7 @@ static void __init setup_ohci_io_mux(const enum usbhs_omap_port_mode *port_mode)
 			OMAP_PIN_INPUT_PULLDOWN);
 		break;
 	case OMAP_USBHS_PORT_MODE_UNUSED:
-		/*             */
+		/* FALLTHROUGH */
 	default:
 		break;
 	}

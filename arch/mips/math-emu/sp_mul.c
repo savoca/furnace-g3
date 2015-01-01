@@ -1,5 +1,5 @@
-/*                                  
-                   
+/* IEEE754 floating point arithmetic
+ * single precision
  */
 /*
  * MIPS floating point support
@@ -68,7 +68,7 @@ ieee754sp ieee754sp_mul(ieee754sp x, ieee754sp y)
 		return x;
 
 
-		/*                   */
+		/* Infinity handling */
 
 	case CLPAIR(IEEE754_CLASS_INF, IEEE754_CLASS_ZERO):
 	case CLPAIR(IEEE754_CLASS_ZERO, IEEE754_CLASS_INF):
@@ -104,7 +104,7 @@ ieee754sp ieee754sp_mul(ieee754sp x, ieee754sp y)
 	case CLPAIR(IEEE754_CLASS_NORM, IEEE754_CLASS_NORM):
 		break;
 	}
-	/*                                    */
+	/* rm = xm * ym, re = xe+ye basically */
 	assert(xm & SP_HIDDEN_BIT);
 	assert(ym & SP_HIDDEN_BIT);
 
@@ -113,12 +113,12 @@ ieee754sp ieee754sp_mul(ieee754sp x, ieee754sp y)
 		int rs = xs ^ ys;
 		unsigned rm;
 
-		/*                      */
+		/* shunt to top of word */
 		xm <<= 32 - (SP_MBITS + 1);
 		ym <<= 32 - (SP_MBITS + 1);
 
-		/*                                                            
-   */
+		/* multiply 32bits xm,ym to give high 32bits rm with stickness
+		 */
 		{
 			unsigned short lxm = xm & 0xffff;
 			unsigned short hxm = xm >> 16;
@@ -127,11 +127,11 @@ ieee754sp ieee754sp_mul(ieee754sp x, ieee754sp y)
 			unsigned lrm;
 			unsigned hrm;
 
-			lrm = lxm * lym;	/*               */
-			hrm = hxm * hym;	/*               */
+			lrm = lxm * lym;	/* 16 * 16 => 32 */
+			hrm = hxm * hym;	/* 16 * 16 => 32 */
 
 			{
-				unsigned t = lxm * hym;	/*               */
+				unsigned t = lxm * hym;	/* 16 * 16 => 32 */
 				{
 					unsigned at = lrm + (t << 16);
 					hrm += at < lrm;
@@ -141,7 +141,7 @@ ieee754sp ieee754sp_mul(ieee754sp x, ieee754sp y)
 			}
 
 			{
-				unsigned t = hxm * lym;	/*               */
+				unsigned t = hxm * lym;	/* 16 * 16 => 32 */
 				{
 					unsigned at = lrm + (t << 16);
 					hrm += at < lrm;
@@ -153,8 +153,8 @@ ieee754sp ieee754sp_mul(ieee754sp x, ieee754sp y)
 		}
 
 		/*
-                                                   
-   */
+		 * sticky shift down to normal rounding precision
+		 */
 		if ((int) rm < 0) {
 			rm = (rm >> (32 - (SP_MBITS + 1 + 3))) |
 			    ((rm << (SP_MBITS + 1 + 3)) != 0);

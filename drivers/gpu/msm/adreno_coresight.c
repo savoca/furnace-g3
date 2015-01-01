@@ -39,18 +39,18 @@ struct coresight_attr {
 	{ __ATTR(_attrname, S_IRUGO | S_IWUSR, gfx_show_reg, gfx_store_reg),\
 		_regname}
 
-/* 
-                                                                             
-                                               
-  
-                                                                     
-                                                        
-                                                                      
-                                                           
-                                                               
-                                                                           
-                                                                    
-                                           
+/**
+ * adreno_coresight_enable() - Generic function to enable coresight debugging
+ * @csdev: Pointer to coresight's device struct
+ *
+ * This is a generic function to enable coresight debug bus on adreno
+ * devices. This should be used in all cases of enabling
+ * coresight debug bus for adreno devices. This function in turn calls
+ * the adreno device specific function through gpudev hook.
+ * This function is registered as the coresight enable function
+ * with coresight driver. It should only be called through coresight driver
+ * as that would ensure that the necessary setup required to be done
+ * on coresight driver's part is also done.
  */
 int adreno_coresight_enable(struct coresight_device *csdev)
 {
@@ -62,25 +62,25 @@ int adreno_coresight_enable(struct coresight_device *csdev)
 
 	adreno_dev = ADRENO_DEVICE(device);
 
-	/*                                                              */
+	/* Check if coresight compatible device, return error otherwise */
 	if (adreno_dev->gpudev->coresight_enable)
 		return adreno_dev->gpudev->coresight_enable(device);
 	else
 		return -ENODEV;
 }
 
-/* 
-                                                                               
-                                               
-  
-                                                                      
-                                                         
-                                                                      
-                                                               
-                                                                
-                                                                           
-                                                                       
-                                        
+/**
+ * adreno_coresight_disable() - Generic function to disable coresight debugging
+ * @csdev: Pointer to coresight's device struct
+ *
+ * This is a generic function to disable coresight debug bus on adreno
+ * devices. This should be used in all cases of disabling
+ * coresight debug bus for adreno devices. This function in turn calls
+ * the adreno device specific function through the gpudev hook.
+ * This function is registered as the coresight disable function
+ * with coresight driver. It should only be called through coresight driver
+ * as that would ensure that the necessary setup required to be done on
+ * coresight driver's part is also done.
  */
 void adreno_coresight_disable(struct coresight_device *csdev)
 {
@@ -92,7 +92,7 @@ void adreno_coresight_disable(struct coresight_device *csdev)
 
 	adreno_dev = ADRENO_DEVICE(device);
 
-	/*                                                      */
+	/* Check if coresight compatible device, bail otherwise */
 	if (adreno_dev->gpudev->coresight_disable)
 		return adreno_dev->gpudev->coresight_disable(device);
 }

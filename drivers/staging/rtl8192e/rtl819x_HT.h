@@ -81,37 +81,37 @@ enum chnl_op {
 		((_pHTInfo)->ChnlOp > CHNLOP_NONE) ? true : false
 
 /*
-                     
-               
-                
-       
-  
-                  
-                 
-                    
-                   
-                     
-                     
-             
-                 
-                
-                     
-               
-             
-             
-        
-  
+union ht_capability {
+	u16	ShortData;
+	u8	CharData[2];
+	struct
+	{
+		u16	AdvCoding:1;
+		u16	ChlWidth:1;
+		u16	MimoPwrSave:2;
+		u16	GreenField:1;
+		u16	ShortGI20Mhz:1;
+		u16	ShortGI40Mhz:1;
+		u16	STBC:1;
+		u16	BeamForm:1;
+		u16	DelayBA:1;
+		u16	MaxAMSDUSize:1;
+		u16	DssCCk:1;
+		u16	PSMP:1;
+		u16	Rsvd:3;
+	}Field;
+};
 
-                             
-              
-                
-       
-  
-                  
-                   
-            
-        
-  
+union ht_capability_macpara {
+	u8	ShortData;
+	u8	CharData[1];
+	struct
+	{
+		u8	MaxRxAMPDU:2;
+		u8	MPDUDensity:2;
+		u8	Rsvd:4;
+	}Field;
+};
 */
 
 enum ht_action {

@@ -61,8 +61,8 @@ static int __init mop500_uib_setup(char *str)
 __setup("uib=", mop500_uib_setup);
 
 /*
-                                                                          
-                                           
+ * The UIBs are detected after the I2C host controllers are registered, so
+ * i2c_register_board_info() can't be used.
  */
 void mop500_uib_i2c_add(int busnum, struct i2c_board_info *info,
 		unsigned n)
@@ -94,7 +94,7 @@ static void __init __mop500_uib_init(struct uib *uib, const char *why)
 }
 
 /*
-                                                                           
+ * Detect the UIB attached based on the presence or absence of i2c devices.
  */
 static int __init mop500_uib_init(void)
 {
@@ -117,7 +117,7 @@ static int __init mop500_uib_init(void)
 		return -ENODEV;
 	}
 
-	/*                                                                */
+	/* U8500-UIB has the TC35893 at 0x44 on I2C0, the ST-UIB doesn't. */
 	ret = i2c_smbus_xfer(i2c0, 0x44, 0, I2C_SMBUS_WRITE, 0,
 			I2C_SMBUS_QUICK, NULL);
 	i2c_put_adapter(i2c0);

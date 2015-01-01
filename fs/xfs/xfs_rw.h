@@ -23,10 +23,10 @@ struct xfs_inode;
 struct xfs_mount;
 
 /*
-                                                       
-                                                       
-                                                         
-        
+ * Convert the given file system block to a disk block.
+ * We have to treat it differently based on whether the
+ * file is a real time file or not, because the bmap code
+ * does.
  */
 static inline xfs_daddr_t
 xfs_fsb_to_db(struct xfs_inode *ip, xfs_fsblock_t fsb)
@@ -37,11 +37,11 @@ xfs_fsb_to_db(struct xfs_inode *ip, xfs_fsblock_t fsb)
 }
 
 /*
-                                        
+ * Prototypes for functions in xfs_rw.c.
  */
 extern int xfs_read_buf(struct xfs_mount *mp, xfs_buftarg_t *btp,
 			xfs_daddr_t blkno, int len, uint flags,
 			struct xfs_buf **bpp);
 extern xfs_extlen_t xfs_get_extsz_hint(struct xfs_inode *ip);
 
-#endif /*              */
+#endif /* __XFS_RW_H__ */

@@ -15,26 +15,26 @@
 #include <asm/ipl.h>
 
 #define LGR_TIMER_INTERVAL_SECS (30 * 60)
-#define VM_LEVEL_MAX 2 /*                                             */
+#define VM_LEVEL_MAX 2 /* Maximum is 8, but we only record two levels */
 
 /*
-                                         
+ * LGR info: Contains stfle and stsi data
  */
 struct lgr_info {
-	/*                                                          */
+	/* Bit field with facility information: 4 DWORDs are stored */
 	u64 stfle_fac_list[4];
-	/*                                              */
+	/* Level of system (1 = CEC, 2 = LPAR, 3 = z/VM */
 	u32 level;
-	/*                                */
+	/* Level 1: CEC info (stsi 1.1.1) */
 	char manufacturer[16];
 	char type[4];
 	char sequence[16];
 	char plant[4];
 	char model[16];
-	/*                                 */
+	/* Level 2: LPAR info (stsi 2.2.2) */
 	u16 lpar_number;
 	char name[8];
-	/*                               */
+	/* Level 3: VM info (stsi 3.2.2) */
 	u8 vm_count;
 	struct {
 		char name[8];
@@ -43,7 +43,7 @@ struct lgr_info {
 } __packed __aligned(8);
 
 /*
-              
+ * LGR globals
  */
 static void *lgr_page;
 static struct lgr_info lgr_info_last;
@@ -51,7 +51,7 @@ static struct lgr_info lgr_info_cur;
 static struct debug_info *lgr_dbf;
 
 /*
-                                     
+ * Return number of valid stsi levels
  */
 static inline int stsi_0(void)
 {
@@ -61,7 +61,7 @@ static inline int stsi_0(void)
 }
 
 /*
-                                           
+ * Copy buffer and then convert it to ASCII
  */
 static void cpascii(char *dst, char *src, int size)
 {
@@ -70,7 +70,7 @@ static void cpascii(char *dst, char *src, int size)
 }
 
 /*
-                                     
+ * Fill LGR info with 1.1.1 stsi data
  */
 static void lgr_stsi_1_1_1(struct lgr_info *lgr_info)
 {
@@ -87,7 +87,7 @@ static void lgr_stsi_1_1_1(struct lgr_info *lgr_info)
 }
 
 /*
-                                     
+ * Fill LGR info with 2.2.2 stsi data
  */
 static void lgr_stsi_2_2_2(struct lgr_info *lgr_info)
 {
@@ -101,7 +101,7 @@ static void lgr_stsi_2_2_2(struct lgr_info *lgr_info)
 }
 
 /*
-                                     
+ * Fill LGR info with 3.2.2 stsi data
  */
 static void lgr_stsi_3_2_2(struct lgr_info *lgr_info)
 {
@@ -120,7 +120,7 @@ static void lgr_stsi_3_2_2(struct lgr_info *lgr_info)
 }
 
 /*
-                                  
+ * Fill LGR info with current data
  */
 static void lgr_info_get(struct lgr_info *lgr_info)
 {
@@ -138,7 +138,7 @@ static void lgr_info_get(struct lgr_info *lgr_info)
 }
 
 /*
-                                                                       
+ * Check if LGR info has changed and if yes log new LGR info to s390dbf
  */
 void lgr_info_log(void)
 {
@@ -159,7 +159,7 @@ EXPORT_SYMBOL_GPL(lgr_info_log);
 static void lgr_timer_set(void);
 
 /*
-                     
+ * LGR timer callback
  */
 static void lgr_timer_fn(unsigned long ignored)
 {
@@ -171,7 +171,7 @@ static struct timer_list lgr_timer =
 	TIMER_DEFERRED_INITIALIZER(lgr_timer_fn, 0, 0);
 
 /*
-                       
+ * Setup next LGR timer
  */
 static void lgr_timer_set(void)
 {
@@ -179,7 +179,7 @@ static void lgr_timer_set(void)
 }
 
 /*
-                                                                      
+ * Initialize LGR: Add s390dbf, write initial lgr_info and setup timer
  */
 static int __init lgr_init(void)
 {

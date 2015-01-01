@@ -42,17 +42,17 @@
 
 #include "mtdcore.h"
 /*
-                                                                            
-                                                           
+ * backing device capabilities for non-mappable devices (such as NAND flash)
+ * - permits private mappings, copies are taken of the data
  */
 static struct backing_dev_info mtd_bdi_unmappable = {
 	.capabilities	= BDI_CAP_MAP_COPY,
 };
 
 /*
-                                                                     
-                                                           
-                                         
+ * backing device capabilities for R/O mappable devices (such as ROM)
+ * - permits private mappings, copies are taken of the data
+ * - permits non-writable shared mappings
  */
 static struct backing_dev_info mtd_bdi_ro_mappable = {
 	.capabilities	= (BDI_CAP_MAP_COPY | BDI_CAP_MAP_DIRECT |
@@ -60,9 +60,9 @@ static struct backing_dev_info mtd_bdi_ro_mappable = {
 };
 
 /*
-                                                                          
-                                                           
-                                         
+ * backing device capabilities for writable mappable devices (such as RAM)
+ * - permits private mappings, copies are taken of the data
+ * - permits non-writable shared mappings
  */
 static struct backing_dev_info mtd_bdi_rw_mappable = {
 	.capabilities	= (BDI_CAP_MAP_COPY | BDI_CAP_MAP_DIRECT |
@@ -82,8 +82,8 @@ static struct class mtd_class = {
 
 static DEFINE_IDR(mtd_idr);
 
-/*                                                                
-                                           */
+/* These are exported solely for the purpose of mtd_blkdevs.c. You
+   should not use them for _anything_ else */
 DEFINE_MUTEX(mtd_table_mutex);
 EXPORT_SYMBOL_GPL(mtd_table_mutex);
 
@@ -102,15 +102,15 @@ static LIST_HEAD(mtd_notifiers);
 #define MTD_DEVT(index) 0
 #endif
 
-/*                                                                 
-                                                               
+/* REVISIT once MTD uses the driver model better, whoever allocates
+ * the mtd_info will probably want to use the release() hook...
  */
 static void mtd_release(struct device *dev)
 {
 	struct mtd_info __maybe_unused *mtd = dev_get_drvdata(dev);
 	dev_t index = MTD_DEVT(mtd->index);
 
-	/*                                   */
+	/* remove /dev/mtdXro node if needed */
 	if (index)
 		device_destroy(&mtd_class, index + 1);
 }
@@ -278,14 +278,14 @@ static struct device_type mtd_devtype = {
 	.release	= mtd_release,
 };
 
-/* 
-                                          
-                                                 
-  
-                                                                     
-                                                                  
-                                                                    
-                                                    
+/**
+ *	add_mtd_device - register an MTD device
+ *	@mtd: pointer to new MTD device info structure
+ *
+ *	Add a device to the list of MTD devices present in the system, and
+ *	notify each currently active MTD 'user' of its arrival. Returns
+ *	zero on success or 1 on failure, which currently will only happen
+ *	if there is insufficient memory or a sysfs error.
  */
 
 int add_mtd_device(struct mtd_info *mtd)
@@ -335,7 +335,7 @@ int add_mtd_device(struct mtd_info *mtd)
 	mtd->erasesize_mask = (1 << mtd->erasesize_shift) - 1;
 	mtd->writesize_mask = (1 << mtd->writesize_shift) - 1;
 
-	/*                                                    */
+	/* Some chips always power up locked. Unlock them now */
 	if ((mtd->flags & MTD_WRITEABLE) && (mtd->flags & MTD_POWERUP_LOCK)) {
 		error = mtd_unlock(mtd, 0, mtd->size);
 		if (error && error != -EOPNOTSUPP)
@@ -344,9 +344,9 @@ int add_mtd_device(struct mtd_info *mtd)
 			       mtd->name);
 	}
 
-	/*                                               
-                    
-  */
+	/* Caller should have set dev.parent to match the
+	 * physical device.
+	 */
 	mtd->dev.type = &mtd_devtype;
 	mtd->dev.class = &mtd_class;
 	mtd->dev.devt = MTD_DEVT(i);
@@ -361,16 +361,16 @@ int add_mtd_device(struct mtd_info *mtd)
 			      NULL, "mtd%dro", i);
 
 	pr_debug("mtd: Giving out device %d to %s\n", i, mtd->name);
-	/*                                                   
-                                                    */
+	/* No need to get a refcount on the module containing
+	   the notifier, since we hold the mtd_table_mutex */
 	list_for_each_entry(not, &mtd_notifiers, list)
 		not->add(mtd);
 
 	mutex_unlock(&mtd_table_mutex);
-	/*                                           
-                                                
-                                                   
-               */
+	/* We _know_ we aren't being removed, because
+	   our caller is still holding us here. So none
+	   of this try_ nonsense, and no bitching about it
+	   either. :) */
 	__module_get(THIS_MODULE);
 	return 0;
 
@@ -381,14 +381,14 @@ fail_locked:
 	return 1;
 }
 
-/* 
-                                            
-                                             
-  
-                                                                      
-                                                                
-                                                                       
-                                                                     
+/**
+ *	del_mtd_device - unregister an MTD device
+ *	@mtd: pointer to MTD device info structure
+ *
+ *	Remove a device from the list of MTD devices present in the system,
+ *	and notify each currently active MTD 'user' of its departure.
+ *	Returns zero on success or 1 on failure, which currently will happen
+ *	if the requested device does not appear to be present in the list.
  */
 
 int del_mtd_device(struct mtd_info *mtd)
@@ -403,8 +403,8 @@ int del_mtd_device(struct mtd_info *mtd)
 		goto out_error;
 	}
 
-	/*                                                   
-                                                  */
+	/* No need to get a refcount on the module containing
+		the notifier, since we hold the mtd_table_mutex */
 	list_for_each_entry(not, &mtd_notifiers, list)
 		not->remove(mtd);
 
@@ -426,33 +426,33 @@ out_error:
 	return ret;
 }
 
-/* 
-                                                                           
-  
-                                   
-                                                       
-                                                        
-                                                   
-                                                                        
-                                       
-                                                                      
-                                                                    
-  
-                                                           
-                                                                          
-                                                                       
-  
-                                                                        
-                                                                              
-                                                                             
-                                                                       
-                      
-                                                                          
-                
-                                                                            
-                    
-  
-                                                                                
+/**
+ * mtd_device_parse_register - parse partitions and register an MTD device.
+ *
+ * @mtd: the MTD device to register
+ * @types: the list of MTD partition probes to try, see
+ *         'parse_mtd_partitions()' for more information
+ * @parser_data: MTD partition parser-specific data
+ * @parts: fallback partition information to register, if parsing fails;
+ *         only valid if %nr_parts > %0
+ * @nr_parts: the number of partitions in parts, if zero then the full
+ *            MTD device is registered if no partition info is found
+ *
+ * This function aggregates MTD partitions parsing (done by
+ * 'parse_mtd_partitions()') and MTD device and partitions registering. It
+ * basically follows the most common pattern found in many MTD drivers:
+ *
+ * * It first tries to probe partitions on MTD device @mtd using parsers
+ *   specified in @types (if @types is %NULL, then the default list of parsers
+ *   is used, see 'parse_mtd_partitions()' for more information). If none are
+ *   found this functions tries to fallback to information specified in
+ *   @parts/@nr_parts.
+ * * If any partitioning info was found, this function registers the found
+ *   partitions.
+ * * If no partitions were found this function just registers the MTD device
+ *   @mtd and exits.
+ *
+ * Returns zero in case of success and a negative error code in case of failure.
  */
 int mtd_device_parse_register(struct mtd_info *mtd, const char **types,
 			      struct mtd_part_parser_data *parser_data,
@@ -485,11 +485,11 @@ int mtd_device_parse_register(struct mtd_info *mtd, const char **types,
 }
 EXPORT_SYMBOL_GPL(mtd_device_parse_register);
 
-/* 
-                                                             
-  
-                                                                               
-                                             
+/**
+ * mtd_device_unregister - unregister an existing MTD device.
+ *
+ * @master: the MTD device to unregister.  This will unregister both the master
+ *          and any partitions if registered.
  */
 int mtd_device_unregister(struct mtd_info *master)
 {
@@ -506,13 +506,13 @@ int mtd_device_unregister(struct mtd_info *master)
 }
 EXPORT_SYMBOL_GPL(mtd_device_unregister);
 
-/* 
-                                                        
-                                           
-  
-                                                                    
-                                                                         
-                                                               
+/**
+ *	register_mtd_user - register a 'user' of MTD devices.
+ *	@new: pointer to notifier info structure
+ *
+ *	Registers a pair of callbacks function to be called upon addition
+ *	or removal of MTD devices. Causes the 'add' callback to be immediately
+ *	invoked for each MTD device currently present in the system.
  */
 void register_mtd_user (struct mtd_notifier *new)
 {
@@ -531,14 +531,14 @@ void register_mtd_user (struct mtd_notifier *new)
 }
 EXPORT_SYMBOL_GPL(register_mtd_user);
 
-/* 
-                                                            
-                                           
-  
-                                                                  
-                                                               
-                                                                  
-                                   
+/**
+ *	unregister_mtd_user - unregister a 'user' of MTD devices.
+ *	@old: pointer to notifier info structure
+ *
+ *	Removes a callback function pair from the list of 'users' to be
+ *	notified upon addition or removal of MTD devices. Causes the
+ *	'remove' callback to be immediately invoked for each MTD device
+ *	currently present in the system.
  */
 int unregister_mtd_user (struct mtd_notifier *old)
 {
@@ -557,16 +557,16 @@ int unregister_mtd_user (struct mtd_notifier *old)
 }
 EXPORT_SYMBOL_GPL(unregister_mtd_user);
 
-/* 
-                                                               
-                                                      
-                                                          
-  
-                                                                         
-                                                                         
-                                                                         
-                                                                     
-                     
+/**
+ *	get_mtd_device - obtain a validated handle for an MTD device
+ *	@mtd: last known address of the required MTD device
+ *	@num: internal device number of the required MTD device
+ *
+ *	Given a number and NULL address, return the num'th entry in the device
+ *	table, if any.	Given an address and num == -1, search the device table
+ *	for a device with that address and return if it's still present. Given
+ *	both, return the num'th driver only if its address matches. Return
+ *	error code if not.
  */
 struct mtd_info *get_mtd_device(struct mtd_info *mtd, int num)
 {
@@ -623,13 +623,13 @@ int __get_mtd_device(struct mtd_info *mtd)
 }
 EXPORT_SYMBOL_GPL(__get_mtd_device);
 
-/* 
-                                                                     
-              
-                                 
-  
-                                                                     
-                                                 
+/**
+ *	get_mtd_device_nm - obtain a validated handle for an MTD device by
+ *	device name
+ *	@name: MTD device name to open
+ *
+ * 	This function returns MTD device description structure in case of
+ * 	success and an error code in case of failure.
  */
 struct mtd_info *get_mtd_device_nm(const char *name)
 {
@@ -683,11 +683,11 @@ void __put_mtd_device(struct mtd_info *mtd)
 EXPORT_SYMBOL_GPL(__put_mtd_device);
 
 /*
-                                                                   
-                                                                   
-                                  
-                                                                   
-                                            
+ * Erase is an asynchronous operation.  Device drivers are supposed
+ * to call instr->callback() whenever the operation completes, even
+ * if it completes with a failure.
+ * Callers are supposed to pass a callback function and wait for it
+ * to be called before writing to the block.
  */
 int mtd_erase(struct mtd_info *mtd, struct erase_info *instr)
 {
@@ -706,7 +706,7 @@ int mtd_erase(struct mtd_info *mtd, struct erase_info *instr)
 EXPORT_SYMBOL_GPL(mtd_erase);
 
 /*
-                                                                            
+ * This stuff for eXecute-In-Place. phys is optional and may be set to NULL.
  */
 int mtd_point(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen,
 	      void **virt, resource_size_t *phys)
@@ -725,7 +725,7 @@ int mtd_point(struct mtd_info *mtd, loff_t from, size_t len, size_t *retlen,
 }
 EXPORT_SYMBOL_GPL(mtd_point);
 
-/*                                                             */
+/* We probably shouldn't allow XIP if the unpoint isn't a NULL */
 int mtd_unpoint(struct mtd_info *mtd, loff_t from, size_t len)
 {
 	if (!mtd->_point)
@@ -739,9 +739,9 @@ int mtd_unpoint(struct mtd_info *mtd, loff_t from, size_t len)
 EXPORT_SYMBOL_GPL(mtd_unpoint);
 
 /*
-                                                              
-                                                
-                                                         
+ * Allow NOMMU mmap() to directly map the device (if not NULL)
+ * - return the address to which the offset maps
+ * - return -ENOSYS to indicate refusal to do the mapping
  */
 unsigned long mtd_get_unmapped_area(struct mtd_info *mtd, unsigned long len,
 				    unsigned long offset, unsigned long flags)
@@ -781,11 +781,11 @@ int mtd_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen,
 EXPORT_SYMBOL_GPL(mtd_write);
 
 /*
-                                                                               
-                                                                             
-                                                                             
-                                                                           
-                                                                      
+ * In blackbox flight recorder like scenarios we want to make successful writes
+ * in interrupt context. panic_write() is only intended to be called when its
+ * known the kernel is about to panic and we need the write to succeed. Since
+ * the kernel is not going to be running for much longer, this function can
+ * break locks and delay to ensure the write succeeds (but not sleep).
  */
 int mtd_panic_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen,
 		    const u_char *buf)
@@ -804,9 +804,9 @@ int mtd_panic_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen,
 EXPORT_SYMBOL_GPL(mtd_panic_write);
 
 /*
-                                                                       
-                                                                               
-        
+ * Method to access the protection register area, present in some flash
+ * devices. The user data is one time programmable but the factory data is read
+ * only.
  */
 int mtd_get_fact_prot_info(struct mtd_info *mtd, struct otp_info *buf,
 			   size_t len)
@@ -876,7 +876,7 @@ int mtd_lock_user_prot_reg(struct mtd_info *mtd, loff_t from, size_t len)
 }
 EXPORT_SYMBOL_GPL(mtd_lock_user_prot_reg);
 
-/*                               */
+/* Chip-supported device locking */
 int mtd_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 {
 	if (!mtd->_lock)
@@ -936,15 +936,15 @@ int mtd_block_markbad(struct mtd_info *mtd, loff_t ofs)
 EXPORT_SYMBOL_GPL(mtd_block_markbad);
 
 /*
-                                                 
-                                              
-                              
-                                    
-                                         
-                                                                          
-  
-                                                                             
-                   
+ * default_mtd_writev - the default writev method
+ * @mtd: mtd device description object pointer
+ * @vecs: the vectors to write
+ * @count: count of vectors in @vecs
+ * @to: the MTD device offset to write to
+ * @retlen: on exit contains the count of bytes written to the MTD device.
+ *
+ * This function returns zero in case of success and a negative error code in
+ * case of failure.
  */
 static int default_mtd_writev(struct mtd_info *mtd, const struct kvec *vecs,
 			      unsigned long count, loff_t to, size_t *retlen)
@@ -968,15 +968,15 @@ static int default_mtd_writev(struct mtd_info *mtd, const struct kvec *vecs,
 }
 
 /*
-                                                 
-                                              
-                              
-                                    
-                                         
-                                                                          
-  
-                                                                             
-                   
+ * mtd_writev - the vector-based MTD write method
+ * @mtd: mtd device description object pointer
+ * @vecs: the vectors to write
+ * @count: count of vectors in @vecs
+ * @to: the MTD device offset to write to
+ * @retlen: on exit contains the count of bytes written to the MTD device.
+ *
+ * This function returns zero in case of success and a negative error code in
+ * case of failure.
  */
 int mtd_writev(struct mtd_info *mtd, const struct kvec *vecs,
 	       unsigned long count, loff_t to, size_t *retlen)
@@ -990,29 +990,29 @@ int mtd_writev(struct mtd_info *mtd, const struct kvec *vecs,
 }
 EXPORT_SYMBOL_GPL(mtd_writev);
 
-/* 
-                                                                            
-                                              
-                                                                          
-                                                   
-  
-                                                                     
-                                                                        
-                                                                      
-                                                                         
-                                                                       
-                                                                      
-                     
-  
-                                                                              
-                                                                   
-  
-                                                                         
-                                                                     
-                                                                      
-                                
-  
-                                                                         
+/**
+ * mtd_kmalloc_up_to - allocate a contiguous buffer up to the specified size
+ * @mtd: mtd device description object pointer
+ * @size: a pointer to the ideal or maximum size of the allocation, points
+ *        to the actual allocation size on success.
+ *
+ * This routine attempts to allocate a contiguous kernel buffer up to
+ * the specified size, backing off the size of the request exponentially
+ * until the request succeeds or until the allocation size falls below
+ * the system page size. This attempts to make sure it does not adversely
+ * impact system performance, so when allocating more than one page, we
+ * ask the memory allocator to avoid re-trying, swapping, writing back
+ * or performing I/O.
+ *
+ * Note, this function also makes sure that the allocated buffer is aligned to
+ * the MTD device's min. I/O unit, i.e. the "mtd->writesize" value.
+ *
+ * This is called, for example by mtd_{read,write} and jffs2_scan_medium,
+ * to handle smaller (i.e. degraded) buffer allocations under low- or
+ * fragmented-memory situations where such reduced allocations, from a
+ * requested ideal, are allowed.
+ *
+ * Returns a pointer to the allocated buffer on success; otherwise, NULL.
  */
 void *mtd_kmalloc_up_to(const struct mtd_info *mtd, size_t *size)
 {
@@ -1033,17 +1033,17 @@ void *mtd_kmalloc_up_to(const struct mtd_info *mtd, size_t *size)
 	}
 
 	/*
-                                                                       
-                                                                  
-  */
+	 * For the last resort allocation allow 'kmalloc()' to do all sorts of
+	 * things (write-back, dropping caches, etc) by using GFP_KERNEL.
+	 */
 	return kmalloc(*size, GFP_KERNEL);
 }
 EXPORT_SYMBOL_GPL(mtd_kmalloc_up_to);
 
 #ifdef CONFIG_PROC_FS
 
-/*                                                                    */
-/*                       */
+/*====================================================================*/
+/* Support for /proc/mtd */
 
 static struct proc_dir_entry *proc_mtd;
 
@@ -1073,10 +1073,10 @@ static const struct file_operations mtd_proc_ops = {
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
-#endif /*                */
+#endif /* CONFIG_PROC_FS */
 
-/*                                                                    */
-/*           */
+/*====================================================================*/
+/* Init code */
 
 static int __init mtd_bdi_init(struct backing_dev_info *bdi, const char *name)
 {
@@ -1114,7 +1114,7 @@ static int __init init_mtd(void)
 
 #ifdef CONFIG_PROC_FS
 	proc_mtd = proc_create("mtd", 0, NULL, &mtd_proc_ops);
-#endif /*                */
+#endif /* CONFIG_PROC_FS */
 	return 0;
 
 err_bdi3:
@@ -1133,7 +1133,7 @@ static void __exit cleanup_mtd(void)
 #ifdef CONFIG_PROC_FS
 	if (proc_mtd)
 		remove_proc_entry( "mtd", NULL);
-#endif /*                */
+#endif /* CONFIG_PROC_FS */
 	class_unregister(&mtd_class);
 	bdi_destroy(&mtd_bdi_unmappable);
 	bdi_destroy(&mtd_bdi_ro_mappable);

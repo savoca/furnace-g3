@@ -58,9 +58,9 @@
 #include "devices.h"
 #include "clock.h"
 
-/*                         */
+/* common GPIO	definitions */
 
-/*        */
+/* inputs */
 #define GPIO_ON_OFF		(14)
 #define GPIO_VOLENC_A		(19)
 #define GPIO_VOLENC_B		(20)
@@ -79,7 +79,7 @@
 #define GPIO_CHARGE_DC_OK	(101)
 #define GPIO_CHARGE_USB_SUSP	(102)
 
-/*         */
+/* outputs */
 #define GPIO_SHUTDOWN_SUPPLY	(16)
 #define GPIO_SHUTDOWN_BATT	(18)
 #define GPIO_CHRG_PEN2		(31)
@@ -102,10 +102,10 @@
 #define GPIO_ONE_WIRE		(126)
 
 /*
-                      
+ * GPIO configurations
  */
 static mfp_cfg_t raumfeld_controller_pin_config[] __initdata = {
-	/*       */
+	/* UART1 */
 	GPIO77_UART1_RXD,
 	GPIO78_UART1_TXD,
 	GPIO79_UART1_CTS,
@@ -113,23 +113,23 @@ static mfp_cfg_t raumfeld_controller_pin_config[] __initdata = {
 	GPIO83_UART1_DTR,
 	GPIO84_UART1_RTS,
 
-	/*       */
+	/* UART3 */
 	GPIO110_UART3_RXD,
 
-	/*          */
+	/* USB Host */
 	GPIO0_2_USBH_PEN,
 	GPIO1_2_USBH_PWR,
 
-	/*     */
+	/* I2C */
 	GPIO21_I2C_SCL | MFP_LPM_FLOAT | MFP_PULL_FLOAT,
 	GPIO22_I2C_SDA | MFP_LPM_FLOAT | MFP_PULL_FLOAT,
 
-	/*     */
-	GPIO34_GPIO,	/*          */
-	GPIO96_GPIO,	/*         */
-	GPIO125_GPIO,	/*          */
+	/* SPI */
+	GPIO34_GPIO,	/* SPDIF_CS */
+	GPIO96_GPIO,	/* MCLK_CS */
+	GPIO125_GPIO,	/* ACCEL_CS */
 
-	/*     */
+	/* MMC */
 	GPIO3_MMC1_DAT0,
 	GPIO4_MMC1_DAT1,
 	GPIO5_MMC1_DAT2,
@@ -137,22 +137,22 @@ static mfp_cfg_t raumfeld_controller_pin_config[] __initdata = {
 	GPIO7_MMC1_CLK,
 	GPIO8_MMC1_CMD,
 
-	/*          */
+	/* One-wire */
 	GPIO126_GPIO | MFP_LPM_FLOAT,
 	GPIO105_GPIO | MFP_PULL_LOW | MFP_LPM_PULL_LOW,
 
-	/*             */
+	/* CHRG_USB_OK */
 	GPIO101_GPIO | MFP_PULL_HIGH,
-	/*             */
+	/* CHRG_USB_OK */
 	GPIO112_GPIO | MFP_PULL_HIGH,
-	/*               */
+	/* CHRG_USB_SUSP */
 	GPIO102_GPIO,
-	/*                */
+	/* DISPLAY_ENABLE */
 	GPIO106_GPIO,
-	/*             */
+	/* DOCK_DETECT */
 	GPIO116_GPIO | MFP_LPM_FLOAT | MFP_PULL_FLOAT,
 
-	/*     */
+	/* LCD */
 	GPIO54_LCD_LDD_0,
 	GPIO55_LCD_LDD_1,
 	GPIO56_LCD_LDD_2,
@@ -178,7 +178,7 @@ static mfp_cfg_t raumfeld_controller_pin_config[] __initdata = {
 };
 
 static mfp_cfg_t raumfeld_connector_pin_config[] __initdata = {
-	/*       */
+	/* UART1 */
 	GPIO77_UART1_RXD,
 	GPIO78_UART1_TXD,
 	GPIO79_UART1_CTS,
@@ -186,23 +186,23 @@ static mfp_cfg_t raumfeld_connector_pin_config[] __initdata = {
 	GPIO83_UART1_DTR,
 	GPIO84_UART1_RTS,
 
-	/*       */
+	/* UART3 */
 	GPIO110_UART3_RXD,
 
-	/*          */
+	/* USB Host */
 	GPIO0_2_USBH_PEN,
 	GPIO1_2_USBH_PWR,
 
-	/*     */
+	/* I2C */
 	GPIO21_I2C_SCL | MFP_LPM_FLOAT | MFP_PULL_FLOAT,
 	GPIO22_I2C_SDA | MFP_LPM_FLOAT | MFP_PULL_FLOAT,
 
-	/*     */
-	GPIO34_GPIO,	/*          */
-	GPIO96_GPIO,	/*         */
-	GPIO125_GPIO,	/*          */
+	/* SPI */
+	GPIO34_GPIO,	/* SPDIF_CS */
+	GPIO96_GPIO,	/* MCLK_CS */
+	GPIO125_GPIO,	/* ACCEL_CS */
 
-	/*     */
+	/* MMC */
 	GPIO3_MMC1_DAT0,
 	GPIO4_MMC1_DAT1,
 	GPIO5_MMC1_DAT2,
@@ -210,11 +210,11 @@ static mfp_cfg_t raumfeld_connector_pin_config[] __initdata = {
 	GPIO7_MMC1_CLK,
 	GPIO8_MMC1_CMD,
 
-	/*          */
-	GPIO1_nCS2,			/*    */
-	GPIO40_GPIO | MFP_PULL_HIGH,	/*     */
+	/* Ethernet */
+	GPIO1_nCS2,			/* CS */
+	GPIO40_GPIO | MFP_PULL_HIGH,	/* IRQ */
 
-	/*             */
+	/* SSP for I2S */
 	GPIO85_SSP1_SCLK,
 	GPIO89_SSP1_EXTCLK,
 	GPIO86_SSP1_FRM,
@@ -222,19 +222,19 @@ static mfp_cfg_t raumfeld_connector_pin_config[] __initdata = {
 	GPIO88_SSP1_RXD,
 	GPIO90_SSP1_SYSCLK,
 
-	/*                 */
+	/* SSP2 for S/PDIF */
 	GPIO25_SSP2_SCLK,
 	GPIO26_SSP2_FRM,
 	GPIO27_SSP2_TXD,
 	GPIO29_SSP2_EXTCLK,
 
-	/*      */
+	/* LEDs */
 	GPIO35_GPIO | MFP_LPM_PULL_LOW,
 	GPIO36_GPIO | MFP_LPM_DRIVE_HIGH,
 };
 
 static mfp_cfg_t raumfeld_speaker_pin_config[] __initdata = {
-	/*       */
+	/* UART1 */
 	GPIO77_UART1_RXD,
 	GPIO78_UART1_TXD,
 	GPIO79_UART1_CTS,
@@ -242,23 +242,23 @@ static mfp_cfg_t raumfeld_speaker_pin_config[] __initdata = {
 	GPIO83_UART1_DTR,
 	GPIO84_UART1_RTS,
 
-	/*       */
+	/* UART3 */
 	GPIO110_UART3_RXD,
 
-	/*          */
+	/* USB Host */
 	GPIO0_2_USBH_PEN,
 	GPIO1_2_USBH_PWR,
 
-	/*     */
+	/* I2C */
 	GPIO21_I2C_SCL | MFP_LPM_FLOAT | MFP_PULL_FLOAT,
 	GPIO22_I2C_SDA | MFP_LPM_FLOAT | MFP_PULL_FLOAT,
 
-	/*     */
-	GPIO34_GPIO,	/*          */
-	GPIO96_GPIO,	/*         */
-	GPIO125_GPIO,	/*          */
+	/* SPI */
+	GPIO34_GPIO,	/* SPDIF_CS */
+	GPIO96_GPIO,	/* MCLK_CS */
+	GPIO125_GPIO,	/* ACCEL_CS */
 
-	/*     */
+	/* MMC */
 	GPIO3_MMC1_DAT0,
 	GPIO4_MMC1_DAT1,
 	GPIO5_MMC1_DAT2,
@@ -266,11 +266,11 @@ static mfp_cfg_t raumfeld_speaker_pin_config[] __initdata = {
 	GPIO7_MMC1_CLK,
 	GPIO8_MMC1_CMD,
 
-	/*          */
-	GPIO1_nCS2,			/*    */
-	GPIO40_GPIO | MFP_PULL_HIGH,	/*     */
+	/* Ethernet */
+	GPIO1_nCS2,			/* CS */
+	GPIO40_GPIO | MFP_PULL_HIGH,	/* IRQ */
 
-	/*             */
+	/* SSP for I2S */
 	GPIO85_SSP1_SCLK,
 	GPIO89_SSP1_EXTCLK,
 	GPIO86_SSP1_FRM,
@@ -278,13 +278,13 @@ static mfp_cfg_t raumfeld_speaker_pin_config[] __initdata = {
 	GPIO88_SSP1_RXD,
 	GPIO90_SSP1_SYSCLK,
 
-	/*      */
+	/* LEDs */
 	GPIO35_GPIO | MFP_LPM_PULL_LOW,
 	GPIO36_GPIO | MFP_LPM_DRIVE_HIGH,
 };
 
 /*
-                        
+ * SMSC LAN9220 Ethernet
  */
 
 static struct resource smc91x_resources[] = {
@@ -317,8 +317,8 @@ static struct platform_device smc91x_device = {
 	}
 };
 
-/* 
-       
+/**
+ * NAND
  */
 
 static struct mtd_partition raumfeld_nand_partitions[] = {
@@ -326,7 +326,7 @@ static struct mtd_partition raumfeld_nand_partitions[] = {
 		.name		= "Bootloader",
 		.offset		= 0,
 		.size		= 0xa0000,
-		.mask_flags	= MTD_WRITEABLE, /*                 */
+		.mask_flags	= MTD_WRITEABLE, /* force read-only */
 	},
 	{
 		.name		= "BootloaderEnvironment",
@@ -353,8 +353,8 @@ static struct pxa3xx_nand_platform_data raumfeld_nand_info = {
 	.nr_parts[0]	= ARRAY_SIZE(raumfeld_nand_partitions),
 };
 
-/* 
-                     
+/**
+ * USB (OHCI) support
  */
 
 static struct pxaohci_platform_data raumfeld_ohci_info = {
@@ -362,8 +362,8 @@ static struct pxaohci_platform_data raumfeld_ohci_info = {
 	.flags		= ENABLE_PORT1,
 };
 
-/* 
-                              
+/**
+ * Rotary encoder input device
  */
 
 static struct rotary_encoder_platform_data raumfeld_rotary_encoder_info = {
@@ -384,8 +384,8 @@ static struct platform_device rotary_encoder_device = {
 	}
 };
 
-/* 
-               
+/**
+ * GPIO buttons
  */
 
 static struct gpio_keys_button gpio_keys_button[] = {
@@ -395,7 +395,7 @@ static struct gpio_keys_button gpio_keys_button[] = {
 		.gpio			= GPIO_KEY1,
 		.active_low		= 1,
 		.wakeup			= 0,
-		.debounce_interval	= 5, /*    */
+		.debounce_interval	= 5, /* ms */
 		.desc			= "Button 1",
 	},
 	{
@@ -404,7 +404,7 @@ static struct gpio_keys_button gpio_keys_button[] = {
 		.gpio			= GPIO_KEY2,
 		.active_low		= 1,
 		.wakeup			= 0,
-		.debounce_interval	= 5, /*    */
+		.debounce_interval	= 5, /* ms */
 		.desc			= "Button 2",
 	},
 	{
@@ -413,7 +413,7 @@ static struct gpio_keys_button gpio_keys_button[] = {
 		.gpio			= GPIO_KEY3,
 		.active_low		= 1,
 		.wakeup			= 0,
-		.debounce_interval	= 5, /*    */
+		.debounce_interval	= 5, /* ms */
 		.desc			= "Button 3",
 	},
 	{
@@ -422,7 +422,7 @@ static struct gpio_keys_button gpio_keys_button[] = {
 		.gpio			= GPIO_RESCUE_BOOT,
 		.active_low		= 0,
 		.wakeup			= 0,
-		.debounce_interval	= 5, /*    */
+		.debounce_interval	= 5, /* ms */
 		.desc			= "rescue boot button",
 	},
 	{
@@ -431,7 +431,7 @@ static struct gpio_keys_button gpio_keys_button[] = {
 		.gpio			= GPIO_DOCK_DETECT,
 		.active_low		= 1,
 		.wakeup			= 0,
-		.debounce_interval	= 5, /*    */
+		.debounce_interval	= 5, /* ms */
 		.desc			= "dock detect",
 	},
 	{
@@ -440,7 +440,7 @@ static struct gpio_keys_button gpio_keys_button[] = {
 		.gpio			= GPIO_ON_OFF,
 		.active_low		= 0,
 		.wakeup			= 0,
-		.debounce_interval	= 5, /*    */
+		.debounce_interval	= 5, /* ms */
 		.desc			= "on_off button",
 	},
 };
@@ -459,8 +459,8 @@ static struct platform_device raumfeld_gpio_keys_device = {
 	}
 };
 
-/* 
-            
+/**
+ * GPIO LEDs
  */
 
 static struct gpio_led raumfeld_leds[] = {
@@ -491,8 +491,8 @@ static struct platform_device raumfeld_led_device = {
 	},
 };
 
-/* 
-                            
+/**
+ * One-wire (W1 bus) support
  */
 
 static void w1_enable_external_pullup(int enable)
@@ -527,16 +527,16 @@ static void __init raumfeld_w1_init(void)
 	platform_device_register(&raumfeld_w1_gpio_device);
 }
 
-/* 
-                     
+/**
+ * Framebuffer device
  */
 
-/*                          */
+/* PWM controlled backlight */
 static struct platform_pwm_backlight_data raumfeld_pwm_backlight_data = {
 	.pwm_id		= 0,
 	.max_brightness	= 100,
 	.dft_brightness	= 100,
-	/*                             */
+	/* 10000 ns = 10 ms ^= 100 kHz */
 	.pwm_period_ns	= 10000,
 };
 
@@ -548,7 +548,7 @@ static struct platform_device raumfeld_pwm_backlight_device = {
 	}
 };
 
-/*                             */
+/* LT3593 controlled backlight */
 static struct gpio_led raumfeld_lt3593_led = {
 	.name		= "backlight",
 	.gpio		= mfp_to_gpio(MFP_PIN_GPIO17),
@@ -610,8 +610,8 @@ static void __init raumfeld_lcd_init(void)
 	else
 		gpio_direction_output(GPIO_DISPLAY_ENABLE, 1);
 
-	/*                                                           
-                                                              */
+	/* Hardware revision 2 has the backlight regulator controlled
+	 * by an LT3593, earlier and later devices use PWM for that. */
 	if ((system_rev & 0xff) == 2) {
 		platform_device_register(&raumfeld_lt3593_device);
 	} else {
@@ -624,8 +624,8 @@ static void __init raumfeld_lcd_init(void)
 	platform_device_register(&pxa3xx_device_gcu);
 }
 
-/* 
-              
+/**
+ * SPI devices
  */
 
 struct spi_gpio_platform_data raumfeld_spi_platform_data = {
@@ -699,8 +699,8 @@ static struct spi_board_info controller_spi_devices[] __initdata = {
 	SPI_LIS3,
 };
 
-/* 
-                                         
+/**
+ * MMC for Marvell Libertas 8688 via SDIO
  */
 
 static int raumfeld_mci_init(struct device *dev, irq_handler_t isr, void *data)
@@ -727,7 +727,7 @@ static struct pxamci_platform_data raumfeld_mci_platform_data = {
 };
 
 /*
-                                
+ * External power / charge logic
  */
 
 static int power_supply_init(struct device *dev)
@@ -762,7 +762,7 @@ static void raumfeld_power_signal_charged(void)
 
 static int raumfeld_power_resume(void)
 {
-	/*                                                           */
+	/* check if GPIO_CHARGE_DONE went low while we were sleeping */
 	if (!gpio_get_value(GPIO_CHARGE_DONE))
 		raumfeld_power_signal_charged();
 
@@ -809,7 +809,7 @@ static void __init raumfeld_power_init(void)
 {
 	int ret;
 
-	/*                                                */
+	/* Set PEN2 high to enable maximum charge current */
 	ret = gpio_request(GPIO_CHRG_PEN2, "CHRG_PEN2");
 	if (ret < 0)
 		pr_warning("Unable to request GPIO_CHRG_PEN2\n");
@@ -840,7 +840,7 @@ static void __init raumfeld_power_init(void)
 		platform_device_register(&raumfeld_power_supply);
 }
 
-/*                                                                      */
+/* Fixed regulator for AUDIO_VA, 0-0048 maps to the cs4270 codec device */
 
 static struct regulator_consumer_supply audio_va_consumer_supply =
 	REGULATOR_SUPPLY("va", "0-0048");
@@ -870,7 +870,7 @@ static struct platform_device audio_va_device = {
 	},
 };
 
-/*                                   */
+/* Dummy supplies for Codec's VD/VLC */
 
 static struct regulator_consumer_supply audio_dummy_supplies[] = {
 	REGULATOR_SUPPLY("vd", "0-0048"),
@@ -905,8 +905,8 @@ static struct platform_device *audio_regulator_devices[] = {
 	&audio_supply_dummy_device,
 };
 
-/* 
-                                
+/**
+ * Regulator support via MAX8660
  */
 
 static struct regulator_consumer_supply vcc_mmc_supply =
@@ -936,8 +936,8 @@ static struct max8660_platform_data max8660_pdata = {
 	.num_subdevs = 1,
 };
 
-/* 
-              
+/**
+ * I2C devices
  */
 
 static struct i2c_board_info raumfeld_pwri2c_board_info = {
@@ -997,7 +997,7 @@ static void __init raumfeld_common_init(void)
 {
 	int ret;
 
-	/*                                                         */
+	/* The on/off button polarity has changed after revision 1 */
 	if ((system_rev & 0xff) > 1) {
 		int i;
 
@@ -1027,7 +1027,7 @@ static void __init raumfeld_common_init(void)
 	else
 		gpio_direction_output(GPIO_W2W_PDN, 0);
 
-	/*                                           */
+	/* this can be used to switch off the device */
 	ret = gpio_request(GPIO_SHUTDOWN_SUPPLY, "supply shutdown");
 	if (ret < 0)
 		pr_warning("Unable to request GPIO_SHUTDOWN_SUPPLY\n");
@@ -1084,8 +1084,8 @@ static void __init raumfeld_speaker_init(void)
 	raumfeld_common_init();
 }
 
-/*                         */
-#define	RAUMFELD_SDRAM_BASE	0xa0000000	/*              */
+/* physical memory regions */
+#define	RAUMFELD_SDRAM_BASE	0xa0000000	/* SDRAM region */
 
 #ifdef CONFIG_MACH_RAUMFELD_RC
 MACHINE_START(RAUMFELD_RC, "Raumfeld Controller")

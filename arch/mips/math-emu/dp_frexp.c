@@ -1,5 +1,5 @@
-/*                                  
-                                     
+/* IEEE754 floating point arithmetic
+ * double precision: common utilities
  */
 /*
  * MIPS floating point support
@@ -26,7 +26,7 @@
 
 #include "ieee754dp.h"
 
-/*                         
+/* close to ieeep754dp_logb
 */
 ieee754dp ieee754dp_frexp(ieee754dp x, int *eptr)
 {

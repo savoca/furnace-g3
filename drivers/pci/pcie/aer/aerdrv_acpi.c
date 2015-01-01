@@ -114,8 +114,8 @@ static int aer_hest_parse_aff(struct acpi_hest_header *hest_hdr, void *data)
 	}
 }
 
-/* 
-                                                              
+/**
+ * aer_acpi_firmware_first - Check if APEI should control AER.
  */
 bool aer_acpi_firmware_first(void)
 {

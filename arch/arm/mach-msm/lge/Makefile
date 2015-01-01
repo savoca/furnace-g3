@@ -8,6 +8,7 @@ obj-$(CONFIG_MACH_MSM8974_G3_ATT) += board-8974-g3-us.o board-8974-g3-att-gpiomu
 obj-$(CONFIG_MACH_MSM8974_G3_TMO_US) += board-8974-g3-us.o board-8974-g3-tmo_us-gpiomux.o
 obj-$(CONFIG_MACH_MSM8974_G3_SPR_US) += board-8974-g3-us.o board-8974-g3-spr_us-gpiomux.o
 obj-$(CONFIG_MACH_MSM8974_G3_USC_US) += board-8974-g3-us.o board-8974-g3-usc_us-gpiomux.o
+obj-$(CONFIG_MACH_MSM8974_G3_ACG_US) += board-8974-g3-us.o board-8974-g3-acg_us-gpiomux.o
 obj-$(CONFIG_MACH_MSM8974_G3_CMCC_CN) += board-8974-g3-cn.o board-8974-g3-cn-gpiomux.o
 obj-$(CONFIG_MACH_MSM8974_G3_CTC_CN) += board-8974-g3-cn.o board-8974-g3-cn-gpiomux.o
 obj-$(CONFIG_MACH_MSM8974_G3_CUCC_CN) += board-8974-g3-cn.o board-8974-g3-cn-gpiomux.o

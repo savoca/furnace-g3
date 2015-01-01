@@ -9,15 +9,15 @@
  * ----------------------------------------------------------------------- */
 
 /*
-                                                                      
-                                                                 
-                                                           
-  
-                                                              
-                      
-  
-                                                                  
-                                                    
+ * Check for obligatory CPU features and abort if the features are not
+ * present.  This code should be compilable as 16-, 32- or 64-bit
+ * code, so be very careful with types and inline assembly.
+ *
+ * This code should not contain any messages; that requires an
+ * additional wrapper.
+ *
+ * As written, this code is not safe for inclusion into the kernel
+ * proper (after FPU initialization, in particular).
  */
 
 #ifdef _SETUP
@@ -38,12 +38,12 @@ static const u32 req_flags[NCAPINTS] =
 {
 	REQUIRED_MASK0,
 	REQUIRED_MASK1,
-	0, /*                                             */
-	0, /*                                             */
+	0, /* REQUIRED_MASK2 not implemented in this file */
+	0, /* REQUIRED_MASK3 not implemented in this file */
 	REQUIRED_MASK4,
-	0, /*                                             */
+	0, /* REQUIRED_MASK5 not implemented in this file */
 	REQUIRED_MASK6,
-	0, /*                                             */
+	0, /* REQUIRED_MASK7 not implemented in this file */
 };
 
 #define A32(a, b, c, d) (((d) << 24)+((c) << 16)+((b) << 8)+(a))
@@ -153,7 +153,7 @@ static void get_flags(void)
 	}
 }
 
-/*                                                        */
+/* Returns a bitmask of which words we have error bits in */
 static int check_flags(void)
 {
 	u32 err;
@@ -170,12 +170,12 @@ static int check_flags(void)
 }
 
 /*
-                       
-  
-                                                                         
-                                                          
-  
-                                                                             
+ * Returns -1 on error.
+ *
+ * *cpu_level is set to the current CPU level; *req_level to the required
+ * level.  x86-64 is considered level 64 for this purpose.
+ *
+ * *err_flags_ptr is set to the flags error array if there are flags missing.
  */
 int check_cpu(int *cpu_level_ptr, int *req_level_ptr, u32 **err_flags_ptr)
 {
@@ -197,8 +197,8 @@ int check_cpu(int *cpu_level_ptr, int *req_level_ptr, u32 **err_flags_ptr)
 	    !(err_flags[0] &
 	      ~((1 << X86_FEATURE_XMM)|(1 << X86_FEATURE_XMM2))) &&
 	    is_amd()) {
-		/*                                                          
-                  */
+		/* If this is an AMD and we're only missing SSE+SSE2, try to
+		   turn them on */
 
 		u32 ecx = MSR_K7_HWCR;
 		u32 eax, edx;
@@ -207,13 +207,13 @@ int check_cpu(int *cpu_level_ptr, int *req_level_ptr, u32 **err_flags_ptr)
 		eax &= ~(1 << 15);
 		asm("wrmsr" : : "a" (eax), "d" (edx), "c" (ecx));
 
-		get_flags();	/*                                   */
+		get_flags();	/* Make sure it really did something */
 		err = check_flags();
 	} else if (err == 0x01 &&
 		   !(err_flags[0] & ~(1 << X86_FEATURE_CX8)) &&
 		   is_centaur() && cpu.model >= 6) {
-		/*                                                 
-                */
+		/* If this is a VIA C3, we might have to enable CX8
+		   explicitly */
 
 		u32 ecx = MSR_VIA_FCR;
 		u32 eax, edx;
@@ -225,7 +225,7 @@ int check_cpu(int *cpu_level_ptr, int *req_level_ptr, u32 **err_flags_ptr)
 		set_bit(X86_FEATURE_CX8, cpu.flags);
 		err = check_flags();
 	} else if (err == 0x01 && is_transmeta()) {
-		/*                                                    */
+		/* Transmeta might have masked feature bits in word 0 */
 
 		u32 ecx = 0x80860004;
 		u32 eax, edx;

@@ -28,7 +28,7 @@
  */
 
 /*
-                                                       
+ * Veritas filesystem driver - fileset header routines.
  */
 #include <linux/fs.h>
 #include <linux/buffer_head.h>
@@ -60,17 +60,17 @@ vxfs_dumpfsh(struct vxfs_fsh *fhp)
 }
 #endif
 
-/* 
-                                                
-                                        
-                                                       
-  
-               
-                                                                      
-                                  
-  
-           
-                                                        
+/**
+ * vxfs_getfsh - read fileset header into memory
+ * @ip:		the (fake) fileset header inode
+ * @which:	0 for the structural, 1 for the primary fsh.
+ *
+ * Description:
+ *   vxfs_getfsh reads either the structural or primary fileset header
+ *   described by @ip into memory.
+ *
+ * Returns:
+ *   The fileset header structure on success, else Zero.
  */
 static struct vxfs_fsh *
 vxfs_getfsh(struct inode *ip, int which)
@@ -93,15 +93,15 @@ out:
 	return NULL;
 }
 
-/* 
-                                              
-                                                
-  
-               
-                                                                           
-  
-           
-                                                           
+/**
+ * vxfs_read_fshead - read the fileset headers
+ * @sbp:	superblock to which the fileset belongs
+ *
+ * Description:
+ *   vxfs_read_fshead will fill the inode and structural inode list in @sb.
+ *
+ * Returns:
+ *   Zero on success, else a negative error code (-EINVAL).
  */
 int
 vxfs_read_fshead(struct super_block *sbp)

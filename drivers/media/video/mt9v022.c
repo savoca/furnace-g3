@@ -22,16 +22,16 @@
 #include <media/v4l2-ctrls.h>
 
 /*
-                                             
-                                                                            
-                              
+ * mt9v022 i2c address 0x48, 0x4c, 0x58, 0x5c
+ * The platform has to define ctruct i2c_board_info objects and link to them
+ * from struct soc_camera_link
  */
 
 static char *sensor_type;
 module_param(sensor_type, charp, S_IRUGO);
 MODULE_PARM_DESC(sensor_type, "Sensor type: \"colour\" or \"monochrome\"");
 
-/*                                     */
+/* mt9v022 selected register addresses */
 #define MT9V022_CHIP_VERSION		0x00
 #define MT9V022_COLUMN_START		0x01
 #define MT9V022_ROW_START		0x02
@@ -57,7 +57,7 @@ MODULE_PARM_DESC(sensor_type, "Sensor type: \"colour\" or \"monochrome\"");
 #define MT9V022_AEC_AGC_ENABLE		0xAF
 #define MT9V022_MAX_TOTAL_SHUTTER_WIDTH	0xBD
 
-/*                                    */
+/* Progressive scan, master, defaults */
 #define MT9V022_CHIP_CONTROL_DEFAULT	0x188
 
 #define MT9V022_MAX_WIDTH		752
@@ -67,13 +67,13 @@ MODULE_PARM_DESC(sensor_type, "Sensor type: \"colour\" or \"monochrome\"");
 #define MT9V022_COLUMN_SKIP		1
 #define MT9V022_ROW_SKIP		4
 
-/*                                                     */
+/* MT9V022 has only one fixed colorspace per pixelcode */
 struct mt9v022_datafmt {
 	enum v4l2_mbus_pixelcode	code;
 	enum v4l2_colorspace		colorspace;
 };
 
-/*                                                */
+/* Find a data format by a pixel code in an array */
 static const struct mt9v022_datafmt *mt9v022_find_datafmt(
 	enum v4l2_mbus_pixelcode code, const struct mt9v022_datafmt *fmt,
 	int n)
@@ -88,15 +88,15 @@ static const struct mt9v022_datafmt *mt9v022_find_datafmt(
 
 static const struct mt9v022_datafmt mt9v022_colour_fmts[] = {
 	/*
-                                              
-                                         
-  */
+	 * Order important: first natively supported,
+	 * second supported with a GPIO extender
+	 */
 	{V4L2_MBUS_FMT_SBGGR10_1X10, V4L2_COLORSPACE_SRGB},
 	{V4L2_MBUS_FMT_SBGGR8_1X8, V4L2_COLORSPACE_SRGB},
 };
 
 static const struct mt9v022_datafmt mt9v022_monochrome_fmts[] = {
-	/*                             */
+	/* Order important - see above */
 	{V4L2_MBUS_FMT_Y10_1X10, V4L2_COLORSPACE_JPEG},
 	{V4L2_MBUS_FMT_Y8_1X8, V4L2_COLORSPACE_JPEG},
 };
@@ -105,22 +105,22 @@ struct mt9v022 {
 	struct v4l2_subdev subdev;
 	struct v4l2_ctrl_handler hdl;
 	struct {
-		/*                                */
+		/* exposure/auto-exposure cluster */
 		struct v4l2_ctrl *autoexposure;
 		struct v4l2_ctrl *exposure;
 	};
 	struct {
-		/*                        */
+		/* gain/auto-gain cluster */
 		struct v4l2_ctrl *autogain;
 		struct v4l2_ctrl *gain;
 	};
-	struct v4l2_rect rect;	/*               */
+	struct v4l2_rect rect;	/* Sensor window */
 	const struct mt9v022_datafmt *fmt;
 	const struct mt9v022_datafmt *fmts;
 	int num_fmts;
-	int model;	/*                                                  */
+	int model;	/* V4L2_IDENT_MT9V022* codes from v4l2-chip-ident.h */
 	u16 chip_control;
-	unsigned short y_skip_top;	/*                          */
+	unsigned short y_skip_top;	/* Lines to skip at the top */
 };
 
 static struct mt9v022 *to_mt9v022(const struct i2c_client *client)
@@ -167,18 +167,18 @@ static int mt9v022_init(struct i2c_client *client)
 	int ret;
 
 	/*
-                                                                   
-                                                                      
-                                              
-  */
+	 * Almost the default mode: master, parallel, simultaneous, and an
+	 * undocumented bit 0x200, which is present in table 7, but not in 8,
+	 * plus snapshot mode to disable scan for now
+	 */
 	mt9v022->chip_control |= 0x10;
 	ret = reg_write(client, MT9V022_CHIP_CONTROL, mt9v022->chip_control);
 	if (!ret)
 		ret = reg_write(client, MT9V022_READ_MODE, 0x300);
 
-	/*              */
+	/* All defaults */
 	if (!ret)
-		/*             */
+		/* AEC, AGC on */
 		ret = reg_set(client, MT9V022_AEC_AGC_ENABLE, 0x3);
 	if (!ret)
 		ret = reg_write(client, MT9V022_ANALOG_GAIN, 16);
@@ -187,7 +187,7 @@ static int mt9v022_init(struct i2c_client *client)
 	if (!ret)
 		ret = reg_write(client, MT9V022_MAX_TOTAL_SHUTTER_WIDTH, 480);
 	if (!ret)
-		/*                */
+		/* default - auto */
 		ret = reg_clear(client, MT9V022_BLACK_LEVEL_CALIB_CTRL, 1);
 	if (!ret)
 		ret = reg_write(client, MT9V022_DIGITAL_TEST_PATTERN, 0);
@@ -203,10 +203,10 @@ static int mt9v022_s_stream(struct v4l2_subdev *sd, int enable)
 	struct mt9v022 *mt9v022 = to_mt9v022(client);
 
 	if (enable)
-		/*                                */
+		/* Switch to master "normal" mode */
 		mt9v022->chip_control &= ~0x10;
 	else
-		/*                         */
+		/* Switch to snapshot mode */
 		mt9v022->chip_control |= 0x10;
 
 	if (reg_write(client, MT9V022_CHIP_CONTROL, mt9v022->chip_control) < 0)
@@ -221,11 +221,11 @@ static int mt9v022_s_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
 	struct v4l2_rect rect = a->c;
 	int ret;
 
-	/*                                  */
+	/* Bayer format - even size lengths */
 	if (mt9v022->fmts == mt9v022_colour_fmts) {
 		rect.width	= ALIGN(rect.width, 2);
 		rect.height	= ALIGN(rect.height, 2);
-		/*                                           */
+		/* Let the user play with the starting pixel */
 	}
 
 	soc_camera_limit_side(&rect.left, &rect.width,
@@ -234,26 +234,26 @@ static int mt9v022_s_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
 	soc_camera_limit_side(&rect.top, &rect.height,
 		     MT9V022_ROW_SKIP, MT9V022_MIN_HEIGHT, MT9V022_MAX_HEIGHT);
 
-	/*                                                       */
+	/* Like in example app. Contradicts the datasheet though */
 	ret = reg_read(client, MT9V022_AEC_AGC_ENABLE);
 	if (ret >= 0) {
-		if (ret & 1) /*              */
+		if (ret & 1) /* Autoexposure */
 			ret = reg_write(client, MT9V022_MAX_TOTAL_SHUTTER_WIDTH,
 					rect.height + mt9v022->y_skip_top + 43);
 		else
 			ret = reg_write(client, MT9V022_TOTAL_SHUTTER_WIDTH,
 					rect.height + mt9v022->y_skip_top + 43);
 	}
-	/*                                                          */
+	/* Setup frame format: defaults apart from width and height */
 	if (!ret)
 		ret = reg_write(client, MT9V022_COLUMN_START, rect.left);
 	if (!ret)
 		ret = reg_write(client, MT9V022_ROW_START, rect.top);
 	if (!ret)
 		/*
-                                    
-                                      
-   */
+		 * Default 94, Phytec driver says:
+		 * "width + horizontal blank >= 660"
+		 */
 		ret = reg_write(client, MT9V022_HORIZONTAL_BLANKING,
 				rect.width > 660 - 43 ? 43 :
 				660 - rect.width);
@@ -331,9 +331,9 @@ static int mt9v022_s_fmt(struct v4l2_subdev *sd,
 	int ret;
 
 	/*
-                                                                   
-                                                                
-  */
+	 * The caller provides a supported format, as verified per call to
+	 * .try_mbus_fmt(), datawidth is from our supported format list
+	 */
 	switch (mf->code) {
 	case V4L2_MBUS_FMT_Y8_1X8:
 	case V4L2_MBUS_FMT_Y10_1X10:
@@ -349,7 +349,7 @@ static int mt9v022_s_fmt(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	/*                                                   */
+	/* No support for scaling on this camera, just crop. */
 	ret = mt9v022_s_crop(sd, &a);
 	if (!ret) {
 		mf->width	= mt9v022->rect.width;
@@ -508,9 +508,9 @@ static int mt9v022_s_ctrl(struct v4l2_ctrl *ctrl)
 				return -EIO;
 		} else {
 			struct v4l2_ctrl *gain = mt9v022->gain;
-			/*                                */
+			/* mt9v022 has minimum == default */
 			unsigned long range = gain->maximum - gain->minimum;
-			/*                                               */
+			/* Valid values 16 to 64, 32 to 64 must be even. */
 			unsigned long gain_val = ((gain->val - gain->minimum) *
 					      48 + range / 2) / range + 16;
 
@@ -518,9 +518,9 @@ static int mt9v022_s_ctrl(struct v4l2_ctrl *ctrl)
 				gain_val &= ~1;
 
 			/*
-                                                    
-                                                
-    */
+			 * The user wants to set gain manually, hope, she
+			 * knows, what she's doing... Switch AGC off.
+			 */
 			if (reg_clear(client, MT9V022_AEC_AGC_ENABLE, 0x2) < 0)
 				return -EIO;
 
@@ -540,9 +540,9 @@ static int mt9v022_s_ctrl(struct v4l2_ctrl *ctrl)
 					479 + range / 2) / range + 1;
 
 			/*
-                                                         
-                                                    
-    */
+			 * The user wants to set shutter width manually, hope,
+			 * she knows, what she's doing... Switch AEC off.
+			 */
 			data = reg_clear(client, MT9V022_AEC_AGC_ENABLE, 0x1);
 			if (data < 0)
 				return -EIO;
@@ -559,8 +559,8 @@ static int mt9v022_s_ctrl(struct v4l2_ctrl *ctrl)
 }
 
 /*
-                                                                       
-                                                                   
+ * Interface active, can use i2c. If it fails, it can indeed mean, that
+ * this wasn't our capture interface, so, we wait for the right one
  */
 static int mt9v022_video_probe(struct i2c_client *client)
 {
@@ -570,10 +570,10 @@ static int mt9v022_video_probe(struct i2c_client *client)
 	int ret;
 	unsigned long flags;
 
-	/*                                    */
+	/* Read out the chip version register */
 	data = reg_read(client, MT9V022_CHIP_VERSION);
 
-	/*                          */
+	/* must be 0x1311 or 0x1313 */
 	if (data != 0x1311 && data != 0x1313) {
 		ret = -ENODEV;
 		dev_info(&client->dev, "No MT9V022 found, ID register 0x%x\n",
@@ -581,11 +581,11 @@ static int mt9v022_video_probe(struct i2c_client *client)
 		goto ei2c;
 	}
 
-	/*            */
+	/* Soft reset */
 	ret = reg_write(client, MT9V022_RESET, 1);
 	if (ret < 0)
 		goto ei2c;
-	/*                 */
+	/* 15 clock cycles */
 	udelay(200);
 	if (reg_read(client, MT9V022_RESET)) {
 		dev_err(&client->dev, "Resetting MT9V022 failed!\n");
@@ -594,7 +594,7 @@ static int mt9v022_video_probe(struct i2c_client *client)
 		goto ei2c;
 	}
 
-	/*                                      */
+	/* Set monochrome or colour sensor type */
 	if (sensor_type && (!strcmp("colour", sensor_type) ||
 			    !strcmp("color", sensor_type))) {
 		ret = reg_write(client, MT9V022_PIXEL_OPERATION_MODE, 4 | 0x11);
@@ -612,10 +612,10 @@ static int mt9v022_video_probe(struct i2c_client *client)
 	mt9v022->num_fmts = 0;
 
 	/*
-                                                              
-                                                        
-                                        
-  */
+	 * This is a 10bit sensor, so by default we only allow 10bit.
+	 * The platform may support different bus widths due to
+	 * different routing of the data lines.
+	 */
 	if (icl->query_bus_param)
 		flags = icl->query_bus_param(icl);
 	else
@@ -713,9 +713,9 @@ static int mt9v022_s_mbus_config(struct v4l2_subdev *sd,
 			return ret;
 	} else if (bps != 10) {
 		/*
-                                                                  
-                             
-   */
+		 * Without board specific bus width settings we only support the
+		 * sensors native bus width
+		 */
 		return -EINVAL;
 	}
 
@@ -803,9 +803,9 @@ static int mt9v022_probe(struct i2c_client *client,
 			V4L2_CID_GAIN, 0, 127, 1, 64);
 
 	/*
-                                                                  
-                                                                      
-  */
+	 * Simulated autoexposure. If enabled, we calculate shutter width
+	 * ourselves in the driver based on vertical blanking and frame width
+	 */
 	mt9v022->autoexposure = v4l2_ctrl_new_std_menu(&mt9v022->hdl,
 			&mt9v022_ctrl_ops, V4L2_CID_EXPOSURE_AUTO, 1, 0,
 			V4L2_EXPOSURE_AUTO);
@@ -826,9 +826,9 @@ static int mt9v022_probe(struct i2c_client *client,
 	mt9v022->chip_control = MT9V022_CHIP_CONTROL_DEFAULT;
 
 	/*
-                                                      
-                          
-  */
+	 * MT9V022 _really_ corrupts the first read out line.
+	 * TODO: verify on i.MX31
+	 */
 	mt9v022->y_skip_top	= 1;
 	mt9v022->rect.left	= MT9V022_COLUMN_SKIP;
 	mt9v022->rect.top	= MT9V022_ROW_SKIP;

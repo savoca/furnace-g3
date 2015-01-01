@@ -36,7 +36,7 @@
 #include "devices.h"
 
 /*
-            
+ * NOR Flash
  */
 static struct mtd_partition cns3420_nor_partitions[] = {
 	{
@@ -86,7 +86,7 @@ static struct platform_device cns3420_nor_pdev = {
 };
 
 /*
-       
+ * UART
  */
 static void __init cns3420_early_serial_setup(void)
 {
@@ -109,7 +109,7 @@ static void __init cns3420_early_serial_setup(void)
 }
 
 /*
-      
+ * USB
  */
 static struct resource cns3xxx_usb_ehci_resources[] = {
 	[0] = {
@@ -160,7 +160,7 @@ static struct platform_device cns3xxx_usb_ohci_device = {
 };
 
 /*
-                 
+ * Initialization
  */
 static struct platform_device *cns3420_pdevs[] __initdata = {
 	&cns3420_nor_pdev,

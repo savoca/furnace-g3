@@ -1,5 +1,5 @@
-/*                                  
-                                     
+/* IEEE754 floating point arithmetic
+ * double precision: common utilities
  */
 /*
  * MIPS floating point support
@@ -26,7 +26,7 @@
 
 #include "ieee754dp.h"
 
-/*                                                  
+/* modf function is always exact for a finite number
 */
 ieee754dp ieee754dp_modf(ieee754dp x, ieee754dp *ip)
 {
@@ -44,7 +44,7 @@ ieee754dp ieee754dp_modf(ieee754dp x, ieee754dp *ip)
 		*ip = x;
 		return x;
 	case IEEE754_CLASS_DNORM:
-		/*              */
+		/* far to small */
 		*ip = ieee754dp_zero(xs);
 		return x;
 	case IEEE754_CLASS_NORM:
@@ -58,15 +58,15 @@ ieee754dp ieee754dp_modf(ieee754dp x, ieee754dp *ip)
 		*ip = x;
 		return ieee754dp_zero(xs);
 	}
-	/*                                                
-  */
+	/* generate ipart mantissa by clearing bottom bits
+	 */
 	*ip = builddp(xs, xe + DP_EBIAS,
 		      ((xm >> (DP_MBITS - xe)) << (DP_MBITS - xe)) &
 		      ~DP_HIDDEN_BIT);
 
-	/*                                             
-                                               
-  */
+	/* generate fpart mantissa by clearing top bits
+	 * and normalizing (must be able to normalize)
+	 */
 	xm = (xm << (64 - (DP_MBITS - xe))) >> (64 - (DP_MBITS - xe));
 	if (xm == 0)
 		return ieee754dp_zero(xs);

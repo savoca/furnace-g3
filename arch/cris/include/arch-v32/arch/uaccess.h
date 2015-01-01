@@ -1,17 +1,17 @@
 /*
-                                               
-  
+ * Authors:    Hans-Peter Nilsson (hp@axis.com)
+ *
  */
 #ifndef _CRIS_ARCH_UACCESS_H
 #define _CRIS_ARCH_UACCESS_H
 
 /*
-                                                                 
-                                                                  
-                          
-  
-                                                           
-                           
+ * We don't tell gcc that we are accessing memory, but this is OK
+ * because we do not write to any memory gcc knows about, so there
+ * are no aliasing issues.
+ *
+ * Note that PC at a fault is the address *at* the faulting
+ * instruction for CRISv32.
  */
 #define __put_user_asm(x, addr, err, op)			\
 	__asm__ __volatile__(					\
@@ -47,7 +47,7 @@
 		  "0" (err));					\
 	} while (0)
 
-/*                                     */
+/* See comment before __put_user_asm.  */
 
 #define __get_user_asm(x, addr, err, op)		\
 	__asm__ __volatile__(				\
@@ -85,13 +85,13 @@
 	} while (0)
 
 /*
-                                                
-  
-               
-                            
-                                    
-                                      
-                          
+ * Copy a null terminated string from userspace.
+ *
+ * Must return:
+ * -EFAULT		for an exception
+ * count		if we hit the buffer limit
+ * bytes copied		if we hit a null byte
+ * (without the null byte)
  */
 static inline long
 __do_strncpy_from_user(char *dst, const char *src, long count)
@@ -102,22 +102,22 @@ __do_strncpy_from_user(char *dst, const char *src, long count)
 		return 0;
 
 	/*
-                                                                      
-              
-   
-                               
-   
-              
-                    
-                 
-                                          
-                     
-       
-   
-                       
-   
-                 
-  */
+	 * Currently, in 2.4.0-test9, most ports use a simple byte-copy loop.
+	 *  So do we.
+	 *
+	 *  This code is deduced from:
+	 *
+	 *	char tmp2;
+	 *	long tmp1, tmp3;
+	 *	tmp1 = count;
+	 *	while ((*dst++ = (tmp2 = *src++)) != 0
+	 *	       && --tmp1)
+	 *	  ;
+	 *
+	 *	res = count - tmp1;
+	 *
+	 *  with tweaks.
+	 */
 
 	__asm__ __volatile__ (
 		"	move.d %3,%0\n"
@@ -137,10 +137,10 @@ __do_strncpy_from_user(char *dst, const char *src, long count)
 		"	jump 3b\n"
 		"	nop\n"
 
-		/*                                                      
-                                                          
-                                                         
-                                                         */
+		/* The address for a fault at the first move is trivial.
+		   The address for a fault at the second move is that of
+		   the preceding branch insn, since the move insn is in
+		   its delay-slot.  Just so you don't get confused...  */
 		"	.previous\n"
 		"	.section __ex_table,\"a\"\n"
 		"	.dword 5b,4b\n"
@@ -153,11 +153,11 @@ __do_strncpy_from_user(char *dst, const char *src, long count)
 	return res;
 }
 
-/*                                                        
+/* A few copy asms to build up the more complex ones from.
 
-                                                                        
-                                                                       
-                                                                            */
+   Note again, a post-increment is performed regardless of whether a bus
+   fault occurred in that instruction, and PC for a faulted insn is the
+   address for the insn, or for the preceding branch when in a delay-slot.  */
 
 #define __asm_copy_user_cont(to, from, ret, COPY, FIXUP, TENTRY) \
 	__asm__ __volatile__ (				\
@@ -380,7 +380,7 @@ __do_strncpy_from_user(char *dst, const char *src, long count)
 #define __asm_copy_from_user_24(to, from, ret) \
 	__asm_copy_from_user_24x_cont(to, from, ret, "", "", "")
 
-/*                             */
+/* And now, the to-user ones.  */
 
 #define __asm_copy_to_user_1(to, from, ret)	\
 	__asm_copy_user_cont(to, from, ret,	\
@@ -571,10 +571,10 @@ __do_strncpy_from_user(char *dst, const char *src, long count)
 #define __asm_copy_to_user_24(to, from, ret)	\
 	__asm_copy_to_user_24x_cont(to, from, ret, "", "", "")
 
-/*                                                      */
+/* Define a few clearing asms with exception handlers.  */
 
-/*                                                                      
-           */
+/* This frame-asm is like the __asm_copy_user_cont one, but has one less
+   input.  */
 
 #define __asm_clear(to, ret, CLEAR, FIXUP, TENTRY) \
 	__asm__ __volatile__ (				\
@@ -688,10 +688,10 @@ __do_strncpy_from_user(char *dst, const char *src, long count)
 	__asm_clear_24x_cont(to, ret, "", "", "")
 
 /*
-                                                       
-  
-                                                               
-                                                              
+ * Return the size of a string (including the ending 0)
+ *
+ * Return length of string in userspace including terminating 0
+ * or 0 for error.  Return a value greater than N if too long.
  */
 
 static inline long
@@ -703,16 +703,16 @@ strnlen_user(const char *s, long n)
 		return 0;
 
 	/*
-                              
-   
-             
-                              
-       
-   
-                   
-   
-                   
-  */
+	 * This code is deduced from:
+	 *
+	 *	tmp1 = n;
+	 *	while (tmp1-- > 0 && *s++)
+	 *	  ;
+	 *
+	 *	res = n - tmp1;
+	 *
+	 *  (with tweaks).
+	 */
 
 	__asm__ __volatile__ (
 		"	move.d %1,$acr\n"

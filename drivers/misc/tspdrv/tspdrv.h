@@ -29,12 +29,12 @@
 #ifndef _TSPDRV_H
 #define _TSPDRV_H
 
-/*           */
+/* Constants */
 #define MODULE_NAME                         "tspdrv"
 #define TSPDRV                              "/dev/"MODULE_NAME
 #define TSPDRV_MAGIC_NUMBER                 0x494D4D52
 #define TSPDRV_IOCTL_GROUP                  0x52
-#define TSPDRV_STOP_KERNEL_TIMER            _IO(TSPDRV_IOCTL_GROUP, 1) /*                                    */
+#define TSPDRV_STOP_KERNEL_TIMER            _IO(TSPDRV_IOCTL_GROUP, 1) /* obsolete, may be removed in future */
 #define TSPDRV_SET_MAGIC_NUMBER             _IO(TSPDRV_IOCTL_GROUP, 2)
 #define TSPDRV_ENABLE_AMP                   _IO(TSPDRV_IOCTL_GROUP, 3)
 #define TSPDRV_DISABLE_AMP                  _IO(TSPDRV_IOCTL_GROUP, 4)
@@ -47,7 +47,7 @@
 #define TSPDRV_SET_RUNTIME_RECORD_BUF_SIZE  _IO(TSPDRV_IOCTL_GROUP, 11)
 #define TSPDRV_GET_RUNTIME_RECORD_BUF_SIZE  _IO(TSPDRV_IOCTL_GROUP, 12)
 /*
-                                                                            
+** Frequency constant parameters to control force output values and signals.
 */
 #define VIBE_KP_CFG_FREQUENCY_PARAM1        85
 #define VIBE_KP_CFG_FREQUENCY_PARAM2        86
@@ -57,16 +57,16 @@
 #define VIBE_KP_CFG_FREQUENCY_PARAM6        90
 
 /*
-                                     
+** Force update rate in milliseconds.
 */
 #define VIBE_KP_CFG_UPDATE_RATE_MS          95
 
 #define VIBE_MAX_DEVICE_NAME_LENGTH         64
-#define SPI_HEADER_SIZE                     3   /*                                        */
-#define VIBE_OUTPUT_SAMPLE_SIZE             50  /*                                           */
+#define SPI_HEADER_SIZE                     3   /* DO NOT CHANGE - SPI buffer header size */
+#define VIBE_OUTPUT_SAMPLE_SIZE             50  /* DO NOT CHANGE - maximum number of samples */
 #define MAX_DEBUG_BUFFER_LENGTH             1024
 
-/*                  */
+/* Type definitions */
 #ifdef __KERNEL__
 typedef int8_t		VibeInt8;
 typedef u_int8_t	VibeUInt8;
@@ -77,7 +77,7 @@ typedef u_int32_t	VibeUInt32;
 typedef u_int8_t	VibeBool;
 typedef VibeInt32	VibeStatus;
 
-/*              */
+/* Debug Levels */
 #define DBL_TEMP                        0
 #define DBL_FATAL                       0
 #define DBL_ERROR                       1
@@ -87,7 +87,7 @@ typedef VibeInt32	VibeStatus;
 #define DBL_OVERKILL                    5
 #endif
 
-/*                                                        */
+/* Device parameters sent to the kernel module, tspdrv.ko */
 typedef struct
 {
     VibeInt32 nDeviceIndex;
@@ -95,9 +95,9 @@ typedef struct
     VibeInt32 nDeviceParamValue;
 } device_parameter;
 
-/*                              */
-#define VIBE_S_SUCCESS                      0	/*         */
-#define VIBE_E_FAIL						    -4	/*               */
+/* Error and Return value codes */
+#define VIBE_S_SUCCESS                      0	/* Success */
+#define VIBE_E_FAIL						    -4	/* Generic error */
 
 #if (defined(VIBE_RECORD) && defined(VIBE_DEBUG)) || defined(VIBE_RUNTIME_RECORD)
     void _RecorderInit(void);
@@ -108,7 +108,7 @@ typedef struct
     int get_recorder_buffer_size(void);
 #endif
 
-/*                     */
+/* Kernel Debug Macros */
 #ifdef __KERNEL__
     asmlinkage void _DbgOut(int level, const char *format,...);
     #define DbgOut(_x_)  _DbgOut _x_
@@ -129,6 +129,6 @@ typedef struct
         #define DbgRecorderReset(_x_)
         #define DbgRecord(_x_)
     #endif
-#endif  /*            */
+#endif  /* __KERNEL__ */
 
-#endif  /*           */
+#endif  /* _TSPDRV_H */

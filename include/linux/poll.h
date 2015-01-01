@@ -13,9 +13,9 @@
 #include <linux/sysctl.h>
 #include <asm/uaccess.h>
 
-extern struct ctl_table epoll_table[]; /*            */
-/*                                                                            
-                      */
+extern struct ctl_table epoll_table[]; /* for sysctl */
+/* ~832 bytes of stack space used max in sys_select/sys_poll before allocating
+   additional memory. */
 #define MAX_STACK_ALLOC 832
 #define FRONTEND_STACK_ALLOC	256
 #define SELECT_STACK_ALLOC	FRONTEND_STACK_ALLOC
@@ -28,13 +28,13 @@ extern struct ctl_table epoll_table[]; /*            */
 struct poll_table_struct;
 
 /* 
-                                                        
+ * structures and helpers for f_op->poll implementations
  */
 typedef void (*poll_queue_proc)(struct file *, wait_queue_head_t *, struct poll_table_struct *);
 
 /*
-                                                                
-                                                            
+ * Do not touch the structure directly, use the access functions
+ * poll_does_not_wait() and poll_requested_events() instead.
  */
 typedef struct poll_table_struct {
 	poll_queue_proc _qproc;
@@ -48,9 +48,9 @@ static inline void poll_wait(struct file * filp, wait_queue_head_t * wait_addres
 }
 
 /*
-                                                                            
-                                                                             
-                          
+ * Return true if it is guaranteed that poll will not wait. This is the case
+ * if the poll() of another file descriptor in the set got an event, so there
+ * is no need for waiting.
  */
 static inline bool poll_does_not_wait(const poll_table *p)
 {
@@ -58,10 +58,10 @@ static inline bool poll_does_not_wait(const poll_table *p)
 }
 
 /*
-                                                                   
-                                                                          
-                                                                         
-                                                                    
+ * Return the set of events that the application wants to poll for.
+ * This is useful for drivers that need to know whether a DMA transfer has
+ * to be started implicitly on poll(). You typically only want to do that
+ * if the application is actually polling for POLLIN and/or POLLOUT.
  */
 static inline unsigned long poll_requested_events(const poll_table *p)
 {
@@ -71,7 +71,7 @@ static inline unsigned long poll_requested_events(const poll_table *p)
 static inline void init_poll_funcptr(poll_table *pt, poll_queue_proc qproc)
 {
 	pt->_qproc = qproc;
-	pt->_key   = ~0UL; /*                    */
+	pt->_key   = ~0UL; /* all events enabled */
 }
 
 struct poll_table_entry {
@@ -82,7 +82,7 @@ struct poll_table_entry {
 };
 
 /*
-                                                 
+ * Structures and helpers for select/poll syscall
  */
 struct poll_wqueues {
 	poll_table pt;
@@ -107,7 +107,7 @@ static inline int poll_schedule(struct poll_wqueues *pwq, int state)
 }
 
 /*
-                                  
+ * Scalable version of the fd_set.
  */
 
 typedef struct {
@@ -116,17 +116,17 @@ typedef struct {
 } fd_set_bits;
 
 /*
-                                    
+ * How many longwords for "nr" bits?
  */
 #define FDS_BITPERLONG	(8*sizeof(long))
 #define FDS_LONGS(nr)	(((nr)+FDS_BITPERLONG-1)/FDS_BITPERLONG)
 #define FDS_BYTES(nr)	(FDS_LONGS(nr)*sizeof(long))
 
 /*
-                                                                       
-                                 
-  
-                                                                          
+ * We do a VERIFY_WRITE here even though we are only reading this time:
+ * we'll write to it eventually..
+ *
+ * Use "unsigned long" accesses to let user-mode fd_set's be long-aligned.
  */
 static inline
 int get_fd_set(unsigned long nr, void __user *ufdset, unsigned long *fdset)
@@ -163,6 +163,6 @@ extern int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
 
 extern int poll_select_set_timeout(struct timespec *to, long sec, long nsec);
 
-#endif /*        */
+#endif /* KERNEL */
 
-#endif /*               */
+#endif /* _LINUX_POLL_H */

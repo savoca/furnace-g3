@@ -1,5 +1,5 @@
 /*
-                                   
+ * Common values for SHA algorithms
  */
 
 #ifndef _CRYPTO_SHA_H

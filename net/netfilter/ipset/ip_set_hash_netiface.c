@@ -5,7 +5,7 @@
  * published by the Free Software Foundation.
  */
 
-/*                                                                    */
+/* Kernel module implementing an IP set type: the hash:net,iface type */
 
 #include <linux/jhash.h>
 #include <linux/module.h>
@@ -29,7 +29,7 @@ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
 MODULE_DESCRIPTION("hash:net,iface type of IP sets");
 MODULE_ALIAS("ip_set_hash:net,iface");
 
-/*                       */
+/* Interface name rbtree */
 
 struct iface_node {
 	struct rb_node node;
@@ -68,7 +68,7 @@ rbtree_destroy(struct rb_root *root)
 	struct rb_node *p, *n = root->rb_node;
 	struct iface_node *node;
 
-	/*                                     */
+	/* Non-recursive destroy, like in ext3 */
 	while (n) {
 		if (n->rb_left) {
 			n = n->rb_left;
@@ -146,7 +146,7 @@ iface_add(struct rb_root *root, const char **iface)
 	return 0;
 }
 
-/*                               */
+/* Type specific function prefix */
 #define TYPE		hash_netiface
 
 static bool
@@ -157,7 +157,7 @@ hash_netiface_same_set(const struct ip_set *a, const struct ip_set *b);
 
 #define STREQ(a, b)	(strcmp(a, b) == 0)
 
-/*                                  */
+/* The type variant functions: IPv4 */
 
 struct hash_netiface4_elem_hashed {
 	__be32 ip;
@@ -169,7 +169,7 @@ struct hash_netiface4_elem_hashed {
 
 #define HKEY_DATALEN	sizeof(struct hash_netiface4_elem_hashed)
 
-/*                                 */
+/* Member elements without timeout */
 struct hash_netiface4_elem {
 	__be32 ip;
 	u8 physdev;
@@ -179,7 +179,7 @@ struct hash_netiface4_elem {
 	const char *iface;
 };
 
-/*                                      */
+/* Member elements with timeout support */
 struct hash_netiface4_telem {
 	__be32 ip;
 	u8 physdev;
@@ -452,12 +452,12 @@ hash_netiface_same_set(const struct ip_set *a, const struct ip_set *b)
 	const struct ip_set_hash *x = a->data;
 	const struct ip_set_hash *y = b->data;
 
-	/*                                               */
+	/* Resizing changes htable_bits, so we ignore it */
 	return x->maxelem == y->maxelem &&
 	       x->timeout == y->timeout;
 }
 
-/*                                  */
+/* The type variant functions: IPv6 */
 
 struct hash_netiface6_elem_hashed {
 	union nf_inet_addr ip;
@@ -714,7 +714,7 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
 	return ip_set_eexist(ret, flags) ? 0 : ret;
 }
 
-/*                             */
+/* Create hash:ip type of sets */
 
 static int
 hash_netiface_create(struct ip_set *set, struct nlattr *tb[], u32 flags)
@@ -797,7 +797,7 @@ static struct ip_set_type hash_netiface_type __read_mostly = {
 	.dimension	= IPSET_DIM_TWO,
 	.family		= NFPROTO_UNSPEC,
 	.revision_min	= 0,
-	.revision_max	= 1,	/*                            */
+	.revision_max	= 1,	/* nomatch flag support added */
 	.create		= hash_netiface_create,
 	.create_policy	= {
 		[IPSET_ATTR_HASHSIZE]	= { .type = NLA_U32 },

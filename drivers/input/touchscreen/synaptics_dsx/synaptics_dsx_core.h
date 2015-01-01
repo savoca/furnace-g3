@@ -103,13 +103,13 @@ struct synaptics_dsx_hw_interface {
 };
 
 /*
-                                                                    
-                                                     
-                                                     
-                                                      
-                                                   
-                                               
-                              
+ * struct synaptics_rmi4_fn_desc - function descriptor fields in PDT
+ * @query_base_addr: base address for query registers
+ * @cmd_base_addr: base address for command registers
+ * @ctrl_base_addr: base address for control registers
+ * @data_base_addr: base address for data registers
+ * @intr_src_count: number of interrupt sources
+ * @fn_number: function number
  */
 struct synaptics_rmi4_fn_desc {
 	unsigned char query_base_addr;
@@ -121,11 +121,11 @@ struct synaptics_rmi4_fn_desc {
 };
 
 /*
-                                                           
-                                                       
-                                                    
-                                                        
-                                                        
+ * synaptics_rmi4_fn_full_addr - full 16-bit base addresses
+ * @query_base: 16-bit base address for query registers
+ * @cmd_base: 16-bit base address for data registers
+ * @ctrl_base: 16-bit base address for command registers
+ * @data_base: 16-bit base address for control registers
  */
 struct synaptics_rmi4_fn_full_addr {
 	unsigned short query_base;
@@ -142,17 +142,17 @@ struct synaptics_rmi4_f12_extra_data {
 };
 
 /*
-                                                             
-                              
-                                               
-                                                           
-                                                         
-                                                        
-                             
-                                                               
-                                           
-                                   
-                                 
+ * struct synaptics_rmi4_fn - function handler data structure
+ * @fn_number: function number
+ * @num_of_data_sources: number of data sources
+ * @num_of_data_points: maximum number of fingers supported
+ * @size_of_data_register_block: data register block size
+ * @intr_reg_num: index to associated interrupt register
+ * @intr_mask: interrupt mask
+ * @full_addr: full 16-bit base addresses of function registers
+ * @link: linked list for function handlers
+ * @data_size: size of private data
+ * @data: pointer to private data
  */
 struct synaptics_rmi4_fn {
 	unsigned char fn_number;
@@ -169,17 +169,17 @@ struct synaptics_rmi4_fn {
 };
 
 /*
-                                                         
-                                                    
-                                                    
-                                    
-                                                 
-                                    
-                                      
-                              
-                                       
-                                        
-                                                      
+ * struct synaptics_rmi4_device_info - device information
+ * @version_major: rmi protocol major version number
+ * @version_minor: rmi protocol minor version number
+ * @manufacturer_id: manufacturer id
+ * @product_props: product properties information
+ * @product_info: product info array
+ * @date_code: device manufacture date
+ * @tester_id: tester id array
+ * @serial_number: device serial number
+ * @product_id_string: device product id
+ * @support_fn_list: linked list for function handlers
  */
 struct synaptics_rmi4_device_info {
 	unsigned int version_major;
@@ -196,30 +196,30 @@ struct synaptics_rmi4_device_info {
 };
 
 /*
-                                                         
-                                    
-                                                 
-                                             
-                                     
-                                              
-                                                 
-                                                                     
-                                                 
-                                                 
-                                                                              
-                                                   
-                                                   
-                                                   
-                                                    
-                                                 
-                            
-                                        
-                                        
-                                                            
-                                                                  
-                                                        
-                                                               
-                                              
+ * struct synaptics_rmi4_data - rmi4 device instance data
+ * @pdev: pointer to platform device
+ * @input_dev: pointer to associated input device
+ * @hw_if: pointer to hardware interface data
+ * @rmi4_mod_info: device information
+ * @regulator: pointer to associated regulator
+ * @rmi4_io_ctrl_mutex: mutex for i2c i/o control
+ * @early_suspend: instance to support early suspend power management
+ * @current_page: current page in sensor to acess
+ * @button_0d_enabled: flag for 0d button support
+ * @full_pm_cycle: flag for full power management cycle in early suspend stage
+ * @num_of_intr_regs: number of interrupt registers
+ * @f01_query_base_addr: query base address for f01
+ * @f01_cmd_base_addr: command base address for f01
+ * @f01_ctrl_base_addr: control base address for f01
+ * @f01_data_base_addr: data base address for f01
+ * @irq: attention interrupt
+ * @sensor_max_x: sensor maximum x value
+ * @sensor_max_y: sensor maximum y value
+ * @irq_enabled: flag for indicating interrupt enable status
+ * @fingers_on_2d: flag to indicate presence of fingers in 2d area
+ * @sensor_sleep: flag to indicate sleep state of sensor
+ * @wait: wait queue for touch data polling in interrupt thread
+ * @irq_enable: pointer to irq enable function
  */
 struct synaptics_rmi4_data {
 	struct platform_device *pdev;

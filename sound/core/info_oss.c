@@ -33,7 +33,7 @@
 #if defined(CONFIG_SND_OSSEMUL) && defined(CONFIG_PROC_FS)
 
 /*
-                       
+ *  OSS compatible part
  */
 
 static DEFINE_MUTEX(strings);
@@ -136,4 +136,4 @@ int snd_info_minor_unregister(void)
 	return 0;
 }
 
-#endif /*                    */
+#endif /* CONFIG_SND_OSSEMUL */

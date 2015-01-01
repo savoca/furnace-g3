@@ -57,9 +57,9 @@ extern "C" {
 #define BBM_OK          0
 #define BBM_NOK         1
 
-#define BBM_SPI         1 /*     */
-#define BBM_I2C         3 /*          */
-#define BBM_PPI         4 /*     */
+#define BBM_SPI         1 /* SPI */
+#define BBM_I2C         3 /* I2C+TSIF */
+#define BBM_PPI         4 /* PPI */
 
 #define BBM_E_FAIL              0x00000001
 #define BBM_E_HOSTIF_SELECT     0x00000002
@@ -83,5 +83,5 @@ extern "C" {
 }
 #endif
 
-#endif /*                 */
+#endif /* __FCI_TYPES_H__ */
 

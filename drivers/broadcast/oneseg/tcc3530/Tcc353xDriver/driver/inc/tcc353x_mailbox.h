@@ -1,13 +1,13 @@
+/*--------------------------------------------------------------------------*/
+/*    FileName    : Tcc353x_mailbox.c                                       */
+/*    Description : mailbox control Function                                */
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*   TCC Version : 1.0.0                                                    */
 /*   Copyright (c) Telechips, Inc.                                          */
+/*   ALL RIGHTS RESERVED                                                    */
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #ifndef __TCC353X_MAILBOX_H__
 #define __TCC353X_MAILBOX_H__
@@ -15,7 +15,7 @@
 #include "tcc353x_common.h"
 #include "tcc353x_core.h"
 
-#define MAX_MAILBOX_RETRY	(2)	/*              */
+#define MAX_MAILBOX_RETRY	(2)	/* continuously */
 
 #define MB_HOSTMAIL		0x47
 #define MB_SLAVEMAIL		0x74
@@ -34,13 +34,13 @@
 #define MBPARA_TMCC_RESULT	(MB_TMCC | 0x00)
 
 /*
-                     
-               
-                
-       
-                     
-               
-                 
+ *   Mailbox protocol
+ *   dir : 8bit
+ *   size : 4bit
+ *   RW
+ *   error/ok : 12bit
+ *   cmd : 5bit
+ *   param : 3bit
  */
 
 #define MB_CMD_READ	0

@@ -14,9 +14,9 @@
 #define GPIO_PERIPH_B	1
 
 /*
-                                                                   
-                                                           
-                 
+ * Pin numbers identifying specific GPIO pins on the chip. They can
+ * also be converted to IRQ numbers by passing them through
+ * gpio_to_irq().
  */
 #define GPIO_PIOA_BASE	(0)
 #define GPIO_PIOB_BASE	(GPIO_PIOA_BASE + 32)
@@ -32,7 +32,7 @@
 
 
 /*
-                                                                     
+ * DMAC peripheral hardware handshaking interfaces, used with dw_dmac
  */
 #define DMAC_MCI_RX		0
 #define DMAC_MCI_TX		1
@@ -46,7 +46,7 @@
 #define DMAC_DMAREQ_2		9
 #define DMAC_DMAREQ_3		10
 
-/*                */
+/* HSB master IDs */
 #define HMATRIX_MASTER_CPU_DCACHE		0
 #define HMATRIX_MASTER_CPU_ICACHE		1
 #define HMATRIX_MASTER_PDC			2
@@ -58,7 +58,7 @@
 #define HMATRIX_MASTER_DMACA_M0			8
 #define HMATRIX_MASTER_DMACA_M1			9
 
-/*               */
+/* HSB slave IDs */
 #define HMATRIX_SLAVE_SRAM0			0
 #define HMATRIX_SLAVE_SRAM1			1
 #define HMATRIX_SLAVE_PBA			2
@@ -68,7 +68,7 @@
 #define HMATRIX_SLAVE_LCDC			6
 #define HMATRIX_SLAVE_DMACA			7
 
-/*                            */
+/* Bits in HMATRIX SFR4 (EBI) */
 #define HMATRIX_EBI_SDRAM_ENABLE		(1 << 1)
 #define HMATRIX_EBI_NAND_ENABLE			(1 << 3)
 #define HMATRIX_EBI_CF0_ENABLE			(1 << 4)
@@ -76,14 +76,14 @@
 #define HMATRIX_EBI_PULLUP_DISABLE		(1 << 8)
 
 /*
-                                                              
-                 
+ * Base addresses of controllers that may be accessed early by
+ * platform code.
  */
 #define PM_BASE		0xfff00000
 #define HMATRIX_BASE	0xfff00800
 #define SDRAMC_BASE	0xfff03800
 
-/*                */
+/* LCDC on port C */
 #define ATMEL_LCDC_PC_CC	(1ULL << 19)
 #define ATMEL_LCDC_PC_HSYNC	(1ULL << 20)
 #define ATMEL_LCDC_PC_PCLK	(1ULL << 21)
@@ -98,7 +98,7 @@
 #define ATMEL_LCDC_PC_DATA4	(1ULL << 30)
 #define ATMEL_LCDC_PC_DATA5	(1ULL << 31)
 
-/*                */
+/* LCDC on port D */
 #define ATMEL_LCDC_PD_DATA6	(1ULL << 0)
 #define ATMEL_LCDC_PD_DATA7	(1ULL << 1)
 #define ATMEL_LCDC_PD_DATA8	(1ULL << 2)
@@ -118,7 +118,7 @@
 #define ATMEL_LCDC_PD_DATA22	(1ULL << 16)
 #define ATMEL_LCDC_PD_DATA23	(1ULL << 17)
 
-/*                */
+/* LCDC on port E */
 #define ATMEL_LCDC_PE_CC	(1ULL << (32 + 0))
 #define ATMEL_LCDC_PE_DVAL	(1ULL << (32 + 1))
 #define ATMEL_LCDC_PE_MODE	(1ULL << (32 + 2))
@@ -239,7 +239,7 @@
 
 #define ATMEL_LCDC_ALT_15BIT	(ATMEL_LCDC_CONTROL | ATMEL_LCDC_ALT_15B_DATA)
 
-/*                                                    */
+/* Bitmask for all EBI data (D16..D31) pins on port E */
 #define ATMEL_EBI_PE_DATA_ALL  (0x0000FFFF)
 
-#endif /*                           */
+#endif /* __ASM_ARCH_AT32AP700X_H__ */

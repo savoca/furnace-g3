@@ -18,7 +18,7 @@
 static DEFINE_SPINLOCK(bcm63xx_cs_lock);
 
 /*
-                                    
+ * check if given chip select exists
  */
 static int is_valid_cs(unsigned int cs)
 {
@@ -28,8 +28,8 @@ static int is_valid_cs(unsigned int cs)
 }
 
 /*
-                                                      
-                                                   
+ * Configure chipselect base address and size (bytes).
+ * Size must be a power of two between 8k and 256M.
  */
 int bcm63xx_set_cs_base(unsigned int cs, u32 base, unsigned int size)
 {
@@ -39,7 +39,7 @@ int bcm63xx_set_cs_base(unsigned int cs, u32 base, unsigned int size)
 	if (!is_valid_cs(cs))
 		return -EINVAL;
 
-	/*                      */
+	/* sanity check on size */
 	if (size != roundup_pow_of_two(size))
 		return -EINVAL;
 
@@ -47,7 +47,7 @@ int bcm63xx_set_cs_base(unsigned int cs, u32 base, unsigned int size)
 		return -EINVAL;
 
 	val = (base & MPI_CSBASE_BASE_MASK);
-	/*                      */
+	/* 8k => 0 - 256M => 15 */
 	val |= (ilog2(size) - ilog2(8 * 1024)) << MPI_CSBASE_SIZE_SHIFT;
 
 	spin_lock_irqsave(&bcm63xx_cs_lock, flags);
@@ -60,7 +60,7 @@ int bcm63xx_set_cs_base(unsigned int cs, u32 base, unsigned int size)
 EXPORT_SYMBOL(bcm63xx_set_cs_base);
 
 /*
-                                   
+ * configure chipselect timing (ns)
  */
 int bcm63xx_set_cs_timing(unsigned int cs, unsigned int wait,
 			   unsigned int setup, unsigned int hold)
@@ -88,7 +88,7 @@ int bcm63xx_set_cs_timing(unsigned int cs, unsigned int wait,
 EXPORT_SYMBOL(bcm63xx_set_cs_timing);
 
 /*
-                                                            
+ * configure other chipselect parameter (data bus size, ...)
  */
 int bcm63xx_set_cs_param(unsigned int cs, u32 params)
 {
@@ -98,7 +98,7 @@ int bcm63xx_set_cs_param(unsigned int cs, u32 params)
 	if (!is_valid_cs(cs))
 		return -EINVAL;
 
-	/*                                     */
+	/* none of this fields apply to pcmcia */
 	if (cs == MPI_CS_PCMCIA_COMMON ||
 	    cs == MPI_CS_PCMCIA_ATTR ||
 	    cs == MPI_CS_PCMCIA_IO)
@@ -120,7 +120,7 @@ int bcm63xx_set_cs_param(unsigned int cs, u32 params)
 EXPORT_SYMBOL(bcm63xx_set_cs_param);
 
 /*
-                                 
+ * set cs status (enable/disable)
  */
 int bcm63xx_set_cs_status(unsigned int cs, int enable)
 {

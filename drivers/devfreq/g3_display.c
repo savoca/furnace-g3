@@ -8,17 +8,17 @@ GENERAL DESCRIPTION
 Copyright(c) 2013 by LG Electronics. All Rights Reserved.
 	Sangduck Kim <sangduck.kim@lge.com>
 *====*====*====*====*====*====*====*====*====*====*====*====*====*====*====*/
-/*                                                                          
+/*==========================================================================
 
-                                           
+                      EDIT HISTORY FOR FILE
 
-                                                                      
-                                                                
+  This section contains comments describing changes made to this file.
+  Notice that changes are listed in reverse chronological order.
 
-                                      
-                                                                             
-                               
-                                                                           */
+when       who     	  what, where, why
+--------   --------   -------------------------------------------------------
+12/01/13   sdkim   Created file
+======================================================-====================*/
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/devfreq.h>
@@ -76,11 +76,11 @@ struct display_opp_table g3_display_opp_table[] = {
 
 static int g3_get_cur_freq(struct device *dev, unsigned long *freq){
 	*freq = g3_display_opp_table[g3_cur_level].freq;
-//                                                                                    
+//	trace("%s, cur_freq=%lu\n", __FUNCTION__, g3_display_opp_table[g3_cur_level].freq);
 	return 0;
 }
 
-//                    
+// Profile Display OPP
 struct devfreq_dev_profile g3_display_profile = {
 	.initial_freq = 60,
 	.polling_ms = 0,
@@ -96,17 +96,17 @@ struct devfreq_simple_ondemand_data g3_display_ondemand_data = {
 };
 
 void g3_release_pm(struct device *dev){
-	//                            
+	//trace("%s\n", __FUNCTION__);
 }
 
 #ifdef CONFIG_PM
 int g3_display_suspend(struct device *dev){
-	//                            
+	//trace("%s\n", __FUNCTION__);
 	return 0;
 }
 
 int g3_display_resume(struct device *dev){
-	//                            
+	//trace("%s\n", __FUNCTION__);
 	return 0;
 }
 #endif
@@ -126,7 +126,7 @@ int g3_display_probe(struct platform_device *pdev){
 	data->dev = dev;
 	mutex_init(&data->lock);
 
-	/*                      */
+	/* register opp entries */
 	for(i=0; i<_LV_END_; i++){
 		ret = opp_add(dev, g3_display_opp_table[i].freq,
 				g3_display_opp_table[i].volt);
@@ -136,7 +136,7 @@ int g3_display_probe(struct platform_device *pdev){
 		}
 	}
 
-	/*                                    */
+	/* find opp entry with init frequency */
 
 	opp = opp_find_freq_floor(dev, &g3_display_profile.initial_freq);
 	if(IS_ERR(opp)){
@@ -147,10 +147,10 @@ int g3_display_probe(struct platform_device *pdev){
 	}
 	data->curr_opp = opp;
 
-	/*                */
-	//     
+	/* initialize qos */
+	// TODO
 
-	/*                                          */
+	/* register g3_display to devfreq framework */
 	data->devfreq = devfreq_add_device(dev, &g3_display_profile,
 			"simple_ondemand", &g3_display_ondemand_data);
 	if(IS_ERR(data->devfreq)){
@@ -161,7 +161,7 @@ int g3_display_probe(struct platform_device *pdev){
 
 	devfreq_register_opp_notifier(dev, data->devfreq);
 
-	/*                                              */
+	/* register g3_display as client to pm notifier */
 	memset(&data->nb_pm, 0, sizeof(data->nb_pm));
 	data->nb_pm.notifier_call = g3_display_pm_notifier_callback;
 	ret = register_pm_notifier(&data->nb_pm);
@@ -195,9 +195,9 @@ u32 msm_fb_read_frame_count(void){
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
 	return ctl->play_cnt;
-//                                                      
-//                                                          
-//                                
+//	struct mdss_panel_info *mdss_panel = mfd->panel_info;
+//	trace("%s, %d\n", __FUNCTION__, mdss_panel->frame_count);
+//	return mdss_panel->frame_count;
 }
 
 u32 msm_fb_read_frame_rate(void){
@@ -221,12 +221,12 @@ void g3_display_read_fps(struct g3_display_data *data, struct devfreq_dev_status
 
 	stat->current_frequency = opp_get_freq(data->curr_opp);
 	stat->total_time = msm_fb_read_frame_rate();
-//                                                            
+//	stat->total_time = g3_display_opp_table[g3_cur_level].freq;
 	stat->busy_time = (data->fps_data.fps) * (1000 / g3_display_profile.polling_ms);
 
-	/*                                                   
-                                                                                 
- */
+	/* trace("total_time=%lu, busy_time=%lu, util=%lu\n",
+		stat->total_time, stat->busy_time, (stat->busy_time * 100 / stat->total_time));
+	*/
 }
 
 int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
@@ -283,8 +283,8 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 
 int g3_display_pm_notifier_callback(struct notifier_block *this,
 		unsigned long event, void *_data){
-	/*      */
-	//                            
+	/* TODO */
+	//trace("%s\n", __FUNCTION__);
 	return 0;
 }
 
@@ -311,7 +311,7 @@ int g3_display_profile_target(struct device *dev,
 	old_freq_idx = g3_opp_get_idx(old_freq, g3_display_opp_table);
 	new_freq_idx = g3_opp_get_idx(new_freq, g3_display_opp_table);
 
-	//                                                                                
+	//trace("%lu => %lu, %u => %u\n", old_freq, new_freq, old_freq_idx, new_freq_idx);
 
 	if(new_freq_idx > old_freq_idx){
 		if(g3_cur_level < _LV_END_ - 1){
@@ -331,7 +331,7 @@ int g3_display_profile_target(struct device *dev,
 		}
 	}
 
-	//                                                      
+	// return to previous freq & opp if failed to change fps
 	if(ret) {
 		*_freq = g3_display_opp_table[g3_cur_level].freq;
 		opp = opp_find_freq_floor(dev, _freq);
@@ -362,7 +362,7 @@ void g3_display_profile_exit(struct device *dev){
 			dev);
 	struct g3_display_data *data = platform_get_drvdata(pdev);
 
-	//                            
+	//trace("%s\n", __FUNCTION__);
 
 	devfreq_unregister_opp_notifier(dev, data->devfreq);
 }

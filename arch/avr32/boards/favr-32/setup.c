@@ -33,14 +33,14 @@
 #include <mach/board.h>
 #include <mach/portmux.h>
 
-/*                                                  */
+/* Oscillator frequencies. These are board-specific */
 unsigned long at32_board_osc_rates[3] = {
-	[0] = 32768,	/*                       */
-	[1] = 20000000,	/*                */
-	[2] = 12000000,	/*                */
+	[0] = 32768,	/* 32.768 kHz on RTC osc */
+	[1] = 20000000,	/* 20 MHz on osc0 */
+	[2] = 12000000,	/* 12 MHz on osc1 */
 };
 
-/*                                                  */
+/* Initialized by bootloader-specific startup code. */
 struct tag *bootloader_tags __initdata;
 
 static struct atmel_abdac_pdata __initdata abdac0_data = {
@@ -66,9 +66,9 @@ static struct ads7846_platform_data ads7843_data = {
 	.get_pendown_state	= ads7843_get_pendown_state,
 	.pressure_max		= 255,
 	/*
-                                                                      
-                 
-  */
+	 * Values below are for debounce filtering, these can be experimented
+	 * with further.
+	 */
 	.debounce_max		= 20,
 	.debounce_rep		= 4,
 	.debounce_tol		= 5,
@@ -80,7 +80,7 @@ static struct ads7846_platform_data ads7843_data = {
 
 static struct spi_board_info __initdata spi1_board_info[] = {
 	{
-		/*                          */
+		/* ADS7843 touch controller */
 		.modalias	= "ads7846",
 		.max_speed_hz	= 2000000,
 		.chip_select	= 0,
@@ -163,12 +163,12 @@ static struct platform_device favr32_led_dev = {
 };
 
 /*
-                                                              
-                                                                 
-                                                                    
-                                                       
-  
-                                                         
+ * The next two functions should go away as the boot loader is
+ * supposed to initialize the macb address registers with a valid
+ * ethernet address. But we need to keep it around for a while until
+ * we can be reasonably sure the boot loader does this.
+ *
+ * The phy_id is ignored as the driver will probe for it.
  */
 static int __init parse_tag_ethernet(struct tag *tag)
 {
@@ -200,10 +200,10 @@ static void __init set_hw_addr(struct platform_device *pdev)
 		return;
 
 	/*
-                                                              
-                                                            
-                                    
-  */
+	 * Since this is board-specific code, we'll cheat and use the
+	 * physical address directly as we happen to know that it's
+	 * the same as the virtual address.
+	 */
 	regs = (void __iomem __force *)res->start;
 	pclk = clk_get(&pdev->dev, "pclk");
 	if (IS_ERR(pclk))
@@ -254,7 +254,7 @@ static void __init favr32_setup_atmel_pwm_bl(void)
 
 void __init setup_board(void)
 {
-	at32_map_usart(3, 0, 0);	/*                       */
+	at32_map_usart(3, 0, 0);	/* USART 3 => /dev/ttyS0 */
 	at32_setup_serial_console(0);
 }
 
@@ -291,11 +291,11 @@ static int __init set_abdac_rate(struct platform_device *pdev)
 		goto out_abdac;
 
 	/*
-                                                                   
-                                                                     
-                                                                   
-                                 
-  */
+	 * Rate is 32000 to 50000 and ABDAC oversamples 256x. Multiply, in
+	 * power of 2, to a value above 80 MHz. Power of 2 so it is possible
+	 * for the generic clock to divide it down again and 80 MHz is the
+	 * lowest frequency for the PLL.
+	 */
 	retval = clk_round_rate(pll1,
 			CONFIG_BOARD_FAVR32_ABDAC_RATE * 256 * 16);
 	if (retval < 0)
@@ -322,12 +322,12 @@ out:
 static int __init favr32_init(void)
 {
 	/*
-                                                                   
-                                         
-  */
+	 * Favr-32 uses 32-bit SDRAM interface. Reserve the SDRAM-specific
+	 * pins so that nobody messes with them.
+	 */
 	at32_reserve_pin(GPIO_PIOE_BASE, ATMEL_EBI_PE_DATA_ALL);
 
-	at32_select_gpio(GPIO_PIN_PB(3), 0);	/*                  */
+	at32_select_gpio(GPIO_PIN_PB(3), 0);	/* IRQ from ADS7843 */
 
 	at32_add_device_usart(0);
 

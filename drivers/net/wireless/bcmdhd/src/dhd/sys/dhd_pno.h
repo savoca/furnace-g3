@@ -60,15 +60,15 @@
 #define AP_END_MARKER "====\n"
 
 enum scan_status {
-	/*                          */
+	/* SCAN ABORT by other scan */
 	PNO_STATUS_ABORT,
-	/*                        */
+	/* RTT is presence or not */
 	PNO_STATUS_RTT_PRESENCE,
-	/*                       */
+	/* Disable PNO by Driver */
 	PNO_STATUS_DISABLE,
-	/*                     */
+	/* NORMAL BATCHING GET */
 	PNO_STATUS_NORMAL,
-	/*                         */
+	/* WLC_E_PFN_BEST_BATCHING */
 	PNO_STATUS_EVENT,
 	PNO_STATUS_MAX
 };
@@ -95,12 +95,12 @@ typedef struct cmd_tlv {
 	char reserved;
 } cmd_tlv_t;
 typedef enum dhd_pno_mode {
-	/*                       */
+	/* Wi-Fi Legacy PNO Mode */
 	DHD_PNO_NONE_MODE 	= 0,
 	DHD_PNO_LEGACY_MODE = (1 << (0)),
-	/*                               */
+	/* Wi-Fi Android BATCH SCAN Mode */
 	DHD_PNO_BATCH_MODE = (1 << (1)),
-	/*                                 */
+	/* Wi-Fi Android Hotlist SCAN Mode */
 	DHD_PNO_HOTLIST_MODE = (1 << (2))
 } dhd_pno_mode_t;
 struct dhd_pno_ssid {
@@ -110,7 +110,7 @@ struct dhd_pno_ssid {
 };
 struct dhd_pno_bssid {
 	struct ether_addr	macaddr;
-	/*                                           */
+	/* Bit4: suppress_lost, Bit3: suppress_found */
 	uint16			flags;
 	struct list_head list;
 };
@@ -121,8 +121,8 @@ typedef struct dhd_pno_bestnet_entry {
 	int8	RSSI;
 	uint8	channel;
 	uint32	timestamp;
-	uint16	rtt0; /*                          */
-	uint16	rtt1; /*                                                */
+	uint16	rtt0; /* distance_cm based on RTT */
+	uint16	rtt1; /* distance_cm based on sample standard deviation */
 	unsigned long recorded_time;
 	struct list_head list;
 } dhd_pno_bestnet_entry_t;
@@ -145,7 +145,7 @@ typedef struct dhd_pno_scan_results {
 #define SCAN_RESULTS_SIZE (sizeof(dhd_pno_scan_results_t))
 
 struct dhd_pno_get_batch_info {
-	/*                           */
+	/* info related to get batch */
 	char *buf;
 	bool batch_started;
 	uint32 tot_scan_cnt;
@@ -194,14 +194,14 @@ typedef struct dhd_pno_status_info {
 	struct work_struct work;
 	struct mutex pno_mutex;
 	struct completion get_batch_done;
-	bool wls_supported; /*                                        */
+	bool wls_supported; /* wifi location service supported or not */
 	enum dhd_pno_status pno_status;
 	enum dhd_pno_mode pno_mode;
 	dhd_pno_params_t pno_params_arr[INDEX_MODE_MAX];
 	struct list_head head_list;
 } dhd_pno_status_info_t;
 
-/*                   */
+/* wrapper functions */
 extern int
 dhd_dev_pno_enable(struct net_device *dev, int enable);
 
@@ -226,7 +226,7 @@ extern int
 dhd_dev_pno_set_for_hotlist(struct net_device *dev, wl_pfn_bssid_t *p_pfn_bssid,
 	struct dhd_pno_hotlist_params *hotlist_params);
 
-/*                  */
+/* dhd pno fuctions */
 extern int dhd_pno_stop_for_ssid(dhd_pub_t *dhd);
 extern int dhd_pno_enable(dhd_pub_t *dhd, int enable);
 extern int dhd_pno_set_for_ssid(dhd_pub_t *dhd, wlc_ssid_t* ssid_list, int nssid,
@@ -247,4 +247,4 @@ extern int dhd_pno_stop_for_hotlist(dhd_pub_t *dhd);
 extern int dhd_pno_event_handler(dhd_pub_t *dhd, wl_event_msg_t *event, void *event_data);
 extern int dhd_pno_init(dhd_pub_t *dhd);
 extern int dhd_pno_deinit(dhd_pub_t *dhd);
-#endif /*               */
+#endif /* __DHD_PNO_H__ */

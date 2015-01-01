@@ -35,7 +35,7 @@ struct path_info {
 	struct list_head	list;
 	struct dm_path		*path;
 	unsigned		repeat_count;
-	atomic_t		qlen;	/*                              */
+	atomic_t		qlen;	/* the number of in-flight I/Os */
 };
 
 static struct selector *alloc_selector(void)
@@ -87,7 +87,7 @@ static int ql_status(struct path_selector *ps, struct dm_path *path,
 	unsigned sz = 0;
 	struct path_info *pi;
 
-	/*                                                          */
+	/* When called with NULL path, return selector status/args. */
 	if (!path)
 		DMEMIT("0 ");
 	else {
@@ -115,10 +115,10 @@ static int ql_add_path(struct path_selector *ps, struct dm_path *path,
 	char dummy;
 
 	/*
-                               
-                                                              
-                                                 
-  */
+	 * Arguments: [<repeat_count>]
+	 * 	<repeat_count>: The number of I/Os before switching path.
+	 * 			If not given, default (QL_MIN_IO) is used.
+	 */
 	if (argc > 1) {
 		*error = "queue-length ps: incorrect number of arguments";
 		return -EINVAL;
@@ -129,7 +129,7 @@ static int ql_add_path(struct path_selector *ps, struct dm_path *path,
 		return -EINVAL;
 	}
 
-	/*                                         */
+	/* Allocate the path information structure */
 	pi = kmalloc(sizeof(*pi), GFP_KERNEL);
 	if (!pi) {
 		*error = "queue-length ps: Error allocating path information";
@@ -166,7 +166,7 @@ static int ql_reinstate_path(struct path_selector *ps, struct dm_path *path)
 }
 
 /*
-                                                            
+ * Select a path having the minimum number of in-flight I/Os
  */
 static struct dm_path *ql_select_path(struct path_selector *ps,
 				      unsigned *repeat_count, size_t nr_bytes)
@@ -177,7 +177,7 @@ static struct dm_path *ql_select_path(struct path_selector *ps,
 	if (list_empty(&s->valid_paths))
 		return NULL;
 
-	/*                                                          */
+	/* Change preferred (first in list) path to evenly balance. */
 	list_move_tail(s->valid_paths.next, &s->valid_paths);
 
 	list_for_each_entry(pi, &s->valid_paths, list) {

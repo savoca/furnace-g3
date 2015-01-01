@@ -31,7 +31,7 @@ static struct edac_mce_attr mce_attr_##_name = __ATTR(_name, _mode, _show, _stor
 static struct kobject *mce_kobj;
 
 /*
-                                   
+ * Collect all the MCi_XXX settings
  */
 static struct mce i_mce;
 
@@ -73,8 +73,8 @@ EDAC_MCE_ATTR(misc, 0644, edac_inject_misc_show, edac_inject_misc_store);
 EDAC_MCE_ATTR(addr, 0644, edac_inject_addr_show, edac_inject_addr_store);
 
 /*
-                                                            
-                                   
+ * This denotes into which bank we're injecting and triggers
+ * the injection, at the same time.
  */
 static ssize_t edac_inject_bank_store(struct kobject *kobj,
 				      struct edac_mce_attr *attr,

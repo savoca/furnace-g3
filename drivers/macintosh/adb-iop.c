@@ -1,15 +1,15 @@
 /*
-                                 
-                                                                
-                                         
-  
-                                                                       
-  
-                                            
-  
-        
-  
-                            
+ * I/O Processor (IOP) ADB Driver
+ * Written and (C) 1999 by Joshua M. Thompson (funaho@jurai.org)
+ * Based on via-cuda.c by Paul Mackerras.
+ *
+ * 1999-07-01 (jmt) - First implementation for new driver architecture.
+ *
+ * 1999-07-31 (jmt) - First working version.
+ *
+ * TODO:
+ *
+ * o Implement SRQ handling.
  */
 
 #include <linux/types.h>
@@ -27,7 +27,7 @@
 
 #include <linux/adb.h> 
 
-/*                     */
+/*#define DEBUG_ADB_IOP*/
 
 extern void iop_ism_irq(int, void *);
 
@@ -72,9 +72,9 @@ static void adb_iop_end_req(struct adb_request *req, int state)
 }
 
 /*
-                                                       
-  
-                                                                
+ * Completion routine for ADB commands sent to the IOP.
+ *
+ * This will be called when a packet has been successfully sent.
  */
 
 static void adb_iop_complete(struct iop_msg *msg)
@@ -93,10 +93,10 @@ static void adb_iop_complete(struct iop_msg *msg)
 }
 
 /*
-                                        
-  
-                                                                         
-                                              
+ * Listen for ADB messages from the IOP.
+ *
+ * This will be called when unsolicited messages (usually replies to TALK
+ * commands or autopoll packets) are received.
  */
 
 static void adb_iop_listen(struct iop_msg *msg)
@@ -120,11 +120,11 @@ static void adb_iop_listen(struct iop_msg *msg)
 	printk("\n");
 #endif
 
-	/*                                                            */
-	/*                                                            */
-	/*                                                            */
-	/*                                                            */
-	/*                                                            */
+	/* Handle a timeout. Timeout packets seem to occur even after */
+	/* we've gotten a valid reply to a TALK, so I'm assuming that */
+	/* a "timeout" is actually more like an "end-of-data" signal. */
+	/* We need to send back a timeout packet to the IOP to shut   */
+	/* it up, plus complete the current request, if any.          */
 
 	if (amsg->flags & ADB_IOP_TIMEOUT) {
 		msg->reply[0] = ADB_IOP_TIMEOUT | ADB_IOP_AUTOPOLL;
@@ -134,9 +134,9 @@ static void adb_iop_listen(struct iop_msg *msg)
 			adb_iop_end_req(req, idle);
 		}
 	} else {
-		/*                                                       */
-		/*                                                      */
-		/*                                                      */
+		/* TODO: is it possible for more than one chunk of data  */
+		/*       to arrive before the timeout? If so we need to */
+		/*       use reply_ptr here like the other drivers do.  */
 		if ((adb_iop_state == awaiting_reply) &&
 		    (amsg->flags & ADB_IOP_EXPLICIT)) {
 			req->reply_len = amsg->count + 1;
@@ -152,10 +152,10 @@ static void adb_iop_listen(struct iop_msg *msg)
 }
 
 /*
-                                         
-  
-                                                                    
-                                           
+ * Start sending an ADB packet, IOP style
+ *
+ * There isn't much to do other than hand the packet over to the IOP
+ * after encapsulating it in an adb_iopmsg.
  */
 
 static void adb_iop_start(void)
@@ -167,7 +167,7 @@ static void adb_iop_start(void)
 	int i;
 #endif
 
-	/*                        */
+	/* get the packet to send */
 	req = current_req;
 	if (!req) return;
 
@@ -180,22 +180,22 @@ static void adb_iop_start(void)
 	printk("\n");
 #endif
 
-	/*                                       */
-	/*                                       */
+	/* The IOP takes MacII-style packets, so */
+	/* strip the initial ADB_PACKET byte.    */
 
 	amsg.flags = ADB_IOP_EXPLICIT;
 	amsg.count = req->nbytes - 2;
 
-	/*                                                            */
-	/*                                                            */
+	/* amsg.data immediately follows amsg.cmd, effectively making */
+	/* amsg.cmd a pointer to the beginning of a full ADB packet.  */
 	memcpy(&amsg.cmd, req->data + 1, req->nbytes - 1);
 
 	req->sent = 1;
 	adb_iop_state = sending;
 	local_irq_restore(flags);
 
-	/*                                                         */
-	/*                                                         */
+	/* Now send it. The IOP manager will call adb_iop_complete */
+	/* when the packet has been sent.                          */
 
 	iop_send_message(ADB_IOP, ADB_CHAN, req,
 			 sizeof(amsg), (__u8 *) &amsg, adb_iop_complete);
@@ -258,7 +258,7 @@ static int adb_iop_write(struct adb_request *req)
 
 int adb_iop_autopoll(int devs)
 {
-	/*                                          */
+	/* TODO: how do we enable/disable autopoll? */
 	return 0;
 }
 

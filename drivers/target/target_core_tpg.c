@@ -49,9 +49,9 @@ extern struct se_device *g_lun0_dev;
 static DEFINE_SPINLOCK(tpg_lock);
 static LIST_HEAD(tpg_list);
 
-/*                                      
-  
-  
+/*	core_clear_initiator_node_from_tpg():
+ *
+ *
  */
 static void core_clear_initiator_node_from_tpg(
 	struct se_node_acl *nacl,
@@ -85,9 +85,9 @@ static void core_clear_initiator_node_from_tpg(
 	spin_unlock_irq(&nacl->device_list_lock);
 }
 
-/*                                     
-  
-                                                               
+/*	__core_tpg_get_initiator_node_acl():
+ *
+ *	spin_lock_bh(&tpg->acl_node_lock); must be held when calling
  */
 struct se_node_acl *__core_tpg_get_initiator_node_acl(
 	struct se_portal_group *tpg,
@@ -103,9 +103,9 @@ struct se_node_acl *__core_tpg_get_initiator_node_acl(
 	return NULL;
 }
 
-/*                                   
-  
-  
+/*	core_tpg_get_initiator_node_acl():
+ *
+ *
  */
 struct se_node_acl *core_tpg_get_initiator_node_acl(
 	struct se_portal_group *tpg,
@@ -126,9 +126,9 @@ struct se_node_acl *core_tpg_get_initiator_node_acl(
 	return NULL;
 }
 
-/*                             
-  
-  
+/*	core_tpg_add_node_to_devs():
+ *
+ *
  */
 void core_tpg_add_node_to_devs(
 	struct se_node_acl *acl,
@@ -149,9 +149,9 @@ void core_tpg_add_node_to_devs(
 
 		dev = lun->lun_se_dev;
 		/*
-                                          
-                                                 
-   */
+		 * By default in LIO-Target $FABRIC_MOD,
+		 * demo_mode_write_protect is ON, or READ_ONLY;
+		 */
 		if (!tpg->se_tpg_tfo->tpg_check_demo_mode_write_protect(tpg)) {
 			if (dev->dev_flags & DF_READ_ONLY)
 				lun_access = TRANSPORT_LUNFLAGS_READ_ONLY;
@@ -159,9 +159,9 @@ void core_tpg_add_node_to_devs(
 				lun_access = TRANSPORT_LUNFLAGS_READ_WRITE;
 		} else {
 			/*
-                                                          
-                
-    */
+			 * Allow only optical drives to issue R/W in default RO
+			 * demo mode.
+			 */
 			if (dev->transport->get_device_type(dev) == TYPE_DISK)
 				lun_access = TRANSPORT_LUNFLAGS_READ_ONLY;
 			else
@@ -182,9 +182,9 @@ void core_tpg_add_node_to_devs(
 	spin_unlock(&tpg->tpg_lun_lock);
 }
 
-/*                                      
-  
-  
+/*      core_set_queue_depth_for_node():
+ *
+ *
  */
 static int core_set_queue_depth_for_node(
 	struct se_portal_group *tpg,
@@ -228,9 +228,9 @@ static void *array_zalloc(int n, size_t size, gfp_t flags)
 	return a;
 }
 
-/*                                         
-  
-  
+/*      core_create_device_list_for_node():
+ *
+ *
  */
 static int core_create_device_list_for_node(struct se_node_acl *nacl)
 {
@@ -257,9 +257,9 @@ static int core_create_device_list_for_node(struct se_node_acl *nacl)
 	return 0;
 }
 
-/*                                    
-  
-  
+/*	core_tpg_check_initiator_node_acl()
+ *
+ *
  */
 struct se_node_acl *core_tpg_check_initiator_node_acl(
 	struct se_portal_group *tpg,
@@ -305,10 +305,10 @@ struct se_node_acl *core_tpg_check_initiator_node_acl(
 		return NULL;
 	}
 	/*
-                                                            
-                                                      
-                                          
-  */
+	 * Here we only create demo-mode MappedLUNs from the active
+	 * TPG LUNs if the fabric is not explictly asking for
+	 * tpg_check_demo_mode_login_only() == 1.
+	 */
 	if ((tpg->se_tpg_tfo->tpg_check_demo_mode_login_only != NULL) &&
 	    (tpg->se_tpg_tfo->tpg_check_demo_mode_login_only(tpg) == 1))
 		do { ; } while (0);
@@ -356,9 +356,9 @@ void core_tpg_clear_object_luns(struct se_portal_group *tpg)
 }
 EXPORT_SYMBOL(core_tpg_clear_object_luns);
 
-/*                                   
-  
-  
+/*	core_tpg_add_initiator_node_acl():
+ *
+ *
  */
 struct se_node_acl *core_tpg_add_initiator_node_acl(
 	struct se_portal_group *tpg,
@@ -378,10 +378,10 @@ struct se_node_acl *core_tpg_add_initiator_node_acl(
 				tpg->se_tpg_tfo->tpg_get_tag(tpg), initiatorname);
 			spin_unlock_irq(&tpg->acl_node_lock);
 			/*
-                                                      
-                                                          
-                                                  
-    */
+			 * Release the locally allocated struct se_node_acl
+			 * because * core_tpg_add_initiator_node_acl() returned
+			 * a pointer to an existing demo mode node ACL.
+			 */
 			if (se_nacl)
 				tpg->se_tpg_tfo->tpg_release_fabric_acl(tpg,
 							se_nacl);
@@ -402,10 +402,10 @@ struct se_node_acl *core_tpg_add_initiator_node_acl(
 		return ERR_PTR(-EINVAL);
 	}
 	/*
-                                                            
-                                     
-                                                        
-  */
+	 * For v4.x logic the se_node_acl_s is hanging off a fabric
+	 * dependent structure allocated via
+	 * struct target_core_fabric_ops->fabric_make_nodeacl()
+	 */
 	acl = se_nacl;
 
 	INIT_LIST_HEAD(&acl->acl_list);
@@ -449,9 +449,9 @@ done:
 }
 EXPORT_SYMBOL(core_tpg_add_initiator_node_acl);
 
-/*                                   
-  
-  
+/*	core_tpg_del_initiator_node_acl():
+ *
+ *
  */
 int core_tpg_del_initiator_node_acl(
 	struct se_portal_group *tpg,
@@ -495,9 +495,9 @@ int core_tpg_del_initiator_node_acl(
 	}
 	target_put_nacl(acl);
 	/*
-                                                                         
-                                                                       
-  */
+	 * Wait for last target_put_nacl() to complete in target_complete_nacl()
+	 * for active fabric session transport_deregister_session() callbacks.
+	 */
 	wait_for_completion(&acl->acl_free_comp);
 
 	core_tpg_wait_for_nacl_pr_ref(acl);
@@ -513,9 +513,9 @@ int core_tpg_del_initiator_node_acl(
 }
 EXPORT_SYMBOL(core_tpg_del_initiator_node_acl);
 
-/*                                           
-  
-  
+/*	core_tpg_set_initiator_node_queue_depth():
+ *
+ *
  */
 int core_tpg_set_initiator_node_queue_depth(
 	struct se_portal_group *tpg,
@@ -565,8 +565,8 @@ int core_tpg_set_initiator_node_queue_depth(
 			return -EEXIST;
 		}
 		/*
-                                                                
-   */
+		 * Determine if the session needs to be closed by our context.
+		 */
 		if (!tpg->se_tpg_tfo->shutdown_session(sess))
 			continue;
 
@@ -575,24 +575,24 @@ int core_tpg_set_initiator_node_queue_depth(
 	}
 
 	/*
-                                                                      
-                                                               
-                                                                     
-   
-                                                                   
-                                                                
-                                           
-  */
+	 * User has requested to change the queue depth for a Initiator Node.
+	 * Change the value in the Node's struct se_node_acl, and call
+	 * core_set_queue_depth_for_node() to add the requested queue depth.
+	 *
+	 * Finally call  tpg->se_tpg_tfo->close_session() to force session
+	 * reinstatement to occur if there is an active session for the
+	 * $FABRIC_MOD Initiator Node in question.
+	 */
 	acl->queue_depth = queue_depth;
 
 	if (core_set_queue_depth_for_node(tpg, acl) < 0) {
 		spin_unlock_irqrestore(&tpg->session_lock, flags);
 		/*
-                                   
-                                                              
-                                                              
-                                                               
-   */
+		 * Force session reinstatement if
+		 * core_set_queue_depth_for_node() failed, because we assume
+		 * the $FABRIC_MOD has already the set session reinstatement
+		 * bit from tpg->se_tpg_tfo->shutdown_session() called above.
+		 */
 		if (init_sess)
 			tpg->se_tpg_tfo->close_session(init_sess);
 
@@ -604,9 +604,9 @@ int core_tpg_set_initiator_node_queue_depth(
 	}
 	spin_unlock_irqrestore(&tpg->session_lock, flags);
 	/*
-                                                                 
-                                                      
-  */
+	 * If the $FABRIC_MOD session for the Initiator Node ACL exists,
+	 * forcefully shutdown the $FABRIC_MOD session/nexus.
+	 */
 	if (init_sess)
 		tpg->se_tpg_tfo->close_session(init_sess);
 
@@ -626,7 +626,7 @@ EXPORT_SYMBOL(core_tpg_set_initiator_node_queue_depth);
 
 static int core_tpg_setup_virtual_lun0(struct se_portal_group *se_tpg)
 {
-	/*                                      */
+	/* Set in core_dev_setup_virtual_lun0() */
 	struct se_device *dev = g_lun0_dev;
 	struct se_lun *lun = &se_tpg->tpg_virt_lun0;
 	u32 lun_access = TRANSPORT_LUNFLAGS_READ_ONLY;
@@ -738,10 +738,10 @@ int core_tpg_deregister(struct se_portal_group *se_tpg)
 	while (atomic_read(&se_tpg->tpg_pr_ref_count) != 0)
 		cpu_relax();
 	/*
-                                                                   
-                                                                      
-                                      
-  */
+	 * Release any remaining demo-mode generated se_node_acl that have
+	 * not been released because of TFO->tpg_check_demo_mode_cache() == 1
+	 * in transport_deregister_session().
+	 */
 	spin_lock_irq(&se_tpg->acl_node_lock);
 	list_for_each_entry_safe(nacl, nacl_tmp, &se_tpg->acl_node_list,
 			acl_list) {

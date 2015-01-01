@@ -13,9 +13,9 @@
 #include <asm/pgtable.h>
 
 /*
-                                                                          
-                                                                      
-                     
+ * The performance critical leaf functions are made noinline otherwise gcc
+ * inlines everything into a single function which results in too much
+ * register pressure.
  */
 static inline int gup_pte_range(pmd_t *pmdp, pmd_t pmd, unsigned long addr,
 		unsigned long end, int write, struct page **pages, int *nr)
@@ -86,9 +86,9 @@ static inline int gup_huge_pmd(pmd_t *pmdp, pmd_t pmd, unsigned long addr,
 	}
 
 	/*
-                                                               
-           
-  */
+	 * Any tail page need their mapcount reference taken before we
+	 * return.
+	 */
 	while (refs--) {
 		if (PageTail(tail))
 			get_huge_page_tail(tail);
@@ -154,21 +154,21 @@ static inline int gup_pud_range(pgd_t *pgdp, pgd_t pgd, unsigned long addr,
 	return 1;
 }
 
-/* 
-                                                   
-                                
-                                               
-                                           
-                                                            
-                                     
-  
-                                                                   
-                                                              
-                            
-  
-                                                                    
-                                                                  
-                               
+/**
+ * get_user_pages_fast() - pin user pages in memory
+ * @start:	starting user address
+ * @nr_pages:	number of pages from start to pin
+ * @write:	whether pages will be written to
+ * @pages:	array that receives pointers to the pages pinned.
+ *		Should be at least nr_pages long.
+ *
+ * Attempt to pin user pages in memory without taking mm->mmap_sem.
+ * If not successful, it will fall back to taking the lock and
+ * calling get_user_pages().
+ *
+ * Returns number of pages pinned. This may be fewer than the number
+ * requested. If nr_pages is 0 or negative, returns 0. If no pages
+ * were pinned, returns -errno.
  */
 int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 			struct page **pages)
@@ -187,12 +187,12 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 		goto slow_irqon;
 
 	/*
-                                                                    
-                                                    
-   
-                                                                      
-                                                                        
-  */
+	 * local_irq_disable() doesn't prevent pagetable teardown, but does
+	 * prevent the pagetables from being freed on s390.
+	 *
+	 * So long as we atomically load page table pointers versus teardown,
+	 * we can follow the address down to the the page and take a ref on it.
+	 */
 	local_irq_disable();
 	pgdp = pgd_offset(mm, addr);
 	do {
@@ -214,7 +214,7 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 slow:
 		local_irq_enable();
 slow_irqon:
-		/*                                                    */
+		/* Try to get the remaining pages with get_user_pages */
 		start += nr << PAGE_SHIFT;
 		pages += nr;
 
@@ -223,7 +223,7 @@ slow_irqon:
 			(end - start) >> PAGE_SHIFT, write, 0, pages, NULL);
 		up_read(&mm->mmap_sem);
 
-		/*                                             */
+		/* Have to be a bit careful with return values */
 		if (nr > 0) {
 			if (ret < 0)
 				ret = nr;

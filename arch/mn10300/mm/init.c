@@ -43,7 +43,7 @@ static struct vm_struct user_iomap_vm;
 #endif
 
 /*
-                
+ * set up paging
  */
 void __init paging_init(void)
 {
@@ -51,12 +51,12 @@ void __init paging_init(void)
 	pte_t *ppte;
 	int loop;
 
-	/*                                                                  
-            */
+	/* main kernel space -> RAM mapping is handled as 1:1 transparent by
+	 * the MMU */
 	memset(swapper_pg_dir, 0, sizeof(swapper_pg_dir));
 	memset(kernel_vmalloc_ptes, 0, sizeof(kernel_vmalloc_ptes));
 
-	/*                                                               */
+	/* load the VMALLOC area PTE table addresses into the kernel PGD */
 	ppte = kernel_vmalloc_ptes;
 	for (loop = VMALLOC_START / (PAGE_SIZE * PTRS_PER_PTE);
 	     loop < VMALLOC_END / (PAGE_SIZE * PTRS_PER_PTE);
@@ -66,23 +66,23 @@ void __init paging_init(void)
 		ppte += PAGE_SIZE / sizeof(pte_t);
 	}
 
-	/*                                                               */
+	/* declare the sizes of the RAM zones (only use the normal zone) */
 	zones_size[ZONE_NORMAL] =
 		contig_page_data.bdata->node_low_pfn -
 		contig_page_data.bdata->node_min_pfn;
 
-	/*                                                                  */
+	/* pass the memory from the bootmem allocator to the main allocator */
 	free_area_init(zones_size);
 
 #ifdef CONFIG_MN10300_HAS_ATOMIC_OPS_UNIT
-	/*                                                                   
-                                                                      
-                                                                        
-         
-   
-                                                                         
-                   
-  */
+	/* The Atomic Operation Unit registers need to be mapped to userspace
+	 * for all processes.  The following uses vm_area_register_early() to
+	 * reserve the first page of the vmalloc area and sets the pte for that
+	 * page.
+	 *
+	 * glibc hardcodes this virtual mapping, so we're pretty much stuck with
+	 * it from now on.
+	 */
 	user_iomap_vm.flags = VM_USERMAP;
 	user_iomap_vm.size = 1 << PAGE_SHIFT;
 	vm_area_register_early(&user_iomap_vm, PAGE_SIZE);
@@ -95,7 +95,7 @@ void __init paging_init(void)
 }
 
 /*
-                                                                              
+ * transfer all the memory from the bootmem allocator to the runtime allocator
  */
 void __init mem_init(void)
 {
@@ -110,10 +110,10 @@ void __init mem_init(void)
 	max_mapnr = num_physpages = MAX_LOW_PFN - START_PFN;
 	high_memory = (void *) __va(MAX_LOW_PFN * PAGE_SIZE);
 
-	/*                     */
+	/* clear the zero-page */
 	memset(empty_zero_page, 0, PAGE_SIZE);
 
-	/*                                                 */
+	/* this will put all low memory onto the freelists */
 	totalram_pages += free_all_bootmem();
 
 	reservedpages = 0;
@@ -139,7 +139,7 @@ void __init mem_init(void)
 }
 
 /*
-  
+ *
  */
 void free_init_pages(char *what, unsigned long begin, unsigned long end)
 {
@@ -156,7 +156,7 @@ void free_init_pages(char *what, unsigned long begin, unsigned long end)
 }
 
 /*
-                                                                   
+ * recycle memory containing stuff only required for initialisation
  */
 void free_initmem(void)
 {
@@ -166,7 +166,7 @@ void free_initmem(void)
 }
 
 /*
-                                                             
+ * dispose of the memory on which the initial ramdisk resided
  */
 #ifdef CONFIG_BLK_DEV_INITRD
 void free_initrd_mem(unsigned long start, unsigned long end)

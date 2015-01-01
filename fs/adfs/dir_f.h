@@ -13,7 +13,7 @@
 #define ADFS_DIR_F_H
 
 /*
-                   
+ * Directory header
  */
 struct adfs_dirheader {
 	unsigned char startmasseq;
@@ -24,7 +24,7 @@ struct adfs_dirheader {
 #define ADFS_NUM_DIR_ENTRIES	77
 
 /*
-                    
+ * Directory entries
  */
 struct adfs_direntry {
 #define ADFS_F_NAME_LEN 10
@@ -37,7 +37,7 @@ struct adfs_direntry {
 };
 
 /*
-                 
+ * Directory tail
  */
 union adfs_dirtail {
 	struct {

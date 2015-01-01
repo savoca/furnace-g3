@@ -33,25 +33,25 @@
 #include <linux/pagemap.h>
 #include <linux/slab.h>
 #include <linux/rbtree.h>
-#include <linux/dma-mapping.h> /*                  */
+#include <linux/dma-mapping.h> /* for DMA_*_DEVICE */
 
 #include "rds.h"
 
 /*
-      
-                       
-                                                                             
-                                                        
-                                        
+ * XXX
+ *  - build with sparse
+ *  - should we limit the size of a mr region?  let transport return failure?
+ *  - should we detect duplicate keys on a socket?  hmm.
+ *  - an rdma is an mlock, apply rlimit?
  */
 
 /*
-                                                                            
-                         
-  
-                                                                         
-                                                                       
-                                                                    
+ * get the number of pages by looking at the page indices that the start and
+ * end addresses fall in.
+ *
+ * Returns 0 if the vec is invalid.  It is invalid if the number of bytes
+ * causes the address to wrap or overflows an unsigned int.  This comes
+ * from being stored in the 'length' member of 'struct scatterlist'.
  */
 static unsigned int rds_pages_in_vec(struct rds_iovec *vec)
 {
@@ -91,7 +91,7 @@ static struct rds_mr *rds_mr_tree_walk(struct rb_root *root, u64 key,
 }
 
 /*
-                                               
+ * Destroy the transport-specific part of a MR.
  */
 static void rds_destroy_mr(struct rds_mr *mr)
 {
@@ -123,8 +123,8 @@ void __rds_put_mr_final(struct rds_mr *mr)
 }
 
 /*
-                                                                     
-                                                                 
+ * By the time this is called we can't have any more ioctls called on
+ * the socket so we don't need to worry about racing with others.
  */
 void rds_rdma_drop_keys(struct rds_sock *rs)
 {
@@ -132,7 +132,7 @@ void rds_rdma_drop_keys(struct rds_sock *rs)
 	struct rb_node *node;
 	unsigned long flags;
 
-	/*                                             */
+	/* Release any MRs associated with this socket */
 	spin_lock_irqsave(&rs->rs_rdma_lock, flags);
 	while ((node = rb_first(&rs->rs_rdma_keys))) {
 		mr = container_of(node, struct rds_mr, r_rb_node);
@@ -152,7 +152,7 @@ void rds_rdma_drop_keys(struct rds_sock *rs)
 }
 
 /*
-                                     
+ * Helper function to pin user pages.
  */
 static int rds_pin_pages(unsigned long user_addr, unsigned int nr_pages,
 			struct page **pages, int write)
@@ -185,7 +185,7 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
 	int ret;
 
 	if (rs->rs_bound_addr == 0) {
-		ret = -ENOTCONN; /*                       */
+		ret = -ENOTCONN; /* XXX not a great errno */
 		goto out;
 	}
 
@@ -203,7 +203,7 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
 	rdsdebug("RDS: get_mr addr %llx len %llu nr_pages %u\n",
 		args->vec.addr, args->vec.bytes, nr_pages);
 
-	/*                                                     */
+	/* XXX clamp nr_pages to limit the size of this alloc? */
 	pages = kcalloc(nr_pages, sizeof(struct page *), GFP_KERNEL);
 	if (!pages) {
 		ret = -ENOMEM;
@@ -229,15 +229,15 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
 		mr->r_write = 1;
 
 	/*
-                                                                    
-                                                                   
-                                                                   
-                                                                  
-   
-                                                                
-                                                                   
-                  
-  */
+	 * Pin the pages that make up the user buffer and transfer the page
+	 * pointers to the mr's sg array.  We check to see if we've mapped
+	 * the whole region after transferring the partial page references
+	 * to the sg array so that we can have one page ref cleanup path.
+	 *
+	 * For now we have no flag that tells us whether the mapping is
+	 * r/o or r/w. We need to assume r/w, or we'll do a lot of RDMA to
+	 * the zero page.
+	 */
 	ret = rds_pin_pages(args->vec.addr, nr_pages, pages, 1);
 	if (ret < 0)
 		goto out;
@@ -251,16 +251,16 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
 	WARN_ON(!nents);
 	sg_init_table(sg, nents);
 
-	/*                                      */
+	/* Stick all pages into the scatterlist */
 	for (i = 0 ; i < nents; i++)
 		sg_set_page(&sg[i], pages[i], PAGE_SIZE, 0);
 
 	rdsdebug("RDS: trans_private nents is %u\n", nents);
 
-	/*                                                      
-                                    
-                                                       
-                                                   */
+	/* Obtain a transport specific MR. If this succeeds, the
+	 * s/g list is now owned by the MR.
+	 * Note that dma_map() implies that pending writes are
+	 * flushed to RAM, so no dma_sync is needed here. */
 	trans_private = rs->rs_transport->get_mr(sg, nents, rs,
 						 &mr->r_key);
 
@@ -277,10 +277,10 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
 	rdsdebug("RDS: get_mr put_user key is %x cookie_addr %p\n",
 	       mr->r_key, (void *)(unsigned long) args->cookie_addr);
 
-	/*                                                           
-                                                              
-                                                           
-            */
+	/* The user may pass us an unaligned address, but we can only
+	 * map page aligned regions. So we keep the offset, and build
+	 * a 64bit cookie containing <R_Key, offset> and pass that
+	 * around. */
 	cookie = rds_rdma_make_cookie(mr->r_key, args->vec.addr & ~PAGE_MASK);
 	if (cookie_ret)
 		*cookie_ret = cookie;
@@ -290,8 +290,8 @@ static int __rds_rdma_map(struct rds_sock *rs, struct rds_get_mr_args *args,
 		goto out;
 	}
 
-	/*                                               
-                     */
+	/* Inserting the new MR into the rbtree bumps its
+	 * reference count. */
 	spin_lock_irqsave(&rs->rs_rdma_lock, flags);
 	found = rds_mr_tree_walk(&rs->rs_rdma_keys, mr->r_key, mr);
 	spin_unlock_irqrestore(&rs->rs_rdma_lock, flags);
@@ -339,10 +339,10 @@ int rds_get_mr_for_dest(struct rds_sock *rs, char __user *optval, int optlen)
 		return -EFAULT;
 
 	/*
-                                         
-                                                 
-                      
-  */
+	 * Initially, just behave like get_mr().
+	 * TODO: Implement get_mr as wrapper around this
+	 *	 and deprecate it.
+	 */
 	new_args.vec = args.vec;
 	new_args.cookie_addr = args.cookie_addr;
 	new_args.flags = args.flags;
@@ -351,7 +351,7 @@ int rds_get_mr_for_dest(struct rds_sock *rs, char __user *optval, int optlen)
 }
 
 /*
-                                           
+ * Free the MR indicated by the given R_Key
  */
 int rds_free_mr(struct rds_sock *rs, char __user *optval, int optlen)
 {
@@ -366,7 +366,7 @@ int rds_free_mr(struct rds_sock *rs, char __user *optval, int optlen)
 			   sizeof(struct rds_free_mr_args)))
 		return -EFAULT;
 
-	/*                                                         */
+	/* Special case - a null cookie means flush all unused MRs */
 	if (args.cookie == 0) {
 		if (!rs->rs_transport || !rs->rs_transport->flush_mrs)
 			return -EINVAL;
@@ -374,10 +374,10 @@ int rds_free_mr(struct rds_sock *rs, char __user *optval, int optlen)
 		return 0;
 	}
 
-	/*                                                             
-                            
-                                                       
-  */
+	/* Look up the MR given its R_key and remove it from the rbtree
+	 * so nobody else finds it.
+	 * This should also prevent races with rds_rdma_unuse.
+	 */
 	spin_lock_irqsave(&rs->rs_rdma_lock, flags);
 	mr = rds_mr_tree_walk(&rs->rs_rdma_keys, rds_rdma_cookie_key(args.cookie), NULL);
 	if (mr) {
@@ -392,19 +392,19 @@ int rds_free_mr(struct rds_sock *rs, char __user *optval, int optlen)
 		return -EINVAL;
 
 	/*
-                                                                            
-                                                                      
-                                 
-  */
+	 * call rds_destroy_mr() ourselves so that we're sure it's done by the time
+	 * we return.  If we let rds_mr_put() do it it might not happen until
+	 * someone else drops their ref.
+	 */
 	rds_destroy_mr(mr);
 	rds_mr_put(mr);
 	return 0;
 }
 
 /*
-                                                          
-                                                       
-                     
+ * This is called when we receive an extension header that
+ * tells us this MR was used. It allows us to implement
+ * use_once semantics
  */
 void rds_rdma_unuse(struct rds_sock *rs, u32 r_key, int force)
 {
@@ -427,14 +427,14 @@ void rds_rdma_unuse(struct rds_sock *rs, u32 r_key, int force)
 	}
 	spin_unlock_irqrestore(&rs->rs_rdma_lock, flags);
 
-	/*                                                    
-                                                              
-                                     */
+	/* May have to issue a dma_sync on this memory region.
+	 * Note we could avoid this if the operation was a RDMA READ,
+	 * but at this point we can't tell. */
 	if (mr->r_trans->sync_mr)
 		mr->r_trans->sync_mr(mr->r_trans_private, DMA_FROM_DEVICE);
 
-	/*                                              
-                            */
+	/* If the MR was marked as invalidate, this will
+	 * trigger an async flush. */
 	if (zot_me)
 		rds_destroy_mr(mr);
 	rds_mr_put(mr);
@@ -447,9 +447,9 @@ void rds_rdma_free_op(struct rm_rdma_op *ro)
 	for (i = 0; i < ro->op_nents; i++) {
 		struct page *page = sg_page(&ro->op_sg[i]);
 
-		/*                                                   
-                                                         
-                     */
+		/* Mark page dirty if it was possibly modified, which
+		 * is the case for a RDMA_READ which copies from remote
+		 * to local memory */
 		if (!ro->op_write) {
 			BUG_ON(irqs_disabled());
 			set_page_dirty(page);
@@ -466,9 +466,9 @@ void rds_atomic_free_op(struct rm_atomic_op *ao)
 {
 	struct page *page = sg_page(ao->op_sg);
 
-	/*                                                   
-                                                        
-                    */
+	/* Mark page dirty if it was possibly modified, which
+	 * is the case for a RDMA_READ which copies from remote
+	 * to local memory */
 	set_page_dirty(page);
 	put_page(page);
 
@@ -479,7 +479,7 @@ void rds_atomic_free_op(struct rm_atomic_op *ao)
 
 
 /*
-                                                                        
+ * Count the number of pages needed to describe an incoming iovec array.
  */
 static int rds_rdma_pages(struct rds_iovec iov[], int nr_iovecs)
 {
@@ -487,7 +487,7 @@ static int rds_rdma_pages(struct rds_iovec iov[], int nr_iovecs)
 	unsigned int nr_pages;
 	unsigned int i;
 
-	/*                                              */
+	/* figure out the number of pages in the vector */
 	for (i = 0; i < nr_iovecs; i++) {
 		nr_pages = rds_pages_in_vec(&iov[i]);
 		if (nr_pages == 0)
@@ -496,9 +496,9 @@ static int rds_rdma_pages(struct rds_iovec iov[], int nr_iovecs)
 		tot_pages += nr_pages;
 
 		/*
-                                                                   
-                                                               
-   */
+		 * nr_pages for one entry is limited to (UINT_MAX>>PAGE_SHIFT)+1,
+		 * so tot_pages cannot overflow without first going negative.
+		 */
 		if (tot_pages < 0)
 			return -EINVAL;
 	}
@@ -516,7 +516,7 @@ int rds_rdma_extra_size(struct rds_rdma_args *args)
 
 	local_vec = (struct rds_iovec __user *)(unsigned long) args->local_vec_addr;
 
-	/*                                              */
+	/* figure out the number of pages in the vector */
 	for (i = 0; i < args->nr_local; i++) {
 		if (copy_from_user(&vec, &local_vec[i],
 				   sizeof(struct rds_iovec)))
@@ -529,9 +529,9 @@ int rds_rdma_extra_size(struct rds_rdma_args *args)
 		tot_pages += nr_pages;
 
 		/*
-                                                                   
-                                                               
-   */
+		 * nr_pages for one entry is limited to (UINT_MAX>>PAGE_SHIFT)+1,
+		 * so tot_pages cannot overflow without first going negative.
+		 */
 		if (tot_pages < 0)
 			return -EINVAL;
 	}
@@ -540,8 +540,8 @@ int rds_rdma_extra_size(struct rds_rdma_args *args)
 }
 
 /*
-                                            
-                                               
+ * The application asks for a RDMA transfer.
+ * Extract all arguments and set up the rdma_op
  */
 int rds_cmsg_rdma_args(struct rds_sock *rs, struct rds_message *rm,
 			  struct cmsghdr *cmsg)
@@ -563,7 +563,7 @@ int rds_cmsg_rdma_args(struct rds_sock *rs, struct rds_message *rm,
 	args = CMSG_DATA(cmsg);
 
 	if (rs->rs_bound_addr == 0) {
-		ret = -ENOTCONN; /*                       */
+		ret = -ENOTCONN; /* XXX not a great errno */
 		goto out;
 	}
 
@@ -572,7 +572,7 @@ int rds_cmsg_rdma_args(struct rds_sock *rs, struct rds_message *rm,
 		goto out;
 	}
 
-	/*                                          */
+	/* Check whether to allocate the iovec area */
 	iov_size = args->nr_local * sizeof(struct rds_iovec);
 	if (args->nr_local > UIO_FASTIOV) {
 		iovs = sock_kmalloc(rds_rs_to_sk(rs), iov_size, GFP_KERNEL);
@@ -613,11 +613,11 @@ int rds_cmsg_rdma_args(struct rds_sock *rs, struct rds_message *rm,
 	}
 
 	if (op->op_notify || op->op_recverr) {
-		/*                                                    
-                                                           
-                                                               
-                             
-   */
+		/* We allocate an uninitialized notifier here, because
+		 * we don't want to do that in the completion handler. We
+		 * would have to use GFP_ATOMIC there, and don't want to deal
+		 * with failed allocations.
+		 */
 		op->op_notifier = kmalloc(sizeof(struct rds_notifier), GFP_KERNEL);
 		if (!op->op_notifier) {
 			ret = -ENOMEM;
@@ -627,13 +627,13 @@ int rds_cmsg_rdma_args(struct rds_sock *rs, struct rds_message *rm,
 		op->op_notifier->n_status = RDS_RDMA_SUCCESS;
 	}
 
-	/*                                                               
-                                                                    
-                     
-                                                               
-                                                               
-                                                  
-  */
+	/* The cookie contains the R_Key of the remote memory region, and
+	 * optionally an offset into it. This is how we implement RDMA into
+	 * unaligned memory.
+	 * When setting up the RDMA, we need to add that offset to the
+	 * destination address (which is really an offset into the MR)
+	 * FIXME: We may want to move this into ib_rdma.c
+	 */
 	op->op_rkey = rds_rdma_cookie_key(args->cookie);
 	op->op_remote_addr = args->remote_vec.addr + rds_rdma_cookie_offset(args->cookie);
 
@@ -646,15 +646,15 @@ int rds_cmsg_rdma_args(struct rds_sock *rs, struct rds_message *rm,
 
 	for (i = 0; i < args->nr_local; i++) {
 		struct rds_iovec *iov = &iovs[i];
-		/*                                                                    */
+		/* don't need to check, rds_rdma_pages() verified nr will be +nonzero */
 		unsigned int nr = rds_pages_in_vec(iov);
 
 		rs->rs_user_addr = iov->addr;
 		rs->rs_user_bytes = iov->bytes;
 
-		/*                                                                 
-                                                                    
-   */
+		/* If it's a WRITE operation, we want to pin the pages for reading.
+		 * If it's a READ operation, we need to pin the pages for writing.
+		 */
 		ret = rds_pin_pages(iov->addr, nr, pages, !op->op_write);
 		if (ret < 0)
 			goto out;
@@ -705,8 +705,8 @@ out:
 }
 
 /*
-                                                                
-                
+ * The application wants us to pass an RDMA destination (aka MR)
+ * to the remote
  */
 int rds_cmsg_rdma_dest(struct rds_sock *rs, struct rds_message *rm,
 			  struct cmsghdr *cmsg)
@@ -722,17 +722,17 @@ int rds_cmsg_rdma_dest(struct rds_sock *rs, struct rds_message *rm,
 
 	memcpy(&rm->m_rdma_cookie, CMSG_DATA(cmsg), sizeof(rm->m_rdma_cookie));
 
-	/*                                                             
-                                                                   
-                                                                 
-                                      
-  */
+	/* We are reusing a previously mapped MR here. Most likely, the
+	 * application has written to the buffer, so we need to explicitly
+	 * flush those writes to RAM. Otherwise the HCA may not see them
+	 * when doing a DMA from that buffer.
+	 */
 	r_key = rds_rdma_cookie_key(rm->m_rdma_cookie);
 
 	spin_lock_irqsave(&rs->rs_rdma_lock, flags);
 	mr = rds_mr_tree_walk(&rs->rs_rdma_keys, r_key, NULL);
 	if (!mr)
-		err = -EINVAL;	/*               */
+		err = -EINVAL;	/* invalid r_key */
 	else
 		atomic_inc(&mr->r_refcount);
 	spin_unlock_irqrestore(&rs->rs_rdma_lock, flags);
@@ -745,10 +745,10 @@ int rds_cmsg_rdma_dest(struct rds_sock *rs, struct rds_message *rm,
 }
 
 /*
-                                                                     
-                                                             
-                                                                    
-                          
+ * The application passes us an address range it wants to enable RDMA
+ * to/from. We map the area, and save the <R_Key,offset> pair
+ * in rm->m_rdma_cookie. This causes it to be sent along to the peer
+ * in an extension header.
  */
 int rds_cmsg_rdma_map(struct rds_sock *rs, struct rds_message *rm,
 			  struct cmsghdr *cmsg)
@@ -761,7 +761,7 @@ int rds_cmsg_rdma_map(struct rds_sock *rs, struct rds_message *rm,
 }
 
 /*
-                                             
+ * Fill in rds_message for an atomic request.
  */
 int rds_cmsg_atomic(struct rds_sock *rs, struct rds_message *rm,
 		    struct cmsghdr *cmsg)
@@ -776,7 +776,7 @@ int rds_cmsg_atomic(struct rds_sock *rs, struct rds_message *rm,
 
 	args = CMSG_DATA(cmsg);
 
-	/*                                                        */
+	/* Nonmasked & masked cmsg ops converted to masked hw ops */
 	switch (cmsg->cmsg_type) {
 	case RDS_CMSG_ATOMIC_FADD:
 		rm->atomic.op_type = RDS_ATOMIC_TYPE_FADD;
@@ -803,7 +803,7 @@ int rds_cmsg_atomic(struct rds_sock *rs, struct rds_message *rm,
 		rm->atomic.op_m_cswp.swap_mask = args->m_cswp.swap_mask;
 		break;
 	default:
-		BUG(); /*                     */
+		BUG(); /* should never happen */
 	}
 
 	rm->atomic.op_notify = !!(args->flags & RDS_RDMA_NOTIFY_ME);
@@ -816,7 +816,7 @@ int rds_cmsg_atomic(struct rds_sock *rs, struct rds_message *rm,
 		goto err;
 	}
 
-	/*                       */
+	/* verify 8 byte-aligned */
 	if (args->local_addr & 0x7) {
 		ret = -EFAULT;
 		goto err;
@@ -830,11 +830,11 @@ int rds_cmsg_atomic(struct rds_sock *rs, struct rds_message *rm,
 	sg_set_page(rm->atomic.op_sg, page, 8, offset_in_page(args->local_addr));
 
 	if (rm->atomic.op_notify || rm->atomic.op_recverr) {
-		/*                                                    
-                                                           
-                                                               
-                             
-   */
+		/* We allocate an uninitialized notifier here, because
+		 * we don't want to do that in the completion handler. We
+		 * would have to use GFP_ATOMIC there, and don't want to deal
+		 * with failed allocations.
+		 */
 		rm->atomic.op_notifier = kmalloc(sizeof(*rm->atomic.op_notifier), GFP_KERNEL);
 		if (!rm->atomic.op_notifier) {
 			ret = -ENOMEM;

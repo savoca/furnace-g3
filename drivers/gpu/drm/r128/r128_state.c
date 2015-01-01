@@ -1,5 +1,5 @@
-/*                                                       
-                                                          
+/* r128_state.c -- State support for r128 -*- linux-c -*-
+ * Created: Thu Jan 27 02:53:43 2000 by gareth@valinux.com
  */
 /*
  * Copyright 2000 VA Linux Systems, Inc., Sunnyvale, California.
@@ -33,8 +33,8 @@
 #include "r128_drm.h"
 #include "r128_drv.h"
 
-/*                                                                 
-                                           
+/* ================================================================
+ * CCE hardware state programming functions
  */
 
 static void r128_emit_clip_rects(drm_r128_private_t *dev_priv,
@@ -261,15 +261,15 @@ static void r128_emit_state(drm_r128_private_t *dev_priv)
 		sarea_priv->dirty &= ~R128_UPLOAD_TEX1;
 	}
 
-	/*                                     */
+	/* Turn off the texture cache flushing */
 	sarea_priv->context_state.tex_cntl_c &= ~R128_TEX_CACHE_FLUSH;
 
 	sarea_priv->dirty &= ~R128_REQUIRE_QUIESCENCE;
 }
 
 #if R128_PERFORMANCE_BOXES
-/*                                                                 
-                                   
+/* ================================================================
+ * Performance monitoring functions
  */
 
 static void r128_clear_box(drm_r128_private_t *dev_priv,
@@ -329,8 +329,8 @@ static void r128_cce_performance_boxes(drm_r128_private_t *dev_priv)
 
 #endif
 
-/*                                                                 
-                                 
+/* ================================================================
+ * CCE command dispatch functions
  */
 
 static void r128_print_dirty(const char *msg, unsigned int flags)
@@ -466,8 +466,8 @@ static void r128_cce_dispatch_swap(struct drm_device *dev)
 	DRM_DEBUG("\n");
 
 #if R128_PERFORMANCE_BOXES
-	/*                                          
-  */
+	/* Do some trivial performance monitoring...
+	 */
 	r128_cce_performance_boxes(dev_priv);
 #endif
 
@@ -490,8 +490,8 @@ static void r128_cce_dispatch_swap(struct drm_device *dev)
 			 R128_GMC_CLR_CMP_CNTL_DIS |
 			 R128_GMC_AUX_CLIP_DIS | R128_GMC_WR_MSK_DIS);
 
-		/*                                                 
-   */
+		/* Make this work even if front & back are flipped:
+		 */
 		if (dev_priv->current_page == 0) {
 			OUT_RING(dev_priv->back_pitch_offset_c);
 			OUT_RING(dev_priv->front_pitch_offset_c);
@@ -507,10 +507,10 @@ static void r128_cce_dispatch_swap(struct drm_device *dev)
 		ADVANCE_RING();
 	}
 
-	/*                                                             
-                                                           
-                                    
-  */
+	/* Increment the frame counter.  The client-side 3D driver must
+	 * throttle the framerate by waiting for this value before
+	 * performing the swapbuffer ioctl.
+	 */
 	dev_priv->sarea_priv->last_frame++;
 
 	BEGIN_RING(2);
@@ -529,8 +529,8 @@ static void r128_cce_dispatch_flip(struct drm_device *dev)
 		  dev_priv->current_page, dev_priv->sarea_priv->pfCurrentPage);
 
 #if R128_PERFORMANCE_BOXES
-	/*                                          
-  */
+	/* Do some trivial performance monitoring...
+	 */
 	r128_cce_performance_boxes(dev_priv);
 #endif
 
@@ -546,10 +546,10 @@ static void r128_cce_dispatch_flip(struct drm_device *dev)
 
 	ADVANCE_RING();
 
-	/*                                                             
-                                                           
-                                    
-  */
+	/* Increment the frame counter.  The client-side 3D driver must
+	 * throttle the framerate by waiting for this value before
+	 * performing the swapbuffer ioctl.
+	 */
 	dev_priv->sarea_priv->last_frame++;
 	dev_priv->sarea_priv->pfCurrentPage = dev_priv->current_page =
 	    1 - dev_priv->current_page;
@@ -585,14 +585,14 @@ static void r128_cce_dispatch_vertex(struct drm_device *dev, struct drm_buf *buf
 			r128_emit_state(dev_priv);
 
 		do {
-			/*                                            */
+			/* Emit the next set of up to three cliprects */
 			if (i < sarea_priv->nbox) {
 				r128_emit_clip_rects(dev_priv,
 						     &sarea_priv->boxes[i],
 						     sarea_priv->nbox - i);
 			}
 
-			/*                                           */
+			/* Emit the vertex buffer rendering commands */
 			BEGIN_RING(5);
 
 			OUT_RING(CCE_PACKET3(R128_3D_RNDR_GEN_INDX_PRIM, 3));
@@ -611,7 +611,7 @@ static void r128_cce_dispatch_vertex(struct drm_device *dev, struct drm_buf *buf
 	if (buf_priv->discard) {
 		buf_priv->age = dev_priv->sarea_priv->last_dispatch;
 
-		/*                            */
+		/* Emit the vertex buffer age */
 		BEGIN_RING(2);
 
 		OUT_RING(CCE_PACKET0(R128_LAST_DISPATCH_REG, 0));
@@ -621,7 +621,7 @@ static void r128_cce_dispatch_vertex(struct drm_device *dev, struct drm_buf *buf
 
 		buf->pending = 1;
 		buf->used = 0;
-		/*                               */
+		/* FIXME: Check dispatched field */
 		buf_priv->dispatched = 0;
 	}
 
@@ -643,10 +643,10 @@ static void r128_cce_dispatch_indirect(struct drm_device *dev,
 		int offset = buf->bus_address + start;
 		int dwords = (end - start + 3) / sizeof(u32);
 
-		/*                                               
-                                                         
-                                           
-   */
+		/* Indirect buffer data must be an even number of
+		 * dwords, so if we've been given an odd number we must
+		 * pad the data with a Type-2 CCE packet.
+		 */
 		if (dwords & 1) {
 			u32 *data = (u32 *)
 			    ((char *)dev->agp_buffer_map->handle
@@ -656,7 +656,7 @@ static void r128_cce_dispatch_indirect(struct drm_device *dev,
 
 		buf_priv->dispatched = 1;
 
-		/*                              */
+		/* Fire off the indirect buffer */
 		BEGIN_RING(3);
 
 		OUT_RING(CCE_PACKET0(R128_PM4_IW_INDOFF, 1));
@@ -669,7 +669,7 @@ static void r128_cce_dispatch_indirect(struct drm_device *dev,
 	if (buf_priv->discard) {
 		buf_priv->age = dev_priv->sarea_priv->last_dispatch;
 
-		/*                              */
+		/* Emit the indirect buffer age */
 		BEGIN_RING(2);
 
 		OUT_RING(CCE_PACKET0(R128_LAST_DISPATCH_REG, 0));
@@ -679,7 +679,7 @@ static void r128_cce_dispatch_indirect(struct drm_device *dev,
 
 		buf->pending = 1;
 		buf->used = 0;
-		/*                               */
+		/* FIXME: Check dispatched field */
 		buf_priv->dispatched = 0;
 	}
 
@@ -734,7 +734,7 @@ static void r128_cce_dispatch_indices(struct drm_device *dev,
 		}
 
 		do {
-			/*                                            */
+			/* Emit the next set of up to three cliprects */
 			if (i < sarea_priv->nbox) {
 				r128_emit_clip_rects(dev_priv,
 						     &sarea_priv->boxes[i],
@@ -750,7 +750,7 @@ static void r128_cce_dispatch_indices(struct drm_device *dev,
 	if (buf_priv->discard) {
 		buf_priv->age = dev_priv->sarea_priv->last_dispatch;
 
-		/*                            */
+		/* Emit the vertex buffer age */
 		BEGIN_RING(2);
 
 		OUT_RING(CCE_PACKET0(R128_LAST_DISPATCH_REG, 0));
@@ -759,7 +759,7 @@ static void r128_cce_dispatch_indices(struct drm_device *dev,
 		ADVANCE_RING();
 
 		buf->pending = 1;
-		/*                               */
+		/* FIXME: Check dispatched field */
 		buf_priv->dispatched = 0;
 	}
 
@@ -782,10 +782,10 @@ static int r128_cce_dispatch_blit(struct drm_device *dev,
 	RING_LOCALS;
 	DRM_DEBUG("\n");
 
-	/*                                                           
-                                                                 
-                        
-  */
+	/* The compiler won't optimize away a division by a variable,
+	 * even if the only legal values are powers of two.  Thus, we'll
+	 * use a shift instead.
+	 */
 	switch (blit->format) {
 	case R128_DATATYPE_ARGB8888:
 		dword_shift = 0;
@@ -806,11 +806,11 @@ static int r128_cce_dispatch_blit(struct drm_device *dev,
 		return -EINVAL;
 	}
 
-	/*                                                              
-                                                             
-                                                               
-                           
-  */
+	/* Flush the pixel cache, and mark the contents as Read Invalid.
+	 * This ensures no pixel data gets mixed up with the texture
+	 * data from the host data blit, otherwise part of the texture
+	 * image may be corrupted.
+	 */
 	BEGIN_RING(2);
 
 	OUT_RING(CCE_PACKET0(R128_PC_GUI_CTLSTAT, 0));
@@ -818,8 +818,8 @@ static int r128_cce_dispatch_blit(struct drm_device *dev,
 
 	ADVANCE_RING();
 
-	/*                              
-  */
+	/* Dispatch the indirect buffer.
+	 */
 	buf = dma->buflist[blit->idx];
 	buf_priv = buf->dev_private;
 
@@ -860,10 +860,10 @@ static int r128_cce_dispatch_blit(struct drm_device *dev,
 
 	r128_cce_dispatch_indirect(dev, buf, 0, buf->used);
 
-	/*                                                              
-                                                              
-              
-  */
+	/* Flush the pixel cache after the blit completes.  This ensures
+	 * the texture data is written out to memory before rendering
+	 * continues.
+	 */
 	BEGIN_RING(2);
 
 	OUT_RING(CCE_PACKET0(R128_PC_GUI_CTLSTAT, 0));
@@ -874,11 +874,11 @@ static int r128_cce_dispatch_blit(struct drm_device *dev,
 	return 0;
 }
 
-/*                                                                 
-                                
-  
-                                                                     
-                                 
+/* ================================================================
+ * Tiled depth buffer management
+ *
+ * FIXME: These should all set the destination write mask for when we
+ * have hardware stencil support.
  */
 
 static int r128_cce_dispatch_write_span(struct drm_device *dev,
@@ -1203,8 +1203,8 @@ static int r128_cce_dispatch_read_pixels(struct drm_device *dev,
 	return 0;
 }
 
-/*                                                                 
-                  
+/* ================================================================
+ * Polygon stipple
  */
 
 static void r128_cce_dispatch_stipple(struct drm_device *dev, u32 *stipple)
@@ -1223,8 +1223,8 @@ static void r128_cce_dispatch_stipple(struct drm_device *dev, u32 *stipple)
 	ADVANCE_RING();
 }
 
-/*                                                                 
-                  
+/* ================================================================
+ * IOCTL functions
  */
 
 static int r128_cce_clear(struct drm_device *dev, void *data, struct drm_file *file_priv)
@@ -1248,8 +1248,8 @@ static int r128_cce_clear(struct drm_device *dev, void *data, struct drm_file *f
 	r128_cce_dispatch_clear(dev, clear);
 	COMMIT_RING();
 
-	/*                                             
-  */
+	/* Make sure we restore the 3D state next time.
+	 */
 	dev_priv->sarea_priv->dirty |= R128_UPLOAD_CONTEXT | R128_UPLOAD_MASKS;
 
 	return 0;
@@ -1291,8 +1291,8 @@ static int r128_do_cleanup_pageflip(struct drm_device *dev)
 	return 0;
 }
 
-/*                                                                       
-                                                                  
+/* Swapping and flipping are different operations, need different ioctls.
+ * They can & should be intermixed to support multiple 3d windows.
  */
 
 static int r128_cce_flip(struct drm_device *dev, void *data, struct drm_file *file_priv)
@@ -1587,18 +1587,18 @@ static int r128_cce_indirect(struct drm_device *dev, void *data, struct drm_file
 	buf_priv->discard = indirect->discard;
 
 #if 0
-	/*                                                          
-                                                     
-  */
+	/* Wait for the 3D stream to idle before the indirect buffer
+	 * containing 2D acceleration commands is processed.
+	 */
 	BEGIN_RING(2);
 	RADEON_WAIT_UNTIL_3D_IDLE();
 	ADVANCE_RING();
 #endif
 
-	/*                                                       
-                                                             
-                       
-  */
+	/* Dispatch the indirect buffer full of commands from the
+	 * X server.  This is insecure and is thus only available to
+	 * privileged clients.
+	 */
 	r128_cce_dispatch_indirect(dev, buf, indirect->start, indirect->end);
 
 	COMMIT_RING();

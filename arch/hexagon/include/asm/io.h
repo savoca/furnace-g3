@@ -34,8 +34,8 @@
 #include <asm/tlbflush.h>
 
 /*
-                         
-                                                               
+ * We don't have PCI yet.
+ * _IO_BASE is pointing at what should be unused virtual space.
  */
 #define IO_SPACE_LIMIT 0xffff
 #define _IO_BASE ((void __iomem *)0xfe000000)
@@ -45,7 +45,7 @@ extern int remap_area_pages(unsigned long start, unsigned long phys_addr,
 
 extern void __iounmap(const volatile void __iomem *addr);
 
-/*                                                */
+/* Defined in lib/io.c, needed for smc91x driver. */
 extern void __raw_readsw(const void __iomem *addr, void *data, int wordlen);
 extern void __raw_writesw(void __iomem *addr, const void *data, int wordlen);
 
@@ -59,8 +59,8 @@ extern void __raw_writesl(void __iomem *addr, const void *data, int wordlen);
 #define writesl(p, d, l)  __raw_writesl(p, d, l)
 
 /*
-                                                 
-                            
+ * virt_to_phys - map virtual address to physical
+ * @address:  address to map
  */
 static inline unsigned long virt_to_phys(volatile void *address)
 {
@@ -68,8 +68,8 @@ static inline unsigned long virt_to_phys(volatile void *address)
 }
 
 /*
-                                                 
-                           
+ * phys_to_virt - map physical address to virtual
+ * @address: address to map
  */
 static inline void *phys_to_virt(unsigned long address)
 {
@@ -77,25 +77,25 @@ static inline void *phys_to_virt(unsigned long address)
 }
 
 /*
-                                                             
-                   
+ * convert a physical pointer to a virtual kernel pointer for
+ * /dev/mem access.
  */
 #define xlate_dev_kmem_ptr(p)    __va(p)
 #define xlate_dev_mem_ptr(p)    __va(p)
 
 /*
-                                                                     
-                                          
-  
-                                                                      
-                                              
+ * IO port access primitives.  Hexagon doesn't have special IO access
+ * instructions; all I/O is memory mapped.
+ *
+ * in/out are used for "ports", but we don't have "port instructions",
+ * so these are really just memory mapped too.
  */
 
 /*
-                                              
-                            
-  
-                                     
+ * readb - read byte from memory mapped device
+ * @addr:  pointer to memory
+ *
+ * Operates on "I/O bus memory space"
  */
 static inline u8 readb(const volatile void __iomem *addr)
 {
@@ -131,10 +131,10 @@ static inline u32 readl(const volatile void __iomem *addr)
 }
 
 /*
-                                             
-                          
-                            
-  
+ * writeb - write a byte to a memory location
+ * @data: data to write to
+ * @addr:  pointer to memory
+ *
  */
 static inline void writeb(u8 data, volatile void __iomem *addr)
 {
@@ -176,8 +176,8 @@ static inline void writel(u32 data, volatile void __iomem *addr)
 #define __raw_readl readl
 
 /*
-                                                         
-                                           
+ * Need an mtype somewhere in here, for cache type deals?
+ * This is probably too long for an inline.
  */
 void __iomem *ioremap_nocache(unsigned long phys_addr, unsigned long size);
 
@@ -208,10 +208,10 @@ static inline void memcpy_toio(volatile void __iomem *dst, const void *src,
 #define PCI_IO_ADDR	(volatile void __iomem *)
 
 /*
-                                             
-                               
-  
-                                  
+ * inb - read byte from I/O port or something
+ * @port:  address in I/O space
+ *
+ * Operates on "I/O bus I/O space"
  */
 static inline u8 inb(unsigned long port)
 {
@@ -229,9 +229,9 @@ static inline u32 inl(unsigned long port)
 }
 
 /*
-                                           
-                          
-                               
+ * outb - write a byte to a memory location
+ * @data: data to write to
+ * @addr:  address in I/O space
  */
 static inline void outb(u8 data, unsigned long port)
 {
@@ -321,6 +321,6 @@ static inline void outsl(unsigned long port, const void *buffer, int count)
 
 #define flush_write_buffers() do { } while (0)
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
 #endif

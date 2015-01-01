@@ -50,32 +50,32 @@ int wifi_set_power(int on, unsigned long msec) { return -1; }
 int wifi_get_irq_number(unsigned long *irq_flags_ptr) { return -1; }
 int wifi_get_mac_addr(unsigned char *buf) { return -1; }
 void *wifi_get_country_code(char *ccode) { return NULL; }
-#endif /*                          */
+#endif /* CONFIG_WIFI_CONTROL_FUNC */
 #endif 
 
 #if defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID)
 
 #if defined(BCMLXSDMMC)
 extern int sdioh_mmc_irq(int irq);
-#endif /*               */
+#endif /* (BCMLXSDMMC)  */
 
 
-/*                                        */
+/* Customer specific Host GPIO defintion  */
 static int dhd_oob_gpio_num = -1;
 
 module_param(dhd_oob_gpio_num, int, 0644);
 MODULE_PARM_DESC(dhd_oob_gpio_num, "DHD oob gpio number");
 
-/*                           
-                                                                 
-                                                              
-  
-          
-                                                  
-                               
-                                                      
-                                                         
-  
+/* This function will return:
+ *  1) return :  Host gpio interrupt number per customer platform
+ *  2) irq_flags_ptr : Type of Host interrupt as Level or Edge
+ *
+ *  NOTE :
+ *  Customer should check his platform definitions
+ *  and his Host Interrupt spec
+ *  to figure out the proper setting for his platform.
+ *  Broadcom provides just reference settings as example.
+ *
  */
 int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 {
@@ -89,7 +89,7 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 	if (dhd_oob_gpio_num < 0) {
 		dhd_oob_gpio_num = CUSTOM_OOB_GPIO_NUM;
 	}
-#endif /*                       */
+#endif /* CUSTOMER_OOB_GPIO_NUM */
 
 	if (dhd_oob_gpio_num < 0) {
 		WL_ERROR(("%s: ERROR customer specific Host GPIO is NOT defined \n",
@@ -104,9 +104,9 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 
 	return (host_oob_irq);
 }
-#endif /*                                                   */
+#endif /* defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID) */
 
-/*                                                     */
+/* Customer function to control hw specific wlan gpios */
 void
 dhd_customer_gpio_wlan_ctrl(int onoff)
 {
@@ -142,7 +142,7 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 }
 
 #ifdef GET_CUSTOM_MAC_ENABLE
-/*                                    */
+/* Function to get custom MAC address */
 int
 dhd_custom_get_mac_address(unsigned char *buf)
 {
@@ -152,32 +152,32 @@ dhd_custom_get_mac_address(unsigned char *buf)
 	if (!buf)
 		return -EINVAL;
 
-	/*                                                             */
+	/* Customer access to MAC address stored outside of DHD driver */
 #if defined(CUSTOMER_HW10) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
 	ret = wifi_get_mac_addr(buf);
 #endif
 
 #ifdef EXAMPLE_GET_MAC
-	/*              */
+	/* EXAMPLE code */
 	{
 		struct ether_addr ea_example = {{0x00, 0x11, 0x22, 0x33, 0x44, 0xFF}};
 		bcopy((char *)&ea_example, buf, sizeof(struct ether_addr));
 	}
-#endif /*                 */
+#endif /* EXAMPLE_GET_MAC */
 
 	return ret;
 }
-#endif /*                       */
+#endif /* GET_CUSTOM_MAC_ENABLE */
 
 #if !defined(CUSTOMER_HW4)
-/*                                            */
+/* Customized Locale table : OPTIONAL feature */
 const struct cntry_locales_custom translate_custom_table[] = {
-/*                                                                            */
+/* Table should be filled out based on custom platform regulatory requirement */
 #ifdef EXAMPLE_TABLE
-	{"",   "XY", 4},  /*                                               */
-	{"US", "US", 69}, /*                                  */
-	{"CA", "US", 69}, /*                                  */
-	{"EU", "EU", 5},  /*                                            */
+	{"",   "XY", 4},  /* Universal if Country code is unknown or empty */
+	{"US", "US", 69}, /* input ISO "US" to : US regrev 69 */
+	{"CA", "US", 69}, /* input ISO "CA" to : US regrev 69 */
+	{"EU", "EU", 5},  /* European union countries to : EU regrev 05 */
 	{"AT", "EU", 5},
 	{"BE", "EU", 5},
 	{"BG", "EU", 5},
@@ -208,7 +208,7 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"GB", "EU", 5},
 	{"KR", "XY", 3},
 	{"AU", "XY", 3},
-	{"CN", "XY", 3}, /*                                  */
+	{"CN", "XY", 3}, /* input ISO "CN" to : XY regrev 03 */
 	{"TW", "XY", 3},
 	{"AR", "XY", 3},
 	{"MX", "XY", 3},
@@ -216,13 +216,13 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"CH", "CH", 0},
 	{"TR", "TR", 0},
 	{"NO", "NO", 0},
-#endif /*               */
+#endif /* EXMAPLE_TABLE */
 };
 
 
-/*                            
-                                          
-                           
+/* Customized Locale convertor
+*  input : ISO 3166-1 country abbreviation
+*  output: customized cspec
 */
 void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 {
@@ -245,10 +245,10 @@ void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 		}
 	}
 #ifdef EXAMPLE_TABLE
-	/*                                                                                    */
+	/* if no country code matched return first universal code from translate_custom_table */
 	memcpy(cspec->ccode, translate_custom_table[0].custom_locale, WLC_CNTRY_BUF_SZ);
 	cspec->rev = translate_custom_table[0].custom_locale_rev;
-#endif /*               */
+#endif /* EXMAPLE_TABLE */
 	return;
 }
-#endif /*              */
+#endif /* CUSTOMER_HW4 */

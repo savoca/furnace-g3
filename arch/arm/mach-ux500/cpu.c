@@ -57,9 +57,9 @@ void __init ux500_init_irq(void)
 		gic_init(0, 29, dist_base, cpu_base);
 
 	/*
-                                                                
-                   
-  */
+	 * Init clocks here so that they are available for system timer
+	 * initialization.
+	 */
 	if (cpu_is_u5500())
 		db5500_prcmu_early_init();
 	if (cpu_is_u8500())

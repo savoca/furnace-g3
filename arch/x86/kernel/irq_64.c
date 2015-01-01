@@ -29,11 +29,11 @@ EXPORT_PER_CPU_SYMBOL(irq_regs);
 int sysctl_panic_on_stackoverflow;
 
 /*
-                                      
-  
-                                                                   
-                                                                        
-                                    
+ * Probabilistic stack overflow check:
+ *
+ * Only check the stack in process context, because everything else
+ * runs on the big interrupt stacks. Checking reliably is too expensive,
+ * so we just check from interrupts.
  */
 static inline void stack_overflow_check(struct pt_regs *regs)
 {
@@ -101,7 +101,7 @@ asmlinkage void do_softirq(void)
 
 	local_irq_save(flags);
 	pending = local_softirq_pending();
-	/*                           */
+	/* Switch to interrupt stack */
 	if (pending) {
 		call_softirq();
 		WARN_ON_ONCE(softirq_count());

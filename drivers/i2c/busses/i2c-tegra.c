@@ -100,24 +100,24 @@
 #define I2C_HEADER_MASTER_ADDR_SHIFT		12
 #define I2C_HEADER_SLAVE_ADDR_SHIFT		1
 
-/* 
-                                                
-                                              
-                                               
-                                           
-                                        
-                                        
-                                     
-                                                          
-                                                  
-                                                                              
-                                              
-                                             
-                                            
-                                                                
-                                       
-                                            
-                                                                          
+/**
+ * struct tegra_i2c_dev	- per device i2c context
+ * @dev: device reference for power management
+ * @adapter: core i2c layer adapter information
+ * @clk: clock reference for i2c controller
+ * @i2c_clk: clock reference for i2c bus
+ * @iomem: memory resource for registers
+ * @base: ioremapped registers cookie
+ * @cont_id: i2c controller id, used for for packet header
+ * @irq: irq number of transfer complete interrupt
+ * @is_dvc: identifies the DVC i2c controller, has a different register layout
+ * @msg_complete: transfer completion notifier
+ * @msg_err: error code for completed message
+ * @msg_buf: pointer to current message data
+ * @msg_buf_remaining: size of unsent data in the message buffer
+ * @msg_read: identifies read transfers
+ * @bus_clk_rate: current i2c bus clock rate
+ * @is_suspended: prevents i2c controller accesses after suspend is called
  */
 struct tegra_i2c_dev {
 	struct device *dev;
@@ -150,8 +150,8 @@ static u32 dvc_readl(struct tegra_i2c_dev *i2c_dev, unsigned long reg)
 }
 
 /*
-                                                                         
-                                        
+ * i2c_writel and i2c_readl will offset the register if necessary to talk
+ * to the I2C block inside the DVC block
  */
 static unsigned long tegra_i2c_reg_addr(struct tegra_i2c_dev *i2c_dev,
 	unsigned long reg)
@@ -228,7 +228,7 @@ static int tegra_i2c_empty_rx_fifo(struct tegra_i2c_dev *i2c_dev)
 	rx_fifo_avail = (val & I2C_FIFO_STATUS_RX_MASK) >>
 		I2C_FIFO_STATUS_RX_SHIFT;
 
-	/*                                                           */
+	/* Rounds down to not include partial word at the end of buf */
 	words_to_transfer = buf_remaining / BYTES_PER_FIFO_WORD;
 	if (words_to_transfer > rx_fifo_avail)
 		words_to_transfer = rx_fifo_avail;
@@ -240,9 +240,9 @@ static int tegra_i2c_empty_rx_fifo(struct tegra_i2c_dev *i2c_dev)
 	rx_fifo_avail -= words_to_transfer;
 
 	/*
-                                                                       
-                                           
-  */
+	 * If there is a partial word at the end of buf, handle it manually to
+	 * prevent overwriting past the end of buf
+	 */
 	if (rx_fifo_avail > 0 && buf_remaining > 0) {
 		BUG_ON(buf_remaining > 3);
 		val = i2c_readl(i2c_dev, I2C_RX_FIFO);
@@ -269,21 +269,21 @@ static int tegra_i2c_fill_tx_fifo(struct tegra_i2c_dev *i2c_dev)
 	tx_fifo_avail = (val & I2C_FIFO_STATUS_TX_MASK) >>
 		I2C_FIFO_STATUS_TX_SHIFT;
 
-	/*                                                           */
+	/* Rounds down to not include partial word at the end of buf */
 	words_to_transfer = buf_remaining / BYTES_PER_FIFO_WORD;
 
-	/*                                                            */
+	/* It's very common to have < 4 bytes, so optimize that case. */
 	if (words_to_transfer) {
 		if (words_to_transfer > tx_fifo_avail)
 			words_to_transfer = tx_fifo_avail;
 
 		/*
-                                                            
-                                                                 
-                                                               
-                                                           
-                                                              
-   */
+		 * Update state before writing to FIFO.  If this casues us
+		 * to finish writing all bytes (AKA buf_remaining goes to 0) we
+		 * have a potential for an interrupt (PACKET_XFER_COMPLETE is
+		 * not maskable).  We need to make sure that the isr sees
+		 * buf_remaining as 0 and doesn't call us back re-entrantly.
+		 */
 		buf_remaining -= words_to_transfer * BYTES_PER_FIFO_WORD;
 		tx_fifo_avail -= words_to_transfer;
 		i2c_dev->msg_buf_remaining = buf_remaining;
@@ -297,15 +297,15 @@ static int tegra_i2c_fill_tx_fifo(struct tegra_i2c_dev *i2c_dev)
 	}
 
 	/*
-                                                                       
-                                                                 
-                       
-  */
+	 * If there is a partial word at the end of buf, handle it manually to
+	 * prevent reading past the end of buf, which could cross a page
+	 * boundary and fault.
+	 */
 	if (tx_fifo_avail > 0 && buf_remaining > 0) {
 		BUG_ON(buf_remaining > 3);
 		memcpy(&val, buf, buf_remaining);
 
-		/*                                                            */
+		/* Again update before writing to FIFO to make sure isr sees. */
 		i2c_dev->msg_buf_remaining = 0;
 		i2c_dev->msg_buf = NULL;
 		barrier();
@@ -317,11 +317,11 @@ static int tegra_i2c_fill_tx_fifo(struct tegra_i2c_dev *i2c_dev)
 }
 
 /*
-                                                                             
-                                                                             
-                                                                            
-                                                                           
-                              
+ * One of the Tegra I2C blocks is inside the DVC (Digital Voltage Controller)
+ * block.  This block is identical to the rest of the I2C blocks, except that
+ * it only supports master mode, it has registers moved around, and it needs
+ * some extra init to get it into I2C mode.  The register moves are handled
+ * by i2c_readl and i2c_writel
  */
 static void tegra_dvc_init(struct tegra_i2c_dev *i2c_dev)
 {
@@ -439,7 +439,7 @@ static irqreturn_t tegra_i2c_isr(int irq, void *dev_id)
 		dvc_writel(i2c_dev, DVC_STATUS_I2C_DONE_INTR, DVC_STATUS);
 	return IRQ_HANDLED;
 err:
-	/*                                        */
+	/* An error occurred, mask all interrupts */
 	tegra_i2c_mask_irq(i2c_dev, I2C_INT_NO_ACK | I2C_INT_ARBITRATION_LOST |
 		I2C_INT_PACKET_XFER_COMPLETE | I2C_INT_TX_FIFO_DATA_REQ |
 		I2C_INT_RX_FIFO_DATA_REQ);
@@ -517,10 +517,10 @@ static int tegra_i2c_xfer_msg(struct tegra_i2c_dev *i2c_dev,
 		return 0;
 
 	/*
-                                                                       
-                                                                           
-                                                                      
-  */
+	 * NACK interrupt is generated before the I2C controller generates the
+	 * STOP condition on the bus. So wait for 2 clock periods before resetting
+	 * the controller so that STOP condition has been delivered properly.
+	 */
 	if (i2c_dev->msg_err == I2C_ERR_NO_ACK)
 		udelay(DIV_ROUND_UP(2 * 1000000, i2c_dev->bus_clk_rate));
 
@@ -632,11 +632,11 @@ static int __devinit tegra_i2c_probe(struct platform_device *pdev)
 	i2c_dev->cont_id = pdev->id;
 	i2c_dev->dev = &pdev->dev;
 
-	i2c_dev->bus_clk_rate = 100000; /*                    */
+	i2c_dev->bus_clk_rate = 100000; /* default clock rate */
 	if (pdata) {
 		i2c_dev->bus_clk_rate = pdata->bus_clk_rate;
 
-	} else if (i2c_dev->dev->of_node) {    /*                                    */
+	} else if (i2c_dev->dev->of_node) {    /* if there is a device tree node ... */
 		prop = of_get_property(i2c_dev->dev->of_node,
 				"clock-frequency", NULL);
 		if (prop)
@@ -749,7 +749,7 @@ static int tegra_i2c_resume(struct platform_device *pdev)
 #endif
 
 #if defined(CONFIG_OF)
-/*                                     */
+/* Match table for of_platform binding */
 static const struct of_device_id tegra_i2c_of_match[] __devinitconst = {
 	{ .compatible = "nvidia,tegra20-i2c", },
 	{ .compatible = "nvidia,tegra20-i2c-dvc", },

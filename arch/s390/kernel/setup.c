@@ -11,7 +11,7 @@
  */
 
 /*
-                                                                       
+ * This file handles the architecture-dependent parts of initialization
  */
 
 #define KMSG_COMPONENT "setup"
@@ -72,13 +72,13 @@ long psw_user_bits	= PSW_MASK_DAT | PSW_MASK_IO | PSW_MASK_EXT |
 			  PSW_MASK_PSTATE | PSW_ASC_HOME;
 
 /*
-                        
+ * User copy operations.
  */
 struct uaccess_ops uaccess;
 EXPORT_SYMBOL(uaccess);
 
 /*
-                  
+ * Machine setup..
  */
 unsigned int console_mode = 0;
 EXPORT_SYMBOL(console_mode);
@@ -106,20 +106,20 @@ EXPORT_SYMBOL(VMALLOC_END);
 struct page *vmemmap;
 EXPORT_SYMBOL(vmemmap);
 
-/*                                                      */
+/* An array with a pointer to the lowcore of every CPU. */
 struct _lowcore *lowcore_ptr[NR_CPUS];
 EXPORT_SYMBOL(lowcore_ptr);
 
 /*
-                                                   
-                                                   
-                            
+ * This is set up by the setup-routine at boot-time
+ * for S390 need to find out, what we have to setup
+ * using address 0x10400 ...
  */
 
 #include <asm/setup.h>
 
 /*
-                                        
+ * condev= and conmode= setup parameter.
  */
 
 static int __init condev_setup(char *str)
@@ -179,12 +179,12 @@ static void __init conmode_default(void)
 		cpcmd("QUERY TERM", query_buffer, 1024, NULL);
 		ptr = strstr(query_buffer, "CONMODE");
 		/*
-                                                            
-                                                        
-                                                       
-                                                            
-                                                     
-   */
+		 * Set the conmode to 3215 so that the device recognition 
+		 * will set the cu_type of the console to 3215. If the
+		 * conmode is 3270 and we don't set it back then both
+		 * 3215 and the 3270 driver will try to access the console
+		 * device (3215 as console and 3270 as normal tty).
+		 */
 		cpcmd("TERM CONMODE 3215", NULL, 0, NULL);
 		if (ptr == NULL) {
 #if defined(CONFIG_SCLP_CONSOLE) || defined(CONFIG_SCLP_VT220_CONSOLE)
@@ -236,20 +236,20 @@ static void __init setup_zfcpdump(unsigned int console_devno)
 }
 #else
 static inline void setup_zfcpdump(unsigned int console_devno) {}
-#endif /*                 */
+#endif /* CONFIG_ZFCPDUMP */
 
  /*
-                                                                     
-                                        
+ * Reboot, halt and power_off stubs. They just call _machine_restart,
+ * _machine_halt or _machine_power_off. 
  */
 
 void machine_restart(char *command)
 {
 	if ((!in_interrupt() && !in_atomic()) || oops_in_progress)
 		/*
-                                                         
-                                                        
-   */
+		 * Only unblank the console if we are called in enabled
+		 * context or a bust_spinlocks cleared the way for us.
+		 */
 		console_unblank();
 	_machine_restart(command);
 }
@@ -258,9 +258,9 @@ void machine_halt(void)
 {
 	if (!in_interrupt() || oops_in_progress)
 		/*
-                                                         
-                                                        
-   */
+		 * Only unblank the console if we are called in enabled
+		 * context or a bust_spinlocks cleared the way for us.
+		 */
 		console_unblank();
 	_machine_halt();
 }
@@ -269,15 +269,15 @@ void machine_power_off(void)
 {
 	if (!in_interrupt() || oops_in_progress)
 		/*
-                                                         
-                                                        
-   */
+		 * Only unblank the console if we are called in enabled
+		 * context or a bust_spinlocks cleared the way for us.
+		 */
 		console_unblank();
 	_machine_power_off();
 }
 
 /*
-                            
+ * Dummy power off function.
  */
 void (*pm_power_off)(void) = machine_power_off;
 
@@ -320,7 +320,7 @@ static int set_amode_primary(void)
 }
 
 /*
-                                       
+ * Switch kernel/user addressing modes?
  */
 static int __init early_parse_switch_amode(char *p)
 {
@@ -360,8 +360,8 @@ static void __init setup_lowcore(void)
 	struct _lowcore *lc;
 
 	/*
-                              
-  */
+	 * Setup lowcore for boot cpu
+	 */
 	BUILD_BUG_ON(sizeof(struct _lowcore) != LC_PAGES * 4096);
 	lc = __alloc_bootmem_low(LC_PAGES * PAGE_SIZE, LC_PAGES * PAGE_SIZE, 0);
 	lc->restart_psw.mask = psw_kernel_bits;
@@ -400,7 +400,7 @@ static void __init setup_lowcore(void)
 	if (MACHINE_HAS_IEEE) {
 		lc->extended_save_area_addr = (__u32)
 			__alloc_bootmem_low(PAGE_SIZE, PAGE_SIZE, 0);
-		/*                           */
+		/* enable extended save area */
 		__ctl_set_bit(14, 29);
 	}
 #else
@@ -420,10 +420,10 @@ static void __init setup_lowcore(void)
 	restart_stack += ASYNC_SIZE;
 
 	/*
-                                                                    
-                                                                  
-                                                                
-  */
+	 * Set up PSW restart to call ipl.c:do_restart(). Copy the relevant
+	 * restart data to the absolute zero lowcore. This is necesary if
+	 * PSW restart is done on an offline CPU that has lowcore zero.
+	 */
 	lc->restart_stack = (unsigned long) restart_stack;
 	lc->restart_fn = (unsigned long) do_restart;
 	lc->restart_data = 0;
@@ -531,9 +531,9 @@ static void __init setup_memory_end(void)
 	memory_end &= PAGE_MASK;
 
 	/*
-                                                                   
-                                                  
-  */
+	 * Make sure all chunks are MAX_ORDER aligned so we don't need the
+	 * extra checks that HOLES_IN_ZONE would require.
+	 */
 	for (i = 0; i < MEMORY_CHUNKS; i++) {
 		unsigned long start, end;
 		struct mem_chunk *chunk;
@@ -553,34 +553,34 @@ static void __init setup_memory_end(void)
 				       chunk->addr + chunk->size);
 	}
 
-	/*                                                        */
+	/* Choose kernel address space layout: 2, 3, or 4 levels. */
 #ifdef CONFIG_64BIT
 	vmalloc_size = VMALLOC_END ?: 128UL << 30;
 	tmp = (memory_end ?: real_memory_size) / PAGE_SIZE;
 	tmp = tmp * (sizeof(struct page) + PAGE_SIZE) + vmalloc_size;
 	if (tmp <= (1UL << 42))
-		vmax = 1UL << 42;	/*                           */
+		vmax = 1UL << 42;	/* 3-level kernel page table */
 	else
-		vmax = 1UL << 53;	/*                           */
+		vmax = 1UL << 53;	/* 4-level kernel page table */
 #else
 	vmalloc_size = VMALLOC_END ?: 96UL << 20;
-	vmax = 1UL << 31;		/*                           */
+	vmax = 1UL << 31;		/* 2-level kernel page table */
 #endif
-	/*                                                         */
+	/* vmalloc area is at the end of the kernel address space. */
 	VMALLOC_END = vmax;
 	VMALLOC_START = vmax - vmalloc_size;
 
-	/*                                                                   */
+	/* Split remaining virtual space between 1:1 mapping & vmemmap array */
 	tmp = VMALLOC_START / (PAGE_SIZE + sizeof(struct page));
 	tmp = VMALLOC_START - tmp * sizeof(struct page);
-	tmp &= ~((vmax >> 11) - 1);	/*                           */
+	tmp &= ~((vmax >> 11) - 1);	/* align to page table level */
 	tmp = min(tmp, 1UL << MAX_PHYSMEM_BITS);
 	vmemmap = (struct page *) tmp;
 
-	/*                                                 */
+	/* Take care that memory_end is set and <= vmemmap */
 	memory_end = min(memory_end ?: real_memory_size, tmp);
 
-	/*                                                    */
+	/* Fixup memory chunk array to fit into 0..memory_end */
 	for (i = 0; i < MEMORY_CHUNKS; i++) {
 		struct mem_chunk *chunk = &memory_chunk[i];
 
@@ -605,7 +605,7 @@ static void __init setup_vmcoreinfo(void)
 #ifdef CONFIG_CRASH_DUMP
 
 /*
-                                                
+ * Find suitable location for crashkernel memory
  */
 static unsigned long __init find_crash_base(unsigned long crash_size,
 					    char **msg)
@@ -643,7 +643,7 @@ static unsigned long __init find_crash_base(unsigned long crash_size,
 }
 
 /*
-                                              
+ * Check if crash_base and crash_size is valid
  */
 static int __init verify_crash_base(unsigned long crash_base,
 				    unsigned long crash_size,
@@ -653,20 +653,20 @@ static int __init verify_crash_base(unsigned long crash_base,
 	int i;
 
 	/*
-                                                                      
-                                      
-  */
+	 * Because we do the swap to zero, we must have at least 'crash_size'
+	 * bytes free space before crash_base
+	 */
 	if (crash_size > crash_base) {
 		*msg = "crashkernel offset must be greater than size";
 		return -EINVAL;
 	}
 
-	/*                                                */
+	/* First memory chunk must be at least crash_size */
 	if (memory_chunk[0].size < crash_size) {
 		*msg = "first memory chunk must be at least crashkernel size";
 		return -EINVAL;
 	}
-	/*                                                  */
+	/* Check if we fit into the respective memory chunk */
 	for (i = 0; i < MEMORY_CHUNKS; i++) {
 		chunk = &memory_chunk[i];
 		if (chunk->size == 0)
@@ -675,7 +675,7 @@ static int __init verify_crash_base(unsigned long crash_base,
 			continue;
 		if (crash_base >= chunk->addr + chunk->size)
 			continue;
-		/*                                */
+		/* we have found the memory chunk */
 		if (crash_base + crash_size > chunk->addr + chunk->size) {
 			*msg = "selected memory chunk is too small for "
 				"crashkernel memory";
@@ -688,7 +688,7 @@ static int __init verify_crash_base(unsigned long crash_base,
 }
 
 /*
-                                                                        
+ * Reserve kdump memory by creating a memory hole in the mem_chunk array
  */
 static void __init reserve_kdump_bootmem(unsigned long addr, unsigned long size,
 					 int type)
@@ -697,9 +697,9 @@ static void __init reserve_kdump_bootmem(unsigned long addr, unsigned long size,
 }
 
 /*
-                                                               
-                                             
-                                                      
+ * When kdump is enabled, we have to ensure that no memory from
+ * the area [0 - crashkernel memory size] and
+ * [crashk_res.start - crashk_res.end] is set offline.
  */
 static int kdump_mem_notifier(struct notifier_block *nb,
 			      unsigned long action, void *data)
@@ -722,7 +722,7 @@ static struct notifier_block kdump_mem_nb = {
 #endif
 
 /*
-                                                                
+ * Make sure that oldmem, where the dump is stored, is protected
  */
 static void reserve_oldmem(void)
 {
@@ -741,7 +741,7 @@ static void reserve_oldmem(void)
 }
 
 /*
-                                                          
+ * Reserve memory for kdump kernel to be loaded with kexec
  */
 static void __init reserve_crashkernel(void)
 {
@@ -790,17 +790,17 @@ static void __init setup_memory(void)
 	int i;
 
 	/*
-                                              
-                            
-  */
+	 * partially used pages are not usable - thus
+	 * we are rounding upwards:
+	 */
 	start_pfn = PFN_UP(__pa(&_end));
 	end_pfn = max_pfn = PFN_DOWN(memory_end);
 
 #ifdef CONFIG_BLK_DEV_INITRD
 	/*
-                                                               
-                       
-  */
+	 * Move the initrd in case the bitmap of the bootmem allocater
+	 * would overwrite it.
+	 */
 
 	if (INITRD_START && INITRD_SIZE) {
 		unsigned long bmap_size;
@@ -814,7 +814,7 @@ static void __init setup_memory(void)
 
 #ifdef CONFIG_CRASH_DUMP
 			if (OLDMEM_BASE) {
-				/*                                 */
+				/* Move initrd behind kdump oldmem */
 				if (start + INITRD_SIZE > OLDMEM_BASE &&
 				    start < OLDMEM_BASE + OLDMEM_SIZE)
 					start = OLDMEM_BASE + OLDMEM_SIZE;
@@ -839,13 +839,13 @@ static void __init setup_memory(void)
 #endif
 
 	/*
-                                      
-  */
+	 * Initialize the boot-time allocator
+	 */
 	bootmap_size = init_bootmem(start_pfn, end_pfn);
 
 	/*
-                                                  
-  */
+	 * Register RAM areas with the bootmem allocator.
+	 */
 
 	for (i = 0; i < MEMORY_CHUNKS && memory_chunk[i].size > 0; i++) {
 		unsigned long start_chunk, end_chunk, pfn;
@@ -871,18 +871,18 @@ static void __init setup_memory(void)
 	free_bootmem_with_active_regions(0, max_pfn);
 
 	/*
-                                                              
-  */
+	 * Reserve memory used for lowcore/command line/kernel image.
+	 */
 	reserve_bootmem(0, (unsigned long)_ehead, BOOTMEM_DEFAULT);
 	reserve_bootmem((unsigned long)_stext,
 			PFN_PHYS(start_pfn) - (unsigned long)_stext,
 			BOOTMEM_DEFAULT);
 	/*
-                                                                
-                                                              
-                                                                
-                                               
-  */
+	 * Reserve the bootmem bitmap itself as well. We do this in two
+	 * steps (first step was init_bootmem()) because this catches
+	 * the (very unlikely) case of us accidentally initializing the
+	 * bootmem allocator with an invalid RAM area.
+	 */
 	reserve_bootmem(start_pfn << PAGE_SHIFT, bootmap_size,
 			BOOTMEM_DEFAULT);
 
@@ -914,7 +914,7 @@ static void __init setup_memory(void)
 }
 
 /*
-                               
+ * Setup hardware capabilities.
  */
 static void __init setup_hwcaps(void)
 {
@@ -923,23 +923,23 @@ static void __init setup_hwcaps(void)
 	int i;
 
 	/*
-                                                                   
-                                                             
-                            
-                                                            
-                                          
-                                                                   
-                                                      
-                                                         
-                                                          
-                                                          
-                                                                  
-                            
-                                                     
-                                                   
-                                                       
-                                         
-  */
+	 * The store facility list bits numbers as found in the principles
+	 * of operation are numbered with bit 1UL<<31 as number 0 to
+	 * bit 1UL<<0 as number 31.
+	 *   Bit 0: instructions named N3, "backported" to esa-mode
+	 *   Bit 2: z/Architecture mode is active
+	 *   Bit 7: the store-facility-list-extended facility is installed
+	 *   Bit 17: the message-security assist is installed
+	 *   Bit 19: the long-displacement facility is installed
+	 *   Bit 21: the extended-immediate facility is installed
+	 *   Bit 22: extended-translation facility 3 is installed
+	 *   Bit 30: extended-translation facility 3 enhancement facility
+	 * These get translated to:
+	 *   HWCAP_S390_ESAN3 bit 0, HWCAP_S390_ZARCH bit 1,
+	 *   HWCAP_S390_STFLE bit 2, HWCAP_S390_MSA bit 3,
+	 *   HWCAP_S390_LDISP bit 4, HWCAP_S390_EIMM bit 5 and
+	 *   HWCAP_S390_ETF3EH bit 8 (22 && 30).
+	 */
 	for (i = 0; i < 6; i++)
 		if (test_facility(stfl_bits[i]))
 			elf_hwcap |= 1UL << i;
@@ -948,45 +948,45 @@ static void __init setup_hwcaps(void)
 		elf_hwcap |= HWCAP_S390_ETF3EH;
 
 	/*
-                                                                      
-                                                                
-                                                                 
-                                                                 
-                                                               
-                                                                    
-        
-                                                          
-                                                                    
-                  
-                                      
-  */
+	 * Check for additional facilities with store-facility-list-extended.
+	 * stfle stores doublewords (8 byte) with bit 1ULL<<63 as bit 0
+	 * and 1ULL<<0 as bit 63. Bits 0-31 contain the same information
+	 * as stored by stfl, bits 32-xxx contain additional facilities.
+	 * How many facility words are stored depends on the number of
+	 * doublewords passed to the instruction. The additional facilities
+	 * are:
+	 *   Bit 42: decimal floating point facility is installed
+	 *   Bit 44: perform floating point operation facility is installed
+	 * translated to:
+	 *   HWCAP_S390_DFP bit 6 (42 && 44).
+	 */
 	if ((elf_hwcap & (1UL << 2)) && test_facility(42) && test_facility(44))
 		elf_hwcap |= HWCAP_S390_DFP;
 
 	/*
-                                                
-  */
+	 * Huge page support HWCAP_S390_HPAGE is bit 7.
+	 */
 	if (MACHINE_HAS_HPAGE)
 		elf_hwcap |= HWCAP_S390_HPAGE;
 
 	/*
-                                                
-                                  
-  */
+	 * 64-bit register support for 31-bit processes
+	 * HWCAP_S390_HIGH_GPRS is bit 9.
+	 */
 	elf_hwcap |= HWCAP_S390_HIGH_GPRS;
 
 	get_cpu_id(&cpu_id);
 	switch (cpu_id.machine) {
 	case 0x9672:
 #if !defined(CONFIG_64BIT)
-	default:	/*                                         */
+	default:	/* Use "g5" as default for 31 bit kernels. */
 #endif
 		strcpy(elf_platform, "g5");
 		break;
 	case 0x2064:
 	case 0x2066:
 #if defined(CONFIG_64BIT)
-	default:	/*                                           */
+	default:	/* Use "z900" as default for 64 bit kernels. */
 #endif
 		strcpy(elf_platform, "z900");
 		break;
@@ -1010,14 +1010,14 @@ static void __init setup_hwcaps(void)
 }
 
 /*
-                                                               
-               
+ * Setup function called from init/main.c just after the banner
+ * was printed.
  */
 
 void __init setup_arch(char **cmdline_p)
 {
         /*
-                                                            
+         * print what head.S has found out about the machine
          */
 #ifndef CONFIG_64BIT
 	if (MACHINE_IS_VM)
@@ -1031,7 +1031,7 @@ void __init setup_arch(char **cmdline_p)
 	else
 		pr_info("The hardware system has no IEEE compatible "
 			"floating point units\n");
-#else /*              */
+#else /* CONFIG_64BIT */
 	if (MACHINE_IS_VM)
 		pr_info("Linux is running as a z/VM "
 			"guest operating system in 64-bit mode\n");
@@ -1039,10 +1039,10 @@ void __init setup_arch(char **cmdline_p)
 		pr_info("Linux is running under KVM in 64-bit mode\n");
 	else if (MACHINE_IS_LPAR)
 		pr_info("Linux is running natively in 64-bit mode\n");
-#endif /*              */
+#endif /* CONFIG_64BIT */
 
-	/*                                                                 */
-	/*                                                      */
+	/* Have one command line that is parsed and saved in /proc/cmdline */
+	/* boot_command_line has been already set up in early.c */
 	*cmdline_p = boot_command_line;
 
         ROOT_DEV = Root_RAM0;
@@ -1074,19 +1074,19 @@ void __init setup_arch(char **cmdline_p)
 	s390_init_cpu_topology();
 
 	/*
-                                                  
-  */
+	 * Setup capabilities (ELF_HWCAP & ELF_PLATFORM).
+	 */
 	setup_hwcaps();
 
 	/*
-                                                               
-  */
+	 * Create kernel page tables and switch to virtual addressing.
+	 */
         paging_init();
 
-        /*                       */
+        /* Setup default console */
 	conmode_default();
 	set_preferred_console();
 
-	/*                        */
+	/* Setup zfcpdump support */
 	setup_zfcpdump(console_devno);
 }

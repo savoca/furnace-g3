@@ -47,17 +47,17 @@
 
 
 /*
-                                    
-                                    
-  
-                                                       
-                                                           
-                                       
-  
-                                                                   
-                                      
-                                                            
-                                                         
+ * sa1100_pcmcia_default_mecr_timing
+ * ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ *
+ * Calculate MECR clock wait states for given CPU clock
+ * speed and command wait state. This function can be over-
+ * written by a board specific version.
+ *
+ * The default is to simply calculate the BS values as specified in
+ * the INTEL SA1100 development manual
+ * "Expansion Memory (PCMCIA) Configuration Register (MECR)"
+ * that's section 10.2.5 in _my_ version of the manual ;)
  */
 static unsigned int
 sa1100_pcmcia_default_mecr_timing(struct soc_pcmcia_socket *skt,
@@ -67,13 +67,13 @@ sa1100_pcmcia_default_mecr_timing(struct soc_pcmcia_socket *skt,
 	return sa1100_pcmcia_mecr_bs(cmd_time, cpu_speed);
 }
 
-/*                         
-                           
-  
-                                                         
-                                            
-                                                           
-                          
+/* sa1100_pcmcia_set_mecr()
+ * ^^^^^^^^^^^^^^^^^^^^^^^^
+ *
+ * set MECR value for socket <sock> based on this sockets
+ * io, mem and attribute space access speed.
+ * Call board specific BS value calculation to allow boards
+ * to tweak the BS values.
  */
 static int
 sa1100_pcmcia_set_mecr(struct soc_pcmcia_socket *skt, unsigned int cpu_clock)
@@ -200,13 +200,13 @@ EXPORT_SYMBOL(sa11xx_drv_pcmcia_add_one);
 void sa11xx_drv_pcmcia_ops(struct pcmcia_low_level *ops)
 {
 	/*
-                                                      
-                               
-  */
+	 * set default MECR calculation if the board specific
+	 * code did not specify one...
+	 */
 	if (!ops->get_timing)
 		ops->get_timing = sa1100_pcmcia_default_mecr_timing;
 
-	/*                                              */
+	/* Provide our SA11x0 specific timing routines. */
 	ops->set_timing  = sa1100_pcmcia_set_timing;
 	ops->show_timing = sa1100_pcmcia_show_timing;
 #ifdef CONFIG_CPU_FREQ
@@ -230,7 +230,7 @@ int sa11xx_drv_pcmcia_probe(struct device *dev, struct pcmcia_low_level *ops,
 
 	sinfo->nskt = nr;
 
-	/*                                          */
+	/* Initialize processor specific parameters */
 	for (i = 0; i < nr; i++) {
 		skt = &sinfo->skt[i];
 

@@ -60,9 +60,9 @@ struct mdp3_session_data {
 	struct blocking_notifier_head notifier_head;
 
 	int vsync_enabled;
-	atomic_t vsync_countdown; /*                     */
+	atomic_t vsync_countdown; /* Used to count down  */
 };
 
 int mdp3_ctrl_init(struct msm_fb_data_type *mfd);
 
-#endif /*             */
+#endif /* MDP3_CTRL_H */

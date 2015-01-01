@@ -16,7 +16,7 @@
 
 #include "debug.h"
 
-/*                                                                       */
+/* Use the arch_extension sec pseudo op before switching to secure world */
 #if defined(__GNUC__) && \
 	defined(__GNUC_MINOR__) && \
 	defined(__GNUC_PATCHLEVEL__) && \
@@ -26,33 +26,33 @@
 #endif
 
 /*
-                
+ * MobiCore SMCs
  */
-#define MC_SMC_N_YIELD		0x3 /*                                  */
-#define MC_SMC_N_SIQ		0x4  /*                                */
+#define MC_SMC_N_YIELD		0x3 /* Yield to switch from NWd to SWd. */
+#define MC_SMC_N_SIQ		0x4  /* SIQ to switch from NWd to SWd. */
 
 /*
-                                             
+ * MobiCore fast calls. See MCI documentation
  */
 #define MC_FC_INIT		-1
 #define MC_FC_INFO		-2
-#define MC_FC_NWD_TRACE		-31 /*                          */
+#define MC_FC_NWD_TRACE		-31 /* Mem trace setup fastcall */
 #ifdef TBASE_CORE_SWITCHER
 #define MC_FC_SWITCH_CORE   0x84000005
 #endif
 
 
 /*
-                             
+ * return code for fast calls
  */
 #define MC_FC_RET_OK				0
 #define MC_FC_RET_ERR_INVALID			1
 #define MC_FC_RET_ERR_ALREADY_INITIALIZED	5
 
 
-/*                                           */
+/* structure wrappers for specific fastcalls */
 
-/*                              */
+/* generic fast call parameters */
 union fc_generic {
 	struct {
 		uint32_t cmd;
@@ -65,7 +65,7 @@ union fc_generic {
 	} as_out;
 };
 
-/*                */
+/* fast call init */
 union mc_fc_init {
 	union fc_generic as_generic;
 	struct {
@@ -81,7 +81,7 @@ union mc_fc_init {
 	} as_out;
 };
 
-/*                           */
+/* fast call info parameters */
 union mc_fc_info {
 	union fc_generic as_generic;
 	struct {
@@ -98,7 +98,7 @@ union mc_fc_info {
 };
 
 #ifdef TBASE_CORE_SWITCHER
-/*                                  */
+/* fast call switch Core parameters */
 union mc_fc_swich_core {
 	union fc_generic as_generic;
 	struct {
@@ -115,9 +115,9 @@ union mc_fc_swich_core {
 };
 #endif
 /*
-                                 
-  
-                                   
+ * _smc() - fast call to MobiCore
+ *
+ * @data: pointer to fast call data
  */
 static inline long _smc(void *data)
 {
@@ -133,7 +133,7 @@ static inline long _smc(void *data)
 #else
 	{
 		union fc_generic *fc_generic = data;
-		/*                            */
+		/* SMC expect values in r0-r3 */
 		register u32 reg0 __asm__("r0") = fc_generic->as_in.cmd;
 		register u32 reg1 __asm__("r1") = fc_generic->as_in.param[0];
 		register u32 reg2 __asm__("r2") = fc_generic->as_in.param[1];
@@ -141,17 +141,17 @@ static inline long _smc(void *data)
 
 		__asm__ volatile (
 #ifdef MC_ARCH_EXTENSION_SEC
-			/*                                              
-                       */
+			/* This pseudo op is supported and required from
+			 * binutils 2.21 on */
 			".arch_extension sec\n"
 #endif
 			"smc 0\n"
 			: "+r"(reg0), "+r"(reg1), "+r"(reg2), "+r"(reg3)
 		);
 #ifdef __ARM_VE_A9X4_QEMU__
-		/*                                                      
-                                                                 
-                               */
+		/* Qemu does not return to the address following the SMC
+		   instruction so we have to insert several nop instructions to
+		   workaround this Qemu bug. */
 		__asm__ volatile (
 		    "nop\n"
 		    "nop\n"
@@ -160,7 +160,7 @@ static inline long _smc(void *data)
 		 );
 #endif
 
-		/*              */
+		/* set response */
 		fc_generic->as_out.resp     = reg0;
 		fc_generic->as_out.ret      = reg1;
 		fc_generic->as_out.param[0] = reg2;
@@ -171,7 +171,7 @@ static inline long _smc(void *data)
 }
 
 /*
-                                                                  
+ * convert fast call return code to linux driver module error code
  */
 static inline int convert_fc_ret(uint32_t sret)
 {
@@ -193,4 +193,4 @@ static inline int convert_fc_ret(uint32_t sret)
 	return ret;
 }
 
-#endif /*                 */
+#endif /* _MC_FASTCALL_H_ */

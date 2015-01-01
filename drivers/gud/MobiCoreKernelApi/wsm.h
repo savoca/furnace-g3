@@ -20,4 +20,4 @@ struct wsm {
 	struct list_head	list;
 };
 
-#endif /*                 */
+#endif /* _MC_KAPI_WSM_H_ */

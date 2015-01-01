@@ -36,9 +36,9 @@
 #define	alt_malloc(a)	kzalloc(a, GFP_KERNEL);
 
 /*
-                                                                          
-                                                                         
-                                                                      
+ * This structure shows, for each JTAG state, which state is reached after
+ * a single TCK clock cycle with TMS high or TMS low, respectively.  This
+ * describes all possible state transitions in the JTAG state machine.
  */
 struct altera_jtag_machine {
 	enum altera_jtag_state tms_high;
@@ -46,39 +46,39 @@ struct altera_jtag_machine {
 };
 
 static const struct altera_jtag_machine altera_transitions[] = {
-	/*           */	{ RESET,	IDLE },
-	/*           */	{ DRSELECT,	IDLE },
-	/*           */	{ IRSELECT,	DRCAPTURE },
-	/*           */	{ DREXIT1,	DRSHIFT },
-	/*           */	{ DREXIT1,	DRSHIFT },
-	/*           */	{ DRUPDATE,	DRPAUSE },
-	/*           */	{ DREXIT2,	DRPAUSE },
-	/*           */	{ DRUPDATE,	DRSHIFT },
-	/*           */	{ DRSELECT,	IDLE },
-	/*           */	{ RESET,	IRCAPTURE },
-	/*           */	{ IREXIT1,	IRSHIFT },
-	/*           */	{ IREXIT1,	IRSHIFT },
-	/*           */	{ IRUPDATE,	IRPAUSE },
-	/*           */	{ IREXIT2,	IRPAUSE },
-	/*           */	{ IRUPDATE,	IRSHIFT },
-	/*           */	{ DRSELECT,	IDLE }
+	/* RESET     */	{ RESET,	IDLE },
+	/* IDLE      */	{ DRSELECT,	IDLE },
+	/* DRSELECT  */	{ IRSELECT,	DRCAPTURE },
+	/* DRCAPTURE */	{ DREXIT1,	DRSHIFT },
+	/* DRSHIFT   */	{ DREXIT1,	DRSHIFT },
+	/* DREXIT1   */	{ DRUPDATE,	DRPAUSE },
+	/* DRPAUSE   */	{ DREXIT2,	DRPAUSE },
+	/* DREXIT2   */	{ DRUPDATE,	DRSHIFT },
+	/* DRUPDATE  */	{ DRSELECT,	IDLE },
+	/* IRSELECT  */	{ RESET,	IRCAPTURE },
+	/* IRCAPTURE */	{ IREXIT1,	IRSHIFT },
+	/* IRSHIFT   */	{ IREXIT1,	IRSHIFT },
+	/* IREXIT1   */	{ IRUPDATE,	IRPAUSE },
+	/* IRPAUSE   */	{ IREXIT2,	IRPAUSE },
+	/* IREXIT2   */	{ IRUPDATE,	IRSHIFT },
+	/* IRUPDATE  */	{ DRSELECT,	IDLE }
 };
 
 /*
-                                                                        
-                                                                        
-                                                                         
-                                                                  
-                              
+ * This table contains the TMS value to be used to take the NEXT STEP on
+ * the path to the desired state.  The array index is the current state,
+ * and the bit position is the desired endstate.  To find out which state
+ * is used as the intermediate state, look up the TMS value in the
+ * altera_transitions[] table.
  */
 static const u16 altera_jtag_path_map[16] = {
-	/*                                    */
+	/* RST	RTI	SDRS	CDR	SDR	E1DR	PDR	E2DR */
 	0x0001,	0xFFFD,	0xFE01,	0xFFE7,	0xFFEF,	0xFF0F,	0xFFBF,	0xFFFF,
-	/*                                    */
+	/* UDR	SIRS	CIR	SIR	E1IR	PIR	E2IR	UIR */
 	0xFEFD,	0x0001,	0xF3FF,	0xF7FF,	0x87FF,	0xDFFF,	0xFFFF,	0x7FFD
 };
 
-/*                                      */
+/* Flag bits for alt_jtag_io() function */
 #define TMS_HIGH   1
 #define TMS_LOW    0
 #define TDI_HIGH   1
@@ -90,10 +90,10 @@ int altera_jinit(struct altera_state *astate)
 {
 	struct altera_jtag *js = &astate->js;
 
-	/*                               */
+	/* initial JTAG state is unknown */
 	js->jtag_state = ILLEGAL_JTAG_STATE;
 
-	/*                             */
+	/* initialize to default state */
 	js->drstop_state = IDLE;
 	js->irstop_state = IDLE;
 	js->dr_pre  = 0;
@@ -287,11 +287,11 @@ static void altera_jreset_idle(struct altera_state *astate)
 {
 	struct altera_jtag *js = &astate->js;
 	int i;
-	/*                                                                   */
+	/* Go to Test Logic Reset (no matter what the starting state may be) */
 	for (i = 0; i < 5; ++i)
 		alt_jtag_io(TMS_HIGH, TDI_LOW, IGNORE_TDO);
 
-	/*                             */
+	/* Now step to Run Test / Idle */
 	alt_jtag_io(TMS_LOW, TDI_LOW, IGNORE_TDO);
 	js->jtag_state = IDLE;
 }
@@ -305,15 +305,15 @@ int altera_goto_jstate(struct altera_state *astate,
 	int status = 0;
 
 	if (js->jtag_state == ILLEGAL_JTAG_STATE)
-		/*                                      */
+		/* initialize JTAG chain to known state */
 		altera_jreset_idle(astate);
 
 	if (js->jtag_state == state) {
 		/*
-                                         
-                                        
-                                            
-   */
+		 * We are already in the desired state.
+		 * If it is a stable state, loop here.
+		 * Otherwise do nothing (no clock cycles).
+		 */
 		if ((state == IDLE) || (state == DRSHIFT) ||
 			(state == DRPAUSE) || (state == IRSHIFT) ||
 				(state == IRPAUSE)) {
@@ -323,12 +323,12 @@ int altera_goto_jstate(struct altera_state *astate,
 
 	} else {
 		while ((js->jtag_state != state) && (count < 9)) {
-			/*                                                   */
+			/* Get TMS value to take a step toward desired state */
 			tms = (altera_jtag_path_map[js->jtag_state] &
 							(1 << state))
 							? TMS_HIGH : TMS_LOW;
 
-			/*             */
+			/* Take a step */
 			alt_jtag_io(tms, TDI_LOW, IGNORE_TDO);
 
 			if (tms)
@@ -362,9 +362,9 @@ int altera_wait_cycles(struct altera_state *astate,
 
 	if (status == 0) {
 		/*
-                                        
-                                                  
-   */
+		 * Set TMS high to loop in RESET state
+		 * Set TMS low to loop in any other stable state
+		 */
 		tms = (wait_state == RESET) ? TMS_HIGH : TMS_LOW;
 
 		for (count = 0L; count < cycles; count++)
@@ -378,13 +378,13 @@ int altera_wait_cycles(struct altera_state *astate,
 int altera_wait_msecs(struct altera_state *astate,
 			s32 microseconds, enum altera_jtag_state wait_state)
 /*
-                                                      
-                                                     
-                                                        
-                                                     
-                                                          
-                       
-                                                      
+ * Causes JTAG hardware to sit in the specified stable
+ * state for the specified duration of real time.  If
+ * no JTAG operations have been performed yet, then only
+ * a delay is performed.  This permits the WAIT USECS
+ * statement to be used in VECTOR programs without causing
+ * any JTAG operations.
+ * Returns 0 for success, else appropriate error code.
  */
 {
 	struct altera_jtag *js = &astate->js;
@@ -395,7 +395,7 @@ int altera_wait_msecs(struct altera_state *astate,
 		status = altera_goto_jstate(astate, wait_state);
 
 	if (status == 0)
-		/*                                  */
+		/* Wait for specified time interval */
 		udelay(microseconds);
 
 	return status;
@@ -410,8 +410,8 @@ static void altera_concatenate_data(u8 *buffer,
 				u8 *postamble_data,
 				u32 postamble_count)
 /*
-                                                        
-                                      
+ * Copies preamble data, target data, and postamble data
+ * into one buffer for IR or DR scans.
  */
 {
 	u32 i, j, k;
@@ -455,28 +455,28 @@ static int alt_jtag_drscan(struct altera_state *astate,
 	int tdo_bit = 0;
 	int status = 1;
 
-	/*                           */
+	/* First go to DRSHIFT state */
 	switch (start_state) {
-	case 0:						/*      */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(0, 0, 0);	/*           */
-		alt_jtag_io(0, 0, 0);	/*         */
+	case 0:						/* IDLE */
+		alt_jtag_io(1, 0, 0);	/* DRSELECT */
+		alt_jtag_io(0, 0, 0);	/* DRCAPTURE */
+		alt_jtag_io(0, 0, 0);	/* DRSHIFT */
 		break;
 
-	case 1:						/*         */
-		alt_jtag_io(1, 0, 0);	/*         */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(0, 0, 0);	/*           */
-		alt_jtag_io(0, 0, 0);	/*         */
+	case 1:						/* DRPAUSE */
+		alt_jtag_io(1, 0, 0);	/* DREXIT2 */
+		alt_jtag_io(1, 0, 0);	/* DRUPDATE */
+		alt_jtag_io(1, 0, 0);	/* DRSELECT */
+		alt_jtag_io(0, 0, 0);	/* DRCAPTURE */
+		alt_jtag_io(0, 0, 0);	/* DRSHIFT */
 		break;
 
-	case 2:						/*         */
-		alt_jtag_io(1, 0, 0);	/*         */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(0, 0, 0);	/*           */
-		alt_jtag_io(0, 0, 0);	/*         */
+	case 2:						/* IRPAUSE */
+		alt_jtag_io(1, 0, 0);	/* IREXIT2 */
+		alt_jtag_io(1, 0, 0);	/* IRUPDATE */
+		alt_jtag_io(1, 0, 0);	/* DRSELECT */
+		alt_jtag_io(0, 0, 0);	/* DRCAPTURE */
+		alt_jtag_io(0, 0, 0);	/* DRSHIFT */
 		break;
 
 	default:
@@ -484,7 +484,7 @@ static int alt_jtag_drscan(struct altera_state *astate,
 	}
 
 	if (status) {
-		/*                            */
+		/* loop in the SHIFT-DR state */
 		for (i = 0; i < count; i++) {
 			tdo_bit = alt_jtag_io(
 					(i == count - 1),
@@ -500,7 +500,7 @@ static int alt_jtag_drscan(struct altera_state *astate,
 			}
 		}
 
-		alt_jtag_io(0, 0, 0);	/*         */
+		alt_jtag_io(0, 0, 0);	/* DRPAUSE */
 	}
 
 	return status;
@@ -516,31 +516,31 @@ static int alt_jtag_irscan(struct altera_state *astate,
 	int tdo_bit = 0;
 	int status = 1;
 
-	/*                           */
+	/* First go to IRSHIFT state */
 	switch (start_state) {
-	case 0:						/*      */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(0, 0, 0);	/*           */
-		alt_jtag_io(0, 0, 0);	/*         */
+	case 0:						/* IDLE */
+		alt_jtag_io(1, 0, 0);	/* DRSELECT */
+		alt_jtag_io(1, 0, 0);	/* IRSELECT */
+		alt_jtag_io(0, 0, 0);	/* IRCAPTURE */
+		alt_jtag_io(0, 0, 0);	/* IRSHIFT */
 		break;
 
-	case 1:						/*         */
-		alt_jtag_io(1, 0, 0);	/*         */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(0, 0, 0);	/*           */
-		alt_jtag_io(0, 0, 0);	/*         */
+	case 1:						/* DRPAUSE */
+		alt_jtag_io(1, 0, 0);	/* DREXIT2 */
+		alt_jtag_io(1, 0, 0);	/* DRUPDATE */
+		alt_jtag_io(1, 0, 0);	/* DRSELECT */
+		alt_jtag_io(1, 0, 0);	/* IRSELECT */
+		alt_jtag_io(0, 0, 0);	/* IRCAPTURE */
+		alt_jtag_io(0, 0, 0);	/* IRSHIFT */
 		break;
 
-	case 2:						/*         */
-		alt_jtag_io(1, 0, 0);	/*         */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(1, 0, 0);	/*          */
-		alt_jtag_io(0, 0, 0);	/*           */
-		alt_jtag_io(0, 0, 0);	/*         */
+	case 2:						/* IRPAUSE */
+		alt_jtag_io(1, 0, 0);	/* IREXIT2 */
+		alt_jtag_io(1, 0, 0);	/* IRUPDATE */
+		alt_jtag_io(1, 0, 0);	/* DRSELECT */
+		alt_jtag_io(1, 0, 0);	/* IRSELECT */
+		alt_jtag_io(0, 0, 0);	/* IRCAPTURE */
+		alt_jtag_io(0, 0, 0);	/* IRSHIFT */
 		break;
 
 	default:
@@ -548,7 +548,7 @@ static int alt_jtag_irscan(struct altera_state *astate,
 	}
 
 	if (status) {
-		/*                            */
+		/* loop in the SHIFT-IR state */
 		for (i = 0; i < count; i++) {
 			tdo_bit = alt_jtag_io(
 				      (i == count - 1),
@@ -563,7 +563,7 @@ static int alt_jtag_irscan(struct altera_state *astate,
 			}
 		}
 
-		alt_jtag_io(0, 0, 0);	/*         */
+		alt_jtag_io(0, 0, 0);	/* IRPAUSE */
 	}
 
 	return status;
@@ -575,8 +575,8 @@ static void altera_extract_target_data(u8 *buffer,
 				u32 preamble_count,
 				u32 target_count)
 /*
-                                                     
-                               
+ * Copies target data from scan buffer, filtering out
+ * preamble and postamble data.
  */
 {
 	u32 i;
@@ -598,7 +598,7 @@ int altera_irscan(struct altera_state *astate,
 				u32 count,
 				u8 *tdi_data,
 				u32 start_index)
-/*                                       */
+/* Shifts data into instruction register */
 {
 	struct altera_jtag *js = &astate->js;
 	int start_code = 0;
@@ -661,9 +661,9 @@ int altera_irscan(struct altera_state *astate,
 
 	if (status == 0) {
 		/*
-                                 
-                                     
-   */
+		 * Copy preamble data, IR data,
+		 * and postamble data into a buffer
+		 */
 		altera_concatenate_data(js->ir_buffer,
 					js->ir_pre_data,
 					js->ir_pre,
@@ -672,14 +672,14 @@ int altera_irscan(struct altera_state *astate,
 					count,
 					js->ir_post_data,
 					js->ir_post);
-		/*               */
+		/* Do the IRSCAN */
 		alt_jtag_irscan(astate,
 				start_code,
 				shift_count,
 				js->ir_buffer,
 				NULL);
 
-		/*                                                */
+		/* alt_jtag_irscan() always ends in IRPAUSE state */
 		js->jtag_state = IRPAUSE;
 	}
 
@@ -697,7 +697,7 @@ int altera_swap_ir(struct altera_state *astate,
 			    u32 in_index,
 			    u8 *out_data,
 			    u32 out_index)
-/*                                                              */
+/* Shifts data into instruction register, capturing output data */
 {
 	struct altera_jtag *js = &astate->js;
 	int start_code = 0;
@@ -760,9 +760,9 @@ int altera_swap_ir(struct altera_state *astate,
 
 	if (status == 0) {
 		/*
-                                 
-                                     
-   */
+		 * Copy preamble data, IR data,
+		 * and postamble data into a buffer
+		 */
 		altera_concatenate_data(js->ir_buffer,
 					js->ir_pre_data,
 					js->ir_pre,
@@ -772,14 +772,14 @@ int altera_swap_ir(struct altera_state *astate,
 					js->ir_post_data,
 					js->ir_post);
 
-		/*               */
+		/* Do the IRSCAN */
 		alt_jtag_irscan(astate,
 				start_code,
 				shift_count,
 				js->ir_buffer,
 				js->ir_buffer);
 
-		/*                                                */
+		/* alt_jtag_irscan() always ends in IRPAUSE state */
 		js->jtag_state = IRPAUSE;
 	}
 
@@ -789,7 +789,7 @@ int altera_swap_ir(struct altera_state *astate,
 
 
 	if (status == 0)
-		/*                                               */
+		/* Now extract the returned data from the buffer */
 		altera_extract_target_data(js->ir_buffer,
 					out_data, out_index,
 					js->ir_pre, count);
@@ -801,7 +801,7 @@ int altera_drscan(struct altera_state *astate,
 				u32 count,
 				u8 *tdi_data,
 				u32 start_index)
-/*                                                       */
+/* Shifts data into data register (ignoring output data) */
 {
 	struct altera_jtag *js = &astate->js;
 	int start_code = 0;
@@ -864,9 +864,9 @@ int altera_drscan(struct altera_state *astate,
 
 	if (status == 0) {
 		/*
-                                 
-                                     
-   */
+		 * Copy preamble data, DR data,
+		 * and postamble data into a buffer
+		 */
 		altera_concatenate_data(js->dr_buffer,
 					js->dr_pre_data,
 					js->dr_pre,
@@ -875,10 +875,10 @@ int altera_drscan(struct altera_state *astate,
 					count,
 					js->dr_post_data,
 					js->dr_post);
-		/*               */
+		/* Do the DRSCAN */
 		alt_jtag_drscan(astate, start_code, shift_count,
 				js->dr_buffer, NULL);
-		/*                                                */
+		/* alt_jtag_drscan() always ends in DRPAUSE state */
 		js->jtag_state = DRPAUSE;
 	}
 
@@ -892,7 +892,7 @@ int altera_drscan(struct altera_state *astate,
 int altera_swap_dr(struct altera_state *astate, u32 count,
 				u8 *in_data, u32 in_index,
 				u8 *out_data, u32 out_index)
-/*                                                       */
+/* Shifts data into data register, capturing output data */
 {
 	struct altera_jtag *js = &astate->js;
 	int start_code = 0;
@@ -956,9 +956,9 @@ int altera_swap_dr(struct altera_state *astate, u32 count,
 
 	if (status == 0) {
 		/*
-                                 
-                                     
-   */
+		 * Copy preamble data, DR data,
+		 * and postamble data into a buffer
+		 */
 		altera_concatenate_data(js->dr_buffer,
 				js->dr_pre_data,
 				js->dr_pre,
@@ -968,14 +968,14 @@ int altera_swap_dr(struct altera_state *astate, u32 count,
 				js->dr_post_data,
 				js->dr_post);
 
-		/*               */
+		/* Do the DRSCAN */
 		alt_jtag_drscan(astate,
 				start_code,
 				shift_count,
 				js->dr_buffer,
 				js->dr_buffer);
 
-		/*                                                */
+		/* alt_jtag_drscan() always ends in DRPAUSE state */
 		js->jtag_state = DRPAUSE;
 	}
 
@@ -984,7 +984,7 @@ int altera_swap_dr(struct altera_state *astate, u32 count,
 			status = altera_goto_jstate(astate, js->drstop_state);
 
 	if (status == 0)
-		/*                                               */
+		/* Now extract the returned data from the buffer */
 		altera_extract_target_data(js->dr_buffer,
 					out_data,
 					out_index,
@@ -997,7 +997,7 @@ int altera_swap_dr(struct altera_state *astate, u32 count,
 void altera_free_buffers(struct altera_state *astate)
 {
 	struct altera_jtag *js = &astate->js;
-	/*                                                 */
+	/* If the JTAG interface was used, reset it to TLR */
 	if (js->jtag_state != ILLEGAL_JTAG_STATE)
 		altera_jreset_idle(astate);
 

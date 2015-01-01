@@ -5,12 +5,12 @@
 
 #ifdef CONFIG_BUG
 #ifdef CONFIG_DEBUG_BUGVERBOSE
-/*                                                                    
-                                                                            
-                                                                           
-                                                                            
-                                                                               
-                                               
+/* The BUG() macro is used for marking obviously incorrect code paths.
+ * It will cause a message with the file name and line number to be printed,
+ * and then cause an oops.  The message is actually printed by handle_BUG()
+ * in arch/cris/kernel/traps.c, and the reason we use this method of storing
+ * the file name and line number is that we do not want to affect the registers
+ * by calling printk() before causing the oops.
  */
 
 #define BUG_PREFIX 0x0D7F
@@ -27,9 +27,9 @@ struct bug_frame {
 };
 
 #if 0
-/*                                                                       
-                                                                         
-                                                                    
+/* Unfortunately this version of the macro does not work due to a problem
+ * with the compiler (aka a bug) when compiling with -O2, which sometimes
+ * erroneously causes the second input to be stored in a register...
  */
 #define BUG()								\
 	__asm__ __volatile__ ("clear.d [" __stringify(BUG_MAGIC) "]\n\t"\
@@ -37,10 +37,10 @@ struct bug_frame {
 				"jump %1\n\t"				\
 				: : "i" (__LINE__), "i" (__FILE__))
 #else
-/*                                                                   
-                                                                            
-                                                                            
-                                                    
+/* This version will have to do for now, until the compiler is fixed.
+ * The drawbacks of this version are that the file name will appear multiple
+ * times in the .rodata section, and that __LINE__ and __FILE__ can probably
+ * not be used like this with newer versions of gcc.
  */
 #define BUG()								\
 	__asm__ __volatile__ ("clear.d [" __stringify(BUG_MAGIC) "]\n\t"\
@@ -53,7 +53,7 @@ struct bug_frame {
 
 #else
 
-/*                           */
+/* This just causes an oops. */
 #define BUG() (*(int *)0 = 0)
 
 #endif

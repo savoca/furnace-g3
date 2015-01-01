@@ -18,8 +18,8 @@
 #include <asm/syscalls.h>
 
 /*
-                                                           
-                                                                 
+ * sys_pipe() is the normal C calling standard for creating
+ * a pipe. It's not the way Unix traditionally does this, though.
  */
 asmlinkage int sys_sh_pipe(unsigned long r4, unsigned long r5,
 	unsigned long r6, unsigned long r7,
@@ -68,8 +68,8 @@ asmlinkage int sys_fadvise64_64_wrapper(int fd, u32 offset0, u32 offset1,
 #endif
 
 /*
-                                                                   
-                              
+ * Do a system call from kernel instead of calling sys_execve so we
+ * end up with proper pt_regs.
  */
 int kernel_execve(const char *filename,
 		  const char *const argv[],

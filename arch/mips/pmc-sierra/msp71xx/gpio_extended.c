@@ -27,9 +27,9 @@
 			container_of(c, struct msp71xx_exd_gpio_chip, chip)
 
 /*
-                                                                       
-                                                    
-                                                  
+ * struct msp71xx_exd_gpio_chip - container for gpio chip and registers
+ * @chip: chip structure for the specified gpio bank
+ * @reg: register for control and data of gpio pin
  */
 struct msp71xx_exd_gpio_chip {
 	struct gpio_chip chip;
@@ -37,11 +37,11 @@ struct msp71xx_exd_gpio_chip {
 };
 
 /*
-                                                        
-                                                          
-                                             
-  
-                                                           
+ * msp71xx_exd_gpio_get() - return the chip's gpio value
+ * @chip: chip structure which controls the specified gpio
+ * @offset: gpio whose value will be returned
+ *
+ * It will return 0 if gpio value is low and other if high.
  */
 static int msp71xx_exd_gpio_get(struct gpio_chip *chip, unsigned offset)
 {
@@ -53,13 +53,13 @@ static int msp71xx_exd_gpio_get(struct gpio_chip *chip, unsigned offset)
 }
 
 /*
-                                                             
-                                                        
-                                             
-                                                      
-  
-                                                                             
-                                                        
+ * msp71xx_exd_gpio_set() - set the output value for the gpio
+ * @chip: chip structure who controls the specified gpio
+ * @offset: gpio whose value will be assigned
+ * @value: logic level to assign to the gpio initially
+ *
+ * This will set the gpio bit specified to the desired value. It will set the
+ * gpio pin low if value is 0 otherwise it will be high.
  */
 static void msp71xx_exd_gpio_set(struct gpio_chip *chip,
 				 unsigned offset, int value)
@@ -72,13 +72,13 @@ static void msp71xx_exd_gpio_set(struct gpio_chip *chip,
 }
 
 /*
-                                                                         
-                                                          
-                                             
-                                                      
-  
-                                                                       
-                                                        
+ * msp71xx_exd_direction_output() - declare the direction mode for a gpio
+ * @chip: chip structure which controls the specified gpio
+ * @offset: gpio whose value will be assigned
+ * @value: logic level to assign to the gpio initially
+ *
+ * This call will set the mode for the @gpio to output. It will set the
+ * gpio pin low if value is 0 otherwise it will be high.
  */
 static int msp71xx_exd_direction_output(struct gpio_chip *chip,
 					unsigned offset, int value)
@@ -92,11 +92,11 @@ static int msp71xx_exd_direction_output(struct gpio_chip *chip,
 }
 
 /*
-                                                                        
-                                                          
-                                                          
-  
-                                                      
+ * msp71xx_exd_direction_input() - declare the direction mode for a gpio
+ * @chip: chip structure which controls the specified gpio
+ * @offset: gpio whose to which the value will be assigned
+ *
+ * This call will set the mode for the @gpio to input.
  */
 static int msp71xx_exd_direction_input(struct gpio_chip *chip, unsigned offset)
 {
@@ -122,14 +122,14 @@ static int msp71xx_exd_direction_input(struct gpio_chip *chip, unsigned offset)
 }
 
 /*
-                                                                  
-                                                    
-                                                            
-  
-                                                               
-                                                                
-                                                            
-                                      
+ * struct msp71xx_exd_gpio_banks[] - container array of gpio banks
+ * @chip: chip structure for the specified gpio bank
+ * @reg: register for reading and writing the gpio pin value
+ *
+ * This array structure defines the extended gpio banks for the
+ * PMC MIPS Processor. We specify the bank name, the data/config
+ * register,the base starting gpio number, and the number of
+ * gpios exposed by the bank of gpios.
  */
 static struct msp71xx_exd_gpio_chip msp71xx_exd_gpio_banks[] = {
 

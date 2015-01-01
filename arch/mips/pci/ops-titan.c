@@ -31,13 +31,13 @@
 #include <asm/rm9k-ocd.h>
 
 /*
-                       
+ * PCI specific defines
  */
 #define	TITAN_PCI_0_CONFIG_ADDRESS	0x780
 #define	TITAN_PCI_0_CONFIG_DATA		0x784
 
 /*
-                             
+ * Titan PCI Config Read Byte
  */
 static int titan_read_config(struct pci_bus *bus, unsigned int devfn, int reg,
 	int size, u32 * val)
@@ -53,7 +53,7 @@ static int titan_read_config(struct pci_bus *bus, unsigned int devfn, int reg,
 	          (reg & 0xfc) | 0x80000000;
 
 
-	/*                               */
+	/* start the configuration cycle */
 	ocd_writel(address, TITAN_PCI_0_CONFIG_ADDRESS);
 	tmp = ocd_readl(TITAN_PCI_0_CONFIG_DATA) >> ((reg & 3) << 3);
 
@@ -81,10 +81,10 @@ static int titan_write_config(struct pci_bus *bus, unsigned int devfn, int reg,
 	address = (busno << 16) | (dev << 11) | (func << 8) |
 		(reg & 0xfc) | 0x80000000;
 
-	/*                               */
+	/* start the configuration cycle */
 	ocd_writel(address, TITAN_PCI_0_CONFIG_ADDRESS);
 
-	/*                */
+	/* write the data */
 	switch (size) {
 	case 1:
 		ocd_writeb(val, TITAN_PCI_0_CONFIG_DATA + (~reg & 0x3));
@@ -103,7 +103,7 @@ static int titan_write_config(struct pci_bus *bus, unsigned int devfn, int reg,
 }
 
 /*
-                      
+ * Titan PCI structure
  */
 struct pci_ops titan_pci_ops = {
 	titan_read_config,

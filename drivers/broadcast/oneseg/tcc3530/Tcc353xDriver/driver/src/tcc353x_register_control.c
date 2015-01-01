@@ -1,13 +1,13 @@
+/*--------------------------------------------------------------------------*/
+/*    FileName    : Tcc353x_api.c                                           */
+/*    Description : API Function                                            */
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*   TCC Version : 1.0.0                                                    */
 /*   Copyright (c) Telechips, Inc.                                          */
+/*   ALL RIGHTS RESERVED                                                    */
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #include "tcc353x_register_control.h"
 #include "tcc353x_command_control.h"
@@ -43,7 +43,7 @@ I32S Tcc353xGetRegManual(Tcc353xHandle_t * _handle, I08U _addr, I32S _size,
 	return (ReadProcess(_handle, _addr, _size, _data, _LOCK_));
 }
 
-/*                         */
+/* System Control Register */
 I32S Tcc353xSetRegSysEnable(Tcc353xHandle_t * _handle, I08U _value)
 {
 	I32S ret;
@@ -121,7 +121,7 @@ I32S Tcc353xSetRegRemap(Tcc353xHandle_t * _handle, I08U _value)
 I32S Tcc353xSetRegRemapPc(Tcc353xHandle_t * _handle, I08U * _data,
 			  I32S _size)
 {
-	/*                                                      */
+	/* TC3XREG_INIT_REMAP/TC3XREG_INIT_PC8/TC3XREG_INIT_PC0 */
 	return (WriteProcess
 		(_handle, TC3XREG_INIT_REMAP, _data, _size, _LOCK_));
 }
@@ -248,7 +248,7 @@ I32S Tcc353xGetRegDataWindow(Tcc353xHandle_t * _handle, I08U * _data,
 		 _unlock));
 }
 
-/*                      */
+/* Command DMA Register */
 
 I32S Tcc353xSetRegDmaControl(Tcc353xHandle_t * _handle, I08U _value,
 			     I08U _unlock)
@@ -284,7 +284,7 @@ I32S Tcc353xGetRegDmaCrc32(Tcc353xHandle_t * _handle, I08U * _data)
 		(_handle, TC3XREG_CMDDMA_CRC24, 4, _data, _LOCK_));
 }
 
-/*                                    */
+/* PERIperal for stream data Register */
 
 I32S Tcc353xSetRegPeripheralConfig0(Tcc353xHandle_t * _handle, I08U _value)
 {
@@ -298,7 +298,7 @@ I32S Tcc353xSetRegPeripheralConfig(Tcc353xHandle_t * _handle, I08U * _data)
 		(_handle, TC3XREG_PERI_CTRL, _data, 4, _LOCK_));
 }
 
-/*                  */
+/* MAILBOX Register */
 
 I32S Tcc353xSetRegMailboxControl(Tcc353xHandle_t * _handle, I08U _value)
 {
@@ -341,7 +341,7 @@ I32S Tcc353xGetRegMailboxFifoWindow(Tcc353xHandle_t * _handle,
 		 _LOCK_));
 }
 
-/*                                   */
+/* OUTPUT Buffer Management Register */
 
 I32S Tcc353xSetRegOutBufferConfig(Tcc353xHandle_t * _handle, I08U _value)
 {

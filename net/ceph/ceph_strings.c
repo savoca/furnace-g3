@@ -1,5 +1,5 @@
 /*
-                        
+ * Ceph string constants
  */
 #include <linux/module.h>
 #include <linux/ceph/types.h>

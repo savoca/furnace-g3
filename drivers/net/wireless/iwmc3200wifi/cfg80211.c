@@ -428,8 +428,8 @@ static int iwm_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *dev,
 	if (!test_bit(IWM_STATUS_READY, &iwm->status))
 		return -EIO;
 
-	/*                                                         
-                          */
+	/* UMAC doesn't support creating or joining an IBSS network
+	 * with specified bssid. */
 	if (params->bssid)
 		return -EOPNOTSUPP;
 
@@ -624,10 +624,10 @@ static int iwm_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	}
 
 	/*
-                                                                    
-                                                                   
-                         
-  */
+	 * We save the WEP key in case we want to do shared authentication.
+	 * We have to do it so because UMAC will assert whenever it gets a
+	 * key before a profile.
+	 */
 	if (sme->key) {
 		key_param.key = kmemdup(sme->key, sme->key_len, GFP_KERNEL);
 		if (key_param.key == NULL)
@@ -647,7 +647,7 @@ static int iwm_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 		iwm->default_key = sme->key_idx;
 	}
 
-	/*                                                          */
+	/* WPA and open AUTH type from wpa_s means WPS (a.k.a. WSC) */
 	if ((iwm->umac_profile->sec.flags &
 	     (UMAC_SEC_FLG_WPA_ON_MSK | UMAC_SEC_FLG_RSNA_ON_MSK)) &&
 	    iwm->umac_profile->sec.auth_type == UMAC_AUTH_TYPE_OPEN) {
@@ -661,12 +661,12 @@ static int iwm_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 		return ret;
 
 	/*
-                              
-                                                         
-                                                
-                                                               
-                                                
-  */
+	 * We want to do shared auth.
+	 * We need to actually set the key we previously cached,
+	 * and then tell the UMAC it's the default one.
+	 * That will trigger the auth+assoc UMAC machinery, and again,
+	 * this must be done after setting the profile.
+	 */
 	ret = iwm_set_key(iwm, 0, &iwm->keys[sme->key_idx]);
 	if (ret < 0)
 		return ret;
@@ -812,19 +812,19 @@ struct wireless_dev *iwm_wdev_alloc(int sizeof_bus, struct device *dev)
 	struct wireless_dev *wdev;
 
 	/*
-                                             
-           
-   
-                               
-                         
-                               
-                               
-                               
-                               
-                               
-                               
-   
-  */
+	 * We're trying to have the following memory
+	 * layout:
+	 *
+	 * +-------------------------+
+	 * | struct wiphy	     |
+	 * +-------------------------+
+	 * | struct iwm_priv         |
+	 * +-------------------------+
+	 * | bus private data        |
+	 * | (e.g. iwm_priv_sdio)    |
+	 * +-------------------------+
+	 *
+	 */
 
 	wdev = kzalloc(sizeof(struct wireless_dev), GFP_KERNEL);
 	if (!wdev) {

@@ -26,7 +26,7 @@
 #include <sound/gus.h>
 
 /*
-  
+ *
  */
 
 #define GF1_SINGLE(xname, xindex, shift, invert) \

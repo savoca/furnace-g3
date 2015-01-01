@@ -24,14 +24,14 @@
 #define AF_PHONET_H
 
 /*
-                                                                    
-          
+ * The lower layers may not require more space, ever. Make sure it's
+ * enough.
  */
 #define MAX_PHONET_HEADER	(8 + MAX_HEADER)
 
 /*
-                                                       
-                                            
+ * Every Phonet* socket has this structure first in its
+ * protocol-specific structure under name c.
  */
 struct pn_sock {
 	struct sock	sk;
@@ -74,8 +74,8 @@ static inline struct phonetmsg *pn_msg(struct sk_buff *skb)
 }
 
 /*
-                                                                   
-                        
+ * Get the other party's sockaddr from received skb. The skb begins
+ * with a Phonet header.
  */
 static inline
 void pn_skb_get_src_sockaddr(struct sk_buff *skb, struct sockaddr_pn *sa)
@@ -101,7 +101,7 @@ void pn_skb_get_dst_sockaddr(struct sk_buff *skb, struct sockaddr_pn *sa)
 	memset(sa->spn_zero, 0, sizeof(sa->spn_zero));
 }
 
-/*                                      */
+/* Protocols in Phonet protocol family. */
 struct phonet_protocol {
 	const struct proto_ops	*ops;
 	struct proto		*prot;

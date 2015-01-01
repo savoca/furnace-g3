@@ -16,7 +16,7 @@
 #include "internal.h"
 
 /*
-                     
+ * operation counters
  */
 atomic_t fscache_n_op_pend;
 atomic_t fscache_n_op_run;
@@ -126,7 +126,7 @@ atomic_t fscache_n_cop_uncache_page;
 atomic_t fscache_n_cop_dissociate_pages;
 
 /*
-                                 
+ * display the general statistics
  */
 static int fscache_stats_show(struct seq_file *m, void *v)
 {
@@ -264,7 +264,7 @@ static int fscache_stats_show(struct seq_file *m, void *v)
 }
 
 /*
-                                                                            
+ * open "/proc/fs/fscache/stats" allowing provision of a statistical summary
  */
 static int fscache_stats_open(struct inode *inode, struct file *file)
 {

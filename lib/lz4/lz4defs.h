@@ -9,7 +9,7 @@
  */
 
 /*
-                       
+ * Detects 64 bits mode
  */
 #if (defined(__x86_64__) || defined(__x86_64) || defined(__amd64__) \
 	|| defined(__ppc64__) || defined(__LP64__))
@@ -19,7 +19,7 @@
 #endif
 
 /*
-                               
+ * Architecture-specific macros
  */
 #define ARM_EFFICIENT_UNALIGNED_ACCESS
 #define BYTE	u8
@@ -41,7 +41,7 @@ typedef struct _U64_S { u64 v; } U64_S;
 		A16(p) = v; \
 		p += 2; \
 	} while (0)
-#else /*                                        */
+#else /* CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS */
 
 #define A64(x) get_unaligned((u64 *)&(((U16_S *)(x))->v))
 #define A32(x) get_unaligned((u32 *)&(((U16_S *)(x))->v))
@@ -88,7 +88,7 @@ typedef struct _U64_S { u64 v; } U64_S;
 #define HASH_VALUE(p)		(((A32(p)) * 2654435761U) >> \
 				((MINMATCH * 8) - HASH_LOG))
 
-#if LZ4_ARCH64/*        */
+#if LZ4_ARCH64/* 64-bit */
 #define STEPSIZE 8
 
 #define LZ4_COPYSTEP(s, d)	\
@@ -114,7 +114,7 @@ typedef struct _U64_S { u64 v; } U64_S;
 #define LZ4_NBCOMMONBYTES(val) (__builtin_ctzll(val) >> 3)
 #endif
 
-#else	/*        */
+#else	/* 32-bit */
 #define STEPSIZE 4
 
 #define LZ4_COPYSTEP(s, d)	\

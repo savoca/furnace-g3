@@ -29,10 +29,10 @@
 #include "radeon_asic.h"
 #include "atom.h"
 
-#define AUDIO_TIMER_INTERVALL 100 /*                              */
+#define AUDIO_TIMER_INTERVALL 100 /* 1/10 sekund should be enough */
 
 /*
-                                    
+ * check if the chipset is supported
  */
 static int r600_audio_chipset_supported(struct radeon_device *rdev)
 {
@@ -43,7 +43,7 @@ static int r600_audio_chipset_supported(struct radeon_device *rdev)
 }
 
 /*
-                             
+ * current number of channels
  */
 int r600_audio_channels(struct radeon_device *rdev)
 {
@@ -51,7 +51,7 @@ int r600_audio_channels(struct radeon_device *rdev)
 }
 
 /*
-                          
+ * current bits per sample
  */
 int r600_audio_bits_per_sample(struct radeon_device *rdev)
 {
@@ -71,7 +71,7 @@ int r600_audio_bits_per_sample(struct radeon_device *rdev)
 }
 
 /*
-                              
+ * current sampling rate in HZ
  */
 int r600_audio_rate(struct radeon_device *rdev)
 {
@@ -90,7 +90,7 @@ int r600_audio_rate(struct radeon_device *rdev)
 }
 
 /*
-                        
+ * iec 60958 status bits
  */
 uint8_t r600_audio_status_bits(struct radeon_device *rdev)
 {
@@ -98,7 +98,7 @@ uint8_t r600_audio_status_bits(struct radeon_device *rdev)
 }
 
 /*
-                          
+ * iec 60958 category code
  */
 uint8_t r600_audio_category_code(struct radeon_device *rdev)
 {
@@ -106,7 +106,7 @@ uint8_t r600_audio_category_code(struct radeon_device *rdev)
 }
 
 /*
-                                   
+ * schedule next audio update event
  */
 void r600_audio_schedule_polling(struct radeon_device *rdev)
 {
@@ -115,7 +115,7 @@ void r600_audio_schedule_polling(struct radeon_device *rdev)
 }
 
 /*
-                                                           
+ * update all hdmi interfaces with current audio parameters
  */
 static void r600_audio_update_hdmi(unsigned long param)
 {
@@ -157,7 +157,7 @@ static void r600_audio_update_hdmi(unsigned long param)
 }
 
 /*
-                           
+ * turn on/off audio engine
  */
 static void r600_audio_engine_enable(struct radeon_device *rdev, bool enable)
 {
@@ -165,8 +165,8 @@ static void r600_audio_engine_enable(struct radeon_device *rdev, bool enable)
 	DRM_INFO("%s audio support\n", enable ? "Enabling" : "Disabling");
 	if (ASIC_IS_DCE4(rdev)) {
 		if (enable) {
-			value |= 0x81000000; /*                          */
-			value |= 0x0e1000f0; /*                     */
+			value |= 0x81000000; /* Required to enable audio */
+			value |= 0x0e1000f0; /* fglrx sets that too */
 		}
 		WREG32(EVERGREEN_AUDIO_ENABLE, value);
 	} else {
@@ -177,7 +177,7 @@ static void r600_audio_engine_enable(struct radeon_device *rdev, bool enable)
 }
 
 /*
-                                                          
+ * initialize the audio vars and register the update timer
  */
 int r600_audio_init(struct radeon_device *rdev)
 {
@@ -201,7 +201,7 @@ int r600_audio_init(struct radeon_device *rdev)
 }
 
 /*
-                                                        
+ * enable the polling timer, to check for status changes
  */
 void r600_audio_enable_polling(struct drm_encoder *encoder)
 {
@@ -220,7 +220,7 @@ void r600_audio_enable_polling(struct drm_encoder *encoder)
 }
 
 /*
-                                                              
+ * disable the polling timer, so we get no more status updates
  */
 void r600_audio_disable_polling(struct drm_encoder *encoder)
 {
@@ -231,7 +231,7 @@ void r600_audio_disable_polling(struct drm_encoder *encoder)
 }
 
 /*
-                                                           
+ * atach the audio codec to the clock source of the encoder
  */
 void r600_audio_set_clock(struct drm_encoder *encoder, int clock)
 {
@@ -259,12 +259,12 @@ void r600_audio_set_clock(struct drm_encoder *encoder, int clock)
 	}
 
 	if (ASIC_IS_DCE4(rdev)) {
-		/*                   */
+		/* TODO: other PLLs? */
 		WREG32(EVERGREEN_AUDIO_PLL1_MUL, base_rate * 10);
 		WREG32(EVERGREEN_AUDIO_PLL1_DIV, clock * 10);
 		WREG32(EVERGREEN_AUDIO_PLL1_UNK, 0x00000071);
 
-		/*                                */
+		/* Some magic trigger or src sel? */
 		WREG32_P(0x5ac, 0x01, ~0x77);
 	} else {
 		switch (dig->dig_encoder) {
@@ -289,8 +289,8 @@ void r600_audio_set_clock(struct drm_encoder *encoder, int clock)
 }
 
 /*
-                          
-                                                 
+ * release the audio timer
+ * TODO: How to do this correctly on SMP systems?
  */
 void r600_audio_fini(struct radeon_device *rdev)
 {

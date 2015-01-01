@@ -15,34 +15,34 @@
 
 #define MAX77819_DRIVER_VERSION            "2.4-rc"
 
-/*                      */
+/* MAX77819 Top Devices */
 #define MAX77819_NAME                      "max77819"
 #define MAX77819_PMIC_NAME                 MAX77819_NAME"-pmic"
 #define MAX77819_PERIPH_NAME               MAX77819_NAME"-periph"
 #define MAX77819_FUELGAUGE_NAME            MAX77819_NAME"-fuelgauge"
 
-/*                       */
+/* MAX77819 PMIC Devices */
 #define MAX77819_CHARGER_NAME              MAX77819_NAME"-charger"
 #define MAX77819_SFO_NAME                  MAX77819_NAME"-sfo"
 #define MAX77819_FLASH_NAME                MAX77819_NAME"-flash"
 
-/*                         */
+/* MAX77819 Periph Devices */
 #define MAX77819_WLED_NAME                 MAX77819_NAME"-wled"
 #define MAX77819_MOTOR_NAME                MAX77819_NAME"-motor"
 
-/*                 */
+/* Chip Interrupts */
 enum {
     MAX77819_IRQ_CHGR = 0,
     MAX77819_IRQ_TOP,
     MAX77819_IRQ_FLASH,
     MAX77819_IRQ_WLED,
-    /* */
+    /***/
     MAX77819_IRQ_NUM_OF_INTS,
 };
 
-/*                                                                              
-                
-                                                                              */
+/*******************************************************************************
+ * Useful Macros
+ ******************************************************************************/
 
 #undef  __CONST_FFS
 #define __CONST_FFS(_x) \
@@ -87,9 +87,9 @@ enum {
 #define BITS_MATCH(_word, _bit) \
         (((_word) & (_bit)) == (_bit))
 
-/*                                                                              
-                      
-                                                                              */
+/*******************************************************************************
+ * Sub Modules Support
+ ******************************************************************************/
 
 struct max77819_dev;
 
@@ -99,12 +99,12 @@ struct max77819_io {
 
 extern struct max77819_io *max77819_get_io (struct max77819_dev *chip);
 
-/*                                                                              
-                
-                                                                              */
+/*******************************************************************************
+ * Platform Data
+ ******************************************************************************/
 
 struct max77819_pmic_platform_data {
-    int irq; /*                                  */
+    int irq; /* system interrupt number for PMIC */
 };
 
 #if 0
@@ -117,9 +117,9 @@ struct max77819_fuelgauge_platform_data {
 };
 #endif
 
-/*                                                                              
-          
-                                                                              */
+/*******************************************************************************
+ * Chip IO
+ ******************************************************************************/
 
 static __always_inline int max77819_read (struct max77819_io *io,
     u8 addr, u8 *val)
@@ -147,7 +147,7 @@ static __inline int max77819_masked_read (struct max77819_io *io,
     int rc;
 
     if (unlikely(!mask)) {
-        /*                  */
+        /* no actual access */
         *val = 0;
         rc   = 0;
         goto out;
@@ -169,7 +169,7 @@ static __inline int max77819_masked_write (struct max77819_io *io,
     int rc;
 
     if (unlikely(!mask)) {
-        /*                  */
+        /* no actual access */
         rc = 0;
         goto out;
     }
@@ -195,7 +195,7 @@ static __always_inline int max77819_bulk_write (struct max77819_io *io,
     return regmap_bulk_write(io->regmap, (unsigned int)addr, src, (size_t)len);
 }
 
-/*                                                                          */
+/*** Simplifying bitwise configurations for individual subdevices drivers ***/
 #ifndef MAX77819_REG_ADDR_INVALID
 #define MAX77819_REG_ADDR_INVALID  0x00
 #endif
@@ -245,9 +245,9 @@ static __always_inline int max77819_write_bitdesc (struct max77819_io *io,
         max77819_masked_write(_io, _reg, _reg##_##_bit,\
             (u8)FFS(_reg##_##_bit), _val)
 
-/*                                                                              
-                  
-                                                                              */
+/*******************************************************************************
+ * Debugging Stuff
+ ******************************************************************************/
 
 #undef  log_fmt
 #define log_fmt(format) \
@@ -274,4 +274,4 @@ static __always_inline int max77819_write_bitdesc (struct max77819_io *io,
             printk(KERN_DEFAULT log_fmt(format), ##__VA_ARGS__);\
         }
 
-#endif /*                      */
+#endif /* !__MAX77819_CORE_H__ */

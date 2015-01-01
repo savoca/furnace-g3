@@ -57,7 +57,7 @@ void fsnotify_clear_vfsmount_marks_by_group(struct fsnotify_group *group)
 }
 
 /*
-                                                                      
+ * Recalculate the mask of events relevant to a given vfsmount locked.
  */
 static void fsnotify_recalc_vfsmount_mask_locked(struct vfsmount *mnt)
 {
@@ -74,8 +74,8 @@ static void fsnotify_recalc_vfsmount_mask_locked(struct vfsmount *mnt)
 }
 
 /*
-                                                                              
-                                                             
+ * Recalculate the mnt->mnt_fsnotify_mask, or the mask of all FS_* event types
+ * any notifier is interested in hearing for this mount point
  */
 void fsnotify_recalc_vfsmount_mask(struct vfsmount *mnt)
 {
@@ -120,8 +120,8 @@ static struct fsnotify_mark *fsnotify_find_vfsmount_mark_locked(struct fsnotify_
 }
 
 /*
-                                                                              
-                                                                         
+ * given a group and vfsmount, find the mark associated with that combination.
+ * if found take a reference to that mark and return it, else return NULL
  */
 struct fsnotify_mark *fsnotify_find_vfsmount_mark(struct fsnotify_group *group,
 						  struct vfsmount *mnt)
@@ -136,9 +136,9 @@ struct fsnotify_mark *fsnotify_find_vfsmount_mark(struct fsnotify_group *group,
 }
 
 /*
-                                                            
-                                                                      
-                                                   
+ * Attach an initialized mark to a given group and vfsmount.
+ * These marks may be used for the fsnotify backend to determine which
+ * event types should be delivered to which groups.
  */
 int fsnotify_add_vfsmount_mark(struct fsnotify_mark *mark,
 			       struct fsnotify_group *group, struct vfsmount *mnt,
@@ -158,13 +158,13 @@ int fsnotify_add_vfsmount_mark(struct fsnotify_mark *mark,
 
 	mark->m.mnt = mnt;
 
-	/*                         */
+	/* is mark the first mark? */
 	if (hlist_empty(&m->mnt_fsnotify_marks)) {
 		hlist_add_head_rcu(&mark->m.m_list, &m->mnt_fsnotify_marks);
 		goto out;
 	}
 
-	/*                                                   */
+	/* should mark be in the middle of the current list? */
 	hlist_for_each_entry(lmark, node, &m->mnt_fsnotify_marks, m.m_list) {
 		last = node;
 
@@ -185,7 +185,7 @@ int fsnotify_add_vfsmount_mark(struct fsnotify_mark *mark,
 	}
 
 	BUG_ON(last == NULL);
-	/*                                                                */
+	/* mark should be the last entry.  last is the current last entry */
 	hlist_add_after_rcu(last, &mark->m.m_list);
 out:
 	fsnotify_recalc_vfsmount_mask_locked(mnt);

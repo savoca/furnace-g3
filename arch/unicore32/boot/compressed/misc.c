@@ -14,7 +14,7 @@
 #include <mach/uncompress.h>
 
 /*
-                   
+ * gzip delarations
  */
 unsigned char *output_data;
 unsigned long output_ptr;
@@ -23,10 +23,10 @@ unsigned int free_mem_ptr;
 unsigned int free_mem_end_ptr;
 
 #define STATIC static
-#define STATIC_RW_DATA	/*                   */
+#define STATIC_RW_DATA	/* non-static please */
 
 /*
-                                 
+ * arch-dependent implementations
  */
 #ifndef ARCH_HAVE_DECOMP_ERROR
 #define arch_decomp_error(x)
@@ -83,10 +83,10 @@ void error(char *x)
 	arch_decomp_error(x);
 
 	for (;;)
-		; /*      */
+		; /* Halt */
 }
 
-/*                                                              */
+/* Heap size should be adjusted for different decompress method */
 #ifdef CONFIG_KERNEL_GZIP
 #include "../../../../lib/decompress_inflate.c"
 #endif

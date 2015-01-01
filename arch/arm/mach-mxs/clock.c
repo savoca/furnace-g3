@@ -22,7 +22,7 @@
  * MA  02110-1301, USA.
  */
 
-/*               */
+/* #define DEBUG */
 
 #include <linux/clk.h>
 #include <linux/err.h>
@@ -43,9 +43,9 @@
 static LIST_HEAD(clocks);
 static DEFINE_MUTEX(clocks_mutex);
 
-/*                                                                         
-                                                          
-                                                                           */
+/*-------------------------------------------------------------------------
+ * Standard clock functions defined in include/linux/clk.h
+ *-------------------------------------------------------------------------*/
 
 static void __clk_disable(struct clk *clk)
 {
@@ -75,12 +75,12 @@ static int __clk_enable(struct clk *clk)
 }
 
 /*
-                                                                           
-                                                                            
-                                                                           
-                                                                         
-                                                                        
-                                                       
+ * The clk_enable/clk_disable could be called by drivers in atomic context,
+ * so they should not really hold mutex.  Instead, clk_prepare/clk_unprepare
+ * can hold a mutex, as the pair will only be called in non-atomic context.
+ * Before migrating to common clk framework, we can have __clk_enable and
+ * __clk_disable called in clk_prepare/clk_unprepare with mutex held and
+ * leave clk_enable/clk_disable as the dummy functions.
  */
 int clk_prepare(struct clk *clk)
 {
@@ -116,14 +116,14 @@ EXPORT_SYMBOL(clk_enable);
 
 void clk_disable(struct clk *clk)
 {
-	/*               */
+	/* nothing to do */
 }
 EXPORT_SYMBOL(clk_disable);
 
-/*                                                       
-                                                      
-                                                    
-                     
+/* Retrieve the *current* clock rate. If the clock itself
+ * does not provide a special calculation routine, ask
+ * its parent and so on, until one is able to return
+ * a valid clock rate
  */
 unsigned long clk_get_rate(struct clk *clk)
 {
@@ -137,9 +137,9 @@ unsigned long clk_get_rate(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_get_rate);
 
-/*                                                        
-                                                         
-                                                   
+/* Round the requested clock rate to the nearest supported
+ * rate that is less than or equal to the requested rate.
+ * This is dependent on the clock's current parent.
  */
 long clk_round_rate(struct clk *clk, unsigned long rate)
 {
@@ -150,8 +150,8 @@ long clk_round_rate(struct clk *clk, unsigned long rate)
 }
 EXPORT_SYMBOL(clk_round_rate);
 
-/*                                                         
-                                                                      
+/* Set the clock to the requested clock rate. The rate must
+ * match a supported rate exactly based on what clk_round_rate returns
  */
 int clk_set_rate(struct clk *clk, unsigned long rate)
 {
@@ -168,7 +168,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 }
 EXPORT_SYMBOL(clk_set_rate);
 
-/*                                                */
+/* Set the clock's parent to another clock source */
 int clk_set_parent(struct clk *clk, struct clk *parent)
 {
 	int ret = -EINVAL;
@@ -198,7 +198,7 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 }
 EXPORT_SYMBOL(clk_set_parent);
 
-/*                                          */
+/* Retrieve the clock's parent clock source */
 struct clk *clk_get_parent(struct clk *clk)
 {
 	struct clk *ret = NULL;

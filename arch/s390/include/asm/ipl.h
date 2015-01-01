@@ -82,7 +82,7 @@ struct ipl_parameter_block {
 } __attribute__((packed,aligned(4096)));
 
 /*
-                     
+ * IPL validity flags
  */
 extern u32 ipl_flags;
 extern u32 dump_prefix_page;
@@ -132,7 +132,7 @@ extern struct ipl_info ipl_info;
 extern void setup_ipl(void);
 
 /*
-                   
+ * DIAG 308 support
  */
 enum diag308_subcode  {
 	DIAG308_REL_HSA	= 2,
@@ -171,4 +171,4 @@ extern void diag308_reset(void);
 extern void store_status(void);
 extern void lgr_info_log(void);
 
-#endif /*                 */
+#endif /* _ASM_S390_IPL_H */

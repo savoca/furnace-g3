@@ -15,7 +15,7 @@
 
 #ifdef CONFIG_BUG
 /*
-                                       
+ * Tell the user there is some problem.
  */
 extern asmlinkage void __debug_bug_trap(int signr);
 
@@ -36,7 +36,7 @@ do {						\
 #define BUG()					\
 do {						\
 	_debug_bug_printk();			\
-	_debug_bug_trap(6 /*       */);		\
+	_debug_bug_trap(6 /*SIGABRT*/);		\
 } while (0)
 
 #ifdef CONFIG_GDBSTUB
@@ -47,7 +47,7 @@ do {						\
 #define kgdb_bad_page(page) do { kgdb_raise(SIGABRT); } while(0)
 #endif
 
-#endif /*            */
+#endif /* CONFIG_BUG */
 
 #include <asm-generic/bug.h>
 

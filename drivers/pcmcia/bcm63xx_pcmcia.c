@@ -23,13 +23,13 @@
 #define PFX	"bcm63xx_pcmcia: "
 
 #ifdef CONFIG_CARDBUS
-/*                                                                  
-          */
+/* if cardbus is used, platform device needs reference to actual pci
+ * device */
 static struct pci_dev *bcm63xx_cb_dev;
 #endif
 
 /*
-                                    
+ * read/write helper for pcmcia regs
  */
 static inline u32 pcmcia_readl(struct bcm63xx_pcmcia_socket *skt, u32 off)
 {
@@ -43,11 +43,11 @@ static inline void pcmcia_writel(struct bcm63xx_pcmcia_socket *skt,
 }
 
 /*
-                                                                  
-                                                                     
-                                            
-  
-                           
+ * This callback should (re-)initialise the socket, turn on status
+ * interrupts and PCMCIA bus, and wait for power to stabilise so that
+ * the card status signals report correctly.
+ *
+ * Hardware cannot do that.
  */
 static int bcm63xx_pcmcia_sock_init(struct pcmcia_socket *sock)
 {
@@ -55,10 +55,10 @@ static int bcm63xx_pcmcia_sock_init(struct pcmcia_socket *sock)
 }
 
 /*
-                                                                     
-                                                                    
-  
-                           
+ * This callback should remove power on the socket, disable IRQs from
+ * the card, turn off status interrupts, and disable the PCMCIA bus.
+ *
+ * Hardware cannot do that.
  */
 static int bcm63xx_pcmcia_suspend(struct pcmcia_socket *sock)
 {
@@ -66,11 +66,11 @@ static int bcm63xx_pcmcia_suspend(struct pcmcia_socket *sock)
 }
 
 /*
-                                                                 
-                                                               
-                                                                   
-                                                                 
-                                                               
+ * Implements the set_socket() operation for the in-kernel PCMCIA
+ * service (formerly SS_SetSocket in Card Services). We more or
+ * less punt all of this work and let the kernel handle the details
+ * of power configuration, reset, &c. We also record the value of
+ * `state' in order to regurgitate it to the PCMCIA core later.
  */
 static int bcm63xx_pcmcia_set_socket(struct pcmcia_socket *sock,
 				     socket_state_t *state)
@@ -83,23 +83,23 @@ static int bcm63xx_pcmcia_set_socket(struct pcmcia_socket *sock,
 
 	spin_lock_irqsave(&skt->lock, flags);
 
-	/*                                                       
-                             */
+	/* note: hardware cannot control socket power, so we will
+	 * always report SS_POWERON */
 
-	/*                    */
+	/* apply socket reset */
 	val = pcmcia_readl(skt, PCMCIA_C1_REG);
 	if (state->flags & SS_RESET)
 		val |= PCMCIA_C1_RESET_MASK;
 	else
 		val &= ~PCMCIA_C1_RESET_MASK;
 
-	/*                                      */
+	/* reverse reset logic for cardbus card */
 	if (skt->card_detected && (skt->card_type & CARD_CARDBUS))
 		val ^= PCMCIA_C1_RESET_MASK;
 
 	pcmcia_writel(skt, val, PCMCIA_C1_REG);
 
-	/*                                          */
+	/* keep requested state for event reporting */
 	skt->requested_state = *state;
 
 	spin_unlock_irqrestore(&skt->lock, flags);
@@ -108,8 +108,8 @@ static int bcm63xx_pcmcia_set_socket(struct pcmcia_socket *sock,
 }
 
 /*
-                                                                      
-                                                        
+ * identity cardtype from VS[12] input, CD[12] input while only VS2 is
+ * floating, and CD[12] input while only VS1 is floating
  */
 enum {
 	IN_VS1 = (1 << 0),
@@ -122,42 +122,42 @@ enum {
 
 static const u8 vscd_to_cardtype[] = {
 
-	/*                      */
+	/* VS1 float, VS2 float */
 	[IN_VS1 | IN_VS2] = (CARD_PCCARD | CARD_5V),
 
-	/*                         */
+	/* VS1 grounded, VS2 float */
 	[IN_VS2] = (CARD_PCCARD | CARD_5V | CARD_3V),
 
-	/*                            */
+	/* VS1 grounded, VS2 grounded */
 	[0] = (CARD_PCCARD | CARD_5V | CARD_3V | CARD_XV),
 
-	/*                            */
+	/* VS1 tied to CD1, VS2 float */
 	[IN_VS1 | IN_VS2 | IN_CD1_VS1H] = (CARD_CARDBUS | CARD_3V),
 
-	/*                               */
+	/* VS1 grounded, VS2 tied to CD2 */
 	[IN_VS2 | IN_CD2_VS2H] = (CARD_CARDBUS | CARD_3V | CARD_XV),
 
-	/*                               */
+	/* VS1 tied to CD2, VS2 grounded */
 	[IN_VS1 | IN_CD2_VS1H] = (CARD_CARDBUS | CARD_3V | CARD_XV | CARD_YV),
 
-	/*                         */
+	/* VS1 float, VS2 grounded */
 	[IN_VS1] = (CARD_PCCARD | CARD_XV),
 
-	/*                            */
+	/* VS1 float, VS2 tied to CD2 */
 	[IN_VS1 | IN_VS2 | IN_CD2_VS2H] = (CARD_CARDBUS | CARD_3V),
 
-	/*                            */
+	/* VS1 float, VS2 tied to CD1 */
 	[IN_VS1 | IN_VS2 | IN_CD1_VS2H] = (CARD_CARDBUS | CARD_XV | CARD_YV),
 
-	/*                            */
+	/* VS1 tied to CD2, VS2 float */
 	[IN_VS1 | IN_VS2 | IN_CD2_VS1H] = (CARD_CARDBUS | CARD_YV),
 
-	/*                                                   */
-	[IN_VS1 | IN_CD1_VS1H] = 0, /*                */
+	/* VS2 grounded, VS1 is tied to CD1, CD2 is grounded */
+	[IN_VS1 | IN_CD1_VS1H] = 0, /* ignore cardbay */
 };
 
 /*
-                                               
+ * poll hardware to check card insertion status
  */
 static unsigned int __get_socket_status(struct bcm63xx_pcmcia_socket *skt)
 {
@@ -166,58 +166,58 @@ static unsigned int __get_socket_status(struct bcm63xx_pcmcia_socket *skt)
 
 	stat = 0;
 
-	/*                            */
+	/* check CD for card presence */
 	val = pcmcia_readl(skt, PCMCIA_C1_REG);
 
 	if (!(val & PCMCIA_C1_CD1_MASK) && !(val & PCMCIA_C1_CD2_MASK))
 		stat |= SS_DETECT;
 
-	/*                                   */
+	/* if new insertion, detect cardtype */
 	if ((stat & SS_DETECT) && !skt->card_detected) {
 		unsigned int stat = 0;
 
-		/*                      */
+		/* float VS1, float VS2 */
 		val |= PCMCIA_C1_VS1OE_MASK;
 		val |= PCMCIA_C1_VS2OE_MASK;
 		pcmcia_writel(skt, val, PCMCIA_C1_REG);
 
-		/*                                              */
+		/* wait for output to stabilize and read VS[12] */
 		udelay(10);
 		val = pcmcia_readl(skt, PCMCIA_C1_REG);
 		stat |= (val & PCMCIA_C1_VS1_MASK) ? IN_VS1 : 0;
 		stat |= (val & PCMCIA_C1_VS2_MASK) ? IN_VS2 : 0;
 
-		/*                          */
+		/* drive VS1 low, float VS2 */
 		val &= ~PCMCIA_C1_VS1OE_MASK;
 		val |= PCMCIA_C1_VS2OE_MASK;
 		pcmcia_writel(skt, val, PCMCIA_C1_REG);
 
-		/*                                              */
+		/* wait for output to stabilize and read CD[12] */
 		udelay(10);
 		val = pcmcia_readl(skt, PCMCIA_C1_REG);
 		stat |= (val & PCMCIA_C1_CD1_MASK) ? IN_CD1_VS2H : 0;
 		stat |= (val & PCMCIA_C1_CD2_MASK) ? IN_CD2_VS2H : 0;
 
-		/*                          */
+		/* float VS1, drive VS2 low */
 		val |= PCMCIA_C1_VS1OE_MASK;
 		val &= ~PCMCIA_C1_VS2OE_MASK;
 		pcmcia_writel(skt, val, PCMCIA_C1_REG);
 
-		/*                                              */
+		/* wait for output to stabilize and read CD[12] */
 		udelay(10);
 		val = pcmcia_readl(skt, PCMCIA_C1_REG);
 		stat |= (val & PCMCIA_C1_CD1_MASK) ? IN_CD1_VS1H : 0;
 		stat |= (val & PCMCIA_C1_CD2_MASK) ? IN_CD2_VS1H : 0;
 
-		/*                              */
+		/* guess cardtype from all this */
 		skt->card_type = vscd_to_cardtype[stat];
 		if (!skt->card_type)
 			dev_err(&skt->socket.dev, "unsupported card type\n");
 
-		/*                              */
+		/* drive both VS pin to 0 again */
 		val &= ~(PCMCIA_C1_VS1OE_MASK | PCMCIA_C1_VS2OE_MASK);
 
-		/*                      */
+		/* enable correct logic */
 		val &= ~(PCMCIA_C1_EN_PCMCIA_MASK | PCMCIA_C1_EN_CARDBUS_MASK);
 		if (skt->card_type & CARD_PCCARD)
 			val |= PCMCIA_C1_EN_PCMCIA_MASK;
@@ -228,7 +228,7 @@ static unsigned int __get_socket_status(struct bcm63xx_pcmcia_socket *skt)
 	}
 	skt->card_detected = (stat & SS_DETECT) ? 1 : 0;
 
-	/*                          */
+	/* report card type/voltage */
 	if (skt->card_type & CARD_CARDBUS)
 		stat |= SS_CARDBUS;
 	if (skt->card_type & CARD_3V)
@@ -244,7 +244,7 @@ static unsigned int __get_socket_status(struct bcm63xx_pcmcia_socket *skt)
 }
 
 /*
-                                            
+ * core request to get current socket status
  */
 static int bcm63xx_pcmcia_get_status(struct pcmcia_socket *sock,
 				     unsigned int *status)
@@ -261,7 +261,7 @@ static int bcm63xx_pcmcia_get_status(struct pcmcia_socket *sock,
 }
 
 /*
-                                
+ * socket polling timer callback
  */
 static void bcm63xx_pcmcia_poll(unsigned long data)
 {
@@ -274,8 +274,8 @@ static void bcm63xx_pcmcia_poll(unsigned long data)
 
 	stat = __get_socket_status(skt);
 
-	/*                                                            
-         */
+	/* keep only changed bits, and mask with required one from the
+	 * core */
 	events = (stat ^ skt->old_status) & skt->requested_state.csc_mask;
 	skt->old_status = stat;
 	spin_unlock_bh(&skt->lock);
@@ -290,8 +290,8 @@ static void bcm63xx_pcmcia_poll(unsigned long data)
 static int bcm63xx_pcmcia_set_io_map(struct pcmcia_socket *sock,
 				     struct pccard_io_map *map)
 {
-	/*                                                         
-                    */
+	/* this doesn't seem to be called by pcmcia layer if static
+	 * mapping is used */
 	return 0;
 }
 
@@ -321,7 +321,7 @@ static struct pccard_operations bcm63xx_pcmcia_operations = {
 };
 
 /*
-                                 
+ * register pcmcia socket to core
  */
 static int __devinit bcm63xx_drv_pcmcia_probe(struct platform_device *pdev)
 {
@@ -339,7 +339,7 @@ static int __devinit bcm63xx_drv_pcmcia_probe(struct platform_device *pdev)
 	sock = &skt->socket;
 	sock->driver_data = skt;
 
-	/*                                         */
+	/* make sure we have all resources we need */
 	skt->common_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	skt->attr_res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
 	irq_res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
@@ -349,7 +349,7 @@ static int __devinit bcm63xx_drv_pcmcia_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/*                        */
+	/* remap pcmcia registers */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	regmem_size = resource_size(res);
 	if (!request_mem_region(res->start, regmem_size, "bcm63xx_pcmcia")) {
@@ -364,7 +364,7 @@ static int __devinit bcm63xx_drv_pcmcia_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/*                    */
+	/* remap io registers */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 3);
 	iomem_size = resource_size(res);
 	skt->io_base = ioremap(res->start, iomem_size);
@@ -373,7 +373,7 @@ static int __devinit bcm63xx_drv_pcmcia_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/*                      */
+	/* resources are static */
 	sock->resource_ops = &pccard_static_ops;
 	sock->ops = &bcm63xx_pcmcia_operations;
 	sock->owner = THIS_MODULE;
@@ -388,25 +388,25 @@ static int __devinit bcm63xx_drv_pcmcia_probe(struct platform_device *pdev)
 		sock->features |= SS_CAP_CARDBUS;
 #endif
 
-	/*                                                     */
+	/* assume common & attribute memory have the same size */
 	sock->map_size = resource_size(skt->common_res);
 
-	/*                          */
+	/* initialize polling timer */
 	setup_timer(&skt->timer, bcm63xx_pcmcia_poll, (unsigned long)skt);
 
-	/*                                                            
-                                                               
-          */
+	/* initialize  pcmcia  control register,  drive  VS[12] to  0,
+	 * leave CB IDSEL to the old  value since it is set by the PCI
+	 * layer */
 	val = pcmcia_readl(skt, PCMCIA_C1_REG);
 	val &= PCMCIA_C1_CBIDSEL_MASK;
 	val |= PCMCIA_C1_EN_PCMCIA_GPIO_MASK;
 	pcmcia_writel(skt, val, PCMCIA_C1_REG);
 
 	/*
-                                                               
-                                                         
-                                  
-  */
+	 * Hardware has only one set of timings registers, not one for
+	 * each memory access type, so we configure them for the
+	 * slowest one: attribute memory.
+	 */
 	val = PCMCIA_C2_DATA16_MASK;
 	val |= 10 << PCMCIA_C2_RWCOUNT_SHIFT;
 	val |= 6 << PCMCIA_C2_INACTIVE_SHIFT;
@@ -418,7 +418,7 @@ static int __devinit bcm63xx_drv_pcmcia_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
-	/*                      */
+	/* start polling socket */
 	mod_timer(&skt->timer,
 		  jiffies + msecs_to_jiffies(BCM63XX_PCMCIA_POLL_RATE));
 
@@ -464,7 +464,7 @@ struct platform_driver bcm63xx_pcmcia_driver = {
 static int __devinit bcm63xx_cb_probe(struct pci_dev *dev,
 				      const struct pci_device_id *id)
 {
-	/*                 */
+	/* keep pci device */
 	bcm63xx_cb_dev = dev;
 	return platform_driver_register(&bcm63xx_pcmcia_driver);
 }
@@ -508,8 +508,8 @@ static struct pci_driver bcm63xx_cardbus_driver = {
 #endif
 
 /*
-                                                                    
-                                              
+ * if cardbus support is enabled, register our platform device after
+ * our fake cardbus bridge has been registered
  */
 static int __init bcm63xx_pcmcia_init(void)
 {

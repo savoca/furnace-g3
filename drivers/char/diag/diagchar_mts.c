@@ -40,7 +40,7 @@
 MODULE_DESCRIPTION("Diag Char Driver for MTS");
 MODULE_LICENSE("GPL v2");
 
-/*                              */
+/* Identifier for data from MDM */
 #define MDM_TOKEN				-1
 #define BUSY_CHECK_COUNT		5
 #define BUSY_WAITING_TIME_US	(100 * 1000)
@@ -223,10 +223,10 @@ static int diagchar_mts_read(struct file *file, char __user *buf, size_t count,
 	mutex_lock(&driver->diagchar_mutex);
 	driver->data_ready[index] |= USER_SPACE_DATA_TYPE;
 
-	/*                                  */
+	/*Copy the type of data being passed*/
 	data_type = driver->data_ready[index] & USER_SPACE_DATA_TYPE;
 	COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
-	/*                                       */
+	/* place holder for number of data field */
 	ret += 4;
 
 	for (i = 0; i < driver->poolsize_write_struct; i++) {
@@ -238,7 +238,7 @@ static int diagchar_mts_read(struct file *file, char __user *buf, size_t count,
 				driver->buf_tbl[i].length);
 #endif
 			num_data++;
-			/*                                      */
+			/* Copy the length of data being passed */
 			if (copy_to_user(buf+ret, (void *)&(driver->
 					buf_tbl[i].length), 4)) {
 				num_data--;
@@ -246,7 +246,7 @@ static int diagchar_mts_read(struct file *file, char __user *buf, size_t count,
 			}
 			ret += 4;
 
-			/*                                   */
+			/* Copy the actual data being passed */
 			if (copy_to_user(buf+ret, (void *)driver->
 					buf_tbl[i].buf, driver->buf_tbl[i].length)) {
 				ret -= 4;
@@ -268,15 +268,15 @@ drop:
 		}
 	}
 
-	/*                 */
+	/* copy modem data */
 	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
 		struct diag_smd_info *data = &driver->smd_data[i];
 		if (data->in_busy_1 == 1) {
 			num_data++;
-			/*                                    */
+			/*Copy the length of data being passed*/
 			COPY_USER_SPACE_OR_EXIT(buf+ret,
 				(data->write_ptr_1->length), 4);
-			/*                                 */
+			/*Copy the actual data being passed*/
 			COPY_USER_SPACE_OR_EXIT(buf+ret,
 				*(data->buf_in_1),
 				data->write_ptr_1->length);
@@ -287,10 +287,10 @@ drop:
 		}
 		if (data->in_busy_2 == 1) {
 			num_data++;
-			/*                                    */
+			/*Copy the length of data being passed*/
 			COPY_USER_SPACE_OR_EXIT(buf+ret,
 				(data->write_ptr_2->length), 4);
-			/*                                 */
+			/*Copy the actual data being passed*/
 			COPY_USER_SPACE_OR_EXIT(buf+ret,
 				*(data->buf_in_2),
 				data->write_ptr_2->length);
@@ -301,7 +301,7 @@ drop:
 		}
 	}
 
-	/*                            */
+	/* copy number of data fields */
 	COPY_USER_SPACE_OR_EXIT(buf+4, num_data, 4);
 	ret -= 4;
 	driver->data_ready[index] ^= USER_SPACE_DATA_TYPE;
@@ -321,9 +321,9 @@ static int diagchar_mts_write(struct file *file, const char __user *buf,
 	unsigned int payload_size;
 	void *user_space_data = NULL;
 
-	/*                                               */
+	/* Get the packet type F3/log/event/Pkt response */
 	err = copy_from_user((&pkt_type), buf, 4);
-	/*                                                           */
+	/* First 4 bytes indicate the type of payload - ignore these */
 	if (count < 4) {
 		pr_err("diag: Client sending short data\n");
 		return -EBADMSG;
@@ -367,7 +367,7 @@ static int diagchar_mts_write(struct file *file, const char __user *buf,
 			return -EIO;
 		}
 
-		/*                     */
+		/* Check for proc_type */
 		if (*(int *)user_space_data == MDM_TOKEN) {
 			remote_data = true;
 			token_offset = 4;
@@ -384,7 +384,7 @@ static int diagchar_mts_write(struct file *file, const char __user *buf,
 
 		buf = buf + 4;
 
-		/*                      */
+		/* send masks to 8k now */
 		if (!remote_data)
 			diag_process_hdlc((void *)
 				(user_space_data + token_offset),
@@ -437,7 +437,7 @@ static int diagchar_setup_cdev(dev_t devno)
 static int diagchar_cleanup(void)
 {
 	if (cdev_mts) {
-		/*                                               */
+		/* TODO - Check if device exists before deleting */
 		device_destroy(diagchar_mts_class, dev);
 		cdev_del(cdev_mts);
 	}

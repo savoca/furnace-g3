@@ -28,4 +28,4 @@ extern struct IPSelectorDb spd;
 
 extern rwlock_t spd_lock;
 
-#endif				/*                      */
+#endif				/* KERNELSPD_INTERNAL_H */

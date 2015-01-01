@@ -1,7 +1,7 @@
 /*
-                                         
-  
-                                    
+ *	Low-Level PCI Access for FRV machines.
+ *
+ *	(c) 1999 Martin Mares <mj@ucw.cz>
  */
 
 #include <asm/sections.h>
@@ -24,17 +24,17 @@
 
 extern unsigned int __nongpreldata pci_probe;
 
-/*           */
+/* pci-frv.c */
 
 void pcibios_resource_survey(void);
 
-/*           */
+/* pci-vdk.c */
 
 extern int __nongpreldata pcibios_last_bus;
 extern struct pci_bus *__nongpreldata pci_root_bus;
 extern struct pci_ops *__nongpreldata pci_root_ops;
 
-/*           */
+/* pci-irq.c */
 extern unsigned int pcibios_irq_mask;
 
 void pcibios_irq_init(void);

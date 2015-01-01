@@ -12,7 +12,7 @@
 #define psy_to_ux500_charger(x) container_of((x), \
 		struct ux500_charger, psy)
 
-/*                     */
+/* Forward declaration */
 struct ux500_charger;
 
 struct ux500_charger_ops {
@@ -21,12 +21,12 @@ struct ux500_charger_ops {
 	int (*update_curr) (struct ux500_charger *, int);
 };
 
-/* 
-                                                              
-                                 
-                                  
-                                                     
-                                                     
+/**
+ * struct ux500_charger - power supply ux500 charger sub class
+ * @psy			power supply base class
+ * @ops			ux500 charger operations
+ * @max_out_volt	maximum output charger voltage in mV
+ * @max_out_curr	maximum output charger current in mA
  */
 struct ux500_charger {
 	struct power_supply psy;

@@ -1,22 +1,22 @@
-/* 
-                  
-                          
-  
-                                                     
-                                             
-  
-                                                                        
-                             
-  
-        
-                                                 
-  
-                             
-                                          
-                                  
-  
-                         
-           
+/**
+ * \file drm_drv.c
+ * Generic driver template
+ *
+ * \author Rickard E. (Rik) Faith <faith@valinux.com>
+ * \author Gareth Hughes <gareth@valinux.com>
+ *
+ * To use this template, you must at least define the following (samples
+ * given for the MGA driver):
+ *
+ * \code
+ * #define DRIVER_AUTHOR	"VA Linux Systems, Inc."
+ *
+ * #define DRIVER_NAME		"mga"
+ * #define DRIVER_DESC		"Matrox G200/G400"
+ * #define DRIVER_DATE		"20001127"
+ *
+ * #define drm_x		mga_##x
+ * \endcode
  */
 
 /*
@@ -59,7 +59,7 @@ static int drm_version(struct drm_device *dev, void *data,
 #define DRM_IOCTL_DEF(ioctl, _func, _flags) \
 	[DRM_IOCTL_NR(ioctl)] = {.cmd = ioctl, .func = _func, .flags = _flags, .cmd_drv = 0}
 
-/*              */
+/** Ioctl table */
 static struct drm_ioctl_desc drm_ioctls[] = {
 	DRM_IOCTL_DEF(DRM_IOCTL_VERSION, drm_version, DRM_UNLOCKED),
 	DRM_IOCTL_DEF(DRM_IOCTL_GET_UNIQUE, drm_getunique, 0),
@@ -106,7 +106,7 @@ static struct drm_ioctl_desc drm_ioctls[] = {
 	DRM_IOCTL_DEF(DRM_IOCTL_INFO_BUFS, drm_infobufs, DRM_AUTH),
 	DRM_IOCTL_DEF(DRM_IOCTL_MAP_BUFS, drm_mapbufs, DRM_AUTH),
 	DRM_IOCTL_DEF(DRM_IOCTL_FREE_BUFS, drm_freebufs, DRM_AUTH),
-	/*                                                          */
+	/* The DRM_IOCTL_DMA ioctl should be defined by the driver. */
 	DRM_IOCTL_DEF(DRM_IOCTL_DMA, NULL, DRM_AUTH),
 
 	DRM_IOCTL_DEF(DRM_IOCTL_CONTROL, drm_control, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
@@ -168,14 +168,14 @@ static struct drm_ioctl_desc drm_ioctls[] = {
 
 #define DRM_CORE_IOCTL_COUNT	ARRAY_SIZE( drm_ioctls )
 
-/* 
-                            
-  
-                                   
-  
-                                  
-  
-                 
+/**
+ * Take down the DRM device.
+ *
+ * \param dev DRM device structure.
+ *
+ * Frees every resource in \p dev.
+ *
+ * \sa drm_device
  */
 int drm_lastclose(struct drm_device * dev)
 {
@@ -193,13 +193,13 @@ int drm_lastclose(struct drm_device * dev)
 
 	mutex_lock(&dev->struct_mutex);
 
-	/*                       */
+	/* Clear AGP information */
 	if (drm_core_has_AGP(dev) && dev->agp &&
 			!drm_core_check_feature(dev, DRIVER_MODESET)) {
 		struct drm_agp_mem *entry, *tempe;
 
-		/*                                         
-                                         */
+		/* Remove AGP resources, but leave dev->agp
+		   intact until drv_cleanup is called. */
 		list_for_each_entry_safe(entry, tempe, &dev->agp->memory, head) {
 			if (entry->bound)
 				drm_unbind_agp(entry->memory);
@@ -220,7 +220,7 @@ int drm_lastclose(struct drm_device * dev)
 		dev->sg = NULL;
 	}
 
-	/*                                           */
+	/* Clear vma list (only built for debugging) */
 	list_for_each_entry_safe(vma, vma_temp, &dev->vmalist, head) {
 		list_del(&vma->head);
 		kfree(vma);
@@ -247,7 +247,7 @@ int drm_lastclose(struct drm_device * dev)
 	return 0;
 }
 
-/*                            */
+/** File operations structure */
 static const struct file_operations drm_stub_fops = {
 	.owner = THIS_MODULE,
 	.open = drm_stub_open,
@@ -313,39 +313,39 @@ static void __exit drm_core_exit(void)
 module_init(drm_core_init);
 module_exit(drm_core_exit);
 
-/* 
-                                             
+/**
+ * Copy and IOCTL return string to user space
  */
 static int drm_copy_field(char *buf, size_t *buf_len, const char *value)
 {
 	int len;
 
-	/*                        */
+	/* don't overflow userbuf */
 	len = strlen(value);
 	if (len > *buf_len)
 		len = *buf_len;
 
-	/*                                                                
-                                               */
+	/* let userspace know exact length of driver value (which could be
+	 * larger than the userspace-supplied buffer) */
 	*buf_len = strlen(value);
 
-	/*                                     */
+	/* finally, try filling in the userbuf */
 	if (len && buf)
 		if (copy_to_user(buf, value, len))
 			return -EFAULT;
 	return 0;
 }
 
-/* 
-                          
-  
-                             
-                            
-                      
-                                                                 
-                                                         
-  
-                                              
+/**
+ * Get version information
+ *
+ * \param inode device inode.
+ * \param filp file pointer.
+ * \param cmd command.
+ * \param arg user argument, pointing to a drm_version structure.
+ * \return zero on success or negative number on failure.
+ *
+ * Fills in the version information in \p arg.
  */
 static int drm_version(struct drm_device *dev, void *data,
 		       struct drm_file *file_priv)
@@ -368,17 +368,17 @@ static int drm_version(struct drm_device *dev, void *data,
 	return err;
 }
 
-/* 
-                                                           
-  
-                             
-                                     
-                      
-                            
-                                                         
-  
-                                                                       
-                                                                        
+/**
+ * Called whenever a process performs an ioctl on /dev/drm.
+ *
+ * \param inode device inode.
+ * \param file_priv DRM file private.
+ * \param cmd command.
+ * \param arg user argument.
+ * \return zero on success or negative number on failure.
+ *
+ * Looks up the ioctl function in the ::ioctls table, checking for root
+ * previleges if so required, and dispatches to the respective function.
  */
 long drm_ioctl(struct file *filp,
 	      unsigned int cmd, unsigned long arg)
@@ -426,9 +426,9 @@ long drm_ioctl(struct file *filp,
 	} else
 		goto err_i1;
 
-	/*                                                */
+	/* Do not trust userspace, use our own definition */
 	func = ioctl->func;
-	/*                            */
+	/* is there a local override? */
 	if ((nr == DRM_IOCTL_NR(DRM_IOCTL_DMA)) && dev->driver->dma_ioctl)
 		func = dev->driver->dma_ioctl;
 

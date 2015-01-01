@@ -61,9 +61,9 @@ void rt_mutex_debug_task_free(struct task_struct *task)
 }
 
 /*
-                                                                      
-                                                                   
-                                     
+ * We fill out the fields in the waiter to store the information about
+ * the deadlock. We print when we return. act_waiter can be NULL in
+ * case of a remove waiter operation.
  */
 void debug_rt_mutex_deadlock(int detect, struct rt_mutex_waiter *act_waiter,
 			     struct rt_mutex *lock)
@@ -169,8 +169,8 @@ void debug_rt_mutex_free_waiter(struct rt_mutex_waiter *waiter)
 void debug_rt_mutex_init(struct rt_mutex *lock, const char *name)
 {
 	/*
-                                                    
-  */
+	 * Make sure we are not reinitializing a held lock:
+	 */
 	debug_check_no_locks_freed((void *)lock, sizeof(*lock));
 	lock->name = name;
 }

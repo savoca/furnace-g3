@@ -49,9 +49,9 @@ static int crunch_do(struct notifier_block *self, unsigned long cmd, void *t)
 		memset(crunch_state, 0, sizeof(*crunch_state));
 
 		/*
-                                                            
-                                                      
-   */
+		 * FALLTHROUGH: Ensure we don't try to overwrite our newly
+		 * initialised state information on the first fault.
+		 */
 
 	case THREAD_NOTIFY_EXIT:
 		crunch_task_release(thread);
@@ -61,10 +61,10 @@ static int crunch_do(struct notifier_block *self, unsigned long cmd, void *t)
 		devcfg = __raw_readl(EP93XX_SYSCON_DEVCFG);
 		if (crunch_enabled(devcfg) || crunch_owner == crunch_state) {
 			/*
-                                                      
-                                                   
-                                     
-    */
+			 * We don't use ep93xx_syscon_swlocked_write() here
+			 * because we are on the context switch path and
+			 * preemption is already disabled.
+			 */
 			devcfg ^= EP93XX_SYSCON_DEVCFG_CPENA;
 			__raw_writel(0xaa, EP93XX_SYSCON_SWLOCK);
 			__raw_writel(devcfg, EP93XX_SYSCON_DEVCFG);

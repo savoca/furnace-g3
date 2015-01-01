@@ -15,7 +15,7 @@
 #include <linux/highmem.h>
 
 /*
-                                   
+ * Faraday optimised copy_user_page
  */
 static void __naked
 fa_copy_user_page(void *kto, const void *kfrom)
@@ -52,9 +52,9 @@ void fa_copy_user_highpage(struct page *to, struct page *from,
 }
 
 /*
-                                    
-  
-                       
+ * Faraday optimised clear_user_page
+ *
+ * Same story as above.
  */
 void fa_clear_user_highpage(struct page *page, unsigned long vaddr)
 {

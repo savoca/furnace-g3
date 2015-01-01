@@ -11,8 +11,8 @@
  * published by the Free Software Foundation.
 */
 
-/*                                                            
-                          
+/* some boards require extra gpio capacity to support external
+ * devices that need GPIO.
  */
 
 #ifdef CONFIG_CPU_S3C244X

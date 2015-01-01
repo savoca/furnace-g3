@@ -66,17 +66,17 @@ enum {
 };
 
 /*
-                                                          
-                                                            
-                                                      
-                                           
-  
-                                                                      
-                                                                
-                                                                 
-                     
-  
-                                                                     
+ * Our lifetime rules for these structs are the following:
+ * device special file is opened, we take a reference on the
+ * ib_umad_port's struct ib_umad_device. We drop these
+ * references in the corresponding close().
+ *
+ * In addition to references coming from open character devices, there
+ * is one more reference to each ib_umad_device representing the
+ * module's reference taken when allocating the ib_umad_device in
+ * ib_umad_add_one().
+ *
+ * When destroying an ib_umad_device, we drop the module's reference.
  */
 
 struct ib_umad_port {
@@ -148,7 +148,7 @@ static int hdr_size(struct ib_umad_file *file)
 		sizeof (struct ib_user_mad_hdr_old);
 }
 
-/*                              */
+/* caller must hold file->mutex */
 static struct ib_mad_agent *__get_agent(struct ib_umad_file *file, int id)
 {
 	return file->agents_dead ? NULL : file->agent[id];
@@ -258,7 +258,7 @@ static ssize_t copy_recv_mad(struct ib_umad_file *file, char __user *buf,
 	struct ib_mad_recv_buf *recv_buf;
 	int left, seg_payload, offset, max_seg_payload;
 
-	/*                                                              */
+	/* We need enough room to copy the first (or only) MAD segment. */
 	recv_buf = &packet->recv_wc->recv_buf;
 	if ((packet->length <= sizeof (*recv_buf->mad) &&
 	     count < hdr_size(file) + packet->length) ||
@@ -276,14 +276,14 @@ static ssize_t copy_recv_mad(struct ib_umad_file *file, char __user *buf,
 
 	if (seg_payload < packet->length) {
 		/*
-                                                             
-                                                       
-   */
+		 * Multipacket RMPP MAD message. Copy remainder of message.
+		 * Note that last segment may have a shorter payload.
+		 */
 		if (count < hdr_size(file) + packet->length) {
 			/*
-                                                             
-                                             
-    */
+			 * The buffer is too small, return the first RMPP segment,
+			 * which includes the RMPP message length.
+			 */
 			return -ENOSPC;
 		}
 		offset = ib_get_mad_data_offset(recv_buf->mad->mad_hdr.mgmt_class);
@@ -357,7 +357,7 @@ static ssize_t ib_umad_read(struct file *filp, char __user *buf,
 		ret = copy_send_mad(file, buf, packet, count);
 
 	if (ret < 0) {
-		/*                */
+		/* Requeue packet */
 		mutex_lock(&file->mutex);
 		list_add(&packet->list, &file->recv_list);
 		mutex_unlock(&file->mutex);
@@ -373,13 +373,13 @@ static int copy_rmpp_mad(struct ib_mad_send_buf *msg, const char __user *buf)
 {
 	int left, seg;
 
-	/*                            */
+	/* Copy class specific header */
 	if ((msg->hdr_len > IB_MGMT_RMPP_HDR) &&
 	    copy_from_user(msg->mad + IB_MGMT_RMPP_HDR, buf + IB_MGMT_RMPP_HDR,
 			   msg->hdr_len - IB_MGMT_RMPP_HDR))
 		return -EFAULT;
 
-	/*                                                */
+	/* All headers are in place.  Copy data segments. */
 	for (seg = 1, left = msg->data_len, buf += msg->hdr_len; left > 0;
 	     seg++, left -= msg->seg_size, buf += msg->seg_size) {
 		if (copy_from_user(ib_get_rmpp_segment(msg, seg), buf,
@@ -416,10 +416,10 @@ static int is_duplicate(struct ib_umad_file *file,
 			continue;
 
 		/*
-                                                                  
-                                                                  
-                                           
-   */
+		 * No need to be overly clever here.  If two new operations have
+		 * the same TID, reject the second as a duplicate.  This is more
+		 * restrictive than required by the spec.
+		 */
 		if (!ib_response_mad((struct ib_mad *) hdr)) {
 			if (!ib_response_mad((struct ib_mad *) sent_hdr))
 				return 1;
@@ -524,7 +524,7 @@ static ssize_t ib_umad_write(struct file *filp, const char __user *buf,
 	packet->msg->retries	= packet->mad.hdr.retries;
 	packet->msg->context[0] = packet;
 
-	/*                                                        */
+	/* Copy MAD header.  Any RMPP header is already in place. */
 	memcpy(packet->msg->mad, packet->mad.data, IB_MGMT_MAD_HDR);
 
 	if (!rmpp_active) {
@@ -541,10 +541,10 @@ static ssize_t ib_umad_write(struct file *filp, const char __user *buf,
 	}
 
 	/*
-                                                                   
-                                                                    
-                       
-  */
+	 * Set the high-order part of the transaction ID to make MADs from
+	 * different agents unique, and allow routing responses back to the
+	 * original requestor.
+	 */
 	if (!ib_response_mad(packet->msg->mad)) {
 		tid = &((struct ib_mad_hdr *) packet->msg->mad)->tid;
 		*tid = cpu_to_be64(((u64) agent->hi_tid) << 32 |
@@ -586,7 +586,7 @@ static unsigned int ib_umad_poll(struct file *filp, struct poll_table_struct *wa
 {
 	struct ib_umad_file *file = filp->private_data;
 
-	/*                                           */
+	/* we will always be able to post a MAD send */
 	unsigned int mask = POLLOUT | POLLWRNORM;
 
 	poll_wait(filp, &file->recv_wait, wait);
@@ -768,13 +768,13 @@ static long ib_umad_compat_ioctl(struct file *filp, unsigned int cmd,
 #endif
 
 /*
-                                        
-  
-                                                                     
-                                                                   
-                                                       
-                                                                      
-                                       
+ * ib_umad_open() does not need the BKL:
+ *
+ *  - the ib_umad_port structures are properly reference counted, and
+ *    everything else is purely local to the file being created, so
+ *    races against other open calls are not a problem;
+ *  - the ioctl method does not affect any global state outside of the
+ *    file structure being operated on;
  */
 static int ib_umad_open(struct inode *inode, struct file *filp)
 {

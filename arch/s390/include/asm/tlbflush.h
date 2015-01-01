@@ -7,7 +7,7 @@
 #include <asm/pgalloc.h>
 
 /*
-                                          
+ * Flush all tlb entries on the local cpu.
  */
 static inline void __tlb_flush_local(void)
 {
@@ -16,7 +16,7 @@ static inline void __tlb_flush_local(void)
 
 #ifdef CONFIG_SMP
 /*
-                                     
+ * Flush all tlb entries on all cpus.
  */
 void smp_ptlb_all(void);
 
@@ -32,7 +32,7 @@ static inline void __tlb_flush_global(void)
 		smp_ptlb_all();
 		return;
 	}
-#endif /*           */
+#endif /* __s390x__ */
 
 	dummy = 0;
 	reg2 = reg3 = 0;
@@ -48,8 +48,8 @@ static inline void __tlb_flush_full(struct mm_struct *mm)
 
 	preempt_disable();
 	/*
-                                                               
-  */
+	 * If the process only ran on the local cpu, do a local flush.
+	 */
 	cpumask_copy(&local_cpumask, cpumask_of(smp_processor_id()));
 	if (cpumask_equal(mm_cpumask(mm), &local_cpumask))
 		__tlb_flush_local();
@@ -63,7 +63,7 @@ static inline void __tlb_flush_full(struct mm_struct *mm)
 #endif
 
 /*
-                                                     
+ * Flush all tlb entries of a page table on all cpus.
  */
 static inline void __tlb_flush_idte(unsigned long asce)
 {
@@ -77,10 +77,10 @@ static inline void __tlb_flush_mm(struct mm_struct * mm)
 	if (unlikely(cpumask_empty(mm_cpumask(mm))))
 		return;
 	/*
-                                                          
-                                                        
-                              
-  */
+	 * If the machine has IDTE we prefer to do a per mm flush
+	 * on all cpus instead of doing a local flush if the mm
+	 * only ran on the local cpu.
+	 */
 	if (MACHINE_HAS_IDTE && list_empty(&mm->context.gmap_list))
 		__tlb_flush_idte((unsigned long) mm->pgd |
 				 mm->context.asce_bits);
@@ -99,22 +99,22 @@ static inline void __tlb_flush_mm_cond(struct mm_struct * mm)
 }
 
 /*
-                
-                                                    
-                                                
-                                                             
-                                                  
-                                                               
-                                                                        
+ * TLB flushing:
+ *  flush_tlb() - flushes the current mm struct TLBs
+ *  flush_tlb_all() - flushes all processes TLBs
+ *  flush_tlb_mm(mm) - flushes the specified mm context TLB's
+ *  flush_tlb_page(vma, vmaddr) - flushes one page
+ *  flush_tlb_range(vma, start, end) - flushes a range of pages
+ *  flush_tlb_kernel_range(start, end) - flushes a range of kernel pages
  */
 
 /*
-                                                             
-                                                              
-                                                                   
-                                                                  
-                                                               
-                                                  
+ * flush_tlb_mm goes together with ptep_set_wrprotect for the
+ * copy_page_range operation and flush_tlb_range is related to
+ * ptep_get_and_clear for change_protection. ptep_set_wrprotect and
+ * ptep_get_and_clear do not flush the TLBs directly if the mm has
+ * only one user. At the end of the update the flush_tlb_mm and
+ * flush_tlb_range functions need to do the flush.
  */
 #define flush_tlb()				do { } while (0)
 #define flush_tlb_all()				do { } while (0)
@@ -137,4 +137,4 @@ static inline void flush_tlb_kernel_range(unsigned long start,
 	__tlb_flush_mm(&init_mm);
 }
 
-#endif /*                  */
+#endif /* _S390_TLBFLUSH_H */

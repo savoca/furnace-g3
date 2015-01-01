@@ -34,7 +34,7 @@ static unsigned int mac_addr_used;
 static struct board_info board;
 
 /*
-                    
+ * known 6338 boards
  */
 #ifdef CONFIG_BCM63XX_CPU_6338
 static struct board_info __initdata board_96338gw = {
@@ -123,7 +123,7 @@ static struct board_info __initdata board_96338w = {
 #endif
 
 /*
-                    
+ * known 6345 boards
  */
 #ifdef CONFIG_BCM63XX_CPU_6345
 static struct board_info __initdata board_96345gw2 = {
@@ -135,7 +135,7 @@ static struct board_info __initdata board_96345gw2 = {
 #endif
 
 /*
-                    
+ * known 6348 boards
  */
 #ifdef CONFIG_BCM63XX_CPU_6348
 static struct board_info __initdata board_96348r = {
@@ -440,7 +440,7 @@ static struct board_info __initdata board_96348gw_a = {
 #endif
 
 /*
-                    
+ * known 6358 boards
  */
 #ifdef CONFIG_BCM63XX_CPU_6358
 static struct board_info __initdata board_96358vw = {
@@ -589,7 +589,7 @@ static struct board_info __initdata board_DWVS0 = {
 #endif
 
 /*
-             
+ * all boards
  */
 static const struct board_info __initdata *bcm963xx_boards[] = {
 #ifdef CONFIG_BCM63XX_CPU_6338
@@ -619,8 +619,8 @@ static const struct board_info __initdata *bcm963xx_boards[] = {
 };
 
 /*
-                                               
-                    
+ * Register a sane SPROMv2 to make the on-board
+ * bcm4318 WLAN work
  */
 #ifdef CONFIG_SSB_PCIHOST
 static struct ssb_sprom bcm63xx_sprom = {
@@ -657,7 +657,7 @@ int bcm63xx_get_fallback_sprom(struct ssb_bus *bus, struct ssb_sprom *out)
 #endif
 
 /*
-                                      
+ * return board name for /proc/cpuinfo
  */
 const char *board_get_name(void)
 {
@@ -665,7 +665,7 @@ const char *board_get_name(void)
 }
 
 /*
-                                            
+ * register & return a new board mac address
  */
 static int board_get_mac_address(u8 *mac)
 {
@@ -700,7 +700,7 @@ static int board_get_mac_address(u8 *mac)
 }
 
 /*
-                                                                  
+ * early init callback, read nvram data from flash and checksum it
  */
 void __init board_prom_init(void)
 {
@@ -709,12 +709,12 @@ void __init board_prom_init(void)
 	char cfe_version[32];
 	u32 val;
 
-	/*                                           */
+	/* read base address of boot chip select (0) */
 	val = bcm_mpi_readl(MPI_CSBASE_REG(0));
 	val &= MPI_CSBASE_BASE_MASK;
 	boot_addr = (u8 *)KSEG1ADDR(val);
 
-	/*                  */
+	/* dump cfe version */
 	cfe = boot_addr + BCM963XX_CFE_VERSION_OFFSET;
 	if (!memcmp(cfe, "cfe-v", 5))
 		snprintf(cfe_version, sizeof(cfe_version), "%u.%u.%u-%u.%u",
@@ -723,10 +723,10 @@ void __init board_prom_init(void)
 		strcpy(cfe_version, "unknown");
 	printk(KERN_INFO PFX "CFE version: %s\n", cfe_version);
 
-	/*                    */
+	/* extract nvram data */
 	memcpy(&nvram, boot_addr + BCM963XX_NVRAM_OFFSET, sizeof(nvram));
 
-	/*                                  */
+	/* check checksum before using data */
 	if (nvram.version <= 4)
 		check_len = offsetof(struct bcm963xx_nvram, checksum_old);
 	else
@@ -740,17 +740,17 @@ void __init board_prom_init(void)
 		return;
 	}
 
-	/*                    */
+	/* find board by name */
 	for (i = 0; i < ARRAY_SIZE(bcm963xx_boards); i++) {
 		if (strncmp(nvram.name, bcm963xx_boards[i]->name,
 			    sizeof(nvram.name)))
 			continue;
-		/*                                           */
+		/* copy, board desc array is marked initdata */
 		memcpy(&board, bcm963xx_boards[i], sizeof(board));
 		break;
 	}
 
-	/*                                                     */
+	/* bail out if board is not found, will complain later */
 	if (!board.name[0]) {
 		char name[17];
 		memcpy(name, nvram.name, 16);
@@ -760,9 +760,9 @@ void __init board_prom_init(void)
 		return;
 	}
 
-	/*                                                          
-                                                         
-                         */
+	/* setup pin multiplexing depending on board enabled device,
+	 * this has to be done this early since PCI init is done
+	 * inside arch_initcall */
 	val = 0;
 
 #ifdef CONFIG_PCI
@@ -794,8 +794,8 @@ void __init board_prom_init(void)
 }
 
 /*
-                                                                
-                                                                      
+ * second stage init callback, good time to panic if we couldn't
+ * identify on which board we're running since early printk is working
  */
 void __init board_setup(void)
 {
@@ -803,7 +803,7 @@ void __init board_setup(void)
 		panic("unable to detect bcm963xx board");
 	printk(KERN_INFO PFX "board name: %s\n", board.name);
 
-	/*                                         */
+	/* make sure we're running on expected cpu */
 	if (bcm63xx_get_cpu_id() != board.expected_cpu_id)
 		panic("unexpected CPU for bcm963xx board");
 }
@@ -827,8 +827,8 @@ static struct physmap_flash_data flash_data = {
 
 static struct resource mtd_resources[] = {
 	{
-		.start		= 0,	/*                   */
-		.end		= 0,	/*                   */
+		.start		= 0,	/* filled at runtime */
+		.end		= 0,	/* filled at runtime */
 		.flags		= IORESOURCE_MEM,
 	}
 };
@@ -851,7 +851,7 @@ static struct platform_device bcm63xx_gpio_leds = {
 };
 
 /*
-                                                         
+ * third stage init callback, register all board devices.
  */
 int __init board_register_devices(void)
 {
@@ -877,9 +877,9 @@ int __init board_register_devices(void)
 	if (board.has_dsp)
 		bcm63xx_dsp_register(&board.dsp);
 
-	/*                                                      
-                                          
-  */
+	/* Generate MAC address for WLAN and register our SPROM,
+	 * do this after registering enet devices
+	 */
 #ifdef CONFIG_SSB_PCIHOST
 	if (!board_get_mac_address(bcm63xx_sprom.il0mac)) {
 		memcpy(bcm63xx_sprom.et0mac, bcm63xx_sprom.il0mac, ETH_ALEN);
@@ -890,7 +890,7 @@ int __init board_register_devices(void)
 	}
 #endif
 
-	/*                                           */
+	/* read base address of boot chip select (0) */
 	val = bcm_mpi_readl(MPI_CSBASE_REG(0));
 	val &= MPI_CSBASE_BASE_MASK;
 

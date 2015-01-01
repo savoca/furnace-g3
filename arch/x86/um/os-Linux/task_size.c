@@ -21,13 +21,13 @@ static int page_ok(unsigned long page)
 	int ok = 0;
 
 	/*
-                                                              
-                                                           
-                                                             
-                                                               
-                                                             
-                   
-  */
+	 * First see if the page is readable.  If it is, it may still
+	 * be a VDSO, so we go on to see if it's writable.  If not
+	 * then try mapping memory there.  If that fails, then we're
+	 * still in the kernel area.  As a sanity check, we'll fail if
+	 * the mmap succeeds, but gives us an address different from
+	 * what we wanted.
+	 */
 	if (setjmp(buf) == 0)
 		n = *address;
 	else {
@@ -41,10 +41,10 @@ static int page_ok(unsigned long page)
 	}
 
 	/*
-                                                            
-                                                             
-          
-  */
+	 * Now, is it writeable?  If so, then we're in user address
+	 * space.  If not, then try mprotecting it and try the write
+	 * again.
+	 */
 	if (setjmp(buf) == 0) {
 		*address = n;
 		ok = 1;
@@ -69,13 +69,13 @@ unsigned long os_get_top_address(void)
 	struct sigaction sa, old;
 	unsigned long bottom = 0;
 	/*
-                                                                 
-                                                                        
-                                                                
-                                                                     
-                                                                  
-                                        
-  */
+	 * A 32-bit UML on a 64-bit host gets confused about the VDSO at
+	 * 0xffffe000.  It is mapped, is readable, can be reprotected writeable
+	 * and written.  However, exec discovers later that it can't be
+	 * unmapped.  So, just set the highest address to be checked to just
+	 * below it.  This might waste some address space on 4G/4G 32-bit
+	 * hosts, but shouldn't hurt otherwise.
+	 */
 	unsigned long top = 0xffffd000 >> UM_KERN_PAGE_SHIFT;
 	unsigned long test, original;
 
@@ -83,9 +83,9 @@ unsigned long os_get_top_address(void)
 	fflush(stdout);
 
 	/*
-                                                              
-                             
-  */
+	 * We're going to be longjmping out of the signal handler, so
+	 * SA_DEFER needs to be set.
+	 */
 	sa.sa_handler = segfault;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_NODEFER;
@@ -94,15 +94,15 @@ unsigned long os_get_top_address(void)
 		exit(1);
 	}
 
-	/*                                                          
-                                              
-  */
+	/* Manually scan the address space, bottom-up, until we find
+	 * the first valid page (or run out of them).
+	 */
 	for (bottom = 0; bottom < top; bottom++) {
 		if (page_ok(bottom))
 			break;
 	}
 
-	/*                                             */
+	/* If we've got this far, we ran out of pages. */
 	if (bottom == top) {
 		fprintf(stderr, "Unable to determine bottom of address "
 			"space.\n");
@@ -115,7 +115,7 @@ unsigned long os_get_top_address(void)
 
 	original = bottom;
 
-	/*                                      */
+	/* This could happen with a 4G/4G split */
 	if (page_ok(top))
 		goto out;
 
@@ -128,7 +128,7 @@ unsigned long os_get_top_address(void)
 	} while (top - bottom > 1);
 
 out:
-	/*                                  */
+	/* Restore the old SIGSEGV handling */
 	if (sigaction(SIGSEGV, &old, NULL)) {
 		perror("os_get_top_address");
 		exit(1);
@@ -143,7 +143,7 @@ out:
 
 unsigned long os_get_top_address(void)
 {
-	/*                                  */
+	/* The old value of CONFIG_TOP_ADDR */
 	return 0x7fc0000000;
 }
 

@@ -38,17 +38,17 @@ enum wiiproto_keys {
 };
 
 static __u16 wiiproto_keymap[] = {
-	KEY_LEFT,	/*                   */
-	KEY_RIGHT,	/*                    */
-	KEY_UP,		/*                 */
-	KEY_DOWN,	/*                   */
-	KEY_NEXT,	/*                   */
-	KEY_PREVIOUS,	/*                    */
-	BTN_1,		/*                  */
-	BTN_2,		/*                  */
-	BTN_A,		/*                */
-	BTN_B,		/*                */
-	BTN_MODE,	/*                   */
+	KEY_LEFT,	/* WIIPROTO_KEY_LEFT */
+	KEY_RIGHT,	/* WIIPROTO_KEY_RIGHT */
+	KEY_UP,		/* WIIPROTO_KEY_UP */
+	KEY_DOWN,	/* WIIPROTO_KEY_DOWN */
+	KEY_NEXT,	/* WIIPROTO_KEY_PLUS */
+	KEY_PREVIOUS,	/* WIIPROTO_KEY_MINUS */
+	BTN_1,		/* WIIPROTO_KEY_ONE */
+	BTN_2,		/* WIIPROTO_KEY_TWO */
+	BTN_A,		/* WIIPROTO_KEY_A */
+	BTN_B,		/* WIIPROTO_KEY_B */
+	BTN_MODE,	/* WIIPROTO_KEY_HOME */
 };
 
 static enum power_supply_property wiimote_battery_props[] = {
@@ -107,14 +107,14 @@ static void wiimote_queue(struct wiimote_data *wdata, const __u8 *buffer,
 	}
 
 	/*
-                                                                
-                                                       
-                                                          
-                                          
-                                                          
-                                                            
-                                                    
-  */
+	 * Copy new request into our output queue and check whether the
+	 * queue is full. If it is full, discard this request.
+	 * If it is empty we need to start a new worker that will
+	 * send out the buffer to the hid device.
+	 * If the queue is not empty, then there must be a worker
+	 * that is currently sending out our buffer and this worker
+	 * will reschedule itself until the queue is empty.
+	 */
 
 	spin_lock_irqsave(&wdata->qlock, flags);
 
@@ -135,11 +135,11 @@ static void wiimote_queue(struct wiimote_data *wdata, const __u8 *buffer,
 }
 
 /*
-                                                                   
-                     
-                                                                      
-                                                                      
-                         
+ * This sets the rumble bit on the given output report if rumble is
+ * currently enabled.
+ * \cmd1 must point to the second byte in the output report => &cmd[1]
+ * This must be called on nearly every output report before passing it
+ * into the output queue!
  */
 static inline void wiiproto_keep_rumble(struct wiimote_data *wdata, __u8 *cmd1)
 {
@@ -193,9 +193,9 @@ static void wiiproto_req_leds(struct wiimote_data *wdata, int leds)
 }
 
 /*
-                                                      
-                                                      
-                             
+ * Check what peripherals of the wiimote are currently
+ * active and select a proper DRM that supports all of
+ * the requested data inputs.
  */
 static __u8 select_drm(struct wiimote_data *wdata)
 {
@@ -345,7 +345,7 @@ void wiiproto_req_rmem(struct wiimote_data *wdata, bool eeprom, __u32 offset,
 	wiimote_queue(wdata, cmd, sizeof(cmd));
 }
 
-/*                                   */
+/* requries the cmd-mutex to be held */
 int wiimote_cmd_write(struct wiimote_data *wdata, __u32 offset,
 						const __u8 *wmem, __u8 size)
 {
@@ -364,7 +364,7 @@ int wiimote_cmd_write(struct wiimote_data *wdata, __u32 offset,
 	return ret;
 }
 
-/*                                   */
+/* requries the cmd-mutex to be held */
 ssize_t wiimote_cmd_read(struct wiimote_data *wdata, __u32 offset, __u8 *rmem,
 								__u8 size)
 {
@@ -469,7 +469,7 @@ static int wiimote_init_ir(struct wiimote_data *wdata, __u16 mode)
 	if (ret)
 		return ret;
 
-	/*                                   */
+	/* send PIXEL CLOCK ENABLE cmd first */
 	spin_lock_irqsave(&wdata->state.lock, flags);
 	wiimote_cmd_set(wdata, WIIPROTO_REQ_IR1, 0);
 	wiiproto_req_ir1(wdata, 0x06);
@@ -483,7 +483,7 @@ static int wiimote_init_ir(struct wiimote_data *wdata, __u16 mode)
 		goto unlock;
 	}
 
-	/*                 */
+	/* enable IR LOGIC */
 	spin_lock_irqsave(&wdata->state.lock, flags);
 	wiimote_cmd_set(wdata, WIIPROTO_REQ_IR2, 0);
 	wiiproto_req_ir2(wdata, 0x06);
@@ -497,25 +497,25 @@ static int wiimote_init_ir(struct wiimote_data *wdata, __u16 mode)
 		goto unlock;
 	}
 
-	/*                                                 */
+	/* enable IR cam but do not make it send data, yet */
 	ret = wiimote_cmd_write(wdata, 0xb00030, data_enable,
 							sizeof(data_enable));
 	if (ret)
 		goto unlock;
 
-	/*                               */
+	/* write first sensitivity block */
 	ret = wiimote_cmd_write(wdata, 0xb00000, data_sens1,
 							sizeof(data_sens1));
 	if (ret)
 		goto unlock;
 
-	/*                                */
+	/* write second sensitivity block */
 	ret = wiimote_cmd_write(wdata, 0xb0001a, data_sens2,
 							sizeof(data_sens2));
 	if (ret)
 		goto unlock;
 
-	/*                               */
+	/* put IR cam into desired state */
 	switch (mode) {
 		case WIIPROTO_FLAG_IR_FULL:
 			format = 5;
@@ -531,12 +531,12 @@ static int wiimote_init_ir(struct wiimote_data *wdata, __u16 mode)
 	if (ret)
 		goto unlock;
 
-	/*                       */
+	/* make IR cam send data */
 	ret = wiimote_cmd_write(wdata, 0xb00030, data_fin, sizeof(data_fin));
 	if (ret)
 		goto unlock;
 
-	/*                                            */
+	/* request new DRM mode compatible to IR mode */
 	spin_lock_irqsave(&wdata->state.lock, flags);
 	wdata->state.flags &= ~WIIPROTO_FLAGS_IR;
 	wdata->state.flags |= mode & WIIPROTO_FLAGS_IR;
@@ -604,10 +604,10 @@ static int wiimote_ff_play(struct input_dev *dev, void *data,
 	unsigned long flags;
 
 	/*
-                                                                       
-                                                                         
-                                   
-  */
+	 * The wiimote supports only a single rumble motor so if any magnitude
+	 * is set to non-zero then we start the rumble motor. If both are set to
+	 * zero, we stop the rumble motor.
+	 */
 
 	if (eff->u.rumble.strong_magnitude || eff->u.rumble.weak_magnitude)
 		value = 1;
@@ -725,16 +725,16 @@ static void handler_accel(struct wiimote_data *wdata, const __u8 *payload)
 		return;
 
 	/*
-                              
-                                                                    
-                                                                
-                                        
-                                                                        
-                                                                       
-                                                           
-                                                                         
-                                     
-  */
+	 * payload is: BB BB XX YY ZZ
+	 * Accelerometer data is encoded into 3 10bit values. XX, YY and ZZ
+	 * contain the upper 8 bits of each value. The lower 2 bits are
+	 * contained in the buttons data BB BB.
+	 * Bits 6 and 7 of the first buttons byte BB is the lower 2 bits of the
+	 * X accel value. Bit 5 of the second buttons byte is the 2nd bit of Y
+	 * accel value and bit 6 is the second bit of the Z value.
+	 * The first bit of Y and Z values is not available and always set to 0.
+	 * 0x200 is returned on no movement.
+	 */
 
 	x = payload[2] << 2;
 	y = payload[3] << 2;
@@ -768,14 +768,14 @@ static void __ir_to_input(struct wiimote_data *wdata, const __u8 *ir,
 		return;
 
 	/*
-                                                                      
-                                                                       
-            
-                                                                  
-                                                                      
-                                             
-                                                                         
-  */
+	 * Basic IR data is encoded into 3 bytes. The first two bytes are the
+	 * upper 8 bit of the X/Y data, the 3rd byte contains the lower 2 bits
+	 * of both.
+	 * If data is packed, then the 3rd byte is put first and slightly
+	 * reordered. This allows to interleave packed and non-packed data to
+	 * have two IR sets in 5 bytes instead of 6.
+	 * The resulting 10bit X/Y values are passed to the ABS_HATXY input dev.
+	 */
 
 	if (packed) {
 		x = ir[1] << 2;
@@ -799,7 +799,7 @@ static void handler_status(struct wiimote_data *wdata, const __u8 *payload)
 {
 	handler_keys(wdata, payload);
 
-	/*                                                                 */
+	/* on status reports the drm is reset so we need to resend the drm */
 	wiiproto_req_drm(wdata, WIIPROTO_REQ_NULL);
 
 	wiiext_event(wdata, payload[2] & 0x02);
@@ -1248,7 +1248,7 @@ static int wiimote_hid_probe(struct hid_device *hdev,
 
 	hid_info(hdev, "New device registered\n");
 
-	/*                                                 */
+	/* by default set led1 after device initialization */
 	spin_lock_irq(&wdata->state.lock);
 	wiiproto_req_leds(wdata, WIIPROTO_FLAG_LED1);
 	spin_unlock_irq(&wdata->state.lock);

@@ -36,7 +36,7 @@ struct gh_t_hash_tab {
 static void noop(void *p);
 
 /*
-                               
+ *  ======== gh_create ========
  */
 
 struct gh_t_hash_tab *gh_create(u16 max_bucket, u16 val_size,
@@ -69,7 +69,7 @@ struct gh_t_hash_tab *gh_create(u16 max_bucket, u16 val_size,
 }
 
 /*
-                               
+ *  ======== gh_delete ========
  */
 void gh_delete(struct gh_t_hash_tab *hash_tab)
 {
@@ -95,7 +95,7 @@ void gh_delete(struct gh_t_hash_tab *hash_tab)
 }
 
 /*
-                             
+ *  ======== gh_find ========
  */
 
 void *gh_find(struct gh_t_hash_tab *hash_tab, void *key)
@@ -113,7 +113,7 @@ void *gh_find(struct gh_t_hash_tab *hash_tab, void *key)
 }
 
 /*
-                               
+ *  ======== gh_insert ========
  */
 
 void *gh_insert(struct gh_t_hash_tab *hash_tab, void *key, void *value)
@@ -142,22 +142,22 @@ void *gh_insert(struct gh_t_hash_tab *hash_tab, void *key, void *value)
 }
 
 /*
-                          
+ *  ======== noop ========
  */
-/*          */
+/* ARGSUSED */
 static void noop(void *p)
 {
-	p = p;			/*                         */
+	p = p;			/* stifle compiler warning */
 }
 
 #ifdef CONFIG_TIDSPBRIDGE_BACKTRACE
-/* 
-                                                                               
-                                
-                        
-                                          
-                                                                  
-  
+/**
+ * gh_iterate() - This function goes through all the elements in the hash table
+ *		looking for the dsp symbols.
+ * @hash_tab:	Hash table
+ * @callback:	pointer to callback function
+ * @user_data:	User data, contains the find_symbol_context pointer
+ *
  */
 void gh_iterate(struct gh_t_hash_tab *hash_tab,
 		void (*callback)(void *, void *), void *user_data)

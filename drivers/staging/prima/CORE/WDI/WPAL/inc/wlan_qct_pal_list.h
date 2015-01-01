@@ -59,4 +59,4 @@
 #include "wlan_qct_os_list.h"
 
 
-#endif //                      
+#endif // __WLAN_QCT_PAL_LIST_H

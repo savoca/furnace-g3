@@ -43,7 +43,7 @@ static struct var_t vars[] = {
 };
 
 /*
-                                                                    
+ * These attributes will appear in /sys/accessibility/speakup/dummy.
  */
 static struct kobj_attribute caps_start_attribute =
 	__ATTR(caps_start, USER_RW, spk_var_show, spk_var_store);
@@ -70,8 +70,8 @@ static struct kobj_attribute trigger_time_attribute =
 	__ATTR(trigger_time, ROOT_W, spk_var_show, spk_var_store);
 
 /*
-                                                                          
-           
+ * Create a group of attributes so that we can create and destroy them all
+ * at once.
  */
 static struct attribute *synth_attrs[] = {
 	&caps_start_attribute.attr,
@@ -85,7 +85,7 @@ static struct attribute *synth_attrs[] = {
 	&full_time_attribute.attr,
 	&jiffy_delta_attribute.attr,
 	&trigger_time_attribute.attr,
-	NULL,	/*                                               */
+	NULL,	/* need to NULL terminate the list of attributes */
 };
 
 static struct spk_synth synth_dummy = {

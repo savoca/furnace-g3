@@ -132,20 +132,20 @@ static int __init sreadahead_init(void)
 {
 	struct dentry *dbgfs_dir;
 
-	/*            */
+	/* state init */
 	prof_buf.state = PROF_NOT;
 
-	/*           */
+	/* lock init */
 	mutex_init(&prof_buf.ulock);
 
-	/*            */
+	/* timer init */
 	init_timer(&prof_buf.timer);
 	prof_buf.timer.function = prof_timer_handler;
 
-	/*                  */
+	/* work struct init */
 	INIT_WORK(&prof_buf.free_work, prof_buf_free_work);
 
-	/*                             */
+	/* debugfs init for sreadahead */
 	dbgfs_dir = debugfs_create_dir("sreadahead", NULL);
 	if (!dbgfs_dir)
 		return -ENOENT;
@@ -174,7 +174,7 @@ static int get_absolute_path(unsigned char *buf, int buflen, struct file *filp)
 		while (!IS_ROOT(tmpdentry)) {
 			strlcpy(tmpstr, buf, buflen);
 			/*                        */
-			/*                   */
+			/* make codes robust */
 			strlcpy(buf, tmpdentry->d_name.name, buflen);
 			buf[buflen - 1] = '\0';
 			if (strlen(buf) + strlen("/") > buflen - 1)
@@ -195,7 +195,7 @@ static int get_absolute_path(unsigned char *buf, int buflen, struct file *filp)
 	strlcpy(tmpstr, buf, buflen);
 	strlcpy(buf, "/", 2);
 	/*                        */
-	/*                   */
+	/* make codes robust */
 	if (strlen(buf) + strlen(tmpstr) > (buflen - 1))
 		return -ENOMEM;
 	strlcat(buf, tmpstr, buflen);
@@ -229,7 +229,7 @@ static int sreadahead_prof_RUN(struct file *filp, size_t len, loff_t pos)
 
 	mutex_lock(&prof_buf.ulock);
 
-	/*                                           */
+	/* vfree called or profiling is already done */
 	if (prof_buf.data == NULL || prof_buf.state != PROF_RUN) {
 		mutex_unlock(&prof_buf.ulock);
 		return -EADDRNOTAVAIL;
@@ -240,7 +240,7 @@ static int sreadahead_prof_RUN(struct file *filp, size_t len, loff_t pos)
 				FILE_PATHLEN + FILE_NAMELEN) == 0)
 			break;
 	}
-	/*                 */
+	/* add a new entry */
 	if (i == prof_buf.file_cnt && i < PROF_BUF_SIZE) {
 		strlcpy(prof_buf.data[i].procname, data.procname, PROC_NAMELEN);
 		prof_buf.data[i].procname[PROC_NAMELEN - 1] = '\0';

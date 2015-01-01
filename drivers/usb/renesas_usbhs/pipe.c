@@ -20,7 +20,7 @@
 #include "./pipe.h"
 
 /*
-          
+ *		macros
  */
 #define usbhsp_addr_offset(p)	((usbhs_pipe_number(p) - 1) * 2)
 
@@ -30,7 +30,7 @@
 #define usbhsp_flags_init(p)	do {(p)->flags = 0; } while (0)
 
 /*
-            
+ * for debug
  */
 static char *usbhsp_pipe_name[] = {
 	[USB_ENDPOINT_XFER_CONTROL]	= "DCP",
@@ -45,7 +45,7 @@ char *usbhs_pipe_name(struct usbhs_pipe *pipe)
 }
 
 /*
-                             
+ *		DCPCTR/PIPEnCTR functions
  */
 static void usbhsp_pipectrl_set(struct usbhs_pipe *pipe, u16 mask, u16 val)
 {
@@ -70,7 +70,7 @@ static u16 usbhsp_pipectrl_get(struct usbhs_pipe *pipe)
 }
 
 /*
-                      
+ *		DCP/PIPE functions
  */
 static void __usbhsp_pipe_xxx_set(struct usbhs_pipe *pipe,
 				  u16 dcp_reg, u16 pipe_reg,
@@ -85,7 +85,7 @@ static void __usbhsp_pipe_xxx_set(struct usbhs_pipe *pipe,
 }
 
 /*
-                            
+ *		DCPCFG/PIPECFG functions
  */
 static void usbhsp_pipe_cfg_set(struct usbhs_pipe *pipe, u16 mask, u16 val)
 {
@@ -93,7 +93,7 @@ static void usbhsp_pipe_cfg_set(struct usbhs_pipe *pipe, u16 mask, u16 val)
 }
 
 /*
-           
+ *		PIPEBUF
  */
 static void usbhsp_pipe_buf_set(struct usbhs_pipe *pipe, u16 mask, u16 val)
 {
@@ -104,7 +104,7 @@ static void usbhsp_pipe_buf_set(struct usbhs_pipe *pipe, u16 mask, u16 val)
 }
 
 /*
-                    
+ *		DCPMAXP/PIPEMAXP
  */
 static void usbhsp_pipe_maxp_set(struct usbhs_pipe *pipe, u16 mask, u16 val)
 {
@@ -112,27 +112,27 @@ static void usbhsp_pipe_maxp_set(struct usbhs_pipe *pipe, u16 mask, u16 val)
 }
 
 /*
-                          
+ *		pipe control functions
  */
 static void usbhsp_pipe_select(struct usbhs_pipe *pipe)
 {
 	struct usbhs_priv *priv = usbhs_pipe_to_priv(pipe);
 
 	/*
-                                     
-                                
-   
-                                
-                                 
-                                 
-                                   
-            
-  */
+	 * On pipe, this is necessary before
+	 * accesses to below registers.
+	 *
+	 * PIPESEL	: usbhsp_pipe_select
+	 * PIPECFG	: usbhsp_pipe_cfg_xxx
+	 * PIPEBUF	: usbhsp_pipe_buf_xxx
+	 * PIPEMAXP	: usbhsp_pipe_maxp_xxx
+	 * PIPEPERI
+	 */
 
 	/*
-                                        
-                                                   
-  */
+	 * if pipe is dcp, no pipe is selected.
+	 * it is no problem, because dcp have its register
+	 */
 	usbhs_write(priv, PIPESEL, 0xF & usbhs_pipe_number(pipe));
 }
 
@@ -143,23 +143,23 @@ static int usbhsp_pipe_barrier(struct usbhs_pipe *pipe)
 	u16 val;
 
 	/*
-                 
-   
-                                                                      
-                                  
-                                                        
-                                                       
-                                       
-  */
+	 * make sure....
+	 *
+	 * Modify these bits when CSSTS = 0, PID = NAK, and no pipe number is
+	 * specified by the CURPIPE bits.
+	 * When changing the setting of this bit after changing
+	 * the PID bits for the selected pipe from BUF to NAK,
+	 * check that CSSTS = 0 and PBUSY = 0.
+	 */
 
 	/*
-                   
-   
-            
-                
-                     
-                                                    
-  */
+	 * CURPIPE bit = 0
+	 *
+	 * see also
+	 *  "Operation"
+	 *  - "Pipe Control"
+	 *   - "Pipe Control Registers Switching Procedure"
+	 */
 	usbhs_write(priv, CFIFOSEL, 0);
 	usbhs_pipe_disable(pipe);
 
@@ -188,7 +188,7 @@ int usbhs_pipe_is_accessible(struct usbhs_pipe *pipe)
 }
 
 /*
-            
+ *		PID ctrl
  */
 static void __usbhsp_pid_try_nak_if_stall(struct usbhs_pipe *pipe)
 {
@@ -197,13 +197,13 @@ static void __usbhsp_pid_try_nak_if_stall(struct usbhs_pipe *pipe)
 	pid &= PID_MASK;
 
 	/*
-       
-                                     
-  */
+	 * see
+	 * "Pipe n Control Register" - "PID"
+	 */
 	switch (pid) {
 	case PID_STALL11:
 		usbhsp_pipectrl_set(pipe, PID_MASK, PID_STALL10);
-		/*              */
+		/* fall-through */
 	case PID_STALL10:
 		usbhsp_pipectrl_set(pipe, PID_MASK, PID_NAK);
 	}
@@ -214,7 +214,7 @@ void usbhs_pipe_disable(struct usbhs_pipe *pipe)
 	int timeout = 1024;
 	u16 val;
 
-	/*                                       */
+	/* see "Pipe n Control Register" - "PID" */
 	__usbhsp_pid_try_nak_if_stall(pipe);
 
 	usbhsp_pipectrl_set(pipe, PID_MASK, PID_NAK);
@@ -231,7 +231,7 @@ void usbhs_pipe_disable(struct usbhs_pipe *pipe)
 
 void usbhs_pipe_enable(struct usbhs_pipe *pipe)
 {
-	/*                                       */
+	/* see "Pipe n Control Register" - "PID" */
 	__usbhsp_pid_try_nak_if_stall(pipe);
 
 	usbhsp_pipectrl_set(pipe, PID_MASK, PID_BUF);
@@ -244,9 +244,9 @@ void usbhs_pipe_stall(struct usbhs_pipe *pipe)
 	pid &= PID_MASK;
 
 	/*
-       
-                                     
-  */
+	 * see
+	 * "Pipe n Control Register" - "PID"
+	 */
 	switch (pid) {
 	case PID_NAK:
 		usbhsp_pipectrl_set(pipe, PID_MASK, PID_STALL10);
@@ -265,13 +265,13 @@ int usbhs_pipe_is_stall(struct usbhs_pipe *pipe)
 }
 
 /*
-              
+ *		pipe setup
  */
 static int usbhsp_possible_double_buffer(struct usbhs_pipe *pipe)
 {
 	/*
-                                              
-  */
+	 * only ISO / BULK pipe can use double buffer
+	 */
 	if (usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_BULK) ||
 	    usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_ISOC))
 		return 1;
@@ -301,32 +301,32 @@ static u16 usbhsp_setup_pipecfg(struct usbhs_pipe *pipe,
 		return -EINVAL;
 
 	/*
-           
-   
-       
-                                                   
-                                         
-                                   
-  */
+	 * PIPECFG
+	 *
+	 * see
+	 *  - "Register Descriptions" - "PIPECFG" register
+	 *  - "Features"  - "Pipe configuration"
+	 *  - "Operation" - "Pipe Control"
+	 */
 
-	/*      */
+	/* TYPE */
 	type = type_array[usbhs_pipe_type(pipe)];
 
-	/*      */
+	/* BFRE */
 	if (usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_ISOC) ||
 	    usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_BULK))
-		bfre = 0; /*       */
+		bfre = 0; /* FIXME */
 
-	/*      */
+	/* DBLB */
 	if (usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_ISOC) ||
 	    usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_BULK))
 		dblb = (is_double) ? DBLB : 0;
 
-	/*       */
+	/* CNTMD */
 	if (usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_BULK))
-		cntmd = 0; /*       */
+		cntmd = 0; /* FIXME */
 
-	/*     */
+	/* DIR */
 	if (dir_in)
 		usbhsp_flags_set(pipe, IS_DIR_HOST);
 
@@ -336,13 +336,13 @@ static u16 usbhsp_setup_pipecfg(struct usbhs_pipe *pipe,
 	if (!dir)
 		usbhsp_flags_set(pipe, IS_DIR_IN);
 
-	/*        */
+	/* SHTNAK */
 	if (usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_BULK) &&
 	    !dir)
 		shtnak = SHTNAK;
 
-	/*       */
-	epnum = 0; /*                                */
+	/* EPNUM */
+	epnum = 0; /* see usbhs_pipe_config_update() */
 
 	return	type	|
 		bfre	|
@@ -365,38 +365,38 @@ static u16 usbhsp_setup_pipebuff(struct usbhs_pipe *pipe)
 	u16 bufnmb_cnt;
 
 	/*
-           
-   
-       
-                                                   
-                                         
-                                         
-                                   
-   
-                                                           
-   
-                
-                           
-         
-         
-         
-                          
-                          
-                          
-                          
-                                 
-  */
+	 * PIPEBUF
+	 *
+	 * see
+	 *  - "Register Descriptions" - "PIPEBUF" register
+	 *  - "Features"  - "Pipe configuration"
+	 *  - "Operation" - "FIFO Buffer Memory"
+	 *  - "Operation" - "Pipe Control"
+	 *
+	 * ex) if pipe6 - pipe9 are USB_ENDPOINT_XFER_INT (SH7724)
+	 *
+	 * BUFNMB:	PIPE
+	 * 0:		pipe0 (DCP 256byte)
+	 * 1:		-
+	 * 2:		-
+	 * 3:		-
+	 * 4:		pipe6 (INT 64byte)
+	 * 5:		pipe7 (INT 64byte)
+	 * 6:		pipe8 (INT 64byte)
+	 * 7:		pipe9 (INT 64byte)
+	 * 8 - xx:	free (for BULK, ISOC)
+	 */
 
 	/*
-         
-   
-                                         
-   
-                  
-                  
-                  
-                  
-  */
+	 * FIXME
+	 *
+	 * it doesn't have good buffer allocator
+	 *
+	 * DCP : 256 byte
+	 * BULK: 512 byte
+	 * INT :  64 byte
+	 * ISOC: 512 byte
+	 */
 	if (usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_CONTROL))
 		buff_size = 256;
 	else if (usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_INT))
@@ -404,11 +404,11 @@ static u16 usbhsp_setup_pipebuff(struct usbhs_pipe *pipe)
 	else
 		buff_size = 512;
 
-	/*                                    */
+	/* change buff_size to register value */
 	bufnmb_cnt = (buff_size / 64) - 1;
 
-	/*                                      
-              */
+	/* BUFNMB has been reserved for INT pipe
+	 * see above */
 	if (usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_INT)) {
 		bufnmb = pipe_num - 2;
 	} else {
@@ -416,8 +416,8 @@ static u16 usbhsp_setup_pipebuff(struct usbhs_pipe *pipe)
 		info->bufnmb_last += bufnmb_cnt + 1;
 
 		/*
-                  
-   */
+		 * double buffer
+		 */
 		if (is_double)
 			info->bufnmb_last += bufnmb_cnt + 1;
 	}
@@ -455,15 +455,15 @@ void usbhs_pipe_config_update(struct usbhs_pipe *pipe, u16 devsel,
 }
 
 /*
-                
+ *		pipe control
  */
 int usbhs_pipe_get_maxpacket(struct usbhs_pipe *pipe)
 {
 	/*
-       
-                              
-                      
-  */
+	 * see
+	 *	usbhs_pipe_config_update()
+	 *	usbhs_dcp_malloc()
+	 */
 	return pipe->maxp;
 }
 
@@ -483,11 +483,11 @@ void usbhs_pipe_data_sequence(struct usbhs_pipe *pipe, int sequence)
 	u16 val;
 
 	/*
-            
-               
-               
-                   
-  */
+	 * sequence
+	 *  0  : data0
+	 *  1  : data1
+	 *  -1 : no change
+	 */
 	switch (sequence) {
 	case 0:
 		val = SQCLR;
@@ -514,8 +514,8 @@ static struct usbhs_pipe *usbhsp_get_pipe(struct usbhs_priv *priv, u32 type)
 	int i;
 
 	/*
-                    
-  */
+	 * find target pipe
+	 */
 	pipe = NULL;
 	usbhs_for_each_pipe_with_dcp(pos, priv, i) {
 		if (!usbhs_pipe_type_is(pos, type))
@@ -531,8 +531,8 @@ static struct usbhs_pipe *usbhsp_get_pipe(struct usbhs_priv *priv, u32 type)
 		return NULL;
 
 	/*
-                         
-  */
+	 * initialize pipe flags
+	 */
 	usbhsp_flags_init(pipe);
 	usbhsp_flags_set(pipe, IS_USED);
 
@@ -547,17 +547,17 @@ void usbhs_pipe_init(struct usbhs_priv *priv,
 	int i;
 
 	/*
-         
-   
-                                
-   
-                                            
-                            
-   
-                                                  
-       
-                    
-  */
+	 * FIXME
+	 *
+	 * driver needs good allocator.
+	 *
+	 * find first free buffer area (BULK, ISOC)
+	 * (DCP, INT area is fixed)
+	 *
+	 * buffer number 0 - 3 have been reserved for DCP
+	 * see
+	 *	usbhsp_to_bufnmb
+	 */
 	info->bufnmb_last = 4;
 	usbhs_for_each_pipe_with_dcp(pipe, priv, i) {
 		if (usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_INT))
@@ -568,7 +568,7 @@ void usbhs_pipe_init(struct usbhs_priv *priv,
 		pipe->mod_private = NULL;
 		INIT_LIST_HEAD(&pipe->list);
 
-		/*                 */
+		/* pipe force init */
 		usbhs_pipe_clear(pipe);
 	}
 
@@ -596,7 +596,7 @@ struct usbhs_pipe *usbhs_pipe_malloc(struct usbhs_priv *priv,
 
 	usbhs_pipe_disable(pipe);
 
-	/*                            */
+	/* make sure pipe is not busy */
 	ret = usbhsp_pipe_barrier(pipe);
 	if (ret < 0) {
 		dev_err(dev, "pipe setup failed %d\n", usbhs_pipe_number(pipe));
@@ -618,9 +618,9 @@ struct usbhs_pipe *usbhs_pipe_malloc(struct usbhs_priv *priv,
 		usbhs_pipe_is_dir_in(pipe) ? "in" : "out");
 
 	/*
-                                                
-                                                          
-  */
+	 * epnum / maxp are still not set to this pipe.
+	 * call usbhs_pipe_config_update() after this function !!
+	 */
 
 	return pipe;
 }
@@ -638,7 +638,7 @@ void usbhs_pipe_select_fifo(struct usbhs_pipe *pipe, struct usbhs_fifo *fifo)
 
 
 /*
-               
+ *		dcp control
  */
 struct usbhs_pipe *usbhs_dcp_malloc(struct usbhs_priv *priv)
 {
@@ -651,8 +651,8 @@ struct usbhs_pipe *usbhs_dcp_malloc(struct usbhs_priv *priv)
 	INIT_LIST_HEAD(&pipe->list);
 
 	/*
-                                                          
-  */
+	 * call usbhs_pipe_config_update() after this function !!
+	 */
 
 	return pipe;
 }
@@ -665,7 +665,7 @@ void usbhs_dcp_control_transfer_done(struct usbhs_pipe *pipe)
 
 	usbhs_pipe_enable(pipe);
 
-	if (!usbhs_mod_is_host(priv)) /*          */
+	if (!usbhs_mod_is_host(priv)) /* funconly */
 		usbhsp_pipectrl_set(pipe, CCPL, CCPL);
 }
 
@@ -676,7 +676,7 @@ void usbhs_dcp_dir_for_host(struct usbhs_pipe *pipe, int dir_out)
 }
 
 /*
-                        
+ *		pipe module function
  */
 int usbhs_pipe_probe(struct usbhs_priv *priv)
 {
@@ -687,7 +687,7 @@ int usbhs_pipe_probe(struct usbhs_priv *priv)
 	int pipe_size = usbhs_get_dparam(priv, pipe_size);
 	int i;
 
-	/*                                     */
+	/* This driver expects 1st pipe is DCP */
 	if (pipe_type[0] != USB_ENDPOINT_XFER_CONTROL) {
 		dev_err(dev, "1st PIPE is not DCP\n");
 		return -EINVAL;
@@ -702,8 +702,8 @@ int usbhs_pipe_probe(struct usbhs_priv *priv)
 	info->size = pipe_size;
 
 	/*
-             
-  */
+	 * init pipe
+	 */
 	usbhs_for_each_pipe_with_dcp(pipe, priv, i) {
 		pipe->priv = priv;
 

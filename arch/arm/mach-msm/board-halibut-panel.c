@@ -1,5 +1,5 @@
-/*                                             
-                                               
+/* linux/arch/arm/mach-msm/board-halibut-mddi.c
+** Author: Brian Swetland <swetland@google.com>
 */
 
 #include <linux/kernel.h>

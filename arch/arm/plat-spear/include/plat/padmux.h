@@ -17,10 +17,10 @@
 #include <linux/types.h>
 
 /*
-                                                                   
-  
-                             
-                         
+ * struct pmx_reg: configuration structure for mode reg and mux reg
+ *
+ * offset: offset of mode reg
+ * mask: mask of mode reg
  */
 struct pmx_reg {
 	u32 offset;
@@ -28,10 +28,10 @@ struct pmx_reg {
 };
 
 /*
-                                                                                
-  
-                                        
-                                
+ * struct pmx_dev_mode: configuration structure every group of modes of a device
+ *
+ * ids: all modes for this configuration
+ * mask: mask for supported mode
  */
 struct pmx_dev_mode {
 	u32 ids;
@@ -39,10 +39,10 @@ struct pmx_dev_mode {
 };
 
 /*
-                                             
-  
-                  
-                  
+ * struct pmx_mode: mode definition structure
+ *
+ * name: mode name
+ * mask: mode mask
  */
 struct pmx_mode {
 	char *name;
@@ -51,13 +51,13 @@ struct pmx_mode {
 };
 
 /*
-                                              
-  
-                    
-                                                                  
-                                  
-                                          
-                                                                                
+ * struct pmx_dev: device definition structure
+ *
+ * name: device name
+ * modes: device configuration array for different modes supported
+ * mode_count: size of modes array
+ * is_active: is peripheral active/enabled
+ * enb_on_reset: if 1, mask bits to be cleared in reg otherwise to be set in reg
  */
 struct pmx_dev {
 	char *name;
@@ -68,14 +68,14 @@ struct pmx_dev {
 };
 
 /*
-                                                 
-  
-                       
-                                        
-                                 
-                                             
-                                              
-                                                   
+ * struct pmx_driver: driver definition structure
+ *
+ * mode: mode to be set
+ * devs: array of pointer to pmx devices
+ * devs_count: ARRAY_SIZE of devs
+ * base: base address of soc config registers
+ * mode_reg: structure of mode config register
+ * mux_reg: structure of device mux config register
  */
 struct pmx_driver {
 	struct pmx_mode *mode;
@@ -86,7 +86,7 @@ struct pmx_driver {
 	struct pmx_reg mux_reg;
 };
 
-/*               */
+/* pmx functions */
 int pmx_register(struct pmx_driver *driver);
 
-#endif /*                 */
+#endif /* __PLAT_PADMUX_H */

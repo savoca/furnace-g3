@@ -1,13 +1,13 @@
 /*
-  
-               
-  
-                             
-  
-                                                            
-                                                                     
-                                                                  
-  
+ *
+ * sched-pipe.c
+ *
+ * pipe: Benchmark for pipe()
+ *
+ * Based on pipe-test-1m.c by Ingo Molnar <mingo@redhat.com>
+ *  http://people.redhat.com/mingo/cfs-scheduler/tools/pipe-test-1m.c
+ * Ported to perf by Hitoshi Mitake <mitake@dcl.info.waseda.ac.jp>
+ *
  */
 
 #include "../perf.h"
@@ -51,10 +51,10 @@ int bench_sched_pipe(int argc, const char **argv,
 	unsigned long long result_usec = 0;
 
 	/*
-                         
-                                                
-                                                 
-  */
+	 * why does "ret" exist?
+	 * discarding returned value of read(), write()
+	 * causes error in building environment for perf
+	 */
 	int __used ret, wait_stat;
 	pid_t pid, retpid;
 
@@ -117,7 +117,7 @@ int bench_sched_pipe(int argc, const char **argv,
 		break;
 
 	default:
-		/*                                     */
+		/* reaching here is something disaster */
 		fprintf(stderr, "Unknown format:%d\n", bench_format);
 		exit(1);
 		break;

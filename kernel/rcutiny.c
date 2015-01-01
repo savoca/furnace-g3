@@ -38,11 +38,11 @@
 
 #ifdef CONFIG_RCU_TRACE
 #include <trace/events/rcu.h>
-#endif /*                               */
+#endif /* #else #ifdef CONFIG_RCU_TRACE */
 
 #include "rcu.h"
 
-/*                                            */
+/* Forward declarations for rcutiny_plugin.h. */
 struct rcu_ctrlblk;
 static void invoke_rcu_callbacks(void);
 static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp);
@@ -55,7 +55,7 @@ static void __call_rcu(struct rcu_head *head,
 
 static long long rcu_dynticks_nesting = DYNTICK_TASK_EXIT_IDLE;
 
-/*                                                                            */
+/* Common code for rcu_idle_enter() and rcu_irq_exit(), see kernel/rcutree.c. */
 static void rcu_idle_enter_common(long long oldval)
 {
 	if (rcu_dynticks_nesting) {
@@ -72,14 +72,14 @@ static void rcu_idle_enter_common(long long oldval)
 		ftrace_dump(DUMP_ALL);
 		WARN_ONCE(1, "Current pid: %d comm: %s / Idle pid: %d comm: %s",
 			  current->pid, current->comm,
-			  idle->pid, idle->comm); /*                    */
+			  idle->pid, idle->comm); /* must be idle task! */
 	}
-	rcu_sched_qs(0); /*                             */
+	rcu_sched_qs(0); /* implies rcu_bh_qsctr_inc(0) */
 }
 
 /*
-                                                                    
-                                                                          
+ * Enter idle, which is an extended quiescent state if we have fully
+ * entered that mode (i.e., if the new value of dynticks_nesting is zero).
  */
 void rcu_idle_enter(void)
 {
@@ -100,7 +100,7 @@ void rcu_idle_enter(void)
 EXPORT_SYMBOL_GPL(rcu_idle_enter);
 
 /*
-                                          
+ * Exit an interrupt handler towards idle.
  */
 void rcu_irq_exit(void)
 {
@@ -115,7 +115,7 @@ void rcu_irq_exit(void)
 	local_irq_restore(flags);
 }
 
-/*                                                                            */
+/* Common code for rcu_idle_exit() and rcu_irq_enter(), see kernel/rcutree.c. */
 static void rcu_idle_exit_common(long long oldval)
 {
 	if (oldval) {
@@ -132,12 +132,12 @@ static void rcu_idle_exit_common(long long oldval)
 		ftrace_dump(DUMP_ALL);
 		WARN_ONCE(1, "Current pid: %d comm: %s / Idle pid: %d comm: %s",
 			  current->pid, current->comm,
-			  idle->pid, idle->comm); /*                    */
+			  idle->pid, idle->comm); /* must be idle task! */
 	}
 }
 
 /*
-                                                                      
+ * Exit idle, so that we are no longer in an extended quiescent state.
  */
 void rcu_idle_exit(void)
 {
@@ -157,7 +157,7 @@ void rcu_idle_exit(void)
 EXPORT_SYMBOL_GPL(rcu_idle_exit);
 
 /*
-                                                     
+ * Enter an interrupt handler, moving away from idle.
  */
 void rcu_irq_enter(void)
 {
@@ -175,7 +175,7 @@ void rcu_irq_enter(void)
 #ifdef CONFIG_PROVE_RCU
 
 /*
-                                                        
+ * Test whether RCU thinks that the current CPU is idle.
  */
 int rcu_is_cpu_idle(void)
 {
@@ -183,12 +183,12 @@ int rcu_is_cpu_idle(void)
 }
 EXPORT_SYMBOL(rcu_is_cpu_idle);
 
-#endif /*                         */
+#endif /* #ifdef CONFIG_PROVE_RCU */
 
 /*
-                                                                  
-                                                                    
-         
+ * Test whether the current CPU was interrupted from idle.  Nested
+ * interrupts don't count, we must be running at the first interrupt
+ * level.
  */
 int rcu_is_cpu_rrupt_from_idle(void)
 {
@@ -196,9 +196,9 @@ int rcu_is_cpu_rrupt_from_idle(void)
 }
 
 /*
-                                                      
-                                                                      
-                       
+ * Helper function for rcu_sched_qs() and rcu_bh_qs().
+ * Also irqs are disabled to avoid confusion due to interrupt handlers
+ * invoking call_rcu().
  */
 static int rcu_qsctr_help(struct rcu_ctrlblk *rcp)
 {
@@ -212,9 +212,9 @@ static int rcu_qsctr_help(struct rcu_ctrlblk *rcp)
 }
 
 /*
-                                                                         
-                                                                  
-                                                                        
+ * Record an rcu quiescent state.  And an rcu_bh quiescent state while we
+ * are at it, given that any rcu quiescent state is also an rcu_bh
+ * quiescent state.  Use "+" instead of "||" to defeat short circuiting.
  */
 void rcu_sched_qs(int cpu)
 {
@@ -228,7 +228,7 @@ void rcu_sched_qs(int cpu)
 }
 
 /*
-                                    
+ * Record an rcu_bh quiescent state.
  */
 void rcu_bh_qs(int cpu)
 {
@@ -241,10 +241,10 @@ void rcu_bh_qs(int cpu)
 }
 
 /*
-                                                                       
-                                                                      
-                                                                  
-                              
+ * Check to see if the scheduling-clock interrupt came from an extended
+ * quiescent state, and, if so, tell RCU about it.  This function must
+ * be called from hardirq context.  It is normally called from the
+ * scheduling-clock interrupt.
  */
 void rcu_check_callbacks(int cpu, int user)
 {
@@ -256,8 +256,8 @@ void rcu_check_callbacks(int cpu, int user)
 }
 
 /*
-                                                                   
-                                  
+ * Invoke the RCU callbacks on the specified rcu_ctrlkblk structure
+ * whose grace period has elapsed.
  */
 static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp)
 {
@@ -266,7 +266,7 @@ static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp)
 	unsigned long flags;
 	RCU_TRACE(int cb_count = 0);
 
-	/*                                                   */
+	/* If no RCU callbacks ready to invoke, just return. */
 	if (&rcp->rcucblist == rcp->donetail) {
 		RCU_TRACE(trace_rcu_batch_start(rcp->name, 0, 0, -1));
 		RCU_TRACE(trace_rcu_batch_end(rcp->name, 0,
@@ -277,7 +277,7 @@ static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp)
 		return;
 	}
 
-	/*                                                     */
+	/* Move the ready-to-invoke callbacks to a local list. */
 	local_irq_save(flags);
 	RCU_TRACE(trace_rcu_batch_start(rcp->name, 0, rcp->qlen, -1));
 	list = rcp->rcucblist;
@@ -289,7 +289,7 @@ static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp)
 	rcp->donetail = &rcp->rcucblist;
 	local_irq_restore(flags);
 
-	/*                                         */
+	/* Invoke the callbacks on the local list. */
 	RCU_TRACE(rn = rcp->name);
 	while (list) {
 		next = list->next;
@@ -315,17 +315,17 @@ static void rcu_process_callbacks(struct softirq_action *unused)
 }
 
 /*
-                                                                  
-                                                                     
-                                                                  
-                                                                     
-                                                                     
-                                                      
-  
-                                      
-  
-                                                                      
-                                    
+ * Wait for a grace period to elapse.  But it is illegal to invoke
+ * synchronize_sched() from within an RCU read-side critical section.
+ * Therefore, any legal call to synchronize_sched() is a quiescent
+ * state, and so on a UP system, synchronize_sched() need do nothing.
+ * Ditto for synchronize_rcu_bh().  (But Lai Jiangshan points out the
+ * benefits of doing might_sleep() to reduce latency.)
+ *
+ * Cool, huh?  (Due to Josh Triplett.)
+ *
+ * But we want to make this a static inline later.  The cond_resched()
+ * currently makes this problematic.
  */
 void synchronize_sched(void)
 {
@@ -338,7 +338,7 @@ void synchronize_sched(void)
 EXPORT_SYMBOL_GPL(synchronize_sched);
 
 /*
-                                                    
+ * Helper function for call_rcu() and call_rcu_bh().
  */
 static void __call_rcu(struct rcu_head *head,
 		       void (*func)(struct rcu_head *rcu),
@@ -358,9 +358,9 @@ static void __call_rcu(struct rcu_head *head,
 }
 
 /*
-                                                                         
-                                                                  
-                   
+ * Post an RCU callback to be invoked after the end of an RCU-sched grace
+ * period.  But since we have but one CPU, that would be after any
+ * quiescent state.
  */
 void call_rcu_sched(struct rcu_head *head, void (*func)(struct rcu_head *rcu))
 {
@@ -369,8 +369,8 @@ void call_rcu_sched(struct rcu_head *head, void (*func)(struct rcu_head *rcu))
 EXPORT_SYMBOL_GPL(call_rcu_sched);
 
 /*
-                                                                      
-                   
+ * Post an RCU bottom-half callback to be invoked after any subsequent
+ * quiescent state.
  */
 void call_rcu_bh(struct rcu_head *head, void (*func)(struct rcu_head *rcu))
 {

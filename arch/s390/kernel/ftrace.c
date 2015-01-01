@@ -29,28 +29,28 @@ void ftrace_enable_insn(void);
 
 #ifdef CONFIG_64BIT
 /*
-                                          
-                               
-                                    
-                                    
-                               
-                                                                      
-                                                               
-                                                        
-                               
-                                       
-                              
-                               
-                              
-                                                                           
-                                                        
-                               
-                         
-                              
-                               
-                              
-                                                                        
-               
+ * The 64-bit mcount code looks like this:
+ *	stg	%r14,8(%r15)		# offset 0
+ * >	larl	%r1,<&counter>		# offset 6
+ * >	brasl	%r14,_mcount		# offset 12
+ *	lg	%r14,8(%r15)		# offset 18
+ * Total length is 24 bytes. The middle two instructions of the mcount
+ * block get overwritten by ftrace_make_nop / ftrace_make_call.
+ * The 64-bit enabled ftrace code block looks like this:
+ *	stg	%r14,8(%r15)		# offset 0
+ * >	lg	%r1,__LC_FTRACE_FUNC	# offset 6
+ * >	lgr	%r0,%r0			# offset 12
+ * >	basr	%r14,%r1		# offset 16
+ *	lg	%r14,8(%15)		# offset 18
+ * The return points of the mcount/ftrace function have the same offset 18.
+ * The 64-bit disable ftrace code block looks like this:
+ *	stg	%r14,8(%r15)		# offset 0
+ * >	jg	.+18			# offset 6
+ * >	lgr	%r0,%r0			# offset 12
+ * >	basr	%r14,%r1		# offset 16
+ *	lg	%r14,8(%15)		# offset 18
+ * The jg instruction branches to offset 24 to skip as many instructions
+ * as possible.
  */
 asm(
 	"	.align	4\n"
@@ -65,36 +65,36 @@ asm(
 
 #define FTRACE_INSN_SIZE	6
 
-#else /*              */
+#else /* CONFIG_64BIT */
 /*
-                                          
-                              
-                             
-                               
-                                  
-                                  
-                              
-                              
-                              
-                                                                    
-                                                                      
-                                                        
-                              
-                                       
-                      
-                                 
-                                   
-                              
-                                                                           
-                                                         
-                              
-                        
-                      
-                                 
-                                   
-                              
-                                                                       
-               
+ * The 31-bit mcount code looks like this:
+ *	st	%r14,4(%r15)		# offset 0
+ * >	bras	%r1,0f			# offset 4
+ * >	.long	_mcount			# offset 8
+ * >	.long	<&counter>		# offset 12
+ * > 0:	l	%r14,0(%r1)		# offset 16
+ * >	l	%r1,4(%r1)		# offset 20
+ *	basr	%r14,%r14		# offset 24
+ *	l	%r14,4(%r15)		# offset 26
+ * Total length is 30 bytes. The twenty bytes starting from offset 4
+ * to offset 24 get overwritten by ftrace_make_nop / ftrace_make_call.
+ * The 31-bit enabled ftrace code block looks like this:
+ *	st	%r14,4(%r15)		# offset 0
+ * >	l	%r14,__LC_FTRACE_FUNC	# offset 4
+ * >	j	0f			# offset 8
+ * >	.fill	12,1,0x07		# offset 12
+ *   0:	basr	%r14,%r14		# offset 24
+ *	l	%r14,4(%r14)		# offset 26
+ * The return points of the mcount/ftrace function have the same offset 26.
+ * The 31-bit disabled ftrace code block looks like this:
+ *	st	%r14,4(%r15)		# offset 0
+ * >	j	.+26			# offset 4
+ * >	j	0f			# offset 8
+ * >	.fill	12,1,0x07		# offset 12
+ *   0:	basr	%r14,%r14		# offset 24
+ *	l	%r14,4(%r14)		# offset 26
+ * The j instruction branches to offset 30 to skip as many instructions
+ * as possible.
  */
 asm(
 	"	.align	4\n"
@@ -110,7 +110,7 @@ asm(
 
 #define FTRACE_INSN_SIZE	4
 
-#endif /*              */
+#endif /* CONFIG_64BIT */
 
 
 int ftrace_make_nop(struct module *mod, struct dyn_ftrace *rec,
@@ -141,12 +141,12 @@ int __init ftrace_dyn_arch_init(void *data)
 	return 0;
 }
 
-#endif /*                       */
+#endif /* CONFIG_DYNAMIC_FTRACE */
 
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 /*
-                                                                       
-                          
+ * Hook the return address and push it in the stack of return addresses
+ * in current thread info.
  */
 unsigned long __kprobes prepare_ftrace_return(unsigned long parent,
 					      unsigned long ip)
@@ -158,7 +158,7 @@ unsigned long __kprobes prepare_ftrace_return(unsigned long parent,
 	if (ftrace_push_return_trace(parent, ip, &trace.depth, 0) == -EBUSY)
 		goto out;
 	trace.func = (ip & PSW_ADDR_INSN) - MCOUNT_OFFSET_RET;
-	/*                                                */
+	/* Only trace if the calling function expects to. */
 	if (!ftrace_graph_entry(&trace)) {
 		current->curr_ret_stack--;
 		goto out;
@@ -170,11 +170,11 @@ out:
 
 #ifdef CONFIG_DYNAMIC_FTRACE
 /*
-                                                                         
-                                                                         
-                                                                      
-                                                                   
-                                                                
+ * Patch the kernel code at ftrace_graph_caller location. The instruction
+ * there is branch relative and save to prepare_ftrace_return. To disable
+ * the call to prepare_ftrace_return we patch the bras offset to point
+ * directly after the instructions. To enable the call we calculate
+ * the original offset to prepare_ftrace_return and put it back.
  */
 int ftrace_enable_ftrace_graph_caller(void)
 {
@@ -194,5 +194,5 @@ int ftrace_disable_ftrace_graph_caller(void)
 				  &offset, sizeof(offset));
 }
 
-#endif /*                       */
-#endif /*                              */
+#endif /* CONFIG_DYNAMIC_FTRACE */
+#endif /* CONFIG_FUNCTION_GRAPH_TRACER */

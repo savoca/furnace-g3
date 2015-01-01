@@ -1,7 +1,7 @@
 /*
-                                                                        
-                                                                        
-                                                                      
+ * The CE4100's I2C device is more or less the same one as found on PXA.
+ * It does not support slave mode, the register slightly moved. This PCI
+ * device provides three bars, every contains a single I2C controller.
  */
 #include <linux/module.h>
 #include <linux/pci.h>

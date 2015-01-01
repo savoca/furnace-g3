@@ -23,10 +23,10 @@
 #include <asm/cputype.h>
 #include <asm/mach-types.h>
 /*
-                                                                    
-                                             
-                      
-                      
+ * SOC version type with major number in the upper 16 bits and minor
+ * number in the lower 16 bits.  For example:
+ *   1.0 -> 0x00010000
+ *   2.3 -> 0x00020003
  */
 #define SOCINFO_VERSION_MAJOR(ver) ((ver & 0xffff0000) >> 16)
 #define SOCINFO_VERSION_MINOR(ver) (ver & 0x0000ffff)
@@ -393,7 +393,7 @@ static inline int cpu_is_msm8930ab(void)
 
 static inline int cpu_is_msm8627(void)
 {
-/*                                                                            */
+/* 8930 and 8627 will share the same CONFIG_ARCH type unless otherwise needed */
 #ifdef CONFIG_ARCH_MSM8930
 	return read_msm_cpu_type() == MSM_CPU_8627;
 #else

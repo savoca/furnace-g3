@@ -71,8 +71,8 @@ static struct hlist_head *pn_hash_list(u16 obj)
 }
 
 /*
-                                                                   
-                                                                 
+ * Find address based on socket address, match only certain fields.
+ * Also grab sock if it was found. Remember to sock_put it later.
  */
 struct sock *pn_find_sock_by_sa(struct net *net, const struct sockaddr_pn *spn)
 {
@@ -86,16 +86,16 @@ struct sock *pn_find_sock_by_sa(struct net *net, const struct sockaddr_pn *spn)
 	rcu_read_lock();
 	sk_for_each_rcu(sknode, node, hlist) {
 		struct pn_sock *pn = pn_sk(sknode);
-		BUG_ON(!pn->sobject); /*                */
+		BUG_ON(!pn->sobject); /* unbound socket */
 
 		if (!net_eq(sock_net(sknode), net))
 			continue;
 		if (pn_port(obj)) {
-			/*                        */
+			/* Look up socket by port */
 			if (pn_port(pn->sobject) != pn_port(obj))
 				continue;
 		} else {
-			/*                                      */
+			/* If port is zero, look up by resource */
 			if (pn->resource != res)
 				continue;
 		}
@@ -112,7 +112,7 @@ struct sock *pn_find_sock_by_sa(struct net *net, const struct sockaddr_pn *spn)
 	return rval;
 }
 
-/*                                                  */
+/* Deliver a broadcast packet (only in bottom-half) */
 void pn_deliver_sock_broadcast(struct net *net, struct sk_buff *skb)
 {
 	struct hlist_head *hlist = pnsocks.hlist;
@@ -188,7 +188,7 @@ static int pn_socket_bind(struct socket *sock, struct sockaddr *addr, int len)
 
 	lock_sock(sk);
 	if (sk->sk_state != TCP_CLOSE || pn_port(pn->sobject)) {
-		err = -EINVAL; /*                   */
+		err = -EINVAL; /* attempt to rebind */
 		goto out;
 	}
 	WARN_ON(sk_hashed(sk));
@@ -197,11 +197,11 @@ static int pn_socket_bind(struct socket *sock, struct sockaddr *addr, int len)
 	if (err)
 		goto out_port;
 
-	/*                                                                 */
+	/* get_port() sets the port, bind() sets the address if applicable */
 	pn->sobject = pn_object(saddr, pn_port(pn->sobject));
 	pn->resource = spn->spn_resource;
 
-	/*                         */
+	/* Enable RX on the socket */
 	sk->sk_prot->hash(sk);
 out_port:
 	mutex_unlock(&port_mutex);
@@ -222,7 +222,7 @@ static int pn_socket_autobind(struct socket *sock)
 	if (err != -EINVAL)
 		return err;
 	BUG_ON(!pn_port(pn_sk(sock->sk)->sobject));
-	return 0; /*                          */
+	return 0; /* socket was already bound */
 }
 
 static int pn_socket_connect(struct socket *sock, struct sockaddr *addr,
@@ -331,7 +331,7 @@ static int pn_socket_getname(struct socket *sock, struct sockaddr *addr,
 
 	memset(addr, 0, sizeof(struct sockaddr_pn));
 	addr->sa_family = AF_PHONET;
-	if (!peer) /*                                              */
+	if (!peer) /* Race with bind() here is userland's problem. */
 		pn_sockaddr_set_object((struct sockaddr_pn *)addr,
 					pn->sobject);
 
@@ -489,7 +489,7 @@ const struct proto_ops phonet_stream_ops = {
 };
 EXPORT_SYMBOL(phonet_stream_ops);
 
-/*                            */
+/* allocate port for a socket */
 int pn_sock_get_port(struct sock *sk, unsigned short sport)
 {
 	static int port_cur;
@@ -502,7 +502,7 @@ int pn_sock_get_port(struct sock *sk, unsigned short sport)
 	try_sa.spn_family = AF_PHONET;
 	WARN_ON(!mutex_is_locked(&port_mutex));
 	if (!sport) {
-		/*                  */
+		/* search free port */
 		int port, pmin, pmax;
 
 		phonet_get_local_port_range(&pmin, &pmax);
@@ -520,16 +520,16 @@ int pn_sock_get_port(struct sock *sk, unsigned short sport)
 				sock_put(tmpsk);
 		}
 	} else {
-		/*                           */
+		/* try to find specific port */
 		pn_sockaddr_set_port(&try_sa, sport);
 		tmpsk = pn_find_sock_by_sa(net, &try_sa);
 		if (tmpsk == NULL)
-			/*                                        */
+			/* No sock there! We can use that port... */
 			goto found;
 		else
 			sock_put(tmpsk);
 	}
-	/*                                 */
+	/* the port must be in use already */
 	return -EADDRINUSE;
 
 found:
@@ -647,7 +647,7 @@ static struct  {
 } pnres;
 
 /*
-                                          
+ * Find and hold socket based on resource.
  */
 struct sock *pn_find_sock_by_res(struct net *net, u8 res)
 {
@@ -725,7 +725,7 @@ void pn_sock_unbind_all_res(struct sock *sk)
 		__sock_put(sk);
 		match--;
 	}
-	/*                                                            */
+	/* Caller is responsible for RCU sync before final sock_put() */
 }
 
 #ifdef CONFIG_PROC_FS

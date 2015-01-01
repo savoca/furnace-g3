@@ -20,6 +20,6 @@
  */
 
 /*
-                                           
+ * Specifies the number of ticks per second
  */
-#define CLOCK_TICK_RATE		100000 /*                       */
+#define CLOCK_TICK_RATE		100000 /* REG_SMT_TICKS_PER_SEC */

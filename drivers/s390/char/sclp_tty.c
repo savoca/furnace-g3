@@ -25,27 +25,27 @@
 #include "sclp_tty.h"
 
 /*
-                                                             
-                          
+ * size of a buffer that collects single characters coming in
+ * via sclp_tty_put_char()
  */
 #define SCLP_TTY_BUF_SIZE 512
 
 /*
-                                                                   
-                                         
+ * There is exactly one SCLP terminal, so we can keep things simple
+ * and allocate all variables statically.
  */
 
-/*                                                 */
+/* Lock to guard over changes to global variables. */
 static spinlock_t sclp_tty_lock;
-/*                                                                   */
+/* List of free pages that can be used for console output buffering. */
 static struct list_head sclp_tty_pages;
-/*                                                              */
+/* List of full struct sclp_buffer structures ready for output. */
 static struct list_head sclp_tty_outqueue;
-/*                                       */
+/* Counter how many buffers are emitted. */
 static int sclp_tty_buffer_count;
-/*                                    */
+/* Pointer to current console buffer. */
 static struct sclp_buffer *sclp_ttybuf;
-/*                                               */
+/* Timer for delayed output of console messages. */
 static struct timer_list sclp_tty_timer;
 
 static struct tty_struct *sclp_tty;
@@ -58,9 +58,9 @@ static int sclp_tty_tolower;
 static int sclp_tty_columns = 80;
 
 #define SPACES_PER_TAB 8
-#define CASE_DELIMITER 0x6c /*                                                */
+#define CASE_DELIMITER 0x6c /* to separate upper and lower case (% in EBCDIC) */
 
-/*                                                                 */
+/* This routine is called whenever we try to open a SCLP terminal. */
 static int
 sclp_tty_open(struct tty_struct *tty, struct file *filp)
 {
@@ -70,7 +70,7 @@ sclp_tty_open(struct tty_struct *tty, struct file *filp)
 	return 0;
 }
 
-/*                                                          */
+/* This routine is called when the SCLP terminal is closed. */
 static void
 sclp_tty_close(struct tty_struct *tty, struct file *filp)
 {
@@ -80,13 +80,13 @@ sclp_tty_close(struct tty_struct *tty, struct file *filp)
 }
 
 /*
-                                                                
-                                                                 
-                                                                 
-                                                                  
-                                                                
-                                                               
-                 
+ * This routine returns the numbers of characters the tty driver
+ * will accept for queuing to be written.  This number is subject
+ * to change as output buffers get emptied, or if the output flow
+ * control is acted. This is not an exact number because not every
+ * character needs the same space in the sccb. The worst case is
+ * a string of newlines. Every newlines creates a new mto which
+ * needs 8 bytes.
  */
 static int
 sclp_tty_write_room (struct tty_struct *tty)
@@ -114,18 +114,18 @@ sclp_ttybuf_callback(struct sclp_buffer *buffer, int rc)
 	do {
 		page = sclp_unmake_buffer(buffer);
 		spin_lock_irqsave(&sclp_tty_lock, flags);
-		/*                             */
+		/* Remove buffer from outqueue */
 		list_del(&buffer->list);
 		sclp_tty_buffer_count--;
 		list_add_tail((struct list_head *) page, &sclp_tty_pages);
-		/*                                                      */
+		/* Check if there is a pending buffer on the out queue. */
 		buffer = NULL;
 		if (!list_empty(&sclp_tty_outqueue))
 			buffer = list_entry(sclp_tty_outqueue.next,
 					    struct sclp_buffer, list);
 		spin_unlock_irqrestore(&sclp_tty_lock, flags);
 	} while (buffer && sclp_emit_buffer(buffer, sclp_ttybuf_callback));
-	/*                                       */
+	/* check if the tty needs a wake up call */
 	if (sclp_tty != NULL) {
 		tty_wakeup(sclp_tty);
 	}
@@ -150,8 +150,8 @@ __sclp_ttybuf_emit(struct sclp_buffer *buffer)
 }
 
 /*
-                                                               
-                          
+ * When this routine is called from the timer then we flush the
+ * temporary write buffer.
  */
 static void
 sclp_tty_timeout(unsigned long data)
@@ -170,7 +170,7 @@ sclp_tty_timeout(unsigned long data)
 }
 
 /*
-                                  
+ * Write a string to the sclp tty.
  */
 static int sclp_tty_write_string(const unsigned char *str, int count, int may_fail)
 {
@@ -185,7 +185,7 @@ static int sclp_tty_write_string(const unsigned char *str, int count, int may_fa
 	overall_written = 0;
 	spin_lock_irqsave(&sclp_tty_lock, flags);
 	do {
-		/*                                                */
+		/* Create a sclp output buffer if none exists yet */
 		if (sclp_ttybuf == NULL) {
 			while (list_empty(&sclp_tty_pages)) {
 				spin_unlock_irqrestore(&sclp_tty_lock, flags);
@@ -200,16 +200,16 @@ static int sclp_tty_write_string(const unsigned char *str, int count, int may_fa
 			sclp_ttybuf = sclp_make_buffer(page, sclp_tty_columns,
 						       SPACES_PER_TAB);
 		}
-		/*                                                      */
+		/* try to write the string to the current output buffer */
 		written = sclp_write(sclp_ttybuf, str, count);
 		overall_written += written;
 		if (written == count)
 			break;
 		/*
-                                                       
-                                                        
-                                            
-   */
+		 * Not all characters could be written to the current
+		 * output buffer. Emit the buffer, create a new buffer
+		 * and then output the rest of the string.
+		 */
 		buf = sclp_ttybuf;
 		sclp_ttybuf = NULL;
 		spin_unlock_irqrestore(&sclp_tty_lock, flags);
@@ -218,7 +218,7 @@ static int sclp_tty_write_string(const unsigned char *str, int count, int may_fa
 		str += written;
 		count -= written;
 	} while (count > 0);
-	/*                                                                */
+	/* Setup timer to output current console buffer after 1/10 second */
 	if (sclp_ttybuf && sclp_chars_in_buffer(sclp_ttybuf) &&
 	    !timer_pending(&sclp_tty_timer)) {
 		init_timer(&sclp_tty_timer);
@@ -233,9 +233,9 @@ out:
 }
 
 /*
-                                                                              
-                                                                            
-                                                                              
+ * This routine is called by the kernel to write a series of characters to the
+ * tty device. The characters may come from user space or kernel space. This
+ * routine will return the number of characters actually accepted for writing.
  */
 static int
 sclp_tty_write(struct tty_struct *tty, const unsigned char *buf, int count)
@@ -248,14 +248,14 @@ sclp_tty_write(struct tty_struct *tty, const unsigned char *buf, int count)
 }
 
 /*
-                                                                              
-                                                                          
-                                                                            
-  
-                                                                              
-                                                                         
-                                                                            
-                                                     
+ * This routine is called by the kernel to write a single character to the tty
+ * device. If the kernel uses this routine, it must call the flush_chars()
+ * routine (if defined) when it is done stuffing characters into the driver.
+ *
+ * Characters provided to sclp_tty_put_char() are buffered by the SCLP driver.
+ * If the given character is a '\n' the contents of the SCLP write buffer
+ * - including previous characters from sclp_tty_put_char() and strings from
+ * sclp_write() without final '\n' - will be written.
  */
 static int
 sclp_tty_put_char(struct tty_struct *tty, unsigned char ch)
@@ -269,8 +269,8 @@ sclp_tty_put_char(struct tty_struct *tty, unsigned char ch)
 }
 
 /*
-                                                                        
-                                                 
+ * This routine is called by the kernel after it has written a series of
+ * characters to the tty device using put_char().
  */
 static void
 sclp_tty_flush_chars(struct tty_struct *tty)
@@ -282,11 +282,11 @@ sclp_tty_flush_chars(struct tty_struct *tty)
 }
 
 /*
-                                                                           
-                                                                           
-                                                                          
-                                                                            
-                            
+ * This routine returns the number of characters in the write buffer of the
+ * SCLP driver. The provided number includes all characters that are stored
+ * in the SCCB (will be written next time the SCLP is not busy) as well as
+ * characters in the write buffer (will not be written as long as there is a
+ * final line feed missing).
  */
 static int
 sclp_tty_chars_in_buffer(struct tty_struct *tty)
@@ -309,7 +309,7 @@ sclp_tty_chars_in_buffer(struct tty_struct *tty)
 }
 
 /*
-                                                       
+ * removes all content from buffers of low level driver
  */
 static void
 sclp_tty_flush_buffer(struct tty_struct *tty)
@@ -321,7 +321,7 @@ sclp_tty_flush_buffer(struct tty_struct *tty)
 }
 
 /*
-                    
+ * push input to tty
  */
 static void
 sclp_tty_input(unsigned char* buf, unsigned int count)
@@ -329,9 +329,9 @@ sclp_tty_input(unsigned char* buf, unsigned int count)
 	unsigned int cchar;
 
 	/*
-                                          
-                                       
-  */
+	 * If this tty driver is currently closed
+	 * then throw the received input away.
+	 */
 	if (sclp_tty == NULL)
 		return;
 	cchar = ctrlchar_handle(buf, count, sclp_tty);
@@ -343,11 +343,11 @@ sclp_tty_input(unsigned char* buf, unsigned int count)
 		tty_flip_buffer_push(sclp_tty);
 		break;
 	case CTRLCHAR_NONE:
-		/*                                        */
+		/* send (normal) input to line discipline */
 		if (count < 2 ||
 		    (strncmp((const char *) buf + count - 2, "^n", 2) &&
 		     strncmp((const char *) buf + count - 2, "\252n", 2))) {
-			/*                 */
+			/* add the auto \n */
 			tty_insert_flip_string(sclp_tty, buf, count);
 			tty_insert_flip_char(sclp_tty, '\n', TTY_NORMAL);
 		} else
@@ -358,53 +358,53 @@ sclp_tty_input(unsigned char* buf, unsigned int count)
 }
 
 /*
-                                           
-                                                                            
-                           
-                                     
+ * get a EBCDIC string in upper/lower case,
+ * find out characters in lower/upper case separated by a special character,
+ * modifiy original string,
+ * returns length of resulting string
  */
 static int sclp_switch_cases(unsigned char *buf, int count)
 {
 	unsigned char *ip, *op;
 	int toggle;
 
-	/*                                */
+	/* initially changing case is off */
 	toggle = 0;
 	ip = op = buf;
 	while (count-- > 0) {
-		/*                                */
+		/* compare with special character */
 		if (*ip == CASE_DELIMITER) {
-			/*                                        */
+			/* followed by another special character? */
 			if (count && ip[1] == CASE_DELIMITER) {
 				/*
-                                                
-                                     
-     */
+				 * ... then put a single copy of the special
+				 * character to the output string
+				 */
 				*op++ = *ip++;
 				count--;
 			} else
 				/*
-                                                 
-                                                  
-     */
+				 * ... special character follower by a normal
+				 * character toggles the case change behaviour
+				 */
 				toggle = ~toggle;
-			/*                        */
+			/* skip special character */
 			ip++;
 		} else
-			/*                           */
+			/* not the special character */
 			if (toggle)
-				/*                          */
+				/* but case switching is on */
 				if (sclp_tty_tolower)
-					/*                     */
+					/* switch to uppercase */
 					*op++ = _ebc_toupper[(int) *ip++];
 				else
-					/*                     */
+					/* switch to lowercase */
 					*op++ = _ebc_tolower[(int) *ip++];
 			else
-				/*                                       */
+				/* no case switching, copy the character */
 				*op++ = *ip++;
 	}
-	/*                                      */
+	/* return length of reformatted string. */
 	return op - buf;
 }
 
@@ -418,10 +418,10 @@ static void sclp_get_input(struct gds_subvector *sv)
 	if (sclp_tty_tolower)
 		EBC_TOLOWER(str, count);
 	count = sclp_switch_cases(str, count);
-	/*                                                         */
+	/* convert EBCDIC to ASCII (modify original input in SCCB) */
 	sclp_ebcasc_str(str, count);
 
-	/*                                     */
+	/* transfer input to high level driver */
 	sclp_tty_input(str, count);
 }
 
@@ -518,7 +518,7 @@ sclp_tty_init(void)
 		put_tty_driver(driver);
 		return rc;
 	}
-	/*                                     */
+	/* Allocate pages for output buffering */
 	INIT_LIST_HEAD(&sclp_tty_pages);
 	for (i = 0; i < MAX_KMEM_PAGES; i++) {
 		page = (void *) get_zeroed_page(GFP_KERNEL | GFP_DMA);
@@ -535,11 +535,11 @@ sclp_tty_init(void)
 	sclp_tty_buffer_count = 0;
 	if (MACHINE_IS_VM) {
 		/*
-                                         
-                                           
-   */
+		 * save 4 characters for the CPU number
+		 * written at start of each line by VM/CP
+		 */
 		sclp_tty_columns = 76;
-		/*                               */
+		/* case input lines to lowercase */
 		sclp_tty_tolower = 1;
 	}
 	sclp_tty_chars_count = 0;

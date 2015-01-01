@@ -22,13 +22,13 @@
 #include <mach/mxs.h>
 
 /*
-        
+ * OCRAM
  */
 #define MX28_OCRAM_BASE_ADDR		0x00000000
 #define MX28_OCRAM_SIZE			SZ_128K
 
 /*
-     
+ * IO
  */
 #define MX28_IO_BASE_ADDR		0x80000000
 #define MX28_IO_SIZE			SZ_1M
@@ -91,7 +91,7 @@
 #define MX28_IO_ADDRESS(x)		IOMEM(MX28_IO_P2V(x))
 
 /*
-      
+ * IRQ
  */
 #define MX28_INT_BATT_BRNOUT		0
 #define MX28_INT_VDDD_BRNOUT		1
@@ -186,7 +186,7 @@
 #define MX28_INT_GPIO0			127
 
 /*
-           
+ * APBH DMA
  */
 #define MX28_DMA_SSP0			0
 #define MX28_DMA_SSP1			1
@@ -204,7 +204,7 @@
 #define MX28_DMA_LCDIF			13
 
 /*
-           
+ * APBX DMA
  */
 #define MX28_DMA_AUART4_RX		0
 #define MX28_DMA_AUART4_TX		1
@@ -222,4 +222,4 @@
 #define MX28_DMA_AUART3_RX		14
 #define MX28_DMA_AUART3_TX		15
 
-#endif /*                 */
+#endif /* __MACH_MX28_H__ */

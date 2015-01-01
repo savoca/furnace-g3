@@ -28,7 +28,7 @@
 #define VERSION     "1.0"
 struct dentry *pin_debugfs_dent;
 
-/*                          */
+/* UART GPIO lines for 8660 */
 enum uartpins {
 	UARTDM_TX = 53,
 	UARTDM_RX = 54,
@@ -36,14 +36,14 @@ enum uartpins {
 	UARTDM_RFR = 56
 };
 
-/*                             */
+/* Aux PCM GPIO lines for 8660 */
 enum auxpcmpins {
 	AUX_PCM_CLK = 114,
 	AUX_PCM_SYNC = 113,
 	AUX_PCM_DIN  = 112,
 	AUX_PCM_DOUT = 111
 };
-/*                            */
+/*Number of UART and PCM pins */
 #define PIN_COUNT 8
 
 static struct gpiomux_setting pin_test_config = {
@@ -51,7 +51,7 @@ static struct gpiomux_setting pin_test_config = {
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
-/*                                             */
+/* Static array to intialise the return config */
 static struct gpiomux_setting currentconfig[2*PIN_COUNT];
 
 static struct msm_gpiomux_config pin_test_configs[]  = {
@@ -116,7 +116,7 @@ static struct msm_gpiomux_config pin_config[PIN_COUNT];
 
 static int pintest_open(struct inode *inode, struct file *file)
 {
-	/*              */
+	/* non-seekable */
 	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
 	return 0;
 }
@@ -149,9 +149,9 @@ static int configure_pins(struct msm_gpiomux_config *config,
 static void init_current_config_pointers(void)
 {
 	int i = 0, j = 0;
-	/*                                                                 
-                                                                
-  */
+	/* The current config variables will hold the current configuration
+	 * which is getting overwritten during a msm_gpiomux_write call
+	 */
 	for (i = 0, j = 0; i < PIN_COUNT; i += 1, j += 2) {
 		pin_config[i].settings[GPIOMUX_ACTIVE] = &currentconfig[j];
 		pin_config[i].settings[GPIOMUX_SUSPENDED] =
@@ -182,13 +182,13 @@ static ssize_t pintest_write(
 	init_current_config_pointers();
 
 	if (mode) {
-		/*                                                      */
+		/* Configure all pin test gpios for the custom settings */
 		rc = configure_pins(pin_test_configs, pin_config,
 					ARRAY_SIZE(pin_test_configs));
 		if (rc < 0)
 			return rc;
 	} else {
-		/*                                                        */
+		/* Configure all pin test gpios for the original settings */
 		rc = configure_pins(pin_config, pin_test_configs,
 					ARRAY_SIZE(pin_test_configs));
 		if (rc < 0)

@@ -11,9 +11,9 @@
  */
 
 /*
-                                               
-                                              
-           
+ * On the EBSA, the clock ticks at weird rates.
+ * This is therefore not used to calculate the
+ * divisor.
  */
 #define CLOCK_TICK_RATE		47894000
 

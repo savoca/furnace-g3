@@ -12,11 +12,11 @@
 
 #include "bnx2i.h"
 
-/* 
-                                                        
-                       
-  
-                              
+/**
+ * bnx2i_dev_to_hba - maps dev pointer to adapter struct
+ * @dev:	device pointer
+ *
+ * Map device to hba structure
  */
 static inline struct bnx2i_hba *bnx2i_dev_to_hba(struct device *dev)
 {
@@ -25,13 +25,13 @@ static inline struct bnx2i_hba *bnx2i_dev_to_hba(struct device *dev)
 }
 
 
-/* 
-                                                                          
-                       
-                                                   
-  
-                                                                          
-                                                       
+/**
+ * bnx2i_show_sq_info - return(s currently configured send queue (SQ) size
+ * @dev:	device pointer
+ * @buf:	buffer to return current SQ size parameter
+ *
+ * Returns current SQ size parameter, this paramater determines the number
+ * outstanding iSCSI commands supported on a connection
  */
 static ssize_t bnx2i_show_sq_info(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -42,15 +42,15 @@ static ssize_t bnx2i_show_sq_info(struct device *dev,
 }
 
 
-/* 
-                                                            
-                       
-                                                   
-                                
-  
-                                                                         
-                                                                           
-                                              
+/**
+ * bnx2i_set_sq_info - update send queue (SQ) size parameter
+ * @dev:	device pointer
+ * @buf:	buffer to return current SQ size parameter
+ * @count:	parameter buffer size
+ *
+ * Interface for user to change shared queue size allocated for each conn
+ * Must be within SQ limits and a power of 2. For the latter this is needed
+ * because of how libiscsi preallocates tasks.
  */
 static ssize_t bnx2i_set_sq_info(struct device *dev,
 				 struct device_attribute *attr,
@@ -82,12 +82,12 @@ skip_config:
 }
 
 
-/* 
-                                                         
-                       
-                                                   
-  
-                                                          
+/**
+ * bnx2i_show_ccell_info - returns command cell (HQ) size
+ * @dev:	device pointer
+ * @buf:	buffer to return current SQ size parameter
+ *
+ * returns per-connection TCP history queue size parameter
  */
 static ssize_t bnx2i_show_ccell_info(struct device *dev,
 				     struct device_attribute *attr, char *buf)
@@ -98,13 +98,13 @@ static ssize_t bnx2i_show_ccell_info(struct device *dev,
 }
 
 
-/* 
-                                                    
-                       
-                                                   
-                                
-  
-                                                          
+/**
+ * bnx2i_get_link_state - set command cell (HQ) size
+ * @dev:	device pointer
+ * @buf:	buffer to return current SQ size parameter
+ * @count:	parameter buffer size
+ *
+ * updates per-connection TCP history queue size parameter
  */
 static ssize_t bnx2i_set_ccell_info(struct device *dev,
 				    struct device_attribute *attr,

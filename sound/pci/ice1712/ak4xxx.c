@@ -50,7 +50,7 @@ static void snd_ice1712_akm4xxx_unlock(struct snd_akm4xxx *ak, int chip)
 }
 
 /*
-                        
+ * write AK4xxx register
  */
 static void snd_ice1712_akm4xxx_write(struct snd_akm4xxx *ak, int chip,
 				      unsigned char addr, unsigned char data)
@@ -69,36 +69,36 @@ static void snd_ice1712_akm4xxx_write(struct snd_akm4xxx *ak, int chip,
 	tmp &= ~priv->mask_flags;
 	if (priv->cs_mask == priv->cs_addr) {
 		if (priv->cif) {
-			tmp |= priv->cs_mask; /*                           */
+			tmp |= priv->cs_mask; /* start without chip select */
 		}  else {
-			tmp &= ~priv->cs_mask; /*                 */
+			tmp &= ~priv->cs_mask; /* chip select low */
 			snd_ice1712_gpio_write(ice, tmp);
 			udelay(1);
 		}
 	} else {
-		/*                         */
+		/* doesn't handle cf=1 yet */
 		tmp &= ~priv->cs_mask;
 		tmp |= priv->cs_addr;
 		snd_ice1712_gpio_write(ice, tmp);
 		udelay(1);
 	}
 
-	/*                               */
+	/* build I2C address + data byte */
 	addrdata = (priv->caddr << 6) | 0x20 | (addr & 0x1f);
 	addrdata = (addrdata << 8) | data;
 	for (idx = 15; idx >= 0; idx--) {
-		/*            */
+		/* drop clock */
 		tmp &= ~priv->clk_mask;
 		snd_ice1712_gpio_write(ice, tmp);
 		udelay(1);
-		/*          */
+		/* set data */
 		if (addrdata & (1 << idx))
 			tmp |= priv->data_mask;
 		else
 			tmp &= ~priv->data_mask;
 		snd_ice1712_gpio_write(ice, tmp);
 		udelay(1);
-		/*             */
+		/* raise clock */
 		tmp |= priv->clk_mask;
 		snd_ice1712_gpio_write(ice, tmp);
 		udelay(1);
@@ -106,22 +106,22 @@ static void snd_ice1712_akm4xxx_write(struct snd_akm4xxx *ak, int chip,
 
 	if (priv->cs_mask == priv->cs_addr) {
 		if (priv->cif) {
-			/*                              */
+			/* assert a cs pulse to trigger */
 			tmp &= ~priv->cs_mask;
 			snd_ice1712_gpio_write(ice, tmp);
 			udelay(1);
 		}
-		tmp |= priv->cs_mask; /*                             */
+		tmp |= priv->cs_mask; /* chip select high to trigger */
 	} else {
 		tmp &= ~priv->cs_mask;
-		tmp |= priv->cs_none; /*                  */
+		tmp |= priv->cs_none; /* deselect address */
 	}
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(1);
 }
 
 /*
-                                                             
+ * initialize the struct snd_akm4xxx record with the template
  */
 int snd_ice1712_akm4xxx_init(struct snd_akm4xxx *ak, const struct snd_akm4xxx *temp,
 			     const struct snd_ak4xxx_private *_priv, struct snd_ice1712 *ice)
@@ -163,7 +163,7 @@ void snd_ice1712_akm4xxx_free(struct snd_ice1712 *ice)
 }
 
 /*
-                        
+ * build AK4xxx controls
  */
 int snd_ice1712_akm4xxx_build_controls(struct snd_ice1712 *ice)
 {

@@ -1,7 +1,7 @@
 /*
-                                    
-  
-                                         
+ * arch/arm/boot/compressed/string.c
+ *
+ * Small subset of simple string routines
  */
 
 #include <linux/string.h>

@@ -19,17 +19,17 @@
 #include <mach/clk.h>
 
 /*
-                                                  
+ * Generic frequency-definition structs and macros
  */
 
-/* 
-                        
-                                     
-                                           
-                                           
-                                           
-                                                                             
-                                               
+/**
+ * @freq_hz: output rate
+ * @src_clk: source clock for freq_hz
+ * @m_val: M value corresponding to freq_hz
+ * @n_val: N value corresponding to freq_hz
+ * @d_val: D value corresponding to freq_hz
+ * @div_src_val: Pre divider value and source selection mux index for freq_hz
+ * @sys_vdd: Voltage level required for freq_hz
  */
 struct clk_freq_tbl {
 	unsigned long	freq_hz;
@@ -45,16 +45,16 @@ struct clk_freq_tbl {
 #define F_END { .freq_hz = FREQ_END }
 
 /*
-                                             
+ * Generic clock-definition struct and macros
  */
-/* 
-                                        
-                                  
-                                       
-                                          
-                                       
-                         
-                                                          
+/**
+ * struct rcg_clk - root clock generator
+ * @cmd_rcgr_reg: command register
+ * @set_rate: function to set frequency
+ * @freq_tbl: frequency table for this RCG
+ * @current_freq: current RCG frequency
+ * @c: generic clock data
+ * @base: pointer to base address of ioremapped registers.
  */
 struct rcg_clk {
 	const u32 cmd_rcgr_reg;
@@ -75,26 +75,26 @@ static inline struct rcg_clk *to_rcg_clk(struct clk *clk)
 
 extern struct clk_freq_tbl rcg_dummy_freq;
 
-/* 
-                                                                     
-                     
-          
+/**
+ * struct fixed_clk - fixed rate clock (used for crystal oscillators)
+ * @rate: output rate
+ * @c: clk
  */
 struct fixed_clk {
 	struct clk c;
 };
 
-/* 
-                                   
-                                                     
-          
-                                     
-                                 
-                                                                             
-                                         
-                                                                      
-                                  
-                                                          
+/**
+ * struct branch_clk - branch clock
+ * @set_rate: Set the frequency of this branch clock.
+ * @c: clk
+ * @cbcr_reg: branch control register
+ * @bcr_reg: block reset register
+ * @has_sibling: true if other branches are derived from this branch's source
+ * @cur_div: current branch divider value
+ * @max_div: maximum branch divider value (if zero, no divider exists)
+ * @halt_check: halt checking type
+ * @base: pointer to base address of ioremapped registers.
  */
 struct branch_clk {
 	void   (*set_rate)(struct branch_clk *, struct clk_freq_tbl *);
@@ -113,15 +113,15 @@ static inline struct branch_clk *to_branch_clk(struct clk *clk)
 	return container_of(clk, struct branch_clk, c);
 }
 
-/* 
-                                                
-          
-                                     
-                             
-                        
-                                  
-                                                          
-                                                        
+/**
+ * struct local_vote_clk - Voteable branch clock
+ * @c: clk
+ * @cbcr_reg: branch control register
+ * @vote_reg: voting register
+ * @en_mask: enable mask
+ * @halt_check: halt checking type
+ * @base: pointer to base address of ioremapped registers.
+ * An on/off switch with a rate derived from the parent.
  */
 struct local_vote_clk {
 	struct clk c;
@@ -138,12 +138,12 @@ static inline struct local_vote_clk *to_local_vote_clk(struct clk *clk)
 	return container_of(clk, struct local_vote_clk, c);
 }
 
-/* 
-                                                      
-                                                        
-                                           
-                                          
-          
+/**
+ * struct measure_clk - for rate measurement debug use
+ * @sample_ticks: sample period in reference clock ticks
+ * @multiplier: measurement scale-up factor
+ * @divider: measurement scale-down factor
+ * @c: clk
 */
 struct measure_clk {
 	u64 sample_ticks;
@@ -158,13 +158,13 @@ static inline struct measure_clk *to_measure_clk(struct clk *clk)
 }
 
 /*
-                                   
+ * Generic set-rate implementations
  */
 void set_rate_mnd(struct rcg_clk *clk, struct clk_freq_tbl *nf);
 void set_rate_hid(struct rcg_clk *clk, struct clk_freq_tbl *nf);
 
 /*
-                                        
+ * Variables from the clock-local driver
  */
 extern spinlock_t local_clock_reg_lock;
 
@@ -184,7 +184,7 @@ enum handoff pixel_rcg_handoff(struct clk *clk);
 enum handoff byte_rcg_handoff(struct clk *clk);
 
 /*
-                          
+ * Clock definition macros
  */
 #define DEFINE_CLK_MEASURE(name) \
 	struct clk name = { \
@@ -193,5 +193,5 @@ enum handoff byte_rcg_handoff(struct clk *clk);
 		CLK_INIT(name), \
 	}; \
 
-#endif /*                                     */
+#endif /* __ARCH_ARM_MACH_MSM_CLOCK_LOCAL_2_H */
 

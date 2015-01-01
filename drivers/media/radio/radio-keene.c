@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-/*                 */
+/* kernel includes */
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -31,29 +31,29 @@
 #include <linux/version.h>
 #include <linux/mutex.h>
 
-/*                               */
+/* driver and module definitions */
 MODULE_AUTHOR("Hans Verkuil <hverkuil@xs4all.nl>");
 MODULE_DESCRIPTION("Keene FM Transmitter driver");
 MODULE_LICENSE("GPL");
 
-/*                                              */
+/* Actually, it advertises itself as a Logitech */
 #define USB_KEENE_VENDOR 0x046d
 #define USB_KEENE_PRODUCT 0x0a0e
 
-/*                                                             */
+/* Probably USB_TIMEOUT should be modified in module parameter */
 #define BUFFER_LENGTH 8
 #define USB_TIMEOUT 500
 
-/*                         */
+/* Frequency limits in MHz */
 #define FREQ_MIN  76U
 #define FREQ_MAX 108U
 #define FREQ_MUL 16000U
 
-/*                    */
+/* USB Device ID List */
 static struct usb_device_id usb_keene_device_table[] = {
 	{USB_DEVICE_AND_INTERFACE_INFO(USB_KEENE_VENDOR, USB_KEENE_PRODUCT,
 							USB_CLASS_HID, 0, 0) },
-	{ }						/*                   */
+	{ }						/* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE(usb, usb_keene_device_table);
@@ -80,7 +80,7 @@ static inline struct keene_device *to_keene_dev(struct v4l2_device *v4l2_dev)
 	return container_of(v4l2_dev, struct keene_device, v4l2_dev);
 }
 
-/*                                                                        */
+/* Set frequency (if non-0), PA, mute and turn on/off the FM transmitter. */
 static int keene_cmd_main(struct keene_device *radio, unsigned freq, bool play)
 {
 	unsigned short freq_send = freq ? (freq - 76 * 16000) / 800 : 0;
@@ -91,11 +91,11 @@ static int keene_cmd_main(struct keene_device *radio, unsigned freq, bool play)
 	radio->buffer[2] = (freq_send >> 8) & 0xff;
 	radio->buffer[3] = freq_send & 0xff;
 	radio->buffer[4] = radio->pa;
-	/*                                             
-                                                             
-                                                           
-                            
-  */
+	/* If bit 4 is set, then tune to the frequency.
+	   If bit 3 is set, then unmute; if bit 2 is set, then mute.
+	   If bit 1 is set, then enter idle mode; if bit 0 is set,
+	   then enter transit mode.
+	 */
 	radio->buffer[5] = (radio->muted ? 4 : 8) | (play ? 1 : 2) |
 							(freq ? 0x10 : 0);
 	radio->buffer[6] = 0x00;
@@ -113,7 +113,7 @@ static int keene_cmd_main(struct keene_device *radio, unsigned freq, bool play)
 	return 0;
 }
 
-/*                                                       */
+/* Set TX, stereo and preemphasis mode (50 us vs 75 us). */
 static int keene_cmd_set(struct keene_device *radio)
 {
 	int ret;
@@ -121,9 +121,9 @@ static int keene_cmd_set(struct keene_device *radio)
 	radio->buffer[0] = 0x00;
 	radio->buffer[1] = 0x51;
 	radio->buffer[2] = radio->tx;
-	/*                                                       
-                                                             
-                 */
+	/* If bit 0 is set, then transmit mono, otherwise stereo.
+	   If bit 2 is set, then enable 75 us preemphasis, otherwise
+	   it is 50 us. */
 	radio->buffer[3] = (!radio->stereo) | (radio->preemph_75_us ? 4 : 0);
 	radio->buffer[4] = 0x00;
 	radio->buffer[5] = 0x00;
@@ -140,10 +140,10 @@ static int keene_cmd_set(struct keene_device *radio)
 	return 0;
 }
 
-/*                              
-                                               
-                                                
-                            
+/* Handle unplugging the device.
+ * We call video_unregister_device in any case.
+ * The last function called in this procedure is
+ * usb_keene_device_release.
  */
 static void usb_keene_disconnect(struct usb_interface *intf)
 {
@@ -226,9 +226,9 @@ static int vidioc_g_frequency(struct file *file, void *priv,
 static int keene_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	static const u8 db2tx[] = {
-	     /*                                       */
+	     /*	 -15,  -12,   -9,   -6,   -3,    0 dB */
 		0x03, 0x13, 0x02, 0x12, 0x22, 0x32,
-	     /*                                       */
+	     /*	   3,    6,    9,   12,   15,   18 dB */
 		0x21, 0x31, 0x20, 0x30, 0x40, 0x50
 	};
 	struct keene_device *radio =
@@ -240,8 +240,8 @@ static int keene_s_ctrl(struct v4l2_ctrl *ctrl)
 		return keene_cmd_main(radio, 0, true);
 
 	case V4L2_CID_TUNE_POWER_LEVEL:
-		/*                                                   
-                        */
+		/* To go from dBuV to the register value we apply the
+		   following formula: */
 		radio->pa = (ctrl->val - 71) * 100 / 62;
 		return keene_cmd_main(radio, 0, true);
 
@@ -268,7 +268,7 @@ static int vidioc_subscribe_event(struct v4l2_fh *fh,
 }
 
 
-/*                       */
+/* File system interface */
 static const struct v4l2_file_operations usb_keene_fops = {
 	.owner		= THIS_MODULE,
 	.open           = v4l2_fh_open,
@@ -296,13 +296,13 @@ static void usb_keene_video_device_release(struct v4l2_device *v4l2_dev)
 {
 	struct keene_device *radio = to_keene_dev(v4l2_dev);
 
-	/*                  */
+	/* free rest memory */
 	v4l2_ctrl_handler_free(&radio->hdl);
 	kfree(radio->buffer);
 	kfree(radio);
 }
 
-/*                                                                       */
+/* check if the device is present and register with v4l and usb if it is */
 static int usb_keene_probe(struct usb_interface *intf,
 				const struct usb_device_id *id)
 {
@@ -312,14 +312,14 @@ static int usb_keene_probe(struct usb_interface *intf,
 	int retval = 0;
 
 	/*
-                                                              
-                                                                
-                                                  
-                                                                
-                                  
-                                                      
-                       
-  */
+	 * The Keene FM transmitter USB device has the same USB ID as
+	 * the Logitech AudioHub Speaker, but it should ignore the hid.
+	 * Check if the name is that of the Keene device.
+	 * If not, then someone connected the AudioHub and we shouldn't
+	 * attempt to handle this driver.
+	 * For reference: the product name of the AudioHub is
+	 * "AudioHub Speaker".
+	 */
 	if (dev->product && strcmp(dev->product, "B-LINK USB Audio  "))
 		return -ENODEV;
 
@@ -398,7 +398,7 @@ err:
 	return retval;
 }
 
-/*                         */
+/* USB subsystem interface */
 static struct usb_driver usb_keene_driver = {
 	.name			= "radio-keene",
 	.probe			= usb_keene_probe,

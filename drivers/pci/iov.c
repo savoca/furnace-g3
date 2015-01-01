@@ -174,10 +174,10 @@ static void virtfn_remove(struct pci_dev *dev, int id, int reset)
 	sprintf(buf, "virtfn%u", id);
 	sysfs_remove_link(&dev->dev.kobj, buf);
 	/*
-                                                                  
-                                                                 
-                                                  
-  */
+	 * pci_stop_dev() could have been called for this virtfn already,
+	 * so the directory for the virtfn may have been removed before.
+	 * Double check to avoid spurious sysfs warnings.
+	 */
 	if (virtfn->dev.kobj.sd)
 		sysfs_remove_link(&virtfn->dev.kobj, "physfn");
 
@@ -560,11 +560,11 @@ static void sriov_restore_state(struct pci_dev *dev)
 		msleep(100);
 }
 
-/* 
-                                               
-                       
-  
-                                                
+/**
+ * pci_iov_init - initialize the IOV capability
+ * @dev: the PCI device
+ *
+ * Returns 0 on success, or negative on failure.
  */
 int pci_iov_init(struct pci_dev *dev)
 {
@@ -580,9 +580,9 @@ int pci_iov_init(struct pci_dev *dev)
 	return -ENODEV;
 }
 
-/* 
-                                                                 
-                       
+/**
+ * pci_iov_release - release resources used by the IOV capability
+ * @dev: the PCI device
  */
 void pci_iov_release(struct pci_dev *dev)
 {
@@ -590,13 +590,13 @@ void pci_iov_release(struct pci_dev *dev)
 		sriov_release(dev);
 }
 
-/* 
-                                                        
-                       
-                              
-                                      
-  
-                                                                     
+/**
+ * pci_iov_resource_bar - get position of the SR-IOV BAR
+ * @dev: the PCI device
+ * @resno: the resource number
+ * @type: the BAR type to be filled in
+ *
+ * Returns position of the BAR encapsulated in the SR-IOV capability.
  */
 int pci_iov_resource_bar(struct pci_dev *dev, int resno,
 			 enum pci_bar_type *type)
@@ -612,15 +612,15 @@ int pci_iov_resource_bar(struct pci_dev *dev, int resno,
 		4 * (resno - PCI_IOV_RESOURCES);
 }
 
-/* 
-                                                                   
-                       
-                              
-  
-                                                                      
-                                                                
-                                                                  
-                           
+/**
+ * pci_sriov_resource_alignment - get resource alignment for VF BAR
+ * @dev: the PCI device
+ * @resno: the resource number
+ *
+ * Returns the alignment of the VF BAR found in the SR-IOV capability.
+ * This is not the same as the resource size which is defined as
+ * the VF BAR size multiplied by the number of VFs.  The alignment
+ * is just the VF BAR size.
  */
 resource_size_t pci_sriov_resource_alignment(struct pci_dev *dev, int resno)
 {
@@ -635,9 +635,9 @@ resource_size_t pci_sriov_resource_alignment(struct pci_dev *dev, int resno)
 	return resource_alignment(&tmp);
 }
 
-/* 
-                                                                  
-                       
+/**
+ * pci_restore_iov_state - restore the state of the IOV capability
+ * @dev: the PCI device
  */
 void pci_restore_iov_state(struct pci_dev *dev)
 {
@@ -645,12 +645,12 @@ void pci_restore_iov_state(struct pci_dev *dev)
 		sriov_restore_state(dev);
 }
 
-/* 
-                                                              
-                    
-  
-                                                                    
-             
+/**
+ * pci_iov_bus_range - find bus range used by Virtual Function
+ * @bus: the PCI bus
+ *
+ * Returns max number of buses (exclude current one) used by Virtual
+ * Functions.
  */
 int pci_iov_bus_range(struct pci_bus *bus)
 {
@@ -669,12 +669,12 @@ int pci_iov_bus_range(struct pci_bus *bus)
 	return max ? max - bus->number : 0;
 }
 
-/* 
-                                                  
-                       
-                                                    
-  
-                                                
+/**
+ * pci_enable_sriov - enable the SR-IOV capability
+ * @dev: the PCI device
+ * @nr_virtfn: number of virtual functions to enable
+ *
+ * Returns 0 on success, or negative on failure.
  */
 int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn)
 {
@@ -687,9 +687,9 @@ int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn)
 }
 EXPORT_SYMBOL_GPL(pci_enable_sriov);
 
-/* 
-                                                    
-                       
+/**
+ * pci_disable_sriov - disable the SR-IOV capability
+ * @dev: the PCI device
  */
 void pci_disable_sriov(struct pci_dev *dev)
 {
@@ -702,15 +702,15 @@ void pci_disable_sriov(struct pci_dev *dev)
 }
 EXPORT_SYMBOL_GPL(pci_disable_sriov);
 
-/* 
-                                                                         
-                       
-  
-                                                                 
-  
-                                                                        
-                                                                         
-                                          
+/**
+ * pci_sriov_migration - notify SR-IOV core of Virtual Function Migration
+ * @dev: the PCI device
+ *
+ * Returns IRQ_HANDLED if the IRQ is handled, or IRQ_NONE if not.
+ *
+ * Physical Function driver is responsible to register IRQ handler using
+ * VF Migration Interrupt Message Number, and call this function when the
+ * interrupt is generated by the hardware.
  */
 irqreturn_t pci_sriov_migration(struct pci_dev *dev)
 {
@@ -721,11 +721,11 @@ irqreturn_t pci_sriov_migration(struct pci_dev *dev)
 }
 EXPORT_SYMBOL_GPL(pci_sriov_migration);
 
-/* 
-                                                                               
-                       
-  
-                                                        
+/**
+ * pci_num_vf - return number of VFs associated with a PF device_release_driver
+ * @dev: the PCI device
+ *
+ * Returns number of VFs, or 0 if SR-IOV is not enabled.
  */
 int pci_num_vf(struct pci_dev *dev)
 {

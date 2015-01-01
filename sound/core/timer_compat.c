@@ -18,7 +18,7 @@
  *
  */
 
-/*                                 */
+/* This file included from timer.c */
 
 #include <linux/compat.h>
 

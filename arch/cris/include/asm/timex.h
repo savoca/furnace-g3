@@ -1,7 +1,7 @@
 /*
-                                 
-  
-                                         
+ * linux/include/asm-cris/timex.h
+ *
+ * CRIS architecture timex specifications
  */
 
 #ifndef _ASM_CRIS_TIMEX_H
@@ -10,8 +10,8 @@
 #include <arch/timex.h>
 
 /*
-                                                                                 
-                              
+ * We don't have a cycle-counter.. but we do not support SMP anyway where this is
+ * used so it does not matter.
  */
 
 typedef unsigned long long cycles_t;

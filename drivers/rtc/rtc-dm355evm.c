@@ -18,16 +18,16 @@
 
 
 /*
-                                                                    
-                                                                   
-                                                                 
-                                 
-  
-                                                                  
-                                                                   
-                                                            
-  
-                                                    
+ * The MSP430 firmware on the DM355 EVM uses a watch crystal to feed
+ * a 1 Hz counter.  When a backup battery is supplied, that makes a
+ * reasonable RTC for applications where alarms and non-NTP drift
+ * compensation aren't important.
+ *
+ * The only real glitch is the inability to read or write all four
+ * counter bytes atomically:  the count may increment in the middle
+ * of an operation, causing trouble when the LSB rolls over.
+ *
+ * This driver was tested with firmware revision A4.
  */
 union evm_time {
 	u8	bytes[4];
@@ -42,10 +42,10 @@ static int dm355evm_rtc_read_time(struct device *dev, struct rtc_time *tm)
 
 	do {
 		/*
-                                                             
-                                                          
-                                                            
-   */
+		 * Read LSB(0) to MSB(3) bytes.  Defend against the counter
+		 * rolling over by re-reading until the value is stable,
+		 * and assuming the four reads take at most a few seconds.
+		 */
 		status = dm355evm_msp_read(DM355EVM_MSP_RTC_0);
 		if (status < 0)
 			return status;
@@ -94,9 +94,9 @@ static int dm355evm_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	dev_dbg(dev, "write timestamp %08x\n", time.value);
 
 	/*
-                                                               
-                                 
-  */
+	 * REVISIT handle non-atomic writes ... maybe just retry until
+	 * byte[1] sticks (no rollover)?
+	 */
 	status = dm355evm_msp_write(time.bytes[0], DM355EVM_MSP_RTC_0);
 	if (status < 0)
 		return status;
@@ -121,7 +121,7 @@ static struct rtc_class_ops dm355evm_rtc_ops = {
 	.set_time	= dm355evm_rtc_set_time,
 };
 
-/*                                                                      */
+/*----------------------------------------------------------------------*/
 
 static int __devinit dm355evm_rtc_probe(struct platform_device *pdev)
 {
@@ -149,8 +149,8 @@ static int __devexit dm355evm_rtc_remove(struct platform_device *pdev)
 }
 
 /*
-                                                                 
-                                                            
+ * I2C is used to talk to the MSP430, but this platform device is
+ * exposed by an MFD driver that manages I2C communications.
  */
 static struct platform_driver rtc_dm355evm_driver = {
 	.probe		= dm355evm_rtc_probe,

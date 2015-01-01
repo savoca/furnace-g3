@@ -24,7 +24,7 @@
 #define PCIO_BASE       MMU_IO(0xff000000, 0x7c000000)
 
 /*
-                                                               
+ * Translation of various region addresses to virtual addresses
  */
 #define __io(a)			((void __iomem *)(PCIO_BASE + (a)))
 

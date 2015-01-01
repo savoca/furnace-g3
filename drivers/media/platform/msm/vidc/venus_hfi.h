@@ -136,7 +136,7 @@ struct vidc_iface_q_info {
 	struct vidc_mem_addr q_array;
 };
 
-/*                                                       */
+/* Internal data used in vidc_hal not exposed to msm_vidc*/
 
 struct hal_data {
 	u32 irq;

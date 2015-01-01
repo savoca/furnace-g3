@@ -53,8 +53,8 @@ static struct hlist_head econet_sklist;
 static DEFINE_SPINLOCK(econet_lock);
 static DEFINE_MUTEX(econet_mutex);
 
-/*                                                                     
-                                                               */
+/* Since there are only 256 possible network numbers (or fewer, depends
+   how you count) it makes sense to use a simple lookup table. */
 static struct net_device *net2dev_map[256];
 
 #define EC_PORT_IP	0xd2
@@ -65,7 +65,7 @@ static struct socket *udpsock;
 #define AUN_PORT	0x8000
 
 struct aunhdr {
-	unsigned char code;		/*                         */
+	unsigned char code;		/* AUN magic protocol byte */
 	unsigned char port;
 	unsigned char cb;
 	unsigned char pad;
@@ -74,21 +74,21 @@ struct aunhdr {
 
 static unsigned long aun_seq;
 
-/*                                             */
+/* Queue of packets waiting to be transmitted. */
 static struct sk_buff_head aun_queue;
 static struct timer_list ab_cleanup_timer;
 
-#endif		/*                      */
+#endif		/* CONFIG_ECONET_AUNUDP */
 
-/*                        */
+/* Per-packet information */
 struct ec_cb {
 	struct sockaddr_ec sec;
-	unsigned long cookie;		/*                   */
+	unsigned long cookie;		/* Supplied by user. */
 #ifdef CONFIG_ECONET_AUNUDP
 	int done;
-	unsigned long seq;		/*            */
-	unsigned long timeout;		/*         */
-	unsigned long start;		/*         */
+	unsigned long seq;		/* Sequencing */
+	unsigned long timeout;		/* Timeout */
+	unsigned long start;		/* jiffies */
 #endif
 #ifdef CONFIG_ECONET_NATIVE
 	void (*sent)(struct sk_buff *, int result);
@@ -110,8 +110,8 @@ static void econet_insert_socket(struct hlist_head *list, struct sock *sk)
 }
 
 /*
-                                                                
-                         
+ *	Pull a packet from our receive queue and hand it to the user.
+ *	If necessary we block.
  */
 
 static int econet_recvmsg(struct kiocb *iocb, struct socket *sock,
@@ -127,29 +127,29 @@ static int econet_recvmsg(struct kiocb *iocb, struct socket *sock,
 	mutex_lock(&econet_mutex);
 
 	/*
-                                                              
-                                                               
-                           
-   
-                                                               
-                           
-  */
+	 *	Call the generic datagram receiver. This handles all sorts
+	 *	of horrible races and re-entrancy so we can forget about it
+	 *	in the protocol layers.
+	 *
+	 *	Now it will return ENETDOWN, if device have just gone down,
+	 *	but then it will block.
+	 */
 
 	skb = skb_recv_datagram(sk, flags, flags & MSG_DONTWAIT, &err);
 
 	/*
-                                                               
-                                                              
-            
-  */
+	 *	An error occurred so return it. Because skb_recv_datagram()
+	 *	handles the blocking we don't see and worry about blocking
+	 *	retries.
+	 */
 
 	if (skb == NULL)
 		goto out;
 
 	/*
-                                                                 
-                                                            
-  */
+	 *	You lose any data beyond the buffer you gave. If it worries a
+	 *	user program they can ask the device for its MTU anyway.
+	 */
 
 	copied = skb->len;
 	if (copied > len) {
@@ -157,7 +157,7 @@ static int econet_recvmsg(struct kiocb *iocb, struct socket *sock,
 		msg->msg_flags |= MSG_TRUNC;
 	}
 
-	/*                                     */
+	/* We can't use skb_copy_datagram here */
 	err = memcpy_toiovec(msg->msg_iov, skb->data, copied);
 	if (err)
 		goto out_free;
@@ -167,9 +167,9 @@ static int econet_recvmsg(struct kiocb *iocb, struct socket *sock,
 		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
 
 	/*
-                                                        
-                                                       
-  */
+	 *	Free or return the buffer as appropriate. Again this
+	 *	hides all the races and re-entrancy issues from us.
+	 */
 	err = copied;
 
 out_free:
@@ -180,7 +180,7 @@ out:
 }
 
 /*
-                         
+ *	Bind an Econet socket.
  */
 
 static int econet_bind(struct socket *sock, struct sockaddr *uaddr,
@@ -191,8 +191,8 @@ static int econet_bind(struct socket *sock, struct sockaddr *uaddr,
 	struct econet_sock *eo;
 
 	/*
-                  
-  */
+	 *	Check legality
+	 */
 
 	if (addr_len < sizeof(struct sockaddr_ec) ||
 	    sec->sec_family != AF_ECONET)
@@ -215,7 +215,7 @@ static int econet_bind(struct socket *sock, struct sockaddr *uaddr,
 
 #if defined(CONFIG_ECONET_AUNUDP) || defined(CONFIG_ECONET_NATIVE)
 /*
-                                                         
+ *	Queue a transmit result for the user to be told about.
  */
 
 static void tx_result(struct sock *sk, unsigned long cookie, int result)
@@ -243,8 +243,8 @@ static void tx_result(struct sock *sk, unsigned long cookie, int result)
 
 #ifdef CONFIG_ECONET_NATIVE
 /*
-                                                              
-                                 
+ *	Called by the Econet hardware driver when a packet transmit
+ *	has completed.  Tell the user.
  */
 
 static void ec_tx_done(struct sk_buff *skb, int result)
@@ -255,8 +255,8 @@ static void ec_tx_done(struct sk_buff *skb, int result)
 #endif
 
 /*
-                                                                     
-                                                             
+ *	Send a packet.  We have to work out which device it's going out on
+ *	and hence whether to use real Econet or the UDP emulation.
  */
 
 static int econet_sendmsg(struct kiocb *iocb, struct socket *sock,
@@ -283,15 +283,15 @@ static int econet_sendmsg(struct kiocb *iocb, struct socket *sock,
 #endif
 
 	/*
-                    
-  */
+	 *	Check the flags.
+	 */
 
 	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_CMSG_COMPAT))
 		return -EINVAL;
 
 	/*
-                               
-  */
+	 *	Get and verify the address.
+	 */
 
 	mutex_lock(&econet_mutex);
 
@@ -304,13 +304,13 @@ static int econet_sendmsg(struct kiocb *iocb, struct socket *sock,
 	port = saddr->port;
 	cb = saddr->cb;
 
-	/*                                                  */
+	/* Look for a device with the right network number. */
 	dev = net2dev_map[addr.net];
 
-	/*                                             */
+	/* If not directly reachable, use some default */
 	if (dev == NULL) {
 		dev = net2dev_map[0];
-		/*                       */
+		/* No interfaces at all? */
 		if (dev == NULL) {
 			mutex_unlock(&econet_mutex);
 			return -ENETDOWN;
@@ -318,7 +318,7 @@ static int econet_sendmsg(struct kiocb *iocb, struct socket *sock,
 	}
 
 	if (dev->type == ARPHRD_ECONET) {
-		/*                                              */
+		/* Real hardware Econet.  We're not worthy etc. */
 #ifdef CONFIG_ECONET_NATIVE
 		unsigned short proto = 0;
 		int hlen, tlen;
@@ -353,8 +353,8 @@ static int econet_sendmsg(struct kiocb *iocb, struct socket *sock,
 			goto out_free;
 		if (res > 0) {
 			struct ec_framehdr *fh;
-			/*                             
-                                 */
+			/* Poke in our control byte and
+			   port number.  Hack, hack.  */
 			fh = (struct ec_framehdr *)skb->data;
 			fh->cb = cb;
 			fh->port = port;
@@ -364,7 +364,7 @@ static int econet_sendmsg(struct kiocb *iocb, struct socket *sock,
 			}
 		}
 
-		/*                                         */
+		/* Copy the data. Returns -EFAULT on error */
 		err = memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
 		skb->protocol = proto;
 		skb->dev = dev;
@@ -377,8 +377,8 @@ static int econet_sendmsg(struct kiocb *iocb, struct socket *sock,
 			goto out_free;
 
 		/*
-                
-   */
+		 *	Now send it
+		 */
 
 		dev_queue_xmit(skb);
 		dev_put(dev);
@@ -399,11 +399,11 @@ out_unlock:
 	}
 
 #ifdef CONFIG_ECONET_AUNUDP
-	/*                     */
+	/* AUN virtual Econet. */
 
 	if (udpsock == NULL) {
 		mutex_unlock(&econet_mutex);
-		return -ENETDOWN;		/*                        */
+		return -ENETDOWN;		/* No socket - can't send */
 	}
 
 	if (len > 32768) {
@@ -411,15 +411,15 @@ out_unlock:
 		goto error;
 	}
 
-	/*                                                                  */
+	/* Make up a UDP datagram and hand it off to some higher intellect. */
 
 	memset(&udpdest, 0, sizeof(udpdest));
 	udpdest.sin_family = AF_INET;
 	udpdest.sin_port = htons(AUN_PORT);
 
-	/*                                                               
-                                                                   
-                                                   */
+	/* At the moment we use the stupid Acorn scheme of Econet address
+	   y.x maps to IP a.b.c.x.  This should be replaced with something
+	   more flexible and more aware of subnet masks.  */
 	{
 		struct in_device *idev;
 		unsigned long network = 0;
@@ -429,7 +429,7 @@ out_unlock:
 		if (idev) {
 			if (idev->ifa_list)
 				network = ntohl(idev->ifa_list->ifa_address) &
-					0xffffff00;		/*     */
+					0xffffff00;		/* !!! */
 		}
 		rcu_read_unlock();
 		udpdest.sin_addr.s_addr = htonl(network | addr.station);
@@ -438,9 +438,9 @@ out_unlock:
 	memset(&ah, 0, sizeof(ah));
 	ah.port = port;
 	ah.cb = cb & 0x7f;
-	ah.code = 2;		/*       */
+	ah.code = 2;		/* magic */
 
-	/*                                           */
+	/* tack our header on the front of the iovec */
 	size = sizeof(struct aunhdr);
 	iov[0].iov_base = (void *)&ah;
 	iov[0].iov_len = size;
@@ -457,7 +457,7 @@ out_unlock:
 	if (err)
 		goto error_free_buf;
 
-	/*                                                       */
+	/* Get a skbuff (no data, just holds our cb information) */
 	skb = sock_alloc_send_skb(sk, 0, msg->msg_flags & MSG_DONTWAIT, &err);
 	if (skb == NULL)
 		goto error_free_buf;
@@ -482,7 +482,7 @@ out_unlock:
 	udpmsg.msg_flags = 0;
 
 	oldfs = get_fs();
-	set_fs(KERNEL_DS);		/*                */
+	set_fs(KERNEL_DS);		/* More privs :-) */
 	err = sock_sendmsg(udpsock, &udpmsg, size);
 	set_fs(oldfs);
 
@@ -498,7 +498,7 @@ error:
 }
 
 /*
-                                   
+ *	Look up the address of a socket.
  */
 
 static int econet_getname(struct socket *sock, struct sockaddr *uaddr,
@@ -543,7 +543,7 @@ static void econet_destroy_timer(unsigned long data)
 }
 
 /*
-                          
+ *	Close an econet socket.
  */
 
 static int econet_release(struct socket *sock)
@@ -559,14 +559,14 @@ static int econet_release(struct socket *sock)
 	econet_remove_socket(&econet_sklist, sk);
 
 	/*
-                                                      
-  */
+	 *	Now the socket is dead. No more input will appear.
+	 */
 
-	sk->sk_state_change(sk);	/*                                 */
+	sk->sk_state_change(sk);	/* It is useless. Just for sanity. */
 
 	sock_orphan(sk);
 
-	/*              */
+	/* Purge queues */
 
 	skb_queue_purge(&sk->sk_receive_queue);
 
@@ -593,7 +593,7 @@ static struct proto econet_proto = {
 };
 
 /*
-                          
+ *	Create an Econet socket
  */
 
 static int econet_create(struct net *net, struct socket *sock, int protocol,
@@ -606,7 +606,7 @@ static int econet_create(struct net *net, struct socket *sock, int protocol,
 	if (!net_eq(net, &init_net))
 		return -EAFNOSUPPORT;
 
-	/*                                         */
+	/* Econet only provides datagram services. */
 	if (sock->type != SOCK_DGRAM)
 		return -ESOCKTNOSUPPORT;
 
@@ -633,7 +633,7 @@ out:
 }
 
 /*
-                                
+ *	Handle Econet specific ioctls
  */
 
 static int ec_dev_ioctl(struct socket *sock, unsigned int cmd, void __user *arg)
@@ -645,8 +645,8 @@ static int ec_dev_ioctl(struct socket *sock, unsigned int cmd, void __user *arg)
 	int err;
 
 	/*
-                                                   
-  */
+	 *	Fetch the caller's info block into kernel space
+	 */
 
 	if (copy_from_user(&ifr, arg, sizeof(struct ifreq)))
 		return -EFAULT;
@@ -669,7 +669,7 @@ static int ec_dev_ioctl(struct socket *sock, unsigned int cmd, void __user *arg)
 
 		edev = dev->ec_ptr;
 		if (edev == NULL) {
-			/*                     */
+			/* Magic up a new one. */
 			edev = kzalloc(sizeof(struct ec_device), GFP_KERNEL);
 			if (edev == NULL) {
 				err = -ENOMEM;
@@ -713,7 +713,7 @@ static int ec_dev_ioctl(struct socket *sock, unsigned int cmd, void __user *arg)
 }
 
 /*
-                        
+ *	Handle generic ioctls
  */
 
 static int econet_ioctl(struct socket *sock, unsigned int cmd,
@@ -767,7 +767,7 @@ static const struct proto_ops econet_ops = {
 
 #if defined(CONFIG_ECONET_AUNUDP) || defined(CONFIG_ECONET_NATIVE)
 /*
-                                                         
+ *	Find the listening socket, if any, for the given data.
  */
 
 static struct sock *ec_listening_socket(unsigned char port, unsigned char
@@ -793,7 +793,7 @@ found:
 }
 
 /*
-                                        
+ *	Queue a received packet for a socket.
  */
 
 static int ec_queue_packet(struct sock *sk, struct sk_buff *skb,
@@ -817,7 +817,7 @@ static int ec_queue_packet(struct sock *sk, struct sk_buff *skb,
 
 #ifdef CONFIG_ECONET_AUNUDP
 /*
-                                 
+ *	Send an AUN protocol response.
  */
 
 static void aun_send_response(__u32 addr, unsigned long seq, int code, int cb)
@@ -842,8 +842,8 @@ static void aun_send_response(__u32 addr, unsigned long seq, int code, int cb)
 
 
 /*
-                                                                
-                                                                 
+ *	Handle incoming AUN packets.  Work out if anybody wants them,
+ *	and send positive or negative acknowledgements as appropriate.
  */
 
 static void aun_incoming(struct sk_buff *skb, struct aunhdr *ah, size_t len)
@@ -863,13 +863,13 @@ static void aun_incoming(struct sk_buff *skb, struct aunhdr *ah, size_t len)
 
 	sk = ec_listening_socket(ah->port, stn, edev->net);
 	if (sk == NULL)
-		goto bad;		/*                 */
+		goto bad;		/* Nobody wants it */
 
 	newskb = alloc_skb((len - sizeof(struct aunhdr) + 15) & ~15,
 			   GFP_ATOMIC);
 	if (newskb == NULL) {
 		pr_debug("AUN: memory squeeze, dropping packet\n");
-		/*                                       */
+		/* Send nack and hope sender tries again */
 		goto bad;
 	}
 
@@ -877,7 +877,7 @@ static void aun_incoming(struct sk_buff *skb, struct aunhdr *ah, size_t len)
 	       len - sizeof(struct aunhdr));
 
 	if (ec_queue_packet(sk, newskb, stn, edev->net, ah->cb, ah->port)) {
-		/*                     */
+		/* Socket is bankrupt. */
 		kfree_skb(newskb);
 		goto bad;
 	}
@@ -893,10 +893,10 @@ bad:
 }
 
 /*
-                                                                  
-                                                                     
-                                                                   
-                              
+ *	Handle incoming AUN transmit acknowledgements.  If the sequence
+ *      number matches something in our backlog then kill it and tell
+ *	the user.  If the remote took too long to reply then we may have
+ *	dropped the packet already.
  */
 
 static void aun_tx_ack(unsigned long seq, int result)
@@ -923,8 +923,8 @@ foundit:
 }
 
 /*
-                                                                    
-                                     
+ *	Deal with received AUN frames - sort out what type of thing it is
+ *	and hand it to the right function.
  */
 
 static void aun_data_available(struct sock *sk, int slen)
@@ -965,10 +965,10 @@ static void aun_data_available(struct sock *sk, int slen)
 }
 
 /*
-                                                                     
-                                                                   
-                                                                      
-                   
+ *	Called by the timer to manage the AUN transmit queue.  If a packet
+ *	was sent to a dead or nonexistent host then we will never get an
+ *	acknowledgement back.  After a few seconds we need to spot this and
+ *	drop the packet.
  */
 
 static void ab_cleanup(unsigned long h)
@@ -1004,8 +1004,8 @@ static int __init aun_udp_initialise(void)
 	memset(&sin, 0, sizeof(sin));
 	sin.sin_port = htons(AUN_PORT);
 
-	/*                                                           
-                    */
+	/* We can count ourselves lucky Acorn machines are too dim to
+	   speak IPv6. :-) */
 	error = sock_create_kern(PF_INET, SOCK_DGRAM, 0, &udpsock);
 	if (error < 0) {
 		pr_err("AUN: socket error %d\n", -error);
@@ -1013,8 +1013,8 @@ static int __init aun_udp_initialise(void)
 	}
 
 	udpsock->sk->sk_reuse = 1;
-	udpsock->sk->sk_allocation = GFP_ATOMIC; /*                       
-                          */
+	udpsock->sk->sk_allocation = GFP_ATOMIC; /* we're going to call it
+						    from interrupts */
 
 	error = udpsock->ops->bind(udpsock, (struct sockaddr *)&sin,
 				   sizeof(sin));
@@ -1037,7 +1037,7 @@ release:
 #ifdef CONFIG_ECONET_NATIVE
 
 /*
-                                         
+ *	Receive an Econet frame from a device.
  */
 
 static int econet_rcv(struct sk_buff *skb, struct net_device *dev,
@@ -1065,7 +1065,7 @@ static int econet_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	hdr = (struct ec_framehdr *)skb->data;
 
-	/*                                 */
+	/* First check for encapsulated IP */
 	if (hdr->port == EC_PORT_IP) {
 		skb->protocol = htons(ETH_P_IP);
 		skb_pull(skb, sizeof(struct ec_framehdr));
@@ -1113,7 +1113,7 @@ static int econet_notifier(struct notifier_block *this, unsigned long msg,
 
 	switch (msg) {
 	case NETDEV_UNREGISTER:
-		/*                                                        */
+		/* A device has gone down - kill any data we hold for it. */
 		edev = dev->ec_ptr;
 		if (edev) {
 			if (net2dev_map[0] == dev)

@@ -42,10 +42,10 @@
 #include "rbd_types.h"
 
 /*
-                                                                   
-                                                                    
-                                                               
-                                                   
+ * The basic unit of block I/O is a sector.  It is interpreted in a
+ * number of contexts in Linux (blk, bio, genhd), but the default is
+ * universally 512 bytes.  These symbols are just slightly more
+ * meaningful than the bare numbers they represent.
  */
 #define	SECTOR_SHIFT	9
 #define	SECTOR_SIZE	(1ULL << SECTOR_SHIFT)
@@ -53,7 +53,7 @@
 #define RBD_DRV_NAME "rbd"
 #define RBD_DRV_NAME_LONG "rbd (rados block device)"
 
-#define RBD_MINORS_PER_MAJOR	256		/*                       */
+#define RBD_MINORS_PER_MAJOR	256		/* max minors per blkdev */
 
 #define RBD_MAX_MD_NAME_LEN	(RBD_MAX_OBJ_NAME_LEN + sizeof(RBD_SUFFIX))
 #define RBD_MAX_POOL_NAME_LEN	64
@@ -63,10 +63,10 @@
 #define RBD_SNAP_HEAD_NAME	"-"
 
 /*
-                                                                
-                                                            
-                                                               
-                                            
+ * An RBD device name will be "rbd#", where the "rbd" comes from
+ * RBD_DRV_NAME above, and # is a unique integer identifier.
+ * MAX_INT_FORMAT_WIDTH is used in ensuring DEV_NAME_LEN is big
+ * enough to hold all possible device names.
  */
 #define DEV_NAME_LEN		32
 #define MAX_INT_FORMAT_WIDTH	((5 * sizeof (int)) / 2 + 1)
@@ -74,7 +74,7 @@
 #define RBD_NOTIFY_TIMEOUT_DEFAULT 10
 
 /*
-                                                  
+ * block device image metadata (in-memory version)
  */
 struct rbd_image_header {
 	u64 image_size;
@@ -98,7 +98,7 @@ struct rbd_options {
 };
 
 /*
-                                                                        
+ * an instance of the client.  multiple devices may share an rbd client.
  */
 struct rbd_client {
 	struct ceph_client	*client;
@@ -108,7 +108,7 @@ struct rbd_client {
 };
 
 /*
-                              
+ * a request completion status
  */
 struct rbd_req_status {
 	int done;
@@ -117,7 +117,7 @@ struct rbd_req_status {
 };
 
 /*
-                           
+ * a collection of requests
  */
 struct rbd_req_coll {
 	int			total;
@@ -127,12 +127,12 @@ struct rbd_req_coll {
 };
 
 /*
-                      
+ * a single io request
  */
 struct rbd_request {
-	struct request		*rq;		/*                   */
-	struct bio		*bio;		/*            */
-	struct page		**pages;	/*                    */
+	struct request		*rq;		/* blk layer request */
+	struct bio		*bio;		/* cloned bio */
+	struct page		**pages;	/* list of used pages */
 	u64			len;
 	int			coll_index;
 	struct rbd_req_coll	*coll;
@@ -147,53 +147,53 @@ struct rbd_snap {
 };
 
 /*
-                  
+ * a single device
  */
 struct rbd_device {
-	int			id;		/*                  */
+	int			id;		/* blkdev unique id */
 
-	int			major;		/*                       */
-	struct gendisk		*disk;		/*                         */
+	int			major;		/* blkdev assigned major */
+	struct gendisk		*disk;		/* blkdev's gendisk and rq */
 	struct request_queue	*q;
 
 	struct rbd_client	*rbd_client;
 
-	char			name[DEV_NAME_LEN]; /*                        */
+	char			name[DEV_NAME_LEN]; /* blkdev name, e.g. rbd3 */
 
-	spinlock_t		lock;		/*            */
+	spinlock_t		lock;		/* queue lock */
 
 	struct rbd_image_header	header;
-	char			obj[RBD_MAX_OBJ_NAME_LEN]; /*                */
+	char			obj[RBD_MAX_OBJ_NAME_LEN]; /* rbd image name */
 	int			obj_len;
-	char			obj_md_name[RBD_MAX_MD_NAME_LEN]; /*         */
+	char			obj_md_name[RBD_MAX_MD_NAME_LEN]; /* hdr nm. */
 	char			pool_name[RBD_MAX_POOL_NAME_LEN];
 	int			poolid;
 
 	struct ceph_osd_event   *watch_event;
 	struct ceph_osd_request *watch_request;
 
-	/*                              */
+	/* protects updating the header */
 	struct rw_semaphore     header_rwsem;
 	char                    snap_name[RBD_MAX_SNAP_NAME_LEN];
-	u32 cur_snap;	/*                                                
-                       */
+	u32 cur_snap;	/* index+1 of current snapshot within snap context
+			   0 - for the head */
 	int read_only;
 
 	struct list_head	node;
 
-	/*                   */
+	/* list of snapshots */
 	struct list_head	snaps;
 
-	/*               */
+	/* sysfs related */
 	struct device		dev;
 };
 
-static DEFINE_MUTEX(ctl_mutex);	  /*                                     */
+static DEFINE_MUTEX(ctl_mutex);	  /* Serialize open/close/setup/teardown */
 
-static LIST_HEAD(rbd_dev_list);    /*         */
+static LIST_HEAD(rbd_dev_list);    /* devices */
 static DEFINE_SPINLOCK(rbd_dev_list_lock);
 
-static LIST_HEAD(rbd_client_list);		/*         */
+static LIST_HEAD(rbd_client_list);		/* clients */
 static DEFINE_SPINLOCK(rbd_client_list_lock);
 
 static int __rbd_init_snaps_header(struct rbd_device *rbd_dev);
@@ -273,8 +273,8 @@ static const struct block_device_operations rbd_bd_ops = {
 };
 
 /*
-                                     
-               
+ * Initialize an rbd client instance.
+ * We own *opt.
  */
 static struct rbd_client *rbd_client_create(struct ceph_options *opt,
 					    struct rbd_options *rbd_opts)
@@ -295,7 +295,7 @@ static struct rbd_client *rbd_client_create(struct ceph_options *opt,
 	rbdc->client = ceph_create_client(opt, rbdc, 0, 0);
 	if (IS_ERR(rbdc->client))
 		goto out_mutex;
-	opt = NULL; /*                                         */
+	opt = NULL; /* Now rbdc->client is responsible for opt */
 
 	ret = ceph_open_session(rbdc->client);
 	if (ret < 0)
@@ -324,7 +324,7 @@ out_opt:
 }
 
 /*
-                                                           
+ * Find a ceph client with specific addr and configuration.
  */
 static struct rbd_client *__rbd_client_find(struct ceph_options *opt)
 {
@@ -340,20 +340,20 @@ static struct rbd_client *__rbd_client_find(struct ceph_options *opt)
 }
 
 /*
-                
+ * mount options
  */
 enum {
 	Opt_notify_timeout,
 	Opt_last_int,
-	/*                */
+	/* int args above */
 	Opt_last_string,
-	/*                   */
+	/* string args above */
 };
 
 static match_table_t rbdopt_tokens = {
 	{Opt_notify_timeout, "notify_timeout=%d"},
-	/*                */
-	/*                   */
+	/* int args above */
+	/* string args above */
 	{-1, NULL}
 };
 
@@ -393,8 +393,8 @@ static int parse_rbd_opts_token(char *c, void *private)
 }
 
 /*
-                                                                      
-                       
+ * Get a ceph client with specific addr and configuration, if one does
+ * not exist create it.
  */
 static struct rbd_client *rbd_get_client(const char *mon_addr,
 					 size_t mon_addr_len,
@@ -421,7 +421,7 @@ static struct rbd_client *rbd_get_client(const char *mon_addr,
 	spin_lock(&rbd_client_list_lock);
 	rbdc = __rbd_client_find(opt);
 	if (rbdc) {
-		/*                          */
+		/* using an existing client */
 		kref_get(&rbdc->kref);
 		spin_unlock(&rbd_client_list_lock);
 
@@ -441,9 +441,9 @@ static struct rbd_client *rbd_get_client(const char *mon_addr,
 }
 
 /*
-                      
-  
-                                         
+ * Destroy ceph client
+ *
+ * Caller must hold rbd_client_list_lock.
  */
 static void rbd_client_release(struct kref *kref)
 {
@@ -458,8 +458,8 @@ static void rbd_client_release(struct kref *kref)
 }
 
 /*
-                                                                              
-      
+ * Drop reference to ceph client node. If it's not referenced anymore, release
+ * it.
  */
 static void rbd_put_client(struct rbd_device *rbd_dev)
 {
@@ -470,7 +470,7 @@ static void rbd_put_client(struct rbd_device *rbd_dev)
 }
 
 /*
-                              
+ * Destroy requests collection
  */
 static void rbd_coll_release(struct kref *kref)
 {
@@ -482,8 +482,8 @@ static void rbd_coll_release(struct kref *kref)
 }
 
 /*
-                                                                          
-          
+ * Create a new header structure, translate header format from the on-disk
+ * header.
  */
 static int rbd_header_from_disk(struct rbd_image_header *header,
 				 struct rbd_image_header_ondisk *ondisk,
@@ -538,7 +538,7 @@ static int rbd_header_from_disk(struct rbd_image_header *header,
 				le64_to_cpu(ondisk->snaps[i].image_size);
 		}
 
-		/*                     */
+		/* copy snapshot names */
 		memcpy(header->snap_names, &ondisk->snaps[i],
 			header->snap_names_len);
 	}
@@ -576,7 +576,7 @@ static int snap_by_name(struct rbd_image_header *header, const char *snap_name,
 	for (i = 0; i < header->total_snaps; i++) {
 		if (!strcmp(snap_name, p)) {
 
-			/*                                         */
+			/* Found it.  Pass back its id and/or size */
 
 			if (seq)
 				*seq = header->snapc->snaps[i];
@@ -584,7 +584,7 @@ static int snap_by_name(struct rbd_image_header *header, const char *snap_name,
 				*size = header->snap_sizes[i];
 			return i;
 		}
-		p += strlen(p) + 1;	/*                             */
+		p += strlen(p) + 1;	/* Skip ahead to the next name */
 	}
 	return -ENOENT;
 }
@@ -632,7 +632,7 @@ static void rbd_header_free(struct rbd_image_header *header)
 }
 
 /*
-                                                         
+ * get the actual striped segment name, offset and length
  */
 static u64 rbd_get_segment(struct rbd_image_header *header,
 			   const char *block_name,
@@ -663,7 +663,7 @@ static int rbd_get_num_segments(struct rbd_image_header *header,
 }
 
 /*
-                                             
+ * returns the size of an object in the image
  */
 static u64 rbd_obj_bytes(struct rbd_image_header *header)
 {
@@ -671,7 +671,7 @@ static u64 rbd_obj_bytes(struct rbd_image_header *header)
 }
 
 /*
-              
+ * bio helpers
  */
 
 static void bio_chain_put(struct bio *chain)
@@ -686,7 +686,7 @@ static void bio_chain_put(struct bio *chain)
 }
 
 /*
-                                                 
+ * zeros a bio chain, starting at specific offset
  */
 static void zero_bio_chain(struct bio *chain, int start_ofs)
 {
@@ -713,8 +713,8 @@ static void zero_bio_chain(struct bio *chain, int start_ofs)
 }
 
 /*
-                                                                  
-                                                         
+ * bio_chain_clone - clone a chain of bios up to a certain length.
+ * might return a bio_pair that will need to be released.
  */
 static struct bio *bio_chain_clone(struct bio **old, struct bio **next,
 				   struct bio_pair **bp,
@@ -737,16 +737,16 @@ static struct bio *bio_chain_clone(struct bio **old, struct bio **next,
 			struct bio_pair *bp;
 
 			/*
-                                                         
-                                                   
-    */
+			 * this split can only happen with a single paged bio,
+			 * split_bio will BUG_ON if this is not the case
+			 */
 			dout("bio_chain_clone split! total=%d remaining=%d"
 			     "bi_size=%d\n",
 			     (int)total, (int)len-total,
 			     (int)old_chain->bi_size);
 
-			/*                                                   
-                                                   */
+			/* split the bio. We'll release it either in the next
+			   call, or it will have to be released outside */
 			bp = bio_split(old_chain, (len - total) / SECTOR_SIZE);
 			if (!bp)
 				goto err_out;
@@ -790,7 +790,7 @@ err_out:
 }
 
 /*
-                                      
+ * helpers for osd request op vectors.
  */
 static int rbd_create_rw_ops(struct ceph_osd_req_op **ops,
 			    int num_ops,
@@ -803,9 +803,9 @@ static int rbd_create_rw_ops(struct ceph_osd_req_op **ops,
 		return -ENOMEM;
 	(*ops)[0].op = opcode;
 	/*
-                                                    
-                        
-  */
+	 * op extent offset and length will be set later on
+	 * in calc_raw_layout()
+	 */
 	(*ops)[0].payload_len = payload_len;
 	return 0;
 }
@@ -860,7 +860,7 @@ static void rbd_coll_end_req(struct rbd_request *req,
 }
 
 /*
-                        
+ * Send ceph osd request
  */
 static int rbd_do_request(struct request *rq,
 			  struct rbd_device *dev,
@@ -976,7 +976,7 @@ done_pages:
 }
 
 /*
-                       
+ * Ceph osd op callback
  */
 static void rbd_req_cb(struct ceph_osd_request *req, struct ceph_msg *msg)
 {
@@ -987,7 +987,7 @@ static void rbd_req_cb(struct ceph_osd_request *req, struct ceph_msg *msg)
 	u64 bytes;
 	int read_op;
 
-	/*             */
+	/* parse reply */
 	replyhead = msg->front.iov_base;
 	WARN_ON(le32_to_cpu(replyhead->num_ops) == 0);
 	op = (void *)(replyhead + 1);
@@ -1020,7 +1020,7 @@ static void rbd_simple_req_cb(struct ceph_osd_request *req, struct ceph_msg *msg
 }
 
 /*
-                                      
+ * Do a synchronous ceph osd operation
  */
 static int rbd_req_sync_op(struct rbd_device *dev,
 			   struct ceph_snap_context *snapc,
@@ -1083,7 +1083,7 @@ done:
 }
 
 /*
-                                        
+ * Do an asynchronous ceph osd operation
  */
 static int rbd_do_op(struct request *rq,
 		     struct rbd_device *rbd_dev ,
@@ -1117,9 +1117,9 @@ static int rbd_do_op(struct request *rq,
 	if (ret < 0)
 		goto done;
 
-	/*                                                  
-                                                   
-                            */
+	/* we've taken care of segment sizes earlier when we
+	   cloned the bios. We should never have a segment
+	   truncated at this point */
 	BUG_ON(seg_len < len);
 
 	ret = rbd_do_request(rq, rbd_dev, snapc, snapid,
@@ -1139,7 +1139,7 @@ done:
 }
 
 /*
-                          
+ * Request async osd write
  */
 static int rbd_req_write(struct request *rq,
 			 struct rbd_device *rbd_dev,
@@ -1157,7 +1157,7 @@ static int rbd_req_write(struct request *rq,
 }
 
 /*
-                         
+ * Request async osd read
  */
 static int rbd_req_read(struct request *rq,
 			 struct rbd_device *rbd_dev,
@@ -1176,7 +1176,7 @@ static int rbd_req_read(struct request *rq,
 }
 
 /*
-                        
+ * Request sync osd read
  */
 static int rbd_req_sync_read(struct rbd_device *dev,
 			  struct ceph_snap_context *snapc,
@@ -1195,7 +1195,7 @@ static int rbd_req_sync_read(struct rbd_device *dev,
 }
 
 /*
-                         
+ * Request sync osd watch
  */
 static int rbd_req_sync_notify_ack(struct rbd_device *dev,
 				   u64 ver,
@@ -1248,7 +1248,7 @@ static void rbd_watch_cb(u64 ver, u64 notify_id, u8 opcode, void *data)
 }
 
 /*
-                         
+ * Request sync osd watch
  */
 static int rbd_req_sync_watch(struct rbd_device *dev,
 			      const char *obj,
@@ -1293,7 +1293,7 @@ fail:
 }
 
 /*
-                           
+ * Request sync osd unwatch
  */
 static int rbd_req_sync_unwatch(struct rbd_device *dev,
 				const char *obj)
@@ -1336,7 +1336,7 @@ static void rbd_notify_cb(u64 ver, u64 notify_id, u8 opcode, void *data)
 }
 
 /*
-                          
+ * Request sync osd notify
  */
 static int rbd_req_sync_notify(struct rbd_device *dev,
 		          const char *obj)
@@ -1387,7 +1387,7 @@ fail:
 }
 
 /*
-                        
+ * Request sync osd read
  */
 static int rbd_req_sync_exec(struct rbd_device *dev,
 			     const char *obj,
@@ -1441,7 +1441,7 @@ static struct rbd_req_coll *rbd_alloc_coll(int num_reqs)
 }
 
 /*
-                              
+ * block device queue callback
  */
 static void rbd_rq_fn(struct request_queue *q)
 {
@@ -1458,19 +1458,19 @@ static void rbd_rq_fn(struct request_queue *q)
 		int num_segs, cur_seg = 0;
 		struct rbd_req_coll *coll;
 
-		/*                                  */
+		/* peek at request from block layer */
 		if (!rq)
 			break;
 
 		dout("fetched request\n");
 
-		/*                                               */
+		/* filter out block requests we don't understand */
 		if ((rq->cmd_type != REQ_TYPE_FS)) {
 			__blk_end_request_all(rq, 0);
 			continue;
 		}
 
-		/*                                    */
+		/* deduce our operation (read, write) */
 		do_write = (rq_data_dir(rq) == WRITE);
 
 		size = blk_rq_bytes(rq);
@@ -1496,7 +1496,7 @@ static void rbd_rq_fn(struct request_queue *q)
 		}
 
 		do {
-			/*                                          */
+			/* a bio clone to be passed down to OSD req */
 			dout("rq->bio->bi_vcnt=%d\n", rq->bio->bi_vcnt);
 			op_size = rbd_get_segment(&rbd_dev->header,
 						  rbd_dev->header.block_name,
@@ -1512,7 +1512,7 @@ static void rbd_rq_fn(struct request_queue *q)
 			}
 
 
-			/*                                 */
+			/* init OSD command: write or read */
 			if (do_write)
 				rbd_req_write(rq, rbd_dev,
 					      rbd_dev->header.snapc,
@@ -1542,9 +1542,9 @@ next_seg:
 }
 
 /*
-                                                                            
-                                                                        
-                                           
+ * a queue callback. Makes sure that we don't create a bio that spans across
+ * multiple osd objects. One exception would be with a single page bios,
+ * which we handle later at bio_chain_clone
  */
 static int rbd_merge_bvec(struct request_queue *q, struct bvec_merge_data *bmd,
 			  struct bio_vec *bvec)
@@ -1562,7 +1562,7 @@ static int rbd_merge_bvec(struct request_queue *q, struct bvec_merge_data *bmd,
 	max =  (chunk_sectors - ((sector & (chunk_sectors - 1))
 				 + bio_sectors)) << SECTOR_SHIFT;
 	if (max < 0)
-		max = 0; /*                                         */
+		max = 0; /* bio_add cannot handle a negative return */
 	if (max <= bvec->bv_len && bio_sectors == 0)
 		return bvec->bv_len;
 	return max;
@@ -1585,7 +1585,7 @@ static void rbd_free_disk(struct rbd_device *rbd_dev)
 }
 
 /*
-                                
+ * reload the ondisk the header 
  */
 static int rbd_read_header(struct rbd_device *rbd_dev,
 			   struct rbd_image_header *header)
@@ -1597,10 +1597,10 @@ static int rbd_read_header(struct rbd_device *rbd_dev,
 	size_t len;
 
 	/*
-                                                             
-                                                           
-                                          
-  */
+	 * First reads the fixed-size header to determine the number
+	 * of snapshots, then re-reads it, along with all snapshot
+	 * records as well as their stored names.
+	 */
 	len = sizeof (*dh);
 	while (1) {
 		dh = kmalloc(len, GFP_KERNEL);
@@ -1642,7 +1642,7 @@ out_dh:
 }
 
 /*
-                    
+ * create a snapshot
  */
 static int rbd_header_add_snap(struct rbd_device *dev,
 			       const char *snap_name,
@@ -1655,7 +1655,7 @@ static int rbd_header_add_snap(struct rbd_device *dev,
 	u64 ver;
 	struct ceph_mon_client *monc;
 
-	/*                                                                */
+	/* we should create a snapshot only if we're pointing at the head */
 	if (dev->cur_snap)
 		return -EINVAL;
 
@@ -1701,7 +1701,7 @@ static void __rbd_remove_all_snaps(struct rbd_device *rbd_dev)
 }
 
 /*
-                                                                        
+ * only read the first part of the ondisk header, without the snaps info
  */
 static int __rbd_update_snaps(struct rbd_device *rbd_dev)
 {
@@ -1714,7 +1714,7 @@ static int __rbd_update_snaps(struct rbd_device *rbd_dev)
 	if (ret < 0)
 		return ret;
 
-	/*          */
+	/* resized? */
 	set_capacity(rbd_dev->disk, h.image_size / SECTOR_SIZE);
 
 	down_write(&rbd_dev->header_rwsem);
@@ -1722,8 +1722,8 @@ static int __rbd_update_snaps(struct rbd_device *rbd_dev)
 	snap_seq = rbd_dev->header.snapc->seq;
 	if (rbd_dev->header.total_snaps &&
 	    rbd_dev->header.snapc->snaps[0] == snap_seq)
-		/*                                               
-                   */
+		/* pointing at the head, will need to follow that
+		   if head moves */
 		follow_seq = 1;
 
 	kfree(rbd_dev->header.snapc);
@@ -1755,12 +1755,12 @@ static int rbd_init_disk(struct rbd_device *rbd_dev)
 	u64 segment_size;
 	u64 total_size = 0;
 
-	/*                                                              */
+	/* contact OSD, request size info about the object being mapped */
 	rc = rbd_read_header(rbd_dev, &rbd_dev->header);
 	if (rc)
 		return rc;
 
-	/*                                                        */
+	/* no need to lock here, as rbd_dev is not registered yet */
 	rc = __rbd_init_snaps_header(rbd_dev);
 	if (rc)
 		return rc;
@@ -1769,7 +1769,7 @@ static int rbd_init_disk(struct rbd_device *rbd_dev)
 	if (rc)
 		return rc;
 
-	/*                     */
+	/* create gendisk info */
 	rc = -ENOMEM;
 	disk = alloc_disk(RBD_MINORS_PER_MAJOR);
 	if (!disk)
@@ -1782,16 +1782,16 @@ static int rbd_init_disk(struct rbd_device *rbd_dev)
 	disk->fops = &rbd_bd_ops;
 	disk->private_data = rbd_dev;
 
-	/*         */
+	/* init rq */
 	rc = -ENOMEM;
 	q = blk_init_queue(rbd_rq_fn, &rbd_dev->lock);
 	if (!q)
 		goto out_disk;
 
-	/*                                                          */
+	/* We use the default size, but let's be explicit about it. */
 	blk_queue_physical_block_size(q, SECTOR_SIZE);
 
-	/*                             */
+	/* set io sizes to object size */
 	segment_size = rbd_obj_bytes(&rbd_dev->header);
 	blk_queue_max_hw_sectors(q, segment_size / SECTOR_SIZE);
 	blk_queue_max_segment_size(q, segment_size);
@@ -1806,7 +1806,7 @@ static int rbd_init_disk(struct rbd_device *rbd_dev)
 	rbd_dev->disk = disk;
 	rbd_dev->q = q;
 
-	/*                                         */
+	/* finally, announce the disk to the world */
 	set_capacity(disk, total_size / SECTOR_SIZE);
 	add_disk(disk);
 
@@ -1821,7 +1821,7 @@ out:
 }
 
 /*
-       
+  sysfs
 */
 
 static struct rbd_device *dev_to_rbd_dev(struct device *dev)
@@ -1940,7 +1940,7 @@ static struct device_type rbd_device_type = {
 
 
 /*
-                   
+  sysfs - snapshots
 */
 
 static ssize_t rbd_snap_size_show(struct device *dev,
@@ -2040,7 +2040,7 @@ err:
 }
 
 /*
-                                                               
+ * search for the previous snap in a null delimited string list
  */
 const char *rbd_prev_snap_name(const char *name, const char *start)
 {
@@ -2057,12 +2057,12 @@ const char *rbd_prev_snap_name(const char *name, const char *start)
 }
 
 /*
-                                                                         
-                                                                      
-                                                                    
-                                                               
-                                                                
-                          
+ * compare the old list of snapshots that we have to what's in the header
+ * and update it accordingly. Note that the header holds the snapshots
+ * in a reverse order (from newest to oldest) and we need to go from
+ * older to new so that we don't get a duplicate snap name when
+ * doing the process (e.g., removed snapshot and recreated a new
+ * one with the same name.
  */
 static int __rbd_init_snaps_header(struct rbd_device *rbd_dev)
 {
@@ -2084,12 +2084,12 @@ static int __rbd_init_snaps_header(struct rbd_device *rbd_dev)
 			cur_id = rbd_dev->header.snapc->snaps[i - 1];
 
 		if (!i || old_snap->id < cur_id) {
-			/*                                            */
+			/* old_snap->id was skipped, thus was removed */
 			__rbd_remove_snap_dev(rbd_dev, old_snap);
 			continue;
 		}
 		if (old_snap->id == cur_id) {
-			/*                               */
+			/* we have this snapshot already */
 			i--;
 			name = rbd_prev_snap_name(name, first_name);
 			continue;
@@ -2101,20 +2101,20 @@ static int __rbd_init_snaps_header(struct rbd_device *rbd_dev)
 				return -EINVAL;
 			}
 			cur_id = rbd_dev->header.snapc->snaps[i];
-			/*                                   */
+			/* snapshot removal? handle it above */
 			if (cur_id >= old_snap->id)
 				break;
-			/*                */
+			/* a new snapshot */
 			ret = __rbd_add_snap_dev(rbd_dev, i - 1, name, &snap);
 			if (ret < 0)
 				return ret;
 
-			/*                                                   */
+			/* note that we add it backward so using n and not p */
 			list_add(&snap->node, n);
 			p = &snap->node;
 		}
 	}
-	/*                                                               */
+	/* we're done going over the old snap list, just add what's left */
 	for (; i > 0; i--) {
 		name = rbd_prev_snap_name(name, first_name);
 		if (!name) {
@@ -2186,8 +2186,8 @@ static int rbd_init_watch_dev(struct rbd_device *rbd_dev)
 static atomic64_t rbd_id_max = ATOMIC64_INIT(0);
 
 /*
-                                                                 
-                                                            
+ * Get a unique rbd identifier for the given new rbd_dev, and add
+ * the rbd_dev to the global list.  The minimum rbd id is 1.
  */
 static void rbd_id_get(struct rbd_device *rbd_dev)
 {
@@ -2199,8 +2199,8 @@ static void rbd_id_get(struct rbd_device *rbd_dev)
 }
 
 /*
-                                                              
-                                  
+ * Remove an rbd_dev from the global list, and record that its
+ * identifier is no longer in use.
  */
 static void rbd_id_put(struct rbd_device *rbd_dev)
 {
@@ -2214,19 +2214,19 @@ static void rbd_id_put(struct rbd_device *rbd_dev)
 	list_del_init(&rbd_dev->node);
 
 	/*
-                                                           
-                                     
-  */
+	 * If the id being "put" is not the current maximum, there
+	 * is nothing special we need to do.
+	 */
 	if (rbd_id != atomic64_read(&rbd_id_max)) {
 		spin_unlock(&rbd_dev_list_lock);
 		return;
 	}
 
 	/*
-                                                         
-                                                           
-                                                        
-  */
+	 * We need to update the current maximum id.  Search the
+	 * list to find out what it is.  We're more likely to find
+	 * the maximum at the end, so search the list backward.
+	 */
 	max_id = 0;
 	list_for_each_prev(tmp, &rbd_dev_list) {
 		struct rbd_device *rbd_dev;
@@ -2238,46 +2238,46 @@ static void rbd_id_put(struct rbd_device *rbd_dev)
 	spin_unlock(&rbd_dev_list_lock);
 
 	/*
-                                                          
-                                                          
-                                                         
-         
-  */
+	 * The max id could have been updated by rbd_id_get(), in
+	 * which case it now accurately reflects the new maximum.
+	 * Be careful not to overwrite the maximum value in that
+	 * case.
+	 */
 	atomic64_cmpxchg(&rbd_id_max, rbd_id, max_id);
 }
 
 /*
-                                                                   
-                                                                  
-                                                                
-                                          
+ * Skips over white space at *buf, and updates *buf to point to the
+ * first found non-space character (if any). Returns the length of
+ * the token (string of non-white space characters) found.  Note
+ * that *buf must be terminated with '\0'.
  */
 static inline size_t next_token(const char **buf)
 {
         /*
-                                                           
-                                                   
+        * These are the characters that produce nonzero for
+        * isspace() in the "C" and "POSIX" locales.
         */
         const char *spaces = " \f\n\r\t\v";
 
-        *buf += strspn(*buf, spaces);	/*                     */
+        *buf += strspn(*buf, spaces);	/* Find start of token */
 
-	return strcspn(*buf, spaces);   /*                     */
+	return strcspn(*buf, spaces);   /* Return token length */
 }
 
 /*
-                                                                    
-                                                              
-                                                                    
-                                         
-  
-                                                                  
-                                                                 
-                                         
-  
-                                                                  
-                                                                  
-                        
+ * Finds the next token in *buf, and if the provided token buffer is
+ * big enough, copies the found token into it.  The result, if
+ * copied, is guaranteed to be terminated with '\0'.  Note that *buf
+ * must be terminated with '\0' on entry.
+ *
+ * Returns the length of the token found (not including the '\0').
+ * Return value will be 0 if no token is found, and it will be >=
+ * token_size if the token would not fit.
+ *
+ * The *buf pointer will be updated to point beyond the end of the
+ * found token.  Note that this occurs even if the token buffer is
+ * too small to hold it.
  */
 static inline size_t copy_token(const char **buf,
 				char *token,
@@ -2296,10 +2296,10 @@ static inline size_t copy_token(const char **buf,
 }
 
 /*
-                                                                 
-                                                                    
-                                                                  
-                    
+ * This fills in the pool_name, obj, obj_len, snap_name, obj_len,
+ * rbd_dev, rbd_md_name, and name fields of the given rbd_dev, based
+ * on the list of monitor addresses and other options provided via
+ * /sys/bus/rbd/add.
  */
 static int rbd_add_parse_args(struct rbd_device *rbd_dev,
 			      const char *buf,
@@ -2310,7 +2310,7 @@ static int rbd_add_parse_args(struct rbd_device *rbd_dev,
 {
 	size_t	len;
 
-	/*                                    */
+	/* The first four tokens are required */
 
 	len = next_token(&buf);
 	if (!len)
@@ -2332,7 +2332,7 @@ static int rbd_add_parse_args(struct rbd_device *rbd_dev,
 	if (!len || len >= sizeof (rbd_dev->obj))
 		return -EINVAL;
 
-	/*                                             */
+	/* We have the object length in hand, save it. */
 
 	rbd_dev->obj_len = len;
 
@@ -2341,9 +2341,9 @@ static int rbd_add_parse_args(struct rbd_device *rbd_dev,
 	sprintf(rbd_dev->obj_md_name, "%s%s", rbd_dev->obj, RBD_SUFFIX);
 
 	/*
-                                                            
-                                                               
-  */
+	 * The snapshot name is optional, but it's an error if it's
+	 * too long.  If no snapshot is supplied, fill in the default.
+	 */
 	len = copy_token(&buf, rbd_dev->snap_name, sizeof (rbd_dev->snap_name));
 	if (!len)
 		memcpy(rbd_dev->snap_name, RBD_SNAP_HEAD_NAME,
@@ -2375,7 +2375,7 @@ static ssize_t rbd_add(struct bus_type *bus,
 	if (!options)
 		goto err_nomem;
 
-	/*                                  */
+	/* static rbd_device initialization */
 	spin_lock_init(&rbd_dev->lock);
 	INIT_LIST_HEAD(&rbd_dev->node);
 	INIT_LIST_HEAD(&rbd_dev->snaps);
@@ -2383,15 +2383,15 @@ static ssize_t rbd_add(struct bus_type *bus,
 
 	init_rwsem(&rbd_dev->header_rwsem);
 
-	/*                                                     */
+	/* generate unique id: find highest unique id, add one */
 	rbd_id_get(rbd_dev);
 
-	/*                                                   */
+	/* Fill in the device name, now that we have its id. */
 	BUILD_BUG_ON(DEV_NAME_LEN
 			< sizeof (RBD_DRV_NAME) + MAX_INT_FORMAT_WIDTH);
 	sprintf(rbd_dev->name, "%s%d", RBD_DRV_NAME, rbd_dev->id);
 
-	/*                   */
+	/* parse add command */
 	rc = rbd_add_parse_args(rbd_dev, buf, &mon_addrs, &mon_addrs_size,
 				options, count);
 	if (rc)
@@ -2404,14 +2404,14 @@ static ssize_t rbd_add(struct bus_type *bus,
 		goto err_put_id;
 	}
 
-	/*               */
+	/* pick the pool */
 	osdc = &rbd_dev->rbd_client->client->osdc;
 	rc = ceph_pg_poolid_by_name(osdc->osdmap, rbd_dev->pool_name);
 	if (rc < 0)
 		goto err_out_client;
 	rbd_dev->poolid = rc;
 
-	/*                           */
+	/* register our block device */
 	rc = register_blkdev(0, rbd_dev->name);
 	if (rc < 0)
 		goto err_out_client;
@@ -2422,11 +2422,11 @@ static ssize_t rbd_add(struct bus_type *bus,
 		goto err_out_blkdev;
 
 	/*
-                                                             
-                                                       
-   
-                                       
-  */
+	 * At this point cleanup in the event of an error is the job
+	 * of the sysfs code (initiated by rbd_bus_del_dev()).
+	 *
+	 * Set up and announce blkdev mapping.
+	 */
 	rc = rbd_init_disk(rbd_dev);
 	if (rc)
 		goto err_out_bus;
@@ -2438,7 +2438,7 @@ static ssize_t rbd_add(struct bus_type *bus,
 	return count;
 
 err_out_bus:
-	/*                                               */
+	/* this will also clean up rest of rbd_dev stuff */
 
 	rbd_bus_del_dev(rbd_dev);
 	kfree(options);
@@ -2492,15 +2492,15 @@ static void rbd_dev_release(struct device *dev)
 
 	rbd_put_client(rbd_dev);
 
-	/*                          */
+	/* clean up and free blkdev */
 	rbd_free_disk(rbd_dev);
 	unregister_blkdev(rbd_dev->major, rbd_dev->name);
 
-	/*                                        */
+	/* done with the id, and with the rbd_dev */
 	rbd_id_put(rbd_dev);
 	kfree(rbd_dev);
 
-	/*                    */
+	/* release module ref */
 	module_put(THIS_MODULE);
 }
 
@@ -2517,7 +2517,7 @@ static ssize_t rbd_remove(struct bus_type *bus,
 	if (rc)
 		return rc;
 
-	/*                                                             */
+	/* convert to int; abort if we lost anything in the conversion */
 	target_id = (int) ul;
 	if (target_id != ul)
 		return -EINVAL;
@@ -2562,11 +2562,11 @@ static ssize_t rbd_snap_add(struct device *dev,
 	if (ret < 0)
 		goto err_unlock;
 
-	/*                                                       
-                                                               */
+	/* shouldn't hold ctl_mutex when notifying.. notify might
+	   trigger a watch callback that would need to get that mutex */
 	mutex_unlock(&ctl_mutex);
 
-	/*                                           */
+	/* make a best effort, don't error if failed */
 	rbd_req_sync_notify(rbd_dev, rbd_dev->obj_md_name);
 
 	ret = count;
@@ -2580,8 +2580,8 @@ err_unlock:
 }
 
 /*
-                                
-                   
+ * create control files in sysfs
+ * /sys/bus/rbd/...
  */
 static int rbd_sysfs_init(void)
 {
@@ -2627,7 +2627,7 @@ MODULE_AUTHOR("Sage Weil <sage@newdream.net>");
 MODULE_AUTHOR("Yehuda Sadeh <yehuda@hq.newdream.net>");
 MODULE_DESCRIPTION("rados block device");
 
-/*                                                      */
+/* following authorship retained from original osdblk.c */
 MODULE_AUTHOR("Jeff Garzik <jeff@garzik.org>");
 
 MODULE_LICENSE("GPL");

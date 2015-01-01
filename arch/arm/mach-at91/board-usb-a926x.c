@@ -51,18 +51,18 @@
 
 static void __init ek_init_early(void)
 {
-	/*                                         */
+	/* Initialize processor: 12.00 MHz crystal */
 	at91_initialize(12000000);
 
-	/*                               */
+	/* DBGU on ttyS0. (Rx & Tx only) */
 	at91_register_uart(0, 0, 0);
 
-	/*                                        */
+	/* set serial console to ttyS0 (ie, DBGU) */
 	at91_set_serial_console(0);
 }
 
 /*
-                
+ * USB Host port
  */
 static struct at91_usbh_data __initdata ek_usbh_data = {
 	.ports		= 2,
@@ -71,11 +71,11 @@ static struct at91_usbh_data __initdata ek_usbh_data = {
 };
 
 /*
-                  
+ * USB Device port
  */
 static struct at91_udc_data __initdata ek_udc_data = {
 	.vbus_pin	= AT91_PIN_PB11,
-	.pullup_pin	= -EINVAL,		/*                       */
+	.pullup_pin	= -EINVAL,		/* pull-up driven by UDC */
 };
 
 static void __init ek_add_device_udc(void)
@@ -91,7 +91,7 @@ static void __init ek_add_device_udc(void)
 static int at91_mmc_spi_init(struct device *dev,
 	irqreturn_t (*detect_int)(int, void *), void *data)
 {
-	/*                                              */
+	/* Configure Interrupt pin as input, no pull-up */
 	at91_set_gpio_input(MMC_SPI_CARD_DETECT_INT, 0);
 	return request_irq(gpio_to_irq(MMC_SPI_CARD_DETECT_INT), detect_int,
 		IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING,
@@ -106,16 +106,16 @@ static void at91_mmc_spi_exit(struct device *dev, void *data)
 static struct mmc_spi_platform_data at91_mmc_spi_pdata = {
 	.init = at91_mmc_spi_init,
 	.exit = at91_mmc_spi_exit,
-	.detect_delay = 100, /*       */
+	.detect_delay = 100, /* msecs */
 };
 #endif
 
 /*
-               
+ * SPI devices.
  */
 static struct spi_board_info usb_a9263_spi_devices[] = {
 #if !defined(CONFIG_MMC_AT91)
-	{	/*                */
+	{	/* DataFlash chip */
 		.modalias	= "mtd_dataflash",
 		.chip_select	= 0,
 		.max_speed_hz	= 15 * 1000 * 1000,
@@ -128,7 +128,7 @@ static struct spi_board_info usb_a9g20_spi_devices[] = {
 #if defined(CONFIG_MMC_SPI) || defined(CONFIG_MMC_SPI_MODULE)
 	{
 		.modalias = "mmc_spi",
-		.max_speed_hz = 20000000,	/*                                 */
+		.max_speed_hz = 20000000,	/* max spi clock (SCK) speed in HZ */
 		.bus_num = 1,
 		.chip_select = 0,
 		.platform_data = &at91_mmc_spi_pdata,
@@ -146,7 +146,7 @@ static void __init ek_add_device_spi(void)
 }
 
 /*
-                       
+ * MACB Ethernet device
  */
 static struct macb_platform_data __initdata ek_macb_data = {
 	.phy_irq_pin	= AT91_PIN_PE31,
@@ -162,7 +162,7 @@ static void __init ek_add_device_eth(void)
 }
 
 /*
-             
+ * NAND flash
  */
 static struct mtd_partition __initdata ek_nand_partition[] = {
 	{
@@ -247,7 +247,7 @@ static void __init ek_add_device_nand(void)
 		ek_nand_data.enable_pin	= AT91_PIN_PC14;
 	}
 
-	/*                                */
+	/* configure chip-select 3 (NAND) */
 	if (machine_is_usb_a9g20())
 		sam9_smc_configure(0, 3, &usb_a9g20_nand_smc_config);
 	else
@@ -258,11 +258,11 @@ static void __init ek_add_device_nand(void)
 
 
 /*
-               
+ * GPIO Buttons
  */
 #if defined(CONFIG_KEYBOARD_GPIO) || defined(CONFIG_KEYBOARD_GPIO_MODULE)
 static struct gpio_keys_button ek_buttons[] = {
-	{	/*                  */
+	{	/* USER PUSH BUTTON */
 		.code		= KEY_ENTER,
 		.gpio		= AT91_PIN_PB10,
 		.active_low	= 1,
@@ -287,7 +287,7 @@ static struct platform_device ek_button_device = {
 
 static void __init ek_add_device_buttons(void)
 {
-	at91_set_GPIO_periph(AT91_PIN_PB10, 1);	/*                                   */
+	at91_set_GPIO_periph(AT91_PIN_PB10, 1);	/* user push button, pull up enabled */
 	at91_set_deglitch(AT91_PIN_PB10, 1);
 
 	platform_device_register(&ek_button_device);
@@ -297,10 +297,10 @@ static void __init ek_add_device_buttons(void) {}
 #endif
 
 /*
-       
+ * LEDs
  */
 static struct gpio_led ek_leds[] = {
-	{	/*                  */
+	{	/* user_led (green) */
 		.name			= "user_led",
 		.gpio			= AT91_PIN_PB21,
 		.active_low		= 1,
@@ -324,30 +324,30 @@ static void __init ek_add_device_leds(void)
 
 static void __init ek_board_init(void)
 {
-	/*        */
+	/* Serial */
 	at91_add_device_serial();
-	/*          */
+	/* USB Host */
 	at91_add_device_usbh(&ek_usbh_data);
-	/*            */
+	/* USB Device */
 	ek_add_device_udc();
-	/*     */
+	/* SPI */
 	ek_add_device_spi();
-	/*          */
+	/* Ethernet */
 	ek_add_device_eth();
-	/*      */
+	/* NAND */
 	ek_add_device_nand();
-	/*              */
+	/* Push Buttons */
 	ek_add_device_buttons();
-	/*      */
+	/* LEDs */
 	ek_add_device_leds();
 
 	if (machine_is_usb_a9g20()) {
-		/*     */
+		/* I2C */
 		at91_add_device_i2c(ek_i2c_devices, ARRAY_SIZE(ek_i2c_devices));
 	} else {
-		/*     */
+		/* I2C */
 		at91_add_device_i2c(NULL, 0);
-		/*                                                 */
+		/* shutdown controller, wakeup button (5 msec low) */
 		at91_shdwc_write(AT91_SHDW_MR, AT91_SHDW_CPTWK0_(10)
 				| AT91_SHDW_WKMODE0_LOW
 				| AT91_SHDW_RTTWKEN);
@@ -355,7 +355,7 @@ static void __init ek_board_init(void)
 }
 
 MACHINE_START(USB_A9263, "CALAO USB_A9263")
-	/*                           */
+	/* Maintainer: calao-systems */
 	.timer		= &at91sam926x_timer,
 	.map_io		= at91_map_io,
 	.init_early	= ek_init_early,
@@ -364,7 +364,7 @@ MACHINE_START(USB_A9263, "CALAO USB_A9263")
 MACHINE_END
 
 MACHINE_START(USB_A9260, "CALAO USB_A9260")
-	/*                           */
+	/* Maintainer: calao-systems */
 	.timer		= &at91sam926x_timer,
 	.map_io		= at91_map_io,
 	.init_early	= ek_init_early,
@@ -373,7 +373,7 @@ MACHINE_START(USB_A9260, "CALAO USB_A9260")
 MACHINE_END
 
 MACHINE_START(USB_A9G20, "CALAO USB_A92G0")
-	/*                                              */
+	/* Maintainer: Jean-Christophe PLAGNIOL-VILLARD */
 	.timer		= &at91sam926x_timer,
 	.map_io		= at91_map_io,
 	.init_early	= ek_init_early,

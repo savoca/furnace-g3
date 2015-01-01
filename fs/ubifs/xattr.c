@@ -21,38 +21,38 @@
  */
 
 /*
-                                                          
-  
-                                                                            
-                                                                            
-                                                                              
-                                                                                
-  
-                                                                            
-                                                                             
-                                                                            
-                                                                               
-                                                                             
-                                                                        
-                                                                        
-                       
-  
-                                                                       
-                                                                      
-                                                                             
-                                                                            
-         
-  
-                                                                           
-                                                                              
-                                                                             
-             
-  
-                                                                               
-                                                                        
-          
-  
-                                  
+ * This file implements UBIFS extended attributes support.
+ *
+ * Extended attributes are implemented as regular inodes with attached data,
+ * which limits extended attribute size to UBIFS block size (4KiB). Names of
+ * extended attributes are described by extended attribute entries (xentries),
+ * which are almost identical to directory entries, but have different key type.
+ *
+ * In other words, the situation with extended attributes is very similar to
+ * directories. Indeed, any inode (but of course not xattr inodes) may have a
+ * number of associated xentries, just like directory inodes have associated
+ * directory entries. Extended attribute entries store the name of the extended
+ * attribute, the host inode number, and the extended attribute inode number.
+ * Similarly, direntries store the name, the parent and the target inode
+ * numbers. Thus, most of the common UBIFS mechanisms may be re-used for
+ * extended attributes.
+ *
+ * The number of extended attributes is not limited, but there is Linux
+ * limitation on the maximum possible size of the list of all extended
+ * attributes associated with an inode (%XATTR_LIST_MAX), so UBIFS makes sure
+ * the sum of all extended attribute names of the inode does not exceed that
+ * limit.
+ *
+ * Extended attributes are synchronous, which means they are written to the
+ * flash media synchronously and there is no write-back for extended attribute
+ * inodes. The extended attribute values are not stored in compressed form on
+ * the media.
+ *
+ * Since extended attributes are represented by regular inodes, they are cached
+ * in the VFS inode cache. The xentries are cached in the LNC cache (see
+ * tnc.c).
+ *
+ * ACL support is not implemented.
  */
 
 #include "ubifs.h"
@@ -62,17 +62,17 @@
 #include <linux/posix_acl_xattr.h>
 
 /*
-                                                                           
-                                                             
+ * Limit the number of extended attributes per inode so that the total size
+ * (@xattr_size) is guaranteeded to fit in an 'unsigned int'.
  */
 #define MAX_XATTRS_PER_INODE 65535
 
 /*
-                                     
-  
-                                                 
-                                                         
-                                                             
+ * Extended attribute type constants.
+ *
+ * USER_XATTR: user extended attribute ("user.*")
+ * TRUSTED_XATTR: trusted extended attribute ("trusted.*)
+ * SECURITY_XATTR: security extended attribute ("security.*")
  */
 enum {
 	USER_XATTR,
@@ -83,19 +83,19 @@ enum {
 static const struct inode_operations empty_iops;
 static const struct file_operations empty_fops;
 
-/* 
-                                               
-                                           
-                    
-                               
-                                   
-                                          
-  
-                                                                            
-                                                                            
-                                                                         
-                                                                             
-              
+/**
+ * create_xattr - create an extended attribute.
+ * @c: UBIFS file-system description object
+ * @host: host inode
+ * @nm: extended attribute name
+ * @value: extended attribute value
+ * @size: size of extended attribute value
+ *
+ * This is a helper function which creates an extended attribute of name @nm
+ * and value @value for inode @host. The host inode is also updated on flash
+ * because the ctime and extended attribute accounting data changes. This
+ * function returns zero in case of success and a negative error code in case
+ * of failure.
  */
 static int create_xattr(struct ubifs_info *c, struct inode *host,
 			const struct qstr *nm, const void *value, int size)
@@ -110,11 +110,11 @@ static int create_xattr(struct ubifs_info *c, struct inode *host,
 	if (host_ui->xattr_cnt >= MAX_XATTRS_PER_INODE)
 		return -ENOSPC;
 	/*
-                                                                      
-                                                                    
-                                                                        
-                                    
-  */
+	 * Linux limits the maximum size of the extended attribute names list
+	 * to %XATTR_LIST_MAX. This means we should not allow creating more
+	 * extended attributes if the name list becomes larger. This limitation
+	 * is artificial for UBIFS, though.
+	 */
 	if (host_ui->xattr_names + host_ui->xattr_cnt +
 					nm->len + 1 > XATTR_LIST_MAX)
 		return -ENOSPC;
@@ -129,7 +129,7 @@ static int create_xattr(struct ubifs_info *c, struct inode *host,
 		goto out_budg;
 	}
 
-	/*                                          */
+	/* Re-define all operations to be "nothing" */
 	inode->i_mapping->a_ops = &empty_aops;
 	inode->i_op = &empty_iops;
 	inode->i_fop = &empty_fops;
@@ -176,17 +176,17 @@ out_budg:
 	return err;
 }
 
-/* 
-                                               
-                                           
-                    
-                                   
-                                   
-                                          
-  
-                                                                               
-                                                                              
-                      
+/**
+ * change_xattr - change an extended attribute.
+ * @c: UBIFS file-system description object
+ * @host: host inode
+ * @inode: extended attribute inode
+ * @value: extended attribute value
+ * @size: size of extended attribute value
+ *
+ * This helper function changes the value of extended attribute @inode with new
+ * data from @value. Returns zero in case of success and a negative error code
+ * in case of failure.
  */
 static int change_xattr(struct ubifs_info *c, struct inode *host,
 			struct inode *inode, const void *value, int size)
@@ -217,11 +217,11 @@ static int change_xattr(struct ubifs_info *c, struct inode *host,
 	host_ui->xattr_size += CALC_XATTR_BYTES(size);
 
 	/*
-                                                                 
-                                                                     
-                                                                   
-                                              
-  */
+	 * It is important to write the host inode after the xattr inode
+	 * because if the host inode gets synchronized (via 'fsync()'), then
+	 * the extended attribute inode gets synchronized, because it goes
+	 * before the host inode in the write-buffer.
+	 */
 	err = ubifs_jnl_change_xattr(c, inode, host);
 	if (err)
 		goto out_cancel;
@@ -240,13 +240,13 @@ out_free:
 	return err;
 }
 
-/* 
-                                                         
-                               
-  
-                                                                             
-                                                                             
-                                                           
+/**
+ * check_namespace - check extended attribute name-space.
+ * @nm: extended attribute name
+ *
+ * This function makes sure the extended attribute name belongs to one of the
+ * supported extended attribute name-spaces. Returns name-space index in case
+ * of success and a negative error code in case of failure.
  */
 static int check_namespace(const struct qstr *nm)
 {
@@ -319,9 +319,9 @@ int ubifs_setxattr(struct dentry *dentry, const char *name,
 		return -ENOMEM;
 
 	/*
-                                                                 
-                                              
-  */
+	 * The extended attribute entries are stored in LNC, so multiple
+	 * look-ups do not involve reading the flash.
+	 */
 	xent_key_init(c, &key, host->i_ino, &nm);
 	err = ubifs_tnc_lookup_nm(c, &key, xent, &nm);
 	if (err) {
@@ -329,7 +329,7 @@ int ubifs_setxattr(struct dentry *dentry, const char *name,
 			goto out_free;
 
 		if (flags & XATTR_REPLACE)
-			/*                                      */
+			/* We are asked not to create the xattr */
 			err = -ENODATA;
 		else
 			err = create_xattr(c, host, &nm, value, size);
@@ -337,7 +337,7 @@ int ubifs_setxattr(struct dentry *dentry, const char *name,
 	}
 
 	if (flags & XATTR_CREATE) {
-		/*                                       */
+		/* We are asked not to replace the xattr */
 		err = -EEXIST;
 		goto out_free;
 	}
@@ -397,7 +397,7 @@ ssize_t ubifs_getxattr(struct dentry *dentry, const char *name, void *buf,
 	ubifs_assert(ubifs_inode(host)->xattr_size > ui->data_len);
 
 	if (buf) {
-		/*                                                       */
+		/* If @buf is %NULL we are supposed to return the length */
 		if (ui->data_len > size) {
 			dbg_err("buffer size %zd, xattr len %d",
 				size, ui->data_len);
@@ -432,9 +432,9 @@ ssize_t ubifs_listxattr(struct dentry *dentry, char *buffer, size_t size)
 	len = host_ui->xattr_names + host_ui->xattr_cnt;
 	if (!buffer)
 		/*
-                                                              
-                                                              
-   */
+		 * We should return the minimum buffer size which will fit a
+		 * null-terminated list of all the extended attribute names.
+		 */
 		return len;
 
 	if (len > size)
@@ -459,7 +459,7 @@ ssize_t ubifs_listxattr(struct dentry *dentry, char *buffer, size_t size)
 			break;
 		}
 
-		/*                                               */
+		/* Show trusted namespace only for "power" users */
 		if (type != TRUSTED_XATTR || capable(CAP_SYS_ADMIN)) {
 			memcpy(buffer + written, nm.name, nm.len + 1);
 			written += nm.len + 1;
@@ -561,7 +561,7 @@ int ubifs_removexattr(struct dentry *dentry, const char *name)
 	if (err)
 		set_nlink(inode, 1);
 
-	/*                                                  */
+	/* If @i_nlink is 0, 'iput()' will delete the inode */
 	iput(inode);
 
 out_free:

@@ -25,10 +25,10 @@
 #include "RefCode_F54.h"
 #include <linux/i2c.h>
 #include <linux/slab.h>
-#include <linux/delay.h>	//      
-#include <linux/file.h>		//               
-#include <linux/syscalls.h> //               
-#include <linux/uaccess.h>  //               
+#include <linux/delay.h>	//msleep
+#include <linux/file.h>		//for file access
+#include <linux/syscalls.h> //for file access
+#include <linux/uaccess.h>  //for file access
 #include <linux/firmware.h>
 
 static char line[49152]={0};
@@ -45,7 +45,7 @@ extern int touch_i2c_write(struct i2c_client *client, u8 reg, int len, u8 * buf)
 
 int Read8BitRegisters(unsigned short regAddr, unsigned char *data, int length)
 {
-	//         
+	// I2C read
 	int rst = 0;
 	
 	rst = touch_i2c_read(ds4_i2c_client, regAddr, length, data);
@@ -55,7 +55,7 @@ int Read8BitRegisters(unsigned short regAddr, unsigned char *data, int length)
 
 int Write8BitRegisters(unsigned short regAddr, unsigned char *data, int length)
 {
-	//          
+	// I2C write
 	int rst = 0;
 	
 	rst = touch_i2c_write(ds4_i2c_client, regAddr, length, data);
@@ -65,7 +65,7 @@ int Write8BitRegisters(unsigned short regAddr, unsigned char *data, int length)
 
 void delayMS(int val)
 {
-	//                
+	// Wait for val MS
 	msleep(val);
 }
 
@@ -108,24 +108,24 @@ int write_log(char *filename, char *data)
 		TOUCH_INFO_MSG("[%s]write file open %s, fd : %d\n", __FUNCTION__, (fd >= 0)? "success": "fail", fd);
 
 		if(fd >= 0) {
-			/*                                      */
-			/*                                                                   
-                                                         
-             
-                                          
-                                          
-                       
-                   
+			/*because of erro, this code is blocked.*/
+			/*if(sys_newstat((char __user *) fname, (struct stat *)&fstat) < 0) {
+			  printk("[Touch] cannot read %s stat info\n", fname);
+			  } else {
+			  if(fstat.st_size > 5 * 1024 * 1024) {
+			  printk("[Touch] delete %s\n", fname);
+			  sys_unlink(fname);
+			  sys_close(fd);
 
-                                                           
-                  
-                                       
-      
-             
-                                       
-      
-                   
-      */
+			  fd = sys_open(fname, O_WRONLY|O_CREAT|O_APPEND, 0644);
+			  if(fd >= 0) {
+			  sys_write(fd, data, strlen(data));
+			  }
+			  } else {
+			  sys_write(fd, data, strlen(data));
+			  }
+			  sys_close(fd);
+			  }*/
 			sys_write(fd, data, strlen(data));
 			sys_close(fd);
 
@@ -234,12 +234,12 @@ int get_limit(unsigned char Tx, unsigned char Rx, struct i2c_client client, cons
 			cipher = 1;
 			for (p = 1; (line[q - p] >= '0') && (line[q - p] <= '9'); p++) {
 				limit_data[tx_num][rx_num] += ((line[q - p] - '0') * cipher);
-				//                                                                                           
+				//printk("[r = %d]limit_data[%d][%d] = %d\n", r, tx_num, rx_num, limit_data[tx_num][rx_num]);
 				cipher *= 10;
 			}
 			if(line[q - p] == '-') {
 				limit_data[tx_num][rx_num] = (-1) * (limit_data[tx_num][rx_num]);
-				//                                                                                           
+				//printk("[r = %d]limit_data[%d][%d] = %d\n", r, tx_num, rx_num, limit_data[tx_num][rx_num]);
 			}
 			r++;
 
@@ -271,7 +271,7 @@ exit :
 }
 #if 0
 void main(void)
-	/*                                                                                                    */
+	/* Please be informed this main() function & related functions are an example for host implementation */
 {
 	PowerOnSensor();
 	delayMS(400);

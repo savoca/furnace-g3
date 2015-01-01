@@ -43,7 +43,7 @@
 #include "util.h"
 
 /*
-                                                         
+ * one msg_receiver structure for each sleeping receiver:
  */
 struct msg_receiver {
 	struct list_head	r_list;
@@ -56,7 +56,7 @@ struct msg_receiver {
 	struct msg_msg		*volatile r_msg;
 };
 
-/*                                         */
+/* one msg_sender for each sleeping sender */
 struct msg_sender {
 	struct list_head	list;
 	struct task_struct	*tsk;
@@ -78,10 +78,10 @@ static int sysvipc_msg_proc_show(struct seq_file *s, void *it);
 #endif
 
 /*
-                                                                           
-                                                          
-                                                                 
-                                                                            
+ * Scale msgmni with the available lowmem size: the memory dedicated to msg
+ * queues should occupy at most 1/MSG_MEM_SCALE of lowmem.
+ * Also take into account the number of nsproxies created so far.
+ * This should be done staying within the (MSGMNI , IPCMNI/nr_ipc_ns) range.
  */
 void recompute_msgmni(struct ipc_namespace *ns)
 {
@@ -141,8 +141,8 @@ void __init msg_init(void)
 }
 
 /*
-                                                                        
-               
+ * msg_lock_(check_) routines are called in the paths where the rw_mutex
+ * is not held.
  */
 static inline struct msg_queue *msg_lock(struct ipc_namespace *ns, int id)
 {
@@ -170,12 +170,12 @@ static inline void msg_rmid(struct ipc_namespace *ns, struct msg_queue *s)
 	ipc_rmid(&msg_ids(ns), &s->q_perm);
 }
 
-/* 
-                                  
-                 
-                                                                 
-  
-                                             
+/**
+ * newque - Create a new msg queue
+ * @ns: namespace
+ * @params: ptr to the structure that contains the key and msgflg
+ *
+ * Called with msg_ids.rw_mutex held (writer)
  */
 static int newque(struct ipc_namespace *ns, struct ipc_params *params)
 {
@@ -199,8 +199,8 @@ static int newque(struct ipc_namespace *ns, struct ipc_params *params)
 	}
 
 	/*
-                         
-  */
+	 * ipc_addid() locks msq
+	 */
 	id = ipc_addid(&msg_ids(ns), &msq->q_perm, ns->msg_ctlmni);
 	if (id < 0) {
 		security_msg_queue_free(msq);
@@ -269,12 +269,12 @@ static void expunge_all(struct msg_queue *msq, int res)
 }
 
 /*
-                                                                       
-                                                                             
-                                       
-  
-                                                                             
-                                                                       
+ * freeque() wakes up waiters on the sender and receiver waiting queue,
+ * removes the message queue from message queue ID IDR, and cleans up all the
+ * messages associated with this queue.
+ *
+ * msg_ids.rw_mutex (writer) and the spinlock for this message queue are held
+ * before freeque() is called. msg_ids.rw_mutex remains locked on exit.
  */
 static void freeque(struct ipc_namespace *ns, struct kern_ipc_perm *ipcp)
 {
@@ -300,7 +300,7 @@ static void freeque(struct ipc_namespace *ns, struct kern_ipc_perm *ipcp)
 }
 
 /*
-                                                
+ * Called with msg_ids.rw_mutex and ipcp locked.
  */
 static inline int msg_security(struct kern_ipc_perm *ipcp, int msgflg)
 {
@@ -404,9 +404,9 @@ copy_msqid_from_user(struct msqid64_ds *out, void __user *buf, int version)
 }
 
 /*
-                                                                        
-                            
-                                                                           
+ * This function handles some msgctl commands which require the rw_mutex
+ * to be held in write mode.
+ * NOTE: no locks must be held, the rw_mutex is taken inside this function.
  */
 static int msgctl_down(struct ipc_namespace *ns, int msqid, int cmd,
 		       struct msqid_ds __user *buf, int version)
@@ -447,13 +447,13 @@ static int msgctl_down(struct ipc_namespace *ns, int msqid, int cmd,
 
 		ipc_update_perm(&msqid64.msg_perm, ipcp);
 		msq->q_ctime = get_seconds();
-		/*                                        
-                          
-   */
+		/* sleeping receivers might be excluded by
+		 * stricter permissions.
+		 */
 		expunge_all(msq, -EAGAIN);
-		/*                                       
-                                
-   */
+		/* sleeping senders might be able to send
+		 * due to a larger queue size.
+		 */
 		ss_wakeup(&msq->q_senders, 0);
 		break;
 	default:
@@ -488,10 +488,10 @@ SYSCALL_DEFINE3(msgctl, int, msqid, int, cmd, struct msqid_ds __user *, buf)
 		if (!buf)
 			return -EFAULT;
 		/*
-                                          
-                                    
-                              
-   */
+		 * We must not return kernel stack data.
+		 * due to padding, it's not enough
+		 * to set all member fields.
+		 */
 		err = security_msg_queue_msgctl(NULL, cmd);
 		if (err)
 			return err;
@@ -518,7 +518,7 @@ SYSCALL_DEFINE3(msgctl, int, msqid, int, cmd, struct msqid_ds __user *, buf)
 			return -EFAULT;
 		return (max_id < 0) ? 0 : max_id;
 	}
-	case MSG_STAT:	/*                                              */
+	case MSG_STAT:	/* msqid is an index rather than a msg queue id */
 	case IPC_STAT:
 	{
 		struct msqid64_ds tbuf;
@@ -676,7 +676,7 @@ long do_msgsnd(int msqid, long mtype, void __user *mtext,
 			break;
 		}
 
-		/*                   */
+		/* queue full, wait: */
 		if (msgflg & IPC_NOWAIT) {
 			err = -EAGAIN;
 			goto out_unlock_free;
@@ -704,7 +704,7 @@ long do_msgsnd(int msqid, long mtype, void __user *mtext,
 	msq->q_stime = get_seconds();
 
 	if (!pipelined_send(msq, msg)) {
-		/*                                                */
+		/* no one is waiting for this message, enqueue it */
 		list_add_tail(&msg->m_list, &msq->q_messages);
 		msq->q_cbytes += msgsz;
 		msq->q_qnum++;
@@ -736,11 +736,11 @@ SYSCALL_DEFINE4(msgsnd, int, msqid, struct msgbuf __user *, msgp, size_t, msgsz,
 static inline int convert_mode(long *msgtyp, int msgflg)
 {
 	/*
-                                  
-                             
-                                                      
-                                                                      
-  */
+	 *  find message of correct type.
+	 *  msgtyp = 0 => get first.
+	 *  msgtyp > 0 => get first message of matching type.
+	 *  msgtyp < 0 => get message with least type must be < abs(msgtype).
+	 */
 	if (*msgtyp == 0)
 		return SEARCH_ANY;
 	if (*msgtyp < 0) {
@@ -801,9 +801,9 @@ long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
 		}
 		if (!IS_ERR(msg)) {
 			/*
-                               
-                               
-    */
+			 * Found a suitable message.
+			 * Unlink it from the queue.
+			 */
 			if ((msgsz < msg->m_ts) && !(msgflg & MSG_NOERROR)) {
 				msg = ERR_PTR(-E2BIG);
 				goto out_unlock;
@@ -819,7 +819,7 @@ long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
 			msg_unlock(msq);
 			break;
 		}
-		/*                                        */
+		/* No message waiting. Wait for a message */
 		if (msgflg & IPC_NOWAIT) {
 			msg = ERR_PTR(-ENOMSG);
 			goto out_unlock;
@@ -838,47 +838,47 @@ long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
 
 		schedule();
 
-		/*                          
-                                                                
-                                                                
-                                                            
-                      
-                                                             
-                                                                
-                                                              
-                                                  
-   */
+		/* Lockless receive, part 1:
+		 * Disable preemption.  We don't hold a reference to the queue
+		 * and getting a reference would defeat the idea of a lockless
+		 * operation, thus the code relies on rcu to guarantee the
+		 * existence of msq:
+		 * Prior to destruction, expunge_all(-EIRDM) changes r_msg.
+		 * Thus if r_msg is -EAGAIN, then the queue not yet destroyed.
+		 * rcu_read_lock() prevents preemption between reading r_msg
+		 * and the spin_lock() inside ipc_lock_by_ptr().
+		 */
 		rcu_read_lock();
 
-		/*                          
-                                                            
-                                                        
-                                  
-   */
+		/* Lockless receive, part 2:
+		 * Wait until pipelined_send or expunge_all are outside of
+		 * wake_up_process(). There is a race with exit(), see
+		 * ipc/mqueue.c for the details.
+		 */
 		msg = (struct msg_msg*)msr_d.r_msg;
 		while (msg == NULL) {
 			cpu_relax();
 			msg = (struct msg_msg *)msr_d.r_msg;
 		}
 
-		/*                          
-                                                             
-             
-   */
+		/* Lockless receive, part 3:
+		 * If there is a message or an error then accept it without
+		 * locking.
+		 */
 		if (msg != ERR_PTR(-EAGAIN)) {
 			rcu_read_unlock();
 			break;
 		}
 
-		/*                          
-                                
-   */
+		/* Lockless receive, part 3:
+		 * Acquire the queue spinlock.
+		 */
 		ipc_lock_by_ptr(&msq->q_perm);
 		rcu_read_unlock();
 
-		/*                          
-                                              
-   */
+		/* Lockless receive, part 4:
+		 * Repeat test after acquiring the spinlock.
+		 */
 		msg = (struct msg_msg*)msr_d.r_msg;
 		if (msg != ERR_PTR(-EAGAIN))
 			goto out_unlock;

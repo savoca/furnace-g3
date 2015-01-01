@@ -5,17 +5,17 @@
 Copyright(c) 2013 by LG Electronics. All Rights Reserved.
         Sangduck Kim <sangduck.kim@lge.com>
 *====*====*====*====*====*====*====*====*====*====*====*====*====*====*====*/
-/*                                                                          
+/*==========================================================================
 
-                                           
+                      EDIT HISTORY FOR FILE
 
-                                                                      
-                                                                
+  This section contains comments describing changes made to this file.
+  Notice that changes are listed in reverse chronological order.
 
-                                      
-                                                                             
-                               
-                                                                           */
+when       who        what, where, why
+--------   --------   -------------------------------------------------------
+12/01/13   sdkim   Created file
+======================================================-====================*/
 #ifndef __g3_DISPLAY_DEVFREQ_H__
 #define __g3_DISPLAY_DEVFREQ_H__
 
@@ -45,7 +45,7 @@ struct display_opp_table {
 enum g3_display_clk_level_idx {
 	LV_0 = 0,
 	LV_1,
-//      
+//	LV_2,
 	_LV_END_
 };
 

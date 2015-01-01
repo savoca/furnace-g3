@@ -117,9 +117,9 @@ MODULE_DEVICE_TABLE(pci, triflex_pci_tbl);
 static int triflex_ide_pci_suspend(struct pci_dev *dev, pm_message_t state)
 {
 	/*
-                                                
-                                                         
-  */
+	 * We must not disable or powerdown the device.
+	 * APM bios refuses to suspend if IDE is not accessible.
+	 */
 	pci_save_state(dev);
 	return 0;
 }

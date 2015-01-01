@@ -8,11 +8,11 @@
 #include <linux/nsproxy.h>
 
 /*
-                       
+ * ipc namespace events
  */
-#define IPCNS_MEMCHANGED   0x00000001   /*                            */
-#define IPCNS_CREATED  0x00000002   /*                                  */
-#define IPCNS_REMOVED  0x00000003   /*                              */
+#define IPCNS_MEMCHANGED   0x00000001   /* Notify lowmem size changed */
+#define IPCNS_CREATED  0x00000002   /* Notify new ipc namespace created */
+#define IPCNS_REMOVED  0x00000003   /* Notify ipc namespace removed */
 
 #define IPCNS_CALLBACK_PRI 0
 
@@ -45,25 +45,25 @@ struct ipc_namespace {
 	int		shm_ctlmni;
 	int		shm_tot;
 	/*
-                                                                        
-               
-  */
+	 * Defines whether IPC_RMID is forced for _all_ shm segments regardless
+	 * of shmctl()
+	 */
 	int		shm_rmid_forced;
 
 	struct notifier_block ipcns_nb;
 
-	/*                                                         */
+	/* The kern_mount of the mqueuefs sb.  We take a ref on it */
 	struct vfsmount	*mq_mnt;
 
-	/*                                           */
+	/* # queues in this ns, protected by mq_lock */
 	unsigned int    mq_queues_count;
 
-	/*                                    */
-	unsigned int    mq_queues_max;   /*                               */
-	unsigned int    mq_msg_max;      /*                            */
-	unsigned int    mq_msgsize_max;  /*                                */
+	/* next fields are set through sysctl */
+	unsigned int    mq_queues_max;   /* initialized to DFLT_QUEUESMAX */
+	unsigned int    mq_msg_max;      /* initialized to DFLT_MSGMAX */
+	unsigned int    mq_msgsize_max;  /* initialized to DFLT_MSGSIZEMAX */
 
-	/*                               */
+	/* user_ns which owns the ipc ns */
 	struct user_namespace *user_ns;
 };
 
@@ -78,7 +78,7 @@ extern int cond_register_ipcns_notifier(struct ipc_namespace *);
 extern void unregister_ipcns_notifier(struct ipc_namespace *);
 extern int ipcns_notify(unsigned long);
 extern void shm_destroy_orphaned(struct ipc_namespace *ns);
-#else /*                */
+#else /* CONFIG_SYSVIPC */
 static inline int register_ipcns_notifier(struct ipc_namespace *ns)
 { return 0; }
 static inline int cond_register_ipcns_notifier(struct ipc_namespace *ns)
@@ -86,15 +86,15 @@ static inline int cond_register_ipcns_notifier(struct ipc_namespace *ns)
 static inline void unregister_ipcns_notifier(struct ipc_namespace *ns) { }
 static inline int ipcns_notify(unsigned long l) { return 0; }
 static inline void shm_destroy_orphaned(struct ipc_namespace *ns) {}
-#endif /*                */
+#endif /* CONFIG_SYSVIPC */
 
 #ifdef CONFIG_POSIX_MQUEUE
 extern int mq_init_ns(struct ipc_namespace *ns);
-/*                */
-#define DFLT_QUEUESMAX 256     /*                              */
-#define DFLT_MSGMAX    10      /*                                      */
+/* default values */
+#define DFLT_QUEUESMAX 256     /* max number of message queues */
+#define DFLT_MSGMAX    10      /* max number of messages in each queue */
 #define HARD_MSGMAX    (32768*sizeof(void *)/4)
-#define DFLT_MSGSIZEMAX 8192   /*                  */
+#define DFLT_MSGSIZEMAX 8192   /* max message size */
 #else
 static inline int mq_init_ns(struct ipc_namespace *ns) { return 0; }
 #endif
@@ -135,12 +135,12 @@ static inline void put_ipc_ns(struct ipc_namespace *ns)
 struct ctl_table_header;
 extern struct ctl_table_header *mq_register_sysctl_table(void);
 
-#else /*                            */
+#else /* CONFIG_POSIX_MQUEUE_SYSCTL */
 
 static inline struct ctl_table_header *mq_register_sysctl_table(void)
 {
 	return NULL;
 }
 
-#endif /*                            */
+#endif /* CONFIG_POSIX_MQUEUE_SYSCTL */
 #endif

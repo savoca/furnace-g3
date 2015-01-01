@@ -147,8 +147,8 @@ static __inline__ long atomic64_add_unless(atomic64_t *v, long a, long u)
 })
 
 /*
-                                                                  
-            
+ * Atomically add I to V and return TRUE if the resulting value is
+ * negative.
  */
 static __inline__ int
 atomic_add_negative (int i, atomic_t *v)
@@ -208,10 +208,10 @@ atomic64_add_negative (__s64 i, atomic64_t *v)
 #define atomic64_inc(v)			atomic64_add(1, (v))
 #define atomic64_dec(v)			atomic64_sub(1, (v))
 
-/*                                           */
+/* Atomic operations are already serializing */
 #define smp_mb__before_atomic_dec()	barrier()
 #define smp_mb__after_atomic_dec()	barrier()
 #define smp_mb__before_atomic_inc()	barrier()
 #define smp_mb__after_atomic_inc()	barrier()
 
-#endif /*                    */
+#endif /* _ASM_IA64_ATOMIC_H */

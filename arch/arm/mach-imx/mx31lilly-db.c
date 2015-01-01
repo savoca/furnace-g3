@@ -38,9 +38,9 @@
 #include "devices-imx31.h"
 
 /*
-                                                                    
-                                                                       
-                                                  
+ * This file contains board-specific initialization routines for the
+ * LILLY-1131 development board. If you design an own baseboard for the
+ * module, use this file as base for support code.
  */
 
 static unsigned int lilly_db_board_pins[] __initdata = {
@@ -87,12 +87,12 @@ static unsigned int lilly_db_board_pins[] __initdata = {
 	MX31_PIN_CONTRAST__CONTRAST,
 };
 
-/*      */
+/* UART */
 static const struct imxuart_platform_data uart_pdata __initconst = {
 	.flags = IMXUART_HAVE_RTSCTS,
 };
 
-/*             */
+/* MMC support */
 
 static int mxc_mmc1_get_ro(struct device *dev)
 {
@@ -160,13 +160,13 @@ static const struct imxmmc_platform_data mmc_pdata __initconst = {
 	.exit	= mxc_mmc1_exit,
 };
 
-/*                     */
+/* Framebuffer support */
 static const struct ipu_platform_data ipu_data __initconst = {
 	.irq_base = MXC_IPU_IRQ_START,
 };
 
 static const struct fb_videomode fb_modedb = {
-	/*                              */
+	/* 640x480 TFT panel (IPS-056T) */
 	.name		= "CRT-VGA",
 	.refresh	= 64,
 	.xres		= 640,

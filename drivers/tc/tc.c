@@ -28,7 +28,7 @@ static struct tc_bus tc_bus = {
 };
 
 /*
-                                    
+ * Probing for TURBOchannel modules.
  */
 static void __init tc_bus_add_devices(struct tc_bus *tbus)
 {
@@ -80,7 +80,7 @@ static void __init tc_bus_add_devices(struct tc_bus *tbus)
 		    pattern[2] != 0xaa || pattern[3] != 0xff)
 			goto out_err;
 
-		/*                                                 */
+		/* Found a board, allocate it an entry in the list */
 		tdev = kzalloc(sizeof(*tdev), GFP_KERNEL);
 		if (!tdev) {
 			printk(KERN_ERR "tc%x: unable to allocate tc_dev\n",
@@ -138,11 +138,11 @@ out_err:
 }
 
 /*
-                  
+ * The main entry.
  */
 static int __init tc_init(void)
 {
-	/*                                 */
+	/* Initialize the TURBOchannel bus */
 	if (tc_bus_get_info(&tc_bus))
 		return 0;
 

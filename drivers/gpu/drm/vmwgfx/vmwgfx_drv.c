@@ -42,8 +42,8 @@
 #define VMW_MIN_INITIAL_HEIGHT 600
 
 
-/* 
-                                                      
+/**
+ * Fully encoded drm commands. Might move to vmw_drm.h
  */
 
 #define DRM_IOCTL_VMW_GET_PARAM					\
@@ -112,16 +112,16 @@
 	DRM_IOW(DRM_COMMAND_BASE + DRM_VMW_UPDATE_LAYOUT,	\
 		 struct drm_vmw_update_layout_arg)
 
-/* 
-                                                         
-                    
+/**
+ * The core DRM version of this macro doesn't account for
+ * DRM_COMMAND_BASE.
  */
 
 #define VMW_IOCTL_DEF(ioctl, func, flags) \
   [DRM_IOCTL_NR(DRM_IOCTL_##ioctl) - DRM_COMMAND_BASE] = {DRM_##ioctl, flags, func, DRM_IOCTL_##ioctl}
 
-/* 
-                     
+/**
+ * Ioctl definitions.
  */
 
 static struct drm_ioctl_desc vmw_ioctls[] = {
@@ -167,7 +167,7 @@ static struct drm_ioctl_desc vmw_ioctls[] = {
 	VMW_IOCTL_DEF(VMW_GET_3D_CAP, vmw_get_cap_3d_ioctl,
 		      DRM_AUTH | DRM_UNLOCKED),
 
-	/*                                                                   */
+	/* these allow direct access to the framebuffers mark as master only */
 	VMW_IOCTL_DEF(VMW_PRESENT, vmw_present_ioctl,
 		      DRM_MASTER | DRM_AUTH | DRM_UNLOCKED),
 	VMW_IOCTL_DEF(VMW_PRESENT_READBACK,
@@ -231,18 +231,18 @@ static void vmw_print_capabilities(uint32_t capabilities)
 }
 
 
-/* 
-                                                                           
-                                
-  
-                                           
-  
-                                                                         
-                                                                                
-                                    
-  
-                                                                           
-                                     
+/**
+ * vmw_execbuf_prepare_dummy_query - Initialize a query result structure at
+ * the start of a buffer object.
+ *
+ * @dev_priv: The device private structure.
+ *
+ * This function will idle the buffer using an uninterruptible wait, then
+ * map the first page and initialize a pending occlusion query result structure,
+ * Finally it will unmap the buffer.
+ *
+ * TODO: Since we're only mapping a single page, we should optimize the map
+ * to use kmap_atomic / iomap_atomic.
  */
 static void vmw_dummy_query_bo_prepare(struct vmw_private *dev_priv)
 {
@@ -274,16 +274,16 @@ static void vmw_dummy_query_bo_prepare(struct vmw_private *dev_priv)
 }
 
 
-/* 
-                                                                       
-  
-                                         
-  
-                                                                   
-                                                      
-                                                        
-  
-                                         
+/**
+ * vmw_dummy_query_bo_create - create a bo to hold a dummy query result
+ *
+ * @dev_priv: A device private structure.
+ *
+ * This function creates a small buffer object that holds the query
+ * result for dummy queries emitted as query barriers.
+ * No interruptible waits are done within this function.
+ *
+ * Returns an error if bo creation fails.
  */
 static int vmw_dummy_query_bo_create(struct vmw_private *dev_priv)
 {
@@ -322,9 +322,9 @@ out_no_query_bo:
 static void vmw_release_device(struct vmw_private *dev_priv)
 {
 	/*
-                                            
-                  
-  */
+	 * Previous destructions should've released
+	 * the pinned bo.
+	 */
 
 	BUG_ON(dev_priv->pinned_bo != NULL);
 
@@ -333,11 +333,11 @@ static void vmw_release_device(struct vmw_private *dev_priv)
 	vmw_fifo_release(dev_priv, &dev_priv->fifo);
 }
 
-/* 
-                                     
-                                                                          
-                                                                     
-                                                                         
+/**
+ * Increase the 3d resource refcount.
+ * If the count was prevously zero, initialize the fifo, switching to svga
+ * mode. Note that the master holds a ref as well, and may request an
+ * explicit switch to svga mode if fb is not running, using @unhide_svga.
  */
 int vmw_3d_resource_inc(struct vmw_private *dev_priv,
 			bool unhide_svga)
@@ -361,13 +361,13 @@ int vmw_3d_resource_inc(struct vmw_private *dev_priv,
 	return ret;
 }
 
-/* 
-                                     
-                                                                      
-                                                                    
-                                                                       
-                                                                      
-          
+/**
+ * Decrease the 3d resource refcount.
+ * If the count reaches zero, disable the fifo, switching to vga mode.
+ * Note that the master holds a refcount as well, and may request an
+ * explicit switch to vga mode when it releases its refcount to account
+ * for the situation of an X server vt switch to VGA with 3d resources
+ * active.
  */
 void vmw_3d_resource_dec(struct vmw_private *dev_priv,
 			 bool hide_svga)
@@ -391,14 +391,14 @@ void vmw_3d_resource_dec(struct vmw_private *dev_priv,
 	BUG_ON(n3d < 0);
 }
 
-/* 
-                                                                   
-  
-                                                              
-                                                             
-                                  
-                                                  
-                                  
+/**
+ * Sets the initial_[width|height] fields on the given vmw_private.
+ *
+ * It does so by reading SVGA_REG_[WIDTH|HEIGHT] regs and then
+ * clamping the value to fb_max_[width|height] fields and the
+ * VMW_MIN_INITIAL_[WIDTH|HEIGHT].
+ * If the values appear to be invalid, set them to
+ * VMW_MIN_INITIAL_[WIDTH|HEIGHT].
  */
 static void vmw_get_initial_size(struct vmw_private *dev_priv)
 {
@@ -415,8 +415,8 @@ static void vmw_get_initial_size(struct vmw_private *dev_priv)
 	    height > dev_priv->fb_max_height) {
 
 		/*
-                                              
-   */
+		 * This is a host error and shouldn't occur.
+		 */
 
 		width = VMW_MIN_INITIAL_WIDTH;
 		height = VMW_MIN_INITIAL_HEIGHT;
@@ -500,9 +500,9 @@ static int vmw_driver_load(struct drm_device *dev, unsigned long chipset)
 		dev_priv->memory_size -= dev_priv->vram_size;
 	} else {
 		/*
-                                            
-                                                 
-   */
+		 * An arbitrary limit of 512MiB on surface
+		 * memory. But all HWV8 hardware supports GMR2.
+		 */
 		dev_priv->memory_size = 512*1024*1024;
 	}
 
@@ -573,7 +573,7 @@ static int vmw_driver_load(struct drm_device *dev, unsigned long chipset)
 		goto out_err3;
 	}
 
-	/*                                                   */
+	/* Need mmio memory to check for fifo pitchlock cap. */
 	if (!(dev_priv->capabilities & SVGA_CAP_DISPLAY_TOPOLOGY) &&
 	    !(dev_priv->capabilities & SVGA_CAP_PITCHLOCK) &&
 	    !vmw_fifo_have_pitchlock(dev_priv)) {
@@ -596,9 +596,9 @@ static int vmw_driver_load(struct drm_device *dev, unsigned long chipset)
 	ret = pci_request_regions(dev->pdev, "vmwgfx probe");
 	dev_priv->stealth = (ret != 0);
 	if (dev_priv->stealth) {
-		/* 
-                                            
-   */
+		/**
+		 * Request at least the mmio PCI resource.
+		 */
 
 		DRM_INFO("It appears like vesafb is loaded. "
 			 "Ignore above error if any.\n");
@@ -613,24 +613,24 @@ static int vmw_driver_load(struct drm_device *dev, unsigned long chipset)
 	if (unlikely(dev_priv->fman == NULL))
 		goto out_no_fman;
 
-	/*                                                             */
+	/* Need to start the fifo to check if we can do screen objects */
 	ret = vmw_3d_resource_inc(dev_priv, true);
 	if (unlikely(ret != 0))
 		goto out_no_fifo;
 	vmw_kms_save_vga(dev_priv);
 
-	/*                                            */
+	/* Start kms and overlay systems, needs fifo. */
 	ret = vmw_kms_init(dev_priv);
 	if (unlikely(ret != 0))
 		goto out_no_kms;
 	vmw_overlay_init(dev_priv);
 
-	/*                                          */
+	/* 3D Depends on Screen Objects being used. */
 	DRM_INFO("Detected %sdevice 3D availability.\n",
 		 vmw_fifo_have_3d(dev_priv) ?
 		 "" : "no ");
 
-	/*                                    */
+	/* We might be done with the fifo now */
 	if (dev_priv->enable_fb) {
 		vmw_fb_init(dev_priv);
 	} else {
@@ -657,7 +657,7 @@ out_no_irq:
 	vmw_overlay_close(dev_priv);
 	vmw_kms_close(dev_priv);
 out_no_kms:
-	/*                                            */
+	/* We still have a 3D resource reference held */
 	if (dev_priv->enable_fb) {
 		vmw_kms_restore_vga(dev_priv);
 		vmw_3d_resource_dec(dev_priv, false);
@@ -789,8 +789,8 @@ static long vmw_unlocked_ioctl(struct file *filp, unsigned int cmd,
 	unsigned int nr = DRM_IOCTL_NR(cmd);
 
 	/*
-                                               
-  */
+	 * Do extra checking on driver private ioctls.
+	 */
 
 	if ((nr >= DRM_COMMAND_BASE) && (nr < DRM_COMMAND_END)
 	    && (nr < DRM_COMMAND_BASE + dev->driver->num_ioctls)) {
@@ -822,9 +822,9 @@ static void vmw_lastclose(struct drm_device *dev)
 	struct drm_mode_set set;
 	int ret;
 
-	/* 
-                                                     
-  */
+	/**
+	 * Do nothing on the lastclose call from drm_unload.
+	 */
 
 	if (!dev_priv->is_opened)
 		return;
@@ -945,10 +945,10 @@ static void vmw_master_drop(struct drm_device *dev,
 	struct vmw_master *vmaster = vmw_master(file_priv->master);
 	int ret;
 
-	/* 
-                                                        
-              
-  */
+	/**
+	 * Make sure the master doesn't disappear while we have
+	 * it locked.
+	 */
 
 	vmw_fp->locked_master = drm_master_get(file_priv->master);
 	ret = ttm_vt_lock(&vmaster->lock, false, vmw_fp->tfile);
@@ -1000,10 +1000,10 @@ static int vmwgfx_pm_notifier(struct notifier_block *nb, unsigned long val,
 	case PM_SUSPEND_PREPARE:
 		ttm_suspend_lock(&vmaster->lock);
 
-		/* 
-                                                    
-                                                  
-   */
+		/**
+		 * This empties VRAM and unbinds all GMR bindings.
+		 * Buffer contents is moved to swappable memory.
+		 */
 		vmw_execbuf_release_pinned_bo(dev_priv, false, 0);
 		ttm_bo_swapout_all(&dev_priv->bdev);
 
@@ -1022,8 +1022,8 @@ static int vmwgfx_pm_notifier(struct notifier_block *nb, unsigned long val,
 	return 0;
 }
 
-/* 
-                                                          
+/**
+ * These might not be needed with the virtual SVGA device.
  */
 
 static int vmw_pci_suspend(struct pci_dev *pdev, pm_message_t state)
@@ -1073,10 +1073,10 @@ static int vmw_pm_prepare(struct device *kdev)
 	struct drm_device *dev = pci_get_drvdata(pdev);
 	struct vmw_private *dev_priv = vmw_priv(dev);
 
-	/* 
-                                                      
-              
-  */
+	/**
+	 * Release 3d reference held by fbdev and potentially
+	 * stop fifo.
+	 */
 	dev_priv->suspended = true;
 	if (dev_priv->enable_fb)
 			vmw_3d_resource_dec(dev_priv, true);
@@ -1101,10 +1101,10 @@ static void vmw_pm_complete(struct device *kdev)
 	struct drm_device *dev = pci_get_drvdata(pdev);
 	struct vmw_private *dev_priv = vmw_priv(dev);
 
-	/* 
-                                                      
-               
-  */
+	/**
+	 * Reclaim 3d reference held by fbdev and potentially
+	 * start fifo.
+	 */
 	if (dev_priv->enable_fb)
 			vmw_3d_resource_inc(dev_priv, false);
 
@@ -1150,7 +1150,7 @@ static struct drm_driver driver = {
 	.reclaim_buffers_locked = NULL,
 	.ioctls = vmw_ioctls,
 	.num_ioctls = DRM_ARRAY_SIZE(vmw_ioctls),
-	.dma_quiescent = NULL,	/*                   */
+	.dma_quiescent = NULL,	/*vmw_dma_quiescent, */
 	.master_create = vmw_master_create,
 	.master_destroy = vmw_master_destroy,
 	.master_set = vmw_master_set,

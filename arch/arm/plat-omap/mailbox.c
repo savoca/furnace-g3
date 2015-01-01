@@ -42,7 +42,7 @@ static unsigned int mbox_kfifo_size = CONFIG_OMAP_MBOX_KFIFO_SIZE;
 module_param(mbox_kfifo_size, uint, S_IRUGO);
 MODULE_PARM_DESC(mbox_kfifo_size, "Size of omap's mailbox kfifo (bytes)");
 
-/*                               */
+/* Mailbox FIFO handle functions */
 static inline mbox_msg_t mbox_fifo_read(struct omap_mbox *mbox)
 {
 	return mbox->ops->fifo_read(mbox);
@@ -60,7 +60,7 @@ static inline int mbox_fifo_full(struct omap_mbox *mbox)
 	return mbox->ops->fifo_full(mbox);
 }
 
-/*                              */
+/* Mailbox IRQ handle functions */
 static inline void ack_mbox_irq(struct omap_mbox *mbox, omap_mbox_irq_t irq)
 {
 	if (mbox->ops->ack_irq)
@@ -72,7 +72,7 @@ static inline int is_mbox_irq(struct omap_mbox *mbox, omap_mbox_irq_t irq)
 }
 
 /*
-                 
+ * message sender
  */
 static int __mbox_poll_for_space(struct omap_mbox *mbox)
 {
@@ -138,7 +138,7 @@ static void mbox_tx_tasklet(unsigned long tx_data)
 }
 
 /*
-                              
+ * Message receiver(workqueue)
  */
 static void mbox_rx_work(struct work_struct *work)
 {
@@ -163,7 +163,7 @@ static void mbox_rx_work(struct work_struct *work)
 }
 
 /*
-                            
+ * Mailbox interrupt handler
  */
 static void __mbox_tx_interrupt(struct omap_mbox *mbox)
 {
@@ -194,7 +194,7 @@ static void __mbox_rx_interrupt(struct omap_mbox *mbox)
 			break;
 	}
 
-	/*                                                 */
+	/* no more messages in the fifo. clear IRQ source. */
 	ack_mbox_irq(mbox, IRQ_RX);
 nomem:
 	schedule_work(&mbox->rxq->work);
@@ -409,7 +409,7 @@ static int __init omap_mbox_init(void)
 	if (err)
 		return err;
 
-	/*                                                     */
+	/* kfifo size sanity check: alignment and minimal size */
 	mbox_kfifo_size = ALIGN(mbox_kfifo_size, sizeof(mbox_msg_t));
 	mbox_kfifo_size = max_t(unsigned int, mbox_kfifo_size,
 							sizeof(mbox_msg_t));

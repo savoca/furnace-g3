@@ -39,4 +39,4 @@ const char *debug_strbuf_ipaddress(DEBUG_STRBUF_TYPE dsb,
 
 extern const char debug_strbuf_error[];
 
-#endif				/*                */
+#endif				/* DEBUG_STRBUF_H */

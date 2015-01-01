@@ -1,7 +1,7 @@
 /*
-                         
-  
-                                    
+ *	Access to VGA videoram
+ *
+ *	(c) 1998 Martin Mares <mj@ucw.cz>
  */
 
 #ifndef _LINUX_ASM_VGA_H_

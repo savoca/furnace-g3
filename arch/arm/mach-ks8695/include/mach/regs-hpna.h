@@ -19,7 +19,7 @@
 
 
 /*
-                 
+ * HPNA registers
  */
 
 #endif

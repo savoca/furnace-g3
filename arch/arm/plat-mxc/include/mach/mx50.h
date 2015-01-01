@@ -2,29 +2,29 @@
 #define __MACH_MX50_H__
 
 /*
-       
+ * IROM
  */
 #define MX50_IROM_BASE_ADDR		0x0
 #define MX50_IROM_SIZE			SZ_64K
 
-/*      */
+/* TZIC */
 #define MX50_TZIC_BASE_ADDR		0x0fffc000
 #define MX50_TZIC_SIZE			SZ_16K
 
 /*
-       
+ * IRAM
  */
-#define MX50_IRAM_BASE_ADDR	0xf8000000	/*              */
+#define MX50_IRAM_BASE_ADDR	0xf8000000	/* internal ram */
 #define MX50_IRAM_PARTITIONS	16
-#define MX50_IRAM_SIZE		(MX50_IRAM_PARTITIONS * SZ_8K)	/*       */
+#define MX50_IRAM_SIZE		(MX50_IRAM_PARTITIONS * SZ_8K)	/* 128KB */
 
 /*
-           
+ * Databahn
  */
 #define MX50_DATABAHN_BASE_ADDR			0x14000000
 
 /*
-                         
+ * Graphics Memory of GPU
  */
 #define MX50_GPU2D_BASE_ADDR		0x20000000
 
@@ -55,7 +55,7 @@
 #define MX50_NIC_BASE_ADDR		(MX50_DEBUG_BASE_ADDR + 0x08000000)
 
 /*
-                                
+ * SPBA global module enabled #0
  */
 #define MX50_SPBA0_BASE_ADDR		0x50000000
 #define MX50_SPBA0_SIZE			SZ_1M
@@ -69,7 +69,7 @@
 #define MX50_MMC_SDHC4_BASE_ADDR	(MX50_SPBA0_BASE_ADDR + 0x00024000)
 
 /*
-         
+ * AIPS 1
  */
 #define MX50_AIPS1_BASE_ADDR	0x53f00000
 #define MX50_AIPS1_SIZE		SZ_1M
@@ -101,7 +101,7 @@
 #define MX50_RNGB_BASE_ADDR	(MX50_AIPS1_BASE_ADDR + 0x000f8000)
 
 /*
-         
+ * AIPS 2
  */
 #define MX50_AIPS2_BASE_ADDR	0x63f00000
 #define MX50_AIPS2_SIZE		SZ_1M
@@ -125,7 +125,7 @@
 #define MX50_FEC_BASE_ADDR	(MX50_AIPS2_BASE_ADDR + 0x000ec000)
 
 /*
-                        
+ * Memory regions and CS
  */
 #define MX50_CSD0_BASE_ADDR		0x70000000
 #define MX50_CSD1_BASE_ADDR		0xb0000000
@@ -135,7 +135,7 @@
 #define MX50_IO_ADDRESS(x)		IOMEM(MX50_IO_P2V(x))
 
 /*
-                           
+ * defines for SPBA modules
  */
 #define MX50_SPBA_SDHC1		0x04
 #define MX50_SPBA_SDHC2		0x08
@@ -151,7 +151,7 @@
 #define MX50_SPBA_CTRL		0x3c
 
 /*
-                          
+ * DMA request assignments
  */
 #define MX50_DMA_REQ_GPC		1
 #define MX50_DMA_REQ_ATA_UART4_RX	2
@@ -186,7 +186,7 @@
 #define MX50_DMA_REQ_UART3_TX		43
 
 /*
-                    
+ * Interrupt numbers
  */
 #define MX50_INT_MMC_SDHC1	1
 #define MX50_INT_MMC_SDHC2	2
@@ -286,4 +286,4 @@
 extern int mx50_revision(void);
 #endif
 
-#endif /*                        */
+#endif /* ifndef __MACH_MX50_H__ */

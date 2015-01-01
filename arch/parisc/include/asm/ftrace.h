@@ -5,8 +5,8 @@
 extern void mcount(void);
 
 /*
-                                                       
-                             
+ * Stack of return addresses for functions of a thread.
+ * Used in struct thread_info
  */
 struct ftrace_ret_stack {
 	unsigned long ret;
@@ -15,9 +15,9 @@ struct ftrace_ret_stack {
 };
 
 /*
-                                        
-                                         
-                     
+ * Primary handler of a function return.
+ * It relays on ftrace_return_to_handler.
+ * Defined in entry.S
  */
 extern void return_to_handler(void);
 
@@ -34,6 +34,6 @@ extern unsigned long return_address(unsigned int);
 #define CALLER_ADDR5 return_address(5)
 #define CALLER_ADDR6 return_address(6)
 
-#endif /*              */
+#endif /* __ASSEMBLY__ */
 
-#endif /*                      */
+#endif /* _ASM_PARISC_FTRACE_H */

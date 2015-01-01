@@ -15,8 +15,8 @@
  ******************************************************************************/
 
 /*
-                                             
-                                       
+	SMT 7.2 Status Response Frame Implementation
+	SRF state machine and frame generation
 */
 
 #include "h/types.h"
@@ -36,7 +36,7 @@ static const char ID_sccs[] = "@(#)srf.c	1.18 97/08/04 (C) SK " ;
 
 
 /*
-                        
+ * function declarations
  */
 static void clear_all_rep(struct s_smc *smc);
 static void clear_reported(struct s_smc *smc);
@@ -103,8 +103,8 @@ void smt_init_evc(struct s_smc *smc)
 	}
 
 	/*
-              
-  */
+	 * conditions
+	 */
 	smc->evcs[0].evc_cond_state = &smc->mib.fddiSMTPeerWrapFlag ;
 	smc->evcs[1].evc_cond_state =
 		&smc->mib.m[MAC0].fddiMACDuplicateAddressCond ;
@@ -114,24 +114,24 @@ void smt_init_evc(struct s_smc *smc)
 		&smc->mib.m[MAC0].fddiMACNotCopiedFlag ;
 
 	/*
-          
-  */
+	 * events
+	 */
 	smc->evcs[4].evc_multiple = &smc->mib.m[MAC0].fddiMACMultiple_N ;
 	smc->evcs[5].evc_multiple = &smc->mib.m[MAC0].fddiMACMultiple_P ;
 
 	offset = 6 ;
 	for (i = 0 ; i < NUMPHYS ; i++) {
 		/*
-               
-   */
+		 * conditions
+		 */
 		smc->evcs[offset + 0*NUMPHYS].evc_cond_state =
 			&smc->mib.p[i].fddiPORTLerFlag ;
 		smc->evcs[offset + 1*NUMPHYS].evc_cond_state =
 			&smc->mib.p[i].fddiPORTEB_Condition ;
 
 		/*
-           
-   */
+		 * events
+		 */
 		smc->evcs[offset + 2*NUMPHYS].evc_multiple =
 			&smc->mib.p[i].fddiPORTMultiple_U ;
 		smc->evcs[offset + 3*NUMPHYS].evc_multiple =
@@ -205,16 +205,16 @@ void smt_srf_event(struct s_smc *smc, int code, int index, int cond)
 			return ;
 		}
 		/*
-                                  
-   */
+		 * ignore condition if no change
+		 */
 		if (SMT_IS_CONDITION(code)) {
 			if (*evc->evc_cond_state == cond)
 				return ;
 		}
 
 		/*
-                              
-   */
+		 * set transition time stamp
+		 */
 		smt_set_timestamp(smc,smc->mib.fddiSMTTransitionTimeStamp) ;
 		if (SMT_IS_CONDITION(code)) {
 			DB_SMT("SRF: condition is %s\n",cond ? "ON":"OFF",0) ;
@@ -242,48 +242,48 @@ void smt_srf_event(struct s_smc *smc, int code, int index, int cond)
 		}
 #ifdef	FDDI_MIB
 		snmp_srf_event(smc,evc) ;
-#endif	/*          */
+#endif	/* FDDI_MIB */
 	}
 	tsr = smt_get_time() - smc->srf.TSR ;
 
 	switch (smc->srf.sr_state) {
 	case SR0_WAIT :
-		/*       */
+		/* SR01a */
 		if (cond_asserted && tsr < T_Limit) {
 			smc->srf.SRThreshold = THRESHOLD_2 ;
 			smc->srf.sr_state = SR1_HOLDOFF ;
 			break ;
 		}
-		/*       */
+		/* SR01b */
 		if (cond_deasserted && tsr < T_Limit) {
 			smc->srf.sr_state = SR1_HOLDOFF ;
 			break ;
 		}
-		/*       */
+		/* SR01c */
 		if (event_occurred && tsr < T_Limit) {
 			smc->srf.sr_state = SR1_HOLDOFF ;
 			break ;
 		}
-		/*       */
+		/* SR00b */
 		if (cond_asserted && tsr >= T_Limit) {
 			smc->srf.SRThreshold = THRESHOLD_2 ;
 			smc->srf.TSR = smt_get_time() ;
 			smt_send_srf(smc) ;
 			break ;
 		}
-		/*       */
+		/* SR00c */
 		if (cond_deasserted && tsr >= T_Limit) {
 			smc->srf.TSR = smt_get_time() ;
 			smt_send_srf(smc) ;
 			break ;
 		}
-		/*       */
+		/* SR00d */
 		if (event_occurred && tsr >= T_Limit) {
 			smc->srf.TSR = smt_get_time() ;
 			smt_send_srf(smc) ;
 			break ;
 		}
-		/*       */
+		/* SR00e */
 		if (smc->srf.any_report && (u_long) tsr >=
 			smc->srf.SRThreshold) {
 			smc->srf.SRThreshold *= 2 ;
@@ -293,28 +293,28 @@ void smt_srf_event(struct s_smc *smc, int code, int index, int cond)
 			smt_send_srf(smc) ;
 			break ;
 		}
-		/*      */
+		/* SR02 */
 		if (!smc->mib.fddiSMTStatRptPolicy) {
 			smc->srf.sr_state = SR2_DISABLED ;
 			break ;
 		}
 		break ;
 	case SR1_HOLDOFF :
-		/*       */
+		/* SR10b */
 		if (tsr >= T_Limit) {
 			smc->srf.sr_state = SR0_WAIT ;
 			smc->srf.TSR = smt_get_time() ;
 			smt_send_srf(smc) ;
 			break ;
 		}
-		/*       */
+		/* SR11a */
 		if (cond_asserted) {
 			smc->srf.SRThreshold = THRESHOLD_2 ;
 		}
-		/*       */
-		/*       */
-		/*               */
-		/*      */
+		/* SR11b */
+		/* SR11c */
+		/* handled above */
+		/* SR12 */
 		if (!smc->mib.fddiSMTStatRptPolicy) {
 			smc->srf.sr_state = SR2_DISABLED ;
 			break ;
@@ -366,7 +366,7 @@ static void clear_reported(struct s_smc *smc)
 }
 
 /*
-                               
+ * build and send SMT SRF frame
  */
 static void smt_send_srf(struct s_smc *smc)
 {
@@ -382,8 +382,8 @@ static void smt_send_srf(struct s_smc *smc)
 	} ;
 
 	/*
-                    
-  */
+	 * build SMT header
+	 */
 	if (!smc->r.sm_ma_avail)
 		return ;
 	if (!(mb = smt_build_frame(smc,SMT_SRF,SMT_ANNOUNCE,0)))
@@ -392,15 +392,15 @@ static void smt_send_srf(struct s_smc *smc)
 	RS_SET(smc,RS_SOFTERROR) ;
 
 	smt = smtod(mb, struct smt_header *) ;
-	smt->smt_dest = SMT_SRF_DA ;		/*                     */
+	smt->smt_dest = SMT_SRF_DA ;		/* DA == SRF multicast */
 
 	/*
-                          
-  */
-	pcon.pc_len = SMT_MAX_INFO_LEN ;	/*                 */
-	pcon.pc_err = 0 ;			/*          */
-	pcon.pc_badset = 0 ;			/*                  */
-	pcon.pc_p = (void *) (smt + 1) ;	/*                  */
+	 * setup parameter status
+	 */
+	pcon.pc_len = SMT_MAX_INFO_LEN ;	/* max para length */
+	pcon.pc_err = 0 ;			/* no error */
+	pcon.pc_badset = 0 ;			/* no bad set count */
+	pcon.pc_p = (void *) (smt + 1) ;	/* paras start here */
 
 	smt_add_para(smc,&pcon,(u_short) SMT_P1033,0,0) ;
 	smt_add_para(smc,&pcon,(u_short) SMT_P1034,0,0) ;
@@ -424,6 +424,6 @@ static void smt_send_srf(struct s_smc *smc)
 	clear_reported(smc) ;
 }
 
-#endif	/*         */
-#endif	/*             */
+#endif	/* no BOOT */
+#endif	/* no SLIM_SMT */
 

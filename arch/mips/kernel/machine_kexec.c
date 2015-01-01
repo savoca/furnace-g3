@@ -60,11 +60,11 @@ machine_kexec(struct kimage *image)
 	       relocate_new_kernel_size);
 
 	/*
-                                                           
-                                                             
-                                                  
-                       
-  */
+	 * The generic kexec code builds a page list with physical
+	 * addresses. they are directly accessible through KSEG0 (or
+	 * CKSEG0 or XPHYS if on 64bit system), hence the
+	 * pys_to_virt() call.
+	 */
 	for (ptr = &image->head; (entry = *ptr) && !(entry &IND_DONE);
 	     ptr = (entry & IND_INDIRECTION) ?
 	       phys_to_virt(entry & PAGE_MASK) : ptr + 1) {
@@ -74,8 +74,8 @@ machine_kexec(struct kimage *image)
 	}
 
 	/*
-                                  
-  */
+	 * we do not want to be bothered.
+	 */
 	local_irq_disable();
 
 	printk("Will call new kernel at %08lx\n", image->start);

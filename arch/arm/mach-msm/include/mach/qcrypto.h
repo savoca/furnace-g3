@@ -33,4 +33,4 @@ int qcrypto_cipher_clear_flag(struct ablkcipher_request *req,
 int qcrypto_ahash_clear_flag(struct ahash_request *req, unsigned int flags);
 int qcrypto_aead_clear_flag(struct aead_request *req, unsigned int flags);
 
-#endif /*                               */
+#endif /* _DRIVERS_CRYPTO_MSM_QCRYPTO_H */

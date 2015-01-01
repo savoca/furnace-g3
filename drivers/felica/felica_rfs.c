@@ -1,10 +1,10 @@
 /*
-                
-  
+ *  felica_rfs.c
+ *
  */
 
 /*
-                            
+ *  INCLUDE FILES FOR MODULE
  */
 
 #include "felica_rfs.h"
@@ -13,7 +13,7 @@
 #include "felica_test.h"
 
 /*
-          
+ *  DEFINE
  */
 #ifdef FELICA_LED_SUPPORT
 enum{
@@ -22,11 +22,11 @@ enum{
 };
 #endif
 /*
-                       
+ *   FUNCTION PROTOTYPE
  */
 
 /*
-                        
+ *   INTERNAL DEFINITION
  */
 #ifdef FELICA_LED_SUPPORT
 #if defined(CONFIG_LGE_FELICA_ONLY)
@@ -37,14 +37,14 @@ enum{
 #endif
 
 /*
-                      
+ *   INTERNAL VARIABLE
  */
-static int isopen = 0; //                     
+static int isopen = 0; // 0 : No open 1 : Open
 #ifdef FELICA_LED_SUPPORT
 static int isFelicaUsed = 0; /*                                                      */
 #endif
 /*
-                        
+ *   FUNCTION DEFINITION
 */
 
 #ifdef FELICA_LED_SUPPORT
@@ -143,9 +143,9 @@ irqreturn_t felica_rfs_detect_interrupt(int irq, void *dev_id)
 }
 #endif
 /*
-                                                                                  
-              
-                                    
+ * Description: MFC calls this function using open method of FileInputStream class
+ * Input: None
+ * Output: Success : 0 Fail : Others
  */
 static int felica_rfs_open (struct inode *inode, struct file *fp)
 {
@@ -188,9 +188,9 @@ static int felica_rfs_open (struct inode *inode, struct file *fp)
 }
 
 /*
-                                                                                              
-              
-                                   
+ * Description: MFC calls this function using read method(int read()) of FileInputStream class
+ * Input: None
+ * Output: RFS low : 1 RFS high : 0
  */
 static ssize_t felica_rfs_read(struct file *fp, char *buf, size_t count, loff_t *pos)
 {
@@ -202,7 +202,7 @@ static ssize_t felica_rfs_read(struct file *fp, char *buf, size_t count, loff_t 
   FELICA_DEBUG_MSG("[FELICA_RFS] felica_rfs_read - start \n");
   #endif
 
-  /*             */
+  /* Check error */
 	if(NULL == fp)
 	{
       #ifdef FEATURE_DEBUG_HIGH
@@ -235,7 +235,7 @@ static ssize_t felica_rfs_read(struct file *fp, char *buf, size_t count, loff_t 
 	  return -1;
 	}
 
-/*                */
+/* Get GPIO value */
   getvalue = felica_gpio_read(felica_get_rfs_gpio_num());
   FELICA_DEBUG_MSG("[FELICA_RFS] RFS GPIO status : %d \n", getvalue);
 
@@ -247,7 +247,7 @@ static ssize_t felica_rfs_read(struct file *fp, char *buf, size_t count, loff_t 
     return -1;
   }
 
-/*                           */
+/* Copy value to user memory */
   getvalue = getvalue ? GPIO_LOW_VALUE: GPIO_HIGH_VALUE;
 
   #ifdef FEATURE_DEBUG_MED
@@ -278,9 +278,9 @@ static ssize_t felica_rfs_read(struct file *fp, char *buf, size_t count, loff_t 
 #endif
 }
 /*
-                                                                                                
-              
-                                   
+ * Description: MFC calls this function using close method(int close()) of FileInputStream class
+ * Input: None
+ * Output: RFS low : 1 RFS high : 0
  */
 static int felica_rfs_release (struct inode *inode, struct file *fp)
 {
@@ -352,7 +352,7 @@ static int felica_rfs_init(void)
   FELICA_DEBUG_MSG("[FELICA_RFS] felica_rfs_init - start \n");
   #endif
 
-  /*                          */
+  /* register the device file */
   rc = misc_register(&felica_rfs_device);
   if (rc < 0)
   {
@@ -405,7 +405,7 @@ static void felica_rfs_exit(void)
 	destroy_felica_rfs_wake_lock();
 
 #endif
-	/*                            */
+	/* deregister the device file */
 	misc_deregister(&felica_rfs_device);
 	#ifdef FEATURE_DEBUG_LOW
 	FELICA_DEBUG_MSG("[FELICA_RFS] felica_rfs_exit - end \n");

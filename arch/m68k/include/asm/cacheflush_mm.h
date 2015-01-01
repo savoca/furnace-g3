@@ -6,7 +6,7 @@
 #include <asm/mcfsim.h>
 #endif
 
-/*            */
+/* cache code */
 #define FLUSH_I_AND_D	(0x00000808)
 #define FLUSH_I		(0x00000008)
 
@@ -72,7 +72,7 @@ static inline void flush_cf_bcache(unsigned long start, unsigned long end)
 }
 
 /*
-                           
+ * Cache handling functions
  */
 
 static inline void flush_icache(void)
@@ -95,26 +95,26 @@ static inline void flush_icache(void)
 }
 
 /*
-                                                       
-                                                  
-                             
+ * invalidate the cache for the specified memory range.
+ * It starts at the physical address specified for
+ * the given number of bytes.
  */
 extern void cache_clear(unsigned long paddr, int len);
 /*
-                                                      
-                                                  
-                             
+ * push any dirty cache in the specified memory range.
+ * It starts at the physical address specified for
+ * the given number of bytes.
  */
 extern void cache_push(unsigned long paddr, int len);
 
 /*
-                                                          
-                
+ * push and invalidate pages in the specified user virtual
+ * memory range.
  */
 extern void cache_push_v(unsigned long vaddr, int len);
 
-/*                                                           
-                     */
+/* This is needed whenever the virtual mapping of the current
+   process changes.  */
 #define __flush_cache_all()					\
 ({								\
 	if (CPU_IS_COLDFIRE) {					\
@@ -159,8 +159,8 @@ static inline void flush_cache_mm(struct mm_struct *mm)
 
 #define flush_cache_dup_mm(mm)			flush_cache_mm(mm)
 
-/*                                                           
-                                                           */
+/* flush_cache_range/flush_cache_page must be macros to avoid
+   a dependency on linux/mm.h, which includes this file... */
 static inline void flush_cache_range(struct vm_area_struct *vma,
 				     unsigned long start,
 				     unsigned long end)
@@ -176,8 +176,8 @@ static inline void flush_cache_page(struct vm_area_struct *vma, unsigned long vm
 }
 
 
-/*                                                              */
-/*                                                  */
+/* Push the page at kernel virtual address and clear the icache */
+/* RZ: use cpush %bc instead of cpush %dc, cinv %ic */
 static inline void __flush_page_to_ram(void *vaddr)
 {
 	if (CPU_IS_COLDFIRE) {
@@ -232,4 +232,4 @@ static inline void copy_from_user_page(struct vm_area_struct *vma,
 	memcpy(dst, src, len);
 }
 
-#endif /*                    */
+#endif /* _M68K_CACHEFLUSH_H */

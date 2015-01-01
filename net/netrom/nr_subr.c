@@ -29,7 +29,7 @@
 #include <net/netrom.h>
 
 /*
-                                                   
+ *	This routine purges all of the queues of frames.
  */
 void nr_clear_queues(struct sock *sk)
 {
@@ -42,9 +42,9 @@ void nr_clear_queues(struct sock *sk)
 }
 
 /*
-                                                                     
-                                                                       
-               
+ * This routine purges the input queue of those frames that have been
+ * acknowledged. This replaces the boxes labelled "V(a) <- N(r)" on the
+ * SDL diagram.
  */
 void nr_frames_acked(struct sock *sk, unsigned short nr)
 {
@@ -52,8 +52,8 @@ void nr_frames_acked(struct sock *sk, unsigned short nr)
 	struct sk_buff *skb;
 
 	/*
-                                                    
-  */
+	 * Remove all the ack-ed frames from the ack queue.
+	 */
 	if (nrom->va != nr) {
 		while (skb_peek(&nrom->ack_queue) != NULL && nrom->va != nr) {
 			skb = skb_dequeue(&nrom->ack_queue);
@@ -64,9 +64,9 @@ void nr_frames_acked(struct sock *sk, unsigned short nr)
 }
 
 /*
-                                                                    
-                                                                    
-                                        
+ * Requeue all the un-ack-ed frames on the output queue to be picked
+ * up by nr_kick called from the timer. This arrangement handles the
+ * possibility of an empty output queue.
  */
 void nr_requeue_frames(struct sock *sk)
 {
@@ -82,8 +82,8 @@ void nr_requeue_frames(struct sock *sk)
 }
 
 /*
-                                                                     
-                     
+ *	Validate that the value of nr is between va and vs. Return true or
+ *	false for testing.
  */
 int nr_validate_nr(struct sock *sk, unsigned short nr)
 {
@@ -99,7 +99,7 @@ int nr_validate_nr(struct sock *sk, unsigned short nr)
 }
 
 /*
-                                              
+ *	Check that ns is within the receive window.
  */
 int nr_in_rx_window(struct sock *sk, unsigned short ns)
 {
@@ -116,8 +116,8 @@ int nr_in_rx_window(struct sock *sk, unsigned short ns)
 }
 
 /*
-                                                                     
-                  
+ *  This routine is called when the HDLC layer internally generates a
+ *  control frame.
  */
 void nr_write_internal(struct sock *sk, int frametype)
 {
@@ -148,8 +148,8 @@ void nr_write_internal(struct sock *sk, int frametype)
 		return;
 
 	/*
-                                              
-  */
+	 *	Space for AX.25 and NET/ROM network header
+	 */
 	skb_reserve(skb, NR_NETWORK_LEN);
 
 	dptr = skb_put(skb, skb_tailroom(skb));
@@ -209,7 +209,7 @@ void nr_write_internal(struct sock *sk, int frametype)
 }
 
 /*
-                                                 
+ * This routine is called to send an error reply.
  */
 void __nr_transmit_reply(struct sk_buff *skb, int mine, unsigned char cmdflags)
 {

@@ -21,8 +21,8 @@
 
 /*
 
-                                                                  
-                           
+   This source file is specifically designed to interface with the
+   v4l-dvb cs53l32a module.
 
 */
 
@@ -42,7 +42,7 @@ struct routing_scheme {
 
 
 static const int routing_scheme1[] = {
-	[PVR2_CVAL_INPUT_TV] = 2,  /*                           */
+	[PVR2_CVAL_INPUT_TV] = 2,  /* 1 or 2 seems to work here */
 	[PVR2_CVAL_INPUT_RADIO] = 2,
 	[PVR2_CVAL_INPUT_COMPOSITE] = 0,
 	[PVR2_CVAL_INPUT_SVIDEO] =  0,
@@ -85,11 +85,11 @@ void pvr2_cs53l32a_subdev_update(struct pvr2_hdw *hdw, struct v4l2_subdev *sd)
 
 
 /*
-                                                                         
-                          
-                 
-                         
-                      
-                           
-              
+  Stuff for Emacs to see, in order to encourage consistent editing style:
+  *** Local Variables: ***
+  *** mode: c ***
+  *** fill-column: 70 ***
+  *** tab-width: 8 ***
+  *** c-basic-offset: 8 ***
+  *** End: ***
   */

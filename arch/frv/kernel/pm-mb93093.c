@@ -25,17 +25,17 @@
 
 static unsigned long imask;
 /*
-                                                              
+ * Setup interrupt masks, etc to enable wakeup by power switch
  */
 static void mb93093_power_switch_setup(void)
 {
-	/*                                      */
+	/* mask all but FPGA interrupt sources. */
 	imask = *(volatile unsigned long *)0xfeff9820;
 	*(volatile unsigned long *)0xfeff9820 = ~(1 << (IRQ_XIRQ2_LEVEL + 16)) & 0xfffe0000;
 }
 
 /*
-                                                            
+ * Cleanup interrupt masks, etc after wakeup by power switch
  */
 static void mb93093_power_switch_cleanup(void)
 {
@@ -43,7 +43,7 @@ static void mb93093_power_switch_cleanup(void)
 }
 
 /*
-                                                           
+ * Return non-zero if wakeup irq was caused by power switch
  */
 static int mb93093_power_switch_check(void)
 {
@@ -51,7 +51,7 @@ static int mb93093_power_switch_check(void)
 }
 
 /*
-                             
+ * Initialize power interface
  */
 static int __init mb93093_pm_init(void)
 {

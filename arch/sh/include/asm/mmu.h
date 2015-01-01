@@ -2,7 +2,7 @@
 #define __MMU_H
 
 /*
-                                                    
+ * Privileged Space Mapping Buffer (PMB) definitions
  */
 #define PMB_PASCR		0xff000070
 #define PMB_IRMCR		0xff000078
@@ -37,7 +37,7 @@
 #include <linux/threads.h>
 #include <asm/page.h>
 
-/*                                 */
+/* Default "unsigned long" context */
 typedef unsigned long mm_context_id_t[NR_CPUS];
 
 typedef struct {
@@ -54,7 +54,7 @@ typedef struct {
 } mm_context_t;
 
 #ifdef CONFIG_PMB
-/*                  */
+/* arch/sh/mm/pmb.c */
 bool __in_29bit_mode(void);
 
 void pmb_init(void);
@@ -93,7 +93,7 @@ static inline int pmb_unmap(void __iomem *addr)
 #define __in_29bit_mode()	(0)
 #endif
 
-#endif /*            */
+#endif /* CONFIG_PMB */
 
 static inline void __iomem *
 pmb_remap(phys_addr_t phys, unsigned long size, pgprot_t prot)
@@ -101,6 +101,6 @@ pmb_remap(phys_addr_t phys, unsigned long size, pgprot_t prot)
 	return pmb_remap_caller(phys, size, prot, __builtin_return_address(0));
 }
 
-#endif /*              */
+#endif /* __ASSEMBLY__ */
 
-#endif /*         */
+#endif /* __MMU_H */

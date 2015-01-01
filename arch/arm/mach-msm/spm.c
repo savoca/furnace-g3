@@ -72,9 +72,9 @@ struct msm_spm_device {
 };
 
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct msm_spm_device, msm_spm_devices);
-/*                                                                             
-                            
-                                                                             */
+/******************************************************************************
+ * Internal helper functions
+ *****************************************************************************/
 
 static inline void msm_spm_set_vctl(
 	struct msm_spm_device *dev, uint32_t vlevel)
@@ -129,13 +129,13 @@ static inline uint32_t msm_spm_get_sts_curr_pmic_data(
 	return (dev->reg_shadow[MSM_SPM_REG_SAW_STS] >> 10) & 0xFF;
 }
 
-/*                                                                             
-                   
-                                                                             */
-/* 
-                                                                                
-                               
-                                       
+/******************************************************************************
+ * Public functions
+ *****************************************************************************/
+/**
+ * msm_spm_set_low_power_mode() - Configure SPM start address for low power mode
+ * @mode: SPM LPM mode to enter
+ * @notify_rpm: Notify RPM in this mode
  */
 int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 {
@@ -173,7 +173,7 @@ int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 	msm_spm_flush_shadow(dev, MSM_SPM_REG_SAW_SPM_CTL);
 	msm_spm_flush_shadow(dev, MSM_SPM_REG_SAW_SPM_PMIC_CTL);
 	msm_spm_flush_shadow(dev, MSM_SPM_REG_SAW_SLP_RST_EN);
-	/*                                                        */
+	/* Ensure that the registers are written before returning */
 	mb();
 
 	dev->low_power_mode = mode;
@@ -190,10 +190,10 @@ int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 	return 0;
 }
 
-/* 
-                                      
-                
-                              
+/**
+ * msm_spm_set_vdd(): Set core voltage
+ * @cpu: core id
+ * @vlevel: Encoded PMIC data.
  */
 int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 {
@@ -209,7 +209,7 @@ int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 	msm_spm_set_vctl(dev, vlevel);
 	msm_spm_flush_shadow(dev, MSM_SPM_REG_SAW_VCTL);
 
-	/*                                                        */
+	/* Wait for PMIC state to return to idle or until timeout */
 	timeout_us = dev->vctl_timeout_us;
 	msm_spm_load_shadow(dev, MSM_SPM_REG_SAW_STS);
 	while (msm_spm_get_sts_pmic_state(dev) != MSM_SPM_PMIC_STATE_IDLE) {
@@ -245,10 +245,10 @@ set_vdd_bail:
 	return -EIO;
 }
 
-/* 
-                                      
-                
-                                      
+/**
+ * msm_spm_get_vdd(): Get core voltage
+ * @cpu: core id
+ * @return: Returns encoded PMIC data.
  */
 unsigned int msm_spm_get_vdd(unsigned int cpu)
 {
@@ -264,14 +264,14 @@ void msm_spm_reinit(void)
 	for (i = 0; i < MSM_SPM_REG_NR_INITIALIZE; i++)
 		msm_spm_flush_shadow(dev, i);
 
-	/*                                                        */
+	/* Ensure that the registers are written before returning */
 	mb();
 }
 
-/* 
-                                               
-                                                           
-                                                    
+/**
+ * msm_spm_init(): Board initalization function
+ * @data: platform specific SPM register configuration data
+ * @nr_devs: Number of SPM devices being initialized
  */
 int __init msm_spm_init(struct msm_spm_platform_data *data, int nr_devs)
 {
@@ -296,7 +296,7 @@ int __init msm_spm_init(struct msm_spm_platform_data *data, int nr_devs)
 		for (i = 0; i < MSM_SPM_REG_NR_INITIALIZE; i++)
 			msm_spm_flush_shadow(dev, i);
 
-		/*                                                        */
+		/* Ensure that the registers are written before returning */
 		mb();
 
 		dev->low_power_mode = MSM_SPM_MODE_CLOCK_GATING;

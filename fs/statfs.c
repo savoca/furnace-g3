@@ -109,9 +109,9 @@ static int do_statfs_native(struct kstatfs *st, struct statfs __user *p)
 			    0xffffffff00000000ULL)
 				return -EOVERFLOW;
 			/*
-                                                       
-                       
-    */
+			 * f_files and f_ffree may be -1; it's okay to stuff
+			 * that into 32 bits
+			 */
 			if (st->f_files != -1 &&
 			    (st->f_files & 0xffffffff00000000ULL))
 				return -EOVERFLOW;

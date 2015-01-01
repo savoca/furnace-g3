@@ -36,10 +36,10 @@ static struct mv_sata_platform_data dove_db_sata_data = {
 	.n_ports        = 1,
 };
 
-/*                                                                            
-               
-                                  
-                                                                            */
+/*****************************************************************************
+ * SPI Devices:
+ * 	SPI0: 4M Flash ST-M25P32-VMF6P
+ ****************************************************************************/
 static const struct flash_platform_data dove_db_spi_flash_data = {
 	.type		= "m25p64",
 };
@@ -55,9 +55,9 @@ static struct spi_board_info __initdata dove_db_spi_flash_info[] = {
 	},
 };
 
-/*                                                                            
-      
-                                                                            */
+/*****************************************************************************
+ * PCI
+ ****************************************************************************/
 static int __init dove_db_pci_init(void)
 {
 	if (machine_is_dove_db())
@@ -68,14 +68,14 @@ static int __init dove_db_pci_init(void)
 
 subsys_initcall(dove_db_pci_init);
 
-/*                                                                            
-             
-                                                                            */
+/*****************************************************************************
+ * Board Init
+ ****************************************************************************/
 static void __init dove_db_init(void)
 {
 	/*
-                                               
-  */
+	 * Basic Dove setup. Needs to be called early.
+	 */
 	dove_init();
 
 	dove_ge00_init(&dove_db_ge00_data);

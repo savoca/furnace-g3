@@ -178,7 +178,7 @@ static void define_event_symbols(struct event *event,
 		define_event_symbols(event, ev_name, args->op.right);
 		break;
 	default:
-		/*                   */
+		/* we should warn... */
 		return;
 	}
 
@@ -279,7 +279,7 @@ static void python_process_event(union perf_event *pevent __unused,
 			} else
 				offset = field->offset;
 			obj = PyString_FromString((char *)data + offset);
-		} else { /*                  */
+		} else { /* FIELD_IS_NUMERIC */
 			val = read_size(data + field->offset, field->size);
 			if (field->flags & FIELD_IS_SIGNED) {
 				if ((long long)val >= LONG_MIN &&
@@ -359,7 +359,7 @@ out:
 }
 
 /*
-                     
+ * Start trace script
  */
 static int python_start_script(const char *script, int argc, const char **argv)
 {
@@ -410,7 +410,7 @@ error:
 }
 
 /*
-                    
+ * Stop trace script
  */
 static int python_stop_script(void)
 {

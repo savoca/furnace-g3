@@ -14,18 +14,18 @@
 #include "wsp.h"
 
 /*
-                                                                     
-                                                                  
+ * The UART connection to the H8 is over ttyS1 which is just a 16550.
+ * We assume that FW has it setup right and no one messes with it.
  */
 
 
 static u8 __iomem *h8;
 
-#define RBR 0		/*                          */
-#define THR 0		/*                              */
-#define LSR 5		/*                      */
-#define LSR_DR 0x01	/*                          */
-#define LSR_THRE 0x20	/*                                                  */
+#define RBR 0		/* Receiver Buffer Register */
+#define THR 0		/* Transmitter Holding Register */
+#define LSR 5		/* Line Status Register */
+#define LSR_DR 0x01	/* LSR value for Data-Ready */
+#define LSR_THRE 0x20	/* LSR value for Transmitter-Holding-Register-Empty */
 static void wsp_h8_putc(int c)
 {
 	u8 lsr;
@@ -54,7 +54,7 @@ static void wsp_h8_puts(const char *s, int sz)
 	for (i = 0; i < sz; i++) {
 		wsp_h8_putc(s[i]);
 
-		/*                                  */
+		/* no flow control so wait for echo */
 		wsp_h8_getc();
 	}
 	wsp_h8_putc('\r');
@@ -65,7 +65,7 @@ static void wsp_h8_terminal_cmd(const char *cmd, int sz)
 {
 	hard_irq_disable();
 	wsp_h8_puts(cmd, sz);
-	/*                                       */
+	/* should never return, but just in case */
 	for (;;)
 		continue;
 }
@@ -94,9 +94,9 @@ static void __iomem *wsp_h8_getaddr(void)
 	void __iomem *va = NULL;
 
 	/*
-                                                              
-                                                        
-  */
+	 * there is nothing in the devtree to tell us which is mapped
+	 * to the H8, but se know it is the second serial port.
+	 */
 
 	aliases = of_find_node_by_path("/aliases");
 	if (aliases == NULL)
@@ -112,7 +112,7 @@ static void __iomem *wsp_h8_getaddr(void)
 
 	va = of_iomap(uart, 0);
 
-	/*                                    */
+	/* remove it so no one messes with it */
 	of_detach_node(uart);
 	of_node_put(uart);
 
@@ -126,7 +126,7 @@ void __init wsp_setup_h8(void)
 {
 	h8 = wsp_h8_getaddr();
 
-	/*                                         */
+	/* Devtree change? lets hard map it anyway */
 	if (h8 == NULL) {
 		pr_warn("UART to H8 could not be found");
 		h8 = ioremap(0xffc0008000ULL, 0x100);

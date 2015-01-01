@@ -16,4 +16,4 @@
 #define SNPRINTF_HEADER <stdio.h>
 #endif
 
-#endif				/*                         */
+#endif				/* IMPLEMENTATION_CONFIG_H */

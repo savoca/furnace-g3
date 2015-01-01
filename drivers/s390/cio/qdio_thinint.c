@@ -21,31 +21,31 @@
 #include "qdio_debug.h"
 
 /*
-                                                                       
-                                                         
+ * Restriction: only 63 iqdio subchannels would have its own indicator,
+ * after that, subsequent subchannels share one indicator
  */
 #define TIQDIO_NR_NONSHARED_IND		63
 #define TIQDIO_NR_INDICATORS		(TIQDIO_NR_NONSHARED_IND + 1)
 #define TIQDIO_SHARED_IND		63
 
-/*                                */
+/* device state change indicators */
 struct indicator_t {
-	u32 ind;	/*                                             */
-	atomic_t count; /*                                             */
+	u32 ind;	/* u32 because of compare-and-swap performance */
+	atomic_t count; /* use count, 0 or 1 for non-shared indicators */
 };
 
-/*                                     */
+/* list of thin interrupt input queues */
 static LIST_HEAD(tiq_list);
 static DEFINE_MUTEX(tiq_list_lock);
 
-/*                                 */
+/* adapter local summary indicator */
 static u8 *tiqdio_alsi;
 
 static struct indicator_t *q_indicators;
 
 u64 last_ai_time;
 
-/*                                                    */
+/* returns addr for the device state change indicator */
 static u32 *get_indicator(void)
 {
 	int i;
@@ -56,7 +56,7 @@ static u32 *get_indicator(void)
 			return &q_indicators[i].ind;
 		}
 
-	/*                          */
+	/* use the shared indicator */
 	atomic_inc(&q_indicators[TIQDIO_SHARED_IND].count);
 	return &q_indicators[TIQDIO_SHARED_IND].ind;
 }
@@ -87,7 +87,7 @@ void tiqdio_remove_input_queues(struct qdio_irq *irq_ptr)
 
 	BUG_ON(irq_ptr->nr_input_qs < 1);
 	q = irq_ptr->input_qs[0];
-	/*                                 */
+	/* if establish triggered an error */
 	if (!q || !q->entry.prev || !q->entry.next)
 		return;
 
@@ -152,14 +152,14 @@ static inline void tiqdio_call_inq_handlers(struct qdio_irq *irq)
 			xchg(q->irq_ptr->dsci, 0);
 
 		if (q->u.in.queue_start_poll) {
-			/*                                               */
+			/* skip if polling is enabled or already in work */
 			if (test_and_set_bit(QDIO_QUEUE_IRQS_DISABLED,
 					     &q->u.in.queue_irq_state)) {
 				qperf_inc(q, int_discarded);
 				continue;
 			}
 
-			/*                                              */
+			/* avoid dsci clear here, done after processing */
 			q->u.in.queue_start_poll(q->irq_ptr->cdev, q->nr,
 						 q->irq_ptr->int_parm);
 		} else {
@@ -167,18 +167,18 @@ static inline void tiqdio_call_inq_handlers(struct qdio_irq *irq)
 				xchg(q->irq_ptr->dsci, 0);
 
 			/*
-                                              
-                                                   
-    */
+			 * Call inbound processing but not directly
+			 * since that could starve other thinint queues.
+			 */
 			tasklet_schedule(&q->tasklet);
 		}
 	}
 }
 
-/* 
-                                                           
-                                                    
-              
+/**
+ * tiqdio_thinint_handler - thin interrupt handler for qdio
+ * @alsi: pointer to adapter local summary indicator
+ * @data: NULL
  */
 static void tiqdio_thinint_handler(void *alsi, void *data)
 {
@@ -188,14 +188,14 @@ static void tiqdio_thinint_handler(void *alsi, void *data)
 	last_ai_time = S390_lowcore.int_clock;
 	kstat_cpu(smp_processor_id()).irqs[IOINT_QAI]++;
 
-	/*                                                                */
+	/* protect tiq_list entries, only changed in activate or shutdown */
 	rcu_read_lock();
 
-	/*                                              */
+	/* check for work on all inbound thinint queues */
 	list_for_each_entry_rcu(q, &tiq_list, entry) {
 		struct qdio_irq *irq;
 
-		/*                                       */
+		/* only process queues from changed sets */
 		irq = q->irq_ptr;
 		if (unlikely(references_shared_dsci(irq))) {
 			if (!si_used)
@@ -237,7 +237,7 @@ static int set_subchannel_ind(struct qdio_irq *irq_ptr, int reset)
 	scssc_area->isc = QDIO_AIRQ_ISC;
 	scssc_area->schid = irq_ptr->schid;
 
-	/*                                            */
+	/* enable the time delay disablement facility */
 	if (css_general_characteristics.aif_tdd)
 		scssc_area->word_with_d_bit = 0x10000000;
 
@@ -259,7 +259,7 @@ static int set_subchannel_ind(struct qdio_irq *irq_ptr, int reset)
 	return 0;
 }
 
-/*                                                     */
+/* allocate non-shared indicators and shared indicator */
 int __init tiqdio_allocate_memory(void)
 {
 	q_indicators = kzalloc(sizeof(struct indicator_t) * TIQDIO_NR_INDICATORS,
@@ -308,7 +308,7 @@ void qdio_shutdown_thinint(struct qdio_irq *irq_ptr)
 	if (!is_thinint_irq(irq_ptr))
 		return;
 
-	/*                                    */
+	/* reset adapter interrupt indicators */
 	set_subchannel_ind(irq_ptr, 1);
 	put_indicator(irq_ptr->dsci);
 }

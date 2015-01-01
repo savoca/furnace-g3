@@ -189,7 +189,7 @@ void __init ath79_clocks_init(void)
 }
 
 /*
-                  
+ * Linux clock API
  */
 struct clk *clk_get(struct device *dev, const char *id)
 {

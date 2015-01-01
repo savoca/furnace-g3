@@ -57,9 +57,9 @@ void __init arch_init_irq(void)
 		bcma_write32(bcm47xx_bus.bcma.bus.drv_mips.core,
 			     BCMA_MIPS_MIPS74K_INTMASK(5), 1 << 31);
 		/*
-                                                                 
-                                                   
-   */
+		 * the kernel reads the timer irq from some register and thinks
+		 * it's #5, but we offset it by 2 and route to #7
+		 */
 		cp0_compare_irq = 7;
 	}
 #endif

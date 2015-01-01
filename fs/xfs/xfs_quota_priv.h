@@ -19,8 +19,8 @@
 #define __XFS_QUOTA_PRIV_H__
 
 /*
-                                                                  
-                                                                  
+ * Number of bmaps that we ask from bmapi when doing a quotacheck.
+ * We make this restriction to keep the memory usage to a minimum.
  */
 #define XFS_DQITER_MAP_SIZE	10
 
@@ -39,4 +39,4 @@
 				 (((d)->dq_flags & XFS_DQ_GROUP) ? "GRP" : \
 				 (((d)->dq_flags & XFS_DQ_PROJ) ? "PRJ":"???")))
 
-#endif	/*                      */
+#endif	/* __XFS_QUOTA_PRIV_H__ */

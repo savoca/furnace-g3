@@ -25,12 +25,12 @@
 
 #define NFSDBG_FACILITY		NFSDBG_XDR
 
-/*                                                    */
+/* Mapping from NFS error code to "errno" error code. */
 #define errno_NFSERR_IO		EIO
 
 /*
-                                                                  
-                        
+ * Declare the space requirements for NFS arguments and replies as
+ * number of 32bit-words
  */
 #define NFS_fhandle_sz		(8)
 #define NFS_sattr_sz		(8)
@@ -63,8 +63,8 @@
 
 
 /*
-                                                                  
-                                                   
+ * While encoding arguments, set up the reply buffer in advance to
+ * receive reply data directly into the page cache.
  */
 static void prepare_reply_buffer(struct rpc_rqst *req, struct page **pages,
 				 unsigned int base, unsigned int len,
@@ -78,7 +78,7 @@ static void prepare_reply_buffer(struct rpc_rqst *req, struct page **pages,
 }
 
 /*
-                                              
+ * Handle decode buffer overflows out-of-line.
  */
 static void print_overflow_msg(const char *func, const struct xdr_stream *xdr)
 {
@@ -89,18 +89,18 @@ static void print_overflow_msg(const char *func, const struct xdr_stream *xdr)
 
 
 /*
-                                       
-  
-                                                                 
-                                                     
-  
-                                                                
-                                                                   
-                     
+ * Encode/decode NFSv2 basic data types
+ *
+ * Basic NFSv2 data types are defined in section 2.3 of RFC 1094:
+ * "NFS: Network File System Protocol Specification".
+ *
+ * Not all basic data types have their own encoding and decoding
+ * functions.  For run-time efficiency, some data types are encoded
+ * or decoded inline.
  */
 
 /*
-                            
+ *	typedef opaque	nfsdata<>;
  */
 static int decode_nfsdata(struct xdr_stream *xdr, struct nfs_readres *result)
 {
@@ -118,7 +118,7 @@ static int decode_nfsdata(struct xdr_stream *xdr, struct nfs_readres *result)
 		goto out_cheating;
 out:
 	xdr_read_pages(xdr, count);
-	result->eof = 0;	/*                                           */
+	result->eof = 0;	/* NFSv2 does not pass EOF flag on the wire. */
 	result->count = count;
 	return count;
 out_cheating:
@@ -132,26 +132,26 @@ out_overflow:
 }
 
 /*
-              
-               
-                    
-                     
-                  
-                    
-                      
-                      
-                      
-                       
-                      
-                     
-                      
-                     
-                            
-                         
-                      
-                      
-                      
-     
+ *	enum stat {
+ *		NFS_OK = 0,
+ *		NFSERR_PERM = 1,
+ *		NFSERR_NOENT = 2,
+ *		NFSERR_IO = 5,
+ *		NFSERR_NXIO = 6,
+ *		NFSERR_ACCES = 13,
+ *		NFSERR_EXIST = 17,
+ *		NFSERR_NODEV = 19,
+ *		NFSERR_NOTDIR = 20,
+ *		NFSERR_ISDIR = 21,
+ *		NFSERR_FBIG = 27,
+ *		NFSERR_NOSPC = 28,
+ *		NFSERR_ROFS = 30,
+ *		NFSERR_NAMETOOLONG = 63,
+ *		NFSERR_NOTEMPTY = 66,
+ *		NFSERR_DQUOT = 69,
+ *		NFSERR_STALE = 70,
+ *		NFSERR_WFLUSH = 99
+ *	};
  */
 static int decode_stat(struct xdr_stream *xdr, enum nfs_stat *status)
 {
@@ -168,17 +168,17 @@ out_overflow:
 }
 
 /*
-                
-  
-               
-              
-              
-              
-              
-              
-             
-     
-  
+ * 2.3.2.  ftype
+ *
+ *	enum ftype {
+ *		NFNON = 0,
+ *		NFREG = 1,
+ *		NFDIR = 2,
+ *		NFBLK = 3,
+ *		NFCHR = 4,
+ *		NFLNK = 5
+ *	};
+ *
  */
 static __be32 *xdr_decode_ftype(__be32 *p, u32 *type)
 {
@@ -189,9 +189,9 @@ static __be32 *xdr_decode_ftype(__be32 *p, u32 *type)
 }
 
 /*
-                  
-  
-                                  
+ * 2.3.3.  fhandle
+ *
+ *	typedef opaque fhandle[FHSIZE];
  */
 static void encode_fhandle(struct xdr_stream *xdr, const struct nfs_fh *fh)
 {
@@ -218,12 +218,12 @@ out_overflow:
 }
 
 /*
-                  
-  
-                   
-                         
-                          
-     
+ * 2.3.4.  timeval
+ *
+ *	struct timeval {
+ *		unsigned int seconds;
+ *		unsigned int useconds;
+ *	};
  */
 static __be32 *xdr_encode_time(__be32 *p, const struct timespec *timep)
 {
@@ -236,11 +236,11 @@ static __be32 *xdr_encode_time(__be32 *p, const struct timespec *timep)
 }
 
 /*
-                                                                     
-                                                                        
-                                                                       
-                                                                   
-                                                                       
+ * Passing the invalid value useconds=1000000 is a Sun convention for
+ * "set to current server time".  It's needed to make permissions checks
+ * for the "touch" program across v2 mounts to Solaris and Irix servers
+ * work correctly.  See description of sattr in section 6.1 of "NFS
+ * Illustrated" by Brent Callaghan, Addison-Wesley, ISBN 0-201-32750-5.
  */
 static __be32 *xdr_encode_current_server_time(__be32 *p,
 					      const struct timespec *timep)
@@ -258,25 +258,25 @@ static __be32 *xdr_decode_time(__be32 *p, struct timespec *timep)
 }
 
 /*
-                
-  
-                 
-                
-                      
-                       
-                     
-                     
-                      
-                           
-                      
-                        
-                      
-                        
-                   
-                   
-                   
-     
-  
+ * 2.3.5.  fattr
+ *
+ *	struct fattr {
+ *		ftype		type;
+ *		unsigned int	mode;
+ *		unsigned int	nlink;
+ *		unsigned int	uid;
+ *		unsigned int	gid;
+ *		unsigned int	size;
+ *		unsigned int	blocksize;
+ *		unsigned int	rdev;
+ *		unsigned int	blocks;
+ *		unsigned int	fsid;
+ *		unsigned int	fileid;
+ *		timeval		atime;
+ *		timeval		mtime;
+ *		timeval		ctime;
+ *	};
+ *
  */
 static int decode_fattr(struct xdr_stream *xdr, struct nfs_fattr *fattr)
 {
@@ -320,16 +320,16 @@ out_overflow:
 }
 
 /*
-                
-  
-                 
-                      
-                     
-                     
-                      
-                   
-                   
-     
+ * 2.3.6.  sattr
+ *
+ *	struct sattr {
+ *		unsigned int	mode;
+ *		unsigned int	uid;
+ *		unsigned int	gid;
+ *		unsigned int	size;
+ *		timeval		atime;
+ *		timeval		mtime;
+ *	};
  */
 
 #define NFS2_SATTR_NOT_SET	(0xffffffff)
@@ -379,9 +379,9 @@ static void encode_sattr(struct xdr_stream *xdr, const struct iattr *attr)
 }
 
 /*
-                   
-  
-                                      
+ * 2.3.7.  filename
+ *
+ *	typedef string filename<MAXNAMLEN>;
  */
 static void encode_filename(struct xdr_stream *xdr,
 			    const char *name, u32 length)
@@ -420,9 +420,9 @@ out_overflow:
 }
 
 /*
-               
-  
-                                   
+ * 2.3.8.  path
+ *
+ *	typedef string path<MAXPATHLEN>;
  */
 static void encode_path(struct xdr_stream *xdr, struct page **pages, u32 length)
 {
@@ -467,14 +467,14 @@ out_overflow:
 }
 
 /*
-                   
-  
-                                        
-               
-                     
-           
-         
-     
+ * 2.3.9.  attrstat
+ *
+ *	union attrstat switch (stat status) {
+ *	case NFS_OK:
+ *		fattr attributes;
+ *	default:
+ *		void;
+ *	};
  */
 static int decode_attrstat(struct xdr_stream *xdr, struct nfs_fattr *result)
 {
@@ -494,12 +494,12 @@ out_default:
 }
 
 /*
-                     
-  
-                     
-                 
-                  
-     
+ * 2.3.10.  diropargs
+ *
+ *	struct diropargs {
+ *		fhandle  dir;
+ *		filename name;
+ *	};
  */
 static void encode_diropargs(struct xdr_stream *xdr, const struct nfs_fh *fh,
 			     const char *name, u32 length)
@@ -509,17 +509,17 @@ static void encode_diropargs(struct xdr_stream *xdr, const struct nfs_fh *fh,
 }
 
 /*
-                    
-  
-                                        
-               
-            
-                  
-                        
-              
-           
-         
-     
+ * 2.3.11.  diropres
+ *
+ *	union diropres switch (stat status) {
+ *	case NFS_OK:
+ *		struct {
+ *			fhandle file;
+ *			fattr   attributes;
+ *		} diropok;
+ *	default:
+ *		void;
+ *	};
  */
 static int decode_diropok(struct xdr_stream *xdr, struct nfs_diropok *result)
 {
@@ -552,10 +552,10 @@ out_default:
 
 
 /*
-                             
-  
-                                                               
-                                                     
+ * NFSv2 XDR encode functions
+ *
+ * NFSv2 argument types are defined in section 2.2 of RFC 1094:
+ * "NFS: Network File System Protocol Specification".
  */
 
 static void nfs2_xdr_enc_fhandle(struct rpc_rqst *req,
@@ -566,12 +566,12 @@ static void nfs2_xdr_enc_fhandle(struct rpc_rqst *req,
 }
 
 /*
-                    
-  
-                     
-                 
-                     
-     
+ * 2.2.3.  sattrargs
+ *
+ *	struct sattrargs {
+ *		fhandle file;
+ *		sattr attributes;
+ *	};
  */
 static void nfs2_xdr_enc_sattrargs(struct rpc_rqst *req,
 				   struct xdr_stream *xdr,
@@ -598,14 +598,14 @@ static void nfs2_xdr_enc_readlinkargs(struct rpc_rqst *req,
 }
 
 /*
-                   
-  
-                    
-                 
-                    
-                   
-                        
-     
+ * 2.2.7.  readargs
+ *
+ *	struct readargs {
+ *		fhandle file;
+ *		unsigned offset;
+ *		unsigned count;
+ *		unsigned totalcount;
+ *	};
  */
 static void encode_readargs(struct xdr_stream *xdr,
 			    const struct nfs_readargs *args)
@@ -633,15 +633,15 @@ static void nfs2_xdr_enc_readargs(struct rpc_rqst *req,
 }
 
 /*
-                    
-  
-                     
-                 
-                         
-                    
-                        
-                 
-     
+ * 2.2.9.  writeargs
+ *
+ *	struct writeargs {
+ *		fhandle file;
+ *		unsigned beginoffset;
+ *		unsigned offset;
+ *		unsigned totalcount;
+ *		nfsdata data;
+ *	};
  */
 static void encode_writeargs(struct xdr_stream *xdr,
 			     const struct nfs_writeargs *args)
@@ -657,7 +657,7 @@ static void encode_writeargs(struct xdr_stream *xdr,
 	*p++ = cpu_to_be32(offset);
 	*p++ = cpu_to_be32(count);
 
-	/*         */
+	/* nfsdata */
 	*p = cpu_to_be32(count);
 	xdr_write_pages(xdr, args->pages, args->pgbase, count);
 }
@@ -671,12 +671,12 @@ static void nfs2_xdr_enc_writeargs(struct rpc_rqst *req,
 }
 
 /*
-                      
-  
-                      
-                    
-                     
-     
+ * 2.2.10.  createargs
+ *
+ *	struct createargs {
+ *		diropargs where;
+ *		sattr attributes;
+ *	};
  */
 static void nfs2_xdr_enc_createargs(struct rpc_rqst *req,
 				    struct xdr_stream *xdr,
@@ -694,12 +694,12 @@ static void nfs2_xdr_enc_removeargs(struct rpc_rqst *req,
 }
 
 /*
-                      
-  
-                      
-                   
-                 
-     
+ * 2.2.12.  renameargs
+ *
+ *	struct renameargs {
+ *		diropargs from;
+ *		diropargs to;
+ *	};
  */
 static void nfs2_xdr_enc_renameargs(struct rpc_rqst *req,
 				    struct xdr_stream *xdr,
@@ -713,12 +713,12 @@ static void nfs2_xdr_enc_renameargs(struct rpc_rqst *req,
 }
 
 /*
-                    
-  
-                    
-                 
-                 
-     
+ * 2.2.13.  linkargs
+ *
+ *	struct linkargs {
+ *		fhandle from;
+ *		diropargs to;
+ *	};
  */
 static void nfs2_xdr_enc_linkargs(struct rpc_rqst *req,
 				  struct xdr_stream *xdr,
@@ -729,13 +729,13 @@ static void nfs2_xdr_enc_linkargs(struct rpc_rqst *req,
 }
 
 /*
-                       
-  
-                       
-                   
-            
-                     
-     
+ * 2.2.14.  symlinkargs
+ *
+ *	struct symlinkargs {
+ *		diropargs from;
+ *		path to;
+ *		sattr attributes;
+ *	};
  */
 static void nfs2_xdr_enc_symlinkargs(struct rpc_rqst *req,
 				     struct xdr_stream *xdr,
@@ -747,13 +747,13 @@ static void nfs2_xdr_enc_symlinkargs(struct rpc_rqst *req,
 }
 
 /*
-                       
-  
-                       
-                
-                     
-                   
-     
+ * 2.2.17.  readdirargs
+ *
+ *	struct readdirargs {
+ *		fhandle dir;
+ *		nfscookie cookie;
+ *		unsigned count;
+ *	};
  */
 static void encode_readdirargs(struct xdr_stream *xdr,
 			       const struct nfs_readdirargs *args)
@@ -777,10 +777,10 @@ static void nfs2_xdr_enc_readdirargs(struct rpc_rqst *req,
 }
 
 /*
-                             
-  
-                                                             
-                                                     
+ * NFSv2 XDR decode functions
+ *
+ * NFSv2 result types are defined in section 2.2 of RFC 1094:
+ * "NFS: Network File System Protocol Specification".
  */
 
 static int nfs2_xdr_dec_stat(struct rpc_rqst *req, struct xdr_stream *xdr,
@@ -813,14 +813,14 @@ static int nfs2_xdr_dec_diropres(struct rpc_rqst *req, struct xdr_stream *xdr,
 }
 
 /*
-                      
-  
-                                           
-               
-              
-           
-         
-     
+ * 2.2.6.  readlinkres
+ *
+ *	union readlinkres switch (stat status) {
+ *	case NFS_OK:
+ *		path data;
+ *	default:
+ *		void;
+ *	};
  */
 static int nfs2_xdr_dec_readlinkres(struct rpc_rqst *req,
 				    struct xdr_stream *xdr, void *__unused)
@@ -841,15 +841,15 @@ out_default:
 }
 
 /*
-                  
-  
-                                       
-               
-                     
-                 
-           
-         
-     
+ * 2.2.7.  readres
+ *
+ *	union readres switch (stat status) {
+ *	case NFS_OK:
+ *		fattr attributes;
+ *		nfsdata data;
+ *	default:
+ *		void;
+ *	};
  */
 static int nfs2_xdr_dec_readres(struct rpc_rqst *req, struct xdr_stream *xdr,
 				struct nfs_readres *result)
@@ -875,33 +875,33 @@ out_default:
 static int nfs2_xdr_dec_writeres(struct rpc_rqst *req, struct xdr_stream *xdr,
 				 struct nfs_writeres *result)
 {
-	/*                                         */
+	/* All NFSv2 writes are "file sync" writes */
 	result->verf->committed = NFS_FILE_SYNC;
 	return decode_attrstat(xdr, result->fattr);
 }
 
-/* 
-                                                                       
-                                             
-                                       
-                                            
-                                                                       
-  
-                                                                  
-            
-  
-                                                                  
-                                                                     
-                                       
-  
-                 
-  
-                 
-                    
-                  
-                     
-                      
-     
+/**
+ * nfs2_decode_dirent - Decode a single NFSv2 directory entry stored in
+ *                      the local page cache.
+ * @xdr: XDR stream where entry resides
+ * @entry: buffer to fill in with entry data
+ * @plus: boolean indicating whether this should be a readdirplus entry
+ *
+ * Returns zero if successful, otherwise a negative errno value is
+ * returned.
+ *
+ * This function is not invoked during READDIR reply decoding, but
+ * rather whenever an application invokes the getdents(2) system call
+ * on a directory already in our cache.
+ *
+ * 2.2.17.  entry
+ *
+ *	struct entry {
+ *		unsigned	fileid;
+ *		filename	name;
+ *		nfscookie	cookie;
+ *		entry		*nextentry;
+ *	};
  */
 int nfs2_decode_dirent(struct xdr_stream *xdr, struct nfs_entry *entry,
 		       int plus)
@@ -932,9 +932,9 @@ int nfs2_decode_dirent(struct xdr_stream *xdr, struct nfs_entry *entry,
 		return error;
 
 	/*
-                                                                
-                                                                   
-  */
+	 * The type (size and byte order) of nfscookie isn't defined in
+	 * RFC 1094.  This implementation assumes that it's an XDR uint32.
+	 */
 	entry->prev_cookie = entry->cookie;
 	p = xdr_inline_decode(xdr, 4);
 	if (unlikely(p == NULL))
@@ -951,21 +951,21 @@ out_overflow:
 }
 
 /*
-                      
-  
-                                          
-               
-            
-                    
-              
-                
-           
-         
-     
-  
-                                                             
-                                                                   
-                                         
+ * 2.2.17.  readdirres
+ *
+ *	union readdirres switch (stat status) {
+ *	case NFS_OK:
+ *		struct {
+ *			entry *entries;
+ *			bool eof;
+ *		} readdirok;
+ *	default:
+ *		void;
+ *	};
+ *
+ * Read the directory contents into the page cache, but don't
+ * touch them.  The actual decoding is done by nfs2_decode_dirent()
+ * during subsequent nfs_readdir() calls.
  */
 static int decode_readdirok(struct xdr_stream *xdr)
 {
@@ -1006,20 +1006,20 @@ out_default:
 }
 
 /*
-                     
-  
-                                  
-               
-            
-                    
-                    
-                     
-                    
-                     
-           
-           
-         
-     
+ * 2.2.18.  statfsres
+ *
+ *	union statfsres (stat status) {
+ *	case NFS_OK:
+ *		struct {
+ *			unsigned tsize;
+ *			unsigned bsize;
+ *			unsigned blocks;
+ *			unsigned bfree;
+ *			unsigned bavail;
+ *		} info;
+ *	default:
+ *		void;
+ *	};
  */
 static int decode_info(struct xdr_stream *xdr, struct nfs2_fsstat *result)
 {
@@ -1059,8 +1059,8 @@ out_default:
 
 
 /*
-                                                            
-                                                    
+ * We need to translate between nfs status return values and
+ * the local errno values which may not be the same.
  */
 static const struct {
 	int stat;
@@ -1071,7 +1071,7 @@ static const struct {
 	{ NFSERR_NOENT,		-ENOENT		},
 	{ NFSERR_IO,		-errno_NFSERR_IO},
 	{ NFSERR_NXIO,		-ENXIO		},
-/*                              */
+/*	{ NFSERR_EAGAIN,	-EAGAIN		}, */
 	{ NFSERR_ACCES,		-EACCES		},
 	{ NFSERR_EXIST,		-EEXIST		},
 	{ NFSERR_XDEV,		-EXDEV		},
@@ -1102,12 +1102,12 @@ static const struct {
 	{ -1,			-EIO		}
 };
 
-/* 
-                                                                  
-                                      
-  
-                                                                 
-                                                                     
+/**
+ * nfs_stat_to_errno - convert an NFS status code to a local errno
+ * @status: NFS status code to convert
+ *
+ * Returns a local errno value, or -EIO if the NFS status code is
+ * not recognized.  This function is used jointly by NFSv2 and NFSv3.
  */
 int nfs_stat_to_errno(enum nfs_stat status)
 {

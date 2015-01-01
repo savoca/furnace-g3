@@ -29,20 +29,20 @@
 static DEFINE_RAW_SPINLOCK(minicache_lock);
 
 /*
-                                                  
-  
-                                                                              
-                                                                              
-                                                                            
-                             
+ * XScale mini-dcache optimised copy_user_highpage
+ *
+ * We flush the destination cache lines just before we write the data into the
+ * corresponding address.  Since the Dcache is read-allocate, this removes the
+ * Dcache aliasing issue.  The writes will be forwarded to the write buffer,
+ * and merged as appropriate.
  */
 static void __naked
 mc_copy_user_page(void *from, void *to)
 {
 	/*
-                                                  
-                                               
-  */
+	 * Strangely enough, best performance is achieved
+	 * when prefetching destination as well.  (NP)
+	 */
 	asm volatile(
 	"stmfd	sp!, {r4, r5, lr}		\n\
 	mov	lr, %2				\n\
@@ -104,7 +104,7 @@ void xscale_mc_copy_user_highpage(struct page *to, struct page *from,
 }
 
 /*
-                                   
+ * XScale optimised clear_user_page
  */
 void
 xscale_mc_clear_user_highpage(struct page *page, unsigned long vaddr)

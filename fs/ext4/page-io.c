@@ -1,9 +1,9 @@
 /*
-                          
-  
-                                                   
-  
-                                  
+ * linux/fs/ext4/page-io.c
+ *
+ * This contains the new page_io functions for ext4
+ *
+ * Written by Theodore Ts'o, 2010.
  */
 
 #include <linux/fs.h>
@@ -82,10 +82,10 @@ void ext4_free_io_end(ext4_io_end_t *io)
 }
 
 /*
-                                                                   
-  
-                                                                   
-                                                                         
+ * check a range of space and convert unwritten extents to written.
+ *
+ * Called with inode->i_mutex; we depend on this when we manipulate
+ * io->flag, since we could otherwise race with ext4_flush_completed_IO()
  */
 int ext4_end_io_nolock(ext4_io_end_t *io)
 {
@@ -112,14 +112,14 @@ int ext4_end_io_nolock(ext4_io_end_t *io)
 
 	if (io->flag & EXT4_IO_END_DIRECT)
 		inode_dio_done(inode);
-	/*                                                       */
+	/* Wake up anyone waiting on unwritten extent conversion */
 	if (atomic_dec_and_test(&EXT4_I(inode)->i_aiodio_unwritten))
 		wake_up_all(ext4_ioend_wq(io->inode));
 	return ret;
 }
 
 /*
-                                                                        
+ * work on completed aio dio IO, to convert unwritten extents to extents
  */
 static void ext4_end_io_work(struct work_struct *work)
 {
@@ -143,16 +143,16 @@ requeue:
 		io->flag |= EXT4_IO_END_QUEUED;
 		spin_unlock_irqrestore(&ei->i_completed_io_lock, flags);
 		/*
-                                                         
-                                              
-   */
+		 * Requeue the work instead of waiting so that the work
+		 * items queued after this can be processed.
+		 */
 		queue_work(EXT4_SB(inode->i_sb)->dio_unwritten_wq, &io->work);
 		/*
-                                                          
-                                                               
-                                                                
-                   
-   */
+		 * To prevent the ext4-dio-unwritten thread from keeping
+		 * requeueing end_io requests and occupying cpu for too long,
+		 * yield the cpu if it sees an end_io request that has already
+		 * been requeued.
+		 */
 		if (was_queued)
 			yield();
 		return;
@@ -178,11 +178,11 @@ ext4_io_end_t *ext4_init_io_end(struct inode *inode, gfp_t flags)
 }
 
 /*
-                                                                   
-                                                                      
-                                                                      
-                                                                  
-                                                                       
+ * Print an buffer I/O error compatible with the fs/buffer.c.  This
+ * provides compatibility with dmesg scrapers that look for a specific
+ * buffer I/O error message.  We really need a unified error reporting
+ * structure to userspace ala Digital Unix's uerf system, but it's
+ * probably not going to happen in my lifetime, due to LKML politics...
  */
 static void buffer_io_error(struct buffer_head *bh)
 {
@@ -255,13 +255,13 @@ static void ext4_end_bio(struct bio *bio, int error)
 		return;
 	}
 
-	/*                                              */
+	/* Add the io_end to per-inode completed io list*/
 	spin_lock_irqsave(&EXT4_I(inode)->i_completed_io_lock, flags);
 	list_add_tail(&io_end->list, &EXT4_I(inode)->i_completed_io_list);
 	spin_unlock_irqrestore(&EXT4_I(inode)->i_completed_io_lock, flags);
 
 	wq = EXT4_SB(inode->i_sb)->dio_unwritten_wq;
-	/*                                                        */
+	/* queue the work to convert unwritten extents to written */
 	queue_work(wq, &io_end->work);
 }
 
@@ -392,16 +392,16 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 		block_end = block_start + blocksize;
 		if (block_start >= len) {
 			/*
-                                                       
-     
-                                                          
-                                                        
-                                                        
-                                                      
-                                                         
-                                                       
-                       
-    */
+			 * Comments copied from block_write_full_page_endio:
+			 *
+			 * The page straddles i_size.  It must be zeroed out on
+			 * each and every writepage invocation because it may
+			 * be mmapped.  "A file is mapped in multiples of the
+			 * page size.  For a file that is not a multiple of
+			 * the  page size, the remaining memory is zeroed when
+			 * mapped, and writes to that region are not written
+			 * out to the file."
+			 */
 			zero_user_segment(page, block_start, block_end);
 			clear_buffer_dirty(bh);
 			set_buffer_uptodate(bh);
@@ -411,23 +411,23 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 		ret = io_submit_add_bh(io, io_page, inode, wbc, bh);
 		if (ret) {
 			/*
-                                                
-                                               
-                            
-    */
+			 * We only get here on ENOMEM.  Not much else
+			 * we can do but mark the page as dirty, and
+			 * better luck next time.
+			 */
 			set_page_dirty(page);
 			break;
 		}
 	}
 	unlock_page(page);
 	/*
-                                                               
-                                                             
-                                                                
-                                                             
-                                                              
-                     
-  */
+	 * If the page was truncated before we could do the writeback,
+	 * or we had a memory allocation error while trying to write
+	 * the first buffer head, we won't have submitted any pages for
+	 * I/O.  In that case we need to make sure we've cleared the
+	 * PageWriteback bit from the page to prevent the system from
+	 * wedging later on.
+	 */
 	put_io_page(io_page);
 	return ret;
 }

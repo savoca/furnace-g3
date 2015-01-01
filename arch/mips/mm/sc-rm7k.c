@@ -17,16 +17,16 @@
 #include <asm/mipsregs.h>
 #include <asm/processor.h>
 #include <asm/sections.h>
-#include <asm/cacheflush.h> /*                    */
+#include <asm/cacheflush.h> /* for run_uncached() */
 
-/*                           */
+/* Primary cache parameters. */
 #define sc_lsize	32
 #define tc_pagesize	(32*128)
 
-/*                             */
-#define scache_size	(256*1024)	/*                           */
+/* Secondary cache parameters. */
+#define scache_size	(256*1024)	/* Fixed to 256KiB on RM7000 */
 
-/*                           */
+/* Tertiary cache parameters */
 #define tc_lsize	32
 
 extern unsigned long icache_way_size, dcache_way_size;
@@ -37,8 +37,8 @@ static unsigned long tcache_size;
 static int rm7k_tcache_init;
 
 /*
-                                                                
-                                   
+ * Writeback and invalidate the primary cache dcache before DMA.
+ * (XXX These need to be fixed ...)
  */
 static void rm7k_sc_wback_inv(unsigned long addr, unsigned long size)
 {
@@ -46,7 +46,7 @@ static void rm7k_sc_wback_inv(unsigned long addr, unsigned long size)
 
 	pr_debug("rm7k_sc_wback_inv[%08lx,%08lx]", addr, size);
 
-	/*                       */
+	/* Catch bad driver code */
 	BUG_ON(size == 0);
 
 	blast_scache_range(addr, addr + size);
@@ -57,7 +57,7 @@ static void rm7k_sc_wback_inv(unsigned long addr, unsigned long size)
 	a = addr & ~(tc_pagesize - 1);
 	end = (addr + size - 1) & ~(tc_pagesize - 1);
 	while(1) {
-		invalidate_tcache_page(a);	/*                   */
+		invalidate_tcache_page(a);	/* Page_Invalidate_T */
 		if (a == end)
 			break;
 		a += tc_pagesize;
@@ -70,7 +70,7 @@ static void rm7k_sc_inv(unsigned long addr, unsigned long size)
 
 	pr_debug("rm7k_sc_inv[%08lx,%08lx]", addr, size);
 
-	/*                       */
+	/* Catch bad driver code */
 	BUG_ON(size == 0);
 
 	blast_inv_scache_range(addr, addr + size);
@@ -81,7 +81,7 @@ static void rm7k_sc_inv(unsigned long addr, unsigned long size)
 	a = addr & ~(tc_pagesize - 1);
 	end = (addr + size - 1) & ~(tc_pagesize - 1);
 	while(1) {
-		invalidate_tcache_page(a);	/*                   */
+		invalidate_tcache_page(a);	/* Page_Invalidate_T */
 		if (a == end)
 			break;
 		a += tc_pagesize;
@@ -102,7 +102,7 @@ static void blast_rm7k_tcache(void)
 }
 
 /*
-                                                       
+ * This function is executed in uncached address space.
  */
 static __cpuinit void __rm7k_tc_enable(void)
 {
@@ -128,7 +128,7 @@ static __cpuinit void rm7k_tc_enable(void)
 }
 
 /*
-                                                       
+ * This function is executed in uncached address space.
  */
 static __cpuinit void __rm7k_sc_enable(void)
 {
@@ -181,8 +181,8 @@ static struct bcache_ops rm7k_sc_ops = {
 };
 
 /*
-                                                                            
-                                              
+ * This is a probing function like the one found in c-r4k.c, we look for the
+ * wrap around point with different addresses.
  */
 static __cpuinit void __probe_tcache(void)
 {
@@ -196,7 +196,7 @@ static __cpuinit void __probe_tcache(void)
 
 	set_c0_config(RM7K_CONF_TE);
 
-	/*                                           */
+	/* Fill size-multiple lines with a valid tag */
 	pow2 = (256 * 1024);
 	for (addr = begin; addr <= end; addr = (begin + pow2)) {
 		unsigned long *p = (unsigned long *) addr;
@@ -204,12 +204,12 @@ static __cpuinit void __probe_tcache(void)
 		pow2 <<= 1;
 	}
 
-	/*                                              */
+	/* Load first line with a 0 tag, to check after */
 	write_c0_taglo(0);
 	write_c0_taghi(0);
 	cache_op(Index_Store_Tag_T, begin);
 
-	/*                          */
+	/* Look for the wrap-around */
 	pow2 = (512 * 1024);
 	for (addr = begin + (512 * 1024); addr <= end; addr = begin + pow2) {
 		cache_op(Index_Load_Tag_T, addr);
@@ -248,8 +248,8 @@ void __cpuinit rm7k_sc_init(void)
 	bcops = &rm7k_sc_ops;
 
 	/*
-                                                         
-  */
+	 * While we're at it let's deal with the tertiary cache.
+	 */
 
 	rm7k_tcache_init = 0;
 	tcache_size = 0;
@@ -258,9 +258,9 @@ void __cpuinit rm7k_sc_init(void)
 		return;
 
 	/*
-                                                                    
-                         
-  */
+	 * No efficient way to ask the hardware for the size of the tcache,
+	 * so must probe for it.
+	 */
 	run_uncached(__probe_tcache);
 	rm7k_tc_enable();
 	rm7k_tcache_init = 1;

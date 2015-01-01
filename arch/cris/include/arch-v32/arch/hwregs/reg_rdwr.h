@@ -1,5 +1,5 @@
 /*
-                                              
+ * Read/write register macros used by *_defs.h
  */
 
 #ifndef reg_rdwr_h

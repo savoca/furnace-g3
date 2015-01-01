@@ -19,16 +19,16 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 /*
-             
-   
-          
-                                          
-   
-            
-                                                                                   
-   
-   
-             
+ * BEGIN_DESC
+ * 
+ *  File: 
+ *      @(#)	pa/fp/fpu.h		$Revision: 1.1 $
+ * 
+ *  Purpose:
+ *      <<please update with a synopis of the functionality provided by this file>>
+ * 
+ * 
+ * END_DESC  
 */
 
 #ifdef __NO_PA_HDRS
@@ -36,13 +36,13 @@
 #endif
 
 
-#ifndef _MACHINE_FPU_INCLUDED /*                           */
+#ifndef _MACHINE_FPU_INCLUDED /* allows multiple inclusion */
 #define _MACHINE_FPU_INCLUDED
 
 #if 0
 #ifndef _SYS_STDSYMS_INCLUDED
 #    include <sys/stdsyms.h>
-#endif   /*                        */
+#endif   /* _SYS_STDSYMS_INCLUDED  */
 #include  <machine/pdc/pdc_rqsts.h>
 #endif
 
@@ -53,19 +53,19 @@
 #define TIMEX_EXTEN_FLAG 0x00000004
 
 #define ROLEX_EXTEN_FLAG 0x00000008
-#define COPR_FP 	0x00000080	/*                                 */
-#define SFU_MPY_DIVIDE	0x00008000	/*                          */
+#define COPR_FP 	0x00000080	/* Floating point -- Coprocessor 0 */
+#define SFU_MPY_DIVIDE	0x00008000	/* Multiply/Divide __ SFU 0 */
 
 
 #define EM_FPU_TYPE_OFFSET 272
 
-/*                                                        */
+/* version of EMULATION software for COPR,0,0 instruction */
 #define EMULATION_VERSION 4
 
 /*
-                                                                            
-                                                                      
-                                                          
+ * The only was to differeniate between TIMEX and ROLEX (or PCX-S and PCX-T)
+ * is thorough the potential type field from the PDC_MODEL call.  The 
+ * following flags are used at assist this differeniation.
  */
 
 #define ROLEX_POTENTIAL_KEY_FLAGS	PDC_MODEL_CPU_KEY_WORD_TO_IO
@@ -73,4 +73,4 @@
 					 PDC_MODEL_CPU_KEY_RECIP_SQRT)
 
 
-#endif /*                         */
+#endif /* ! _MACHINE_FPU_INCLUDED */

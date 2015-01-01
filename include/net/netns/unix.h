@@ -1,5 +1,5 @@
 /*
-                         
+ * Unix network namespace
  */
 #ifndef __NETNS_UNIX_H__
 #define __NETNS_UNIX_H__
@@ -10,4 +10,4 @@ struct netns_unix {
 	struct ctl_table_header	*ctl;
 };
 
-#endif /*                  */
+#endif /* __NETNS_UNIX_H__ */

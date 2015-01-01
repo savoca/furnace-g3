@@ -1,6 +1,6 @@
 /*
-                                                         
-          
+ *	PCI BIOS function numbering for conventional PCI BIOS 
+ *	systems
  */
 
 #define PCIBIOS_PCI_FUNCTION_ID 	0xb1XX

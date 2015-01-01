@@ -1,16 +1,16 @@
 /*
-                     
-  
-                                                                     
-                                                                         
-                                        
-  
-                                           
-  
-                                                                            
-                                    
-                                                        
-  
+ * Network port table
+ *
+ * SELinux must keep a mapping of network ports to labels/SIDs.  This
+ * mapping is maintained as part of the normal policy but a fast cache is
+ * needed to reduce the lookup overhead.
+ *
+ * Author: Paul Moore <paul@paul-moore.com>
+ *
+ * This code is heavily based on the "netif" concept originally developed by
+ * James Morris <jmorris@redhat.com>
+ *   (see security/selinux/netif.c for more information)
+ *
  */
 
 /*
@@ -57,39 +57,39 @@ struct sel_netport {
 	struct rcu_head rcu;
 };
 
-/*                                                                            
-                                                                        
-                                                                             
-                                                                            
-                */
+/* NOTE: we are using a combined hash table for both IPv4 and IPv6, the reason
+ * for this is that I suspect most users will not make heavy use of both
+ * address families at the same time so one table will usually end up wasted,
+ * if this becomes a problem we can always add a hash table for each address
+ * family later */
 
 static LIST_HEAD(sel_netport_list);
 static DEFINE_SPINLOCK(sel_netport_lock);
 static struct sel_netport_bkt sel_netport_hash[SEL_NETPORT_HASH_SIZE];
 
-/* 
-                                                           
-                     
-  
-               
-                                                                         
-                             
-  
+/**
+ * sel_netport_hashfn - Hashing function for the port table
+ * @pnum: port number
+ *
+ * Description:
+ * This is the hashing function for the port table, it returns the bucket
+ * number for the given port.
+ *
  */
 static unsigned int sel_netport_hashfn(u16 pnum)
 {
 	return (pnum & (SEL_NETPORT_HASH_SIZE - 1));
 }
 
-/* 
-                                              
-                      
-              
-  
-               
-                                                                             
-                                             
-  
+/**
+ * sel_netport_find - Search for a port record
+ * @protocol: protocol
+ * @port: pnum
+ *
+ * Description:
+ * Search the network port table and return the matching record.  If an entry
+ * can not be found in the table return NULL.
+ *
  */
 static struct sel_netport *sel_netport_find(u8 protocol, u16 pnum)
 {
@@ -104,20 +104,20 @@ static struct sel_netport *sel_netport_find(u8 protocol, u16 pnum)
 	return NULL;
 }
 
-/* 
-                                                        
-                             
-  
-               
-                                                           
-  
+/**
+ * sel_netport_insert - Insert a new port into the table
+ * @port: the new port record
+ *
+ * Description:
+ * Add a new port record to the network address hash table.
+ *
  */
 static void sel_netport_insert(struct sel_netport *port)
 {
 	unsigned int idx;
 
-	/*                                                                   
-                                                               */
+	/* we need to impose a limit on the growth of the hash table so check
+	 * this bucket to make sure it is within the specified bounds */
 	idx = sel_netport_hashfn(port->psec.port);
 	list_add_rcu(&port->list, &sel_netport_hash[idx].list);
 	if (sel_netport_hash[idx].size == SEL_NETPORT_HASH_BKT_LIMIT) {
@@ -133,17 +133,17 @@ static void sel_netport_insert(struct sel_netport *port)
 		sel_netport_hash[idx].size++;
 }
 
-/* 
-                                                                              
-                      
-              
-                 
-  
-               
-                                                                             
-                                                                           
-                                                                 
-  
+/**
+ * sel_netport_sid_slow - Lookup the SID of a network address using the policy
+ * @protocol: protocol
+ * @pnum: port
+ * @sid: port SID
+ *
+ * Description:
+ * This function determines the SID of a network port by quering the security
+ * policy.  The result is added to the network port table to speedup future
+ * queries.  Returns zero on success, negative values on failure.
+ *
  */
 static int sel_netport_sid_slow(u8 protocol, u16 pnum, u32 *sid)
 {
@@ -181,18 +181,18 @@ out:
 	return ret;
 }
 
-/* 
-                                                     
-                      
-              
-                 
-  
-               
-                                                                              
-                                                                             
-                                                                             
-                                                                        
-  
+/**
+ * sel_netport_sid - Lookup the SID of a network port
+ * @protocol: protocol
+ * @pnum: port
+ * @sid: port SID
+ *
+ * Description:
+ * This function determines the SID of a network port using the fastest method
+ * possible.  First the port table is queried, but if an entry can't be found
+ * then the policy is queried and the result is added to the table to speedup
+ * future queries.  Returns zero on success, negative values on failure.
+ *
  */
 int sel_netport_sid(u8 protocol, u16 pnum, u32 *sid)
 {
@@ -210,12 +210,12 @@ int sel_netport_sid(u8 protocol, u16 pnum, u32 *sid)
 	return sel_netport_sid_slow(protocol, pnum, sid);
 }
 
-/* 
-                                                          
-  
-               
-                                                     
-  
+/**
+ * sel_netport_flush - Flush the entire network port table
+ *
+ * Description:
+ * Remove all entries from the network address table.
+ *
  */
 static void sel_netport_flush(void)
 {

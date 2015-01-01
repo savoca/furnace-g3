@@ -35,10 +35,10 @@ MODULE_LICENSE("GPL");
 
 
 /*
-                                                                
-                                                                        
-                                                                        
-                   
+ * Addresses we probe for an MS02-NV at.  Modules may be located
+ * at any 8MiB boundary within a 0MiB up to 112MiB range or at any 32MiB
+ * boundary within a 0MiB up to 448MiB range.  We don't support a module
+ * at 0MiB, though.
  */
 static ulong ms02nv_addrs[] __initdata = {
 	0x07000000, 0x06800000, 0x06000000, 0x05800000, 0x05000000,
@@ -86,9 +86,9 @@ static inline uint ms02nv_probe_one(ulong addr)
 	int err;
 
 	/*
-                                                          
-                                       
-  */
+	 * The firmware writes MS02NV_ID at MS02NV_MAGIC and also
+	 * a diagnostic status at MS02NV_DIAG.
+	 */
 	ms02nv_diagp = (ms02nv_uint *)(CKSEG1ADDR(addr + MS02NV_DIAG));
 	ms02nv_magicp = (ms02nv_uint *)(CKSEG1ADDR(addr + MS02NV_MAGIC));
 	err = get_dbe(ms02nv_magic, ms02nv_magicp);
@@ -120,7 +120,7 @@ static int __init ms02nv_init_one(ulong addr)
 
 	int ret = -ENODEV;
 
-	/*                                           */
+	/* The module decodes 8MiB of address space. */
 	mod_res = kzalloc(sizeof(*mod_res), GFP_KERNEL);
 	if (!mod_res)
 		return -ENOMEM;
@@ -152,7 +152,7 @@ static int __init ms02nv_init_one(ulong addr)
 	mtd->priv = mp;
 	mp->resource.module = mod_res;
 
-	/*                                   */
+	/* Firmware's diagnostic NVRAM area. */
 	diag_res = kzalloc(sizeof(*diag_res), GFP_KERNEL);
 	if (!diag_res)
 		goto err_out_mp;
@@ -165,7 +165,7 @@ static int __init ms02nv_init_one(ulong addr)
 
 	mp->resource.diag_ram = diag_res;
 
-	/*                                            */
+	/* User-available general-purpose NVRAM area. */
 	user_res = kzalloc(sizeof(*user_res), GFP_KERNEL);
 	if (!user_res)
 		goto err_out_diag_res;
@@ -178,7 +178,7 @@ static int __init ms02nv_init_one(ulong addr)
 
 	mp->resource.user_ram = user_res;
 
-	/*                              */
+	/* Control and status register. */
 	csr_res = kzalloc(sizeof(*csr_res), GFP_KERNEL);
 	if (!csr_res)
 		goto err_out_user_res;
@@ -195,9 +195,9 @@ static int __init ms02nv_init_one(ulong addr)
 	mp->size = size;
 
 	/*
-                                                              
-                                                                 
-  */
+	 * Hide the firmware's diagnostic area.  It may get destroyed
+	 * upon a reboot.  Take paging into account for mapping support.
+	 */
 	fixaddr = (addr + MS02NV_RAM + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
 	fixsize = (size - (fixaddr - addr)) & ~(PAGE_SIZE - 1);
 	mp->uaddr = phys_to_virt(fixaddr);

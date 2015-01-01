@@ -32,26 +32,26 @@ static struct usbcons_info usbcons_info;
 static struct console usbcons;
 
 /*
-                                                               
-                            
-  
-                                                             
-                                                             
-                                                          
-                                
-  
-                                                              
-                                                          
-                                                               
-                                                      
-                                                               
+ * ------------------------------------------------------------
+ * USB Serial console driver
+ *
+ * Much of the code here is copied from drivers/char/serial.c
+ * and implements a phony serial console in the same way that
+ * serial.c does so that in case some software queries it,
+ * it will get the same results.
+ *
+ * Things that are different from the way the serial port code
+ * does things, is that we call the lower level usb-serial
+ * driver code to initialize the device, and we set the initial
+ * console speeds based on the command line arguments.
+ * ------------------------------------------------------------
  */
 
 
 /*
-                                                         
-                                                               
-             
+ * The parsing of the command line works exactly like the
+ * serial.c code, except that the specifier is "ttyUSB" instead
+ * of "ttyS".
  */
 static int usb_console_setup(struct console *co, char *options)
 {
@@ -83,7 +83,7 @@ static int usb_console_setup(struct console *co, char *options)
 			doflow = (*s++ == 'r');
 	}
 	
-	/*              */
+	/* Sane default */
 	if (baud == 0)
 		baud = 9600;
 
@@ -107,12 +107,12 @@ static int usb_console_setup(struct console *co, char *options)
 	co->cflag = cflag;
 
 	/*
-                                                                   
-                      
-  */
+	 * no need to check the index here: if the index is wrong, console
+	 * code won't call us
+	 */
 	serial = usb_serial_get_by_index(co->index);
 	if (serial == NULL) {
-		/*                                      */
+		/* no device is connected yet, sorry :( */
 		err("No USB device connected to ttyUSB%i", co->index);
 		return -ENODEV;
 	}
@@ -130,10 +130,10 @@ static int usb_console_setup(struct console *co, char *options)
 	if (!test_bit(ASYNCB_INITIALIZED, &port->port.flags)) {
 		if (serial->type->set_termios) {
 			/*
-                                                      
-                                                           
-                                                   
-    */
+			 * allocate a fake tty so the driver can initialize
+			 * the termios structure, then later call set_termios to
+			 * configure according to command line arguments
+			 */
 			tty = kzalloc(sizeof(*tty), GFP_KERNEL);
 			if (!tty) {
 				retval = -ENOMEM;
@@ -151,8 +151,8 @@ static int usb_console_setup(struct console *co, char *options)
 			}
 		}
 
-		/*                                           
-                                          */
+		/* only call the device specific open if this
+		 * is the first time the port is opened */
 		if (serial->type->open)
 			retval = serial->type->open(NULL, port);
 		else
@@ -174,11 +174,11 @@ static int usb_console_setup(struct console *co, char *options)
 		}
 		set_bit(ASYNCB_INITIALIZED, &port->port.flags);
 	}
-	/*                                                                
-                       */
+	/* Now that any required fake tty operations are completed restore
+	 * the tty port count */
 	--port->port.count;
-	/*                                                         
-                                                          */
+	/* The console is special in terms of closing the device so
+	 * indicate this port is now acting as a system console. */
 	port->port.console = 1;
 
 	mutex_unlock(&serial->disc_mutex);
@@ -222,7 +222,7 @@ static void usb_console_write(struct console *co,
 	while (count) {
 		unsigned int i;
 		unsigned int lf;
-		/*                                                */
+		/* search for LF so we can insert CR if necessary */
 		for (i = 0, lf = 0 ; i < count ; i++) {
 			if (*(buf + i) == 10) {
 				lf = 1;
@@ -230,15 +230,15 @@ static void usb_console_write(struct console *co,
 				break;
 			}
 		}
-		/*                                                           
-                     */
+		/* pass on to the driver specific version of this function if
+		   it is available */
 		if (serial->type->write)
 			retval = serial->type->write(NULL, port, buf, i);
 		else
 			retval = usb_serial_generic_write(NULL, port, buf, i);
 		dbg("%s - return value : %d", __func__, retval);
 		if (lf) {
-			/*                    */
+			/* append CR after LF */
 			unsigned char cr = 13;
 			if (serial->type->write)
 				retval = serial->type->write(NULL,
@@ -289,18 +289,18 @@ void usb_serial_console_init(int serial_debug, int minor)
 
 	if (minor == 0) {
 		/*
-                                                                
-                                                     
-                                                                
-                           
-   */
+		 * Call register_console() if this is the first device plugged
+		 * in.  If we call it earlier, then the callback to
+		 * console_setup() will fail, as there is not a device seen by
+		 * the USB subsystem yet.
+		 */
 		/*
-                      
-           
-                                                       
-                                                             
-                                                               
-   */
+		 * Register console.
+		 * NOTES:
+		 * console_setup() is called (back) immediately (from
+		 * register_console). console_write() is called immediately
+		 * from register_console iff CON_PRINTBUFFER is set in flags.
+		 */
 		dbg("registering the USB serial console.");
 		register_console(&usbcons);
 	}

@@ -77,51 +77,51 @@ static struct media_bay_info media_bays[MAX_BAYS];
 static int media_bay_count = 0;
 
 /*
-                                                                  
+ * Wait that number of ms between each step in normal polling mode
  */
 #define MB_POLL_DELAY	25
 
 /*
-                                                               
-                              
+ * Consider the media-bay ID value stable if it is the same for
+ * this number of milliseconds
  */
 #define MB_STABLE_DELAY	100
 
-/*                                                      
-                                     
+/* Wait after powering up the media bay this delay in ms
+ * timeout bumped for some powerbooks
  */
 #define MB_POWER_DELAY	200
 
 /*
-                                                           
-                                                  
+ * Hold the media-bay reset signal true for this many ticks
+ * after a device is inserted before releasing it.
  */
 #define MB_RESET_DELAY	50
 
 /*
-                                                                     
-                                                                         
-                        
+ * Wait this long after the reset signal is released and before doing
+ * further operations. After this delay, the IDE reset signal is released
+ * too for an IDE device
  */
 #define MB_SETUP_DELAY	100
 
 /*
-                                                                     
-                                                                
+ * Wait this many ticks after an IDE device (e.g. CD-ROM) is inserted
+ * (or until the device is ready) before calling into the driver
  */
 #define MB_IDE_WAIT	1000
 
 /*
-                        
+ * States of a media bay
  */
 enum {
-	mb_empty = 0,		/*      */
-	mb_powering_up,		/*                                       */
-	mb_enabling_bay,	/*                                         */
-	mb_resetting,		/*                                         */
-	mb_ide_resetting,	/*                                          */
-	mb_up,			/*                */
-	mb_powering_down	/*                                        */
+	mb_empty = 0,		/* Idle */
+	mb_powering_up,		/* power bit set, waiting MB_POWER_DELAY */
+	mb_enabling_bay,	/* enable bits set, waiting MB_RESET_DELAY */
+	mb_resetting,		/* reset bit unset, waiting MB_SETUP_DELAY */
+	mb_ide_resetting,	/* IDE reset bit unser, waiting MB_IDE_WAIT */
+	mb_up,			/* Media bay full */
+	mb_powering_down	/* Powering down (avoid too fast down/up) */
 };
 
 #define MB_POWER_SOUND		0x08
@@ -131,7 +131,7 @@ enum {
 #define MB_POWER_OFF		0x00
 
 /*
-                                             
+ * Functions for polling content of media bay
  */
  
 static u8
@@ -168,22 +168,22 @@ keylargo_mb_content(struct media_bay_info *bay)
 }
 
 /*
-                                                              
-                           
+ * Functions for powering up/down the bay, puts the bay device
+ * into reset state as well
  */
 
 static void
 ohare_mb_power(struct media_bay_info* bay, int on_off)
 {
 	if (on_off) {
-		/*                                         */
+		/* Power up device, assert it's reset line */
 		MB_BIC(bay, OHARE_FCR, OH_BAY_RESET_N);
 		MB_BIC(bay, OHARE_FCR, OH_BAY_POWER_N);
 	} else {
-		/*                     */
+		/* Disable all devices */
 		MB_BIC(bay, OHARE_FCR, OH_BAY_DEV_MASK);
 		MB_BIC(bay, OHARE_FCR, OH_FLOPPY_ENABLE);
-		/*                                        */
+		/* Cut power from bay, release reset line */
 		MB_BIS(bay, OHARE_FCR, OH_BAY_POWER_N);
 		MB_BIS(bay, OHARE_FCR, OH_BAY_RESET_N);
 		MB_BIS(bay, OHARE_FCR, OH_IDE1_RESET_N);
@@ -195,14 +195,14 @@ static void
 heathrow_mb_power(struct media_bay_info* bay, int on_off)
 {
 	if (on_off) {
-		/*                                         */
+		/* Power up device, assert it's reset line */
 		MB_BIC(bay, HEATHROW_FCR, HRW_BAY_RESET_N);
 		MB_BIC(bay, HEATHROW_FCR, HRW_BAY_POWER_N);
 	} else {
-		/*                     */
+		/* Disable all devices */
 		MB_BIC(bay, HEATHROW_FCR, HRW_BAY_DEV_MASK);
 		MB_BIC(bay, HEATHROW_FCR, HRW_SWIM_ENABLE);
-		/*                                        */
+		/* Cut power from bay, release reset line */
 		MB_BIS(bay, HEATHROW_FCR, HRW_BAY_POWER_N);
 		MB_BIS(bay, HEATHROW_FCR, HRW_BAY_RESET_N);
 		MB_BIS(bay, HEATHROW_FCR, HRW_IDE1_RESET_N);
@@ -214,14 +214,14 @@ static void
 keylargo_mb_power(struct media_bay_info* bay, int on_off)
 {
 	if (on_off) {
-		/*                                         */
+		/* Power up device, assert it's reset line */
             	MB_BIC(bay, KEYLARGO_MBCR, KL_MBCR_MB0_DEV_RESET);
             	MB_BIC(bay, KEYLARGO_MBCR, KL_MBCR_MB0_DEV_POWER);
 	} else {
-		/*                     */
+		/* Disable all devices */
 		MB_BIC(bay, KEYLARGO_MBCR, KL_MBCR_MB0_DEV_MASK);
 		MB_BIC(bay, KEYLARGO_FCR1, KL1_EIDE0_ENABLE);
-		/*                                        */
+		/* Cut power from bay, release reset line */
 		MB_BIS(bay, KEYLARGO_MBCR, KL_MBCR_MB0_DEV_POWER);
 		MB_BIS(bay, KEYLARGO_MBCR, KL_MBCR_MB0_DEV_RESET);
 		MB_BIS(bay, KEYLARGO_FCR1, KL1_EIDE0_RESET_N);
@@ -230,8 +230,8 @@ keylargo_mb_power(struct media_bay_info* bay, int on_off)
 }
 
 /*
-                                                                      
-                            
+ * Functions for configuring the media bay for a given type of device,
+ * enable the related busses
  */
 
 static int
@@ -294,7 +294,7 @@ keylargo_mb_setup_bus(struct media_bay_info* bay, u8 device_id)
 }
 
 /*
-                                
+ * Functions for tweaking resets
  */
 
 static void
@@ -335,13 +335,13 @@ static void keylargo_mb_un_reset_ide(struct media_bay_info* bay)
 
 static inline void set_mb_power(struct media_bay_info* bay, int onoff)
 {
-	/*                                           */
+	/* Power up up and assert the bay reset line */
 	if (onoff) {
 		bay->ops->power(bay, 1);
 		bay->state = mb_powering_up;
 		pr_debug("mediabay%d: powering up\n", bay->index);
 	} else { 
-		/*                                                 */
+		/* Make sure everything is powered down & disabled */
 		bay->ops->power(bay, 0);
 		bay->state = mb_powering_down;
 		pr_debug("mediabay%d: powering down\n", bay->index);
@@ -372,10 +372,10 @@ static void poll_media_bay(struct media_bay_info* bay)
 
 	bay->value_count += msecs_to_jiffies(MB_POLL_DELAY);
 	if (bay->value_count >= msecs_to_jiffies(MB_STABLE_DELAY)) {
-		/*                                              
-                                                     
-                              
-   */
+		/* If the device type changes without going thru
+		 * "MB_NO", we force a pass by "MB_NO" to make sure
+		 * things are properly reset
+		 */
 		if ((id != MB_NO) && (bay->content_id != MB_NO)) {
 			id = MB_NO;
 			pr_debug("mediabay%d: forcing MB_NO\n", bay->index);
@@ -399,11 +399,11 @@ int check_media_bay(struct macio_dev *baydev)
 	if (baydev == NULL)
 		return MB_NO;
 
-	/*                                                    
-                                                          
-                                                          
-                            
-  */
+	/* This returns an instant snapshot, not locking, sine
+	 * we may be called with the bay lock held. The resulting
+	 * fuzzyness of the result if called at the wrong time is
+	 * not actually a huge deal
+	 */
 	bay = macio_get_drvdata(baydev);
 	if (bay == NULL)
 		return MB_NO;
@@ -470,11 +470,11 @@ static void media_bay_step(int i)
 {
 	struct media_bay_info* bay = &media_bays[i];
 
-	/*                                  */
+	/* We don't poll when powering down */
 	if (bay->state != mb_powering_down)
 	    poll_media_bay(bay);
 
-	/*                                    */
+	/* If timer expired run state machine */
 	if (bay->timer != 0) {
 		bay->timer -= msecs_to_jiffies(MB_POLL_DELAY);
 		if (bay->timer > 0)
@@ -534,10 +534,10 @@ static void media_bay_step(int i)
 }
 
 /*
-                                                               
-                                                               
-                                                        
-                                                       
+ * This procedure runs as a kernel thread to poll the media bay
+ * once each tick and register and unregister the IDE interface
+ * with the IDE driver.  It needs to be a thread because
+ * ide_register can't be called from interrupt context.
  */
 static int media_bay_task(void *x)
 {
@@ -570,9 +570,9 @@ static int __devinit media_bay_attach(struct macio_dev *mdev, const struct of_de
 		return -ENODEV;
 	if (macio_request_resources(mdev, "media-bay"))
 		return -EBUSY;
-	/*                                                        
-                                                                  
-                      
+	/* Media bay registers are located at the beginning of the
+         * mac-io chip, for now, we trick and align down the first
+	 * resource passed in
          */
 	base = macio_resource_start(mdev, 0) & 0xffff0000u;
 	regbase = (u32 __iomem *)ioremap(base, 0x100);
@@ -590,13 +590,13 @@ static int __devinit media_bay_attach(struct macio_dev *mdev, const struct of_de
 	bay->sleeping = 0;
 	mutex_init(&bay->lock);
 
-	/*                 */
+	/* Init HW probing */
 	if (bay->ops->init)
 		bay->ops->init(bay);
 
 	printk(KERN_INFO "mediabay%d: Registered %s media-bay\n", i, bay->ops->name);
 
-	/*                           */
+	/* Force an immediate detect */
 	set_mb_power(bay, 0);
 	msleep(MB_POWER_DELAY);
 	bay->content_id = MB_NO;
@@ -604,10 +604,10 @@ static int __devinit media_bay_attach(struct macio_dev *mdev, const struct of_de
 	bay->value_count = msecs_to_jiffies(MB_STABLE_DELAY);
 	bay->state = mb_empty;
 
-	/*                                        */
+	/* Mark us ready by filling our mdev data */
 	macio_set_drvdata(mdev, bay);
 
-	/*                       */
+	/* Startup kernel thread */
 	if (i == 0)
 		kthread_run(media_bay_task, NULL, "media-bay");
 
@@ -638,11 +638,11 @@ static int media_bay_resume(struct macio_dev *mdev)
 	if (mdev->ofdev.dev.power.power_state.event != PM_EVENT_ON) {
 		mdev->ofdev.dev.power.power_state = PMSG_ON;
 
-	       	/*                                                 
-                                                               
-                                                    
-          */
-	       	/*                     */
+	       	/* We re-enable the bay using it's previous content
+	       	   only if it did not change. Note those bozo timings,
+	       	   they seem to help the 3400 get it right.
+	       	 */
+	       	/* Force MB power to 0 */
 		mutex_lock(&bay->lock);
 	       	set_mb_power(bay, 0);
 		msleep(MB_POWER_DELAY);
@@ -667,7 +667,7 @@ static int media_bay_resume(struct macio_dev *mdev)
 }
 
 
-/*                                 
+/* Definitions of "ops" structures.
  */
 static struct mb_ops ohare_mb_ops = {
 	.name		= "Ohare",
@@ -698,12 +698,12 @@ static struct mb_ops keylargo_mb_ops = {
 };
 
 /*
-                                                                     
-                                                                   
-                                                                        
-                                                                  
-                                                            
-                                                                  
+ * It seems that the bit for the media-bay interrupt in the IRQ_LEVEL
+ * register is always set when there is something in the media bay.
+ * This causes problems for the interrupt code if we attach an interrupt
+ * handler to the media-bay interrupt, because it tends to go into
+ * an infinite loop calling the media bay interrupt handler.
+ * Therefore we do it all by polling the media bay once each tick.
  */
 
 static struct of_device_id media_bay_match[] =

@@ -22,8 +22,8 @@
 #define RX_P0 0x7e
 #define RX_P1 0x80
 
-/*                                                             */
-/*                                          */
+/***************************************************************/
+/*Register definition of device address 0x7e*/
 #define HDMI_RX_PORT_SEL_REG 0x10
 #define DDC_EN 0x10
 #define TMDS_EN 0x01
@@ -44,7 +44,7 @@
 #define DEEP_COLOR_MODE 0X40
 #define HDMI_AUD_LAYOUT 0X08
 #define MUTE_STAT				0X04
-/*                           */
+/* #define HDMI_MODE				0X01 */
 
 #define RX_MUTE_CTRL 0X16
 #define MUTE_POL	0X04
@@ -227,7 +227,7 @@
 #define CEC_PIN_SEL 0X02
 #define CEC_RST 0X01
 
-/*                      */
+/* new added 2013-02-16 */
 #define HDMI_RX_CEC_RX_STATUS_REG 0XD1
 #define HDMI_RX_CEC_RX_BUSY 0X80
 #define HDMI_RX_CEC_RX_FULL 0X20
@@ -256,8 +256,8 @@
 #define ANALOG_CKDT_EN 0X02
 #define DIGITAL_CKDT_EN 0X01
 
-/*                                                             */
-/*                                          */
+/***************************************************************/
+/*Register definition of device address 0x80*/
 
 
 #define HDMI_RX_HDCP_STATUS_REG 0X3F
@@ -310,8 +310,8 @@
 #define HDMI_RX_MPEG_VS_INFO_CTRL 0XFF
 
 
-/*                                                             */
-/*                                          */
+/***************************************************************/
+/*Register definition of device address 0x70*/
 #define SP_TX_HDCP_STATUS	0x00
 #define SP_TX_HDCP_AUTH_PASS	0x02
 
@@ -426,9 +426,9 @@
 #define DRVIE_CURRENT_LEVEL1 0x01
 #define PRE_EMP_LEVEL1 0x08
 
-/*                           
-                       
-                             */
+/* #define SSC_CTRL_REG1 0xA7
+#define SPREAD_AMP 0x10
+#define MODULATION_FREQ 0x01 */
 
 #define LT_CTRL 0xA8
 #define SP_TX_LT_EN	0x01
@@ -505,8 +505,8 @@
 #define BUF_DATA_0 0xF0
 
 
-/*                                                             */
-/*                                          */
+/***************************************************************/
+/*Register definition of device address 0x72*/
 #define SP_TX_VND_IDL_REG 0x00
 #define SP_TX_VND_IDH_REG 0x01
 #define SP_TX_DEV_IDL_REG 0x02
@@ -532,7 +532,7 @@
 #define HW_RST 0x01
 
 #define RST_CTRL2 0x07
-/*                      */
+/* #define SSC_RST 0x80 */
 #define AUX_RST	0x04
 #define SERDES_FIFO_RST 0x02
 #define I2C_REG_RST	0x01
@@ -628,7 +628,7 @@
 
 #define TX_PLL_FILTER 0xDF
 #define PD_RING_OSC	0x40
-/*                             */
+/* #define AUX_TERM_50OHM 0x30 */
 #define V33_SWITCH_ON 0x08
 
 #define TX_PLL_FILTER5	0xE0
@@ -675,8 +675,8 @@
 #define SP_TX_INT_CTRL_REG 0xFF
 
 
-/*                                                             */
-/*                                          */
+/***************************************************************/
+/*Register definition of device address 0x7a*/
 
 #define SP_TX_LT_CTRL_REG0 0x30
 #define SP_TX_LT_CTRL_REG1 0x31
@@ -716,8 +716,8 @@
 #define FW_VER_REG 0xB7
 
 
-/*                                                             */
-/*                  */
+/***************************************************************/
+/*Definition of DPCD*/
 
 #define DPCD_DPCD_REV  0x00
 #define DPCD_MAX_LINK_RATE 0x01
@@ -771,7 +771,7 @@
 
 
 #ifdef ANX7730_DEBUG
-/*                                */
+/* for analogix  downstream DP RX */
 
 #define DP_RX_LINK_BW_SET               0x0a
 
@@ -806,11 +806,11 @@
 
 #define DP_TX_HDCP_LINK_CHK_FRAME_NUM                     0x03
 #define DP_TX_HDCP_CONTROL_2_REG                        0x04
-#define DP_TX_HDCP_AUTO_MODE_EN                         0x10/*      */
-#define DP_TX_DOWN_HDCP_AUTO_START                  0x20/*      */
+#define DP_TX_HDCP_AUTO_MODE_EN                         0x10/* bit4 */
+#define DP_TX_DOWN_HDCP_AUTO_START                  0x20/* bit5 */
 
 #define DP_RX_SYSTEM_CTRL_1          0x08
-#define DP_RX_HW_HDCP_REP_MODE 0x80/*      */
+#define DP_RX_HW_HDCP_REP_MODE 0x80/* bit7 */
 #define DP_RX_FORCE_MN_VAL            0x40
 #endif
 

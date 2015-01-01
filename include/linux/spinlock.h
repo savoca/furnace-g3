@@ -2,48 +2,48 @@
 #define __LINUX_SPINLOCK_H
 
 /*
-                                                                  
-  
-                                                                        
-  
-                 
-  
-                                                                            
-                                      
-  
-                           
-                                                                   
-  
-                                                                  
-                                                                      
-  
-                                        
-  
-                             
-                                                                         
-  
-                                                         
-  
-                
-  
-                             
-                                                                            
-                                                                           
-  
-                           
-                                                                   
-  
-                        
-                                                                       
-                                                                           
-                                 
-  
-                                       
-  
-                            
-                                                    
-  
-                                                         
+ * include/linux/spinlock.h - generic spinlock/rwlock declarations
+ *
+ * here's the role of the various spinlock/rwlock related include files:
+ *
+ * on SMP builds:
+ *
+ *  asm/spinlock_types.h: contains the arch_spinlock_t/arch_rwlock_t and the
+ *                        initializers
+ *
+ *  linux/spinlock_types.h:
+ *                        defines the generic type and initializers
+ *
+ *  asm/spinlock.h:       contains the arch_spin_*()/etc. lowlevel
+ *                        implementations, mostly inline assembly code
+ *
+ *   (also included on UP-debug builds:)
+ *
+ *  linux/spinlock_api_smp.h:
+ *                        contains the prototypes for the _spin_*() APIs.
+ *
+ *  linux/spinlock.h:     builds the final spin_*() APIs.
+ *
+ * on UP builds:
+ *
+ *  linux/spinlock_type_up.h:
+ *                        contains the generic, simplified UP spinlock type.
+ *                        (which is an empty structure on non-debug builds)
+ *
+ *  linux/spinlock_types.h:
+ *                        defines the generic type and initializers
+ *
+ *  linux/spinlock_up.h:
+ *                        contains the arch_spin_*()/etc. version of UP
+ *                        builds. (which are NOPs on non-debug, non-preempt
+ *                        builds)
+ *
+ *   (included on UP-non-debug builds:)
+ *
+ *  linux/spinlock_api_up.h:
+ *                        builds the _spin_*() APIs.
+ *
+ *  linux/spinlock.h:     builds the final spin_*() APIs.
  */
 
 #include <linux/typecheck.h>
@@ -59,7 +59,7 @@
 
 
 /*
-                                                                             
+ * Must define these before including other files, inline functions need them
  */
 #define LOCK_SECTION_NAME ".text..lock."KBUILD_BASENAME
 
@@ -76,12 +76,12 @@
 #define __lockfunc __attribute__((section(".spinlock.text")))
 
 /*
-                                                          
+ * Pull the arch_spinlock_t and arch_rwlock_t definitions:
  */
 #include <linux/spinlock_types.h>
 
 /*
-                                                                                
+ * Pull the arch_spin*() functions/declarations (UP-nondebug doesn't need them):
  */
 #ifdef CONFIG_SMP
 # include <asm/spinlock.h>
@@ -114,17 +114,17 @@ do {								\
 #define raw_spin_is_contended(lock)	arch_spin_is_contended(&(lock)->raw_lock)
 #else
 #define raw_spin_is_contended(lock)	(((void)(lock), 0))
-#endif /*                      */
+#endif /*arch_spin_is_contended*/
 #endif
 
-/*                                              */
+/* The lock does not imply full memory barrier. */
 #ifndef ARCH_HAS_SMP_MB_AFTER_LOCK
 static inline void smp_mb__after_lock(void) { smp_mb(); }
 #endif
 
-/* 
-                                                               
-                                   
+/**
+ * raw_spin_unlock_wait - wait until the spinlock gets unlocked
+ * @lock: the spinlock in question.
  */
 #define raw_spin_unlock_wait(lock)	arch_spin_unlock_wait(&(lock)->raw_lock)
 
@@ -160,10 +160,10 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
 #endif
 
 /*
-                                                              
-                                                                  
-                                                               
-            
+ * Define the various spin_lock methods.  Note we define these
+ * regardless of whether CONFIG_SMP or CONFIG_PREEMPT are set. The
+ * various methods are defined as nops in the case they are not
+ * required.
  */
 #define raw_spin_trylock(lock)	__cond_lock(lock, _raw_spin_trylock(lock))
 
@@ -247,17 +247,17 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
 	1 : ({ local_irq_restore(flags); 0; }); \
 })
 
-/* 
-                                                        
-                                   
+/**
+ * raw_spin_can_lock - would raw_spin_trylock() succeed?
+ * @lock: the spinlock in question.
  */
 #define raw_spin_can_lock(lock)	(!raw_spin_is_locked(lock))
 
-/*                          */
+/* Include rwlock functions */
 #include <linux/rwlock.h>
 
 /*
-                                                                  
+ * Pull the _spin_*()/_read_*()/_write_*() functions/declarations:
  */
 #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
 # include <linux/spinlock_api_smp.h>
@@ -266,7 +266,7 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
 #endif
 
 /*
-                                                                   
+ * Map the spin_lock functions to the raw variants for PREEMPT_RT=n
  */
 
 static inline raw_spinlock_t *spinlock_check(spinlock_t *lock)
@@ -378,20 +378,20 @@ static inline int spin_can_lock(spinlock_t *lock)
 #define assert_spin_locked(lock)	assert_raw_spin_locked(&(lock)->rlock)
 
 /*
-                                 
-                                              
+ * Pull the atomic_t declaration:
+ * (asm-mips/atomic.h needs above definitions)
  */
 #include <linux/atomic.h>
-/* 
-                                                              
-                              
-                                  
-  
-                                                                       
-                                             
+/**
+ * atomic_dec_and_lock - lock on reaching reference count zero
+ * @atomic: the atomic counter
+ * @lock: the spinlock in question
+ *
+ * Decrements @atomic by 1.  If the result is 0, returns true and locks
+ * @lock.  Returns false for all other cases.
  */
 extern int _atomic_dec_and_lock(atomic_t *atomic, spinlock_t *lock);
 #define atomic_dec_and_lock(atomic, lock) \
 		__cond_lock(lock, _atomic_dec_and_lock(atomic, lock))
 
-#endif /*                    */
+#endif /* __LINUX_SPINLOCK_H */

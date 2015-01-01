@@ -24,7 +24,7 @@
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/firmware.h>
-#include <linux/input/synaptics_dsx_g2.h>	/*                                   */
+#include <linux/input/synaptics_dsx_g2.h>	/* kyle.jeon to avoid merge conflict */
 #include "synaptics_dsx_i2c.h"
 
 #define FW_IMAGE_NAME "synaptics_fw_E001.img"
@@ -413,7 +413,7 @@ static int fwu_read_f34_flash_status(void)
 		return retval;
 	}
 
-	/*                                                         */
+	/* Program enabled bit not available - force bit to be set */
 	fwu->flash_status.program_enabled = 1;
 	fwu->flash_status.status = status & MASK_3BIT;
 

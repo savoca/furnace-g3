@@ -22,9 +22,9 @@
  */
 
 /*
-                                                           
-  
-                                                                   
+ * This file implements code to read directories from disk.
+ *
+ * See namei.c for a description of directory organisation on disk.
  */
 
 #include <linux/fs.h>
@@ -41,12 +41,12 @@ static const unsigned char squashfs_filetype_table[] = {
 };
 
 /*
-                                                              
-                                
-  
-                                                                         
-                                                                     
-           
+ * Lookup offset (f_pos) in the directory index, returning the
+ * metadata block containing it.
+ *
+ * If we get an error reading the index then return the part of the index
+ * (if any) we have managed to read - the index isn't essential, just
+ * quicker.
  */
 static int get_dir_index_using_offset(struct super_block *sb,
 	u64 *next_block, int *next_offset, u64 index_start, int index_offset,
@@ -60,10 +60,10 @@ static int get_dir_index_using_offset(struct super_block *sb,
 					i_count, f_pos);
 
 	/*
-                                                              
-                                                                   
-                                         
-  */
+	 * Translate from external f_pos to the internal f_pos.  This
+	 * is offset by 3 because we invent "." and ".." entries which are
+	 * not actually stored in the directory.
+	 */
 	if (f_pos <= 3)
 		return f_pos;
 	f_pos -= 3;
@@ -77,8 +77,8 @@ static int get_dir_index_using_offset(struct super_block *sb,
 		index = le32_to_cpu(dir_index.index);
 		if (index > f_pos)
 			/*
-                                        
-    */
+			 * Found the index we're looking for.
+			 */
 			break;
 
 		err = squashfs_read_metadata(sb, NULL, &index_start,
@@ -94,8 +94,8 @@ static int get_dir_index_using_offset(struct super_block *sb,
 	*next_offset = (length + *next_offset) % SQUASHFS_METADATA_SIZE;
 
 	/*
-                                                         
-  */
+	 * Translate back from internal f_pos to external f_pos.
+	 */
 	return length + 3;
 }
 
@@ -120,13 +120,13 @@ static int squashfs_readdir(struct file *file, void *dirent, filldir_t filldir)
 	}
 
 	/*
-                                                                  
-                                                                 
-                                                        
-   
-                                                                 
-                            
-  */
+	 * Return "." and  ".." entries as the first two filenames in the
+	 * directory.  To maximise compression these two entries are not
+	 * stored in the directory, and so we invent them here.
+	 *
+	 * It also means that the external f_pos is offset by 3 from the
+	 * on-disk directory f_pos.
+	 */
 	while (file->f_pos < 3) {
 		char *name;
 		int i_ino;
@@ -162,8 +162,8 @@ static int squashfs_readdir(struct file *file, void *dirent, filldir_t filldir)
 
 	while (length < i_size_read(inode)) {
 		/*
-                          
-   */
+		 * Read directory header
+		 */
 		err = squashfs_read_metadata(inode->i_sb, &dirh, &block,
 					&offset, sizeof(dirh));
 		if (err < 0)
@@ -178,8 +178,8 @@ static int squashfs_readdir(struct file *file, void *dirent, filldir_t filldir)
 
 		while (dir_count--) {
 			/*
-                           
-    */
+			 * Read directory entry.
+			 */
 			err = squashfs_read_metadata(inode->i_sb, dire, &block,
 					&offset, sizeof(*dire));
 			if (err < 0)
@@ -187,7 +187,7 @@ static int squashfs_readdir(struct file *file, void *dirent, filldir_t filldir)
 
 			size = le16_to_cpu(dire->size) + 1;
 
-			/*                                                    */
+			/* size should never be larger than SQUASHFS_NAME_LEN */
 			if (size > SQUASHFS_NAME_LEN)
 				goto failed_read;
 

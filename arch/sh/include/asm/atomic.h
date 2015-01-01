@@ -2,9 +2,9 @@
 #define __ASM_SH_ATOMIC_H
 
 /*
-                                                           
-                          
-  
+ * Atomic operations that C can't guarantee us.  Useful for
+ * resource counting etc..
+ *
  */
 
 #include <linux/compiler.h>
@@ -37,14 +37,14 @@
 #define atomic_xchg(v, new)		(xchg(&((v)->counter), new))
 #define atomic_cmpxchg(v, o, n)		(cmpxchg(&((v)->counter), (o), (n)))
 
-/* 
-                                                               
-                               
-                                
-                                 
-  
-                                                      
-                               
+/**
+ * __atomic_add_unless - add unless the number is a given value
+ * @v: pointer of type atomic_t
+ * @a: the amount to add to v...
+ * @u: ...unless v is equal to u.
+ *
+ * Atomically adds @a to @v, so long as it was not @u.
+ * Returns the old value of @v.
  */
 static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 {
@@ -67,4 +67,4 @@ static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 #define smp_mb__before_atomic_inc()	smp_mb()
 #define smp_mb__after_atomic_inc()	smp_mb()
 
-#endif /*                   */
+#endif /* __ASM_SH_ATOMIC_H */

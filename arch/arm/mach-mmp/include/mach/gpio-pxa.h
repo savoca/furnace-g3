@@ -12,10 +12,10 @@
 
 #define gpio_to_bank(gpio)	((gpio) >> 5)
 
-/*                                                            
-                                                            
-                                                            
-                                          
+/* NOTE: these macros are defined here to make optimization of
+ * gpio_{get,set}_value() to work when 'gpio' is a constant.
+ * Usage of these macros otherwise is no longer recommended,
+ * use generic GPIO API whenever possible.
  */
 #define GPIO_bit(gpio)	(1 << ((gpio) & 0x1f))
 
@@ -26,4 +26,4 @@
 
 #include <plat/gpio-pxa.h>
 
-#endif /*                       */
+#endif /* __ASM_MACH_GPIO_PXA_H */

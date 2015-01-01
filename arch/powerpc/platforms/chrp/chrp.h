@@ -1,5 +1,5 @@
 /*
-                                                 
+ * Declarations of CHRP platform-specific things.
  */
 
 extern void chrp_nvram_init(void);

@@ -3,8 +3,8 @@
 #include <linux/genhd.h>
 
 /*
-                                                                      
-               
+ * add_gd_partition adds a partitions details to the devices partition
+ * description.
  */
 struct parsed_partitions {
 	struct block_device *bdev;

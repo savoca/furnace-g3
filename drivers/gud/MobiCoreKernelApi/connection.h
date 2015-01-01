@@ -17,29 +17,29 @@
 #include <stdbool.h>
 
 struct connection {
-	/*                */
+	/* Netlink socket */
 	struct sock		*socket_descriptor;
-	/*                                         */
+	/* Random? magic to match requests/answers */
 	uint32_t		sequence_magic;
 
 	struct nlmsghdr		*data_msg;
-	/*                                  */
+	/* How much connection data is left */
 	uint32_t		data_len;
-	/*                                 */
+	/* Start pointer of remaining data */
 	void			*data_start;
 	struct sk_buff		*skb;
 
-	/*                      */
+	/* Data protection lock */
 	struct mutex		data_lock;
-	/*                           */
+	/* Data protection semaphore */
 	struct semaphore	data_available_sem;
 
-	/*                                       */
+	/* PID address used for local connection */
 	pid_t			self_pid;
-	/*                           */
+	/* Remote PID for connection */
 	pid_t			peer_pid;
 
-	/*                                           */
+	/* The list param for using the kernel lists */
 	struct list_head	list;
 };
 
@@ -54,4 +54,4 @@ size_t connection_write_data(struct connection *conn, void *buffer,
 				    uint32_t len);
 int connection_process(struct connection *conn, struct sk_buff *skb);
 
-#endif /*                        */
+#endif /* _MC_KAPI_CONNECTION_H_ */

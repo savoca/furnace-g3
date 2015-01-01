@@ -3,7 +3,7 @@
  */
 
 /*
-                               
+ * XT keyboard driver for Linux
  */
 
 /*

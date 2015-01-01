@@ -53,8 +53,8 @@ static double time2pixels(u64 __time)
 }
 
 /*
-                                                                
-                                   
+ * Round text sizes so that the svg viewer only needs a discrete
+ * number of renderings of the font
  */
 static double round_text_size(double size)
 {
@@ -85,9 +85,9 @@ void open_svg(const char *filename, int cpus, int rows, u64 start, u64 end)
 	last_time = end;
 
 	/*
-                                                                 
-                                                                        
-  */
+	 * if the recording is short, we default to a width of 1000, but
+	 * for longer recordings we want at least 200 units of width per second
+	 */
 	new_width = (last_time - first_time) / 5000000;
 
 	if (new_width > svg_page_width)
@@ -156,10 +156,10 @@ static char *time_to_string(u64 duration)
 
 	text[0] = 0;
 
-	if (duration < 1000) /*                  */
+	if (duration < 1000) /* less than 1 usec */
 		return text;
 
-	if (duration < 1000 * 1000) { /*                  */
+	if (duration < 1000 * 1000) { /* less than 1 msec */
 		sprintf(text, "%4.1f us", duration / 1000.0);
 		return text;
 	}
@@ -179,7 +179,7 @@ void svg_waiting(int Yslot, u64 start, u64 end)
 
 	style = "waiting";
 
-	if (end-start > 10 * 1000000) /*         */
+	if (end-start > 10 * 1000000) /* 10 msec */
 		style = "WAITING";
 
 	text = time_to_string(end-start);
@@ -207,7 +207,7 @@ static char *cpu_model(void)
 	FILE *file;
 
 	cpu_m[0] = 0;
-	/*          */
+	/* CPU type */
 	file = fopen("/proc/cpuinfo", "r");
 	if (file) {
 		while (fgets(buf, 255, file)) {
@@ -219,7 +219,7 @@ static char *cpu_model(void)
 		fclose(file);
 	}
 
-	/*          */
+	/* CPU type */
 	file = fopen("/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies", "r");
 	if (file) {
 		while (fgets(buf, 255, file)) {
@@ -317,7 +317,7 @@ static char *HzToHuman(unsigned long hz)
 
 	Hz = hz;
 
-	/*                                 */
+	/* default: just put the Number in */
 	sprintf(buffer, "%9lli", Hz);
 
 	if (Hz > 1000)

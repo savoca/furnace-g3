@@ -144,26 +144,26 @@
 #define CORE_VERSION_310	0x10000011
 
 /*
-                                                      
-                                                         
-                                      
-                          
+ * Waiting until end of potential AHB access for data:
+ * 16 AHB cycles (160ns for 100MHz and 320ns for 50MHz) +
+ * delay on AHB (2us) = maximum 2.32us
+ * Taking x10 times margin
  */
 #define CORE_AHB_DATA_DELAY_US  23
-/*                                                          
-                                                    
-                                                    
-                                                    
-                               
+/* Waiting until end of potential AHB access for descriptor:
+ * Single (1 AHB cycle) + delay on AHB bus = max 2us
+ * INCR4 (4 AHB cycles) + delay on AHB bus = max 2us
+ * Single (1 AHB cycle) + delay on AHB bus = max 2us
+ * Total 8 us delay with margin
  */
 #define CORE_AHB_DESC_DELAY_US  8
 
 #define CORE_SDCC_DEBUG_REG	0x124
 #define CORE_DEBUG_REG_AHB_HTRANS       (3 << 12)
 
-/*                 */
+/* 8KB descriptors */
 #define SDHCI_MSM_MAX_SEGMENTS  (1 << 13)
-#define SDHCI_MSM_MMC_CLK_GATE_DELAY	200 /*       */
+#define SDHCI_MSM_MMC_CLK_GATE_DELAY	200 /* msecs */
 
 #define CORE_FREQ_100MHZ	(100 * 1000 * 1000)
 
@@ -188,39 +188,39 @@ static const u32 tuning_block_128[] = {
 };
 
 static int disable_slots;
-/*                             */
+/* root can write, others read */
 module_param(disable_slots, int, S_IRUGO|S_IWUSR);
 
-/*                                                */
+/* This structure keeps information per regulator */
 struct sdhci_msm_reg_data {
-	/*                          */
+	/* voltage regulator handle */
 	struct regulator *reg;
-	/*                */
+	/* regulator name */
 	const char *name;
-	/*                         */
+	/* voltage level to be set */
 	u32 low_vol_level;
 	u32 high_vol_level;
-	/*                                               */
+	/* Load values for low power and high power mode */
 	u32 lpm_uA;
 	u32 hpm_uA;
 
-	/*                            */
+	/* is this regulator enabled? */
 	bool is_enabled;
-	/*                                          */
+	/* is this regulator needs to be always on? */
 	bool is_always_on;
-	/*                                                        */
+	/* is low power mode setting required for this regulator? */
 	bool lpm_sup;
 	bool set_voltage_sup;
 };
 
 /*
-                                               
-                                       
+ * This structure keeps information for all the
+ * regulators required for a SDCC slot.
  */
 struct sdhci_msm_slot_reg_data {
-	/*                              */
+	/* keeps VDD/VCC regulator info */
 	struct sdhci_msm_reg_data *vdd_data;
-	 /*                             */
+	 /* keeps VDD IO regulator info */
 	struct sdhci_msm_reg_data *vdd_io_data;
 };
 
@@ -265,9 +265,9 @@ struct sdhci_msm_pad_data {
 
 struct sdhci_msm_pin_data {
 	/*
-                                          
-                                            
-  */
+	 * = 1 if controller pins are using gpios
+	 * = 0 if controller has dedicated MSM pads
+	 */
 	u8 is_gpio;
 	bool cfg_sts;
 	struct sdhci_msm_gpio_data *gpio_data;
@@ -281,10 +281,10 @@ struct sdhci_msm_bus_voting_data {
 };
 
 struct sdhci_msm_pltfm_data {
-	/*                       */
+	/* Supported UHS-I Modes */
 	u32 caps;
 
-	/*                   */
+	/* More capabilities */
 	u32 caps2;
 
 	unsigned long mmc_bus_width;
@@ -292,7 +292,7 @@ struct sdhci_msm_pltfm_data {
 	bool nonremovable;
 	struct sdhci_msm_pin_data *pin_data;
 	u32 cpu_dma_latency_us;
-	int status_gpio; /*                                               */
+	int status_gpio; /* card detection GPIO that is configured as IRQ */
 	struct sdhci_msm_bus_voting_data *voting_data;
 	u32 *sup_clk_table;
 	unsigned char sup_clk_cnt;
@@ -310,14 +310,14 @@ struct sdhci_msm_bus_vote {
 
 struct sdhci_msm_host {
 	struct platform_device	*pdev;
-	void __iomem *core_mem;    /*                         */
-	int	pwr_irq;	/*           */
-	struct clk	 *clk;     /*                       */
-	struct clk	 *pclk;    /*                           */
-	struct clk	 *bus_clk; /*                      */
-	struct clk	 *ff_clk; /*                                      */
-	struct clk	 *sleep_clk; /*                             */
-	atomic_t clks_on; /*                           */
+	void __iomem *core_mem;    /* MSM SDCC mapped address */
+	int	pwr_irq;	/* power irq */
+	struct clk	 *clk;     /* main SD/MMC bus clock */
+	struct clk	 *pclk;    /* SDHC peripheral bus clock */
+	struct clk	 *bus_clk; /* SDHC bus voter clock */
+	struct clk	 *ff_clk; /* CDC calibration fixed feedback clock */
+	struct clk	 *sleep_clk; /* CDC calibration sleep clock */
+	atomic_t clks_on; /* Set if clocks are enabled */
 	struct sdhci_msm_pltfm_data *pdata;
 	struct mmc_host  *mmc;
 	struct sdhci_pltfm_data sdhci_msm_pdata;
@@ -326,7 +326,7 @@ struct sdhci_msm_host {
 	struct completion pwr_irq_completion;
 	struct sdhci_msm_bus_vote msm_bus_vote;
 	struct device_attribute	polling;
-	u32 clk_rate; /*                                               */
+	u32 clk_rate; /* Keeps track of current clock rate that is set */
 	bool tuning_done;
 	bool calibration_done;
 	u8 saved_tuning_phase;
@@ -334,14 +334,14 @@ struct sdhci_msm_host {
 };
 
 enum vdd_io_level {
-	/*                                */
+	/* set vdd_io_data->low_vol_level */
 	VDD_IO_LOW,
-	/*                                 */
+	/* set vdd_io_data->high_vol_level */
 	VDD_IO_HIGH,
 	/*
-                                                           
-                                        
-  */
+	 * set whatever there in voltage_level (third argument) of
+	 * sdhci_msm_set_vdd_io_vol() function.
+	 */
 	VDD_IO_SET_LEVEL,
 };
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
@@ -353,7 +353,7 @@ enum vdd_io_level {
 static void msmsdhci_dbg_createhost(struct sdhci_msm_host *);
 #endif
 
-/*                              */
+/* MSM platform specific tuning */
 static inline int msm_dll_poll_ck_out_en(struct sdhci_host *host,
 						u8 poll)
 {
@@ -362,7 +362,7 @@ static inline int msm_dll_poll_ck_out_en(struct sdhci_host *host,
 	u8 ck_out_en = 0;
 	struct mmc_host *mmc = host->mmc;
 
-	/*                                                */
+	/* poll for CK_OUT_EN bit.  max. poll time = 50us */
 	ck_out_en = !!(readl_relaxed(host->ioaddr + CORE_DLL_CONFIG) &
 			CORE_CK_OUT_EN);
 
@@ -400,25 +400,25 @@ static int msm_config_cm_dll_phase(struct sdhci_host *host, u8 phase)
 	config |= (CORE_CDR_EXT_EN | CORE_DLL_EN);
 	writel_relaxed(config, host->ioaddr + CORE_DLL_CONFIG);
 
-	/*                                                             */
+	/* Wait until CK_OUT_EN bit of DLL_CONFIG register becomes '0' */
 	rc = msm_dll_poll_ck_out_en(host, 0);
 	if (rc)
 		goto err_out;
 
 	/*
-                                                        
-                                                   
-  */
+	 * Write the selected DLL clock output phase (0 ... 15)
+	 * to CDR_SELEXT bit field of DLL_CONFIG register.
+	 */
 	writel_relaxed(((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
 			& ~(0xF << 20))
 			| (grey_coded_phase_table[phase] << 20)),
 			host->ioaddr + CORE_DLL_CONFIG);
 
-	/*                                                */
+	/* Set CK_OUT_EN bit of DLL_CONFIG register to 1. */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
 			| CORE_CK_OUT_EN), host->ioaddr + CORE_DLL_CONFIG);
 
-	/*                                                             */
+	/* Wait until CK_OUT_EN bit of DLL_CONFIG register becomes '1' */
 	rc = msm_dll_poll_ck_out_en(host, 1);
 	if (rc)
 		goto err_out;
@@ -439,13 +439,13 @@ out:
 }
 
 /*
-                                                       
-                                                       
-                                                         
-                                                      
-                            
-                                                             
-                                   
+ * Find out the greatest range of consecuitive selected
+ * DLL clock output phases that can be used as sampling
+ * setting for SD3.0 UHS-I card read operation (in SDR104
+ * timing mode) or for eMMC4.5 card read operation (in
+ * HS400/HS200 timing mode).
+ * Select the 3/4 of the range and configure the DLL with the
+ * selected DLL clock output phase.
  */
 
 static int msm_find_most_appropriate_phase(struct sdhci_host *host,
@@ -473,7 +473,7 @@ static int msm_find_most_appropriate_phase(struct sdhci_host *host,
 
 		if ((cnt + 1) == total_phases) {
 			continue;
-		/*                                                          */
+		/* check if next phase in phase_table is consecutive or not */
 		} else if ((phase_table[cnt] + 1) != phase_table[cnt + 1]) {
 			row_index++;
 			col_index = 0;
@@ -483,11 +483,11 @@ static int msm_find_most_appropriate_phase(struct sdhci_host *host,
 	if (row_index >= MAX_PHASES)
 		return -EINVAL;
 
-	/*                                                    */
+	/* Check if phase-0 is present in first valid window? */
 	if (!ranges[0][0]) {
 		phase_0_found = true;
 		phase_0_raw_index = 0;
-		/*                                              */
+		/* Check if cycle exist between 2 valid windows */
 		for (cnt = 1; cnt <= row_index; cnt++) {
 			if (phases_per_row[cnt]) {
 				for (i = 0; i < phases_per_row[cnt]; i++) {
@@ -501,22 +501,22 @@ static int msm_find_most_appropriate_phase(struct sdhci_host *host,
 		}
 	}
 
-	/*                                                                */
+	/* If 2 valid windows form cycle then merge them as single window */
 	if (phase_0_found && phase_15_found) {
-		/*                                                  */
+		/* number of phases in raw where phase 0 is present */
 		u8 phases_0 = phases_per_row[phase_0_raw_index];
-		/*                                                   */
+		/* number of phases in raw where phase 15 is present */
 		u8 phases_15 = phases_per_row[phase_15_raw_index];
 
 		if (phases_0 + phases_15 >= MAX_PHASES)
 			/*
-                                                       
-                                                        
-                                       
-    */
+			 * If there are more than 1 phase windows then total
+			 * number of phases in both the windows should not be
+			 * more than or equal to MAX_PHASES.
+			 */
 			return -EINVAL;
 
-		/*                        */
+		/* Merge 2 cyclic windows */
 		i = phases_15;
 		for (cnt = 0; cnt < phases_0; cnt++) {
 			ranges[phase_15_raw_index][i] =
@@ -556,7 +556,7 @@ static inline void msm_cm_dll_set_freq(struct sdhci_host *host)
 {
 	u32 mclk_freq = 0;
 
-	/*                                               */
+	/* Program the MCLK value to MCLK_FREQ bit field */
 	if (host->clock <= 112000000)
 		mclk_freq = 0;
 	else if (host->clock <= 125000000)
@@ -579,7 +579,7 @@ static inline void msm_cm_dll_set_freq(struct sdhci_host *host)
 			host->ioaddr + CORE_DLL_CONFIG);
 }
 
-/*                                               */
+/* Initialize the DLL (Programmable Delay Line ) */
 static int msm_init_cm_dll(struct sdhci_host *host)
 {
 	struct mmc_host *mmc = host->mmc;
@@ -594,11 +594,11 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 			  CORE_CLK_PWRSAVE);
 	curr_pwrsave = prev_pwrsave;
 	/*
-                                                   
-                                                 
-                                                    
-                                                   
-  */
+	 * Make sure that clock is always enabled when DLL
+	 * tuning is in progress. Keeping PWRSAVE ON may
+	 * turn off the clock. So let's disable the PWRSAVE
+	 * here and re-enable it once tuning is completed.
+	 */
 	if (prev_pwrsave) {
 		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 				& ~CORE_CLK_PWRSAVE),
@@ -606,48 +606,48 @@ static int msm_init_cm_dll(struct sdhci_host *host)
 		curr_pwrsave = false;
 	}
 
-	/*                                               */
+	/* Write 1 to DLL_RST bit of DLL_CONFIG register */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
 			| CORE_DLL_RST), host->ioaddr + CORE_DLL_CONFIG);
 
-	/*                                               */
+	/* Write 1 to DLL_PDN bit of DLL_CONFIG register */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
 			| CORE_DLL_PDN), host->ioaddr + CORE_DLL_CONFIG);
 	msm_cm_dll_set_freq(host);
 
-	/*                                               */
+	/* Write 0 to DLL_RST bit of DLL_CONFIG register */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
 			& ~CORE_DLL_RST), host->ioaddr + CORE_DLL_CONFIG);
 
-	/*                                               */
+	/* Write 0 to DLL_PDN bit of DLL_CONFIG register */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
 			& ~CORE_DLL_PDN), host->ioaddr + CORE_DLL_CONFIG);
 
-	/*                      */
+	/* Set DLL_EN bit to 1. */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
 			| CORE_DLL_EN), host->ioaddr + CORE_DLL_CONFIG);
 
-	/*                         */
+	/* Set CK_OUT_EN bit to 1. */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
 			| CORE_CK_OUT_EN), host->ioaddr + CORE_DLL_CONFIG);
 
 	wait_cnt = 50;
-	/*                                                            */
+	/* Wait until DLL_LOCK bit of DLL_STATUS register becomes '1' */
 	while (!(readl_relaxed(host->ioaddr + CORE_DLL_STATUS) &
 		CORE_DLL_LOCK)) {
-		/*                                               */
+		/* max. wait for 50us sec for LOCK bit to be set */
 		if (--wait_cnt == 0) {
 			pr_err("%s: %s: DLL failed to LOCK\n",
 				mmc_hostname(mmc), __func__);
 			rc = -ETIMEDOUT;
 			goto out;
 		}
-		/*                                   */
+		/* wait for 1us before polling again */
 		udelay(1);
 	}
 
 out:
-	/*                                   */
+	/* Restore the correct PWRSAVE state */
 	if (prev_pwrsave ^ curr_pwrsave) {
 		u32 reg = readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC);
 
@@ -675,56 +675,56 @@ static int sdhci_msm_cdclp533_calibration(struct sdhci_host *host)
 	pr_debug("%s: Enter %s\n", mmc_hostname(host->mmc), __func__);
 
 	/*
-                                                          
-                                                    
-  */
+	 * Retuning in HS400 (DDR mode) will fail, just reset the
+	 * tuning block and restore the saved tuning phase.
+	 */
 	ret = msm_init_cm_dll(host);
 	if (ret)
 		goto out;
 
-	/*                                               */
+	/* Set the selected phase in delay line hw block */
 	ret = msm_config_cm_dll_phase(host, msm_host->saved_tuning_phase);
 	if (ret)
 		goto out;
 
-	/*                                                  */
+	/* Write 1 to CMD_DAT_TRACK_SEL field in DLL_CONFIG */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
 			| CORE_CMD_DAT_TRACK_SEL),
 			host->ioaddr + CORE_DLL_CONFIG);
 
-	/*                                                           */
+	/* Write 0 to CDC_T4_DLY_SEL field in VENDOR_SPEC_DDR200_CFG */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
 			& ~CORE_CDC_T4_DLY_SEL),
 			host->ioaddr + CORE_DDR_200_CFG);
 
-	/*                                                                */
+	/* Write 0 to CDC_SWITCH_BYPASS_OFF field in CORE_CSR_CDC_GEN_CFG */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_GEN_CFG)
 			& ~CORE_CDC_SWITCH_BYPASS_OFF),
 			host->ioaddr + CORE_CSR_CDC_GEN_CFG);
 
-	/*                                                           */
+	/* Write 1 to CDC_SWITCH_RC_EN field in CORE_CSR_CDC_GEN_CFG */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_GEN_CFG)
 			| CORE_CDC_SWITCH_RC_EN),
 			host->ioaddr + CORE_CSR_CDC_GEN_CFG);
 
-	/*                                                       */
+	/* Write 0 to START_CDC_TRAFFIC field in CORE_DDR200_CFG */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
 			& ~CORE_START_CDC_TRAFFIC),
 			host->ioaddr + CORE_DDR_200_CFG);
 
 	/*
-                                                
-   
-                                    
-                                    
-                                         
-                                   
-                                        
-                                     
-                                
-                            
-                                  
-  */
+	 * Perform CDC Register Initialization Sequence
+	 *
+	 * CORE_CSR_CDC_CTLR_CFG0	0x11800EC
+	 * CORE_CSR_CDC_CTLR_CFG1	0x3011111
+	 * CORE_CSR_CDC_CAL_TIMER_CFG0	0x1201000
+	 * CORE_CSR_CDC_CAL_TIMER_CFG1	0x4
+	 * CORE_CSR_CDC_REFCOUNT_CFG	0xCB732020
+	 * CORE_CSR_CDC_COARSE_CAL_CFG	0xB19
+	 * CORE_CSR_CDC_DELAY_CFG	0x3AC
+	 * CORE_CDC_OFFSET_CFG		0x0
+	 * CORE_CDC_SLAVE_DDA_CFG	0x16334
+	 */
 
 	writel_relaxed(0x11800EC, host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
 	writel_relaxed(0x3011111, host->ioaddr + CORE_CSR_CDC_CTLR_CFG1);
@@ -736,46 +736,46 @@ static int sdhci_msm_cdclp533_calibration(struct sdhci_host *host)
 	writel_relaxed(0x0, host->ioaddr + CORE_CDC_OFFSET_CFG);
 	writel_relaxed(0x16334, host->ioaddr + CORE_CDC_SLAVE_DDA_CFG);
 
-	/*                    */
+	/* CDC HW Calibration */
 
-	/*                                                               */
+	/* Write 1 to SW_TRIG_FULL_CALIB field in CORE_CSR_CDC_CTLR_CFG0 */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_CTLR_CFG0)
 			| CORE_SW_TRIG_FULL_CALIB),
 			host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
 
-	/*                                                               */
+	/* Write 0 to SW_TRIG_FULL_CALIB field in CORE_CSR_CDC_CTLR_CFG0 */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_CTLR_CFG0)
 			& ~CORE_SW_TRIG_FULL_CALIB),
 			host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
 
-	/*                                                           */
+	/* Write 1 to HW_AUTOCAL_ENA field in CORE_CSR_CDC_CTLR_CFG0 */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_CSR_CDC_CTLR_CFG0)
 			| CORE_HW_AUTOCAL_ENA),
 			host->ioaddr + CORE_CSR_CDC_CTLR_CFG0);
 
-	/*                                                           */
+	/* Write 1 to TIMER_ENA field in CORE_CSR_CDC_CAL_TIMER_CFG0 */
 	writel_relaxed((readl_relaxed(host->ioaddr +
 			CORE_CSR_CDC_CAL_TIMER_CFG0) | CORE_TIMER_ENA),
 			host->ioaddr + CORE_CSR_CDC_CAL_TIMER_CFG0);
 
 	mb();
 
-	/*                                                                */
+	/* Poll on CALIBRATION_DONE field in CORE_CSR_CDC_STATUS0 to be 1 */
 	wait_cnt = 50;
 	while (!(readl_relaxed(host->ioaddr + CORE_CSR_CDC_STATUS0)
 			& CORE_CALIBRATION_DONE)) {
-		/*                                                           */
+		/* max. wait for 50us sec for CALIBRATION_DONE bit to be set */
 		if (--wait_cnt == 0) {
 			pr_err("%s: %s: CDC Calibration was not completed\n",
 				mmc_hostname(host->mmc), __func__);
 			ret = -ETIMEDOUT;
 			goto out;
 		}
-		/*                                   */
+		/* wait for 1us before polling again */
 		udelay(1);
 	}
 
-	/*                                                          */
+	/* Verify CDC_ERROR_CODE field in CORE_CSR_CDC_STATUS0 is 0 */
 	cdc_err = readl_relaxed(host->ioaddr + CORE_CSR_CDC_STATUS0)
 			& CORE_CDC_ERROR_CODE_MASK;
 	if (cdc_err) {
@@ -785,7 +785,7 @@ static int sdhci_msm_cdclp533_calibration(struct sdhci_host *host)
 		goto out;
 	}
 
-	/*                                                       */
+	/* Write 1 to START_CDC_TRAFFIC field in CORE_DDR200_CFG */
 	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
 			| CORE_START_CDC_TRAFFIC),
 			host->ioaddr + CORE_DDR_200_CFG);
@@ -801,7 +801,7 @@ int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 	int tuning_seq_cnt = 3;
 	u8 phase, *data_buf, tuned_phases[16], tuned_phase_cnt = 0;
 	const u32 *tuning_block_pattern = tuning_block_64;
-	int size = sizeof(tuning_block_64); /*                              */
+	int size = sizeof(tuning_block_64); /* Tuning pattern size in bytes */
 	int rc;
 	struct mmc_host *mmc = host->mmc;
 	struct mmc_ios	ios = host->mmc->ios;
@@ -809,9 +809,9 @@ int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
 	/*
-                                                            
-                                                             
-  */
+	 * Tuning is required for SDR104, HS200 and HS400 cards and
+	 * if clock frequency is greater than 100MHz in these modes.
+	 */
 	if (host->clock <= CORE_FREQ_100MHZ ||
 		!((ios.timing == MMC_TIMING_MMC_HS400) ||
 		(ios.timing == MMC_TIMING_MMC_HS200) ||
@@ -820,7 +820,7 @@ int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(mmc), __func__);
 
-	/*                                                        */
+	/* CDCLP533 HW calibration is only required for HS400 mode*/
 	if (msm_host->tuning_done && !msm_host->calibration_done &&
 		(mmc->ios.timing == MMC_TIMING_MMC_HS400)) {
 		rc = sdhci_msm_cdclp533_calibration(host);
@@ -848,7 +848,7 @@ int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 	}
 
 retry:
-	/*                                     */
+	/* first of all reset the tuning block */
 	rc = msm_init_cm_dll(host);
 	if (rc)
 		goto kfree;
@@ -863,7 +863,7 @@ retry:
 		};
 		struct scatterlist sg;
 
-		/*                                      */
+		/* set the phase in delay line hw block */
 		rc = msm_config_cm_dll_phase(host, phase);
 		if (rc)
 			goto kfree;
@@ -874,7 +874,7 @@ retry:
 		data.blksz = size;
 		data.blocks = 1;
 		data.flags = MMC_DATA_READ;
-		data.timeout_ns = 1000 * 1000 * 1000; /*       */
+		data.timeout_ns = 1000 * 1000 * 1000; /* 1 sec */
 
 		data.sg = &sg;
 		data.sg_len = 1;
@@ -884,7 +884,7 @@ retry:
 
 		if (!cmd.error && !data.error &&
 			!memcmp(data_buf, tuning_block_pattern, size)) {
-			/*                                           */
+			/* tuning is successful at this tuning point */
 			tuned_phases[tuned_phase_cnt++] = phase;
 			pr_debug("%s: %s: found good phase = %d\n",
 				mmc_hostname(mmc), __func__, phase);
@@ -900,9 +900,9 @@ retry:
 			phase = (u8)rc;
 
 		/*
-                                            
-                   
-   */
+		 * Finally set the selected phase in delay
+		 * line hw block.
+		 */
 		rc = msm_config_cm_dll_phase(host, phase);
 		if (rc)
 			goto kfree;
@@ -912,7 +912,7 @@ retry:
 	} else {
 		if (--tuning_seq_cnt)
 			goto retry;
-		/*               */
+		/* tuning failed */
 		pr_err("%s: %s: no tuning point found\n",
 			mmc_hostname(mmc), __func__);
 		rc = -EIO;
@@ -1115,7 +1115,7 @@ static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 	return ret;
 }
 
-/*                          */
+/* GPIO/Pad data extraction */
 static int sdhci_msm_dt_get_pad_pull_info(struct device *dev, int id,
 		struct sdhci_msm_pad_pull_data **pad_pull_data)
 {
@@ -1150,9 +1150,9 @@ static int sdhci_msm_dt_get_pad_pull_info(struct device *dev, int id,
 		ret = -ENOMEM;
 		goto out;
 	}
-	pull_data->size = 4; /*                                        */
+	pull_data->size = 4; /* array size for clk, cmd, data and rclk */
 
-	/*                                                      */
+	/* Allocate on, off configs for clk, cmd, data and rclk */
 	pull = devm_kzalloc(dev, 2 * pull_data->size *\
 			sizeof(struct sdhci_msm_pad_pull), GFP_KERNEL);
 	if (!pull) {
@@ -1226,9 +1226,9 @@ static int sdhci_msm_dt_get_pad_drv_info(struct device *dev, int id,
 		ret = -ENOMEM;
 		goto out;
 	}
-	drv_data->size = 3; /*                               */
+	drv_data->size = 3; /* array size for clk, cmd, data */
 
-	/*                                             */
+	/* Allocate on, off configs for clk, cmd, data */
 	drv = devm_kzalloc(dev, 2 * drv_data->size *\
 			sizeof(struct sdhci_msm_pad_drv), GFP_KERNEL);
 	if (!drv) {
@@ -1352,7 +1352,7 @@ out:
 	return ret;
 }
 
-/*                     */
+/* Parse platform data */
 static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 {
 	struct sdhci_msm_pltfm_data *pdata = NULL;
@@ -1459,7 +1459,7 @@ out:
 	return NULL;
 }
 
-/*                                             */
+/* Returns required bandwidth in Bytes per Sec */
 static unsigned int sdhci_get_bw_required(struct sdhci_host *host,
 					struct mmc_ios *ios)
 {
@@ -1470,9 +1470,9 @@ static unsigned int sdhci_get_bw_required(struct sdhci_host *host,
 
 	bw = msm_host->clk_rate;
 	/*
-                                                  
-                                                            
-  */
+	 * For DDR mode, SDCC controller clock will be at
+	 * the double rate than the actual clock that goes to card.
+	 */
 	if (ios->bus_width == MMC_BUS_WIDTH_4)
 		bw /= 2;
 	else if (ios->bus_width == MMC_BUS_WIDTH_1)
@@ -1503,9 +1503,9 @@ static int sdhci_msm_bus_get_vote_for_bw(struct sdhci_msm_host *host,
 }
 
 /*
-                                                        
-                                                                 
-                      
+ * This function must be called with host lock acquired.
+ * Caller of this function should also ensure that msm bus client
+ * handle is not null.
  */
 static inline int sdhci_msm_bus_set_vote(struct sdhci_msm_host *msm_host,
 					     int vote,
@@ -1532,7 +1532,7 @@ out:
 }
 
 /*
-                                                      
+ * Internal work. Work to set 0 bandwidth for msm bus.
  */
 static void sdhci_msm_bus_work(struct work_struct *work)
 {
@@ -1548,7 +1548,7 @@ static void sdhci_msm_bus_work(struct work_struct *work)
 		return;
 
 	spin_lock_irqsave(&host->lock, flags);
-	/*                                                          */
+	/* don't vote for 0 bandwidth if any request is in progress */
 	if (!host->mrq) {
 		sdhci_msm_bus_set_vote(msm_host,
 			msm_host->msm_bus_vote.min_bw_vote, flags);
@@ -1559,8 +1559,8 @@ static void sdhci_msm_bus_work(struct work_struct *work)
 }
 
 /*
-                                                                    
-                                         
+ * This function cancels any scheduled delayed work and sets the bus
+ * vote based on bw (bandwidth) argument.
  */
 static void sdhci_msm_bus_cancel_work_and_set_vote(struct sdhci_host *host,
 						unsigned int bw)
@@ -1577,9 +1577,9 @@ static void sdhci_msm_bus_cancel_work_and_set_vote(struct sdhci_host *host,
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
-#define MSM_MMC_BUS_VOTING_DELAY	200 /*       */
+#define MSM_MMC_BUS_VOTING_DELAY	200 /* msecs */
 
-/*                                                                          */
+/* This function queues a work which will set the bandwidth requiement to 0 */
 static void sdhci_msm_bus_queue_work(struct sdhci_host *host)
 {
 	unsigned long flags;
@@ -1637,7 +1637,7 @@ static int sdhci_msm_bus_register(struct sdhci_msm_host *host,
 			rc = -EFAULT;
 			goto out;
 		}
-		/*                                                        */
+		/* cache the vote index for minimum and maximum bandwidth */
 		host->msm_bus_vote.min_bw_vote =
 				sdhci_msm_bus_get_vote_for_bw(host, 0);
 		host->msm_bus_vote.max_bw_vote =
@@ -1672,11 +1672,11 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, u32 enable)
 		sdhci_msm_bus_cancel_work_and_set_vote(host, bw);
 	} else {
 		/*
-                                                     
-                                                     
-                                                   
-                                                         
-   */
+		 * If clock gating is enabled, then remove the vote
+		 * immediately because clocks will be disabled only
+		 * after SDHCI_MSM_MMC_CLK_GATE_DELAY and thus no
+		 * additional delay is required to remove the bus vote.
+		 */
 		if (host->mmc->clkgate_delay)
 			sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
 		else
@@ -1684,17 +1684,17 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, u32 enable)
 	}
 }
 
-/*                             */
+/* Regulator utility functions */
 static int sdhci_msm_vreg_init_reg(struct device *dev,
 					struct sdhci_msm_reg_data *vreg)
 {
 	int ret = 0;
 
-	/*                                            */
+	/* check if regulator is already initialized? */
 	if (vreg->reg)
 		goto out;
 
-	/*                          */
+	/* Get the regulator handle */
 	vreg->reg = devm_regulator_get(dev, vreg->name);
 	if (IS_ERR(vreg->reg)) {
 		ret = PTR_ERR(vreg->reg);
@@ -1705,7 +1705,7 @@ static int sdhci_msm_vreg_init_reg(struct device *dev,
 
 	if (regulator_count_voltages(vreg->reg) > 0) {
 		vreg->set_voltage_sup = true;
-		/*              */
+		/* sanity check */
 		if (!vreg->high_vol_level || !vreg->hpm_uA) {
 			pr_err("%s: %s invalid constraints specified\n",
 			       __func__, vreg->name);
@@ -1729,9 +1729,9 @@ static int sdhci_msm_vreg_set_optimum_mode(struct sdhci_msm_reg_data
 	int ret = 0;
 
 	/*
-                                                             
-                                             
-  */
+	 * regulators that do not support regulator_set_voltage also
+	 * do not support regulator_set_optimum_mode
+	 */
 	if (vreg->set_voltage_sup) {
 		ret = regulator_set_optimum_mode(vreg->reg, uA_load);
 		if (ret < 0)
@@ -1739,9 +1739,9 @@ static int sdhci_msm_vreg_set_optimum_mode(struct sdhci_msm_reg_data
 			       __func__, vreg->name, uA_load, ret);
 		else
 			/*
-                                                      
-                                  
-    */
+			 * regulator_set_optimum_mode() can return non zero
+			 * value even for success case.
+			 */
 			ret = 0;
 	}
 	return ret;
@@ -1766,13 +1766,13 @@ static int sdhci_msm_vreg_enable(struct sdhci_msm_reg_data *vreg)
 {
 	int ret = 0;
 
-	/*                                        */
+	/* Put regulator in HPM (high power mode) */
 	ret = sdhci_msm_vreg_set_optimum_mode(vreg, vreg->hpm_uA);
 	if (ret < 0)
 		return ret;
 
 	if (!vreg->is_enabled) {
-		/*                   */
+		/* Set voltage level */
 		ret = sdhci_msm_vreg_set_voltage(vreg, vreg->high_vol_level,
 						vreg->high_vol_level);
 		if (ret)
@@ -1792,7 +1792,7 @@ static int sdhci_msm_vreg_disable(struct sdhci_msm_reg_data *vreg)
 {
 	int ret = 0;
 
-	/*                                             */
+	/* Never disable regulator marked as always_on */
 	if (vreg->is_enabled && !vreg->is_always_on) {
 		ret = regulator_disable(vreg->reg);
 		if (ret) {
@@ -1806,13 +1806,13 @@ static int sdhci_msm_vreg_disable(struct sdhci_msm_reg_data *vreg)
 		if (ret < 0)
 			goto out;
 
-		/*                             */
+		/* Set min. voltage level to 0 */
 		ret = sdhci_msm_vreg_set_voltage(vreg, 0, vreg->high_vol_level);
 		if (ret)
 			goto out;
 	} else if (vreg->is_enabled && vreg->is_always_on) {
 		if (vreg->lpm_sup) {
-			/*                                                 */
+			/* Put always_on regulator in LPM (low power mode) */
 			ret = sdhci_msm_vreg_set_optimum_mode(vreg,
 							      vreg->lpm_uA);
 			if (ret < 0)
@@ -1855,8 +1855,8 @@ out:
 }
 
 /*
-                                                        
-                                                   
+ * Reset vreg by ensuring it is off during probe. A call
+ * to enable vreg is needed to balance disable vreg
  */
 static int sdhci_msm_vreg_reset(struct sdhci_msm_pltfm_data *pdata)
 {
@@ -1869,7 +1869,7 @@ static int sdhci_msm_vreg_reset(struct sdhci_msm_pltfm_data *pdata)
 	return ret;
 }
 
-/*                                                                  */
+/* This init function should be called only once for each SDHC slot */
 static int sdhci_msm_vreg_init(struct device *dev,
 				struct sdhci_msm_pltfm_data *pdata,
 				bool is_init)
@@ -1886,13 +1886,13 @@ static int sdhci_msm_vreg_init(struct device *dev,
 	curr_vdd_io_reg = curr_slot->vdd_io_data;
 
 	if (!is_init)
-		/*                                                    */
+		/* Deregister all regulators from regulator framework */
 		goto vdd_io_reg_deinit;
 
 	/*
-                                                             
-                                                           
-  */
+	 * Get the regulator handle from voltage regulator framework
+	 * and then try to set the voltage level for the regulator
+	 */
 	if (curr_vdd_reg) {
 		ret = sdhci_msm_vreg_init_reg(dev, curr_vdd_reg);
 		if (ret)
@@ -1969,17 +1969,17 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	pr_debug("%s: Received IRQ(%d), status=0x%x\n",
 		mmc_hostname(msm_host->mmc), irq, irq_status);
 
-	/*                     */
+	/* Clear the interrupt */
 	writeb_relaxed(irq_status, (msm_host->core_mem + CORE_PWRCTL_CLEAR));
 	/*
-                                                               
-                                                                 
-                                                                    
-                                                                
-  */
+	 * SDHC has core_mem and hc_mem device memory and these memory
+	 * addresses do not fall within 1KB region. Hence, any update to
+	 * core_mem address space would require an mb() to ensure this gets
+	 * completed before its next update to registers within hc_mem.
+	 */
 	mb();
 
-	/*                  */
+	/* Handle BUS ON/OFF*/
 	if (irq_status & CORE_PWRCTL_BUS_ON) {
 		ret = sdhci_msm_setup_vreg(msm_host->pdata, true, false);
 		if (!ret) {
@@ -2010,9 +2010,9 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 		pwr_state = REQ_BUS_OFF;
 		io_level = REQ_IO_LOW;
 	}
-	/*                    */
+	/* Handle IO LOW/HIGH */
 	if (irq_status & CORE_PWRCTL_IO_LOW) {
-		/*                    */
+		/* Switch voltage Low */
 		ret = sdhci_msm_set_vdd_io_vol(msm_host->pdata, VDD_IO_LOW, 0);
 		if (ret)
 			irq_ack |= CORE_PWRCTL_IO_FAIL;
@@ -2022,7 +2022,7 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 		io_level = REQ_IO_LOW;
 	}
 	if (irq_status & CORE_PWRCTL_IO_HIGH) {
-		/*                     */
+		/* Switch voltage High */
 		ret = sdhci_msm_set_vdd_io_vol(msm_host->pdata, VDD_IO_HIGH, 0);
 		if (ret)
 			irq_ack |= CORE_PWRCTL_IO_FAIL;
@@ -2032,14 +2032,14 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 		io_level = REQ_IO_HIGH;
 	}
 
-	/*                        */
+	/* ACK status to the core */
 	writeb_relaxed(irq_ack, (msm_host->core_mem + CORE_PWRCTL_CTL));
 	/*
-                                                               
-                                                                 
-                                                                    
-                                                                
-  */
+	 * SDHC has core_mem and hc_mem device memory and these memory
+	 * addresses do not fall within 1KB region. Hence, any update to
+	 * core_mem address space would require an mb() to ensure this gets
+	 * completed before its next update to registers within hc_mem.
+	 */
 	mb();
 
 	if (io_level & REQ_IO_HIGH)
@@ -2065,7 +2065,7 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-/*                                                                    */
+/* This function returns the max. current supported by VDD rail in mA */
 static unsigned int sdhci_msm_get_vreg_vdd_max_current(struct sdhci_msm_host
 						       *host)
 {
@@ -2157,11 +2157,11 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
  */
 	if (strcmp(host->hw_name, "msm_sdcc.3") == 0) {
 		if (req_type == REQ_IO_HIGH) {
-			/*                     */
+			/* Switch voltage High */
 			sdhci_msm_set_vdd_io_vol(msm_host->pdata, VDD_IO_HIGH, 0);
 			msm_host->curr_io_level = REQ_IO_HIGH;
 		} else if (req_type == REQ_IO_LOW) {
-			/*                    */
+			/* Switch voltage Low */
 			sdhci_msm_set_vdd_io_vol(msm_host->pdata, VDD_IO_LOW, 0);
 			msm_host->curr_io_level = REQ_IO_LOW;
 		}
@@ -2179,12 +2179,12 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	/*
-                                                       
-                                                         
-                                                        
-                                                        
-                                                       
-  */
+	 * This is needed here to hanlde a case where IRQ gets
+	 * triggered even before this function is called so that
+	 * x->done counter of completion gets reset. Otherwise,
+	 * next call to wait_for_completion returns immediately
+	 * without actually waiting for the IRQ to be handled.
+	 */
 	if (done)
 		init_completion(&msm_host->pwr_irq_completion);
 	else
@@ -2309,10 +2309,10 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 				mmc_hostname(host->mmc));
 
 		/*
-                                                       
-                                                         
-                  
-   */
+		 * The bus-width or the clock rate might have changed
+		 * after controller clocks are enbaled, update bus vote
+		 * in such case.
+		 */
 		if (atomic_read(&msm_host->controller_clock))
 			sdhci_msm_bus_voting(host, 1);
 
@@ -2396,9 +2396,9 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	if (!clock) {
 		/*
-                                                            
-                                                   
-   */
+		 * disable pwrsave to ensure clock is not auto-gated until
+		 * the rate is >400KHz (initialization complete).
+		 */
 		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
 			~CORE_CLK_PWRSAVE, host->ioaddr + CORE_VENDOR_SPEC);
 		sdhci_msm_prepare_clocks(host, false);
@@ -2418,9 +2418,9 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 				| CORE_CLK_PWRSAVE,
 				host->ioaddr + CORE_VENDOR_SPEC);
 	/*
-                                                                 
-           
-  */
+	 * Disable pwrsave for a newly added card if doesn't allow clock
+	 * gating.
+	 */
 	else if (curr_pwrsave && !mmc_host_may_gate_card(host->mmc->card))
 		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 				& ~CORE_CLK_PWRSAVE,
@@ -2430,48 +2430,48 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	if ((curr_ios.timing == MMC_TIMING_UHS_DDR50) ||
 		(curr_ios.timing == MMC_TIMING_MMC_HS400)) {
 		/*
-                                                                
-                                                               
-                                                                
-                                                            
-   */
+		 * The SDHC requires internal clock frequency to be double the
+		 * actual clock that will be set for DDR mode. The controller
+		 * uses the faster clock(100/400MHz) for some of its parts and
+		 * send the actual required clock (50/200MHz) to the card.
+		 */
 		ddr_clock = clock * 2;
 		sup_clock = sdhci_msm_get_sup_clk_rate(host,
 				ddr_clock);
 	}
 
 	/*
-                                                                     
-                                                                  
-                                                                   
-   
-                                                                    
-                                                 
-                                                        
-                                                       
-                                                          
-   
-                                                                   
-                                                      
-   
-                                               
-                                                 
-  */
+	 * In general all timing modes are controlled via UHS mode select in
+	 * Host Control2 register. eMMC specific HS200/HS400 doesn't have
+	 * their respective modes defined here, hence we use these values.
+	 *
+	 * HS200 - SDR104 (Since they both are equivalent in functionality)
+	 * HS400 - This involves multiple configurations
+	 *		Initially SDR104 - when tuning is required as HS200
+	 *		Then when switching to DDR @ 400MHz (HS400) we use
+	 *		the vendor specific HC_SELECT_IN to control the mode.
+	 *
+	 * In addition to controlling the modes we also need to select the
+	 * correct input clock for DLL depending on the mode.
+	 *
+	 * HS400 - divided clock (free running MCLK/2)
+	 * All other modes - default (free running MCLK)
+	 */
 	if (curr_ios.timing == MMC_TIMING_MMC_HS400) {
-		/*                                                */
+		/* Select the divided clock (free running MCLK/2) */
 		writel_relaxed(((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 					& ~CORE_HC_MCLK_SEL_MASK)
 					| CORE_HC_MCLK_SEL_HS400),
 					host->ioaddr + CORE_VENDOR_SPEC);
 		/*
-                                                              
-             
-   */
+		 * Select HS400 mode using the HC_SELECT_IN from VENDOR SPEC
+		 * register
+		 */
 		if (msm_host->tuning_done && !msm_host->calibration_done) {
 			/*
-                                                        
-                               
-    */
+			 * Write 0x6 to HC_SELECT_IN and 1 to HC_SELECT_IN_EN
+			 * field in VENDOR_SPEC_FUNC
+			 */
 			writel_relaxed((readl_relaxed(host->ioaddr + \
 					CORE_VENDOR_SPEC)
 					| CORE_HC_SELECT_IN_HS400
@@ -2479,20 +2479,20 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 					host->ioaddr + CORE_VENDOR_SPEC);
 		}
 	} else {
-		/*                                              */
+		/* Select the default clock (free running MCLK) */
 		writel_relaxed(((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 					& ~CORE_HC_MCLK_SEL_MASK)
 					| CORE_HC_MCLK_SEL_DFLT),
 					host->ioaddr + CORE_VENDOR_SPEC);
 
 		/*
-                                                               
-                                                            
-           
-    
-                                                      
-                        
-   */
+		 * Disable HC_SELECT_IN to be able to use the UHS mode select
+		 * configuration from Host Control2 register for all other
+		 * modes.
+		 *
+		 * Write 0 to HC_SELECT_IN and HC_SELECT_IN_EN field
+		 * in VENDOR_SPEC_FUNC
+		 */
 		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 				& ~CORE_HC_SELECT_IN_EN
 				& ~CORE_HC_SELECT_IN_MASK),
@@ -2513,9 +2513,9 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 		msm_host->clk_rate = sup_clock;
 		host->clock = clock;
 		/*
-                                                           
-                   
-   */
+		 * Update the bus vote in case of frequency change due to
+		 * clock scaling.
+		 */
 		sdhci_msm_bus_voting(host, 1);
 	}
 }
@@ -2528,7 +2528,7 @@ static int sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 	u16 ctrl_2;
 
 	ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
-	/*                                */
+	/* Select Bus Speed Mode for host */
 	ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
 	if (uhs == MMC_TIMING_MMC_HS400)
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
@@ -2545,11 +2545,11 @@ static int sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 	else if (uhs == MMC_TIMING_UHS_DDR50)
 		ctrl_2 |= SDHCI_CTRL_UHS_DDR50;
 	/*
-                                                                       
-                                                                       
-                                                                    
-                                                        
-  */
+	 * When clock frquency is less than 100MHz, the feedback clock must be
+	 * provided and DLL must not be used so that tuning can be skipped. To
+	 * provide feedback clock, the mode selection can be any value less
+	 * than 3'b011 in bits [2:0] of HOST CONTROL2 register.
+	 */
 	if (host->clock <= CORE_FREQ_100MHZ) {
 		if ((uhs == MMC_TIMING_MMC_HS400) ||
 		    (uhs == MMC_TIMING_MMC_HS200) ||
@@ -2557,24 +2557,24 @@ static int sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 			ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
 
 		/*
-                                                
-    
-                                                  
-   */
+		 * Make sure DLL is disabled when not required
+		 *
+		 * Write 1 to DLL_RST bit of DLL_CONFIG register
+		 */
 		writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
 				| CORE_DLL_RST),
 				host->ioaddr + CORE_DLL_CONFIG);
 
-		/*                                               */
+		/* Write 1 to DLL_PDN bit of DLL_CONFIG register */
 		writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
 				| CORE_DLL_PDN),
 				host->ioaddr + CORE_DLL_CONFIG);
 		mb();
 
 		/*
-                                                           
-                                                    
-   */
+		 * The DLL needs to be restored and CDCLP533 recalibrated
+		 * when the clock frequency is set back to 400MHz.
+		 */
 		msm_host->calibration_done = false;
 	}
 
@@ -2586,17 +2586,17 @@ static int sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 }
 
 /*
-                                                                         
-  
-                                                                            
-                                                                              
-               
-  
-                                                                                
-                                                                         
-                                        
-  
-                                                        
+ * sdhci_msm_disable_data_xfer - disable undergoing AHB bus data transfer
+ *
+ * Write 0 to bit 0 in MCI_DATA_CTL (offset 0x2C) - clearing TxActive bit by
+ * access to legacy registers. It will stop current burst and prevent start of
+ * the next on.
+ *
+ * Polling CORE_AHB_DATA_DELAY_US timeout, by reading bit 13:12 until they are 0
+ * in CORE_SDCC_DEBUG_REG (offset 0x124) will validate that AHB burst was
+ * completed and a new one didn't start.
+ *
+ * Waiting for 4us while AHB finishes descriptors fetch.
  */
 static void sdhci_msm_disable_data_xfer(struct sdhci_host *host)
 {
@@ -2607,7 +2607,7 @@ static void sdhci_msm_disable_data_xfer(struct sdhci_host *host)
 	u32 version;
 
 	version = readl_relaxed(msm_host->core_mem + CORE_MCI_VERSION);
-	/*                                                 */
+	/* Core version 3.1.0 doesn't need this workaround */
 	if (version == CORE_VERSION_310)
 		return;
 
@@ -2615,7 +2615,7 @@ static void sdhci_msm_disable_data_xfer(struct sdhci_host *host)
 	value &= ~(u32)CORE_MCI_DPSM_ENABLE;
 	writel_relaxed(value, msm_host->core_mem + CORE_MCI_DATA_CTRL);
 
-	/*                                     */
+	/* Enable the test bus for device slot */
 	writel_relaxed(CORE_TESTBUS_ENA | CORE_TESTBUS_SEL2,
 			msm_host->core_mem + CORE_TESTBUS_CONFIG);
 
@@ -2628,7 +2628,7 @@ static void sdhci_msm_disable_data_xfer(struct sdhci_host *host)
 				mmc_hostname(host->mmc), __func__);
 		BUG();
 	}
-	/*                                      */
+	/* Disable the test bus for device slot */
 	value = readl_relaxed(msm_host->core_mem + CORE_TESTBUS_CONFIG);
 	value &= ~CORE_TESTBUS_ENA;
 	writel_relaxed(value, msm_host->core_mem + CORE_TESTBUS_CONFIG);
@@ -2662,14 +2662,14 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 			readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC_ADMA_ERR_ADDR1));
 
 	/*
-                                                              
-                                    
-   
-                                                                  
-                                                                    
-                                                                     
-                                               
-  */
+	 * tbsel indicates [2:0] bits and tbsel2 indicates [7:4] bits
+	 * of CORE_TESTBUS_CONFIG register.
+	 *
+	 * To select test bus 0 to 7 use tbsel and to select any test bus
+	 * above 7 use (tbsel2 | tbsel) to get the test bus number. For eg,
+	 * to select test bus 14, write 0x1E to CORE_TESTBUS_CONFIG register
+	 * i.e., tbsel2[7:4] = 0001, tbsel[2:0] = 110.
+	 */
 	for (tbsel2 = 0; tbsel2 < 3; tbsel2++) {
 		for (tbsel = 0; tbsel < 8; tbsel++) {
 			if (index >= MAX_TEST_BUS)
@@ -2686,7 +2686,7 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 		pr_info(" Test bus[%d to %d]: 0x%08x 0x%08x 0x%08x 0x%08x\n",
 				i, i + 3, debug_reg[i], debug_reg[i+1],
 				debug_reg[i+2], debug_reg[i+3]);
-	/*                  */
+	/* Disable test bus */
 	writel_relaxed(~CORE_TESTBUS_ENA, msm_host->core_mem +
 			CORE_TESTBUS_CONFIG);
 }
@@ -2736,7 +2736,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc = host->mmc;
 	msm_host->pdev = pdev;
 
-	/*                       */
+	/* Extract platform data */
 	if (pdev->dev.of_node) {
 		ret = of_alias_get_id(pdev->dev.of_node, "sdhc");
 		if (ret < 0) {
@@ -2761,12 +2761,12 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		goto pltfm_free;
 	}
 
-	/*              */
+	/* Setup Clocks */
 
-	/*                             */
+	/* Setup SDCC bus voter clock. */
 	msm_host->bus_clk = devm_clk_get(&pdev->dev, "bus_clk");
 	if (!IS_ERR_OR_NULL(msm_host->bus_clk)) {
-		/*                                             */
+		/* Vote for max. clk rate for max. performance */
 		ret = clk_set_rate(msm_host->bus_clk, INT_MAX);
 		if (ret)
 			goto pltfm_free;
@@ -2775,7 +2775,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 			goto pltfm_free;
 	}
 
-	/*                                 */
+	/* Setup main peripheral bus clock */
 	msm_host->pclk = devm_clk_get(&pdev->dev, "iface_clk");
 	if (!IS_ERR(msm_host->pclk)) {
 		ret = clk_prepare_enable(msm_host->pclk);
@@ -2784,14 +2784,14 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	}
 	atomic_set(&msm_host->controller_clock, 1);
 
-	/*                     */
+	/* Setup SDC MMC clock */
 	msm_host->clk = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(msm_host->clk)) {
 		ret = PTR_ERR(msm_host->clk);
 		goto pclk_disable;
 	}
 
-	/*                                              */
+	/* Set to the minimum supported clock frequency */
 	ret = clk_set_rate(msm_host->clk, sdhci_msm_get_min_clock(host));
 	if (ret) {
 		dev_err(&pdev->dev, "MClk rate set failed (%d)\n", ret);
@@ -2804,7 +2804,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->clk_rate = sdhci_msm_get_min_clock(host);
 	atomic_set(&msm_host->clks_on, 1);
 
-	/*                                            */
+	/* Setup CDC calibration fixed feedback clock */
 	msm_host->ff_clk = devm_clk_get(&pdev->dev, "cal_clk");
 	if (!IS_ERR(msm_host->ff_clk)) {
 		ret = clk_prepare_enable(msm_host->ff_clk);
@@ -2812,7 +2812,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 			goto clk_disable;
 	}
 
-	/*                                   */
+	/* Setup CDC calibration sleep clock */
 	msm_host->sleep_clk = devm_clk_get(&pdev->dev, "sleep_clk");
 	if (!IS_ERR(msm_host->sleep_clk)) {
 		ret = clk_prepare_enable(msm_host->sleep_clk);
@@ -2831,14 +2831,14 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 				  sdhci_msm_bus_work);
 	sdhci_msm_bus_voting(host, 1);
 
-	/*                  */
+	/* Setup regulators */
 	ret = sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, true);
 	if (ret) {
 		dev_err(&pdev->dev, "Regulator setup failed (%d)\n", ret);
 		goto bus_unregister;
 	}
 
-	/*                                     */
+	/* Reset the core and Enable SDHC mode */
 	core_memres = platform_get_resource_byname(pdev,
 				IORESOURCE_MEM, "core_mem");
 	msm_host->core_mem = devm_ioremap(&pdev->dev, core_memres->start,
@@ -2850,18 +2850,18 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		goto vreg_deinit;
 	}
 
-	/*                                          */
+	/* Unset HC_MODE_EN bit in HC_MODE register */
 	writel_relaxed(0, (msm_host->core_mem + CORE_HC_MODE));
 
-	/*                                               */
+	/* Set SW_RST bit in POWER register (Offset 0x0) */
 	writel_relaxed(readl_relaxed(msm_host->core_mem + CORE_POWER) |
 			CORE_SW_RST, msm_host->core_mem + CORE_POWER);
 	/*
-                                                  
-                                                     
-                                                    
-                                  
-  */
+	 * SW reset can take upto 10HCLK + 15MCLK cycles.
+	 * Calculating based on min clk rates (hclk = 27MHz,
+	 * mclk = 400KHz) it comes to ~40us. Let's poll for
+	 * max. 1ms for reset completion.
+	 */
 	ret = readl_poll_timeout(msm_host->core_mem + CORE_POWER,
 			pwr, !(pwr & CORE_SW_RST), 100, 10);
 
@@ -2869,20 +2869,20 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "reset failed (%d)\n", ret);
 		goto vreg_deinit;
 	}
-	/*                                        */
+	/* Set HC_MODE_EN bit in HC_MODE register */
 	writel_relaxed(HC_MODE_EN, (msm_host->core_mem + CORE_HC_MODE));
 
-	/*                                               */
+	/* Set FF_CLK_SW_RST_DIS bit in HC_MODE register */
 	writel_relaxed(readl_relaxed(msm_host->core_mem + CORE_HC_MODE) |
 			FF_CLK_SW_RST_DIS, msm_host->core_mem + CORE_HC_MODE);
 
 	/*
-                                                                        
-                                                                     
-                                                                       
-                                                                      
-                                                                     
-  */
+	 * CORE_SW_RST above may trigger power irq if previous status of PWRCTL
+	 * was either BUS_ON or IO_HIGH_V. So before we enable the power irq
+	 * interrupt in GIC (by registering the interrupt handler), we need to
+	 * ensure that any pending power irq interrupt status is acknowledged
+	 * otherwise power irq interrupt handler would be fired prematurely.
+	 */
 	irq_status = readl_relaxed(msm_host->core_mem + CORE_PWRCTL_STATUS);
 	writel_relaxed(irq_status, (msm_host->core_mem + CORE_PWRCTL_CLEAR));
 	irq_ctl = readl_relaxed(msm_host->core_mem + CORE_PWRCTL_CTL);
@@ -2892,16 +2892,16 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		irq_ctl |= CORE_PWRCTL_IO_SUCCESS;
 	writel_relaxed(irq_ctl, (msm_host->core_mem + CORE_PWRCTL_CTL));
 	/*
-                                                                       
-           
-  */
+	 * Ensure that above writes are propogated before interrupt enablement
+	 * in GIC.
+	 */
 	mb();
 
 	/*
-                                                      
-                                                     
-                                                             
-  */
+	 * Following are the deviations from SDHC spec v3.0 -
+	 * 1. Card detection is handled using separate GPIO.
+	 * 2. Bus power control is handled by interacting with PMIC.
+	 */
 	host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
 	host->quirks |= SDHCI_QUIRK_SINGLE_POWER_WRITE;
 	host->quirks |= SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN;
@@ -2922,18 +2922,18 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	if (((host_version & SDHCI_VENDOR_VER_MASK) >>
 		SDHCI_VENDOR_VER_SHIFT) == SDHCI_VER_100) {
 		/*
-                                             
-                                                   
-   */
+		 * Add 40us delay in interrupt handler when
+		 * operating at initialization frequency(400KHz).
+		 */
 		host->quirks2 |= SDHCI_QUIRK2_SLOW_INT_CLR;
 		/*
-                                                
-                            
-   */
+		 * Set Software Reset for DAT line in Software
+		 * Reset Register (Bit 2).
+		 */
 		host->quirks2 |= SDHCI_QUIRK2_RDWR_TX_ACTIVE_EOT;
 	}
 
-	/*                  */
+	/* Setup PWRCTL irq */
 	msm_host->pwr_irq = platform_get_irq_byname(pdev, "pwr_irq");
 	if (msm_host->pwr_irq < 0) {
 		dev_err(&pdev->dev, "Failed to get pwr_irq by name (%d)\n",
@@ -2949,13 +2949,13 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		goto vreg_deinit;
 	}
 
-	/*                           */
+	/* Enable pwr irq interrupts */
 	writel_relaxed(INT_MASK, (msm_host->core_mem + CORE_PWRCTL_MASK));
 
-	/*                                                                  */
+	/* Set clock gating delay to be used when CONFIG_MMC_CLKGATE is set */
 	msm_host->mmc->clkgate_delay = SDHCI_MSM_MMC_CLK_GATE_DELAY;
 
-	/*                       */
+	/* Set host capabilities */
 	msm_host->mmc->caps |= msm_host->pdata->mmc_bus_width;
 	msm_host->mmc->caps |= msm_host->pdata->caps;
 
@@ -3056,7 +3056,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	else if (mmc_use_core_runtime_pm(host->mmc))
 		pm_runtime_enable(&pdev->dev);
 
-	/*                           */
+	/* Successful initialization */
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
 /*           
                                                     
@@ -3145,10 +3145,10 @@ static int sdhci_msm_runtime_suspend(struct device *dev)
 	disable_irq(msm_host->pwr_irq);
 
 	/*
-                                                               
-                                                                
-                                                          
-  */
+	 * Remove the vote immediately only if clocks are off in which
+	 * case we might have queued work to remove vote but it may not
+	 * be completed before runtime suspend or system suspend.
+	 */
 	if (!atomic_read(&msm_host->clks_on)) {
 		if (msm_host->msm_bus_vote.client_handle)
 			sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
@@ -3233,7 +3233,7 @@ static const struct dev_pm_ops sdhci_msm_pmops = {
 #endif
 static const struct of_device_id sdhci_msm_dt_match[] = {
 	{.compatible = "qcom,sdhci-msm"},
-	{ /*          */ }
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, sdhci_msm_dt_match);
 
@@ -3452,4 +3452,4 @@ static void msmsdhci_dbg_createhost(struct sdhci_msm_host *host)
         S_IROTH | S_IWOTH | S_IRGRP | S_IWGRP | S_IRUSR | S_IWUSR,
         mmc->debugfs_root, host, &msmsdhci_dbg_strength_fops);
 }
-#endif /*                      */
+#endif /*CONFIG_MMC_MSM_DEBUGFS*/

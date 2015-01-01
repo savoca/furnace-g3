@@ -13,8 +13,8 @@
 #include <asm/page.h>
 #include <asm/pgtable.h>
 
-#define QUICK_PGD	0	/*                                    */
-#define QUICK_PT	1	/*              */
+#define QUICK_PGD	0	/* Preserve kernel mappings over free */
+#define QUICK_PT	1	/* Zero on free */
 
 static inline void pmd_populate_kernel(struct mm_struct *mm,
 				       pmd_t *pmd, pte_t *pte)
@@ -39,7 +39,7 @@ static inline void pgd_ctor(void *x)
 }
 
 /*
-                                
+ * Allocate and free page tables
  */
 static inline pgd_t *pgd_alloc(struct mm_struct *mm)
 {
@@ -96,4 +96,4 @@ static inline void check_pgt_cache(void)
 	quicklist_trim(QUICK_PT, NULL, 25, 16);
 }
 
-#endif /*                       */
+#endif /* __ASM_AVR32_PGALLOC_H */

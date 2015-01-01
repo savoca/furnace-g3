@@ -9,7 +9,7 @@
 #ifndef _GEODE_AES_H_
 #define _GEODE_AES_H_
 
-/*                    */
+/* driver logic flags */
 #define AES_IV_LENGTH  16
 #define AES_KEY_LENGTH 16
 #define AES_MIN_BLOCK_SIZE 16
@@ -22,7 +22,7 @@
 
 #define AES_FLAGS_HIDDENKEY (1 << 0)
 
-/*                      */
+/* Register definitions */
 
 #define AES_CTRLA_REG  0x0000
 
@@ -48,8 +48,8 @@
 #define AES_WRITEKEY0_REG 0x0030
 #define AES_WRITEIV0_REG  0x0040
 
-/*                                                                
-                                
+/*  A very large counter that is used to gracefully bail out of an
+ *  operation in case of trouble
  */
 
 #define AES_OP_TIMEOUT    0x50000

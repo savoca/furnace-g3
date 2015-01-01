@@ -17,13 +17,13 @@ struct gfs2_inode;
 struct page;
 
 
-/* 
-                                                                                
-                
-                                                      
-                                                           
-                                                              
-  
+/**
+ * gfs2_write_calc_reserv - calculate number of blocks needed to write to a file
+ * @ip: the file
+ * @len: the number of bytes to be written to the file
+ * @data_blocks: returns the number of data blocks required
+ * @ind_blocks: returns the number of indirect blocks required
+ *
  */
 
 static inline void gfs2_write_calc_reserv(const struct gfs2_inode *ip,
@@ -56,4 +56,4 @@ extern int gfs2_file_dealloc(struct gfs2_inode *ip);
 extern int gfs2_write_alloc_required(struct gfs2_inode *ip, u64 offset,
 				     unsigned int len);
 
-#endif /*                */
+#endif /* __BMAP_DOT_H__ */

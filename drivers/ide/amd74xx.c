@@ -44,7 +44,7 @@ static inline u8 amd_offset(struct pci_dev *dev)
 }
 
 /*
-                                                                
+ * amd_set_speed() writes timing values to the chipset registers
  */
 
 static void amd_set_speed(struct pci_dev *dev, u8 dn, u8 udma_mask,
@@ -75,8 +75,8 @@ static void amd_set_speed(struct pci_dev *dev, u8 dn, u8 udma_mask,
 }
 
 /*
-                                                                    
-                                                                      
+ * amd_set_drive() computes timing values and configures the chipset
+ * to a desired transfer mode.  It also can be called by upper layers.
  */
 
 static void amd_set_drive(ide_hwif_t *hwif, ide_drive_t *drive)
@@ -105,7 +105,7 @@ static void amd_set_drive(ide_hwif_t *hwif, ide_drive_t *drive)
 }
 
 /*
-                                                                          
+ * amd_set_pio_mode() is a callback from upper layers for PIO-only tuning.
  */
 
 static void amd_set_pio_mode(ide_hwif_t *hwif, ide_drive_t *drive)
@@ -116,7 +116,7 @@ static void amd_set_pio_mode(ide_hwif_t *hwif, ide_drive_t *drive)
 
 static void amd7409_cable_detect(struct pci_dev *dev)
 {
-	/*                              */
+	/* no host side cable detection */
 	amd_80w = 0x03;
 }
 
@@ -139,7 +139,7 @@ static void amd7411_cable_detect(struct pci_dev *dev)
 }
 
 /*
-                                                                        
+ * The initialization callback.  Initialize drive independent registers.
  */
 
 static int init_chipset_amd74xx(struct pci_dev *dev)
@@ -147,12 +147,12 @@ static int init_chipset_amd74xx(struct pci_dev *dev)
 	u8 t = 0, offset = amd_offset(dev);
 
 /*
-                                
+ * Check 80-wire cable presence.
  */
 
 	if (dev->vendor == PCI_VENDOR_ID_AMD &&
 	    dev->device == PCI_DEVICE_ID_AMD_COBRA_7401)
-		; /*             */
+		; /* no UDMA > 2 */
 	else if (dev->vendor == PCI_VENDOR_ID_AMD &&
 		 dev->device == PCI_DEVICE_ID_AMD_VIPER_7409)
 		amd7409_cable_detect(dev);
@@ -160,13 +160,13 @@ static int init_chipset_amd74xx(struct pci_dev *dev)
 		amd7411_cable_detect(dev);
 
 /*
-                                     
+ * Take care of prefetch & postwrite.
  */
 
 	pci_read_config_byte(dev, AMD_IDE_CONFIG + offset, &t);
 	/*
-                                  
-  */
+	 * Check for broken FIFO support.
+	 */
 	if (dev->vendor == PCI_VENDOR_ID_AMD &&
 	    dev->device == PCI_DEVICE_ID_AMD_VIPER_7411)
 		t &= 0x0f;
@@ -224,15 +224,15 @@ static const struct ide_port_ops amd_port_ops = {
 	}
 
 static const struct ide_port_info amd74xx_chipsets[] __devinitdata = {
-	/*            */	DECLARE_AMD_DEV(0x00, ATA_UDMA2),
-	/*            */	DECLARE_AMD_DEV(ATA_SWDMA2, ATA_UDMA4),
-	/*                 */	DECLARE_AMD_DEV(ATA_SWDMA2, ATA_UDMA5),
-	/*            */	DECLARE_AMD_DEV(ATA_SWDMA2, ATA_UDMA6),
+	/* 0: AMD7401 */	DECLARE_AMD_DEV(0x00, ATA_UDMA2),
+	/* 1: AMD7409 */	DECLARE_AMD_DEV(ATA_SWDMA2, ATA_UDMA4),
+	/* 2: AMD7411/7441 */	DECLARE_AMD_DEV(ATA_SWDMA2, ATA_UDMA5),
+	/* 3: AMD8111 */	DECLARE_AMD_DEV(ATA_SWDMA2, ATA_UDMA6),
 
-	/*           */		DECLARE_NV_DEV(ATA_UDMA5),
-	/*               */	DECLARE_NV_DEV(ATA_UDMA6),
+	/* 4: NFORCE */		DECLARE_NV_DEV(ATA_UDMA5),
+	/* 5: >= NFORCE2 */	DECLARE_NV_DEV(ATA_UDMA6),
 
-	/*            */	DECLARE_AMD_DEV(ATA_SWDMA2, ATA_UDMA5),
+	/* 6: AMD5536 */	DECLARE_AMD_DEV(ATA_SWDMA2, ATA_UDMA5),
 };
 
 static int __devinit amd74xx_probe(struct pci_dev *dev, const struct pci_device_id *id)
@@ -243,8 +243,8 @@ static int __devinit amd74xx_probe(struct pci_dev *dev, const struct pci_device_
 	d = amd74xx_chipsets[idx];
 
 	/*
-                                                                  
-  */
+	 * Check for bad SWDMA and incorrectly wired Serenade mainboards.
+	 */
 	if (idx == 1) {
 		if (dev->revision <= 7)
 			d.swdma_mask = 0;
@@ -256,10 +256,10 @@ static int __devinit amd74xx_probe(struct pci_dev *dev, const struct pci_device_
 	}
 
 	/*
-                                                            
-                                                            
-                                           
-  */
+	 * It seems that on some nVidia controllers using AltStatus
+	 * register can be unreliable so default to Status register
+	 * if the device is in Compatibility Mode.
+	 */
 	if (dev->vendor == PCI_VENDOR_ID_NVIDIA &&
 	    ide_pci_is_in_compatibility_mode(dev))
 		d.host_flags |= IDE_HFLAG_BROKEN_ALTSTATUS;
@@ -268,8 +268,8 @@ static int __devinit amd74xx_probe(struct pci_dev *dev, const struct pci_device_
 		d.name, pci_name(dev), amd_dma[fls(d.udma_mask) - 1]);
 
 	/*
-                                  
- */
+	* Determine the system bus clock.
+	*/
 	amd_clock = (ide_pci_clk ? ide_pci_clk : 33) * 1000;
 
 	switch (amd_clock) {

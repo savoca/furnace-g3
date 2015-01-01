@@ -11,7 +11,7 @@
  *
  */
 /*
-                                                                         
+ * SMD Packet Driver -- Provides userspace interface to SMD packet ports.
  */
 
 #include <linux/slab.h>

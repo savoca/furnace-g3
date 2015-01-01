@@ -131,7 +131,7 @@ int msm_tlmm_misc_reg_read(enum msm_tlmm_misc_reg misc_reg)
 void msm_tlmm_misc_reg_write(enum msm_tlmm_misc_reg misc_reg, int val)
 {
 	writel_relaxed(val, MSM_TLMM_BASE + misc_reg);
-	/*                                             */
+	/* ensure the write completes before returning */
 	mb();
 }
 
@@ -148,9 +148,9 @@ int msm_gpiomux_init(size_t ngpio)
 	if (!msm_gpiomux_recs)
 		return -ENOMEM;
 
-	/*                                                                 
-                                     
-  */
+	/* There is no need to zero this memory, as clients will be blindly
+	 * installing settings on top of it.
+	 */
 	msm_gpiomux_sets = kmalloc(sizeof(struct gpiomux_setting) * ngpio *
 		GPIOMUX_NSETTINGS, GFP_KERNEL);
 	if (!msm_gpiomux_sets) {

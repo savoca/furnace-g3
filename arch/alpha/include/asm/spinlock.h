@@ -5,10 +5,10 @@
 #include <asm/current.h>
 
 /*
-                                                                         
-                                        
-  
-                                                     
+ * Simple spin lock operations.  There are two variants, one clears IRQ's
+ * on the local processor, one does not.
+ *
+ * We make no fairness assumptions. They have a cost.
  */
 
 #define arch_spin_lock_flags(lock, flags) arch_spin_lock(lock)
@@ -47,7 +47,7 @@ static inline int arch_spin_trylock(arch_spinlock_t *lock)
 	return !test_and_set_bit(0, &lock->lock);
 }
 
-/*                                                         */
+/***********************************************************/
 
 static inline int arch_read_can_lock(arch_rwlock_t *lock)
 {
@@ -172,4 +172,4 @@ static inline void arch_write_unlock(arch_rwlock_t * lock)
 #define arch_read_relax(lock)	cpu_relax()
 #define arch_write_relax(lock)	cpu_relax()
 
-#endif /*                   */
+#endif /* _ALPHA_SPINLOCK_H */

@@ -29,7 +29,7 @@ struct ct_timer_ops {
 	void (*free_global)(struct ct_timer *);
 };
 
-/*                                               */
+/* timer instance -- assigned to each PCM stream */
 struct ct_timer_instance {
 	spinlock_t lock;
 	struct ct_timer *timer_base;
@@ -44,23 +44,23 @@ struct ct_timer_instance {
 	unsigned int need_update:1;
 };
 
-/*                        */
+/* timer instance manager */
 struct ct_timer {
-	spinlock_t lock;		/*                                  */
-	spinlock_t list_lock;		/*                        */
+	spinlock_t lock;		/* global timer lock (for xfitimer) */
+	spinlock_t list_lock;		/* lock for instance list */
 	struct ct_atc *atc;
 	struct ct_timer_ops *ops;
 	struct list_head instance_head;
 	struct list_head running_head;
-	unsigned int wc;		/*                   */
-	unsigned int irq_handling:1;	/*                 */
-	unsigned int reprogram:1;	/*                                 */
-	unsigned int running:1;		/*                      */
+	unsigned int wc;		/* current wallclock */
+	unsigned int irq_handling:1;	/* in IRQ handling */
+	unsigned int reprogram:1;	/* need to reprogram the internval */
+	unsigned int running:1;		/* global timer running */
 };
 
 
 /*
-                             
+ * system-timer-based updates
  */
 
 static void ct_systimer_callback(unsigned long data)
@@ -81,8 +81,8 @@ static void ct_systimer_callback(unsigned long data)
 		apcm->interrupt(apcm);
 		ti->position = position;
 	}
-	/*                                                          
-                                                          */
+	/* Add extra HZ*5/1000 to avoid overrun issue when recording
+	 * at 8kHz in 8-bit format or at 88kHz in 24-bit format. */
 	interval = ((period_size - (position % period_size))
 		   * HZ + (runtime->rate - 1)) / runtime->rate + HZ * 5 / 1000;
 	spin_lock_irqsave(&ti->lock, flags);
@@ -138,7 +138,7 @@ static struct ct_timer_ops ct_systimer_ops = {
 
 
 /*
-                                                             
+ * Handling multiple streams using a global emu20k1 timer irq
  */
 
 #define CT_TIMER_FREQ	48000
@@ -173,12 +173,12 @@ static inline unsigned int ct_xfitimer_get_wc(struct ct_timer *atimer)
 }
 
 /*
-                                
-                                                                           
-                                                                       
-                                                 
-  
-                                             
+ * reprogram the timer interval;
+ * checks the running instance list and determines the next timer interval.
+ * also updates the each stream position, returns the number of streams
+ * to call snd_pcm_period_elapsed() appropriately
+ *
+ * call this inside the lock and irq disabled
  */
 static int ct_xfitimer_reprogram(struct ct_timer *atimer, int can_update)
 {
@@ -189,7 +189,7 @@ static int ct_xfitimer_reprogram(struct ct_timer *atimer, int can_update)
 
 	if (list_empty(&atimer->running_head)) {
 		ct_xfitimer_irq_stop(atimer);
-		atimer->reprogram = 0; /*            */
+		atimer->reprogram = 0; /* clear flag */
 		return 0;
 	}
 
@@ -217,7 +217,7 @@ static int ct_xfitimer_reprogram(struct ct_timer *atimer, int can_update)
 						 rate - 1, rate);
 		}
 		if (ti->need_update && !can_update)
-			min_intr = 0; /*                         */
+			min_intr = 0; /* pending to the next irq */
 		if (ti->frag_count < min_intr)
 			min_intr = ti->frag_count;
 	}
@@ -225,11 +225,11 @@ static int ct_xfitimer_reprogram(struct ct_timer *atimer, int can_update)
 	if (min_intr < MIN_TICKS)
 		min_intr = MIN_TICKS;
 	ct_xfitimer_irq_rearm(atimer, min_intr);
-	atimer->reprogram = 0; /*            */
+	atimer->reprogram = 0; /* clear flag */
 	return updates;
 }
 
-/*                                                                  */
+/* look through the instance list and call period_elapsed if needed */
 static void ct_xfitimer_check_period(struct ct_timer *atimer)
 {
 	struct ct_timer_instance *ti;
@@ -245,7 +245,7 @@ static void ct_xfitimer_check_period(struct ct_timer *atimer)
 	spin_unlock_irqrestore(&atimer->list_lock, flags);
 }
 
-/*                        */
+/* Handle timer-interrupt */
 static void ct_xfitimer_callback(struct ct_timer *atimer)
 {
 	int update;
@@ -272,14 +272,14 @@ static void ct_xfitimer_prepare(struct ct_timer_instance *ti)
 }
 
 
-/*                      */
+/* start/stop the timer */
 static void ct_xfitimer_update(struct ct_timer *atimer)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&atimer->lock, flags);
 	if (atimer->irq_handling) {
-		/*                                               */
+		/* reached from IRQ handler; let it handle later */
 		atimer->reprogram = 1;
 		spin_unlock_irqrestore(&atimer->lock, flags);
 		return;
@@ -331,7 +331,7 @@ static struct ct_timer_ops ct_xfitimer_ops = {
 };
 
 /*
-                 
+ * timer instance
  */
 
 struct ct_timer_instance *
@@ -382,7 +382,7 @@ void ct_timer_instance_free(struct ct_timer_instance *ti)
 {
 	struct ct_timer *atimer = ti->timer_base;
 
-	atimer->ops->stop(ti); /*            */
+	atimer->ops->stop(ti); /* to be sure */
 	if (atimer->ops->free_instance)
 		atimer->ops->free_instance(ti);
 
@@ -394,14 +394,14 @@ void ct_timer_instance_free(struct ct_timer_instance *ti)
 }
 
 /*
-                
+ * timer manager
  */
 
 static void ct_timer_interrupt(void *data, unsigned int status)
 {
 	struct ct_timer *timer = data;
 
-	/*                          */
+	/* Interval timer interrupt */
 	if ((status & IT_INT) && timer->ops->interrupt)
 		timer->ops->interrupt(timer);
 }

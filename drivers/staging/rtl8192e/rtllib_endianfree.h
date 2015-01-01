@@ -2,14 +2,14 @@
 #define __INC_ENDIANFREE_H
 
 /*
-                                 
-                                 
-                                  
-                                  
+ *	Call endian free function when
+ *		1. Read/write packet content.
+ *		2. Before write integer to IO.
+ *		3. After read integer from IO.
  */
 
-#define __MACHINE_LITTLE_ENDIAN 1234    /*                      */
-#define __MACHINE_BIG_ENDIAN    4321    /*                                 */
+#define __MACHINE_LITTLE_ENDIAN 1234    /* LSB first: i386, vax */
+#define __MACHINE_BIG_ENDIAN    4321    /* MSB first: 68000, ibm, net, ppc */
 
 #define BYTE_ORDER __MACHINE_LITTLE_ENDIAN
 

@@ -25,7 +25,7 @@
 
 #include <mach/board_lge.h>
 
-/*           */
+/* Registers */
 #define LM3697_REG_OUTPUT_CFG		0x10
 
 #define LM3697_REG_BRT_CFG		0x16
@@ -47,7 +47,7 @@
 
 #define LM3697_REG_ENABLE		0x24
 
-/*                   */
+/* Other definitions */
 #define LM3697_PWM_ID			1
 #define LM3697_MAX_REGISTERS		0xB4
 #define LM3697_MAX_STRINGS		3
@@ -65,10 +65,10 @@ enum lm3697_bl_ctrl_mode {
 };
 
 /*
-                        
-                                
-                                        
-                               
+ * struct lm3697_bl_chip
+ * @dev: Parent device structure
+ * @regmap: Used for I2C register access
+ * @pdata: LM3697 platform data
  */
 struct lm3697_bl_chip {
 	struct device *dev;
@@ -84,14 +84,14 @@ static int cur_main_lcd_level = LM3697_MAX_BRIGHTNESS;
 
 static int current_setting = 20;
 /*
-                   
-                                                    
-                                      
-                                                              
-                                            
-                                
-                                                             
-                             
+ * struct lm3697_bl
+ * @bank_id: Control bank ID. BANK A or BANK A and B
+ * @bl_dev: Backlight device structure
+ * @chip: LM3697 backlight chip structure for low level access
+ * @bl_pdata: LM3697 backlight platform data
+ * @mode: Backlight control mode
+ * @pwm: PWM device structure. Only valid in PWM control mode
+ * @pwm_name: PWM device name
  */
 struct lm3697_bl {
 	int bank_id;
@@ -129,7 +129,7 @@ static void lm3697_bl_pwm_ctrl(struct lm3697_bl *lm3697_bl, int br, int max_br)
 	struct pwm_device *pwm;
 	unsigned int duty, period;
 
-	/*                                             */
+	/* Request a PWM device with the consumer name */
 	if (!lm3697_bl->pwm) {
 		pwm = pwm_request(LM3697_PWM_ID, lm3697_bl->pwm_name);
 		if (IS_ERR(pwm)) {
@@ -159,7 +159,7 @@ static int lm3697_bl_set_brightness(struct lm3697_bl *lm3697_bl, int brightness)
 	u8 reg_lsb[] = { LM3697_REG_BRT_A_LSB, LM3697_REG_BRT_B_LSB, };
 	u8 reg_msb[] = { LM3697_REG_BRT_A_MSB, LM3697_REG_BRT_B_MSB, };
 
-	/*                                                           */
+	/* Two registers(LSB and MSB) are updated for 11-bit dimming */
 
 	pr_debug("%s: brightness : %d\n", __func__, brightness);
 
@@ -281,9 +281,9 @@ static int lm3697_bl_update_status(struct backlight_device *bl_dev)
 				   bl_dev->props.max_brightness);
 
 	/*
-                                                
-                                                      
-  */
+	 * Brightness register should always be written
+	 * not only register based mode but also in PWM mode.
+	 */
 	return lm3697_bl_set_brightness(lm3697_bl, brt);
 #endif
 	return ret;
@@ -327,7 +327,7 @@ static int lm3697_bl_set_ctrl_mode(struct lm3697_bl *lm3697_bl)
 	else
 		lm3697_bl->mode = BL_REGISTER_BASED;
 
-	/*                                         */
+	/* Control bank assignment for PWM control */
 	if (lm3697_bl->mode == BL_PWM_BASED) {
 		snprintf(lm3697_bl->pwm_name, sizeof(lm3697_bl->pwm_name),
 			 "%s", LM3697_DEFAULT_PWM);
@@ -352,7 +352,7 @@ static int lm3697_bl_string_configure(struct lm3697_bl *lm3697_bl)
 	int is_detected = 0;
 	int i, ret;
 
-	/*                                                            */
+	/* Control bank assignment for backlight string configuration */
 	for (i = 0; i < LM3697_MAX_STRINGS; i++) {
 		if (test_bit(i, &lm3697_bl->bl_pdata->bl_string)) {
 			ret = lm3697_bl_update_bits(lm3697_bl->chip,
@@ -452,9 +452,9 @@ static enum lm3697_max_current lm3697_get_current_code(u8 imax_mA)
 	};
 
 	/*
-                                                       
-                          
-  */
+	 * Convert milliampere to appropriate enum code value.
+	 * Input range : 5 ~ 30mA
+	 */
 
 	if (imax_mA <= 5)
 		return LM3697_IMAX_5mA;
@@ -537,7 +537,7 @@ static ssize_t store_rt_mode(struct device *dev,
 DEVICE_ATTR(lm3697_bl_level, 0644, lcd_backlight_show_level,lcd_backlight_store_level);
 DEVICE_ATTR(lm3697_rt_mode, 0644, show_rt_mode,store_rt_mode);
 
-/*                                              */
+/* This helper funcion is moved from linux-v3.9 */
 static inline int _of_get_child_count(const struct device_node *np)
 {
 	struct device_node *child;
@@ -614,7 +614,7 @@ static int lm3697_bl_parse_dt(struct device *dev, struct lm3697_bl_chip *chip)
 		}
 		pr_info("%s: hvled : %d, register[0x10] = %ld\n", __func__,hvled_data, bl_pdata[i].bl_string);
 #else
-		/*                        */
+		/* Make backlight strings */
 		bl_pdata[i].bl_string = 0;
 		if (of_property_read_bool(child, "hvled1-used"))
 			bl_pdata[i].bl_string |= LM3697_HVLED1;
@@ -666,7 +666,7 @@ static int lm3697_bl_parse_dt(struct device *dev, struct lm3697_bl_chip *chip)
 		}
 #endif
 
-		/*          */
+		/* PWM mode */
 		of_property_read_u32(child, "pwm-period",
 				     &bl_pdata[i].pwm_period);
 
@@ -706,7 +706,7 @@ static int lm3697_bl_add_device(struct lm3697_bl *lm3697_bl)
 	props.brightness = pdata ? pdata->init_brightness : 0;
 	props.max_brightness = LM3697_MAX_BRIGHTNESS;
 
-	/*                       */
+	/* Backlight device name */
 	if (!pdata->name)
 		snprintf(name, sizeof(name), "%s:%d", LM3697_DEFAULT_NAME,
 			 lm3697_bl->bank_id);
@@ -857,10 +857,10 @@ error_register:
 	gpio_free(chip->pdata->en_gpio);
 
 error_enable:
-	/*                                      
-                                                           
-                                            
-  */
+	/* chip->pdata and chip->pdata->bl_pdata
+	 * are allocated in lm3697_bl_parse_dt() by devm_kzalloc()
+	 * bl_pdata->blmap is allocated by zalloc()
+	 */
 	num_backlights = chip->pdata->num_backlights;
 	for (i = 0; i < num_backlights; i++) {
 		temp = chip->pdata->bl_pdata + i;

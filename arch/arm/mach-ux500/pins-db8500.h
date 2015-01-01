@@ -9,8 +9,8 @@
 #define __MACH_PINS_DB8500_H
 
 /*
-                                                                            
-        
+ * TODO: Eventually encode all non-board specific pull up/down configuration
+ * here.
  */
 
 #define GPIO0_GPIO		PIN_CFG(0, GPIO)

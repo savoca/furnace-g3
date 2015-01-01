@@ -36,14 +36,14 @@
 }
 
 static struct mfd_cell lm3631_devs[] = {
-	/*              */
+	/* 5 Regulators */
 	LM3631_DEV_LCD_BIAS(1),
 	LM3631_DEV_LCD_BIAS(2),
 	LM3631_DEV_LCD_BIAS(3),
 	LM3631_DEV_LCD_BIAS(4),
 	LM3631_DEV_LCD_BIAS(5),
 
-	/*           */
+	/* Backlight */
 	LM3631_DEV_BL,
 };
 
@@ -80,12 +80,12 @@ static int lm3631_init_device(struct lm3631 *lm3631)
 	int ret;
 
 	/*
-            
-   
-                      
-                                                                 
-                          
-  */
+	 * Sequence
+	 *
+	 * 1) Enable nRST pin
+	 * 2) Delay about 1ms (bias delay 200us + EPROM read time 700us)
+	 * 3) Set LCD_EN bit to 1
+	 */
 
 	ret = gpio_request_one(lm3631->pdata->en_gpio,
 				    GPIOF_OUT_INIT_HIGH, "lm3631_hwen");

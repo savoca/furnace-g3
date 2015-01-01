@@ -11,8 +11,8 @@
  * published by the Free Software Foundation.
  */
 
-/*                                                                       
-              
+/* values for S3C2410_EXTINT0/1/2 and other cpus in the series, including
+ * the S3C64XX
 */
 #define S3C2410_EXTINT_LOWLEV	 (0x00)
 #define S3C2410_EXTINT_HILEV	 (0x01)

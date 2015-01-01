@@ -33,7 +33,7 @@
 #define APCI1710_CHRONO_READ_PORT	3
 
 /*
-                                      
+ * CHRONOMETER INISIALISATION FUNCTION
  */
 int i_APCI1710_InsnConfigInitChrono(struct comedi_device *dev, struct comedi_subdevice *s,
 				    struct comedi_insn *insn, unsigned int *data);
@@ -44,7 +44,7 @@ int i_APCI1710_InsnWriteEnableDisableChrono(struct comedi_device *dev,
 					    unsigned int *data);
 
 /*
-                            
+ * CHRONOMETER READ FUNCTION
  */
 int i_APCI1710_InsnReadChrono(struct comedi_device *dev, struct comedi_subdevice *s,
 			      struct comedi_insn *insn, unsigned int *data);
@@ -67,7 +67,7 @@ int i_APCI1710_ConvertChronoValue(struct comedi_device *dev,
 				  unsigned int *pui_NanoSecond);
 
 /*
-                                            
+ * CHRONOMETER DIGITAL INPUT OUTPUT FUNCTION
  */
 int i_APCI1710_InsnBitsChronoDigitalIO(struct comedi_device *dev,
 				       struct comedi_subdevice *s, struct comedi_insn *insn,

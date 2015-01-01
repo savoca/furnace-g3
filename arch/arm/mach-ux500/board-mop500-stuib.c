@@ -16,7 +16,7 @@
 
 #include "board-mop500.h"
 
-/*                                      */
+/* STMPE/SKE keypad use this key layout */
 static const unsigned int mop500_keymap[] = {
 	KEY(2, 5, KEY_END),
 	KEY(4, 1, KEY_POWER),
@@ -45,7 +45,7 @@ static const struct matrix_keymap_data mop500_keymap_data = {
 	.keymap_size    = ARRAY_SIZE(mop500_keymap),
 };
 /*
-            
+ * STMPE1601
  */
 static struct stmpe_keypad_platform_data stmpe1601_keypad_data = {
 	.debounce_ms    = 64,
@@ -74,10 +74,10 @@ static struct i2c_board_info __initdata mop500_i2c0_devices_stuib[] = {
 };
 
 /*
-                                                   
+ * BU21013 ROHM touchscreen interface on the STUIBs
  */
 
-/*                                                */
+/* tracks number of bu21013 devices being enabled */
 static int bu21013_devices;
 
 #define TOUCH_GPIO_PIN  84
@@ -88,11 +88,11 @@ static int bu21013_devices;
 #define PRCMU_CLOCK_OCR		0x1CC
 #define TSC_EXT_CLOCK_9_6MHZ	0x840000
 
-/* 
-                                                        
-                               
-                                          
-                                                    
+/**
+ * bu21013_gpio_board_init : configures the touch panel.
+ * @reset_pin: reset pin number
+ * This function can be used to configures
+ * the voltage and reset the touch panel controller.
  */
 static int bu21013_gpio_board_init(int reset_pin)
 {
@@ -116,11 +116,11 @@ static int bu21013_gpio_board_init(int reset_pin)
 	return retval;
 }
 
-/* 
-                                                                    
-                               
-                                                               
-                              
+/**
+ * bu21013_gpio_board_exit : deconfigures the touch panel controller
+ * @reset_pin: reset pin number
+ * This function can be used to deconfigures the chip selection
+ * for touch panel controller.
  */
 static int bu21013_gpio_board_exit(int reset_pin)
 {
@@ -140,10 +140,10 @@ static int bu21013_gpio_board_exit(int reset_pin)
 	return retval;
 }
 
-/* 
-                                                     
-                                                                           
-              
+/**
+ * bu21013_read_pin_val : get the interrupt pin value
+ * This function can be used to get the interrupt pin value for touch panel
+ * controller.
  */
 static int bu21013_read_pin_val(void)
 {

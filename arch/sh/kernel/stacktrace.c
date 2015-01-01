@@ -23,7 +23,7 @@ static int save_stack_stack(void *data, char *name)
 }
 
 /*
-                                                            
+ * Save stack-backtrace addresses into a stack_trace buffer.
  */
 static void save_stack_address(void *data, unsigned long addr, int reliable)
 {

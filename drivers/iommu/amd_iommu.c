@@ -45,36 +45,36 @@
 #define LOOP_TIMEOUT	100000
 
 /*
-                                                                       
-                                                                   
-                                                                     
-                   
-  
-                                                                     
-                                                                     
-                                 
-  
-                                                                  
-                                            
-  
-                                                                       
-                                                                    
+ * This bitmap is used to advertise the page sizes our hardware support
+ * to the IOMMU core, which will then use this information to split
+ * physically contiguous memory regions it is mapping into page sizes
+ * that we support.
+ *
+ * Traditionally the IOMMU core just handed us the mappings directly,
+ * after making sure the size is an order of a 4KiB page and that the
+ * mapping has natural alignment.
+ *
+ * To retain this behavior, we currently advertise that we support
+ * all page sizes that are an order of 4KiB.
+ *
+ * If at some point we'd like to utilize the IOMMU core's new behavior,
+ * we could change this to advertise the real page sizes we support.
  */
 #define AMD_IOMMU_PGSIZES	(~0xFFFUL)
 
 static DEFINE_RWLOCK(amd_iommu_devtable_lock);
 
-/*                                           */
+/* A list of preallocated protection domains */
 static LIST_HEAD(iommu_pd_list);
 static DEFINE_SPINLOCK(iommu_pd_list_lock);
 
-/*                                           */
+/* List of all available dev_data structures */
 static LIST_HEAD(dev_data_list);
 static DEFINE_SPINLOCK(dev_data_list_lock);
 
 /*
-                                                   
-                                         
+ * Domain for untranslated devices - only allocated
+ * if iommu=pt passed on kernel cmd line.
  */
 static struct protection_domain *pt_domain;
 
@@ -84,7 +84,7 @@ static ATOMIC_NOTIFIER_HEAD(ppr_notifier);
 int amd_iommu_max_glx_val = -1;
 
 /*
-                                                     
+ * general struct to manage commands send to an IOMMU
  */
 struct iommu_cmd {
 	u32 data[4];
@@ -93,11 +93,11 @@ struct iommu_cmd {
 static void update_domain(struct protection_domain *domain);
 static int __init alloc_passthrough_domain(void);
 
-/*                                                                           
-  
-                   
-  
-                                                                            */
+/****************************************************************************
+ *
+ * Helper functions
+ *
+ ****************************************************************************/
 
 static struct iommu_dev_data *alloc_dev_data(u16 devid)
 {
@@ -200,8 +200,8 @@ static bool pdev_pri_erratum(struct pci_dev *pdev, u32 erratum)
 }
 
 /*
-                                                                               
-                                        
+ * In this function the list of preallocated protection domains is traversed to
+ * find the domain for a specific device
  */
 static struct dma_ops_domain *find_protection_domain(u16 devid)
 {
@@ -228,8 +228,8 @@ static struct dma_ops_domain *find_protection_domain(u16 devid)
 }
 
 /*
-                                                                           
-                                        
+ * This function checks if the driver got a valid device from the caller to
+ * avoid dereferencing invalid pointers.
  */
 static bool check_device(struct device *dev)
 {
@@ -238,13 +238,13 @@ static bool check_device(struct device *dev)
 	if (!dev || !dev->dma_mask)
 		return false;
 
-	/*                            */
+	/* No device or no PCI device */
 	if (dev->bus != &pci_bus_type)
 		return false;
 
 	devid = get_device_id(dev);
 
-	/*                   */
+	/* Out of our scope? */
 	if (devid > amd_iommu_last_bdf)
 		return false;
 
@@ -310,10 +310,10 @@ static void iommu_ignore_device(struct device *dev)
 static void iommu_uninit_device(struct device *dev)
 {
 	/*
-                                                                      
-                                                                   
-                             
-  */
+	 * Nothing to do here - we keep dev_data around for unplugged devices
+	 * and reuse it when the device is re-plugged - not doing so would
+	 * introduce a ton of races.
+	 */
 }
 
 void __init amd_iommu_uninit_devices(void)
@@ -329,7 +329,7 @@ void __init amd_iommu_uninit_devices(void)
 		iommu_uninit_device(&pdev->dev);
 	}
 
-	/*                                     */
+	/* Free all of our dev_data structures */
 	list_for_each_entry_safe(dev_data, n, &dev_data_list, dev_data_list)
 		free_dev_data(dev_data);
 }
@@ -362,7 +362,7 @@ out_free:
 #ifdef CONFIG_AMD_IOMMU_STATS
 
 /*
-                                                
+ * Initialization code for statistics collection
  */
 
 DECLARE_STATS_COUNTER(compl_wait);
@@ -424,11 +424,11 @@ static void amd_iommu_stats_init(void)
 
 #endif
 
-/*                                                                           
-  
-                               
-  
-                                                                            */
+/****************************************************************************
+ *
+ * Interrupt handling functions
+ *
+ ****************************************************************************/
 
 static void dump_dte_entry(u16 devid)
 {
@@ -541,9 +541,9 @@ static void iommu_handle_ppr_entry(struct amd_iommu *iommu, u32 head)
 	raw = (u64 *)(iommu->ppr_log + head);
 
 	/*
-                                                                     
-                                                                    
-  */
+	 * Hardware bug: Interrupt may arrive before the entry is written to
+	 * memory. If this happens we need to wait for the entry to arrive.
+	 */
 	for (i = 0; i < LOOP_TIMEOUT; ++i) {
 		if (PPR_REQ_TYPE(raw[0]) != 0)
 			break;
@@ -562,9 +562,9 @@ static void iommu_handle_ppr_entry(struct amd_iommu *iommu, u32 head)
 	fault.flags     = PPR_FLAGS(raw[0]);
 
 	/*
-                                                         
-                    
-  */
+	 * To detect the hardware bug we need to clear the entry
+	 * to back to zero.
+	 */
 	raw[0] = raw[1] = 0;
 
 	atomic_notifier_call_chain(&ppr_notifier, 0, &fault);
@@ -585,16 +585,16 @@ static void iommu_poll_ppr_log(struct amd_iommu *iommu)
 
 	while (head != tail) {
 
-		/*                  */
+		/* Handle PPR entry */
 		iommu_handle_ppr_entry(iommu, head);
 
-		/*                                     */
+		/* Update and refresh ring-buffer state*/
 		head = (head + PPR_ENTRY_SIZE) % PPR_LOG_SIZE;
 		writel(head, iommu->mmio_base + MMIO_PPR_HEAD_OFFSET);
 		tail = readl(iommu->mmio_base + MMIO_PPR_TAIL_OFFSET);
 	}
 
-	/*                             */
+	/* enable ppr interrupts again */
 	writel(MMIO_STATUS_PPR_INT_MASK, iommu->mmio_base + MMIO_STATUS_OFFSET);
 
 	spin_unlock_irqrestore(&iommu->lock, flags);
@@ -617,11 +617,11 @@ irqreturn_t amd_iommu_int_handler(int irq, void *data)
 	return IRQ_WAKE_THREAD;
 }
 
-/*                                                                           
-  
-                                  
-  
-                                                                            */
+/****************************************************************************
+ *
+ * IOMMU command queuing functions
+ *
+ ****************************************************************************/
 
 static int wait_on_sem(volatile u64 *sem)
 {
@@ -649,10 +649,10 @@ static void copy_cmd_to_buffer(struct amd_iommu *iommu,
 	target = iommu->cmd_buf + tail;
 	tail   = (tail + sizeof(*cmd)) % iommu->cmd_buf_size;
 
-	/*                        */
+	/* Copy command to buffer */
 	memcpy(target, cmd, sizeof(*cmd));
 
-	/*                         */
+	/* Tell the IOMMU about it */
 	writel(tail, iommu->mmio_base + MMIO_CMD_TAIL_OFFSET);
 }
 
@@ -685,9 +685,9 @@ static void build_inv_iommu_pages(struct iommu_cmd *cmd, u64 address,
 
 	if (pages > 1) {
 		/*
-                                                      
-                                
-   */
+		 * If we have to flush more than one page, flush all
+		 * TLB entries for this domain
+		 */
 		address = CMD_INV_IOMMU_ALL_PAGES_ADDRESS;
 		s = 1;
 	}
@@ -699,9 +699,9 @@ static void build_inv_iommu_pages(struct iommu_cmd *cmd, u64 address,
 	cmd->data[2]  = lower_32_bits(address);
 	cmd->data[3]  = upper_32_bits(address);
 	CMD_SET_TYPE(cmd, CMD_INV_IOMMU_PAGES);
-	if (s) /*                                            */
+	if (s) /* size bit - we flush more than one 4kb page */
 		cmd->data[2] |= CMD_INV_IOMMU_PAGES_SIZE_MASK;
-	if (pde) /*                                                       */
+	if (pde) /* PDE bit - we wan't flush everything not only the PTEs */
 		cmd->data[2] |= CMD_INV_IOMMU_PAGES_PDE_MASK;
 }
 
@@ -716,9 +716,9 @@ static void build_inv_iotlb_pages(struct iommu_cmd *cmd, u16 devid, int qdep,
 
 	if (pages > 1) {
 		/*
-                                                      
-                                
-   */
+		 * If we have to flush more than one page, flush all
+		 * TLB entries for this domain
+		 */
 		address = CMD_INV_IOMMU_ALL_PAGES_ADDRESS;
 		s = 1;
 	}
@@ -797,8 +797,8 @@ static void build_inv_all(struct iommu_cmd *cmd)
 }
 
 /*
-                                                                  
-                                  
+ * Writes the command to the IOMMUs command buffer and informs the
+ * hardware about the new command.
  */
 static int iommu_queue_command_sync(struct amd_iommu *iommu,
 				    struct iommu_cmd *cmd,
@@ -835,7 +835,7 @@ again:
 
 	copy_cmd_to_buffer(iommu, cmd, tail);
 
-	/*                                                             */
+	/* We need to sync now to make sure all commands are processed */
 	iommu->need_sync = sync;
 
 	spin_unlock_irqrestore(&iommu->lock, flags);
@@ -849,8 +849,8 @@ static int iommu_queue_command(struct amd_iommu *iommu, struct iommu_cmd *cmd)
 }
 
 /*
-                                                                  
-                     
+ * This function queues a completion wait command into the command
+ * buffer of an IOMMU
  */
 static int iommu_completion_wait(struct amd_iommu *iommu)
 {
@@ -890,8 +890,8 @@ static void iommu_flush_dte_all(struct amd_iommu *iommu)
 }
 
 /*
-                                                                           
-                                                            
+ * This function uses heavy locking and may disable irqs for some time. But
+ * this is no issue because it is only called during resume.
  */
 static void iommu_flush_tlb_all(struct amd_iommu *iommu)
 {
@@ -928,7 +928,7 @@ void iommu_flush_all_caches(struct amd_iommu *iommu)
 }
 
 /*
-                                                   
+ * Command send function for flushing on-device TLB
  */
 static int device_flush_iotlb(struct iommu_dev_data *dev_data,
 			      u64 address, size_t size)
@@ -946,7 +946,7 @@ static int device_flush_iotlb(struct iommu_dev_data *dev_data,
 }
 
 /*
-                                                              
+ * Command send function for invalidating a device table entry
  */
 static int device_flush_dte(struct iommu_dev_data *dev_data)
 {
@@ -966,9 +966,9 @@ static int device_flush_dte(struct iommu_dev_data *dev_data)
 }
 
 /*
-                                                                        
-                                                                       
-                                                         
+ * TLB invalidation function which is called from the mapping functions.
+ * It invalidates a single PTE if the range to flush is within a single
+ * page. Otherwise it flushes the whole TLB of the IOMMU.
  */
 static void __domain_flush_pages(struct protection_domain *domain,
 				 u64 address, size_t size, int pde)
@@ -984,9 +984,9 @@ static void __domain_flush_pages(struct protection_domain *domain,
 			continue;
 
 		/*
-                                                 
-                        
-   */
+		 * Devices of this domain are behind this IOMMU
+		 * We need a TLB flush
+		 */
 		ret |= iommu_queue_command(amd_iommus[i], &cmd);
 	}
 
@@ -1007,13 +1007,13 @@ static void domain_flush_pages(struct protection_domain *domain,
 	__domain_flush_pages(domain, address, size, 0);
 }
 
-/*                                                      */
+/* Flush the whole IO/TLB for a given protection domain */
 static void domain_flush_tlb(struct protection_domain *domain)
 {
 	__domain_flush_pages(domain, 0, CMD_INV_IOMMU_ALL_PAGES_ADDRESS, 0);
 }
 
-/*                                                                      */
+/* Flush the whole IO/TLB for a given protection domain - including PDE */
 static void domain_flush_tlb_pde(struct protection_domain *domain)
 {
 	__domain_flush_pages(domain, 0, CMD_INV_IOMMU_ALL_PAGES_ADDRESS, 1);
@@ -1028,16 +1028,16 @@ static void domain_flush_complete(struct protection_domain *domain)
 			continue;
 
 		/*
-                                                 
-                                                    
-   */
+		 * Devices of this domain are behind this IOMMU
+		 * We need to wait for completion of all commands.
+		 */
 		iommu_completion_wait(amd_iommus[i]);
 	}
 }
 
 
 /*
-                                                           
+ * This function flushes the DTEs for all devices in domain
  */
 static void domain_flush_devices(struct protection_domain *domain)
 {
@@ -1047,17 +1047,17 @@ static void domain_flush_devices(struct protection_domain *domain)
 		device_flush_dte(dev_data);
 }
 
-/*                                                                           
-  
-                                                                      
-                        
-  
-                                                                            */
+/****************************************************************************
+ *
+ * The functions below are used the create the page table mappings for
+ * unity mapped regions.
+ *
+ ****************************************************************************/
 
 /*
-                                                                         
-                                                                               
-              
+ * This function is used to add another level to an IO page table. Adding
+ * another level increases the size of the address space by 9 bits to a size up
+ * to 64 bits.
  */
 static bool increase_address_space(struct protection_domain *domain,
 				   gfp_t gfp)
@@ -1065,7 +1065,7 @@ static bool increase_address_space(struct protection_domain *domain,
 	u64 *pte;
 
 	if (domain->mode == PAGE_MODE_6_LEVEL)
-		/*                                    */
+		/* address space already 64 bit large */
 		return false;
 
 	pte = (void *)get_zeroed_page(gfp);
@@ -1108,7 +1108,7 @@ static u64 *alloc_pte(struct protection_domain *domain,
 			*pte = PM_LEVEL_PDE(level, virt_to_phys(page));
 		}
 
-		/*                               */
+		/* No level skipping support yet */
 		if (PM_PTE_LEVEL(*pte) != level)
 			return NULL;
 
@@ -1126,8 +1126,8 @@ static u64 *alloc_pte(struct protection_domain *domain,
 }
 
 /*
-                                                                     
-                                              
+ * This function checks if there is a PTE for a given dma address. If
+ * there is one, it returns the pointer to it.
  */
 static u64 *fetch_pte(struct protection_domain *domain, unsigned long address)
 {
@@ -1142,18 +1142,18 @@ static u64 *fetch_pte(struct protection_domain *domain, unsigned long address)
 
 	while (level > 0) {
 
-		/*             */
+		/* Not Present */
 		if (!IOMMU_PTE_PRESENT(*pte))
 			return NULL;
 
-		/*           */
+		/* Large PTE */
 		if (PM_PTE_LEVEL(*pte) == 0x07) {
 			unsigned long pte_mask, __pte;
 
 			/*
-                                             
-                                                
-    */
+			 * If we have a series of large PTEs, make
+			 * sure to return a pointer to the first one.
+			 */
 			pte_mask = PTE_PAGE_SIZE(*pte);
 			pte_mask = ~((PAGE_SIZE_PTE_COUNT(pte_mask) << 3) - 1);
 			__pte    = ((unsigned long)pte) & pte_mask;
@@ -1161,13 +1161,13 @@ static u64 *fetch_pte(struct protection_domain *domain, unsigned long address)
 			return (u64 *)__pte;
 		}
 
-		/*                               */
+		/* No level skipping support yet */
 		if (PM_PTE_LEVEL(*pte) != level)
 			return NULL;
 
 		level -= 1;
 
-		/*                        */
+		/* Walk to the next level */
 		pte = IOMMU_PTE_PAGE(*pte);
 		pte = &pte[PM_LEVEL_INDEX(level, address)];
 	}
@@ -1176,11 +1176,11 @@ static u64 *fetch_pte(struct protection_domain *domain, unsigned long address)
 }
 
 /*
-                                                                   
-                                                                 
-                                                                 
-                                                                       
-                                  
+ * Generic mapping functions. It maps a physical address into a DMA
+ * address space. It allocates the page table pages if necessary.
+ * In the future it can be extended to a generic mapping function
+ * supporting all features of AMD IOMMU page tables like level skipping
+ * and full 64 bit address spaces.
  */
 static int iommu_map_page(struct protection_domain *dom,
 			  unsigned long bus_addr,
@@ -1239,18 +1239,18 @@ static unsigned long iommu_unmap_page(struct protection_domain *dom,
 
 		if (!pte) {
 			/*
-                             
-                               
-    */
+			 * No PTE for this address
+			 * move forward in 4kb steps
+			 */
 			unmap_size = PAGE_SIZE;
 		} else if (PM_PTE_LEVEL(*pte) == 0) {
-			/*                                */
+			/* 4kb PTE found for this address */
 			unmap_size = PAGE_SIZE;
 			*pte       = 0ULL;
 		} else {
 			int count, i;
 
-			/*                                         */
+			/* Large PTE found which maps this address */
 			unmap_size = PTE_PAGE_SIZE(*pte);
 			count      = PAGE_SIZE_PTE_COUNT(unmap_size);
 			for (i = 0; i < count; i++)
@@ -1267,8 +1267,8 @@ static unsigned long iommu_unmap_page(struct protection_domain *dom,
 }
 
 /*
-                                                                       
-                       
+ * This function checks if a specific unity mapping entry is needed for
+ * this specific IOMMU.
  */
 static int iommu_for_unity_map(struct amd_iommu *iommu,
 			       struct unity_map_entry *entry)
@@ -1285,8 +1285,8 @@ static int iommu_for_unity_map(struct amd_iommu *iommu,
 }
 
 /*
-                                                                      
-                  
+ * This function actually applies the mapping to the page table of the
+ * dma_ops domain.
  */
 static int dma_ops_unity_map(struct dma_ops_domain *dma_dom,
 			     struct unity_map_entry *e)
@@ -1301,9 +1301,9 @@ static int dma_ops_unity_map(struct dma_ops_domain *dma_dom,
 		if (ret)
 			return ret;
 		/*
-                                                        
-                                 
-   */
+		 * if unity mapping is in aperture range mark the page
+		 * as allocated in the aperture
+		 */
 		if (addr < dma_dom->aperture_size)
 			__set_bit(addr >> PAGE_SHIFT,
 				  dma_dom->aperture[0]->bitmap);
@@ -1313,10 +1313,10 @@ static int dma_ops_unity_map(struct dma_ops_domain *dma_dom,
 }
 
 /*
-                                                             
-  
-                                                                        
-                                                     
+ * Init the unity mappings for a specific IOMMU in the system
+ *
+ * Basically iterates over all unity mapping entries and applies them to
+ * the default domain DMA of that IOMMU if necessary.
  */
 static int iommu_init_unity_mappings(struct amd_iommu *iommu)
 {
@@ -1335,7 +1335,7 @@ static int iommu_init_unity_mappings(struct amd_iommu *iommu)
 }
 
 /*
-                                                          
+ * Inits the unity mappings required for a specific device
  */
 static int init_unity_mappings_for_device(struct dma_ops_domain *dma_dom,
 					  u16 devid)
@@ -1354,25 +1354,25 @@ static int init_unity_mappings_for_device(struct dma_ops_domain *dma_dom,
 	return 0;
 }
 
-/*                                                                           
-  
-                                                                     
-                                                                        
-                                                                     
-                                                                   
-                       
-  
-                                                                            */
+/****************************************************************************
+ *
+ * The next functions belong to the address allocator for the dma_ops
+ * interface functions. They work like the allocators in the other IOMMU
+ * drivers. Its basically a bitmap which marks the allocated pages in
+ * the aperture. Maybe it could be enhanced in the future to a more
+ * efficient allocator.
+ *
+ ****************************************************************************/
 
 /*
-                                        
-  
-                                
+ * The address allocator core functions.
+ *
+ * called with domain->lock held
  */
 
 /*
-                                                                     
-          
+ * Used to reserve address ranges in the aperture (e.g. for exclusion
+ * ranges.
  */
 static void dma_ops_reserve_addresses(struct dma_ops_domain *dom,
 				      unsigned long start_page,
@@ -1391,9 +1391,9 @@ static void dma_ops_reserve_addresses(struct dma_ops_domain *dom,
 }
 
 /*
-                                                                   
-                                                                      
-           
+ * This function is used to add a new aperture range to an existing
+ * aperture in case of dma_ops domain allocation or address allocation
+ * failure.
  */
 static int alloc_new_range(struct dma_ops_domain *dma_dom,
 			   bool populate, gfp_t gfp)
@@ -1439,7 +1439,7 @@ static int alloc_new_range(struct dma_ops_domain *dma_dom,
 	old_size                = dma_dom->aperture_size;
 	dma_dom->aperture_size += APERTURE_RANGE_SIZE;
 
-	/*                                             */
+	/* Reserve address range used for MSI messages */
 	if (old_size < MSI_ADDR_BASE_LO &&
 	    dma_dom->aperture_size > MSI_ADDR_BASE_LO) {
 		unsigned long spage;
@@ -1451,7 +1451,7 @@ static int alloc_new_range(struct dma_ops_domain *dma_dom,
 		dma_ops_reserve_addresses(dma_dom, spage, pages);
 	}
 
-	/*                                             */
+	/* Initialize the exclusion range if necessary */
 	for_each_iommu(iommu) {
 		if (iommu->exclusion_start &&
 		    iommu->exclusion_start >= dma_dom->aperture[index]->offset
@@ -1466,11 +1466,11 @@ static int alloc_new_range(struct dma_ops_domain *dma_dom,
 	}
 
 	/*
-                                                                 
-                                                                 
-                                                             
-                         
-  */
+	 * Check for areas already mapped as present in the new aperture
+	 * range and mark those pages as reserved in the allocator. Such
+	 * mappings may already exist as a result of requested unity
+	 * mappings for devices.
+	 */
 	for (i = dma_dom->aperture[index]->offset;
 	     i < dma_dom->aperture_size;
 	     i += PAGE_SIZE) {
@@ -1572,9 +1572,9 @@ static unsigned long dma_ops_alloc_addresses(struct device *dev,
 }
 
 /*
-                             
-  
-                                
+ * The address free function.
+ *
+ * called with domain->lock held
  */
 static void dma_ops_free_addresses(struct dma_ops_domain *dom,
 				   unsigned long address,
@@ -1599,18 +1599,18 @@ static void dma_ops_free_addresses(struct dma_ops_domain *dom,
 
 }
 
-/*                                                                           
-  
-                                                                  
-                                                                       
-                                                                        
-                                                                     
-           
-  
-                                                                            */
+/****************************************************************************
+ *
+ * The next functions belong to the domain allocation. A domain is
+ * allocated for every IOMMU as the default domain. If device isolation
+ * is enabled, every device get its own domain. The most important thing
+ * about domains is the page table mapping the DMA address space they
+ * contain.
+ *
+ ****************************************************************************/
 
 /*
-                                                                              
+ * This function adds a protection domain to the global protection domain list
  */
 static void add_domain_to_list(struct protection_domain *domain)
 {
@@ -1622,8 +1622,8 @@ static void add_domain_to_list(struct protection_domain *domain)
 }
 
 /*
-                                                          
-                         
+ * This function removes a protection domain to the global
+ * protection domain list
  */
 static void del_domain_from_list(struct protection_domain *domain)
 {
@@ -1734,8 +1734,8 @@ static void free_gcr3_table(struct protection_domain *domain)
 }
 
 /*
-                                                          
-                                                                      
+ * Free a domain, only used if something went wrong in the
+ * allocation path and we need to free an already allocated page table
  */
 static void dma_ops_domain_free(struct dma_ops_domain *dom)
 {
@@ -1759,9 +1759,9 @@ static void dma_ops_domain_free(struct dma_ops_domain *dom)
 }
 
 /*
-                                                                      
-                                                                    
-                                                
+ * Allocates a new protection domain usable for the dma_ops functions.
+ * It also initializes the page table and the address allocator data
+ * structures required for the dma_ops interface
  */
 static struct dma_ops_domain *dma_ops_domain_alloc(void)
 {
@@ -1793,9 +1793,9 @@ static struct dma_ops_domain *dma_ops_domain_alloc(void)
 		goto free_dma_dom;
 
 	/*
-                                                            
-                                                       
-  */
+	 * mark the first page as allocated so we never return 0 as
+	 * a valid dma-address. So we can use 0 as error value
+	 */
 	dma_dom->aperture[0]->bitmap[0] = 1;
 	dma_dom->next_address = 0;
 
@@ -1809,8 +1809,8 @@ free_dma_dom:
 }
 
 /*
-                                                                         
-                 
+ * little helper function to check whether a given protection domain is a
+ * dma_ops domain
  */
 static bool dma_ops_domain(struct protection_domain *domain)
 {
@@ -1842,14 +1842,14 @@ static void set_dte_entry(u16 devid, struct protection_domain *domain, bool ats)
 		pte_root |= DTE_FLAG_GV;
 		pte_root |= (glx & DTE_GLX_MASK) << DTE_GLX_SHIFT;
 
-		/*                                                   */
+		/* First mask out possible old values for GCR3 table */
 		tmp = DTE_GCR3_VAL_B(~0ULL) << DTE_GCR3_SHIFT_B;
 		flags    &= ~tmp;
 
 		tmp = DTE_GCR3_VAL_C(~0ULL) << DTE_GCR3_SHIFT_C;
 		flags    &= ~tmp;
 
-		/*                            */
+		/* Encode GCR3 table into DTE */
 		tmp = DTE_GCR3_VAL_A(gcr3) << DTE_GCR3_SHIFT_A;
 		pte_root |= tmp;
 
@@ -1869,7 +1869,7 @@ static void set_dte_entry(u16 devid, struct protection_domain *domain, bool ats)
 
 static void clear_dte_entry(u16 devid)
 {
-	/*                                                         */
+	/* remove entry from the device table seen by the hardware */
 	amd_iommu_dev_table[devid].data[0] = IOMMU_PTE_P | IOMMU_PTE_TV;
 	amd_iommu_dev_table[devid].data[1] = 0;
 
@@ -1885,16 +1885,16 @@ static void do_attach(struct iommu_dev_data *dev_data,
 	iommu = amd_iommu_rlookup_table[dev_data->devid];
 	ats   = dev_data->ats.enabled;
 
-	/*                        */
+	/* Update data structures */
 	dev_data->domain = domain;
 	list_add(&dev_data->list, &domain->dev_list);
 	set_dte_entry(dev_data->devid, domain, ats);
 
-	/*                       */
+	/* Do reference counting */
 	domain->dev_iommu[iommu->index] += 1;
 	domain->dev_cnt                 += 1;
 
-	/*                     */
+	/* Flush the DTE entry */
 	device_flush_dte(dev_data);
 }
 
@@ -1904,35 +1904,35 @@ static void do_detach(struct iommu_dev_data *dev_data)
 
 	iommu = amd_iommu_rlookup_table[dev_data->devid];
 
-	/*                             */
+	/* decrease reference counters */
 	dev_data->domain->dev_iommu[iommu->index] -= 1;
 	dev_data->domain->dev_cnt                 -= 1;
 
-	/*                        */
+	/* Update data structures */
 	dev_data->domain = NULL;
 	list_del(&dev_data->list);
 	clear_dte_entry(dev_data->devid);
 
-	/*                     */
+	/* Flush the DTE entry */
 	device_flush_dte(dev_data);
 }
 
 /*
-                                                                      
-                                      
+ * If a device is not yet associated with a domain, this function does
+ * assigns it visible for the hardware
  */
 static int __attach_device(struct iommu_dev_data *dev_data,
 			   struct protection_domain *domain)
 {
 	int ret;
 
-	/*             */
+	/* lock domain */
 	spin_lock(&domain->lock);
 
 	if (dev_data->alias_data != NULL) {
 		struct iommu_dev_data *alias_data = dev_data->alias_data;
 
-		/*                    */
+		/* Some sanity checks */
 		ret = -EBUSY;
 		if (alias_data->domain != NULL &&
 				alias_data->domain != domain)
@@ -1942,7 +1942,7 @@ static int __attach_device(struct iommu_dev_data *dev_data,
 				dev_data->domain != domain)
 			goto out_unlock;
 
-		/*                    */
+		/* Do real assignment */
 		if (alias_data->domain == NULL)
 			do_attach(alias_data, domain);
 
@@ -1958,7 +1958,7 @@ static int __attach_device(struct iommu_dev_data *dev_data,
 
 out_unlock:
 
-	/*       */
+	/* ready */
 	spin_unlock(&domain->lock);
 
 	return ret;
@@ -1972,7 +1972,7 @@ static void pdev_iommuv2_disable(struct pci_dev *pdev)
 	pci_disable_pasid(pdev);
 }
 
-/*                                                     */
+/* FIXME: Change generic reset-function to do the same */
 static int pri_reset_while_enabled(struct pci_dev *pdev)
 {
 	u16 control;
@@ -1994,23 +1994,23 @@ static int pdev_iommuv2_enable(struct pci_dev *pdev)
 	bool reset_enable;
 	int reqs, ret;
 
-	/*                                                        */
+	/* FIXME: Hardcode number of outstanding requests for now */
 	reqs = 32;
 	if (pdev_pri_erratum(pdev, AMD_PRI_DEV_ERRATUM_LIMIT_REQ_ONE))
 		reqs = 1;
 	reset_enable = pdev_pri_erratum(pdev, AMD_PRI_DEV_ERRATUM_ENABLE_RESET);
 
-	/*                                            */
+	/* Only allow access to user-accessible pages */
 	ret = pci_enable_pasid(pdev, 0);
 	if (ret)
 		goto out_err;
 
-	/*                                         */
+	/* First reset the PRI state of the device */
 	ret = pci_reset_pri(pdev);
 	if (ret)
 		goto out_err;
 
-	/*            */
+	/* Enable PRI */
 	ret = pci_enable_pri(pdev, reqs);
 	if (ret)
 		goto out_err;
@@ -2034,7 +2034,7 @@ out_err:
 	return ret;
 }
 
-/*                              */
+/* FIXME: Move this to PCI code */
 #define PCI_PRI_TLP_OFF		(1 << 2)
 
 bool pci_pri_tlp_required(struct pci_dev *pdev)
@@ -2052,8 +2052,8 @@ bool pci_pri_tlp_required(struct pci_dev *pdev)
 }
 
 /*
-                                                                      
-                                      
+ * If a device is not yet associated with a domain, this function does
+ * assigns it visible for the hardware
  */
 static int attach_device(struct device *dev,
 			 struct protection_domain *domain)
@@ -2086,17 +2086,17 @@ static int attach_device(struct device *dev,
 	write_unlock_irqrestore(&amd_iommu_devtable_lock, flags);
 
 	/*
-                                                              
-                                                           
-                                  
-  */
+	 * We might boot into a crash-kernel here. The crashed kernel
+	 * left the caches in the IOMMU dirty. So we have to flush
+	 * here to evict all dirty stuff.
+	 */
 	domain_flush_tlb_pde(domain);
 
 	return ret;
 }
 
 /*
-                                                       
+ * Removes a device from a protection domain (unlocked)
  */
 static void __detach_device(struct iommu_dev_data *dev_data)
 {
@@ -2122,17 +2122,17 @@ static void __detach_device(struct iommu_dev_data *dev_data)
 	spin_unlock_irqrestore(&domain->lock, flags);
 
 	/*
-                                                                    
-                                                               
-                                                        
-  */
+	 * If we run in passthrough mode the device must be assigned to the
+	 * passthrough domain if it is detached from any other domain.
+	 * Make sure we can deassign from the pt_domain itself.
+	 */
 	if (dev_data->passthrough &&
 	    (dev_data->domain == NULL && domain != pt_domain))
 		__attach_device(dev_data, pt_domain);
 }
 
 /*
-                                                                      
+ * Removes a device from a protection domain (with devtable_lock held)
  */
 static void detach_device(struct device *dev)
 {
@@ -2143,7 +2143,7 @@ static void detach_device(struct device *dev)
 	dev_data = get_dev_data(dev);
 	domain   = dev_data->domain;
 
-	/*                   */
+	/* lock device table */
 	write_lock_irqsave(&amd_iommu_devtable_lock, flags);
 	__detach_device(dev_data);
 	write_unlock_irqrestore(&amd_iommu_devtable_lock, flags);
@@ -2157,8 +2157,8 @@ static void detach_device(struct device *dev)
 }
 
 /*
-                                                                        
-                                                               
+ * Find out the protection domain structure for a given PCI device. This
+ * will give us the pointer to the page table root for example.
  */
 static struct protection_domain *domain_for_device(struct device *dev)
 {
@@ -2220,7 +2220,7 @@ static int device_change_notifier(struct notifier_block *nb,
 
 		domain = domain_for_device(dev);
 
-		/*                                                   */
+		/* allocate a protection domain if a device is added */
 		dma_domain = find_protection_domain(devid);
 		if (dma_domain)
 			goto out;
@@ -2257,18 +2257,18 @@ void amd_iommu_init_notifier(void)
 	bus_register_notifier(&pci_bus_type, &device_nb);
 }
 
-/*                                                                            
-  
-                                                                   
-  
-                                                                             */
+/*****************************************************************************
+ *
+ * The next functions belong to the dma_ops mapping/unmapping code.
+ *
+ *****************************************************************************/
 
 /*
-                                                                    
-                                                               
-                                   
-                                                                      
-                    
+ * In the dma_ops path we only have the struct device. This function
+ * finds the corresponding IOMMU, the protection domain and the
+ * requestor id for a given device.
+ * If the device is not yet associated with a domain this is also done
+ * in this function.
  */
 static struct protection_domain *get_domain(struct device *dev)
 {
@@ -2286,7 +2286,7 @@ static struct protection_domain *get_domain(struct device *dev)
 	if (domain != NULL)
 		return domain;
 
-	/*                                */
+	/* Device not bount yet - bind it */
 	dma_dom = find_protection_domain(devid);
 	if (!dma_dom)
 		dma_dom = amd_iommu_rlookup_table[devid]->default_dom;
@@ -2319,7 +2319,7 @@ static void update_domain(struct protection_domain *domain)
 }
 
 /*
-                                                                    
+ * This function fetches the PTE for a given address in the aperture
  */
 static u64* dma_ops_get_pte(struct dma_ops_domain *dom,
 			    unsigned long address)
@@ -2345,8 +2345,8 @@ static u64* dma_ops_get_pte(struct dma_ops_domain *dom,
 }
 
 /*
-                                                                     
-                                                             
+ * This is the generic map function. It maps one 4kb page at paddr to
+ * the given address in the DMA address space for the domain.
  */
 static dma_addr_t dma_ops_domain_map(struct dma_ops_domain *dom,
 				     unsigned long address,
@@ -2380,7 +2380,7 @@ static dma_addr_t dma_ops_domain_map(struct dma_ops_domain *dom,
 }
 
 /*
-                                                                       
+ * The generic unmapping function for on page in the DMA address space.
  */
 static void dma_ops_domain_unmap(struct dma_ops_domain *dom,
 				 unsigned long address)
@@ -2407,10 +2407,10 @@ static void dma_ops_domain_unmap(struct dma_ops_domain *dom,
 }
 
 /*
-                                                                 
-                                                                     
-                                                     
-                                            
+ * This function contains common code for mapping of a physically
+ * contiguous memory region into DMA address space. It is used by all
+ * mapping functions provided with this IOMMU driver.
+ * Must be called with the domain lock held.
  */
 static dma_addr_t __map_single(struct device *dev,
 			       struct dma_ops_domain *dma_dom,
@@ -2442,19 +2442,19 @@ retry:
 					  dma_mask);
 	if (unlikely(address == DMA_ERROR_CODE)) {
 		/*
-                                                   
-                                                       
-                                             
-   */
+		 * setting next_address here will let the address
+		 * allocator only scan the new allocated range in the
+		 * first run. This is a small optimization.
+		 */
 		dma_dom->next_address = dma_dom->aperture_size;
 
 		if (alloc_new_range(dma_dom, false, GFP_ATOMIC))
 			goto out;
 
 		/*
-                                                      
-                     
-   */
+		 * aperture was successfully enlarged by 128 MB, try
+		 * allocation again
+		 */
 		goto retry;
 	}
 
@@ -2493,8 +2493,8 @@ out_unmap:
 }
 
 /*
-                                                                     
-                           
+ * Does the reverse of the __map_single function. Must be called with
+ * the domain lock held too
  */
 static void __unmap_single(struct dma_ops_domain *dma_dom,
 			   dma_addr_t dma_addr,
@@ -2530,7 +2530,7 @@ static void __unmap_single(struct dma_ops_domain *dma_dom,
 }
 
 /*
-                                                
+ * The exported map_single function for dma_ops.
  */
 static dma_addr_t map_page(struct device *dev, struct page *page,
 			   unsigned long offset, size_t size,
@@ -2569,7 +2569,7 @@ out:
 }
 
 /*
-                                                  
+ * The exported unmap_single function for dma_ops.
  */
 static void unmap_page(struct device *dev, dma_addr_t dma_addr, size_t size,
 		       enum dma_data_direction dir, struct dma_attrs *attrs)
@@ -2593,8 +2593,8 @@ static void unmap_page(struct device *dev, dma_addr_t dma_addr, size_t size,
 }
 
 /*
-                                                                     
-                                                             
+ * This is a special map_sg function which is used if we should map a
+ * device which is not handled by an AMD IOMMU in the system.
  */
 static int map_sg_no_iommu(struct device *dev, struct scatterlist *sglist,
 			   int nelems, int dir)
@@ -2611,8 +2611,8 @@ static int map_sg_no_iommu(struct device *dev, struct scatterlist *sglist,
 }
 
 /*
-                                                                   
-          
+ * The exported map_sg function for dma_ops (handles scatter-gather
+ * lists).
  */
 static int map_sg(struct device *dev, struct scatterlist *sglist,
 		  int nelems, enum dma_data_direction dir,
@@ -2672,8 +2672,8 @@ unmap:
 }
 
 /*
-                                                                   
-          
+ * The exported map_sg function for dma_ops (handles scatter-gather
+ * lists).
  */
 static void unmap_sg(struct device *dev, struct scatterlist *sglist,
 		     int nelems, enum dma_data_direction dir,
@@ -2704,7 +2704,7 @@ static void unmap_sg(struct device *dev, struct scatterlist *sglist,
 }
 
 /*
-                                                    
+ * The exported alloc_coherent function for dma_ops.
  */
 static void *alloc_coherent(struct device *dev, size_t size,
 			    dma_addr_t *dma_addr, gfp_t flag,
@@ -2763,7 +2763,7 @@ out_free:
 }
 
 /*
-                                                   
+ * The exported free_coherent function for dma_ops.
  */
 static void free_coherent(struct device *dev, size_t size,
 			  void *virt_addr, dma_addr_t dma_addr,
@@ -2791,8 +2791,8 @@ free_mem:
 }
 
 /*
-                                                                          
-                                                
+ * This function is called by the DMA layer to find out if we can handle a
+ * particular device. It is part of the dma_ops.
  */
 static int amd_iommu_dma_supported(struct device *dev, u64 mask)
 {
@@ -2800,11 +2800,11 @@ static int amd_iommu_dma_supported(struct device *dev, u64 mask)
 }
 
 /*
-                                                      
-  
-                                                                      
-                                                               
-                      
+ * The function for pre-allocating protection domains.
+ *
+ * If the driver core informs the DMA layer if a driver grabs a device
+ * we don't need to preallocate the protection domains anymore.
+ * For now we have to.
  */
 static void __init prealloc_protection_domains(void)
 {
@@ -2815,13 +2815,13 @@ static void __init prealloc_protection_domains(void)
 
 	for_each_pci_dev(dev) {
 
-		/*                           */
+		/* Do we handle this device? */
 		if (!check_device(&dev->dev))
 			continue;
 
 		dev_data = get_dev_data(&dev->dev);
 		if (!amd_iommu_force_isolation && dev_data->iommu_v2) {
-			/*                                           */
+			/* Make sure passthrough domain is allocated */
 			alloc_passthrough_domain();
 			dev_data->passthrough = true;
 			attach_device(&dev->dev, pt_domain);
@@ -2829,7 +2829,7 @@ static void __init prealloc_protection_domains(void)
 				dev_name(&dev->dev));
 		}
 
-		/*                                     */
+		/* Is there already any domain for it? */
 		if (domain_for_device(&dev->dev))
 			continue;
 
@@ -2884,7 +2884,7 @@ static unsigned device_dma_ops_init(void)
 }
 
 /*
-                                                              
+ * The function which clues the AMD IOMMU driver into dma_ops.
  */
 
 void __init amd_iommu_init_api(void)
@@ -2898,10 +2898,10 @@ int __init amd_iommu_init_dma_ops(void)
 	int ret, unhandled;
 
 	/*
-                                                                 
-                                                          
-                                                          
-  */
+	 * first allocate a default protection domain for every IOMMU we
+	 * found in the system. Devices not assigned to any other
+	 * protection domain will be assigned to the default one.
+	 */
 	for_each_iommu(iommu) {
 		iommu->default_dom = dma_ops_domain_alloc();
 		if (iommu->default_dom == NULL)
@@ -2913,17 +2913,17 @@ int __init amd_iommu_init_dma_ops(void)
 	}
 
 	/*
-                                                        
-  */
+	 * Pre-allocate the protection domains for each device.
+	 */
 	prealloc_protection_domains();
 
 	iommu_detected = 1;
 	swiotlb = 0;
 
-	/*                                                */
+	/* Make the driver finally visible to the drivers */
 	unhandled = device_dma_ops_init();
 	if (unhandled && max_pfn > MAX_DMA32_PFN) {
-		/*                                                           */
+		/* There are unhandled devices - initialize swiotlb for them */
 		swiotlb = 1;
 	}
 
@@ -2941,15 +2941,15 @@ free_domains:
 	return ret;
 }
 
-/*                                                                            
-  
-                                                                        
-  
-                                                                     
-                                                                        
-                                                    
-  
-                                                                             */
+/*****************************************************************************
+ *
+ * The following functions belong to the exported interface of AMD IOMMU
+ *
+ * This interface allows access to lower level functions of the IOMMU
+ * like protection domain handling and assignement of devices to domains
+ * which is not possible with the dma_ops interface.
+ *
+ *****************************************************************************/
 
 static void cleanup_domain(struct protection_domain *domain)
 {
@@ -3009,7 +3009,7 @@ static int __init alloc_passthrough_domain(void)
 	if (pt_domain != NULL)
 		return 0;
 
-	/*                             */
+	/* allocate passthrough domain */
 	pt_domain = protection_domain_alloc();
 	if (!pt_domain)
 		return -ENOMEM;
@@ -3205,15 +3205,15 @@ static struct iommu_ops amd_iommu_ops = {
 	.pgsize_bitmap	= AMD_IOMMU_PGSIZES,
 };
 
-/*                                                                            
-  
-                                                                         
-       
-  
-                                                                            
-                       
-  
-                                                                             */
+/*****************************************************************************
+ *
+ * The next functions do a basic initialization of IOMMU for pass through
+ * mode
+ *
+ * In passthrough mode the IOMMU is initialized and enabled but not used for
+ * DMA-API translation.
+ *
+ *****************************************************************************/
 
 int __init amd_iommu_init_passthrough(void)
 {
@@ -3250,7 +3250,7 @@ int __init amd_iommu_init_passthrough(void)
 	return 0;
 }
 
-/*                            */
+/* IOMMUv2 specific functions */
 int amd_iommu_register_ppr_notifier(struct notifier_block *nb)
 {
 	return atomic_notifier_chain_register(&ppr_notifier, nb);
@@ -3270,14 +3270,14 @@ void amd_iommu_domain_direct_map(struct iommu_domain *dom)
 
 	spin_lock_irqsave(&domain->lock, flags);
 
-	/*                       */
+	/* Update data structure */
 	domain->mode    = PAGE_MODE_NONE;
 	domain->updated = true;
 
-	/*                                */
+	/* Make changes visible to IOMMUs */
 	update_domain(domain);
 
-	/*                                                        */
+	/* Page-table is not visible to IOMMU anymore, so free it */
 	free_pagetable(domain);
 
 	spin_unlock_irqrestore(&domain->lock, flags);
@@ -3293,7 +3293,7 @@ int amd_iommu_domain_enable_v2(struct iommu_domain *dom, int pasids)
 	if (pasids <= 0 || pasids > (PASID_MASK + 1))
 		return -EINVAL;
 
-	/*                                      */
+	/* Number of GCR3 table levels required */
 	for (levels = 0; (pasids - 1) & ~0x1ff; pasids >>= 9)
 		levels += 1;
 
@@ -3303,10 +3303,10 @@ int amd_iommu_domain_enable_v2(struct iommu_domain *dom, int pasids)
 	spin_lock_irqsave(&domain->lock, flags);
 
 	/*
-                                                            
-                                                             
-                                                           
-  */
+	 * Save us all sanity checks whether devices already in the
+	 * domain support IOMMUv2. Just force that the domain has no
+	 * devices attached when it is switched into IOMMUv2 mode.
+	 */
 	ret = -EBUSY;
 	if (domain->dev_cnt > 0 || domain->flags & PD_IOMMUV2_MASK)
 		goto out;
@@ -3344,9 +3344,9 @@ static int __flush_pasid(struct protection_domain *domain, int pasid,
 	build_inv_iommu_pasid(&cmd, domain->id, pasid, address, size);
 
 	/*
-                                                      
-                                            
-  */
+	 * IOMMU TLB needs to be flushed before Device TLB to
+	 * prevent device TLB refill from IOMMU TLB
+	 */
 	for (i = 0; i < amd_iommus_present; ++i) {
 		if (domain->dev_iommu[i] == 0)
 			continue;
@@ -3356,10 +3356,10 @@ static int __flush_pasid(struct protection_domain *domain, int pasid,
 			goto out;
 	}
 
-	/*                                           */
+	/* Wait until IOMMU TLB flushes are complete */
 	domain_flush_complete(domain);
 
-	/*                       */
+	/* Now flush device TLBs */
 	list_for_each_entry(dev_data, &domain->dev_list, list) {
 		struct amd_iommu *iommu;
 		int qdep;
@@ -3377,7 +3377,7 @@ static int __flush_pasid(struct protection_domain *domain, int pasid,
 			goto out;
 	}
 
-	/*                                        */
+	/* Wait until all device TLBs are flushed */
 	domain_flush_complete(domain);
 
 	ret = 0;
@@ -3553,7 +3553,7 @@ struct iommu_domain *amd_iommu_get_v2_domain(struct pci_dev *pdev)
 	if (IS_ERR(domain))
 		return NULL;
 
-	/*                             */
+	/* Only return IOMMUv2 domains */
 	if (!(domain->flags & PD_IOMMUV2_MASK))
 		return NULL;
 

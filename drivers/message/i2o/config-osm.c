@@ -25,12 +25,12 @@
 #define OSM_VERSION	"1.323"
 #define OSM_DESCRIPTION	"I2O Configuration OSM"
 
-/*                     */
+/* access mode user rw */
 #define S_IWRSR (S_IRUSR | S_IWUSR)
 
 static struct i2o_driver i2o_config_driver;
 
-/*                          */
+/* Config OSM driver struct */
 static struct i2o_driver i2o_config_driver = {
 	.name = OSM_NAME,
 };
@@ -39,13 +39,13 @@ static struct i2o_driver i2o_config_driver = {
 #include "i2o_config.c"
 #endif
 
-/* 
-                                                              
-  
-                                                                     
-                               
-  
-                                                          
+/**
+ *	i2o_config_init - Configuration OSM initialization function
+ *
+ *	Registers Configuration OSM in the I2O core and if old ioctl's are
+ *	compiled in initialize them.
+ *
+ *	Returns 0 on success or negative error code on failure.
  */
 static int __init i2o_config_init(void)
 {
@@ -66,11 +66,11 @@ static int __init i2o_config_init(void)
 	return 0;
 }
 
-/* 
-                                                    
-  
-                                                                  
-                                   
+/**
+ *	i2o_config_exit - Configuration OSM exit function
+ *
+ *	If old ioctl's are compiled in exit remove them and unregisters
+ *	Configuration OSM from I2O core.
  */
 static void i2o_config_exit(void)
 {

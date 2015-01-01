@@ -30,7 +30,7 @@
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
 #include <linux/videodev2.h>
-#include <linux/pci.h>		/*                      */
+#include <linux/pci.h>		/* needed for videobufs */
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/io.h>
@@ -52,20 +52,20 @@ static int omap24xxcam_sensor_if_enable(struct omap24xxcam_device *cam);
 static void omap24xxcam_device_unregister(struct v4l2_int_device *s);
 static int omap24xxcam_remove(struct platform_device *pdev);
 
-/*                   */
-static int video_nr = -1;	/*                                         */
+/* module parameters */
+static int video_nr = -1;	/* video device minor (-1 ==> auto assign) */
 /*
-                                                       
-                                                   
+ * Maximum amount of memory to use for capture buffers.
+ * Default is 4800KB, enough to double-buffer SXGA.
  */
 static int capture_mem = 1280 * 960 * 2 * 2;
 
 static struct v4l2_int_device omap24xxcam;
 
 /*
-  
-          
-  
+ *
+ * Clocks.
+ *
  */
 
 static void omap24xxcam_clock_put(struct omap24xxcam_device *cam)
@@ -113,15 +113,15 @@ static void omap24xxcam_clock_off(struct omap24xxcam_device *cam)
 }
 
 /*
-  
-              
-  
+ *
+ * Camera core
+ *
  */
 
 /*
-            
-  
-                                   
+ * Set xclk.
+ *
+ * To disable xclk, use value zero.
  */
 static void omap24xxcam_core_xclk_set(const struct omap24xxcam_device *cam,
 				      u32 xclk)
@@ -144,17 +144,17 @@ static void omap24xxcam_core_xclk_set(const struct omap24xxcam_device *cam,
 static void omap24xxcam_core_hwinit(const struct omap24xxcam_device *cam)
 {
 	/*
-                                                                   
-                                                               
-  */
+	 * Setting the camera core AUTOIDLE bit causes problems with frame
+	 * synchronization, so we will clear the AUTOIDLE bit instead.
+	 */
 	omap24xxcam_reg_out(cam->mmio_base + CC_REG_OFFSET, CC_SYSCONFIG,
 			    CC_SYSCONFIG_AUTOIDLE);
 
-	/*                                              */
+	/* program the camera interface DMA packet size */
 	omap24xxcam_reg_out(cam->mmio_base + CC_REG_OFFSET, CC_CTRL_DMA,
 			    CC_CTRL_DMA_EN | (DMA_THRESHOLD / 4 - 1));
 
-	/*                                     */
+	/* enable camera core error interrupts */
 	omap24xxcam_reg_out(cam->mmio_base + CC_REG_OFFSET, CC_IRQENABLE,
 			    CC_IRQENABLE_FW_ERR_IRQ
 			    | CC_IRQENABLE_FSC_ERR_IRQ
@@ -163,9 +163,9 @@ static void omap24xxcam_core_hwinit(const struct omap24xxcam_device *cam)
 }
 
 /*
-                          
-  
-                                                                   
+ * Enable the camera core.
+ *
+ * Data transfer to the camera DMA starts from next starting frame.
  */
 static void omap24xxcam_core_enable(const struct omap24xxcam_device *cam)
 {
@@ -175,12 +175,12 @@ static void omap24xxcam_core_enable(const struct omap24xxcam_device *cam)
 }
 
 /*
-                       
-  
-                                                                      
-                                                  
-                                                                    
-                    
+ * Disable camera core.
+ *
+ * The data transfer will be stopped immediately (CC_CTRL_CC_RST). The
+ * core internal state machines will be reset. Use
+ * CC_CTRL_CC_FRAME_TRIG instead if you want to transfer the current
+ * frame completely.
  */
 static void omap24xxcam_core_disable(const struct omap24xxcam_device *cam)
 {
@@ -188,7 +188,7 @@ static void omap24xxcam_core_disable(const struct omap24xxcam_device *cam)
 			    CC_CTRL_CC_RST);
 }
 
-/*                                                       */
+/* Interrupt service routine for camera core interrupts. */
 static void omap24xxcam_core_isr(struct omap24xxcam_device *cam)
 {
 	u32 cc_irqstatus;
@@ -213,19 +213,19 @@ static void omap24xxcam_core_isr(struct omap24xxcam_device *cam)
 }
 
 /*
-  
-                            
-  
-                                                       
-                                                              
-                                                                      
-            
-  
+ *
+ * videobuf_buffer handling.
+ *
+ * Memory for mmapped videobuf_buffers is not allocated
+ * conventionally, but by several kmalloc allocations and then
+ * creating the scatterlist on our own. User-space buffers are handled
+ * normally.
+ *
  */
 
 /*
-                                                       
-                                                  
+ * Free the memory-mapped buffer memory allocated for a
+ * videobuf_buffer and the associated scatterlist.
  */
 static void omap24xxcam_vbq_free_mmap_buffer(struct videobuf_buffer *vb)
 {
@@ -253,7 +253,7 @@ static void omap24xxcam_vbq_free_mmap_buffer(struct videobuf_buffer *vb)
 	dma->sglist = NULL;
 }
 
-/*                                                   */
+/* Release all memory related to the videobuf_queue. */
 static void omap24xxcam_vbq_free_mmap_buffers(struct videobuf_queue *vbq)
 {
 	int i;
@@ -277,21 +277,21 @@ static void omap24xxcam_vbq_free_mmap_buffers(struct videobuf_queue *vbq)
 }
 
 /*
-                                                                 
-                                                               
+ * Allocate physically as contiguous as possible buffer for video
+ * frame and allocate and build DMA scatter-gather list for it.
  */
 static int omap24xxcam_vbq_alloc_mmap_buffer(struct videobuf_buffer *vb)
 {
 	unsigned int order;
-	size_t alloc_size, size = vb->bsize; /*                           */
+	size_t alloc_size, size = vb->bsize; /* vb->bsize is page aligned */
 	struct page *page;
 	int max_pages, err = 0, i = 0;
 	struct videobuf_dmabuf *dma = videobuf_to_dma(vb);
 
 	/*
-                                                           
-                                                           
-  */
+	 * allocate maximum size scatter-gather list. Note this is
+	 * overhead. We may not use as many entries as we allocate
+	 */
 	max_pages = vb->bsize >> PAGE_SHIFT;
 	dma->sglist = kcalloc(max_pages, sizeof(*dma->sglist), GFP_KERNEL);
 	if (dma->sglist == NULL) {
@@ -302,15 +302,15 @@ static int omap24xxcam_vbq_alloc_mmap_buffer(struct videobuf_buffer *vb)
 	while (size) {
 		order = get_order(size);
 		/*
-                                                     
-                              
-   */
+		 * do not over-allocate even if we would get larger
+		 * contiguous chunk that way
+		 */
 		if ((PAGE_SIZE << order) > size)
 			order--;
 
-		/*                                                      */
+		/* try to allocate as many contiguous pages as possible */
 		page = alloc_pages(GFP_KERNEL, order);
-		/*                                                     */
+		/* if allocation fails, try to allocate smaller amount */
 		while (page == NULL) {
 			order--;
 			page = alloc_pages(GFP_KERNEL, order);
@@ -321,25 +321,25 @@ static int omap24xxcam_vbq_alloc_mmap_buffer(struct videobuf_buffer *vb)
 		}
 		size -= (PAGE_SIZE << order);
 
-		/*                                                          */
+		/* append allocated chunk of pages into scatter-gather list */
 		sg_set_page(&dma->sglist[i], page, PAGE_SIZE << order, 0);
 		dma->sglen++;
 		i++;
 
 		alloc_size = (PAGE_SIZE << order);
 
-		/*                                              */
+		/* clear pages before giving them to user space */
 		memset(page_address(page), 0, alloc_size);
 
-		/*                               */
+		/* mark allocated pages reserved */
 		do {
 			SetPageReserved(page++);
 		} while (alloc_size -= PAGE_SIZE);
 	}
 	/*
-                                                              
-                                                         
-  */
+	 * REVISIT: not fully correct to assign nr_pages == sglen but
+	 * video-buf is passing nr_pages for e.g. unmap_sg calls
+	 */
 	dma->nr_pages = dma->sglen;
 	dma->direction = PCI_DMA_FROMDEVICE;
 
@@ -382,8 +382,8 @@ out:
 }
 
 /*
-                                                                          
-                                           
+ * This routine is called from interrupt context when a scatter-gather DMA
+ * transfer of a videobuf_buffer completes.
  */
 static void omap24xxcam_vbq_complete(struct omap24xxcam_sgdma *sgdma,
 				     u32 csr, void *arg)
@@ -420,7 +420,7 @@ static void omap24xxcam_vbq_release(struct videobuf_queue *vbq,
 {
 	struct videobuf_dmabuf *dma = videobuf_to_dma(vb);
 
-	/*                                                           */
+	/* wait for buffer, especially to get out of the sgdma queue */
 	videobuf_waiton(vbq, vb, 0, 0);
 	if (vb->memory == V4L2_MEMORY_MMAP) {
 		dma_unmap_sg(vbq->dev, dma->sglist, dma->sglen,
@@ -435,9 +435,9 @@ static void omap24xxcam_vbq_release(struct videobuf_queue *vbq,
 }
 
 /*
-                                                                          
-                                                                       
-                                                         
+ * Limit the number of available kernel image capture buffers based on the
+ * number requested, the currently selected image size, and the maximum
+ * amount of memory permitted for kernel capture buffers.
  */
 static int omap24xxcam_vbq_setup(struct videobuf_queue *vbq, unsigned int *cnt,
 				 unsigned int *size)
@@ -445,14 +445,14 @@ static int omap24xxcam_vbq_setup(struct videobuf_queue *vbq, unsigned int *cnt,
 	struct omap24xxcam_fh *fh = vbq->priv_data;
 
 	if (*cnt <= 0)
-		*cnt = VIDEO_MAX_FRAME;	/*                                    */
+		*cnt = VIDEO_MAX_FRAME;	/* supply a default number of buffers */
 
 	if (*cnt > VIDEO_MAX_FRAME)
 		*cnt = VIDEO_MAX_FRAME;
 
 	*size = fh->pix.sizeimage;
 
-	/*                                                     */
+	/* accessing fh->cam->capture_mem is ok, it's constant */
 	if (*size * *cnt > fh->cam->capture_mem)
 		*cnt = fh->cam->capture_mem / *size;
 
@@ -483,34 +483,34 @@ static int omap24xxcam_vbq_prepare(struct videobuf_queue *vbq,
 	int err = 0;
 
 	/*
-                                                        
-                                                  
-  */
+	 * Accessing pix here is okay since it's constant while
+	 * streaming is on (and we only get called then).
+	 */
 	if (vb->baddr) {
-		/*                             */
+		/* This is a userspace buffer. */
 		if (fh->pix.sizeimage > vb->bsize) {
-			/*                              */
+			/* The buffer isn't big enough. */
 			err = -EINVAL;
 		} else
 			vb->size = fh->pix.sizeimage;
 	} else {
 		if (vb->state != VIDEOBUF_NEEDS_INIT) {
 			/*
-                                             
-                             
-    */
+			 * We have a kernel bounce buffer that has
+			 * already been allocated.
+			 */
 			if (fh->pix.sizeimage > vb->size) {
 				/*
-                                         
-                                          
-                                        
-                     
-     */
+				 * The image size has been changed to
+				 * a larger size since this buffer was
+				 * allocated, so we need to free and
+				 * reallocate it.
+				 */
 				omap24xxcam_vbq_release(vbq, vb);
 				vb->size = fh->pix.sizeimage;
 			}
 		} else {
-			/*                                                 */
+			/* We need to allocate a new kernel bounce buffer. */
 			vb->size = fh->pix.sizeimage;
 		}
 	}
@@ -525,9 +525,9 @@ static int omap24xxcam_vbq_prepare(struct videobuf_queue *vbq,
 	if (vb->state == VIDEOBUF_NEEDS_INIT) {
 		if (vb->memory == V4L2_MEMORY_MMAP)
 			/*
-                                                         
-                                           
-    */
+			 * we have built the scatter-gather list by ourself so
+			 * do the scatter-gather mapping as well
+			 */
 			err = omap24xxcam_dma_iolock(vbq, videobuf_to_dma(vb));
 		else
 			err = videobuf_iolock(vbq, vb, NULL);
@@ -551,10 +551,10 @@ static void omap24xxcam_vbq_queue(struct videobuf_queue *vbq,
 	int err;
 
 	/*
-                                                           
-                                                    
-                                   
-  */
+	 * FIXME: We're marking the buffer active since we have no
+	 * pretty way of marking it active exactly when the
+	 * scatter-gather transfer starts.
+	 */
 	vb->state = VIDEOBUF_ACTIVE;
 
 	err = omap24xxcam_sgdma_queue(&fh->cam->sgdma,
@@ -570,12 +570,12 @@ static void omap24xxcam_vbq_queue(struct videobuf_queue *vbq,
 		spin_unlock_irqrestore(&cam->core_enable_disable_lock, flags);
 	} else {
 		/*
-                                                     
-                                                        
-                                                        
-                                                      
-                                        
-   */
+		 * Oops. We're not supposed to get any errors here.
+		 * The only way we could get an error is if we ran out
+		 * of scatter-gather DMA slots, but we are supposed to
+		 * have at least as many scatter-gather DMA slots as
+		 * video buffers so that can't happen.
+		 */
 		dev_err(cam->dev, "failed to queue a video buffer for dma!\n");
 		dev_err(cam->dev, "likely a bug in the driver!\n");
 		vb->state = state;
@@ -590,24 +590,24 @@ static struct videobuf_queue_ops omap24xxcam_vbq_ops = {
 };
 
 /*
-  
-                          
-  
+ *
+ * OMAP main camera system
+ *
  */
 
 /*
-                                        
+ * Reset camera block to power-on state.
  */
 static void omap24xxcam_poweron_reset(struct omap24xxcam_device *cam)
 {
 	int max_loop = RESET_TIMEOUT_NS;
 
-	/*                              */
+	/* Reset whole camera subsystem */
 	omap24xxcam_reg_out(cam->mmio_base,
 			    CAM_SYSCONFIG,
 			    CAM_SYSCONFIG_SOFTRESET);
 
-	/*                         */
+	/* Wait till it's finished */
 	while (!(omap24xxcam_reg_in(cam->mmio_base, CAM_SYSSTATUS)
 		 & CAM_SYSSTATUS_RESETDONE)
 	       && --max_loop) {
@@ -620,17 +620,17 @@ static void omap24xxcam_poweron_reset(struct omap24xxcam_device *cam)
 }
 
 /*
-                                   
+ * (Re)initialise the camera block.
  */
 static void omap24xxcam_hwinit(struct omap24xxcam_device *cam)
 {
 	omap24xxcam_poweron_reset(cam);
 
-	/*                                       */
+	/* set the camera subsystem autoidle bit */
 	omap24xxcam_reg_out(cam->mmio_base, CAM_SYSCONFIG,
 			    CAM_SYSCONFIG_AUTOIDLE);
 
-	/*                                 */
+	/* set the camera MMU autoidle bit */
 	omap24xxcam_reg_out(cam->mmio_base,
 			    CAMMMU_REG_OFFSET + CAMMMU_SYSCONFIG,
 			    CAMMMU_SYSCONFIG_AUTOIDLE);
@@ -641,7 +641,7 @@ static void omap24xxcam_hwinit(struct omap24xxcam_device *cam)
 }
 
 /*
-                                      
+ * Callback for dma transfer stalling.
  */
 static void omap24xxcam_stalled_dma_reset(unsigned long data)
 {
@@ -654,15 +654,15 @@ static void omap24xxcam_stalled_dma_reset(unsigned long data)
 }
 
 /*
-                                                                 
-                                                               
-                         
-  
-                                                               
-                                                                     
-                                                    
-  
-                                                                   
+ * Stop capture. Mark we're doing a reset, stop DMA transfers and
+ * core. (No new scatter-gather transfers will be queued whilst
+ * in_reset is non-zero.)
+ *
+ * If omap24xxcam_capture_stop is called from several places at
+ * once, only the first call will have an effect. Similarly, the last
+ * call omap24xxcam_streaming_cont will have effect.
+ *
+ * Serialisation is ensured by using cam->core_enable_disable_lock.
  */
 static void omap24xxcam_capture_stop(struct omap24xxcam_device *cam)
 {
@@ -683,15 +683,15 @@ static void omap24xxcam_capture_stop(struct omap24xxcam_device *cam)
 }
 
 /*
-                                
-  
-                                                                    
-                                                                 
-                                                                   
-                                                                    
-                                                                      
-                                                          
-                   
+ * Reset and continue streaming.
+ *
+ * Note: Resetting the camera FIFO via the CC_RST bit in the CC_CTRL
+ * register is supposed to be sufficient to recover from a camera
+ * interface error, but it doesn't seem to be enough. If we only do
+ * that then subsequent image captures are out of sync by either one
+ * or two times DMA_THRESHOLD bytes. Resetting and re-initializing the
+ * entire camera subsystem prevents the problem with frame
+ * synchronization.
  */
 static void omap24xxcam_capture_cont(struct omap24xxcam_device *cam)
 {
@@ -727,7 +727,7 @@ omap24xxcam_streaming_show(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR(streaming, S_IRUGO, omap24xxcam_streaming_show, NULL);
 
 /*
-                                                                 
+ * Stop capture and restart it. I.e. reset the camera during use.
  */
 static void omap24xxcam_reset(struct omap24xxcam_device *cam)
 {
@@ -736,7 +736,7 @@ static void omap24xxcam_reset(struct omap24xxcam_device *cam)
 }
 
 /*
-                              
+ * The main interrupt handler.
  */
 static irqreturn_t omap24xxcam_isr(int irq, void *arg)
 {
@@ -763,15 +763,15 @@ static irqreturn_t omap24xxcam_isr(int irq, void *arg)
 }
 
 /*
-  
-                   
-  
+ *
+ * Sensor handling.
+ *
  */
 
 /*
-                                                                   
-                                                                     
-                                                                     
+ * Enable the external sensor interface. Try to negotiate interface
+ * parameters with the sensor and start using the new ones. The calls
+ * to sensor_if_enable and sensor_if_disable need not to be balanced.
  */
 static int omap24xxcam_sensor_if_enable(struct omap24xxcam_device *cam)
 {
@@ -826,10 +826,10 @@ static int omap24xxcam_sensor_if_enable(struct omap24xxcam_device *cam)
 			return -EINVAL;
 		}
 		/*
-                                                      
-                                                   
-                                                    
-   */
+		 * The clock rate that the sensor wants has changed.
+		 * We have to adjust the xclk from OMAP 2 side to
+		 * match the sensor's wish as closely as possible.
+		 */
 		if (p.u.bt656.clock_curr != cam->if_u.bt656.xclk) {
 			u32 xclk = p.u.bt656.clock_curr;
 			u32 divisor;
@@ -860,7 +860,7 @@ static int omap24xxcam_sensor_if_enable(struct omap24xxcam_device *cam)
 		omap24xxcam_core_xclk_set(cam, cam->if_u.bt656.xclk);
 		break;
 	default:
-		/*                                    */
+		/* FIXME: how about other interfaces? */
 		dev_err(cam->dev, "interface type %d not supported\n",
 			p.if_type);
 		return -EINVAL;
@@ -879,7 +879,7 @@ static void omap24xxcam_sensor_if_disable(const struct omap24xxcam_device *cam)
 }
 
 /*
-                                  
+ * Initialise the sensor hardware.
  */
 static int omap24xxcam_sensor_init(struct omap24xxcam_device *cam)
 {
@@ -895,13 +895,13 @@ static int omap24xxcam_sensor_init(struct omap24xxcam_device *cam)
 		goto out;
 	}
 
-	/*                                              */
+	/* power up sensor during sensor initialization */
 	vidioc_int_s_power(sdev, 1);
 
 	err = vidioc_int_dev_init(sdev);
 	if (err) {
 		dev_err(cam->dev, "cannot initialize sensor, error %d\n", err);
-		/*                                                */
+		/* Sensor init failed --- it's nonexistent to us! */
 		cam->sdev = NULL;
 		goto out;
 	}
@@ -931,7 +931,7 @@ static void omap24xxcam_sensor_disable(struct omap24xxcam_device *cam)
 }
 
 /*
-                                                                      
+ * Power-up and configure camera sensor. It's ready for capturing now.
  */
 static int omap24xxcam_sensor_enable(struct omap24xxcam_device *cam)
 {
@@ -971,7 +971,7 @@ static void omap24xxcam_sensor_reset_work(struct work_struct *work)
 	if (vidioc_int_reset(cam->sdev) == 0) {
 		vidioc_int_init(cam->sdev);
 	} else {
-		/*                                     */
+		/* Can't reset it by vidioc_int_reset. */
 		omap24xxcam_sensor_disable(cam);
 		omap24xxcam_sensor_enable(cam);
 	}
@@ -980,9 +980,9 @@ static void omap24xxcam_sensor_reset_work(struct work_struct *work)
 }
 
 /*
-  
-                   
-  
+ *
+ * IOCTL interface.
+ *
  */
 
 static int vidioc_querycap(struct file *file, void *fh,
@@ -1087,9 +1087,9 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	rval = videobuf_reqbufs(&ofh->vbq, b);
 
 	/*
-                                                         
-                                                       
-  */
+	 * Either videobuf_reqbufs failed or the buffers are not
+	 * memory-mapped (which would need special attention).
+	 */
 	if (rval < 0 || b->memory != V4L2_MEMORY_MMAP)
 		goto out;
 
@@ -1131,7 +1131,7 @@ videobuf_dqbuf_again:
 	vb = ofh->vbq.bufs[b->index];
 
 	mutex_lock(&cam->mutex);
-	/*                                                 */
+	/* _needs_reset returns -EIO if reset is required. */
 	rval = vidioc_int_g_needs_reset(cam->sdev, (void *)vb->baddr);
 	mutex_unlock(&cam->mutex);
 	if (rval == -EIO)
@@ -1141,18 +1141,18 @@ videobuf_dqbuf_again:
 
 out:
 	/*
-                                                          
-                                                              
-                              
-  */
+	 * This is a hack. We don't want to show -EIO to the user
+	 * space. Requeue the buffer and try again if we're not doing
+	 * this in non-blocking mode.
+	 */
 	if (rval == -EIO) {
 		videobuf_qbuf(&ofh->vbq, b);
 		if (!(file->f_flags & O_NONBLOCK))
 			goto videobuf_dqbuf_again;
 		/*
-                                                       
-            
-   */
+		 * We don't have a videobuf_buffer now --- maybe next
+		 * time...
+		 */
 		rval = -EAGAIN;
 	}
 
@@ -1318,9 +1318,9 @@ static int vidioc_s_parm(struct file *file, void *fh,
 
 	rval = omap24xxcam_sensor_if_enable(cam);
 	/*
-                                                         
-                                       
-  */
+	 * Revert to old streaming parameters if enabling sensor
+	 * interface with the new ones failed.
+	 */
 	if (rval)
 		vidioc_int_s_parm(cam->sdev, &old_streamparm);
 
@@ -1331,9 +1331,9 @@ out:
 }
 
 /*
-  
-                   
-  
+ *
+ * File operations.
+ *
  */
 
 static unsigned int omap24xxcam_poll(struct file *file,
@@ -1383,7 +1383,7 @@ static int omap24xxcam_mmap_buffers(struct file *file,
 	mutex_unlock(&cam->mutex);
 	mutex_lock(&vbq->vb_lock);
 
-	/*                              */
+	/* look for first buffer to map */
 	for (first = 0; first < VIDEO_MAX_FRAME; first++) {
 		if (NULL == vbq->bufs[first])
 			continue;
@@ -1393,7 +1393,7 @@ static int omap24xxcam_mmap_buffers(struct file *file,
 			break;
 	}
 
-	/*                             */
+	/* look for last buffer to map */
 	for (size = 0, last = first; last < VIDEO_MAX_FRAME; last++) {
 		if (NULL == vbq->bufs[last])
 			continue;
@@ -1430,19 +1430,19 @@ static int omap24xxcam_mmap(struct file *file, struct vm_area_struct *vma)
 	struct omap24xxcam_fh *fh = file->private_data;
 	int rval;
 
-	/*                                                                */
+	/* let the video-buf mapper check arguments and set-up structures */
 	rval = videobuf_mmap_mapper(&fh->vbq, vma);
 	if (rval)
 		return rval;
 
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
-	/*                                     */
+	/* do mapping to our allocated buffers */
 	rval = omap24xxcam_mmap_buffers(file, vma);
 	/*
-                                                            
-                         
-  */
+	 * In case of error, free vma->vm_private_data allocated by
+	 * videobuf_mmap_mapper.
+	 */
 	if (rval)
 		kfree(vma->vm_private_data);
 
@@ -1481,7 +1481,7 @@ static int omap24xxcam_open(struct file *file)
 	mutex_lock(&cam->mutex);
 	vidioc_int_g_fmt_cap(cam->sdev, &format);
 	mutex_unlock(&cam->mutex);
-	/*                                                     */
+	/* FIXME: how about fh->pix when there are more users? */
 	fh->pix = format.fmt.pix;
 
 	file->private_data = fh;
@@ -1514,7 +1514,7 @@ static int omap24xxcam_release(struct file *file)
 
 	flush_work_sync(&cam->sensor_reset_work);
 
-	/*                        */
+	/* stop streaming capture */
 	videobuf_streamoff(&fh->vbq);
 
 	mutex_lock(&cam->mutex);
@@ -1531,11 +1531,11 @@ static int omap24xxcam_release(struct file *file)
 	omap24xxcam_vbq_free_mmap_buffers(&fh->vbq);
 
 	/*
-                                                           
-                                                               
-                                                       
-              
-  */
+	 * Make sure the reset work we might have scheduled is not
+	 * pending! It may be run *only* if we have users. (And it may
+	 * not be scheduled anymore since streaming is already
+	 * disabled.)
+	 */
 	flush_work_sync(&cam->sensor_reset_work);
 
 	mutex_lock(&cam->mutex);
@@ -1562,9 +1562,9 @@ static struct v4l2_file_operations omap24xxcam_fops = {
 };
 
 /*
-  
-                    
-  
+ *
+ * Power management.
+ *
  */
 
 #ifdef CONFIG_PM
@@ -1599,7 +1599,7 @@ static int omap24xxcam_resume(struct platform_device *pdev)
 
 	return 0;
 }
-#endif /*           */
+#endif /* CONFIG_PM */
 
 static const struct v4l2_ioctl_ops omap24xxcam_ioctl_fops = {
 	.vidioc_querycap	= vidioc_querycap,
@@ -1624,9 +1624,9 @@ static const struct v4l2_ioctl_ops omap24xxcam_ioctl_fops = {
 };
 
 /*
-  
-                                   
-  
+ *
+ * Camera device (i.e. /dev/video).
+ *
  */
 
 static int omap24xxcam_device_register(struct v4l2_int_device *s)
@@ -1635,7 +1635,7 @@ static int omap24xxcam_device_register(struct v4l2_int_device *s)
 	struct video_device *vfd;
 	int rval;
 
-	/*                          */
+	/* We already have a slave. */
 	if (cam->sdev)
 		return -EBUSY;
 
@@ -1647,7 +1647,7 @@ static int omap24xxcam_device_register(struct v4l2_int_device *s)
 		goto err;
 	}
 
-	/*                                    */
+	/* initialize the video_device struct */
 	vfd = cam->vfd = video_device_alloc();
 	if (!vfd) {
 		dev_err(cam->dev, "could not allocate video device struct\n");
@@ -1696,16 +1696,16 @@ static void omap24xxcam_device_unregister(struct v4l2_int_device *s)
 	if (cam->vfd) {
 		if (!video_is_registered(cam->vfd)) {
 			/*
-                                                     
-                                   
-    */
+			 * The device was never registered, so release the
+			 * video_device struct directly.
+			 */
 			video_device_release(cam->vfd);
 		} else {
 			/*
-                                              
-                                    
-                       
-    */
+			 * The unregister function will release the
+			 * video_device struct as well as
+			 * unregistering it.
+			 */
 			video_unregister_device(cam->vfd);
 		}
 		cam->vfd = NULL;
@@ -1731,9 +1731,9 @@ static struct v4l2_int_device omap24xxcam = {
 };
 
 /*
-  
-                                              
-  
+ *
+ * Driver initialisation and deinitialisation.
+ *
  */
 
 static int __devinit omap24xxcam_probe(struct platform_device *pdev)
@@ -1753,15 +1753,15 @@ static int __devinit omap24xxcam_probe(struct platform_device *pdev)
 	cam->dev = &pdev->dev;
 
 	/*
-                                                              
-                                                               
-                 
-  */
+	 * Impose a lower limit on the amount of memory allocated for
+	 * capture. We require at least enough memory to double-buffer
+	 * QVGA (300KB).
+	 */
 	if (capture_mem < 320 * 240 * 2 * 2)
 		capture_mem = 320 * 240 * 2 * 2;
 	cam->capture_mem = capture_mem;
 
-	/*                                                 */
+	/* request the mem region for the camera registers */
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem) {
 		dev_err(cam->dev, "no mem resource?\n");
@@ -1775,7 +1775,7 @@ static int __devinit omap24xxcam_probe(struct platform_device *pdev)
 	cam->mmio_base_phys = mem->start;
 	cam->mmio_size = resource_size(mem);
 
-	/*                */
+	/* map the region */
 	cam->mmio_base = (unsigned long)
 		ioremap_nocache(cam->mmio_base_phys, cam->mmio_size);
 	if (!cam->mmio_base) {
@@ -1789,7 +1789,7 @@ static int __devinit omap24xxcam_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/*                                       */
+	/* install the interrupt service routine */
 	if (request_irq(irq, omap24xxcam_isr, 0, CAM_NAME, cam)) {
 		dev_err(cam->dev,
 			"could not install interrupt service routine\n");

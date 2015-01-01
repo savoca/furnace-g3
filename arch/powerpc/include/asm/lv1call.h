@@ -27,7 +27,7 @@
 #include <linux/types.h>
 #include <linux/export.h>
 
-/*                             */
+/* lv1 call declaration macros */
 
 #define LV1_1_IN_ARG_DECL u64 in_1
 #define LV1_2_IN_ARG_DECL LV1_1_IN_ARG_DECL, u64 in_2
@@ -209,11 +209,11 @@
 #define LV1_7_IN_7_OUT_ARGS LV1_7_IN_ARGS, LV1_7_OUT_ARGS
 
 /*
-                                                                   
-                                                                   
-                                                                 
-                                                                 
-                                          
+ * This LV1_CALL() macro is for use by callers.  It expands into an
+ * inline call wrapper and an underscored HV call declaration.  The
+ * wrapper can be used to instrument the lv1 call interface.  The
+ * file lv1call.S defines its own LV1_CALL() macro to expand into
+ * the actual underscored call definition.
  */
 
 #if !defined(LV1_CALL)
@@ -223,9 +223,9 @@
     {return _lv1_##name(LV1_##in##_IN_##out##_OUT_ARGS);}
 #endif
 
-#endif /*                        */
+#endif /* !defined(__ASSEMBLY__) */
 
-/*                */
+/* lv1 call table */
 
 LV1_CALL(allocate_memory,                               4, 2,   0 )
 LV1_CALL(write_htab_entry,                              4, 0,   1 )

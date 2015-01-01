@@ -44,7 +44,7 @@ static int nr_queue_rx_frame(struct sock *sk, struct sk_buff *skb, int more)
 		return 0;
 	}
 
-	if (!more && nr->fraglen > 0) {	/*                 */
+	if (!more && nr->fraglen > 0) {	/* End of fragment */
 		nr->fraglen += skb->len;
 		skb_queue_tail(&nr->frag_queue, skb);
 
@@ -67,9 +67,9 @@ static int nr_queue_rx_frame(struct sock *sk, struct sk_buff *skb, int more)
 }
 
 /*
-                                                        
-                                                      
-                                                             
+ * State machine for state 1, Awaiting Connection State.
+ * The handling of the timer(s) is in file nr_timer.c.
+ * Handling of state 0 and connection release is in netrom.c.
  */
 static int nr_state1_machine(struct sock *sk, struct sk_buff *skb,
 	int frametype)
@@ -111,9 +111,9 @@ static int nr_state1_machine(struct sock *sk, struct sk_buff *skb,
 }
 
 /*
-                                                     
-                                                     
-                                                             
+ * State machine for state 2, Awaiting Release State.
+ * The handling of the timer(s) is in file nr_timer.c
+ * Handling of state 0 and connection release is in netrom.c.
  */
 static int nr_state2_machine(struct sock *sk, struct sk_buff *skb,
 	int frametype)
@@ -142,9 +142,9 @@ static int nr_state2_machine(struct sock *sk, struct sk_buff *skb,
 }
 
 /*
-                                              
-                                                     
-                                                             
+ * State machine for state 3, Connected State.
+ * The handling of the timer(s) is in file nr_timer.c
+ * Handling of state 0 and connection release is in netrom.c.
  */
 static int nr_state3_machine(struct sock *sk, struct sk_buff *skb, int frametype)
 {
@@ -253,8 +253,8 @@ static int nr_state3_machine(struct sock *sk, struct sk_buff *skb, int frametype
 			}
 		} while (save_vr != nrom->vr);
 		/*
-                                        
-   */
+		 * Window is full, ack it immediately.
+		 */
 		if (((nrom->vl + nrom->window) % NR_MODULUS) == nrom->vr) {
 			nr_enquiry_response(sk);
 		} else {
@@ -276,7 +276,7 @@ static int nr_state3_machine(struct sock *sk, struct sk_buff *skb, int frametype
 	return queued;
 }
 
-/*                                                              */
+/* Higher level upcall for a LAPB frame - called with sk locked */
 int nr_process_rx_frame(struct sock *sk, struct sk_buff *skb)
 {
 	struct nr_sock *nr = nr_sk(sk);

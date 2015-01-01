@@ -18,15 +18,15 @@
 #ifndef LGE_TOUCH_SYNAPTICS_H
 #define LGE_TOUCH_SYNAPTICS_H
 
-//                            
+//#define ARRAYED_TOUCH_FW_BIN
 
 #define NUM_OF_EACH_FINGER_DATA_REG		8
 #define MAX_NUM_OF_FINGERS			10
 
 #define DESCRIPTION_TABLE_START			0xe9
 
-#define PAGE_SELECT_REG				0xFF		/*                       */
-#define PAGE_MAX_NUM				5		/*                         */
+#define PAGE_SELECT_REG				0xFF		/* Button exists Page 02 */
+#define PAGE_MAX_NUM				5		/* number of page register */
 
 struct function_descriptor {
 	u8 	query_base;
@@ -52,7 +52,7 @@ struct button_data {
 };
 
 struct cur_touch_data {
-	u8	device_status_reg;		/*                   */
+	u8	device_status_reg;		/* DEVICE_STATUS_REG */
 	u8	interrupt_status_reg;
 	u8	button_data_reg;
 	struct finger_data	finger;
@@ -89,7 +89,7 @@ struct synaptics_ts_data {
 };
 
 
-/*                 */
+/* extern function */
 extern int FirmwareUpgrade(struct synaptics_ts_data *ts, const char* fw_path);
 int synaptics_ts_page_data_read(struct i2c_client *client, u8 page, u8 reg, int size, u8 *data);
 int synaptics_ts_page_data_write(struct i2c_client *client, u8 page, u8 reg, int size, u8 *data);

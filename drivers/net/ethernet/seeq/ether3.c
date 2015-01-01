@@ -87,7 +87,7 @@ static void	ether3_timeout(struct net_device *dev);
 #define BUS_8		1
 #define BUS_UNKNOWN	0
 
-/*                                                                             */
+/* --------------------------------------------------------------------------- */
 
 typedef enum {
 	buffer_write,
@@ -95,9 +95,9 @@ typedef enum {
 } buffer_rw_t;
 
 /*
-                                                
-                                                        
-               
+ * ether3 read/write.  Slow things down a bit...
+ * The SEEQ8005 doesn't like us writing to its registers
+ * too quickly.
  */
 static inline void ether3_outb(int v, const void __iomem *r)
 {
@@ -141,7 +141,7 @@ ether3_setbuffer(struct net_device *dev, buffer_rw_t read, int start)
 }
 
 /*
-                                  
+ * write data to the buffer memory
  */
 #define ether3_writebuffer(dev,data,length)			\
 	writesw(REG_BUFWIN, (data), (length) >> 1)
@@ -156,7 +156,7 @@ ether3_setbuffer(struct net_device *dev, buffer_rw_t read, int start)
 }
 
 /*
-                                   
+ * read data from the buffer memory
  */
 #define ether3_readbuffer(dev,data,length)			\
 	readsw(REG_BUFWIN, (data), (length) >> 1)
@@ -168,7 +168,7 @@ ether3_setbuffer(struct net_device *dev, buffer_rw_t read, int start)
 	readw(REG_BUFWIN) | (readw(REG_BUFWIN) << 16)
 
 /*
-                    
+ * Switch LED off...
  */
 static void ether3_ledoff(unsigned long data)
 {
@@ -177,12 +177,12 @@ static void ether3_ledoff(unsigned long data)
 }
 
 /*
-                   
+ * switch LED on...
  */
 static inline void ether3_ledon(struct net_device *dev)
 {
 	del_timer(&priv(dev)->timer);
-	priv(dev)->timer.expires = jiffies + HZ / 50; /*                            */
+	priv(dev)->timer.expires = jiffies + HZ / 50; /* leave on for 1/50th second */
 	priv(dev)->timer.data = (unsigned long)dev;
 	priv(dev)->timer.function = ether3_ledoff;
 	add_timer(&priv(dev)->timer);
@@ -191,8 +191,8 @@ static inline void ether3_ledon(struct net_device *dev)
 }
 
 /*
-                                                          
-                             
+ * Read the ethernet address string from the on board rom.
+ * This is an ascii string!!!
  */
 static int __devinit
 ether3_addr(char *addr, struct expansion_card *ec)
@@ -210,14 +210,14 @@ ether3_addr(char *addr, struct expansion_card *ec)
 		if (i == 6)
 			return 0;
 	}
-	/*                                                              
-                                                    
-  */
+	/* I wonder if we should even let the user continue in this case
+	 *   - no, it would be better to disable the device
+	 */
 	printk(KERN_ERR "ether3: Couldn't read a valid MAC address from card.\n");
 	return -ENODEV;
 }
 
-/*                                                                             */
+/* --------------------------------------------------------------------------- */
 
 static int __devinit
 ether3_ramtest(struct net_device *dev, unsigned char byte)
@@ -266,7 +266,7 @@ ether3_ramtest(struct net_device *dev, unsigned char byte)
 	return ret;
 }
 
-/*                                                                                 */
+/* ------------------------------------------------------------------------------- */
 
 static int __devinit ether3_init_2(struct net_device *dev)
 {
@@ -277,8 +277,8 @@ static int __devinit ether3_init_2(struct net_device *dev)
 	priv(dev)->regs.command = 0;
 
 	/*
-                               
-  */
+	 * Set up our hardware address
+	 */
 	ether3_outw(priv(dev)->regs.config1 | CFG1_BUFSELSTAT0, REG_CONFIG1);
 	for (i = 0; i < 6; i++)
 		ether3_outb(dev->dev_addr[i], REG_BUFWIN);
@@ -291,10 +291,10 @@ static int __devinit ether3_init_2(struct net_device *dev)
 		priv(dev)->regs.config1 |= CFG1_RECVSPECBROAD;
 
 	/*
-                                                                        
-                                                                     
-                                                                        
-  */
+	 * There is a problem with the NQ8005 in that it occasionally loses the
+	 * last two bytes.  To get round this problem, we receive the CRC as
+	 * well.  That way, if we do lose the last two, then it doesn't matter.
+	 */
 	ether3_outw(priv(dev)->regs.config1 | CFG1_TRANSEND, REG_CONFIG1);
 	ether3_outw((TX_END>>8) - 1, REG_BUFWIN);
 	ether3_outw(priv(dev)->rx_head, REG_RECVPTR);
@@ -321,7 +321,7 @@ ether3_init_for_open(struct net_device *dev)
 {
 	int i;
 
-	/*                */
+	/* Reset the chip */
 	ether3_outw(CFG2_RESET, REG_CONFIG2);
 	udelay(4);
 
@@ -389,12 +389,12 @@ ether3_probe_bus_16(struct net_device *dev, int val)
 }
 
 /*
-                                                                     
-                                                             
-  
-                                                                
-                                                                    
-                                                              
+ * Open/initialize the board.  This is called (in the current kernel)
+ * sometime after booting when the 'ifconfig' program is run.
+ *
+ * This routine should set everything up anew at each open, even
+ * registers that "should" only need to be set once at boot, so that
+ * there is non-reboot way to recover if something goes wrong.
  */
 static int
 ether3_open(struct net_device *dev)
@@ -416,7 +416,7 @@ ether3_open(struct net_device *dev)
 }
 
 /*
-                                        
+ * The inverse routine to ether3_open().
  */
 static int
 ether3_close(struct net_device *dev)
@@ -438,17 +438,17 @@ ether3_close(struct net_device *dev)
 }
 
 /*
-                                                                   
-  
-                                                                        
-                                                                         
+ * Set or clear promiscuous/multicast mode filter for this adaptor.
+ *
+ * We don't attempt any packet filtering.  The card may have a SEEQ 8004
+ * in which does not have the other ethernet address registers present...
  */
 static void ether3_setmulticastlist(struct net_device *dev)
 {
 	priv(dev)->regs.config1 &= ~CFG1_RECVPROMISC;
 
 	if (dev->flags & IFF_PROMISC) {
-		/*                  */
+		/* promiscuous mode */
 		priv(dev)->regs.config1 |= CFG1_RECVPROMISC;
 	} else if (dev->flags & IFF_ALLMULTI || !netdev_mc_empty(dev)) {
 		priv(dev)->regs.config1 |= CFG1_RECVSPECBRMULTI;
@@ -485,7 +485,7 @@ static void ether3_timeout(struct net_device *dev)
 }
 
 /*
-                    
+ * Transmit a packet
  */
 static int
 ether3_sendpacket(struct sk_buff *skb, struct net_device *dev)
@@ -513,7 +513,7 @@ ether3_sendpacket(struct sk_buff *skb, struct net_device *dev)
 
 	if (priv(dev)->tx_tail == next_ptr) {
 		local_irq_restore(flags);
-		return NETDEV_TX_BUSY;	/*                 */
+		return NETDEV_TX_BUSY;	/* unable to queue */
 	}
 
 	ptr		 = 0x600 * priv(dev)->tx_head;
@@ -584,7 +584,7 @@ ether3_interrupt(int irq, void *dev_id)
 }
 
 /*
-                                                               
+ * If we have a good packet(s), get it/them out of the buffers.
  */
 static int ether3_rx(struct net_device *dev, unsigned int maxcnt)
 {
@@ -597,11 +597,11 @@ static int ether3_rx(struct net_device *dev, unsigned int maxcnt)
 		unsigned char addrs[16];
 
 		/*
-                                             
-                                                               
-                                                            
-                           
-   */
+		 * read the first 16 bytes from the buffer.
+		 * This contains the status bytes etc and ethernet addresses,
+		 * and we also check the source ethernet address to see if
+		 * it originated from us.
+		 */
 		{
 			unsigned int temp_ptr;
 			ether3_setbuffer(dev, buffer_read, next_ptr);
@@ -628,11 +628,11 @@ if (next_ptr < RX_START || next_ptr >= RX_END) {
  break;
 }
 		/*
-                               
-    */
+ 		 * ignore our own packets...
+	 	 */
 		if (!(*(unsigned long *)&dev->dev_addr[0] ^ *(unsigned long *)&addrs[2+6]) &&
 		    !(*(unsigned short *)&dev->dev_addr[4] ^ *(unsigned short *)&addrs[2+10])) {
-			maxcnt ++; /*                                  */
+			maxcnt ++; /* compensate for loopedback packet */
 			ether3_outw(next_ptr >> 8, REG_RECVEND);
 		} else
 		if (!(status & (RXSTAT_OVERSIZE|RXSTAT_CRCERROR|RXSTAT_DRIBBLEERROR|RXSTAT_SHORTPACKET))) {
@@ -675,9 +675,9 @@ done:
 	dev->stats.rx_packets += received;
 	priv(dev)->rx_head = next_ptr;
 	/*
-                                                                         
-                                     
-  */
+	 * If rx went off line, then that means that the buffer may be full.  We
+	 * have dropped at least one packet.
+	 */
 	if (!(ether3_inw(REG_STATUS) & STAT_RXON)) {
 		dev->stats.rx_dropped++;
     		ether3_outw(next_ptr, REG_RECVPTR);
@@ -691,8 +691,8 @@ dropping:{
 
 	ether3_outw(next_ptr >> 8, REG_RECVEND);
 	/*
-                                              
-  */
+	 * Don't print this message too many times...
+	 */
 	if (time_after(jiffies, last_warned + 10 * HZ)) {
 		last_warned = jiffies;
 		printk("%s: memory squeeze, dropping packet.\n", dev->name);
@@ -703,7 +703,7 @@ dropping:{
 }
 
 /*
-                                             
+ * Update stats for the transmitted packet(s)
  */
 static void ether3_tx(struct net_device *dev)
 {
@@ -714,21 +714,21 @@ static void ether3_tx(struct net_device *dev)
 	    	unsigned long status;
 
     		/*
-                               
-       */
+	    	 * Read the packet header
+    		 */
 	    	ether3_setbuffer(dev, buffer_read, tx_tail * 0x600);
     		status = ether3_readlong(dev);
 
 		/*
-                                                     
-   */
+		 * Check to see if this packet has been transmitted
+		 */
 		if ((status & (TXSTAT_DONE | TXHDR_TRANSMIT)) !=
 		    (TXSTAT_DONE | TXHDR_TRANSMIT))
 			break;
 
 		/*
-                  
-   */
+		 * Update errors
+		 */
 		if (!(status & (TXSTAT_BABBLED | TXSTAT_16COLLISIONS)))
 			dev->stats.tx_packets++;
 		else {
@@ -804,15 +804,15 @@ ether3_probe(struct expansion_card *ec, const struct ecard_id *id)
 
 	init_timer(&priv(dev)->timer);
 
-	/*              
-  */
+	/* Reset card...
+	 */
 	ether3_outb(0x80, REG_CONFIG2 + 4);
 	bus_type = BUS_UNKNOWN;
 	udelay(4);
 
-	/*                                                         
-                                             
-  */
+	/* Test using Receive Pointer (16-bit register) to find out
+	 * how the ether3 is connected to the bus...
+	 */
 	if (ether3_probe_bus_8(dev, 0x100) &&
 	    ether3_probe_bus_8(dev, 0x201))
 		bus_type = BUS_8;

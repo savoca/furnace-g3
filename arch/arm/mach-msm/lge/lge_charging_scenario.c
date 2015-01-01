@@ -20,7 +20,7 @@
 
 /*                                 */
 #ifdef DEBUG_LCS
-/*                              */
+/* For fake battery temp' debug */
 #ifdef DEBUG_LCS_DUMMY_TEMP
 static int dummy_temp = 25;
 static int time_order = 1;
@@ -76,10 +76,10 @@ static int adjust_batt_temp(int batt_temp)
 			count++;
 
 		if (count >= MAX_BATT_TEMP_CHECK_COUNT) {
-			/*                      */
+			/* use the current temp */
 			count = 1;
 		} else {
-			/*                       */
+			/* use the previous temp */
 			batt_temp = prev_batt_temp;
 		}
 
@@ -100,7 +100,7 @@ static enum lge_battemp_states determine_batt_temp_state(int batt_temp)
 	batt_temp = adjust_batt_temp(batt_temp);
 #endif
 
-	/*                */
+	/* Decrease order */
 	for (cnt = (CHG_MAXIDX-1); 0 <= cnt; cnt--) {
 		if (chg_temp_table[cnt].min <= batt_temp &&
 			batt_temp <= chg_temp_table[cnt].max)
@@ -116,7 +116,7 @@ determine_lge_charging_state(enum lge_battemp_states battemp_st, int batt_volt)
 	enum lge_charging_states next_state = charging_state;
 	states_change = STS_CHE_NONE;
 
-	/*                                                         */
+	/* Determine next charging status Based on previous status */
 	switch (charging_state) {
 	case CHG_BATT_NORMAL_STATE:
 		if (battemp_st >= CHG_BATTEMP_AB_OT ||

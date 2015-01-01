@@ -38,7 +38,7 @@
 #define TYPE_MAX_CHARACTERS 10
 
 /*
-                
+ * CP parameters
  */
 struct cp_params {
 	unsigned long il2index;
@@ -67,9 +67,9 @@ void cpaccess_dummy_inst(void);
 
 #ifdef CONFIG_ARCH_MSM_KRAIT
 /*
-                                           
-                                
-  
+ * do_read_il2 - Read indirect L2 registers
+ * @ret:	Pointer	to return value
+ *
  */
 static void do_read_il2(void *ret)
 {
@@ -78,9 +78,9 @@ static void do_read_il2(void *ret)
 }
 
 /*
-                                             
-                                
-  
+ * do_write_il2 - Write indirect L2 registers
+ * @ret:	Pointer	to return value
+ *
  */
 static void do_write_il2(void *ret)
 {
@@ -90,9 +90,9 @@ static void do_write_il2(void *ret)
 }
 
 /*
-                                                             
-                                                       
-  
+ * do_il2_rw - Call Read/Write indirect L2 register functions
+ * @ret:	Pointer	to return value in case of CP register
+ *
  */
 static int do_il2_rw(char *str_tmp)
 {
@@ -135,13 +135,13 @@ static void do_il2_rw(char *str_tmp)
 #endif
 
 /*
-                                
-                                                                   
-  
-                                                                
-                                                                
-                                                             
-                             
+ * get_asm_value - Dummy fuction
+ * @write_val:	Write value incase of a CP register write operation.
+ *
+ * This function is just a placeholder. The first 2 instructions
+ * will be inserted to perform MRC/MCR instruction and a return.
+ * See do_cpregister_rw function. Value passed to function is
+ * accessed from r0 register.
  */
 static noinline unsigned long cpaccess_dummy(unsigned long write_val)
 {
@@ -155,10 +155,10 @@ static noinline unsigned long cpaccess_dummy(unsigned long write_val)
 } __attribute__((aligned(32)))
 
 /*
-                                          
-                                                       
-           
-  
+ * get_asm_value - Read/Write CP registers
+ * @ret:	Pointer	to return value in case of CP register
+ * read op.
+ *
  */
 static void get_asm_value(void *ret)
 {
@@ -167,19 +167,19 @@ static void get_asm_value(void *ret)
 }
 
 /*
-                                             
-                                                
-  
-                                      
+ * dp_cpregister_rw - Read/Write CP registers
+ * @write:		1 for Write and 0 for Read operation
+ *
+ * Returns value read from CP register
  */
 static unsigned long do_cpregister_rw(int write)
 {
 	unsigned long opcode, ret, *p_opcode;
 
 	/*
-                                                            
-                                              
-  */
+	 * Mask the crn, crm, op1, op2 and cp values so they do not
+	 * interfer with other fields of the op code.
+	 */
 	per_cpu(cp_param.cp, cpu)  &= 0xF;
 	per_cpu(cp_param.crn, cpu) &= 0xF;
 	per_cpu(cp_param.crm, cpu) &= 0xF;
@@ -187,9 +187,9 @@ static unsigned long do_cpregister_rw(int write)
 	per_cpu(cp_param.op2, cpu) &= 0x7;
 
 	/*
-                                         
-                     
-  */
+	 * Base MRC opcode for MIDR is EE100010,
+	 * MCR is 0xEE000010
+	 */
 	opcode = (write == 1 ? 0xEE000010 : 0xEE100010);
 	opcode |= (per_cpu(cp_param.crn, cpu)<<16) |
 	(per_cpu(cp_param.crm, cpu)<<0) |
@@ -198,17 +198,17 @@ static unsigned long do_cpregister_rw(int write)
 	(per_cpu(cp_param.cp, cpu) << 8);
 
 	/*
-                                                         
-                                          
-  */
+	 * Grab address of the Dummy function, write the MRC/MCR
+	 * instruction, ensuring cache coherency.
+	 */
 	p_opcode = (unsigned long *)&cpaccess_dummy_inst;
 	mem_text_write_kernel_word(p_opcode, opcode);
 
 #ifdef CONFIG_SMP
 	/*
-                                                        
-                                
-  */
+	 * Use smp_call_function_single to do CPU core specific
+	 * get_asm_value function call.
+	 */
 	if (smp_call_function_single(cpu, get_asm_value, &ret, 1))
 		printk(KERN_ERR "Error cpaccess smp call single\n");
 #else
@@ -258,8 +258,8 @@ static int get_register_params(char *str_tmp)
 }
 
 /*
-                                                           
-              
+ * cp_register_write_sysfs - sysfs interface for writing to
+ * CP register
  */
 static ssize_t cp_register_write_sysfs(
 	struct kobject *kobj, struct kobj_attribute *attr,
@@ -276,7 +276,7 @@ static ssize_t cp_register_write_sysfs(
 }
 
 /*
-                                                
+ * wrapper for deprecated sysdev write interface
  */
 static ssize_t sysdev_cp_register_write_sysfs(struct sys_device *dev,
 	struct sysdev_attribute *attr, const char *buf, size_t cnt)
@@ -285,12 +285,12 @@ static ssize_t sysdev_cp_register_write_sysfs(struct sys_device *dev,
 }
 
 /*
-                                                                    
-  
-                                                                 
-                                                                    
-                                                              
-                        
+ * cp_register_read_sysfs - sysfs interface for reading CP registers
+ *
+ * Code to read in the CPxx crn, crm, op1, op2 variables, or into
+ * the base MRC opcode, store to executable memory, clean/invalidate
+ * caches and then execute the new instruction and provide the
+ * result to the caller.
  */
 static ssize_t cp_register_read_sysfs(
 	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
@@ -312,7 +312,7 @@ static ssize_t cp_register_read_sysfs(
 }
 
 /*
-                                               
+ * wrapper for deprecated sysdev read interface
  */
 static ssize_t sysdev_cp_register_read_sysfs(struct sys_device *dev,
 	struct sysdev_attribute *attr, char *buf)
@@ -321,7 +321,7 @@ static ssize_t sysdev_cp_register_read_sysfs(struct sys_device *dev,
 }
 
 /*
-                    
+ * Setup sysfs files
  */
 SYSDEV_ATTR(cp_rw, 0644, sysdev_cp_register_read_sysfs,
 	    sysdev_cp_register_write_sysfs);
@@ -349,14 +349,14 @@ static struct attribute_group attr_group = {
 };
 
 /*
-                                               
+ * init_cpaccess_sysfs - initialize sys devices
  */
 static int __init init_cpaccess_sysfs(void)
 {
 	/*
-                                                      
-                                      
-  */
+	 * sysdev interface is deprecated and will be removed
+	 * after migration to new sysfs entry
+	 */
 
 	int error = sysdev_class_register(&cpaccess_sysclass);
 
@@ -387,8 +387,8 @@ static int __init init_cpaccess_sysfs(void)
 	sema_init(&cp_sem, 1);
 
 	/*
-                                                                
-  */
+	 * Make the target instruction writeable when built as a module
+	 */
 	set_memory_rw((unsigned long)&cpaccess_dummy_inst & PAGE_MASK, 1);
 
 	return 0;

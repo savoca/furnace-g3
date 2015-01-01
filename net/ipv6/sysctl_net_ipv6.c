@@ -1,8 +1,8 @@
 /*
-                                                             
-  
-           
-                                                     
+ * sysctl_net_ipv6.c: sysctl interface to net IPV6 subsystem.
+ *
+ * Changes:
+ * YOSHIFUJI Hideaki @USAGI:	added icmp sysctl table.
  */
 
 #include <linux/mm.h>

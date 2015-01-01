@@ -279,10 +279,10 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
 			break;
 
 		/*
-                                                                
-                                                           
-                          
-   */
+		 * if decimation is available try to reduce minimum clock rate
+		 * requirement by applying vertical decimation and reduce
+		 * mdp clock requirement
+		 */
 		if (mdata->has_decimation && (pipe->vert_deci < MAX_DECIMATION)
 			&& !pipe->bwc_mode)
 			pipe->vert_deci++;
@@ -306,7 +306,7 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 	rc = mdss_mdp_calc_phase_step(src, pipe->dst.w,
 			&pipe->scale.phase_step_x[0]);
 	if (rc == -EOVERFLOW) {
-		/*                                                */
+		/* overflow on horizontal direction is acceptable */
 		rc = 0;
 	} else if (rc) {
 		pr_err("Horizontal scaling calculation failed=%d! %d->%d\n",
@@ -319,7 +319,7 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 			&pipe->scale.phase_step_y[0]);
 
 	if ((rc == -EOVERFLOW) && (pipe->type == MDSS_MDP_PIPE_TYPE_VIG)) {
-		/*                                         */
+		/* overflow on Qseed2 scaler is acceptable */
 		rc = 0;
 	} else if (rc) {
 		pr_err("Vertical scaling calculation failed=%d! %d->%d\n",
@@ -429,7 +429,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 
 		pipe = mdss_mdp_pipe_alloc(mixer, pipe_type);
 
-		/*                                       */
+		/* VIG pipes can also support RGB format */
 		if (!pipe && pipe_type == MDSS_MDP_PIPE_TYPE_RGB) {
 			pipe_type = MDSS_MDP_PIPE_TYPE_VIG;
 			pipe = mdss_mdp_pipe_alloc(mixer, pipe_type);
@@ -638,7 +638,7 @@ exit_fail:
 		mdss_mdp_pipe_destroy(pipe);
 	}
 
-	/*                                                           */
+	/* invalidate any overlays in this framebuffer after failure */
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
 		pr_debug("freeing allocations for pipe %d\n", pipe->num);
 		mdss_mdp_smp_unreserve(pipe);
@@ -670,7 +670,7 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 	} else {
 		struct mdss_mdp_pipe *pipe;
 
-		/*                                     */
+		/* userspace zorder start with stage 0 */
 		req->z_order += MDSS_MDP_STAGE_0;
 
 		ret = mdss_mdp_overlay_pipe_setup(mfd, req, &pipe);
@@ -729,11 +729,11 @@ int mdss_mdp_overlay_free_buf(struct mdss_mdp_data *data)
 	return 0;
 }
 
-/* 
-                                                                    
-                                                              
-  
-                                                                         
+/**
+ * __mdss_mdp_overlay_free_list_purge() - clear free list of buffers
+ * @mfd:	Msm frame buffer data structure for the associated fb
+ *
+ * Frees memory and clears current list of buffers which are pending free
  */
 static void __mdss_mdp_overlay_free_list_purge(struct msm_fb_data_type *mfd)
 {
@@ -746,9 +746,9 @@ static void __mdss_mdp_overlay_free_list_purge(struct msm_fb_data_type *mfd)
 	mdp5_data->free_list_size = 0;
 }
 
-/* 
-                                                                 
-                                                              
+/**
+ * __mdss_mdp_overlay_free_list_add() - add a buffer to free list
+ * @mfd:	Msm frame buffer data structure for the associated fb
  */
 static void __mdss_mdp_overlay_free_list_add(struct msm_fb_data_type *mfd,
 		struct mdss_mdp_data *buf)
@@ -756,7 +756,7 @@ static void __mdss_mdp_overlay_free_list_add(struct msm_fb_data_type *mfd,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	int i;
 
-	/*                                               */
+	/* if holding too many buffers free current list */
 	if (mdp5_data->free_list_size >= MAX_FREE_LIST_SIZE) {
 		pr_warn("max free list size for fb%d, purging\n", mfd->index);
 		__mdss_mdp_overlay_free_list_purge(mfd);
@@ -788,7 +788,7 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
 		if (pipe->back_buf.num_planes) {
-			/*                         */
+			/* make back buffer active */
 			__mdss_mdp_overlay_free_list_add(mfd, &pipe->front_buf);
 			swap(pipe->back_buf, pipe->front_buf);
 		}
@@ -836,14 +836,14 @@ static void __mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
 	}
 }
 
-/* 
-                                                                            
-                                                              
-  
-                                                                         
-                                                                         
-                                                                    
-                                               
+/**
+ * mdss_mdp_overlay_start() - Programs the MDP control data path to hardware
+ * @mfd: Msm frame buffer structure associated with fb device.
+ *
+ * Program the MDP hardware with the control settings for the framebuffer
+ * device. In addition to this, this function also handles the transition
+ * from the the splash screen to the android boot animation when the
+ * continuous splash screen feature is enabled.
  */
 static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 {
@@ -868,13 +868,13 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	}
 
 	/*
-                                                    
-                                                               
-                                                                      
-                                                               
-                                                                     
-                                                                      
-  */
+	 * We need to do hw init before any hw programming.
+	 * Also, hw init involves programming the VBIF registers which
+	 * should be done only after attaching IOMMU which in turn would call
+	 * in to TZ to restore security configs on the VBIF registers.
+	 * This is not needed when continuous splash screen is enabled since
+	 * we would have called in to TZ to restore security configs from LK.
+	 */
 	if (!is_mdss_iommu_attached()) {
 		if (!mfd->panel_info->cont_splash_enabled)
 			mdss_iommu_attach(mdss_res);
@@ -895,32 +895,32 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	if (mfd->panel_info->cont_splash_enabled) {
 		if (mdp5_data->handoff) {
 			/*
-                                                 
-                                                       
-                                                         
-                                                   
-                                                          
-                                                           
-                           
-    */
+			 * Set up border-fill on the handed off pipes.
+			 * This is needed to ensure that there are no memory
+			 * accesses prior to attaching iommu during continuous
+			 * splash screen case. However, for command mode
+			 * displays, this is not necessary since the panels can
+			 * refresh from their internal memory if no data is sent
+			 * out on the dsi lanes.
+			 */
 			if (ctl && ctl->is_video_mode) {
 				rc = mdss_mdp_display_commit(ctl, NULL);
 				if (!IS_ERR_VALUE(rc)) {
 					mdss_mdp_display_wait4comp(ctl);
 				} else {
 					/*
-                                          
-                                           
-                                             
-             
-      */
+					 * Since border-fill setup failed, we
+					 * need to ensure that we turn off the
+					 * MDP timing generator before attaching
+					 * iommu
+					 */
 					pr_err("failed to set BF at handoff\n");
 					mdp5_data->handoff = false;
 					rc = 0;
 				}
 			}
 
-			/*                                                  */
+			/* Add all the handed off pipes to the cleanup list */
 			__mdss_mdp_handoff_cleanup_pipes(mfd,
 				MDSS_MDP_PIPE_TYPE_RGB);
 			__mdss_mdp_handoff_cleanup_pipes(mfd,
@@ -947,9 +947,9 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
     }
 #endif
 		/*
-                                                          
-                   
-   */
+		 * Remove the vote for footswitch even if above function
+		 * returned error
+		 */
 		mdss_mdp_footswitch_ctrl_splash(0);
 		if (rc)
 			goto error;
@@ -1003,8 +1003,8 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mutex_lock(&mfd->lock);
 
 	/*
-                                              
-  */
+	 * check if there is a secure display session
+	 */
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
 		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) {
 			sd_in_pipe |= 1;
@@ -1013,9 +1013,9 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		}
 	}
 	/*
-                                                                     
-                          
-  */
+	 * If there is no secure display session and sd_enabled, disable the
+	 * secure display session
+	 */
 	if (!sd_in_pipe && mdp5_data->sd_enabled) {
 		if (0 == mdss_mdp_overlay_sd_ctrl(mfd, 0))
 			mdp5_data->sd_enabled = 0;
@@ -1030,9 +1030,9 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
 		struct mdss_mdp_data *buf;
 		/*
-                                                             
-                            
-   */
+		 * When secure display is enabled, if there is a non secure
+		 * display pipe, skip that
+		 */
 		if ((mdp5_data->sd_enabled) &&
 			!(pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)) {
 			pr_warn("Non secure pipe during secure display: %u: %08X, skip\n",
@@ -1040,10 +1040,10 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 			continue;
 		}
 		/*
-                                                                
-                                                                
-                              
-   */
+		 * When external is connected and no dedicated wfd is present,
+		 * reprogram DMA pipe before kickoff to clear out any previous
+		 * block mode configuration.
+		 */
 		if ((pipe->type == MDSS_MDP_PIPE_TYPE_DMA) &&
 		    (ctl->shared_lock && !ctl->mdata->has_wfd_blk)) {
 			if (ctl->mdata->mixer_switched) {
@@ -1203,13 +1203,13 @@ done:
 	return ret;
 }
 
-/* 
-                                                                               
-                                                             
-                                                     
-  
-                                                                         
-                                                                    
+/**
+ * mdss_mdp_overlay_release_all() - release any overlays associated with fb dev
+ * @mfd:	Msm frame buffer structure associated with fb device
+ * @release_all: ignore pid and release all the pipes
+ *
+ * Release any resources allocated by calling process, this can be called
+ * on fb_release to release any overlays/rotator sessions left open.
  */
 static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd,
 	bool release_all)
@@ -1329,9 +1329,9 @@ static void mdss_mdp_overlay_force_cleanup(struct msm_fb_data_type *mfd)
 	pr_debug("forcing cleanup to unset dma pipes on fb%d\n", mfd->index);
 
 	/*
-                                                                   
-                                       
-  */
+	 * video mode panels require the layer to be unstaged and wait for
+	 * vsync to be able to release buffer.
+	 */
 	if (ctl && ctl->is_video_mode) {
 		ret = mdss_mdp_display_commit(ctl, NULL);
 		if (!IS_ERR_VALUE(ret))
@@ -1623,7 +1623,7 @@ pan_display_error:
 	mutex_unlock(&mdp5_data->ov_lock);
 }
 
-/*                                                                  */
+/* function is called in irq context should have minimum processing */
 static void mdss_mdp_overlay_handle_vsync(struct mdss_mdp_ctl *ctl,
 						ktime_t t)
 {
@@ -1711,7 +1711,7 @@ static ssize_t dynamic_fps_sysfs_rda_dfps(struct device *dev,
 	mutex_unlock(&mdp5_data->dfps_lock);
 #endif
 	return ret;
-} /*                            */
+} /* dynamic_fps_sysfs_rda_dfps */
 
 static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
@@ -1781,7 +1781,7 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	mutex_unlock(&mdp5_data->dfps_lock);
 #endif
 	return count;
-} /*                            */
+} /* dynamic_fps_sysfs_wta_dfps */
 
 
 static DEVICE_ATTR(dynamic_fps, S_IRUGO | S_IWUSR, dynamic_fps_sysfs_rda_dfps,
@@ -1964,9 +1964,9 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 		alpha = (img->fg_color & 0xff000000) >> 24;
 
 		if (alpha)
-			calpha_en = 0x0; /*      */
+			calpha_en = 0x0; /* xrgb */
 		else
-			calpha_en = 0x2; /*      */
+			calpha_en = 0x2; /* argb */
 
 		size = (img->height << 16) | img->width;
 		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_CURSOR_IMG_SIZE, size);
@@ -2039,7 +2039,7 @@ static int mdss_bl_scale_config(struct msm_fb_data_type *mfd,
 	pr_debug("update scale = %d, min_lvl = %d\n", mfd->bl_scale,
 							mfd->bl_min_lvl);
 
-	/*                                            */
+	/* update current backlight to use new scaling*/
 	mdss_fb_set_backlight(mfd, curr_bl);
 	mutex_unlock(&mfd->bl_lock);
 	return ret;
@@ -2057,8 +2057,8 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 	if (ret)
 		return ret;
 
-	/*                                        
-                      */
+	/* Supprt only MDP register read/write and
+	exit_dcm in DCM state*/
 	if (mfd->dcm_state == DCM_ENTER &&
 			(mdp_pp.op != mdp_op_calib_buffer &&
 			mdp_pp.op != mdp_op_calib_dcm_state))
@@ -2440,15 +2440,15 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
-/* 
-                                                                               
-                                                                       
-  
-                                                                           
-                                                                               
-                                                  
-  
-                                                            
+/**
+ * __mdss_mdp_overlay_ctl_init - Helper function to intialize control structure
+ * @mfd: msm frame buffer data structure associated with the fb device.
+ *
+ * Helper function that allocates and initializes the mdp control structure
+ * for a frame buffer device. Whenver applicable, this function will also setup
+ * the control for the split display path as well.
+ *
+ * Return: pointer to the newly allocated control structure.
  */
 static struct mdss_mdp_ctl *__mdss_mdp_overlay_ctl_init(
 	struct msm_fb_data_type *mfd)
@@ -2479,7 +2479,7 @@ static struct mdss_mdp_ctl *__mdss_mdp_overlay_ctl_init(
 	ctl->vsync_handler.cmd_post_flush = false;
 
 	if (mfd->split_display && pdata->next) {
-		/*                      */
+		/* enable split display */
 		rc = mdss_mdp_ctl_split_display_setup(ctl, pdata->next);
 		if (rc) {
 			mdss_mdp_ctl_destroy(ctl);
@@ -2613,15 +2613,15 @@ int mdss_panel_register_done(struct mdss_panel_data *pdata)
 	return 0;
 }
 
-/* 
-                                                                                
-                                                                  
-  
-                                                                                
-                                                                          
-                                                                               
-                                                                                
-                                
+/**
+ * mdss_mdp_overlay_handoff() - Read MDP registers to handoff an active ctl path
+ * @mfd: Msm frame buffer structure associated with the fb device.
+ *
+ * This function populates the MDP software structures with the current state of
+ * the MDP hardware to handoff any active control path for the framebuffer
+ * device. This is needed to identify any ctl, mixers and pipes being set up by
+ * the bootloader to display the splash screen when the continuous splash screen
+ * feature is enabled in kernel.
  */
 static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 {
@@ -2645,9 +2645,9 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 	}
 
 	/*
-                                                              
-                                             
-  */
+	 * vsync interrupt needs on during continuous splash, this is
+	 * to initialize necessary ctl members here.
+	 */
 	rc = mdss_mdp_ctl_start(ctl, true);
 	if (rc) {
 		pr_err("Failed to initialize ctl\n");
@@ -2657,7 +2657,7 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 	ctl->clk_rate = mdss_mdp_get_clk_rate(MDSS_CLK_MDP_SRC);
 	pr_debug("Set the ctl clock rate to %d Hz\n", ctl->clk_rate);
 
-        /*                                                  */
+        /*CASE# 01421774, HANDOFF_PATCH for right side panel*/
 	if (ctl && ctl->mixer_right && (ctl->mixer_right->ctl != ctl))
 		sctl = ctl->mixer_right->ctl;
 
@@ -2673,7 +2673,7 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 				u32 cfg = j * 3;
 				if ((j == MDSS_MDP_SSPP_VIG3) ||
 					(j == MDSS_MDP_SSPP_RGB3)) {
-					/*                                           */
+					/* Add 2 to account for Cursor & Border bits */
 					cfg += 2;
 				}
 
@@ -2910,7 +2910,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	INIT_LIST_HEAD(&mdp5_data->rot_proc_list);
 	mutex_init(&mdp5_data->ov_lock);
 #ifdef CONFIG_LGE_DEVFREQ_DFPS
-	/*                                                */
+	/*Lock to make sure atomic read/write on dfps node*/
 	mutex_init(&mdp5_data->dfps_lock);
 #endif
 	mdp5_data->hw_refresh = true;
@@ -2976,11 +2976,11 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 		rc = mdss_mdp_overlay_handoff(mfd);
 		if (rc) {
 			/*
-                                                  
-                                                        
-                                                       
-               
-    */
+			 * Even though handoff failed, it is not fatal.
+			 * MDP can continue, just that we would have a longer
+			 * delay in transitioning from splash screen to boot
+			 * animation
+			 */
 			pr_warn("Overlay handoff failed for fb%d. rc=%d\n",
 				mfd->index, rc);
 			rc = 0;

@@ -11,10 +11,10 @@
 #include <linux/mtd/nand.h>
 #include <linux/export.h>
 
-/* 
-                                                                    
-                                                          
-                                                   
+/**
+ * It maps 'enum nand_ecc_modes_t' found in include/linux/mtd/nand.h
+ * into the device tree binding of 'nand-ecc', so that MTD
+ * device driver can get nand ecc from device tree.
  */
 static const char *nand_ecc_modes[] = {
 	[NAND_ECC_NONE]		= "none",
@@ -25,12 +25,12 @@ static const char *nand_ecc_modes[] = {
 	[NAND_ECC_SOFT_BCH]	= "soft_bch",
 };
 
-/* 
-                                                                 
-                                        
-  
-                                                                   
-                                                                        
+/**
+ * of_get_nand_ecc_mode - Get nand ecc mode for given device_node
+ * @np:	Pointer to the given device_node
+ *
+ * The function gets ecc mode string from property 'nand-ecc-mode',
+ * and return its index in nand_ecc_modes table, or errno in error case.
  */
 const int of_get_nand_ecc_mode(struct device_node *np)
 {
@@ -49,11 +49,11 @@ const int of_get_nand_ecc_mode(struct device_node *np)
 }
 EXPORT_SYMBOL_GPL(of_get_nand_ecc_mode);
 
-/* 
-                                                                   
-                                        
-  
-                                                   
+/**
+ * of_get_nand_bus_width - Get nand bus witdh for given device_node
+ * @np:	Pointer to the given device_node
+ *
+ * return bus width option, or errno in error case.
  */
 int of_get_nand_bus_width(struct device_node *np)
 {
@@ -72,11 +72,11 @@ int of_get_nand_bus_width(struct device_node *np)
 }
 EXPORT_SYMBOL_GPL(of_get_nand_bus_width);
 
-/* 
-                                                                         
-                                        
-  
-                                          
+/**
+ * of_get_nand_on_flash_bbt - Get nand on flash bbt for given device_node
+ * @np:	Pointer to the given device_node
+ *
+ * return true if present false other wise
  */
 bool of_get_nand_on_flash_bbt(struct device_node *np)
 {

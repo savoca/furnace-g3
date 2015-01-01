@@ -36,13 +36,13 @@
 #include <asm/irq.h>
 #include <asm/uaccess.h>
 
-/* 
-                                                    
-                                                                 
-                                                        
-  
-                                                             
-                        
+/**
+ * mdiobus_alloc_size - allocate a mii_bus structure
+ * @size: extra amount of memory to allocate for private storage.
+ * If non-zero, then bus->priv is points to that memory.
+ *
+ * Description: called by a bus driver to allocate an mii_bus
+ * structure to fill in.
  */
 struct mii_bus *mdiobus_alloc_size(size_t size)
 {
@@ -50,7 +50,7 @@ struct mii_bus *mdiobus_alloc_size(size_t size)
 	size_t aligned_size = ALIGN(sizeof(*bus), NETDEV_ALIGN);
 	size_t alloc_size;
 
-	/*                                               */
+	/* If we alloc extra space, it should be aligned */
 	if (size)
 		alloc_size = aligned_size + size;
 	else
@@ -67,18 +67,18 @@ struct mii_bus *mdiobus_alloc_size(size_t size)
 }
 EXPORT_SYMBOL(mdiobus_alloc_size);
 
-/* 
-                                                    
-                                                         
-  
-                                                               
-                                          
+/**
+ * mdiobus_release - mii_bus device release callback
+ * @d: the target struct device that contains the mii_bus
+ *
+ * Description: called when the last reference to an mii_bus is
+ * dropped, to free the underlying memory.
  */
 static void mdiobus_release(struct device *d)
 {
 	struct mii_bus *bus = to_mii_bus(d);
 	BUG_ON(bus->state != MDIOBUS_RELEASED &&
-	       /*                                                  */
+	       /* for compatibility with error handling in drivers */
 	       bus->state != MDIOBUS_ALLOCATED);
 	kfree(bus);
 }
@@ -88,14 +88,14 @@ static struct class mdio_bus_class = {
 	.dev_release	= mdiobus_release,
 };
 
-/* 
-                                                                                 
-                       
-  
-                                                               
-                                                
-  
-                                        
+/**
+ * mdiobus_register - bring up all the PHYs on a given bus and attach them to bus
+ * @bus: target mii_bus
+ *
+ * Description: Called by a bus driver to bring up all the PHYs
+ *   on a given bus, and attach them to the bus.
+ *
+ * Returns 0 on success or < 0 on error.
  */
 int mdiobus_register(struct mii_bus *bus)
 {
@@ -167,19 +167,19 @@ void mdiobus_unregister(struct mii_bus *bus)
 }
 EXPORT_SYMBOL(mdiobus_unregister);
 
-/* 
-                                       
-                        
-  
-                                                                
-                                                                     
-                 
+/**
+ * mdiobus_free - free a struct mii_bus
+ * @bus: mii_bus to free
+ *
+ * This function releases the reference to the underlying device
+ * object in the mii_bus.  If this is the last reference, the mii_bus
+ * will be freed.
  */
 void mdiobus_free(struct mii_bus *bus)
 {
 	/*
-                                                     
-  */
+	 * For compatibility with error handling in drivers.
+	 */
 	if (bus->state == MDIOBUS_ALLOCATED) {
 		kfree(bus);
 		return;
@@ -211,15 +211,15 @@ struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr)
 }
 EXPORT_SYMBOL(mdiobus_scan);
 
-/* 
-                                                                            
-                           
-                         
-                                   
-  
-                                                   
-                                                                 
-                             
+/**
+ * mdiobus_read - Convenience function for reading a given MII mgmt register
+ * @bus: the mii_bus struct
+ * @addr: the phy address
+ * @regnum: register number to read
+ *
+ * NOTE: MUST NOT be called from interrupt context,
+ * because the bus read/write functions may wait for an interrupt
+ * to conclude the operation.
  */
 int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
 {
@@ -235,16 +235,16 @@ int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
 }
 EXPORT_SYMBOL(mdiobus_read);
 
-/* 
-                                                                             
-                           
-                         
-                                    
-                                  
-  
-                                                   
-                                                                 
-                             
+/**
+ * mdiobus_write - Convenience function for writing a given MII mgmt register
+ * @bus: the mii_bus struct
+ * @addr: the phy address
+ * @regnum: register number to write
+ * @val: value to write to @regnum
+ *
+ * NOTE: MUST NOT be called from interrupt context,
+ * because the bus read/write functions may wait for an interrupt
+ * to conclude the operation.
  */
 int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val)
 {
@@ -260,13 +260,13 @@ int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val)
 }
 EXPORT_SYMBOL(mdiobus_write);
 
-/* 
-                                                                               
-                          
-                         
-  
-                                                                 
-                                                          
+/**
+ * mdio_bus_match - determine if given PHY driver supports the given PHY device
+ * @dev: target PHY device
+ * @drv: given PHY driver
+ *
+ * Description: Given a PHY device, and a PHY driver, return 1 if
+ *   the driver supports the device.  Otherwise, return 0.
  */
 static int mdio_bus_match(struct device *dev, struct device_driver *drv)
 {
@@ -288,22 +288,22 @@ static bool mdio_bus_phy_may_suspend(struct phy_device *phydev)
 	if (!drv || !phydrv->suspend)
 		return false;
 
-	/*                                */
+	/* PHY not attached? May suspend. */
 	if (!netdev)
 		return true;
 
 	/*
-                                                              
-                                                           
-  */
+	 * Don't suspend PHY if the attched netdev parent may wakeup.
+	 * The parent may point to a PCI device, as in tg3 driver.
+	 */
 	if (netdev->dev.parent && device_may_wakeup(netdev->dev.parent))
 		return false;
 
 	/*
-                                                                
-                                                                 
-                     
-  */
+	 * Also don't suspend PHY if the netdev itself may wakeup. This
+	 * is the case for devices w/o underlaying pwr. mgmt. aware bus,
+	 * e.g. SoC devices.
+	 */
 	if (device_may_wakeup(&netdev->dev))
 		return false;
 
@@ -316,11 +316,11 @@ static int mdio_bus_suspend(struct device *dev)
 	struct phy_device *phydev = to_phy_device(dev);
 
 	/*
-                                                                      
-                                                                     
-                                                                      
-                       
-  */
+	 * We must stop the state machine manually, otherwise it stops out of
+	 * control, possibly with the phydev->lock held. Upon resume, netdev
+	 * may call phy routines that try to grab the same lock, and that may
+	 * lead to a deadlock.
+	 */
 	if (phydev->attached_dev && phydev->adjust_link)
 		phy_stop_machine(phydev);
 
@@ -363,7 +363,7 @@ static int mdio_bus_restore(struct device *dev)
 	if (ret < 0)
 		return ret;
 
-	/*                               */
+	/* The PHY needs to renegotiate. */
 	phydev->link = 0;
 	phydev->state = PHY_UP;
 
@@ -386,7 +386,7 @@ static struct dev_pm_ops mdio_bus_pm_ops = {
 
 #define MDIO_BUS_PM_OPS NULL
 
-#endif /*           */
+#endif /* CONFIG_PM */
 
 struct bus_type mdio_bus_type = {
 	.name		= "mdio_bus",

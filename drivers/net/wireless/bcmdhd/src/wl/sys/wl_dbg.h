@@ -29,7 +29,7 @@
 #ifndef _wl_dbg_h_
 #define _wl_dbg_h_
 
-/*                                                     */
+/* wl_msg_level is a bit vector with defs in wlioctl.h */
 extern uint32 wl_msg_level;
 extern uint32 wl_msg_level2;
 
@@ -38,7 +38,7 @@ extern uint32 wl_msg_level2;
 #define WL_PRINT(args)		do { WL_TIMESTAMP(); printf args; } while (0)
 
 
-/*                                                             */
+/* To disable a message completely ... until you need it again */
 #define WL_NONE(args)
 
 #define	WL_ERROR(args)
@@ -55,4 +55,4 @@ extern uint32 wl_msg_level2;
 
 extern uint32 wl_msg_level;
 extern uint32 wl_msg_level2;
-#endif /*            */
+#endif /* _wl_dbg_h_ */

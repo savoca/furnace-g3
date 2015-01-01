@@ -31,7 +31,7 @@ int i_APCI1710_InsnWriteEnableDisablePulseEncoder(struct comedi_device *dev,
 						  unsigned int *data);
 
 /*
-                               
+ * READ PULSE ENCODER FUNCTIONS
  */
 int i_APCI1710_InsnReadInterruptPulseEncoder(struct comedi_device *dev,
 					     struct comedi_subdevice *s,
@@ -39,7 +39,7 @@ int i_APCI1710_InsnReadInterruptPulseEncoder(struct comedi_device *dev,
 					     unsigned int *data);
 
 /*
-                                
+ * WRITE PULSE ENCODER FUNCTIONS
  */
 int i_APCI1710_InsnBitsReadWritePulseEncoder(struct comedi_device *dev,
 					     struct comedi_subdevice *s,

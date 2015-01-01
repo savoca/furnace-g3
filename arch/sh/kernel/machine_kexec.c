@@ -34,13 +34,13 @@ extern void *vbr_base;
 
 void native_machine_crash_shutdown(struct pt_regs *regs)
 {
-	/*                                                       */
+	/* Nothing to do for UP, but definitely broken for SMP.. */
 }
 
 /*
-                                                 
-                                                      
-         
+ * Do what every setup is needed on image and the
+ * reboot code buffer to allow us to avoid allocations
+ * later.
  */
 int machine_kexec_prepare(struct kimage *image)
 {
@@ -67,8 +67,8 @@ static void kexec_info(struct kimage *image)
 }
 
 /*
-                                                                  
-                                                                  
+ * Do not allocate memory (or fail in any way) in machine_kexec().
+ * We are past the point of no return, committed to rebooting now.
  */
 void machine_kexec(struct kimage *image)
 {
@@ -80,10 +80,10 @@ void machine_kexec(struct kimage *image)
 	int save_ftrace_enabled;
 
 	/*
-                                                    
-                                                           
-                                                             
-  */
+	 * Nicked from the mips version of machine_kexec():
+	 * The generic kexec code builds a page list with physical
+	 * addresses. Use phys_to_virt() to convert them to virtual.
+	 */
 	for (ptr = &image->head; (entry = *ptr) && !(entry & IND_DONE);
 	     ptr = (entry & IND_INDIRECTION) ?
 	       phys_to_virt(entry & PAGE_MASK) : ptr + 1) {
@@ -99,16 +99,16 @@ void machine_kexec(struct kimage *image)
 
 	save_ftrace_enabled = __ftrace_enabled_save();
 
-	/*                                              */
+	/* Interrupts aren't acceptable while we reboot */
 	local_irq_disable();
 
 	page_list = image->head;
 
-	/*                                              */
+	/* we need both effective and real address here */
 	reboot_code_buffer =
 			(unsigned long)page_address(image->control_code_page);
 
-	/*                                                          */
+	/* copy our kernel relocation code to the control code page */
 	memcpy((void *)reboot_code_buffer, relocate_new_kernel,
 						relocate_new_kernel_size);
 
@@ -117,7 +117,7 @@ void machine_kexec(struct kimage *image)
 
 	sh_bios_vbr_reload();
 
-	/*             */
+	/* now call it */
 	rnk = (relocate_new_kernel_t) reboot_code_buffer;
 	(*rnk)(page_list, reboot_code_buffer,
 	       (unsigned long)phys_to_virt(image->start));
@@ -128,7 +128,7 @@ void machine_kexec(struct kimage *image)
 	if (image->preserve_context)
 		restore_processor_state();
 
-	/*                                                            */
+	/* Convert page list back to physical addresses, what a mess. */
 	for (ptr = &image->head; (entry = *ptr) && !(entry & IND_DONE);
 	     ptr = (*ptr & IND_INDIRECTION) ?
 	       phys_to_virt(*ptr & PAGE_MASK) : ptr + 1) {
@@ -187,8 +187,8 @@ void __init reserve_crashkernel(void)
 	crashk_res.end = crashk_res.start + crash_size - 1;
 
 	/*
-                                    
-  */
+	 * Crash kernel trumps memory limit
+	 */
 	if ((memblock_end_of_DRAM() - memory_limit) <= crashk_res.end) {
 		memory_limit = 0;
 		pr_info("Disabled memory limit for crashkernel\n");

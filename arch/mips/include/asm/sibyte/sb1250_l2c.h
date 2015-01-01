@@ -36,7 +36,7 @@
 #include "sb1250_defs.h"
 
 /*
-                                         
+ * Level 2 Cache Tag register (Table 5-3)
  */
 
 #define S_L2C_TAG_MBZ               0
@@ -66,7 +66,7 @@
 #define M_L2C_TAG_VALID             _SB_MAKEMASK1(49)
 
 /*
-                                                         
+ * Format of level 2 cache management address (table 5-2)
  */
 
 #define S_L2C_MGMT_INDEX            5
@@ -108,7 +108,7 @@
 
 #if SIBYTE_HDR_FEATURE(1250, PASS3) || SIBYTE_HDR_FEATURE(112x, PASS1)
 /*
-                                          
+ * L2 Read Misc. register (A_L2_READ_MISC)
  */
 #define S_L2C_MISC_NO_WAY		10
 #define M_L2C_MISC_NO_WAY		_SB_MAKEMASK(4, S_L2C_MISC_NO_WAY)
@@ -125,7 +125,7 @@
 #define M_L2C_MISC_SCACHE_DISABLE_B	_SB_MAKEMASK1(2)
 #define M_L2C_MISC_SCACHE_DISABLE_R	_SB_MAKEMASK1(1)
 #define M_L2C_MISC_SCACHE_DISABLE_L	_SB_MAKEMASK1(0)
-#endif /*                          */
+#endif /* 1250 PASS3 || 112x PASS1 */
 
 
 #endif

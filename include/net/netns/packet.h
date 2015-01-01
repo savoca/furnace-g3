@@ -1,5 +1,5 @@
 /*
-                           
+ * Packet network namespace
  */
 #ifndef __NETNS_PACKET_H__
 #define __NETNS_PACKET_H__
@@ -12,4 +12,4 @@ struct netns_packet {
 	struct hlist_head	sklist;
 };
 
-#endif /*                    */
+#endif /* __NETNS_PACKET_H__ */

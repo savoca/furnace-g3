@@ -29,7 +29,7 @@ static inline void delay(void)
 }
 
 /*
-                   
+ * NIC I/O function
  */
 
 #define PORT2ADDR_NE(port)  _port2addr_ne(port)

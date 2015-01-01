@@ -25,7 +25,7 @@
 
 
 /*
-                                                      
+ * Return the reason code for a reservations's DRP IE.
  */
 int uwb_rsv_reason_code(struct uwb_rsv *rsv)
 {
@@ -53,7 +53,7 @@ int uwb_rsv_reason_code(struct uwb_rsv *rsv)
 }
 
 /*
-                                                                 
+ * Return the reason code for a reservations's companion DRP IE .
  */
 int uwb_rsv_companion_reason_code(struct uwb_rsv *rsv)
 {
@@ -69,7 +69,7 @@ int uwb_rsv_companion_reason_code(struct uwb_rsv *rsv)
 }
 
 /*
-                                                     
+ * Return the status bit for a reservations's DRP IE.
  */
 int uwb_rsv_status(struct uwb_rsv *rsv)
 {
@@ -98,7 +98,7 @@ int uwb_rsv_status(struct uwb_rsv *rsv)
 }
 
 /*
-                                                                
+ * Return the status bit for a reservations's companion DRP IE .
  */
 int uwb_rsv_companion_status(struct uwb_rsv *rsv)
 {
@@ -114,12 +114,12 @@ int uwb_rsv_companion_status(struct uwb_rsv *rsv)
 }
 
 /*
-                     
-  
-                                                                 
-                                                            
-                                                                      
-                                       
+ * Allocate a DRP IE.
+ *
+ * To save having to free/allocate a DRP IE when its MAS changes,
+ * enough memory is allocated for the maxiumum number of DRP
+ * allocation fields.  This gives an overhead per reservation of up to
+ * (UWB_NUM_ZONES - 1) * 4 = 60 octets.
  */
 static struct uwb_ie_drp *uwb_drp_ie_alloc(void)
 {
@@ -136,7 +136,7 @@ static struct uwb_ie_drp *uwb_drp_ie_alloc(void)
 
 
 /*
-                                                       
+ * Fill a DRP IE's allocation fields from a MAS bitmap.
  */
 static void uwb_drp_ie_from_bm(struct uwb_ie_drp *drp_ie,
 			       struct uwb_mas_bm *mas)
@@ -151,7 +151,7 @@ static void uwb_drp_ie_from_bm(struct uwb_ie_drp *drp_ie,
 
 	bitmap_copy(tmp_bmp, mas->bm, UWB_NUM_MAS);
 
-	/*                                                    */
+	/* Determine unique MAS bitmaps in zones from bitmap. */
 	for (z = 0; z < UWB_NUM_ZONES; z++) {
 		bitmap_copy(tmp_mas_bm, tmp_bmp, UWB_MAS_PER_ZONE);
 		if (bitmap_weight(tmp_mas_bm, UWB_MAS_PER_ZONE) > 0) {
@@ -174,7 +174,7 @@ static void uwb_drp_ie_from_bm(struct uwb_ie_drp *drp_ie,
 		bitmap_shift_right(tmp_bmp, tmp_bmp, UWB_MAS_PER_ZONE, UWB_NUM_MAS);
 	}
 
-	/*                                                */
+	/* Store in format ready for transmission (le16). */
 	for (i = 0; i < num_fields; i++) {
 		drp_ie->allocs[i].zone_bm = cpu_to_le16(zones[i].zone_bm);
 		drp_ie->allocs[i].mas_bm = cpu_to_le16(zones[i].mas_bm);
@@ -184,9 +184,9 @@ static void uwb_drp_ie_from_bm(struct uwb_ie_drp *drp_ie,
 		+ num_fields * sizeof(struct uwb_drp_alloc);
 }
 
-/* 
-                                                    
-                        
+/**
+ * uwb_drp_ie_update - update a reservation's DRP IE
+ * @rsv: the reservation
  */
 int uwb_drp_ie_update(struct uwb_rsv *rsv)
 {
@@ -240,11 +240,11 @@ int uwb_drp_ie_update(struct uwb_rsv *rsv)
 		}
 		drp_ie = mv->companion_drp_ie;
 		
-		/*                                                    */
+		/* keep all the same configuration of the main drp_ie */
 		memcpy(drp_ie, rsv->drp_ie, sizeof(struct uwb_ie_drp));
 		
 
-		/*                                       */
+		/* FIXME: handle properly the unsafe bit */
 		uwb_ie_drp_set_unsafe(drp_ie,       1);
 		uwb_ie_drp_set_status(drp_ie,       uwb_rsv_companion_status(rsv));
 		uwb_ie_drp_set_reason_code(drp_ie,  uwb_rsv_companion_reason_code(rsv));
@@ -257,13 +257,13 @@ int uwb_drp_ie_update(struct uwb_rsv *rsv)
 }
 
 /*
-                                                                       
-  
-                                                                           
-                                                                         
-                                                                         
-                                                                            
-                                             
+ * Set MAS bits from given MAS bitmap in a single zone of large bitmap.
+ *
+ * We are given a zone id and the MAS bitmap of bits that need to be set in
+ * this zone. Note that this zone may already have bits set and this only
+ * adds settings - we cannot simply assign the MAS bitmap contents to the
+ * zone contents. We iterate over the the bits (MAS) in the zone and set the
+ * bits that are set in the given MAS bitmap.
  */
 static
 void uwb_drp_ie_single_zone_to_bm(struct uwb_mas_bm *bm, u8 zone, u16 mas_bm)
@@ -278,20 +278,20 @@ void uwb_drp_ie_single_zone_to_bm(struct uwb_mas_bm *bm, u8 zone, u16 mas_bm)
 	}
 }
 
-/* 
-                                                                     
-                                                                  
-                                           
-                                                           
-  
-                                                                     
-                                                                
-                                                   
-  
-                                                                     
-                                                               
-                                                                     
-             
+/**
+ * uwb_drp_ie_zones_to_bm - convert DRP allocation fields to a bitmap
+ * @mas:    MAS bitmap that will be populated to correspond to the
+ *          allocation fields in the DRP IE
+ * @drp_ie: the DRP IE that contains the allocation fields.
+ *
+ * The input format is an array of MAS allocation fields (16 bit Zone
+ * bitmap, 16 bit MAS bitmap) as described in [ECMA-368] section
+ * 16.8.6. The output is a full 256 bit MAS bitmap.
+ *
+ * We go over all the allocation fields, for each allocation field we
+ * know which zones are impacted. We iterate over all the zones
+ * impacted and call a function that will set the correct MAS bits in
+ * each zone.
  */
 void uwb_drp_ie_to_bm(struct uwb_mas_bm *bm, const struct uwb_ie_drp *drp_ie)
 {

@@ -42,14 +42,14 @@
 #include "qib.h"
 
 /*
-                                                               
-                                                 
+ * The size has to be longer than this string, so we can append
+ * board/chip information to it in the init code.
  */
 const char ib_qib_version[] = QIB_IDSTR "\n";
 
 DEFINE_SPINLOCK(qib_devs_lock);
 LIST_HEAD(qib_dev_list);
-DEFINE_MUTEX(qib_mutex);	/*                    */
+DEFINE_MUTEX(qib_mutex);	/* general driver use */
 
 unsigned qib_ibmtu;
 module_param_named(ibmtu, qib_ibmtu, uint, S_IRUGO);
@@ -66,14 +66,14 @@ MODULE_AUTHOR("QLogic <support@qlogic.com>");
 MODULE_DESCRIPTION("QLogic IB driver");
 
 /*
-                                                                
-                                                            
-                                  
+ * QIB_PIO_MAXIBHDR is the max IB header size allowed for in our
+ * PIO send buffers.  This is well beyond anything currently
+ * defined in the InfiniBand spec.
  */
 #define QIB_PIO_MAXIBHDR 128
 
 /*
-                                                                           
+ * QIB_MAX_PKT_RCV is the max # if packets processed per receive interrupt.
  */
 #define QIB_MAX_PKT_RECV 64
 
@@ -88,7 +88,7 @@ const char *qib_get_unit_name(int unit)
 }
 
 /*
-                                                       
+ * Return count of units with at least one port ACTIVE.
  */
 int qib_count_active_units(void)
 {
@@ -115,9 +115,9 @@ int qib_count_active_units(void)
 }
 
 /*
-                                                            
-                                                          
-                     
+ * Return count of all units, optionally return in arguments
+ * the number of usable (present) units, and the number of
+ * ports that are up.
  */
 int qib_count_units(int *npresentp, int *nupp)
 {
@@ -151,17 +151,17 @@ int qib_count_units(int *npresentp, int *nupp)
 	return nunits;
 }
 
-/* 
-                                                                 
-                            
-                                
-                                             
-  
-                                                                      
-                                                            
-                                                            
-                                                                    
-               
+/**
+ * qib_wait_linkstate - wait for an IB link state change to occur
+ * @dd: the qlogic_ib device
+ * @state: the state to wait for
+ * @msecs: the number of milliseconds to wait
+ *
+ * wait up to msecs milliseconds for IB link state change to occur for
+ * now, take the easy polling route.  Currently used only by
+ * qib_set_linkstate.  Returns 0 if state reached, otherwise
+ * -ETIMEDOUT state can have multiple states set, for any of several
+ * transitions.
  */
 int qib_wait_linkstate(struct qib_pportdata *ppd, u32 state, int msecs)
 {
@@ -202,28 +202,28 @@ int qib_set_linkstate(struct qib_pportdata *ppd, u8 newstate)
 	case QIB_IB_LINKDOWN_ONLY:
 		dd->f_set_ib_cfg(ppd, QIB_IB_CFG_LSTATE,
 				 IB_LINKCMD_DOWN | IB_LINKINITCMD_NOP);
-		/*            */
+		/* don't wait */
 		ret = 0;
 		goto bail;
 
 	case QIB_IB_LINKDOWN:
 		dd->f_set_ib_cfg(ppd, QIB_IB_CFG_LSTATE,
 				 IB_LINKCMD_DOWN | IB_LINKINITCMD_POLL);
-		/*            */
+		/* don't wait */
 		ret = 0;
 		goto bail;
 
 	case QIB_IB_LINKDOWN_SLEEP:
 		dd->f_set_ib_cfg(ppd, QIB_IB_CFG_LSTATE,
 				 IB_LINKCMD_DOWN | IB_LINKINITCMD_SLEEP);
-		/*            */
+		/* don't wait */
 		ret = 0;
 		goto bail;
 
 	case QIB_IB_LINKDOWN_DISABLE:
 		dd->f_set_ib_cfg(ppd, QIB_IB_CFG_LSTATE,
 				 IB_LINKCMD_DOWN | IB_LINKINITCMD_DISABLE);
-		/*            */
+		/* don't wait */
 		ret = 0;
 		goto bail;
 
@@ -237,11 +237,11 @@ int qib_set_linkstate(struct qib_pportdata *ppd, u8 newstate)
 			goto bail;
 		}
 		/*
-                                                        
-                                                      
-                                                          
-                                             
-   */
+		 * Since the port can be ACTIVE when we ask for ARMED,
+		 * clear QIBL_LINKV so we can wait for a transition.
+		 * If the link isn't ARMED, then something else happened
+		 * and there is no point waiting for ARMED.
+		 */
 		spin_lock_irqsave(&ppd->lflags_lock, flags);
 		ppd->lflags &= ~QIBL_LINKV;
 		spin_unlock_irqrestore(&ppd->lflags_lock, flags);
@@ -275,8 +275,8 @@ bail:
 }
 
 /*
-                                                                        
-               
+ * Get address of eager buffer from it's index (allocated in chunks, not
+ * contiguous).
  */
 static inline void *qib_get_egrbuf(const struct qib_ctxtdata *rcd, u32 etail)
 {
@@ -287,8 +287,8 @@ static inline void *qib_get_egrbuf(const struct qib_ctxtdata *rcd, u32 etail)
 }
 
 /*
-                                        
-                                                     
+ * Returns 1 if error was a CRC, else 0.
+ * Needed for some chip's synthesized error counters.
  */
 static u32 qib_rcv_hdrerr(struct qib_ctxtdata *rcd, struct qib_pportdata *ppd,
 			  u32 ctxt, u32 eflags, u32 l, u32 etail,
@@ -299,7 +299,7 @@ static u32 qib_rcv_hdrerr(struct qib_ctxtdata *rcd, struct qib_pportdata *ppd,
 	if (eflags & (QLOGIC_IB_RHF_H_ICRCERR | QLOGIC_IB_RHF_H_VCRCERR))
 		ret = 1;
 	else if (eflags == QLOGIC_IB_RHF_H_TIDERR) {
-		/*                                                  */
+		/* For TIDERR and RC QPs premptively schedule a NAK */
 		struct qib_ib_header *hdr = (struct qib_ib_header *) rhdr;
 		struct qib_other_headers *ohdr = NULL;
 		struct qib_ibport *ibp = &ppd->ibport_data;
@@ -312,7 +312,7 @@ static u32 qib_rcv_hdrerr(struct qib_ctxtdata *rcd, struct qib_pportdata *ppd,
 		u32 psn;
 		int diff;
 
-		/*                     */
+		/* Sanity check packet */
 		if (tlen < 24)
 			goto drop;
 
@@ -322,7 +322,7 @@ static u32 qib_rcv_hdrerr(struct qib_ctxtdata *rcd, struct qib_pportdata *ppd,
 				goto drop;
 		}
 
-		/*               */
+		/* Check for GRH */
 		if (lnh == QIB_LRH_BTH)
 			ohdr = &hdr->u.oth;
 		else if (lnh == QIB_LRH_GRH) {
@@ -337,12 +337,12 @@ static u32 qib_rcv_hdrerr(struct qib_ctxtdata *rcd, struct qib_pportdata *ppd,
 		} else
 			goto drop;
 
-		/*                                */
+		/* Get opcode and PSN from packet */
 		opcode = be32_to_cpu(ohdr->bth[0]);
 		opcode >>= 24;
 		psn = be32_to_cpu(ohdr->bth[2]);
 
-		/*                                */
+		/* Get the destination QP number. */
 		qp_num = be32_to_cpu(ohdr->bth[1]) & QIB_QPN_MASK;
 		if (qp_num != QIB_MULTICAST_QPN) {
 			int ruc_res;
@@ -351,12 +351,12 @@ static u32 qib_rcv_hdrerr(struct qib_ctxtdata *rcd, struct qib_pportdata *ppd,
 				goto drop;
 
 			/*
-                                                        
-             
-    */
+			 * Handle only RC QPs - for other QP types drop error
+			 * packet.
+			 */
 			spin_lock(&qp->r_lock);
 
-			/*                                */
+			/* Check for valid receive state. */
 			if (!(ib_qib_state_ops[qp->state] &
 			      QIB_PROCESS_RECV_OK)) {
 				ibp->n_pkt_drops++;
@@ -374,7 +374,7 @@ static u32 qib_rcv_hdrerr(struct qib_ctxtdata *rcd, struct qib_pportdata *ppd,
 				if (ruc_res)
 					goto unlock;
 
-				/*                                    */
+				/* Only deal with RDMA Writes for now */
 				if (opcode <
 				    IB_OPCODE_RC_RDMA_READ_RESPONSE_FIRST) {
 					diff = qib_cmp24(psn, qp->r_psn);
@@ -382,16 +382,16 @@ static u32 qib_rcv_hdrerr(struct qib_ctxtdata *rcd, struct qib_pportdata *ppd,
 						ibp->n_rc_seqnak++;
 						qp->r_nak_state =
 							IB_NAK_PSN_ERROR;
-						/*                       */
+						/* Use the expected PSN. */
 						qp->r_ack_psn = qp->r_psn;
 						/*
-                                  
-                              
-                                  
-                        
-                             
-                                
-       */
+						 * Wait to send the sequence
+						 * NAK until all packets
+						 * in the receive queue have
+						 * been processed.
+						 * Otherwise, we end up
+						 * propagating congestion.
+						 */
 						if (list_empty(&qp->rspwait)) {
 							qp->r_flags |=
 								QIB_R_RSP_NAK;
@@ -401,43 +401,43 @@ static u32 qib_rcv_hdrerr(struct qib_ctxtdata *rcd, struct qib_pportdata *ppd,
 							 &qp->rspwait,
 							 &rcd->qp_wait_list);
 						}
-					} /*                     */
-				} /*                 */
+					} /* Out of sequence NAK */
+				} /* QP Request NAKs */
 				break;
 			case IB_QPT_SMI:
 			case IB_QPT_GSI:
 			case IB_QPT_UD:
 			case IB_QPT_UC:
 			default:
-				/*                                         */
+				/* For now don't handle any other QP types */
 				break;
 			}
 
 unlock:
 			spin_unlock(&qp->r_lock);
 			/*
-                                              
-                       
-    */
+			 * Notify qib_destroy_qp() if it is waiting
+			 * for us to finish.
+			 */
 			if (atomic_dec_and_test(&qp->refcount))
 				wake_up(&qp->wait);
-		} /*            */
-	} /*                          */
+		} /* Unicast QP */
+	} /* Valid packet with TIDErr */
 
 drop:
 	return ret;
 }
 
 /*
-                                  
-                              
-                                                         
-                                                                  
-  
-                                                                
-                                                                
-                                                                       
-                                                                   
+ * qib_kreceive - receive a packet
+ * @rcd: the qlogic_ib context
+ * @llic: gets count of good packets needed to clear lli,
+ *          (used with chips that need need to track crcs for lli)
+ *
+ * called from interrupt handler for errors or receive interrupt
+ * Returns number of CRC error packets, needed by some chips for
+ * local link integrity tracking.   crcs are adjusted down by following
+ * good packets, if any, and count of good packets is also tracked.
  */
 u32 qib_kreceive(struct qib_ctxtdata *rcd, u32 *llic, u32 *npkts)
 {
@@ -445,8 +445,8 @@ u32 qib_kreceive(struct qib_ctxtdata *rcd, u32 *llic, u32 *npkts)
 	struct qib_pportdata *ppd = rcd->ppd;
 	__le32 *rhf_addr;
 	void *ebuf;
-	const u32 rsize = dd->rcvhdrentsize;        /*       */
-	const u32 maxcnt = dd->rcvhdrcnt * rsize;   /*       */
+	const u32 rsize = dd->rcvhdrentsize;        /* words */
+	const u32 maxcnt = dd->rcvhdrcnt * rsize;   /* words */
 	u32 etail = -1, l, hdrqtail;
 	struct qib_message_header *hdr;
 	u32 eflags, etype, tlen, i = 0, updegr = 0, crcs = 0;
@@ -465,14 +465,14 @@ u32 qib_kreceive(struct qib_ctxtdata *rcd, u32 *llic, u32 *npkts)
 		hdrqtail = qib_get_rcvhdrtail(rcd);
 		if (l == hdrqtail)
 			goto bail;
-		smp_rmb();  /*                                          */
+		smp_rmb();  /* prevent speculative reads of dma'ed hdrq */
 	}
 
 	for (last = 0, i = 1; !last; i += !last) {
 		hdr = dd->f_get_msgheader(dd, rhf_addr);
 		eflags = qib_hdrget_err_flags(rhf_addr);
 		etype = qib_hdrget_rcv_type(rhf_addr);
-		/*              */
+		/* total length */
 		tlen = qib_hdrget_length_in_bytes(rhf_addr);
 		ebuf = NULL;
 		if ((dd->flags & QIB_NODMA_RTAIL) ?
@@ -500,9 +500,9 @@ u32 qib_kreceive(struct qib_ctxtdata *rcd, u32 *llic, u32 *npkts)
 		}
 
 		/*
-                                                       
-                                           
-   */
+		 * Both tiderr and qibhdrerr are set for all plain IB
+		 * packets; only qibhdrerr should be set.
+		 */
 		if (unlikely(eflags))
 			crcs += qib_rcv_hdrerr(rcd, ppd, rcd->ctxt, eflags, l,
 					       etail, rhf_addr, hdr);
@@ -531,11 +531,11 @@ move_along:
 		} else if (l == hdrqtail)
 			last = 1;
 		/*
-                                                              
-                                                         
-                                            
-                                                         
-   */
+		 * Update head regs etc., every 16 packets, if not last pkt,
+		 * to help prevent rcvhdrq overflows, when many packets
+		 * are processed and queue is nearly full.
+		 * Don't request an interrupt for intermediate updates.
+		 */
 		lval = l;
 		if (!last && !(i & 0xf)) {
 			dd->f_update_usrhead(rcd, lval, updegr, etail, i);
@@ -543,9 +543,9 @@ move_along:
 		}
 	}
 	/*
-                                            
-                               
-  */
+	 * Notify qib_destroy_qp() if it is waiting
+	 * for lookaside_qp to finish.
+	 */
 	if (rcd->lookaside_qp) {
 		if (atomic_dec_and_test(&rcd->lookaside_qp->refcount))
 			wake_up(&rcd->lookaside_qp->wait);
@@ -556,9 +556,9 @@ move_along:
 	rcd->pkt_count += i;
 
 	/*
-                                            
-                                                               
-  */
+	 * Iterate over all QPs waiting to respond.
+	 * The list won't change since the IRQ is only run on one CPU.
+	 */
 	list_for_each_entry_safe(qp, nqp, &rcd->qp_wait_list, rspwait) {
 		list_del_init(&qp->rspwait);
 		if (qp->r_flags & QIB_R_RSP_NAK) {
@@ -580,30 +580,30 @@ move_along:
 	}
 
 bail:
-	/*                                   */
+	/* Report number of packets consumed */
 	if (npkts)
 		*npkts = i;
 
 	/*
-                                                           
-                                 
-  */
+	 * Always write head at end, and setup rcv interrupt, even
+	 * if no packets were processed.
+	 */
 	lval = (u64)rcd->head | dd->rhdrhead_intr_off;
 	dd->f_update_usrhead(rcd, lval, updegr, etail, i);
 	return crcs;
 }
 
-/* 
-                            
-                         
-                    
-  
-                                                                  
-                                                                 
-                                                                  
-                                                           
-                                                                  
-                     
+/**
+ * qib_set_mtu - set the MTU
+ * @ppd: the perport data
+ * @arg: the new MTU
+ *
+ * We can handle "any" incoming size, the issue here is whether we
+ * need to restrict our outgoing size.   For now, we don't do any
+ * sanity checking on this, and we don't deal with what happens to
+ * programs that are already running when the size changes.
+ * NOTE: changing the MTU will usually cause the IBC to go back to
+ * link INIT state...
  */
 int qib_set_mtu(struct qib_pportdata *ppd, u16 arg)
 {
@@ -625,7 +625,7 @@ int qib_set_mtu(struct qib_pportdata *ppd, u16 arg)
 	ppd->ibmtu = arg;
 
 	if (arg >= (piosize - QIB_PIO_MAXIBHDR)) {
-		/*                                                     */
+		/* Only if it's not the initial value (or reset to it) */
 		if (piosize != ppd->init_ibmaxlen) {
 			if (arg > piosize && arg <= ppd->init_ibmaxlen)
 				piosize = ppd->init_ibmaxlen - 2 * sizeof(u32);
@@ -660,15 +660,15 @@ int qib_set_lid(struct qib_pportdata *ppd, u32 lid, u8 lmc)
 }
 
 /*
-                                                                          
-                                                                         
-                                                                      
-                                                                
-                                                    
+ * Following deal with the "obviously simple" task of overriding the state
+ * of the LEDS, which normally indicate link physical and logical status.
+ * The complications arise in dealing with different hardware mappings
+ * and the board-dependent routine being called from interrupts.
+ * and then there's the requirement to _flash_ them.
  */
 #define LED_OVER_FREQ_SHIFT 8
 #define LED_OVER_FREQ_MASK (0xFF<<LED_OVER_FREQ_SHIFT)
-/*                                                                     */
+/* Below is "non-zero" to force override, but both actual LEDs are off */
 #define LED_OVER_BOTH_OFF (8)
 
 static void qib_run_led_override(unsigned long opaque)
@@ -687,9 +687,9 @@ static void qib_run_led_override(unsigned long opaque)
 
 	dd->f_setextled(ppd, 1);
 	/*
-                                                                  
-                                                            
-  */
+	 * don't re-fire the timer if user asked for it to be off; we let
+	 * it fire one more time after they turn it off to simplify
+	 */
 	if (ppd->led_override_vals[0] || ppd->led_override_vals[1])
 		mod_timer(&ppd->led_override_timer, jiffies + timeoff);
 }
@@ -702,28 +702,28 @@ void qib_set_led_override(struct qib_pportdata *ppd, unsigned int val)
 	if (!(dd->flags & QIB_INITTED))
 		return;
 
-	/*                                                         */
+	/* First check if we are blinking. If not, use 1HZ polling */
 	timeoff = HZ;
 	freq = (val & LED_OVER_FREQ_MASK) >> LED_OVER_FREQ_SHIFT;
 
 	if (freq) {
-		/*                                                  */
+		/* For blink, set each phase from one nybble of val */
 		ppd->led_override_vals[0] = val & 0xF;
 		ppd->led_override_vals[1] = (val >> 4) & 0xF;
 		timeoff = (HZ << 4)/freq;
 	} else {
-		/*                                     */
+		/* Non-blink set both phases the same. */
 		ppd->led_override_vals[0] = val & 0xF;
 		ppd->led_override_vals[1] = val & 0xF;
 	}
 	ppd->led_override_timeoff = timeoff;
 
 	/*
-                                                                   
-                                                                        
-  */
+	 * If the timer has not already been started, do so. Use a "quick"
+	 * timeout so the function will be called soon, to look at our request.
+	 */
 	if (atomic_inc_return(&ppd->led_override_timer_active) == 1) {
-		/*                     */
+		/* Need to start timer */
 		init_timer(&ppd->led_override_timer);
 		ppd->led_override_timer.function = qib_run_led_override;
 		ppd->led_override_timer.data = (unsigned long) ppd;
@@ -736,14 +736,14 @@ void qib_set_led_override(struct qib_pportdata *ppd, unsigned int val)
 	}
 }
 
-/* 
-                                                
-                             
-  
-                                                                           
-                                                                          
-                                                                         
-                                                                               
+/**
+ * qib_reset_device - reset the chip if possible
+ * @unit: the device to reset
+ *
+ * Whether or not reset is successful, we attempt to re-initialize the chip
+ * (that is, much like a driver unload/reload).  We clear the INITTED flag
+ * so that the various entry points will fail until we reinitialize.  For
+ * now, we only allow this if no user contexts are open that use chip resources
  */
 int qib_reset_device(int unit)
 {
@@ -781,12 +781,12 @@ int qib_reset_device(int unit)
 	for (pidx = 0; pidx < dd->num_pports; ++pidx) {
 		ppd = dd->pport + pidx;
 		if (atomic_read(&ppd->led_override_timer_active)) {
-			/*                                              */
+			/* Need to stop LED timer, _then_ shut off LEDs */
 			del_timer_sync(&ppd->led_override_timer);
 			atomic_set(&ppd->led_override_timer_active, 0);
 		}
 
-		/*                                                      */
+		/* Shut off LEDs after we are sure timer is not running */
 		ppd->led_override = LED_OVER_BOTH_OFF;
 		dd->f_setextled(ppd, 0);
 		if (dd->flags & QIB_HAS_SEND_DMA)

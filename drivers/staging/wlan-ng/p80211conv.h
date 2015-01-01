@@ -78,16 +78,16 @@
 struct p80211_rxmeta {
 	struct wlandevice *wlandev;
 
-	u64 mactime;		/*                                */
-	u64 hosttime;		/*                                   */
+	u64 mactime;		/* Hi-rez MAC-supplied time value */
+	u64 hosttime;		/* Best-rez host supplied time value */
 
-	unsigned int rxrate;	/*                              */
-	unsigned int priority;	/*                          */
-	int signal;		/*                            */
-	int noise;		/*                            */
-	unsigned int channel;	/*                                    */
-	unsigned int preamble;	/*                           */
-	unsigned int encoding;	/*                       */
+	unsigned int rxrate;	/* Receive data rate in 100kbps */
+	unsigned int priority;	/* 0-15, 0=contention, 6=CF */
+	int signal;		/* An SSI, see p80211netdev.h */
+	int noise;		/* An SSI, see p80211netdev.h */
+	unsigned int channel;	/* Receive channel (mostly for snifs) */
+	unsigned int preamble;	/* P80211ENUM_preambletype_* */
+	unsigned int encoding;	/* P80211ENUM_encoding_* */
 
 };
 
@@ -101,7 +101,7 @@ int p80211skb_rxmeta_attach(struct wlandevice *wlandev, struct sk_buff *skb);
 void p80211skb_rxmeta_detach(struct sk_buff *skb);
 
 /*
-                                                  
+ * Frame capture header.  (See doc/capturefrm.txt)
  */
 struct p80211_caphdr {
 	u32 version;
@@ -120,7 +120,7 @@ struct p80211_caphdr {
 	u32 encoding;
 };
 
-/*                                 */
+/* buffer free method pointer type */
 typedef void (*freebuf_method_t) (void *buf, int size);
 
 struct p80211_metawep {
@@ -129,27 +129,27 @@ struct p80211_metawep {
 	u8 icv[4];
 };
 
-/*                         */
+/* local ether header type */
 struct wlan_ethhdr {
 	u8 daddr[WLAN_ETHADDR_LEN];
 	u8 saddr[WLAN_ETHADDR_LEN];
 	u16 type;
 } __packed;
 
-/*                       */
+/* local llc header type */
 struct wlan_llc {
 	u8 dsap;
 	u8 ssap;
 	u8 ctl;
 } __packed;
 
-/*                        */
+/* local snap header type */
 struct wlan_snap {
 	u8 oui[WLAN_IEEE_OUI_LEN];
 	u16 type;
 } __packed;
 
-/*                        */
+/* Circular include trick */
 struct wlandevice;
 
 int skb_p80211_to_ether(struct wlandevice *wlandev, u32 ethconv,

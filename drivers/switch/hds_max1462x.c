@@ -29,12 +29,12 @@
  *
  */
 
-/*                        
-                 
-                                                                                
-                                                                   
-                                                   
-                                                 
+/* Interface is following;
+ * source file is
+ * android/frameworks/base/services/java/com/android/server/HeadsetObserver.java
+ * HEADSET_UEVENT_MATCH = "DEVPATH=/sys/devices/virtual/switch/h2w"
+ * HEADSET_STATE_PATH = /sys/class/switch/h2w/state
+ * HEADSET_NAME_PATH = /sys/class/switch/h2w/name
  */
 
 #ifdef CONFIG_SWITCH_MAX1462X
@@ -64,8 +64,8 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <mach/gpiomux.h>
 
-#undef  LGE_HSD_DEBUG_PRINT /*    */
-#define LGE_HSD_DEBUG_PRINT /*    */
+#undef  LGE_HSD_DEBUG_PRINT /*TODO*/
+#define LGE_HSD_DEBUG_PRINT /*TODO*/
 #undef  LGE_HSD_ERROR_PRINT
 #define LGE_HSD_ERROR_PRINT
 
@@ -74,11 +74,11 @@
 #define VUP_MIN			150000
 #define VUP_MAX			400000
 #define VDOWN_MIN		400000
-#define VDOWN_MAX		600000
+#define VDOWN_MAX		650000
 
-/*      */
-/*                                                          */
-/*                                              */
+/* TODO */
+/* 1. coding for additional excetion case in probe function */
+/* 2. additional sleep related/excetional case  */
 
 #if defined(LGE_HSD_DEBUG_PRINT)
 #define HSD_DBG(fmt, args...) printk(KERN_INFO "HSD.max1462x[%-18s:%5d]" fmt, __func__, __LINE__, ## args)
@@ -105,7 +105,7 @@ struct ear_3button_info_table {
 	int PRESS_OR_NOT;
 };
 
-/*                           */
+/* This table is only for J1 */
 static struct ear_3button_info_table max1462x_ear_3button_type_data[] = {
 	{KEY_MEDIA, HOOK_MAX, HOOK_MIN, 0},
 	{KEY_VOLUMEUP, VUP_MAX, VUP_MIN, 0},
@@ -113,44 +113,44 @@ static struct ear_3button_info_table max1462x_ear_3button_type_data[] = {
 };
 
 struct hsd_info {
-	/*                                          */
+	/* function devices provided by this driver */
 	struct switch_dev sdev;
 	struct input_dev *input;
 
-	/*       */
+	/* mutex */
 	struct mutex mutex_lock;
 
-	/*                                                 */
+	/* h/w configuration : initilized by platform data */
 
-	/*                          */
+	/* MODE : high, low, high-z */
 	unsigned int gpio_mic_en;
 
-	/*                                                     
-                         */
+	/* SWD : to detect 3pole or 4pole to detect among hook,
+	 * volum up or down key */
 	unsigned int gpio_key;
 
-	/*                                      */
+	/* DET : to detect jack inserted or not */
 	unsigned int gpio_detect;
 
-	/*                                                      */
+	/* callback function which is initialized while probing */
 	void (*gpio_set_value_func)(unsigned gpio, int value);
 	int (*gpio_get_value_func)(unsigned gpio);
 
 	unsigned int latency_for_key;
 
-	unsigned int key_code;	/*                                           */
+	unsigned int key_code;	/* KEY_MEDIA, KEY_VOLUMEUP or KEY_VOLUMEDOWN */
 
-	/*      */
-	unsigned int irq_detect;	/*        */
-	unsigned int irq_key;		/*     */
+	/* irqs */
+	unsigned int irq_detect;	/* detect */
+	unsigned int irq_key;		/* key */
 
-	/*                 */
+	/* internal states */
 	atomic_t irq_key_enabled;
 	atomic_t is_3_pole_or_not;
 	atomic_t btn_state;
 	atomic_t isdetect;
 
-	/*                      */
+	/* work for detect_work */
 	struct work_struct work;
 	struct delayed_work work_for_key_pressed;
 	struct delayed_work work_for_key_released;
@@ -223,9 +223,9 @@ static void button_pressed(struct work_struct *work)
 
 	for (i = 0; i < table_size; i++) {
 		table = &max1462x_ear_3button_type_data[i];
-		/*                                  
-                                                              
-   */
+		/* [AUDIO_BSP] 20130110, junday.lee,
+		 * include min value '=' for 1 button earjack (ADC value= 0)
+		 */
 		if ((acc_read_value <= table->PERMISS_REANGE_MAX) &&
 				(acc_read_value >= table->PERMISS_REANGE_MIN)) {
 			HSD_DBG("button_pressed \n");
@@ -308,12 +308,12 @@ static void insert_headset(struct hsd_info *hi)
 	gpio_direction_output(hi->gpio_mic_en, 1);
 	msleep(40);
 	HSD_DBG("insert delay 40\n");
-	/*                          
-                    
-                                
-                                                           
-                                            
-                                                                */
+	/* check if 3-pole or 4-pole
+	   1. read gpio_key
+	   2. check if 3-pole or 4-pole
+	   3-1. NOT regiter irq with gpio_key if 3-pole. complete.
+	   3-2. regiter irq with gpio_key if 4-pole
+	   4. read MPP6 and decide a pressed key when interrupt occurs */
 
 	earjack_type = hi->gpio_get_value_func(hi->gpio_key);
 
@@ -517,7 +517,7 @@ static int lge_hsd_probe(struct platform_device *pdev)
 	hi->gpio_key = pdata->gpio_key;
 	hi->gpio_set_value_func = pdata->gpio_set_value_func;
 	hi->gpio_get_value_func = pdata->gpio_get_value_func;
-	hi->latency_for_key = msecs_to_jiffies(50); /*                          */
+	hi->latency_for_key = msecs_to_jiffies(50); /* convert milli to jiffies */
 	mutex_init(&hi->mutex_lock);
 	INIT_WORK(&hi->work, detect_work);
 	INIT_DELAYED_WORK(&hi->work_for_key_pressed, button_pressed);
@@ -536,7 +536,7 @@ static int lge_hsd_probe(struct platform_device *pdev)
 	}
 	HSD_DBG("gpio_get_value_cansleep(hi->gpio_mic_en) = %d\n", gpio_get_value_cansleep(hi->gpio_mic_en));
 
-	/*                  */
+	/* init gpio_detect */
 	ret = gpio_request(hi->gpio_detect, "gpio_detect");
 	if (ret < 0) {
 		HSD_ERR("Failed to configure gpio%d (gpio_det) gpio_request\n", hi->gpio_detect);
@@ -549,7 +549,7 @@ static int lge_hsd_probe(struct platform_device *pdev)
 		goto error_03;
 	}
 
-	/*              */
+	/*init gpio_key */
 	ret = gpio_request(hi->gpio_key, "gpio_key");
 	if (ret < 0) {
 		HSD_ERR("Failed to configure gpio%d (gpio_key) gpio_request\n", hi->gpio_key);
@@ -562,7 +562,7 @@ static int lge_hsd_probe(struct platform_device *pdev)
 		goto error_04;
 	}
 
-	/*                            */
+	/* initialize irq of gpio_key */
 	hi->irq_key = gpio_to_irq(hi->gpio_key);
 
 	HSD_DBG("hi->irq_key = %d\n", hi->irq_key);
@@ -606,7 +606,7 @@ static int lge_hsd_probe(struct platform_device *pdev)
 		HSD_ERR("Failed to set gpio_detect interrupt wake\n");
 		goto error_07;
 	}
-	/*                          */
+	/* initialize switch device */
 	hi->sdev.name = pdata->switch_name;
 	hi->sdev.print_state = lge_hsd_print_state;
 
@@ -616,7 +616,7 @@ static int lge_hsd_probe(struct platform_device *pdev)
 		goto error_08;
 	}
 
-	/*                         */
+	/* initialize input device */
 	hi->input = input_allocate_device();
 	if (!hi->input) {
 		HSD_ERR("Failed to allocate input device\n");
@@ -648,10 +648,10 @@ static int lge_hsd_probe(struct platform_device *pdev)
 	if (!(hi->gpio_get_value_func(hi->gpio_detect)))
 
 #ifdef CONFIG_MAX1462X_USE_LOCAL_WORK_QUEUE
-		/*                                                    */
+		/* to detect in initialization with eacjack insertion */
 		queue_work(local_max1462x_workqueue, &(hi->work));
 #else
-	/*                                                    */
+	/* to detect in initialization with eacjack insertion */
 	schedule_work(&(hi->work));
 #endif
 	return ret;

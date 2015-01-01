@@ -25,7 +25,7 @@
 #include "prm-regbits-34xx.h"
 
 
-/*                                         */
+/* Common functions across OMAP2 and OMAP3 */
 static int omap2_pwrdm_set_next_pwrst(struct powerdomain *pwrdm, u8 pwrst)
 {
 	omap2_prm_rmw_mod_reg_bits(OMAP_POWERSTATE_MASK,
@@ -110,12 +110,12 @@ static int omap2_pwrdm_wait_transition(struct powerdomain *pwrdm)
 	u32 c = 0;
 
 	/*
-                                                              
-                                                                      
-                                    
-  */
+	 * REVISIT: pwrdm_wait_transition() may be better implemented
+	 * via a callback and a periodic timer check -- how long do we expect
+	 * powerdomain transitions to take?
+	 */
 
-	/*                                        */
+	/* XXX Is this udelay() value meaningful? */
 	while ((omap2_prm_read_mod_reg(pwrdm->prcm_offs, OMAP2_PM_PWSTST) &
 		OMAP_INTRANSITION_MASK) &&
 		(c++ < PWRDM_TRANSITION_BAILOUT))
@@ -132,7 +132,7 @@ static int omap2_pwrdm_wait_transition(struct powerdomain *pwrdm)
 	return 0;
 }
 
-/*                                                   */
+/* Applicable only for OMAP3. Not supported on OMAP2 */
 static int omap3_pwrdm_read_prev_pwrst(struct powerdomain *pwrdm)
 {
 	return omap2_prm_read_mod_bits_shift(pwrdm->prcm_offs,
@@ -173,7 +173,7 @@ static int omap3_get_mem_bank_lastmemst_mask(u8 bank)
 	case 3:
 		return OMAP3430_LASTL2FLATMEMSTATEENTERED_MASK;
 	default:
-		WARN_ON(1); /*                     */
+		WARN_ON(1); /* should never happen */
 		return -EEXIST;
 	}
 	return 0;

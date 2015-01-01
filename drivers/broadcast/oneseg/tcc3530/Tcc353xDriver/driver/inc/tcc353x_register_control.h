@@ -1,13 +1,13 @@
+/*--------------------------------------------------------------------------*/
+/*    FileName    : Tcc353x_register_control.h                              */
+/*    Description : Register control                                        */
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*   TCC Version : 1.0.0                                                    */
 /*   Copyright (c) Telechips, Inc.                                          */
+/*   ALL RIGHTS RESERVED                                                    */
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #ifndef __TCC353X_REGISTER_CONTROL_H__
 #define __TCC353X_REGISTER_CONTROL_H__
@@ -53,8 +53,8 @@
 #define BitNONE     0x00000000
 #define BitFF       0x000000FF
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* System Control Register                                                  */
 
 #define TC3XREG_SYS_EN                  0x00
 #define TC3XREG_SYS_EN_OPCLK            Bit4
@@ -117,8 +117,8 @@
 #define TC3XREG_INIT_PC8                0x0e
 #define TC3XREG_INIT_PC0                0x0f
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* GPIO Control Register                                                    */
 
 #define TC3XREG_GPIO_ALT                0x10
 #define TC3XREG_GPIO_DR                 0x11
@@ -129,14 +129,14 @@
 #define TC3XREG_IO_MISC                 0x16
 #define TC3XREG_IOCFG_MUX               0x17
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* POWER SAVE Control Register                                              */
 
 #define TC3XREG_PSAVE_CFG0              0x18
 #define TC3XREG_PSAVE_CFG1              0x19
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* Stream Data Register                                                     */
 
 #define TC3XREG_STREAM_CFG0             0x1b
 #define TC3XREG_STREAM_CFG1             0x1c
@@ -149,8 +149,8 @@
 
 #define TC3XREG_STREAM_CFG4             0x1f
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* Command DMA Register                                                     */
 
 #define TC3XREG_CMDDMA_CTRL                 0x20
 #define TC3XREG_CMDDMA_DMAEN                Bit7
@@ -187,8 +187,8 @@
 #define TC3XREG_CMDDMA_CRC8                 0x2e
 #define TC3XREG_CMDDMA_CRC0                 0x2f
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* PERIperal for stream data Register                                       */
 
 #define TC3XREG_PERI_CTRL                   0x30
 #define TC3XREG_PERI_EN                     Bit7
@@ -243,8 +243,8 @@
 #define TC3XREG_PERI_TS_ERR_SIG_ON          Bit0
 #define TC3XREG_PERI_TS_ERR_SIG_OFF         BitNONE
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* MAILBOX Register                                                         */
 
 #define TC3XREG_MAIL_CTRL                   0x3c
 #define TC3XREG_MAIL_INIT                   Bit6
@@ -254,8 +254,8 @@
 #define TC3XREG_MAIL_FIFO_W                 0x3e
 #define TC3XREG_MAIL_FIFO_WIND              0x3f
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* I2C Master/Slave Register                                                */
 
 #define TC3XREG_I2CMST_CTRL                 0x40
 #define TC3XREG_I2CMST_INIT                 Bit7
@@ -310,13 +310,13 @@
 #define TC3XREG_I2CMST_STAT1_RXRFIFOCNT1    Bit1
 #define TC3XREG_I2CMST_STAT1_RXRFIFOCNT0    Bit0
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* STREAM Mixer Register                                                    */
 
 #define TC3XREG_STREAMMIX_CFG0              0x4D
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* OUTPUT Buffer Management Register                                        */
 
 #define TC3XREG_OBUFF_CFG                   0x4e
 #define TC3XREG_OBUFF_CFG_BUFF_D_EN         Bit7
@@ -410,8 +410,8 @@
 #define TC3XREG_OBUFF_D_CIRBUFF_DATA_SIZE0  0x6e
 #define TC3XREG_OBUFF_D_CIRBUFF_DATA_SIZE1  0x6f
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* RF /SDRAM/ OPCFG Management Register                                     */
 
 #define TC3XREG_MISC_CFG0                   0x70
 
@@ -432,8 +432,8 @@
 #define TC3XREG_OP_STATUS0                  0x7e
 #define TC3XREG_OP_STATUS1                  0x7f
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* OPCFG Register                                                           */
 
 #define TC3XREG_OP_CFG00                    0x00
 #define TC3XREG_OP_CFG01                    0x01
@@ -501,8 +501,8 @@
 #define TC3XREG_OP_FILTER_CFG               0x3C
 
 
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
+/* Functions                                                                */
 
 I32S Tcc353xSetRegManual(Tcc353xHandle_t * _handle, I08U _addr,
 			 I08U * _data, I32S _size);

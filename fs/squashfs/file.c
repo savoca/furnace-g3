@@ -22,22 +22,22 @@
  */
 
 /*
-                                                                      
-                                                                   
-                                                                           
-                                                                   
-                                                                        
-  
-                                                                             
-                                                                           
-                                             
-  
-                                                                               
-                                                                        
-                                                                           
-                                                                          
-                                                                          
-          
+ * This file contains code for handling regular files.  A regular file
+ * consists of a sequence of contiguous compressed blocks, and/or a
+ * compressed fragment block (tail-end packed block).   The compressed size
+ * of each datablock is stored in a block list contained within the
+ * file inode (itself stored in one or more compressed metadata blocks).
+ *
+ * To speed up access to datablocks when reading 'large' files (256 Mbytes or
+ * larger), the code implements an index cache that caches the mapping from
+ * block index to datablock location on disk.
+ *
+ * The index cache allows Squashfs to handle large files (up to 1.75 TiB) while
+ * retaining a simple and space-efficient block list on disk.  The cache
+ * is split into slots, caching up to eight 224 GiB files (128 KiB blocks).
+ * Larger files use multiple slots, with 1.75 TiB files using all 8 slots.
+ * The index cache is designed to be memory efficient, and by default uses
+ * 16 KiB.
  */
 
 #include <linux/fs.h>
@@ -54,8 +54,8 @@
 #include "squashfs.h"
 
 /*
-                                                                      
-                                                          
+ * Locate cache slot in range [offset, index] for specified inode.  If
+ * there's more than one return the slot closest to index.
  */
 static struct meta_index *locate_meta_index(struct inode *inode, int offset,
 				int index)
@@ -94,7 +94,7 @@ not_allocated:
 
 
 /*
-                                                            
+ * Find and initialise an empty cache slot for index offset.
  */
 static struct meta_index *empty_meta_index(struct inode *inode, int offset,
 				int skip)
@@ -109,11 +109,11 @@ static struct meta_index *empty_meta_index(struct inode *inode, int offset,
 
 	if (msblk->meta_index == NULL) {
 		/*
-                                                       
-                                                       
-                                                            
-                               
-   */
+		 * First time cache index has been used, allocate and
+		 * initialise.  The cache index could be allocated at
+		 * mount time but doing it here means it is allocated only
+		 * if a 'large' file is read.
+		 */
 		msblk->meta_index = kcalloc(SQUASHFS_META_SLOTS,
 			sizeof(*(msblk->meta_index)), GFP_KERNEL);
 		if (msblk->meta_index == NULL) {
@@ -167,8 +167,8 @@ static void release_meta_index(struct inode *inode, struct meta_index *meta)
 
 
 /*
-                                                            
-                                        
+ * Read the next n blocks from the block list, starting from
+ * metadata block <start_block, offset>.
  */
 static long long read_indexes(struct super_block *sb, int n,
 				u64 *start_block, int *offset)
@@ -210,15 +210,15 @@ failure:
 
 
 /*
-                                                                 
-                                                                     
-                                                                          
-                                                                             
-                                                                        
-                                                                             
-                                                                          
-                                                                            
-         
+ * Each cache index slot has SQUASHFS_META_ENTRIES, each of which
+ * can cache one index -> datablock/blocklist-block mapping.  We wish
+ * to distribute these over the length of the file, entry[0] maps index x,
+ * entry[1] maps index x + skip, entry[2] maps index x + 2 * skip, and so on.
+ * The larger the file, the greater the skip factor.  The skip factor is
+ * limited to the size of the metadata cache (SQUASHFS_CACHED_BLKS) to ensure
+ * the number of metadata blocks that need to be read fits into the cache.
+ * If the skip factor is limited in this way then the file will use multiple
+ * slots.
  */
 static inline int calculate_skip(int blocks)
 {
@@ -229,9 +229,9 @@ static inline int calculate_skip(int blocks)
 
 
 /*
-                                                                         
-                                                                   
-                                                                         
+ * Search and grow the index cache for the specified inode, returning the
+ * on-disk locations of the datablock and block list metadata block
+ * <index_block, index_offset> for index (scaled to nearest cache index).
  */
 static int fill_meta_index(struct inode *inode, int index,
 		u64 *index_block, int *index_offset, u64 *data_block)
@@ -247,8 +247,8 @@ static int fill_meta_index(struct inode *inode, int index,
 	int err, i;
 
 	/*
-                                                 
-  */
+	 * Scale index to cache index (cache slot entry)
+	 */
 	index /= SQUASHFS_META_INDEXES * skip;
 
 	while (offset < index) {
@@ -275,10 +275,10 @@ static int fill_meta_index(struct inode *inode, int index,
 		}
 
 		/*
-                                                               
-                                                               
-                                           
-   */
+		 * If necessary grow cache slot by reading block list.  Cache
+		 * slot is extended up to index or to the end of the slot, in
+		 * which case further slots will be used.
+		 */
 		for (i = meta->offset + meta->entries; i <= index &&
 				i < meta->offset + SQUASHFS_META_ENTRIES; i++) {
 			int blocks = skip * SQUASHFS_META_INDEXES;
@@ -288,9 +288,9 @@ static int fill_meta_index(struct inode *inode, int index,
 			if (res < 0) {
 				if (meta->entries == 0)
 					/*
-                                         
-                                        
-      */
+					 * Don't leave an empty slot on read
+					 * error allocated to this inode...
+					 */
 					meta->inode_number = 0;
 				err = res;
 				goto failed;
@@ -318,8 +318,8 @@ all_done:
 	*data_block = cur_data_block;
 
 	/*
-                                                 
-  */
+	 * Scale cache index (cache slot entry) to index
+	 */
 	return offset * SQUASHFS_META_INDEXES * skip;
 
 failed:
@@ -329,8 +329,8 @@ failed:
 
 
 /*
-                                                                
-                                                                
+ * Get the on-disk location and compressed size of the datablock
+ * specified by index.  Fill_meta_index() does most of the work.
  */
 static int read_blocklist(struct inode *inode, int index, u64 *block)
 {
@@ -348,11 +348,11 @@ static int read_blocklist(struct inode *inode, int index, u64 *block)
 		return res;
 
 	/*
-                                                                        
-                                                                
-                                                              
-                               
-  */
+	 * res contains the index of the mapping returned by fill_meta_index(),
+	 * this will likely be less than the desired index (because the
+	 * meta_index cache works at a higher granularity).  Read any
+	 * extra block indexes needed.
+	 */
 	if (res < index) {
 		blks = read_indexes(inode->i_sb, index - res, &start, &offset);
 		if (blks < 0)
@@ -361,8 +361,8 @@ static int read_blocklist(struct inode *inode, int index, u64 *block)
 	}
 
 	/*
-                                            
-  */
+	 * Read length of block specified by index.
+	 */
 	res = squashfs_read_metadata(inode->i_sb, &size, &start, &offset,
 			sizeof(size));
 	if (res < 0)
@@ -395,23 +395,23 @@ static int squashfs_readpage(struct file *file, struct page *page)
 	if (index < file_end || squashfs_i(inode)->fragment_block ==
 					SQUASHFS_INVALID_BLK) {
 		/*
-                                                            
-                                    
-   */
+		 * Reading a datablock from disk.  Need to read block list
+		 * to get location and block size.
+		 */
 		u64 block = 0;
 		int bsize = read_blocklist(inode, index, &block);
 		if (bsize < 0)
 			goto error_out;
 
-		if (bsize == 0) { /*      */
+		if (bsize == 0) { /* hole */
 			bytes = index == file_end ?
 				(i_size_read(inode) & (msblk->block_size - 1)) :
 				 msblk->block_size;
 			sparse = 1;
 		} else {
 			/*
-                                    
-    */
+			 * Read and decompress datablock.
+			 */
 			buffer = squashfs_get_datablock(inode->i_sb,
 								block, bsize);
 			if (buffer->error) {
@@ -424,9 +424,9 @@ static int squashfs_readpage(struct file *file, struct page *page)
 		}
 	} else {
 		/*
-                                                           
-            
-   */
+		 * Datablock is stored inside a fragment (tail-end packed
+		 * block).
+		 */
 		buffer = squashfs_get_fragment(inode->i_sb,
 				squashfs_i(inode)->fragment_block,
 				squashfs_i(inode)->fragment_size);
@@ -443,11 +443,11 @@ static int squashfs_readpage(struct file *file, struct page *page)
 	}
 
 	/*
-                                                                      
-                                                                         
-                                                                      
-                        
-  */
+	 * Loop copying datablock into pages.  As the datablock likely covers
+	 * many PAGE_CACHE_SIZE pages (default block size is 128 KiB) explicitly
+	 * grab the pages from the page cache, except for the page that we've
+	 * been called to fill.
+	 */
 	for (i = start_index; i <= end_index && bytes > 0; i++,
 			bytes -= PAGE_CACHE_SIZE, offset += PAGE_CACHE_SIZE) {
 		struct page *push_page;

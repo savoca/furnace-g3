@@ -3,7 +3,7 @@
  */
 
 /*
-                                 
+ *  Serial mouse driver for Linux
  */
 
 /*
@@ -54,9 +54,9 @@ struct sermouse {
 };
 
 /*
-                                                                      
-                                                                   
-                                                   
+ * sermouse_process_msc() analyzes the incoming MSC/Sun bytestream and
+ * applies some prediction to the data, resulting in 96 updates per
+ * second, which is as good as a PS/2 or USB mouse.
  */
 
 static void sermouse_process_msc(struct sermouse *sermouse, signed char data)
@@ -96,9 +96,9 @@ static void sermouse_process_msc(struct sermouse *sermouse, signed char data)
 }
 
 /*
-                                                                       
-                                                                     
-                                        
+ * sermouse_process_ms() anlyzes the incoming MS(Z/+/++) bytestream and
+ * generates events. With prediction it gets 80 updates/sec, assuming
+ * standard 3-byte packets and 1200 bps.
  */
 
 static void sermouse_process_ms(struct sermouse *sermouse, signed char data)
@@ -128,7 +128,7 @@ static void sermouse_process_ms(struct sermouse *sermouse, signed char data)
 			break;
 
 		case 2:
-			/*                                                                              */
+			/* Guessing the state of the middle button on 3-button MS-protocol mice - ugly. */
 			if ((sermouse->type == SERIO_MS) && !data && !buf[2] && !((buf[0] & 0xf0) ^ buf[1]))
 				input_report_key(dev, BTN_MIDDLE, !test_bit(BTN_MIDDLE, dev->key));
 			buf[0] = buf[1];
@@ -147,7 +147,7 @@ static void sermouse_process_ms(struct sermouse *sermouse, signed char data)
 					 sermouse->type = SERIO_MP;
 
 				case SERIO_MP:
-					if ((data >> 2) & 3) break;	/*                                */
+					if ((data >> 2) & 3) break;	/* M++ Wireless Extension packet. */
 					input_report_key(dev, BTN_MIDDLE, (data >> 5) & 1);
 					input_report_key(dev, BTN_SIDE,   (data >> 4) & 1);
 					break;
@@ -165,18 +165,18 @@ static void sermouse_process_ms(struct sermouse *sermouse, signed char data)
 			break;
 
 		case 4:
-		case 6:	/*                                                                                */
+		case 6:	/* MZ++ packet type. We can get these bytes for M++ too but we ignore them later. */
 			buf[1] = (data >> 2) & 0x0f;
 			break;
 
 		case 5:
-		case 7: /*                              */
+		case 7: /* Ignore anything besides MZ++ */
 			if (sermouse->type != SERIO_MZPP)
 				break;
 
 			switch (buf[1]) {
 
-				case 1: /*                  */
+				case 1: /* Extra mouse info */
 
 					input_report_key(dev, BTN_SIDE, (data >> 4) & 1);
 					input_report_key(dev, BTN_EXTRA, (data >> 5) & 1);
@@ -184,7 +184,7 @@ static void sermouse_process_ms(struct sermouse *sermouse, signed char data)
 
 					break;
 
-				default: /*                                    */
+				default: /* We don't decode anything else yet. */
 
 					printk(KERN_WARNING
 						"sermouse.c: Received MZ++ packet %x, don't know how to handle.\n", buf[1]);
@@ -200,8 +200,8 @@ static void sermouse_process_ms(struct sermouse *sermouse, signed char data)
 }
 
 /*
-                                                                               
-                                                                    
+ * sermouse_interrupt() handles incoming characters, either gathering them into
+ * packets or passing them to the command routine as command output.
  */
 
 static irqreturn_t sermouse_interrupt(struct serio *serio,
@@ -223,8 +223,8 @@ static irqreturn_t sermouse_interrupt(struct serio *serio,
 }
 
 /*
-                                                           
-                        
+ * sermouse_disconnect() cleans up after we don't want talk
+ * to the mouse anymore.
  */
 
 static void sermouse_disconnect(struct serio *serio)
@@ -238,8 +238,8 @@ static void sermouse_disconnect(struct serio *serio)
 }
 
 /*
-                                                              
-                                    
+ * sermouse_connect() is a callback form the serio module when
+ * an unhandled serio port is found.
  */
 
 static int sermouse_connect(struct serio *serio, struct serio_driver *drv)

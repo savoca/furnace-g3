@@ -1,5 +1,5 @@
 /*
-                                                 
+ * Common bits for X2APIC cluster/physical modes.
  */
 
 #ifndef _ASM_X86_X2APIC_H
@@ -10,8 +10,8 @@
 #include <linux/cpumask.h>
 
 /*
-                                                            
-                       
+ * Need to use more than cpu 0, because we need more vectors
+ * when MSI-X are used.
  */
 static const struct cpumask *x2apic_target_cpus(void)
 {
@@ -29,7 +29,7 @@ static int x2apic_apic_id_registered(void)
 }
 
 /*
-                                                                   
+ * For now each logical cpu is in its own vector allocation domain.
  */
 static void x2apic_vector_allocation_domain(int cpu, struct cpumask *retmask)
 {
@@ -64,4 +64,4 @@ static void x2apic_send_IPI_self(int vector)
 	apic_write(APIC_SELF_IPI, vector);
 }
 
-#endif /*                   */
+#endif /* _ASM_X86_X2APIC_H */

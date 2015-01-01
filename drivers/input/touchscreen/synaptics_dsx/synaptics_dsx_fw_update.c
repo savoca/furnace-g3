@@ -29,9 +29,9 @@
 
 #define FW_IMAGE_NAME "synaptics/startup_fw_update.img"
 /*
-                            
+#define DO_STARTUP_FW_UPDATE
 */
-#define STARTUP_FW_UPDATE_DELAY_MS 1000 /*    */
+#define STARTUP_FW_UPDATE_DELAY_MS 1000 /* ms */
 #define FORCE_UPDATE false
 #define DO_LOCKDOWN false
 
@@ -158,7 +158,7 @@ enum update_mode {
 };
 
 struct image_header {
-	/*             */
+	/* 0x00 - 0x0f */
 	unsigned char checksum[4];
 	unsigned char reserved_04;
 	unsigned char reserved_05;
@@ -168,23 +168,23 @@ struct image_header {
 	unsigned char bootloader_version;
 	unsigned char firmware_size[4];
 	unsigned char config_size[4];
-	/*             */
+	/* 0x10 - 0x1f */
 	unsigned char product_id[SYNAPTICS_RMI4_PRODUCT_ID_SIZE];
 	unsigned char package_id[2];
 	unsigned char package_id_revision[2];
 	unsigned char product_info[SYNAPTICS_RMI4_PRODUCT_INFO_SIZE];
-	/*             */
+	/* 0x20 - 0x2f */
 	unsigned char bootloader_addr[4];
 	unsigned char bootloader_size[4];
 	unsigned char ui_addr[4];
 	unsigned char ui_size[4];
-	/*             */
+	/* 0x30 - 0x3f */
 	unsigned char ds_id[16];
-	/*             */
+	/* 0x40 - 0x4f */
 	unsigned char disp_config_addr[4];
 	unsigned char disp_config_size[4];
 	unsigned char reserved_48_4f[8];
-	/*             */
+	/* 0x50 - 0x53 */
 	unsigned char firmware_id[4];
 };
 
@@ -643,19 +643,19 @@ static enum flash_area fwu_go_nogo(struct image_header_data *header)
 		goto exit;
 	}
 
-	/*                                                           */
+	/* Update both UI and config if device is in bootloader mode */
 	if (fwu->in_flash_prog_mode) {
 		flash_area = UI_FIRMWARE;
 		goto exit;
 	}
 
-	/*                        */
+	/* Get device firmware ID */
 	device_fw_id = rmi4_data->firmware_id;
 	dev_info(rmi4_data->pdev->dev.parent,
 			"%s: Device firmware ID = %d\n",
 			__func__, device_fw_id);
 
-	/*                       */
+	/* Get image firmware ID */
 	if (header->contains_firmware_id) {
 		image_fw_id = header->firmware_id;
 	} else {
@@ -701,7 +701,7 @@ static enum flash_area fwu_go_nogo(struct image_header_data *header)
 		goto exit;
 	}
 
-	/*                      */
+	/* Get device config ID */
 	retval = synaptics_rmi4_reg_read(rmi4_data,
 				fwu->f34_fd.ctrl_base_addr,
 				config_id,
@@ -722,7 +722,7 @@ static enum flash_area fwu_go_nogo(struct image_header_data *header)
 			config_id[2],
 			config_id[3]);
 
-	/*                     */
+	/* Get image config ID */
 	image_config_id = be_to_uint(fwu->config_data);
 	dev_info(rmi4_data->pdev->dev.parent,
 			"%s: Image config ID = 0x%02x 0x%02x 0x%02x 0x%02x\n",
@@ -1151,7 +1151,7 @@ static int fwu_start_write_config(void)
 
 	fwu->config_size = fwu->block_size * block_count;
 
-	/*                                                  */
+	/* Jump to the config area if given a packrat image */
 	if ((fwu->config_area == UI_CONFIG_AREA) &&
 			(fwu->config_size != fwu->image_size)) {
 		parse_header(&header, fwu->ext_data_source);

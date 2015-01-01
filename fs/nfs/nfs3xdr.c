@@ -24,15 +24,15 @@
 
 #define NFSDBG_FACILITY		NFSDBG_XDR
 
-/*                                                    */
+/* Mapping from NFS error code to "errno" error code. */
 #define errno_NFSERR_IO		EIO
 
 /*
-                                                                  
-                        
+ * Declare the space requirements for NFS arguments and replies as
+ * number of 32bit-words
  */
 #define NFS3_fhandle_sz		(1+16)
-#define NFS3_fh_sz		(NFS3_fhandle_sz)	/*           */
+#define NFS3_fh_sz		(NFS3_fhandle_sz)	/* shorthand */
 #define NFS3_sattr_sz		(15)
 #define NFS3_filename_sz	(1+(NFS3_MAXNAMLEN>>2))
 #define NFS3_path_sz		(1+(NFS3_MAXPATHLEN>>2))
@@ -87,7 +87,7 @@
 #define ACL3_setaclres_sz	(1+NFS3_post_op_attr_sz)
 
 /*
-                               
+ * Map file type to S_IFMT bits
  */
 static const umode_t nfs_type2fmt[] = {
 	[NF3BAD] = 0,
@@ -101,8 +101,8 @@ static const umode_t nfs_type2fmt[] = {
 };
 
 /*
-                                                                  
-                                                   
+ * While encoding arguments, set up the reply buffer in advance to
+ * receive reply data directly into the page cache.
  */
 static void prepare_reply_buffer(struct rpc_rqst *req, struct page **pages,
 				 unsigned int base, unsigned int len,
@@ -116,7 +116,7 @@ static void prepare_reply_buffer(struct rpc_rqst *req, struct page **pages,
 }
 
 /*
-                                              
+ * Handle decode buffer overflows out-of-line.
  */
 static void print_overflow_msg(const char *func, const struct xdr_stream *xdr)
 {
@@ -127,14 +127,14 @@ static void print_overflow_msg(const char *func, const struct xdr_stream *xdr)
 
 
 /*
-                                       
-  
-                                                                 
-                                          
-  
-                                                                
-                                                                   
-                     
+ * Encode/decode NFSv3 basic data types
+ *
+ * Basic NFSv3 data types are defined in section 2.5 of RFC 1813:
+ * "NFS Version 3 Protocol Specification".
+ *
+ * Not all basic data types have their own encoding and decoding
+ * functions.  For run-time efficiency, some data types are encoded
+ * or decoded inline.
  */
 
 static void encode_uint32(struct xdr_stream *xdr, u32 value)
@@ -172,9 +172,9 @@ out_overflow:
 }
 
 /*
-          
-  
-                          
+ * fileid3
+ *
+ *	typedef uint64 fileid3;
  */
 static __be32 *xdr_decode_fileid3(__be32 *p, u64 *fileid)
 {
@@ -187,9 +187,9 @@ static int decode_fileid3(struct xdr_stream *xdr, u64 *fileid)
 }
 
 /*
-            
-  
-                              
+ * filename3
+ *
+ *	typedef string filename3<>;
  */
 static void encode_filename3(struct xdr_stream *xdr,
 			     const char *name, u32 length)
@@ -229,9 +229,9 @@ out_overflow:
 }
 
 /*
-           
-  
-                             
+ * nfspath3
+ *
+ *	typedef string nfspath3<>;
  */
 static void encode_nfspath3(struct xdr_stream *xdr, struct page **pages,
 			    const u32 length)
@@ -275,9 +275,9 @@ out_overflow:
 }
 
 /*
-          
-  
-                         
+ * cookie3
+ *
+ *	typedef uint64 cookie3
  */
 static __be32 *xdr_encode_cookie3(__be32 *p, u64 cookie)
 {
@@ -290,9 +290,9 @@ static int decode_cookie3(struct xdr_stream *xdr, u64 *cookie)
 }
 
 /*
-              
-  
-                                                   
+ * cookieverf3
+ *
+ *	typedef opaque cookieverf3[NFS3_COOKIEVERFSIZE];
  */
 static __be32 *xdr_encode_cookieverf3(__be32 *p, const __be32 *verifier)
 {
@@ -315,9 +315,9 @@ out_overflow:
 }
 
 /*
-              
-  
-                                                   
+ * createverf3
+ *
+ *	typedef opaque createverf3[NFS3_CREATEVERFSIZE];
  */
 static void encode_createverf3(struct xdr_stream *xdr, const __be32 *verifier)
 {
@@ -342,9 +342,9 @@ out_overflow:
 }
 
 /*
-        
-  
-                        
+ * size3
+ *
+ *	typedef uint64 size3;
  */
 static __be32 *xdr_decode_size3(__be32 *p, u64 *size)
 {
@@ -352,12 +352,12 @@ static __be32 *xdr_decode_size3(__be32 *p, u64 *size)
 }
 
 /*
-           
-  
-                  
-                
-       
-    
+ * nfsstat3
+ *
+ *	enum nfsstat3 {
+ *		NFS3_OK = 0,
+ *		...
+ *	}
  */
 #define NFS3_OK		NFS_OK
 
@@ -376,17 +376,17 @@ out_overflow:
 }
 
 /*
-         
-  
-                
-               
-               
-               
-               
-               
-                
-               
-     
+ * ftype3
+ *
+ *	enum ftype3 {
+ *		NF3REG	= 1,
+ *		NF3DIR	= 2,
+ *		NF3BLK	= 3,
+ *		NF3CHR	= 4,
+ *		NF3LNK	= 5,
+ *		NF3SOCK	= 6,
+ *		NF3FIFO	= 7
+ *	};
  */
 static void encode_ftype3(struct xdr_stream *xdr, const u32 type)
 {
@@ -406,12 +406,12 @@ static __be32 *xdr_decode_ftype3(__be32 *p, umode_t *mode)
 }
 
 /*
-            
-  
-                         
-                                 
-                                 
-         
+ * specdata3
+ *
+ *     struct specdata3 {
+ *             uint32  specdata1;
+ *             uint32  specdata2;
+ *     };
  */
 static void encode_specdata3(struct xdr_stream *xdr, const dev_t rdev)
 {
@@ -435,11 +435,11 @@ static __be32 *xdr_decode_specdata3(__be32 *p, dev_t *rdev)
 }
 
 /*
-          
-  
-                   
-                                   
-     
+ * nfs_fh3
+ *
+ *	struct nfs_fh3 {
+ *		opaque       data<NFS3_FHSIZE>;
+ *	};
  */
 static void encode_nfs_fh3(struct xdr_stream *xdr, const struct nfs_fh *fh)
 {
@@ -481,12 +481,12 @@ static void zero_nfs_fh3(struct nfs_fh *fh)
 }
 
 /*
-           
-  
-                    
-                   
-                    
-     
+ * nfstime3
+ *
+ *	struct nfstime3 {
+ *		uint32	seconds;
+ *		uint32	nseconds;
+ *	};
  */
 static __be32 *xdr_encode_nfstime3(__be32 *p, const struct timespec *timep)
 {
@@ -503,64 +503,64 @@ static __be32 *xdr_decode_nfstime3(__be32 *p, struct timespec *timep)
 }
 
 /*
-         
-  
-                  
-                     
-                           
-                          
-     
-  
-                                         
-             
-               
-           
-         
-     
-  
-                                        
-             
-             
-           
-         
-     
-  
-                                        
-             
-             
-           
-         
-     
-  
-                                         
-             
-               
-           
-         
-     
-  
-                                             
-                           
-                   
-           
-         
-     
-  
-                                             
-                           
-                    
-           
-         
-     
-  
-                  
-                   
-                 
-                 
-                   
-                    
-                    
-     
+ * sattr3
+ *
+ *	enum time_how {
+ *		DONT_CHANGE		= 0,
+ *		SET_TO_SERVER_TIME	= 1,
+ *		SET_TO_CLIENT_TIME	= 2
+ *	};
+ *
+ *	union set_mode3 switch (bool set_it) {
+ *	case TRUE:
+ *		mode3	mode;
+ *	default:
+ *		void;
+ *	};
+ *
+ *	union set_uid3 switch (bool set_it) {
+ *	case TRUE:
+ *		uid3	uid;
+ *	default:
+ *		void;
+ *	};
+ *
+ *	union set_gid3 switch (bool set_it) {
+ *	case TRUE:
+ *		gid3	gid;
+ *	default:
+ *		void;
+ *	};
+ *
+ *	union set_size3 switch (bool set_it) {
+ *	case TRUE:
+ *		size3	size;
+ *	default:
+ *		void;
+ *	};
+ *
+ *	union set_atime switch (time_how set_it) {
+ *	case SET_TO_CLIENT_TIME:
+ *		nfstime3	atime;
+ *	default:
+ *		void;
+ *	};
+ *
+ *	union set_mtime switch (time_how set_it) {
+ *	case SET_TO_CLIENT_TIME:
+ *		nfstime3  mtime;
+ *	default:
+ *		void;
+ *	};
+ *
+ *	struct sattr3 {
+ *		set_mode3	mode;
+ *		set_uid3	uid;
+ *		set_gid3	gid;
+ *		set_size3	size;
+ *		set_atime	atime;
+ *		set_mtime	mtime;
+ *	};
  */
 static void encode_sattr3(struct xdr_stream *xdr, const struct iattr *attr)
 {
@@ -568,11 +568,11 @@ static void encode_sattr3(struct xdr_stream *xdr, const struct iattr *attr)
 	__be32 *p;
 
 	/*
-                                                            
-                                                         
-                                                              
-                                                  
-  */
+	 * In order to make only a single xdr_reserve_space() call,
+	 * pre-compute the total number of bytes to be reserved.
+	 * Six boolean values, one for each set_foo field, are always
+	 * present in the encoded result, so start there.
+	 */
 	nbytes = 6 * 4;
 	if (attr->ia_valid & ATTR_MODE)
 		nbytes += 4;
@@ -630,23 +630,23 @@ static void encode_sattr3(struct xdr_stream *xdr, const struct iattr *attr)
 }
 
 /*
-         
-  
-                  
-                 
-                
-                  
-              
-              
-                
-                
-                   
-                 
-                    
-                   
-                   
-                   
-     
+ * fattr3
+ *
+ *	struct fattr3 {
+ *		ftype3		type;
+ *		mode3		mode;
+ *		uint32		nlink;
+ *		uid3		uid;
+ *		gid3		gid;
+ *		size3		size;
+ *		size3		used;
+ *		specdata3	rdev;
+ *		uint64		fsid;
+ *		fileid3		fileid;
+ *		nfstime3	atime;
+ *		nfstime3	mtime;
+ *		nfstime3	ctime;
+ *	};
  */
 static int decode_fattr3(struct xdr_stream *xdr, struct nfs_fattr *fattr)
 {
@@ -684,14 +684,14 @@ out_overflow:
 }
 
 /*
-               
-  
-                                                       
-             
-                      
-              
-         
-     
+ * post_op_attr
+ *
+ *	union post_op_attr switch (bool attributes_follow) {
+ *	case TRUE:
+ *		fattr3	attributes;
+ *	case FALSE:
+ *		void;
+ *	};
  */
 static int decode_post_op_attr(struct xdr_stream *xdr, struct nfs_fattr *fattr)
 {
@@ -709,12 +709,12 @@ out_overflow:
 }
 
 /*
-           
-                    
-                
-                   
-                   
-     
+ * wcc_attr
+ *	struct wcc_attr {
+ *		size3		size;
+ *		nfstime3	mtime;
+ *		nfstime3	ctime;
+ *	};
  */
 static int decode_wcc_attr(struct xdr_stream *xdr, struct nfs_fattr *fattr)
 {
@@ -739,20 +739,20 @@ out_overflow:
 }
 
 /*
-              
-                                                      
-             
-                        
-              
-         
-     
-  
-           
-  
-                    
-                       
-                       
-     
+ * pre_op_attr
+ *	union pre_op_attr switch (bool attributes_follow) {
+ *	case TRUE:
+ *		wcc_attr	attributes;
+ *	case FALSE:
+ *		void;
+ *	};
+ *
+ * wcc_data
+ *
+ *	struct wcc_data {
+ *		pre_op_attr	before;
+ *		post_op_attr	after;
+ *	};
  */
 static int decode_pre_op_attr(struct xdr_stream *xdr, struct nfs_fattr *fattr)
 {
@@ -782,14 +782,14 @@ out:
 }
 
 /*
-              
-  
-                                                   
-             
-                    
-              
-         
-     
+ * post_op_fh3
+ *
+ *	union post_op_fh3 switch (bool handle_follows) {
+ *	case TRUE:
+ *		nfs_fh3  handle;
+ *	case FALSE:
+ *		void;
+ *	};
  */
 static int decode_post_op_fh3(struct xdr_stream *xdr, struct nfs_fh *fh)
 {
@@ -806,12 +806,12 @@ out_overflow:
 }
 
 /*
-             
-  
-                      
-                 
-                   
-     
+ * diropargs3
+ *
+ *	struct diropargs3 {
+ *		nfs_fh3		dir;
+ *		filename3	name;
+ *	};
  */
 static void encode_diropargs3(struct xdr_stream *xdr, const struct nfs_fh *fh,
 			      const char *name, u32 length)
@@ -822,18 +822,18 @@ static void encode_diropargs3(struct xdr_stream *xdr, const struct nfs_fh *fh,
 
 
 /*
-                             
-  
-                                                               
-                                          
+ * NFSv3 XDR encode functions
+ *
+ * NFSv3 argument types are defined in section 3.3 of RFC 1813:
+ * "NFS Version 3 Protocol Specification".
  */
 
 /*
-                      
-  
-                        
-                    
-     
+ * 3.3.1  GETATTR3args
+ *
+ *	struct GETATTR3args {
+ *		nfs_fh3  object;
+ *	};
  */
 static void nfs3_xdr_enc_getattr3args(struct rpc_rqst *req,
 				      struct xdr_stream *xdr,
@@ -843,20 +843,20 @@ static void nfs3_xdr_enc_getattr3args(struct rpc_rqst *req,
 }
 
 /*
-                      
-  
-                                          
-             
-                        
-              
-         
-     
-  
-                        
-                    
-                           
-                      
-     
+ * 3.3.2  SETATTR3args
+ *
+ *	union sattrguard3 switch (bool check) {
+ *	case TRUE:
+ *		nfstime3  obj_ctime;
+ *	case FALSE:
+ *		void;
+ *	};
+ *
+ *	struct SETATTR3args {
+ *		nfs_fh3		object;
+ *		sattr3		new_attributes;
+ *		sattrguard3	guard;
+ *	};
  */
 static void encode_sattrguard3(struct xdr_stream *xdr,
 			       const struct nfs3_sattrargs *args)
@@ -883,11 +883,11 @@ static void nfs3_xdr_enc_setattr3args(struct rpc_rqst *req,
 }
 
 /*
-                     
-  
-                       
-                     
-     
+ * 3.3.3  LOOKUP3args
+ *
+ *	struct LOOKUP3args {
+ *		diropargs3  what;
+ *	};
  */
 static void nfs3_xdr_enc_lookup3args(struct rpc_rqst *req,
 				     struct xdr_stream *xdr,
@@ -897,12 +897,12 @@ static void nfs3_xdr_enc_lookup3args(struct rpc_rqst *req,
 }
 
 /*
-                     
-  
-                       
-                    
-                   
-     
+ * 3.3.4  ACCESS3args
+ *
+ *	struct ACCESS3args {
+ *		nfs_fh3		object;
+ *		uint32		access;
+ *	};
  */
 static void encode_access3args(struct xdr_stream *xdr,
 			       const struct nfs3_accessargs *args)
@@ -919,11 +919,11 @@ static void nfs3_xdr_enc_access3args(struct rpc_rqst *req,
 }
 
 /*
-                       
-  
-                         
-                    
-     
+ * 3.3.5  READLINK3args
+ *
+ *	struct READLINK3args {
+ *		nfs_fh3	symlink;
+ *	};
  */
 static void nfs3_xdr_enc_readlink3args(struct rpc_rqst *req,
 				       struct xdr_stream *xdr,
@@ -935,13 +935,13 @@ static void nfs3_xdr_enc_readlink3args(struct rpc_rqst *req,
 }
 
 /*
-                   
-  
-                     
-                  
-                    
-                  
-     
+ * 3.3.6  READ3args
+ *
+ *	struct READ3args {
+ *		nfs_fh3		file;
+ *		offset3		offset;
+ *		count3		count;
+ *	};
  */
 static void encode_read3args(struct xdr_stream *xdr,
 			     const struct nfs_readargs *args)
@@ -966,21 +966,21 @@ static void nfs3_xdr_enc_read3args(struct rpc_rqst *req,
 }
 
 /*
-                    
-  
-                    
-                  
-                  
-                 
-     
-  
-                      
-                  
-                    
-                  
-                      
-                   
-     
+ * 3.3.7  WRITE3args
+ *
+ *	enum stable_how {
+ *		UNSTABLE  = 0,
+ *		DATA_SYNC = 1,
+ *		FILE_SYNC = 2
+ *	};
+ *
+ *	struct WRITE3args {
+ *		nfs_fh3		file;
+ *		offset3		offset;
+ *		count3		count;
+ *		stable_how	stable;
+ *		opaque		data<>;
+ *	};
  */
 static void encode_write3args(struct xdr_stream *xdr,
 			      const struct nfs_writeargs *args)
@@ -1006,26 +1006,26 @@ static void nfs3_xdr_enc_write3args(struct rpc_rqst *req,
 }
 
 /*
-                     
-  
-                     
-                  
-                  
-                 
-     
-  
-                                               
-                  
-                
-                                
-                  
-                      
-     
-  
-                       
-                     
-                   
-     
+ * 3.3.8  CREATE3args
+ *
+ *	enum createmode3 {
+ *		UNCHECKED = 0,
+ *		GUARDED   = 1,
+ *		EXCLUSIVE = 2
+ *	};
+ *
+ *	union createhow3 switch (createmode3 mode) {
+ *	case UNCHECKED:
+ *	case GUARDED:
+ *		sattr3       obj_attributes;
+ *	case EXCLUSIVE:
+ *		createverf3  verf;
+ *	};
+ *
+ *	struct CREATE3args {
+ *		diropargs3	where;
+ *		createhow3	how;
+ *	};
  */
 static void encode_createhow3(struct xdr_stream *xdr,
 			      const struct nfs3_createargs *args)
@@ -1053,12 +1053,12 @@ static void nfs3_xdr_enc_create3args(struct rpc_rqst *req,
 }
 
 /*
-                    
-  
-                      
-                     
-                       
-     
+ * 3.3.9  MKDIR3args
+ *
+ *	struct MKDIR3args {
+ *		diropargs3	where;
+ *		sattr3		attributes;
+ *	};
  */
 static void nfs3_xdr_enc_mkdir3args(struct rpc_rqst *req,
 				    struct xdr_stream *xdr,
@@ -1069,17 +1069,17 @@ static void nfs3_xdr_enc_mkdir3args(struct rpc_rqst *req,
 }
 
 /*
-                       
-  
-                        
-                               
-                          
-     
-  
-                        
-                     
-                         
-     
+ * 3.3.10  SYMLINK3args
+ *
+ *	struct symlinkdata3 {
+ *		sattr3		symlink_attributes;
+ *		nfspath3	symlink_data;
+ *	};
+ *
+ *	struct SYMLINK3args {
+ *		diropargs3	where;
+ *		symlinkdata3	symlink;
+ *	};
  */
 static void encode_symlinkdata3(struct xdr_stream *xdr,
 				const struct nfs3_symlinkargs *args)
@@ -1097,28 +1097,28 @@ static void nfs3_xdr_enc_symlink3args(struct rpc_rqst *req,
 }
 
 /*
-                     
-  
-                       
-                           
-                   
-     
-  
-                                          
-               
-               
-                       
-                
-                
-                            
-           
-         
-     
-  
-                      
-                     
-                    
-     
+ * 3.3.11  MKNOD3args
+ *
+ *	struct devicedata3 {
+ *		sattr3		dev_attributes;
+ *		specdata3	spec;
+ *	};
+ *
+ *	union mknoddata3 switch (ftype3 type) {
+ *	case NF3CHR:
+ *	case NF3BLK:
+ *		devicedata3	device;
+ *	case NF3SOCK:
+ *	case NF3FIFO:
+ *		sattr3		pipe_attributes;
+ *	default:
+ *		void;
+ *	};
+ *
+ *	struct MKNOD3args {
+ *		diropargs3	where;
+ *		mknoddata3	what;
+ *	};
  */
 static void encode_devicedata3(struct xdr_stream *xdr,
 			       const struct nfs3_mknodargs *args)
@@ -1157,11 +1157,11 @@ static void nfs3_xdr_enc_mknod3args(struct rpc_rqst *req,
 }
 
 /*
-                      
-  
-                       
-                       
-     
+ * 3.3.12  REMOVE3args
+ *
+ *	struct REMOVE3args {
+ *		diropargs3  object;
+ *	};
  */
 static void nfs3_xdr_enc_remove3args(struct rpc_rqst *req,
 				     struct xdr_stream *xdr,
@@ -1171,12 +1171,12 @@ static void nfs3_xdr_enc_remove3args(struct rpc_rqst *req,
 }
 
 /*
-                      
-  
-                       
-                    
-                  
-     
+ * 3.3.14  RENAME3args
+ *
+ *	struct RENAME3args {
+ *		diropargs3	from;
+ *		diropargs3	to;
+ *	};
  */
 static void nfs3_xdr_enc_rename3args(struct rpc_rqst *req,
 				     struct xdr_stream *xdr,
@@ -1190,12 +1190,12 @@ static void nfs3_xdr_enc_rename3args(struct rpc_rqst *req,
 }
 
 /*
-                    
-  
-                     
-                  
-                    
-     
+ * 3.3.15  LINK3args
+ *
+ *	struct LINK3args {
+ *		nfs_fh3		file;
+ *		diropargs3	link;
+ *	};
  */
 static void nfs3_xdr_enc_link3args(struct rpc_rqst *req,
 				   struct xdr_stream *xdr,
@@ -1206,14 +1206,14 @@ static void nfs3_xdr_enc_link3args(struct rpc_rqst *req,
 }
 
 /*
-                       
-  
-                        
-                 
-                    
-                           
-                  
-     
+ * 3.3.16  READDIR3args
+ *
+ *	struct READDIR3args {
+ *		nfs_fh3		dir;
+ *		cookie3		cookie;
+ *		cookieverf3	cookieverf;
+ *		count3		count;
+ *	};
  */
 static void encode_readdir3args(struct xdr_stream *xdr,
 				const struct nfs3_readdirargs *args)
@@ -1238,15 +1238,15 @@ static void nfs3_xdr_enc_readdir3args(struct rpc_rqst *req,
 }
 
 /*
-                           
-  
-                            
-                 
-                    
-                           
-                     
-                     
-     
+ * 3.3.17  READDIRPLUS3args
+ *
+ *	struct READDIRPLUS3args {
+ *		nfs_fh3		dir;
+ *		cookie3		cookie;
+ *		cookieverf3	cookieverf;
+ *		count3		dircount;
+ *		count3		maxcount;
+ *	};
  */
 static void encode_readdirplus3args(struct xdr_stream *xdr,
 				    const struct nfs3_readdirargs *args)
@@ -1260,9 +1260,9 @@ static void encode_readdirplus3args(struct xdr_stream *xdr,
 	p = xdr_encode_cookieverf3(p, args->verf);
 
 	/*
-                                             
-                                                 
-  */
+	 * readdirplus: need dircount + buffer size.
+	 * We just make sure we make dircount big enough
+	 */
 	*p++ = cpu_to_be32(args->count >> 3);
 
 	*p = cpu_to_be32(args->count);
@@ -1278,13 +1278,13 @@ static void nfs3_xdr_enc_readdirplus3args(struct rpc_rqst *req,
 }
 
 /*
-                      
-  
-                       
-                  
-                    
-                  
-     
+ * 3.3.21  COMMIT3args
+ *
+ *	struct COMMIT3args {
+ *		nfs_fh3		file;
+ *		offset3		offset;
+ *		count3		count;
+ *	};
  */
 static void encode_commit3args(struct xdr_stream *xdr,
 			       const struct nfs_writeargs *args)
@@ -1346,28 +1346,28 @@ static void nfs3_xdr_enc_setacl3args(struct rpc_rqst *req,
 	BUG_ON(error < 0);
 }
 
-#endif  /*                   */
+#endif  /* CONFIG_NFS_V3_ACL */
 
 /*
-                             
-  
-                                                             
-                                          
+ * NFSv3 XDR decode functions
+ *
+ * NFSv3 result types are defined in section 3.3 of RFC 1813:
+ * "NFS Version 3 Protocol Specification".
  */
 
 /*
-                     
-  
-                         
-                           
-     
-  
-                                               
-                
-                         
-           
-         
-     
+ * 3.3.1  GETATTR3res
+ *
+ *	struct GETATTR3resok {
+ *		fattr3		obj_attributes;
+ *	};
+ *
+ *	union GETATTR3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		GETATTR3resok  resok;
+ *	default:
+ *		void;
+ *	};
  */
 static int nfs3_xdr_dec_getattr3res(struct rpc_rqst *req,
 				    struct xdr_stream *xdr,
@@ -1389,22 +1389,22 @@ out_default:
 }
 
 /*
-                     
-  
-                         
-                      
-     
-  
-                           
-                      
-     
-  
-                                               
-                
-                          
-           
-                            
-     
+ * 3.3.2  SETATTR3res
+ *
+ *	struct SETATTR3resok {
+ *		wcc_data  obj_wcc;
+ *	};
+ *
+ *	struct SETATTR3resfail {
+ *		wcc_data  obj_wcc;
+ *	};
+ *
+ *	union SETATTR3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		SETATTR3resok   resok;
+ *	default:
+ *		SETATTR3resfail resfail;
+ *	};
  */
 static int nfs3_xdr_dec_setattr3res(struct rpc_rqst *req,
 				    struct xdr_stream *xdr,
@@ -1428,24 +1428,24 @@ out_status:
 }
 
 /*
-                    
-  
-                        
-                    
-                                
-                                
-     
-  
-                          
-                                
-     
-  
-                                              
-                
-                       
-           
-                           
-     
+ * 3.3.3  LOOKUP3res
+ *
+ *	struct LOOKUP3resok {
+ *		nfs_fh3		object;
+ *		post_op_attr	obj_attributes;
+ *		post_op_attr	dir_attributes;
+ *	};
+ *
+ *	struct LOOKUP3resfail {
+ *		post_op_attr	dir_attributes;
+ *	};
+ *
+ *	union LOOKUP3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		LOOKUP3resok	resok;
+ *	default:
+ *		LOOKUP3resfail	resfail;
+ *	};
  */
 static int nfs3_xdr_dec_lookup3res(struct rpc_rqst *req,
 				   struct xdr_stream *xdr,
@@ -1476,23 +1476,23 @@ out_default:
 }
 
 /*
-                    
-  
-                        
-                                
-                   
-     
-  
-                          
-                                
-     
-  
-                                              
-                
-                       
-           
-                           
-     
+ * 3.3.4  ACCESS3res
+ *
+ *	struct ACCESS3resok {
+ *		post_op_attr	obj_attributes;
+ *		uint32		access;
+ *	};
+ *
+ *	struct ACCESS3resfail {
+ *		post_op_attr	obj_attributes;
+ *	};
+ *
+ *	union ACCESS3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		ACCESS3resok	resok;
+ *	default:
+ *		ACCESS3resfail	resfail;
+ *	};
  */
 static int nfs3_xdr_dec_access3res(struct rpc_rqst *req,
 				   struct xdr_stream *xdr,
@@ -1517,23 +1517,23 @@ out_default:
 }
 
 /*
-                      
-  
-                          
-                                    
-                  
-     
-  
-                            
-                                    
-     
-  
-                                                
-                
-                         
-           
-                             
-     
+ * 3.3.5  READLINK3res
+ *
+ *	struct READLINK3resok {
+ *		post_op_attr	symlink_attributes;
+ *		nfspath3	data;
+ *	};
+ *
+ *	struct READLINK3resfail {
+ *		post_op_attr	symlink_attributes;
+ *	};
+ *
+ *	union READLINK3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		READLINK3resok	resok;
+ *	default:
+ *		READLINK3resfail resfail;
+ *	};
  */
 static int nfs3_xdr_dec_readlink3res(struct rpc_rqst *req,
 				     struct xdr_stream *xdr,
@@ -1558,25 +1558,25 @@ out_default:
 }
 
 /*
-                  
-  
-                      
-                                 
-                  
-              
-                   
-     
-  
-                        
-                                 
-     
-  
-                                            
-                
-                     
-           
-                         
-     
+ * 3.3.6  READ3res
+ *
+ *	struct READ3resok {
+ *		post_op_attr	file_attributes;
+ *		count3		count;
+ *		bool		eof;
+ *		opaque		data<>;
+ *	};
+ *
+ *	struct READ3resfail {
+ *		post_op_attr	file_attributes;
+ *	};
+ *
+ *	union READ3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		READ3resok	resok;
+ *	default:
+ *		READ3resfail	resfail;
+ *	};
  */
 static int decode_read3resok(struct xdr_stream *xdr,
 			     struct nfs_readres *result)
@@ -1640,31 +1640,31 @@ out_status:
 }
 
 /*
-                   
-  
-                    
-                  
-                  
-                 
-     
-  
-                       
-                      
-                  
-                         
-                    
-     
-  
-                         
-                      
-     
-  
-                                             
-                
-                      
-           
-                          
-     
+ * 3.3.7  WRITE3res
+ *
+ *	enum stable_how {
+ *		UNSTABLE  = 0,
+ *		DATA_SYNC = 1,
+ *		FILE_SYNC = 2
+ *	};
+ *
+ *	struct WRITE3resok {
+ *		wcc_data	file_wcc;
+ *		count3		count;
+ *		stable_how	committed;
+ *		writeverf3	verf;
+ *	};
+ *
+ *	struct WRITE3resfail {
+ *		wcc_data	file_wcc;
+ *	};
+ *
+ *	union WRITE3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		WRITE3resok	resok;
+ *	default:
+ *		WRITE3resfail	resfail;
+ *	};
  */
 static int decode_write3resok(struct xdr_stream *xdr,
 			      struct nfs_writeres *result)
@@ -1710,24 +1710,24 @@ out_status:
 }
 
 /*
-                    
-  
-                        
-                    
-                                
-                     
-     
-  
-                          
-                     
-     
-  
-                                              
-                
-                       
-           
-                           
-     
+ * 3.3.8  CREATE3res
+ *
+ *	struct CREATE3resok {
+ *		post_op_fh3	obj;
+ *		post_op_attr	obj_attributes;
+ *		wcc_data	dir_wcc;
+ *	};
+ *
+ *	struct CREATE3resfail {
+ *		wcc_data	dir_wcc;
+ *	};
+ *
+ *	union CREATE3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		CREATE3resok	resok;
+ *	default:
+ *		CREATE3resfail	resfail;
+ *	};
  */
 static int decode_create3resok(struct xdr_stream *xdr,
 			       struct nfs3_diropres *result)
@@ -1740,10 +1740,10 @@ static int decode_create3resok(struct xdr_stream *xdr,
 	error = decode_post_op_attr(xdr, result->fattr);
 	if (unlikely(error))
 		goto out;
-	/*                                                   
-                                                      
-                                                      
-                               */
+	/* The server isn't required to return a file handle.
+	 * If it didn't, force the client to perform a LOOKUP
+	 * to determine the correct file handle and attribute
+	 * values for the new object. */
 	if (result->fh->size == 0)
 		result->fattr->valid = 0;
 	error = decode_wcc_data(xdr, result->dir_attr);
@@ -1774,22 +1774,22 @@ out_default:
 }
 
 /*
-                     
-  
-                        
-                        
-     
-  
-                          
-                        
-     
-  
-                                              
-                
-                         
-           
-                           
-     
+ * 3.3.12  REMOVE3res
+ *
+ *	struct REMOVE3resok {
+ *		wcc_data    dir_wcc;
+ *	};
+ *
+ *	struct REMOVE3resfail {
+ *		wcc_data    dir_wcc;
+ *	};
+ *
+ *	union REMOVE3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		REMOVE3resok   resok;
+ *	default:
+ *		REMOVE3resfail resfail;
+ *	};
  */
 static int nfs3_xdr_dec_remove3res(struct rpc_rqst *req,
 				   struct xdr_stream *xdr,
@@ -1813,24 +1813,24 @@ out_status:
 }
 
 /*
-                     
-  
-                        
-                         
-                       
-     
-  
-                          
-                         
-                       
-     
-  
-                                              
-                
-                         
-           
-                           
-     
+ * 3.3.14  RENAME3res
+ *
+ *	struct RENAME3resok {
+ *		wcc_data	fromdir_wcc;
+ *		wcc_data	todir_wcc;
+ *	};
+ *
+ *	struct RENAME3resfail {
+ *		wcc_data	fromdir_wcc;
+ *		wcc_data	todir_wcc;
+ *	};
+ *
+ *	union RENAME3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		RENAME3resok   resok;
+ *	default:
+ *		RENAME3resfail resfail;
+ *	};
  */
 static int nfs3_xdr_dec_rename3res(struct rpc_rqst *req,
 				   struct xdr_stream *xdr,
@@ -1857,24 +1857,24 @@ out_status:
 }
 
 /*
-                   
-  
-                      
-                                 
-                         
-     
-  
-                        
-                                 
-                         
-     
-  
-                                            
-                
-                     
-           
-                         
-     
+ * 3.3.15  LINK3res
+ *
+ *	struct LINK3resok {
+ *		post_op_attr	file_attributes;
+ *		wcc_data	linkdir_wcc;
+ *	};
+ *
+ *	struct LINK3resfail {
+ *		post_op_attr	file_attributes;
+ *		wcc_data	linkdir_wcc;
+ *	};
+ *
+ *	union LINK3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		LINK3resok	resok;
+ *	default:
+ *		LINK3resfail	resfail;
+ *	};
  */
 static int nfs3_xdr_dec_link3res(struct rpc_rqst *req, struct xdr_stream *xdr,
 				 struct nfs3_linkres *result)
@@ -1899,40 +1899,40 @@ out_status:
 	return nfs_stat_to_errno(status);
 }
 
-/* 
-                                                                       
-                         
-                                       
-                                            
-                                                                       
-  
-                                                                  
-            
-  
-                                                                  
-                                                                     
-                                       
-  
-                 
-  
-                  
-                    
-                   
-                    
-                        
-                             
-                       
-     
-  
-                     
-                      
-                    
-                   
-                    
-                                 
-                            
-                          
-     
+/**
+ * nfs3_decode_dirent - Decode a single NFSv3 directory entry stored in
+ *			the local page cache
+ * @xdr: XDR stream where entry resides
+ * @entry: buffer to fill in with entry data
+ * @plus: boolean indicating whether this should be a readdirplus entry
+ *
+ * Returns zero if successful, otherwise a negative errno value is
+ * returned.
+ *
+ * This function is not invoked during READDIR reply decoding, but
+ * rather whenever an application invokes the getdents(2) system call
+ * on a directory already in our cache.
+ *
+ * 3.3.16  entry3
+ *
+ *	struct entry3 {
+ *		fileid3		fileid;
+ *		filename3	name;
+ *		cookie3		cookie;
+ *		fhandle3	filehandle;
+ *		post_op_attr3	attributes;
+ *		entry3		*nextentry;
+ *	};
+ *
+ * 3.3.17  entryplus3
+ *	struct entryplus3 {
+ *		fileid3		fileid;
+ *		filename3	name;
+ *		cookie3		cookie;
+ *		post_op_attr	name_attributes;
+ *		post_op_fh3	name_handle;
+ *		entryplus3	*nextentry;
+ *	};
  */
 int nfs3_decode_dirent(struct xdr_stream *xdr, struct nfs_entry *entry,
 		       int plus)
@@ -1977,7 +1977,7 @@ int nfs3_decode_dirent(struct xdr_stream *xdr, struct nfs_entry *entry,
 		if (entry->fattr->valid & NFS_ATTR_FATTR_V3)
 			entry->d_type = nfs_umode_to_dtype(entry->fattr->mode);
 
-		/*                         */
+		/* In fact, a post_op_fh3: */
 		p = xdr_inline_decode(xdr, 4);
 		if (unlikely(p == NULL))
 			goto out_overflow;
@@ -2004,33 +2004,33 @@ out_truncated:
 }
 
 /*
-                      
-  
-                    
-                     
-              
-     
-  
-                         
-                                
-                           
-                   
-     
-  
-                           
-                                
-     
-  
-                                               
-                
-                        
-           
-                            
-     
-  
-                                                                 
-                                                                        
-                                         
+ * 3.3.16  READDIR3res
+ *
+ *	struct dirlist3 {
+ *		entry3		*entries;
+ *		bool		eof;
+ *	};
+ *
+ *	struct READDIR3resok {
+ *		post_op_attr	dir_attributes;
+ *		cookieverf3	cookieverf;
+ *		dirlist3	reply;
+ *	};
+ *
+ *	struct READDIR3resfail {
+ *		post_op_attr	dir_attributes;
+ *	};
+ *
+ *	union READDIR3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		READDIR3resok	resok;
+ *	default:
+ *		READDIR3resfail	resfail;
+ *	};
+ *
+ * Read the directory contents into the page cache, but otherwise
+ * don't touch them.  The actual decoding is done by nfs3_decode_entry()
+ * during subsequent nfs_readdir() calls.
  */
 static int decode_dirlist3(struct xdr_stream *xdr)
 {
@@ -2060,7 +2060,7 @@ static int decode_readdir3resok(struct xdr_stream *xdr,
 	error = decode_post_op_attr(xdr, result->dir_attr);
 	if (unlikely(error))
 		goto out;
-	/*                                                    */
+	/* XXX: do we need to check if result->verf != NULL ? */
 	error = decode_cookieverf3(xdr, result->verf);
 	if (unlikely(error))
 		goto out;
@@ -2092,29 +2092,29 @@ out_default:
 }
 
 /*
-                     
-  
-                        
-                                
-                  
-                  
-                  
-                  
-                  
-                  
-                     
-     
-  
-                          
-                                
-     
-  
-                                              
-                
-                       
-           
-                           
-     
+ * 3.3.18  FSSTAT3res
+ *
+ *	struct FSSTAT3resok {
+ *		post_op_attr	obj_attributes;
+ *		size3		tbytes;
+ *		size3		fbytes;
+ *		size3		abytes;
+ *		size3		tfiles;
+ *		size3		ffiles;
+ *		size3		afiles;
+ *		uint32		invarsec;
+ *	};
+ *
+ *	struct FSSTAT3resfail {
+ *		post_op_attr	obj_attributes;
+ *	};
+ *
+ *	union FSSTAT3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		FSSTAT3resok	resok;
+ *	default:
+ *		FSSTAT3resfail	resfail;
+ *	};
  */
 static int decode_fsstat3resok(struct xdr_stream *xdr,
 			       struct nfs_fsstat *result)
@@ -2130,7 +2130,7 @@ static int decode_fsstat3resok(struct xdr_stream *xdr,
 	p = xdr_decode_size3(p, &result->tfiles);
 	p = xdr_decode_size3(p, &result->ffiles);
 	xdr_decode_size3(p, &result->afiles);
-	/*                 */
+	/* ignore invarsec */
 	return 0;
 out_overflow:
 	print_overflow_msg(__func__, xdr);
@@ -2160,32 +2160,32 @@ out_status:
 }
 
 /*
-                     
-  
-                        
-                                
-                  
-                   
-                   
-                  
-                   
-                   
-                   
-                       
-                        
-                       
-     
-  
-                          
-                                
-     
-  
-                                              
-                
-                       
-           
-                           
-     
+ * 3.3.19  FSINFO3res
+ *
+ *	struct FSINFO3resok {
+ *		post_op_attr	obj_attributes;
+ *		uint32		rtmax;
+ *		uint32		rtpref;
+ *		uint32		rtmult;
+ *		uint32		wtmax;
+ *		uint32		wtpref;
+ *		uint32		wtmult;
+ *		uint32		dtpref;
+ *		size3		maxfilesize;
+ *		nfstime3	time_delta;
+ *		uint32		properties;
+ *	};
+ *
+ *	struct FSINFO3resfail {
+ *		post_op_attr	obj_attributes;
+ *	};
+ *
+ *	union FSINFO3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		FSINFO3resok	resok;
+ *	default:
+ *		FSINFO3resfail	resfail;
+ *	};
  */
 static int decode_fsinfo3resok(struct xdr_stream *xdr,
 			       struct nfs_fsinfo *result)
@@ -2205,7 +2205,7 @@ static int decode_fsinfo3resok(struct xdr_stream *xdr,
 	p = xdr_decode_size3(p, &result->maxfilesize);
 	xdr_decode_nfstime3(p, &result->time_delta);
 
-	/*                   */
+	/* ignore properties */
 	result->lease_time = 0;
 	return 0;
 out_overflow:
@@ -2236,28 +2236,28 @@ out_status:
 }
 
 /*
-                       
-  
-                          
-                                
-                    
-                     
-                   
-                           
-                           
-                          
-     
-  
-                            
-                                
-     
-  
-                                                
-                
-                         
-           
-                             
-     
+ * 3.3.20  PATHCONF3res
+ *
+ *	struct PATHCONF3resok {
+ *		post_op_attr	obj_attributes;
+ *		uint32		linkmax;
+ *		uint32		name_max;
+ *		bool		no_trunc;
+ *		bool		chown_restricted;
+ *		bool		case_insensitive;
+ *		bool		case_preserving;
+ *	};
+ *
+ *	struct PATHCONF3resfail {
+ *		post_op_attr	obj_attributes;
+ *	};
+ *
+ *	union PATHCONF3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		PATHCONF3resok	resok;
+ *	default:
+ *		PATHCONF3resfail resfail;
+ *	};
  */
 static int decode_pathconf3resok(struct xdr_stream *xdr,
 				 struct nfs_pathconf *result)
@@ -2269,7 +2269,7 @@ static int decode_pathconf3resok(struct xdr_stream *xdr,
 		goto out_overflow;
 	result->max_link = be32_to_cpup(p++);
 	result->max_namelen = be32_to_cpup(p);
-	/*                         */
+	/* ignore remaining fields */
 	return 0;
 out_overflow:
 	print_overflow_msg(__func__, xdr);
@@ -2299,23 +2299,23 @@ out_status:
 }
 
 /*
-                     
-  
-                        
-                      
-                    
-     
-  
-                          
-                      
-     
-  
-                                              
-                
-                       
-           
-                           
-     
+ * 3.3.21  COMMIT3res
+ *
+ *	struct COMMIT3resok {
+ *		wcc_data	file_wcc;
+ *		writeverf3	verf;
+ *	};
+ *
+ *	struct COMMIT3resfail {
+ *		wcc_data	file_wcc;
+ *	};
+ *
+ *	union COMMIT3res switch (nfsstat3 status) {
+ *	case NFS3_OK:
+ *		COMMIT3resok	resok;
+ *	default:
+ *		COMMIT3resfail	resfail;
+ *	};
  */
 static int nfs3_xdr_dec_commit3res(struct rpc_rqst *req,
 				   struct xdr_stream *xdr,
@@ -2423,7 +2423,7 @@ out_default:
 	return nfs_stat_to_errno(status);
 }
 
-#endif  /*                   */
+#endif  /* CONFIG_NFS_V3_ACL */
 
 #define PROC(proc, argtype, restype, timer)				\
 [NFS3PROC_##proc] = {							\
@@ -2495,4 +2495,4 @@ const struct rpc_version nfsacl_version3 = {
 				  sizeof(nfs3_acl_procedures[0]),
 	.procs			= nfs3_acl_procedures,
 };
-#endif  /*                   */
+#endif  /* CONFIG_NFS_V3_ACL */

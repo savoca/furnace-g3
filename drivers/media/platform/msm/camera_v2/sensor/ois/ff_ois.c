@@ -1,6 +1,6 @@
-//                                                                              
-//                      
-//                                                                              
+//==============================================================================
+// FujiFlim OIS firmware
+//==============================================================================
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -93,13 +93,13 @@ static int fuji_ois_poll_ready(int limit)
 	uint8_t ois_status;
 	int read_byte = 0;
 	
-	/*                      */
+	/* polling status ready */
 	RegReadA(OIS_READ_STATUS_ADDR, &ois_status); 
 	read_byte++;
 
 	while ((ois_status != 0x01) && (read_byte < limit)) {
-		usleep(1000); /*          */
-		RegReadA(OIS_READ_STATUS_ADDR, &ois_status); /*                      */
+		usleep(1000); /* wait 1ms */
+		RegReadA(OIS_READ_STATUS_ADDR, &ois_status); /* polling status ready */
 		read_byte++;
 	}
 	return ois_status;
@@ -111,14 +111,14 @@ int fuji_bin_download(struct ois_i2c_bin_list bin_list)
 	int cnt = 0;
 	int32_t read_value_32t;
 
-	/*                       */
+	/* check OIS ic is alive */
 	if (!fuji_ois_poll_ready(LIMIT_STATUS_POLLING)) {
 		printk("%s: no reply 1\n", __func__);
 		rc = OIS_INIT_I2C_ERROR;
 		goto END;
 	}
 
-	/*                           */
+	/* Send command ois start dl */
 	rc = RegWriteA(OIS_START_DL_ADDR, 0x00);
 
 	while (rc < 0 && cnt < LIMIT_STATUS_POLLING) {
@@ -133,12 +133,12 @@ int fuji_bin_download(struct ois_i2c_bin_list bin_list)
 		goto END;
 	}
 
-	/*                         */
+	/* OIS program downloading */
 	rc = ois_i2c_load_and_write_bin_list(bin_list);
 	if (rc < 0)
 		goto END;
 	
-	/*                 */
+	/* Check sum value!*/
 	RamRead32A( OIS_CHECK_SUM_ADDR , &read_value_32t );
 	if (read_value_32t != bin_list.checksum) {
 		printk("%s: error [0xF008]checksum = 0x%x, bin_checksum 0x%x\n", __func__,
@@ -152,10 +152,10 @@ int fuji_bin_download(struct ois_i2c_bin_list bin_list)
 	if (rc < 0)
 		goto END;
 
-	/*                              */
+	/* Send command ois complete dl */
 	RegWriteA(OIS_COMPLETE_DL_ADDR, 0x00) ;
 
-	/*                 */
+	/* Read ois status */
 	if (!fuji_ois_poll_ready(LIMIT_STATUS_POLLING)) {
 		printk("%s: no reply 3\n", __func__);
 		rc = OIS_INIT_TIMEOUT;
@@ -200,7 +200,7 @@ int fuji_ois_init_cmd(int limit, int ver)
 	} while (trial < limit && !fuji_ois_poll_ready(LIMIT_STATUS_POLLING));
 
 	if (trial == limit)
-		return OIS_INIT_TIMEOUT; /*                 */
+		return OIS_INIT_TIMEOUT; /* initialize fail */
 
 	fuji_ois_write_8bytes(0x6080, 0x504084C3, 0x02FC0000);
 	fuji_ois_write_8bytes(0x6080, 0x504088C3, 0xFD040000);
@@ -210,7 +210,7 @@ int fuji_ois_init_cmd(int limit, int ver)
 	RegWriteA(0x602C, 0x1B);
 	RegWriteA(0x602D, 0x00);
 	
-	/*                       */
+	/* common, cal 8, init 8 */
 	switch (ver) {
 	case OIS_VER_CALIBRATION:
 	case OIS_VER_DEBUG:
@@ -254,7 +254,7 @@ int fuji_ois_init_cmd(int limit, int ver)
 		RegWriteA(0x609D,0xFFFF & (uint16_t)gyro_signed_offset_y);	
 
 		RegWriteA(0x6023, 0x04);
-		usleep(200000); /*            */
+		usleep(200000); /* wait 200ms */
 
 		break;
 	}
@@ -302,30 +302,30 @@ int fuji_ois_gyro_calibration(int ver)
 		printk("%s fuji_ois_poll_ready error \n", __func__);
 		return OIS_INIT_TIMEOUT; 
 	}
-	RamReadA(0x608A, &gyro_offset_y); /*    */
+	RamReadA(0x608A, &gyro_offset_y); /* 21 */
 	CDBG("%s read [0x608A]gyroy_offset_y 0x%x \n", __func__, gyro_offset_y);
 		
-	RegWriteA(0x609C, 0x00); /*    */
+	RegWriteA(0x609C, 0x00); /* 22 */
 
-	RamWriteA(0x609D, (uint16_t)(0xFFFF & (gyro_offset_x))); /*    */	
+	RamWriteA(0x609D, (uint16_t)(0xFFFF & (gyro_offset_x))); /* 23 */	
 
-	RegWriteA(0x609C, 0x01); /*    */
-	RamWriteA(0x609D, (uint16_t)(0xFFFF & (gyro_offset_y))); /*    */
+	RegWriteA(0x609C, 0x01); /* 24 */
+	RamWriteA(0x609D, (uint16_t)(0xFFFF & (gyro_offset_y))); /* 25 */
 	usleep(10000);
 
 	CDBG("%s write [0x609D]gyro_offset_x 0x%x [0x609D]gyro_offset_y 0x%x \n",
 		__func__, gyro_offset_x, gyro_offset_y);
 		
-	RegWriteA(0x609C, 0x02); /*    */
-	RamReadA(0x609D, &gyro_diff_x); /*    */
+	RegWriteA(0x609C, 0x02); /* 26 */
+	RamReadA(0x609D, &gyro_diff_x); /* 27 */
 
-	RegWriteA(0x609C, 0x03);  /*    */
-	RamReadA(0x609D, &gyro_diff_y);  /*    */
+	RegWriteA(0x609C, 0x03);  /* 28 */
+	RamReadA(0x609D, &gyro_diff_y);  /* 29 */
 
 	gyro_signed_diff_x = from_signed_word(gyro_diff_x);
 	gyro_signed_diff_y = from_signed_word(gyro_diff_y);
 
-	/*      */
+	/* 1dps */
 	if ((abs(gyro_signed_diff_x) > 262) || (abs(gyro_signed_diff_y) > 262)) {
 		printk("Gyro Offset Diff Y is FAIL!!!  %d %x\n",gyro_signed_diff_y,
 			gyro_signed_diff_y);		
@@ -365,7 +365,7 @@ int fuji_ois_gyro_calibration(int ver)
 	ois_i2c_e2p_write(0x070C, (uint16_t)(0xFFFF & gyro_intercept_y), 2);
 	usleep(10000);
 	
-	/*   */
+	/*32 */
 	RegWriteA(0x6023, 0x02);
 	RegWriteA(0x602c, 0x41);
 	RamReadA(0x602D, &gyro_temp);
@@ -373,7 +373,7 @@ int fuji_ois_gyro_calibration(int ver)
 	
 	RegWriteA(0x6023, 0x00);
 	gyro_signed_temp = from_signed_word(gyro_temp);
-	/*    */
+	/* 36 */
 	gyro_signed_offset_x = ((gyro_signed_slope_x * gyro_signed_temp) >> 15)
 		+ gyro_intercept_x;
 	gyro_signed_offset_y = ((gyro_signed_slope_y * gyro_signed_temp) >> 15)
@@ -382,10 +382,10 @@ int fuji_ois_gyro_calibration(int ver)
 	CDBG("%s calc gyro_signed_offset_x 0x%x \n", __func__, gyro_signed_offset_x);
 	CDBG("%s calc gyro_signed_offset_y 0x%x \n", __func__, gyro_signed_offset_y);
 
-	/*        */
+	/* 37 ,38 */
 	RamReadA(0x6042, &gyro_raw_x);
 	RamReadA(0x6044, &gyro_raw_y);
-	/*    */
+	/* 40 */
 
 	gyro_signed_raw_x = from_signed_word(gyro_raw_x);
 	gyro_signed_raw_y = from_signed_word(gyro_raw_y);
@@ -407,17 +407,17 @@ int fuji_ois_gyro_calibration(int ver)
 		return OIS_FAIL;
 	}
 
-	/*     */
+	/* 41a */
 	RegWriteA(0x6023, 0x02);
-	/*    */
+	/* 41 */
 	RegWriteA(0x609C, 0x00);
-	/*    */
+	/* 42 */
 	RegWriteA(0x609D, (uint16_t)(0xFFFF & (gyro_signed_offset_x)));
-	/*    */
+	/* 43 */
 	RegWriteA(0x609C, 0x01);
-	/*    */
+	/* 44 */
 	RegWriteA(0x609D, (uint16_t)(0xFFFF & (gyro_signed_offset_y)));
-	/*     */
+	/* 44a */
 	RegWriteA(0x6023, 0x04);
 
 	CDBG("%s end \n",__func__);
@@ -435,7 +435,7 @@ int32_t fuji_ois_mode(enum ois_mode_t data)
 		return 0;
 
 	if (cur_mode != OIS_MODE_CENTERING_ONLY) {	
-		/*                           */
+		/* go to lens centering mode */
 		RegWriteA(0x6020, 0x01);
 		if (!fuji_ois_poll_ready(LIMIT_STATUS_POLLING))
 			return OIS_INIT_TIMEOUT;
@@ -502,9 +502,9 @@ int32_t	fuji_ois_on (enum ois_ver_t ver)
 	case OIS_VER_CALIBRATION:
 	case OIS_VER_DEBUG:
 		
-		/*                          */
+		/* RegWriteA(0x6020, 0x01); */
 		RegWriteA(0x6021, 0x10);
-		/*           */
+		/* wait 50ms */
 		usleep(50000);
 		do {
 			rc = fuji_ois_gyro_calibration(ver);
@@ -512,12 +512,12 @@ int32_t	fuji_ois_on (enum ois_ver_t ver)
 
 		if (rc < 0) {
 			printk("%s: gyro cal fail \n", __func__);
-			rc = OIS_INIT_GYRO_ADJ_FAIL; /*              */
+			rc = OIS_INIT_GYRO_ADJ_FAIL; /* gyro failed. */
 		}
 		
 		if (!fuji_ois_poll_ready(LIMIT_STATUS_POLLING))
 			return OIS_INIT_TIMEOUT;
-		fuji_ois_move_lens(0x00,0x00); /*                      */
+		fuji_ois_move_lens(0x00,0x00); /* force move to center */
 		break;
 	}
 
@@ -539,17 +539,17 @@ int32_t	fuji_ois_off(void)
 {
 	int16_t i;
 	
-	/*                           */
+	/* go to lens centering mode */
 	RegWriteA(0x6020, 0x01);
 	if (!fuji_ois_poll_ready(LIMIT_STATUS_POLLING))
 		return OIS_INIT_TIMEOUT;
 		
 	for (i = 0x01C9; i > 0; i-= 46) {
-		fuji_ois_write_8bytes(0x6080, 0x504084C3, i << 16);		 /*               */
-		fuji_ois_write_8bytes(0x6080, 0x504088C3, (-i) << 16);   /*               */
-		fuji_ois_write_8bytes(0x6080, 0x505084C3, i << 16);		 /*                */
-		fuji_ois_write_8bytes(0x6080, 0x505088C3, (-i) << 16);	 /*               */
-		/*          */
+		fuji_ois_write_8bytes(0x6080, 0x504084C3, i << 16);		 /*high limit xch */
+		fuji_ois_write_8bytes(0x6080, 0x504088C3, (-i) << 16);   /* low limit xch */
+		fuji_ois_write_8bytes(0x6080, 0x505084C3, i << 16);		 /* high limit ych */
+		fuji_ois_write_8bytes(0x6080, 0x505088C3, (-i) << 16);	 /* low limit ych */
+		/* wait 5ms */
 		usleep(5000);
 	}
 	return 0; 
@@ -564,16 +564,16 @@ int32_t fuji_ois_stat(struct msm_sensor_ois_info_t *ois_stat)
 	
 	snprintf(ois_stat->ois_provider, ARRAY_SIZE(ois_stat->ois_provider), "FF_ROHM");
 
-	/*        */
+	/* OIS ON */
 	RegWriteA(0x6020, 0x02);
 	if (!fuji_ois_poll_ready(5))
 		return OIS_INIT_TIMEOUT;
 
-	RegWriteA(0x609C, 0x02); /*    */
-	RamReadA(0x609D, &gyro_diff_x); /*    */
+	RegWriteA(0x609C, 0x02); /* 26 */
+	RamReadA(0x609D, &gyro_diff_x); /* 27 */
 
-	RegWriteA(0x609C, 0x03); /*    */
-	RamReadA(0x609D, &gyro_diff_y); /*    */
+	RegWriteA(0x609C, 0x03); /* 28 */
+	RamReadA(0x609D, &gyro_diff_y); /* 29 */
 
 	gyro_signed_diff_x = from_signed_word(gyro_diff_x);
 	gyro_signed_diff_y = from_signed_word(gyro_diff_y);
@@ -589,13 +589,13 @@ int32_t fuji_ois_stat(struct msm_sensor_ois_info_t *ois_stat)
 	RegReadA(0x6058, &hall_x);
 	RegReadA(0x6059, &hall_y);
 
-	/*                           */	
+	/* change to unsigned factor */	
 	hall_signed_x = from_signed_byte(hall_x);
 			
-	/*                           */
+	/* change to unsigned factor */
 	hall_signed_y = from_signed_byte(hall_y);
 
-	/*                                   */
+	/* 10 LSB, max = 10 * 262(up scale)  */
 	ois_stat->hall[0] = (-1) * hall_signed_x * 262;
 	ois_stat->hall[1] = (-1) * hall_signed_y * 262;
 	
@@ -604,7 +604,7 @@ int32_t fuji_ois_stat(struct msm_sensor_ois_info_t *ois_stat)
 	
 	ois_stat->is_stable = 1;
 
-	/*       */
+	/* 3 dsp */
 	if ((abs(gyro_signed_diff_x) > (262 * 3)) ||
 		(abs(gyro_signed_diff_y) > (262 * 3))) {
 		printk("Gyro Offset Diff X is FAIL!!! %d 0x%x\n", gyro_signed_diff_x,
@@ -614,16 +614,16 @@ int32_t fuji_ois_stat(struct msm_sensor_ois_info_t *ois_stat)
 		ois_stat->is_stable = 0;
 	}
 	
-	/*                                      */
-	/*                                    */
+	/* hall_x, hall_y check -10 ~ 10, 10LSB */
+	/* will be fuji adjust hall_x, hall_y */
 	if ((abs(hall_signed_x) > 10) || (abs(hall_signed_y) > 10)) {
 		printk("hall_signed_x FAIL!!! %d 0x%x\n", hall_signed_x, hall_signed_x);		
 		printk("hall_signed_y FAIL!!! %d 0x%x\n", hall_signed_y, hall_signed_y);		
 		ois_stat->is_stable = 0;
 	}
 
-	ois_stat->target[0] = 0; /*               */
-	ois_stat->target[1] = 0; /*               */
+	ois_stat->target[0] = 0; /* not supported */
+	ois_stat->target[1] = 0; /* not supported */
 
 	return 0;
 }
@@ -634,7 +634,7 @@ int32_t fuji_ois_move_lens(int16_t target_x, int16_t target_y)
 	int8_t hally =  target_y / HALL_SCALE_FACTOR;
 	uint8_t result = 0;
 
-	/*                                          */
+	/* check ois mode & change to suitable mode */
 	RegReadA(0x6020, &result);
 	if (result != 0x01) {
 		RegWriteA(0x6020, 0x01);
@@ -645,12 +645,12 @@ int32_t fuji_ois_move_lens(int16_t target_x, int16_t target_y)
 	printk("%s target : %d(0x%x), %d(0x%x)\n", __func__,
 		hallx, hallx, hally, hally);
 
-	/*                                   */
-	RegWriteA(0x6099, 0xFF & hallx); /*                         */
-	RegWriteA(0x609A, 0xFF & hally); /*                         */
-	/*            */
+	/* hallx range -> D2 to 2E (-46, 46) */
+	RegWriteA(0x6099, 0xFF & hallx); /* target x position input */
+	RegWriteA(0x609A, 0xFF & hally); /* target y position input */
+	/* wait 100ms */
 	usleep(100000);
-	RegWriteA(0x6098, 0x01); /*                */
+	RegWriteA(0x6098, 0x01); /* order to move. */
 		
 	if (!fuji_ois_poll_ready(LIMIT_STATUS_POLLING * 2))
 		return OIS_INIT_TIMEOUT;

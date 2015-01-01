@@ -38,7 +38,7 @@
 }
 
 /*
-                                         
+ * Superset of all mux modes for omap2430
  */
 static struct omap_mux __initdata omap2430_muxmodes[] = {
 	_OMAP2430_MUXENTRY(CAM_D0, 133,
@@ -582,8 +582,8 @@ static struct omap_mux __initdata omap2430_muxmodes[] = {
 };
 
 /*
-                        
-                                                     
+ * Balls for POP package
+ * 447-pin s-PBGA Package, 0.00mm Ball Pitch (Bottom)
  */
 #ifdef CONFIG_DEBUG_FS
 static struct omap_ball __initdata omap2430_pop_ball[] = {

@@ -1,7 +1,7 @@
 /*
-                                                            
-                                                             
-                                           
+ * Generate definitions needed by assembly language modules.
+ * This code generates raw asm output which is post-processed
+ * to extract and format the required data.
  */
 
 #include <linux/sched.h>
@@ -72,7 +72,7 @@ void foo(void)
 	OFFSET(THREAD_FPU_STATE,	thread_struct, fpu_state);
 	DEFINE(__THREAD_USING_FPU,	THREAD_USING_FPU);
 	DEFINE(__THREAD_HAS_FPU,	THREAD_HAS_FPU);
-#endif /*            */
+#endif /* CONFIG_FPU */
 	BLANK();
 
 	OFFSET(TASK_THREAD,		task_struct, thread);

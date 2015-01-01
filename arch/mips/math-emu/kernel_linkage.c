@@ -47,9 +47,9 @@ void fpu_emulator_init_fpu(void)
 
 
 /*
-                                                         
-                                                           
-                                         
+ * Emulator context save/restore to/from a signal context
+ * presumed to be on the user stack, and therefore accessed
+ * with appropriate macros from uaccess.h
  */
 
 int fpu_emulator_save_context(struct sigcontext __user *sc)
@@ -82,7 +82,7 @@ int fpu_emulator_restore_context(struct sigcontext __user *sc)
 
 #ifdef CONFIG_64BIT
 /*
-                          
+ * This is the o32 version
  */
 
 int fpu_emulator_save_context32(struct sigcontext32 __user *sc)

@@ -12,7 +12,7 @@
  *   more details.
  */
 
-/*                                              */
+/* Include the proper base SPR definition file. */
 #ifdef __tilegx__
 #include <arch/spr_def_64.h>
 #else
@@ -22,24 +22,24 @@
 #ifdef __KERNEL__
 
 /*
-                                                                          
-                                                                        
-                                                                      
-                                                                        
-                                                   
+ * In addition to including the proper base SPR definition file, depending
+ * on machine architecture, this file defines several macros which allow
+ * kernel code to use protection-level dependent SPRs without worrying
+ * about which PL it's running at.  In these macros, the PL that the SPR
+ * or interrupt number applies to is replaced by K.
  */
 
 #if CONFIG_KERNEL_PL != 1 && CONFIG_KERNEL_PL != 2
 #error CONFIG_KERNEL_PL must be 1 or 2
 #endif
 
-/*                        */
+/* Concatenate 4 strings. */
 #define __concat4(a, b, c, d) a ## b ## c ## d
 #define _concat4(a, b, c, d)  __concat4(a, b, c, d)
 
 #ifdef __tilegx__
 
-/*                                                     */
+/* TILE-Gx dependent, protection-level dependent SPRs. */
 
 #define SPR_INTERRUPT_MASK_K \
 	_concat4(SPR_INTERRUPT_MASK_, CONFIG_KERNEL_PL,,)
@@ -74,7 +74,7 @@
 
 #else
 
-/*                                                     */
+/* TILEPro dependent, protection-level dependent SPRs. */
 
 #define SPR_INTERRUPT_MASK_K_0 \
 	_concat4(SPR_INTERRUPT_MASK_, CONFIG_KERNEL_PL, _0,)
@@ -91,7 +91,7 @@
 
 #endif
 
-/*                                          */
+/* Generic protection-level dependent SPRs. */
 
 #define SPR_SYSTEM_SAVE_K_0 \
 	_concat4(SPR_SYSTEM_SAVE_, CONFIG_KERNEL_PL, _0,)
@@ -110,4 +110,4 @@
 #define INT_INTCTRL_K \
 	_concat4(INT_INTCTRL_, CONFIG_KERNEL_PL,,)
 
-#endif /*            */
+#endif /* __KERNEL__ */

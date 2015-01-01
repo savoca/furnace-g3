@@ -46,11 +46,11 @@ struct bus_type msm_bus_type = {
 };
 EXPORT_SYMBOL(msm_bus_type);
 
-/* 
-                                                                    
-                               
-                    
-                                                 
+/**
+ * msm_bus_get_fabric_device() - This function is used to search for
+ * the fabric device on the bus
+ * @fabid: Fabric id
+ * Function returns: Pointer to the fabric device
  */
 struct msm_bus_fabric_device *msm_bus_get_fabric_device(int fabid)
 {
@@ -64,9 +64,9 @@ struct msm_bus_fabric_device *msm_bus_get_fabric_device(int fabid)
 	return fabric;
 }
 
-/* 
-                                                                   
-                                          
+/**
+ * msm_bus_fabric_device_register() - Registers a fabric on msm bus
+ * @fabdev: Fabric device to be registered
  */
 int msm_bus_fabric_device_register(struct msm_bus_fabric_device *fabdev)
 {
@@ -88,9 +88,9 @@ err:
 	return ret;
 }
 
-/* 
-                                                              
-                           
+/**
+ * msm_bus_fabric_device_unregister() - Unregisters the fabric
+ * devices from the msm bus
  */
 void msm_bus_fabric_device_unregister(struct msm_bus_fabric_device *fabdev)
 {

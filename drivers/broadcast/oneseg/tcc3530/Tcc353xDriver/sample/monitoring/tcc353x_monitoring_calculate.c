@@ -1,13 +1,13 @@
+/*--------------------------------------------------------------------------*/
+/*    FileName    : Tcc353x_monitoring_calculate.c                          */
+/*    Description : sample source for monitoring                            */
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*   TCC Version : 1.0.0                                                    */
 /*   Copyright (c) Telechips, Inc.                                          */
+/*   ALL RIGHTS RESERVED                                                    */
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #include "tcc353x_monitoring_calculate.h"
 #include "tcpal_os.h"
@@ -44,7 +44,7 @@ I32U Tcc353xCalculateMer(Tcc353xStatus_t * _dMBStatData, I32U _index)
 	I32U input;
 	I32U MER;
 
-	/*                          */
+	/* mer = 20*log10(lxMer/32) */
 	if(_index>2)
 		return _ISDB_MIN_MER_;
 
@@ -74,7 +74,7 @@ I32U Tcc353xCalculateSnr(Tcc353xStatus_t * _dMBStatData)
 	I32U input;
 	I32U SNR;
 
-	/*                             */
+	/* snr = 10*log10(snr_mer/128) */
 
 	input = _dMBStatData->snrMer;
 
@@ -139,8 +139,8 @@ I32U Tcc353xCalculateViterbiber(Tcc353xStatus_t * _dMBStatData,
 	if(under==0)
 		return _ISDB_MAX_VITERBIBER_;
 /*
-                                                
-                     
+	over = (overcnt*8*8 + errorcnt) * SCALE_FACTOR;
+	under = under*204*8;
 */
 	over = (I64U)(((overcnt <<6)+errorcnt)*SCALE_FACTOR);
 	under = (I64U)((under*204)<<3);
@@ -238,8 +238,8 @@ I32U Tcc353xCalculateTsper(Tcc353xStatus_t * _dMBStatData, I32U oldTsper,
 		return _ISDB_MAX_TSPER_;
 
 	/*
-                                               
- */
+	TSPER = (I32U)((over * SCALE_FACTOR) / under);
+	*/
 	result = DIV((over * SCALE_FACTOR),under);
 	TSPER = (I32U)(result & 0xFFFFFFFF);
 
@@ -314,7 +314,7 @@ I32S Tcc353xCalculateRssi(Tcc353xStatus_t * _isdbStatusData)
 
 static I32U Tcc353xMerTable(I32U _val)
 {
-	/*                          */
+	/* mer = 20*log10(lxMer/32) */
 
 	I32U i, MER = 0;
 	I32U mer_table[60] = {

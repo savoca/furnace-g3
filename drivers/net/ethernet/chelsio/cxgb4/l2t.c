@@ -48,24 +48,24 @@
 
 #define VLAN_NONE 0xfff
 
-/*                                         */
+/* identifies sync vs async L2T_WRITE_REQs */
 #define F_SYNC_WR    (1 << 12)
 
 enum {
-	L2T_STATE_VALID,      /*                     */
-	L2T_STATE_STALE,      /*                                          */
-	L2T_STATE_RESOLVING,  /*                                */
-	L2T_STATE_SYNC_WRITE, /*                                     */
+	L2T_STATE_VALID,      /* entry is up to date */
+	L2T_STATE_STALE,      /* entry may be used but needs revalidation */
+	L2T_STATE_RESOLVING,  /* entry needs address resolution */
+	L2T_STATE_SYNC_WRITE, /* synchronous write of entry underway */
 
-	/*                                                        */
-	L2T_STATE_SWITCHING,  /*                                           */
-	L2T_STATE_UNUSED      /*                  */
+	/* when state is one of the below the entry is not hashed */
+	L2T_STATE_SWITCHING,  /* entry is being used by a switching filter */
+	L2T_STATE_UNUSED      /* entry not in use */
 };
 
 struct l2t_data {
 	rwlock_t lock;
-	atomic_t nfree;             /*                        */
-	struct l2t_entry *rover;    /*                                    */
+	atomic_t nfree;             /* number of free entries */
+	struct l2t_entry *rover;    /* starting point for next allocation */
 	struct l2t_entry l2tab[L2T_SIZE];
 };
 
@@ -76,14 +76,14 @@ static inline unsigned int vlan_prio(const struct l2t_entry *e)
 
 static inline void l2t_hold(struct l2t_data *d, struct l2t_entry *e)
 {
-	if (atomic_add_return(1, &e->refcnt) == 1)  /*                   */
+	if (atomic_add_return(1, &e->refcnt) == 1)  /* 0 -> 1 transition */
 		atomic_dec(&d->nfree);
 }
 
 /*
-                                                                      
-                                                                           
-                                                       
+ * To avoid having to check address families we do not allow v4 and v6
+ * neighbors to be on the same hash chain.  We keep v4 entries in the first
+ * half of available hash buckets and v6 in the second.
  */
 enum {
 	L2T_SZ_HALF = L2T_SIZE / 2,
@@ -109,11 +109,11 @@ static unsigned int addr_hash(const u32 *addr, int addr_len, int ifindex)
 }
 
 /*
-                                                                              
-                                                                        
-                                                                            
-                                                                              
-                                                  
+ * Checks if an L2T entry is for the given IP/IPv6 address.  It does not check
+ * whether the L2T entry and the address are of the same address family.
+ * Callers ensure an address is only checked against L2T entries of the same
+ * family, something made trivial by the separation of IP and IPv6 hash chains
+ * mentioned above.  Returns 0 if there's a match,
  */
 static int addreq(const struct l2t_entry *e, const u32 *addr)
 {
@@ -132,8 +132,8 @@ static void neigh_replace(struct l2t_entry *e, struct neighbour *n)
 }
 
 /*
-                                                             
-                                                
+ * Write an L2T entry.  Must be called with the entry locked.
+ * The write may be synchronous or asynchronous.
  */
 static int write_l2e(struct adapter *adap, struct l2t_entry *e, int sync)
 {
@@ -166,8 +166,8 @@ static int write_l2e(struct adapter *adap, struct l2t_entry *e, int sync)
 }
 
 /*
-                                                                             
-                
+ * Send packets waiting in an L2T entry's ARP queue.  Must be called with the
+ * entry locked.
  */
 static void send_pending(struct adapter *adap, struct l2t_entry *e)
 {
@@ -182,9 +182,9 @@ static void send_pending(struct adapter *adap, struct l2t_entry *e)
 }
 
 /*
-                                                                        
-                                                                           
-                      
+ * Process a CPL_L2T_WRITE_RPL.  Wake up the ARP queue if it completes a
+ * synchronous L2T_WRITE.  Note that the TID in the reply is really the L2T
+ * index it refers to.
  */
 void do_l2t_write_rpl(struct adapter *adap, const struct cpl_l2t_write_rpl *rpl)
 {
@@ -212,8 +212,8 @@ void do_l2t_write_rpl(struct adapter *adap, const struct cpl_l2t_write_rpl *rpl)
 }
 
 /*
-                                                                       
-                                             
+ * Add a packet to an L2T entry's queue of packets awaiting resolution.
+ * Must be called with the entry's lock held.
  */
 static inline void arpq_enqueue(struct l2t_entry *e, struct sk_buff *skb)
 {
@@ -232,13 +232,13 @@ int cxgb4_l2t_send(struct net_device *dev, struct sk_buff *skb,
 
 again:
 	switch (e->state) {
-	case L2T_STATE_STALE:     /*                                       */
+	case L2T_STATE_STALE:     /* entry is stale, kick off revalidation */
 		neigh_event_send(e->neigh, NULL);
 		spin_lock_bh(&e->lock);
 		if (e->state == L2T_STATE_STALE)
 			e->state = L2T_STATE_VALID;
 		spin_unlock_bh(&e->lock);
-	case L2T_STATE_VALID:     /*                               */
+	case L2T_STATE_VALID:     /* fast-path, send the packet on */
 		return t4_ofld_send(adap, skb);
 	case L2T_STATE_RESOLVING:
 	case L2T_STATE_SYNC_WRITE:
@@ -264,7 +264,7 @@ again:
 EXPORT_SYMBOL(cxgb4_l2t_send);
 
 /*
-                                                                      
+ * Allocate a free L2T entry.  Must be called with l2t_data.lock held.
  */
 static struct l2t_entry *alloc_l2e(struct l2t_data *d)
 {
@@ -273,7 +273,7 @@ static struct l2t_entry *alloc_l2e(struct l2t_data *d)
 	if (!atomic_read(&d->nfree))
 		return NULL;
 
-	/*                                 */
+	/* there's definitely a free entry */
 	for (e = d->rover, end = &d->l2tab[L2T_SIZE]; e != end; ++e)
 		if (atomic_read(&e->refcnt) == 0)
 			goto found;
@@ -285,9 +285,9 @@ found:
 	atomic_dec(&d->nfree);
 
 	/*
-                                                       
-                                                       
-  */
+	 * The entry we found may be an inactive entry that is
+	 * presently in the hash table.  We need to remove it.
+	 */
 	if (e->state < L2T_STATE_SWITCHING)
 		for (p = &d->l2tab[e->hash].first; *p; p = &(*p)->next)
 			if (*p == e) {
@@ -301,14 +301,14 @@ found:
 }
 
 /*
-                                              
+ * Called when an L2T entry has no more users.
  */
 static void t4_l2e_free(struct l2t_entry *e)
 {
 	struct l2t_data *d;
 
 	spin_lock_bh(&e->lock);
-	if (atomic_read(&e->refcnt) == 0) {  /*                      */
+	if (atomic_read(&e->refcnt) == 0) {  /* hasn't been recycled */
 		if (e->neigh) {
 			neigh_release(e->neigh);
 			e->neigh = NULL;
@@ -335,14 +335,14 @@ void cxgb4_l2t_release(struct l2t_entry *e)
 EXPORT_SYMBOL(cxgb4_l2t_release);
 
 /*
-                                                                               
-                                         
+ * Update an L2T entry that was previously used for the same next hop as neigh.
+ * Must be called with softirqs disabled.
  */
 static void reuse_entry(struct l2t_entry *e, struct neighbour *neigh)
 {
 	unsigned int nud_state;
 
-	spin_lock(&e->lock);                /*                             */
+	spin_lock(&e->lock);                /* avoid race with t4_l2t_free */
 	if (neigh != e->neigh)
 		neigh_replace(e, neigh);
 	nud_state = neigh->nud_state;
@@ -388,10 +388,10 @@ struct l2t_entry *cxgb4_l2t_get(struct l2t_data *d, struct neighbour *neigh,
 			goto done;
 		}
 
-	/*                              */
+	/* Need to allocate a new entry */
 	e = alloc_l2e(d);
 	if (e) {
-		spin_lock(&e->lock);          /*                             */
+		spin_lock(&e->lock);          /* avoid race with t4_l2t_free */
 		e->state = L2T_STATE_RESOLVING;
 		memcpy(e->addr, addr, addr_len);
 		e->ifindex = ifidx;
@@ -412,9 +412,9 @@ done:
 EXPORT_SYMBOL(cxgb4_l2t_get);
 
 /*
-                                                                          
-                                                                            
-                                              
+ * Called when address resolution fails for an L2T entry to handle packets
+ * on the arpq head.  If a packet specifies a failure handler it is invoked,
+ * otherwise the packet is sent to the device.
  */
 static void handle_failed_resolution(struct adapter *adap, struct sk_buff *arpq)
 {
@@ -432,8 +432,8 @@ static void handle_failed_resolution(struct adapter *adap, struct sk_buff *arpq)
 }
 
 /*
-                                                                             
-                               
+ * Called when the host's neighbor layer makes a change to some entry that is
+ * loaded into the HW L2 table.
  */
 void t4_l2t_update(struct adapter *adap, struct neighbour *neigh)
 {

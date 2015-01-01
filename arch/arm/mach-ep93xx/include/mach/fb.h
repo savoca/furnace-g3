@@ -1,5 +1,5 @@
 /*
-                                         
+ * arch/arm/mach-ep93xx/include/mach/fb.h
  */
 
 #ifndef __ASM_ARCH_EP93XXFB_H
@@ -11,7 +11,7 @@ struct fb_info;
 
 #define EP93XXFB_USE_MODEDB		0
 
-/*                       */
+/* VideoAttributes flags */
 #define EP93XXFB_STATE_MACHINE_ENABLE	(1 << 0)
 #define EP93XXFB_PIXEL_CLOCK_ENABLE	(1 << 1)
 #define EP93XXFB_VSYNC_ENABLE		(1 << 2)
@@ -53,4 +53,4 @@ struct ep93xxfb_mach_info {
 	void	(*blank)(int blank_mode, struct fb_info *info);
 };
 
-#endif /*                       */
+#endif /* __ASM_ARCH_EP93XXFB_H */

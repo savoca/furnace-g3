@@ -18,8 +18,8 @@
 #define IO_SPACE_LIMIT 0xffffffff
 
 /*
-                                                         
-                           
+ * Change virtual addresses to physical addresses and vv.
+ * These are pretty trivial
  */
 static inline unsigned long virt_to_phys(volatile void * address)
 {
@@ -39,16 +39,16 @@ static inline void * phys_to_virt(unsigned long address)
 }
 
 /*
-                                                                      
-         
+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
+ * access
  */
 #define xlate_dev_mem_ptr(p)	__va(p)
 
 /*
-                                                          
+ * Convert a virtual cached pointer to an uncached pointer
  */
 #define xlate_dev_kmem_ptr(p)	p
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
 #endif

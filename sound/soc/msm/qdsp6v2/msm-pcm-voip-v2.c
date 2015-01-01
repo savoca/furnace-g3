@@ -37,7 +37,7 @@
 #define VOIP_MAX_VOC_PKT_SIZE 4096
 #define VOIP_MIN_VOC_PKT_SIZE 320
 
-/*                                                              */
+/* Length of the DSP frame info header added to the voc packet. */
 #define DSP_FRAME_HDR_LEN 1
 
 #define MODE_IS127		0x2
@@ -58,23 +58,23 @@ enum format {
 
 
 enum amr_rate_type {
-	AMR_RATE_4750, /*               */
-	AMR_RATE_5150, /*               */
-	AMR_RATE_5900, /*               */
-	AMR_RATE_6700, /*               */
-	AMR_RATE_7400, /*               */
-	AMR_RATE_7950, /*               */
-	AMR_RATE_10200, /*                */
-	AMR_RATE_12200, /*                */
-	AMR_RATE_6600, /*                  */
-	AMR_RATE_8850, /*                  */
-	AMR_RATE_12650, /*                   */
-	AMR_RATE_14250, /*                   */
-	AMR_RATE_15850, /*                   */
-	AMR_RATE_18250, /*                   */
-	AMR_RATE_19850, /*                   */
-	AMR_RATE_23050, /*                   */
-	AMR_RATE_23850, /*                   */
+	AMR_RATE_4750, /* AMR 4.75 kbps */
+	AMR_RATE_5150, /* AMR 5.15 kbps */
+	AMR_RATE_5900, /* AMR 5.90 kbps */
+	AMR_RATE_6700, /* AMR 6.70 kbps */
+	AMR_RATE_7400, /* AMR 7.40 kbps */
+	AMR_RATE_7950, /* AMR 7.95 kbps */
+	AMR_RATE_10200, /* AMR 10.20 kbps */
+	AMR_RATE_12200, /* AMR 12.20 kbps */
+	AMR_RATE_6600, /* AMR-WB 6.60 kbps */
+	AMR_RATE_8850, /* AMR-WB 8.85 kbps */
+	AMR_RATE_12650, /* AMR-WB 12.65 kbps */
+	AMR_RATE_14250, /* AMR-WB 14.25 kbps */
+	AMR_RATE_15850, /* AMR-WB 15.85 kbps */
+	AMR_RATE_18250, /* AMR-WB 18.25 kbps */
+	AMR_RATE_19850, /* AMR-WB 19.85 kbps */
+	AMR_RATE_23050, /* AMR-WB 23.05 kbps */
+	AMR_RATE_23850, /* AMR-WB 23.85 kbps */
 	AMR_RATE_UNDEF
 };
 
@@ -137,13 +137,13 @@ struct voip_drv_info {
 
 	unsigned int pcm_size;
 	unsigned int pcm_count;
-	unsigned int pcm_playback_irq_pos;      /*              */
-	unsigned int pcm_playback_buf_pos;      /*                    */
+	unsigned int pcm_playback_irq_pos;      /* IRQ position */
+	unsigned int pcm_playback_buf_pos;      /* position in buffer */
 
 	unsigned int pcm_capture_size;
 	unsigned int pcm_capture_count;
-	unsigned int pcm_capture_irq_pos;       /*              */
-	unsigned int pcm_capture_buf_pos;       /*                    */
+	unsigned int pcm_capture_irq_pos;       /* IRQ position */
+	unsigned int pcm_capture_buf_pos;       /* position in buffer */
 
 	uint32_t evrc_min_rate;
 	uint32_t evrc_max_rate;
@@ -293,10 +293,10 @@ static int msm_pcm_voip_probe(struct snd_soc_platform *platform)
 	return 0;
 }
 
-/*                       */
+/* sample rate supported */
 static unsigned int supported_sample_rates[] = {8000, 16000};
 
-/*              */
+/* capture path */
 static void voip_process_ul_pkt(uint8_t *voc_pkt,
 				uint32_t pkt_len,
 				uint32_t timestamp,
@@ -309,10 +309,10 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 	if (prtd->capture_substream == NULL)
 		return;
 
-	/*                                     */
+	/* Copy up-link packet into out_queue. */
 	spin_lock_irqsave(&prtd->dsp_ul_lock, dsp_flags);
 
-	/*                                              */
+	/* discarding UL packets till start is received */
 	if (!list_empty(&prtd->free_out_queue) && prtd->capture_start) {
 		buf_node = list_first_entry(&prtd->free_out_queue,
 					struct voip_buf_node, list);
@@ -320,10 +320,10 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 		switch (prtd->mode) {
 		case MODE_AMR_WB:
 		case MODE_AMR: {
-			/*                                                 
-                          
-                          
-    */
+			/* Remove the DSP frame info header. Header format:
+			 * Bits 0-3: Frame rate
+			 * Bits 4-7: Frame type
+			 */
 			buf_node->frame.frm_hdr.timestamp = timestamp;
 			buf_node->frame.frm_hdr.frame_type =
 						((*voc_pkt) & 0xF0) >> 4;
@@ -340,10 +340,10 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 		case MODE_4GV_NB:
 		case MODE_4GV_WB:
 		case MODE_4GV_NW: {
-			/*                                  
-                    
-                          
-    */
+			/* Remove the DSP frame info header.
+			 * Header format:
+			 * Bits 0-3: frame rate
+			 */
 			buf_node->frame.frm_hdr.timestamp = timestamp;
 			buf_node->frame.frm_hdr.packet_rate = (*voc_pkt) & 0x0F;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
@@ -379,7 +379,7 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 	wake_up(&prtd->out_wait);
 }
 
-/*               */
+/* playback path */
 static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 {
 	struct voip_buf_node *buf_node = NULL;
@@ -400,13 +400,13 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 		case MODE_AMR_WB: {
 			*((uint32_t *)voc_pkt) = buf_node->frame.pktlen +
 							DSP_FRAME_HDR_LEN;
-			/*                                      */
+			/* Advance to the header of voip packet */
 			voc_pkt = voc_pkt + sizeof(uint32_t);
 			/*
-                                                   
-                          
-                          
-    */
+			 * Add the DSP frame info header. Header format:
+			 * Bits 0-3: Frame rate
+			 * Bits 4-7: Frame type
+			 */
 			*voc_pkt = ((buf_node->frame.frm_hdr.frame_type &
 					0x0F) << 4) | (prtd->rate_type & 0x0F);
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
@@ -422,12 +422,12 @@ static void voip_process_dl_pkt(uint8_t *voc_pkt, void *private_data)
 		case MODE_4GV_NW: {
 			*((uint32_t *)voc_pkt) = buf_node->frame.pktlen +
 							 DSP_FRAME_HDR_LEN;
-			/*                                      */
+			/* Advance to the header of voip packet */
 			voc_pkt = voc_pkt + sizeof(uint32_t);
 			/*
-                                                   
-                           
-    */
+			 * Add the DSP frame info header. Header format:
+			 * Bits 0-3 : Frame rate
+			 */
 			*voc_pkt = buf_node->frame.frm_hdr.packet_rate & 0x0F;
 			voc_pkt = voc_pkt + DSP_FRAME_HDR_LEN;
 
@@ -731,8 +731,8 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 					voc_get_session_id(VOIP_SESSION_NAME));
 			voc_register_mvs_cb(NULL, NULL, prtd);
 		}
-		/*                    */
-		/*                                    */
+		/* release all buffer */
+		/* release in_queue and free_in_queue */
 		pr_debug("release all buffer\n");
 		p_substream = prtd->playback_substream;
 		if (p_substream == NULL) {
@@ -762,7 +762,7 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 				p_dma_buf->addr);
 			p_dma_buf->area = NULL;
 		}
-		/*                                      */
+		/* release out_queue and free_out_queue */
 capt:		c_substream = prtd->capture_substream;
 		if (c_substream == NULL) {
 			pr_debug("c_substream is NULL\n");
@@ -1286,16 +1286,16 @@ static int voip_get_media_type(uint32_t mode,
 		else
 			*media_type = VSS_MEDIA_ID_PCM_WB;
 		break;
-	case MODE_IS127: /*        */
+	case MODE_IS127: /* EVRC-A */
 		*media_type = VSS_MEDIA_ID_EVRC_MODEM;
 		break;
-	case MODE_4GV_NB: /*        */
+	case MODE_4GV_NB: /* EVRC-B */
 		*media_type = VSS_MEDIA_ID_4GV_NB_MODEM;
 		break;
-	case MODE_4GV_WB: /*         */
+	case MODE_4GV_WB: /* EVRC-WB */
 		*media_type = VSS_MEDIA_ID_4GV_WB_MODEM;
 		break;
-	case MODE_4GV_NW: /*         */
+	case MODE_4GV_NW: /* EVRC-NW */
 		*media_type = VSS_MEDIA_ID_4GV_NW_MODEM;
 		break;
 	default:

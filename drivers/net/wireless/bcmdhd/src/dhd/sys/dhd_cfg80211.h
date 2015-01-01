@@ -50,4 +50,4 @@ static inline int dhd_cfg80211_testmode_cmd(struct wiphy *wiphy, void *data, int
 int wl_cfg80211_btcoex_init(struct wl_priv *wl);
 void wl_cfg80211_btcoex_deinit(struct wl_priv *wl);
 
-#endif /*                  */
+#endif /* __DHD_CFG80211__ */

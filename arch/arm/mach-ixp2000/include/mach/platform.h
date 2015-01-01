@@ -26,19 +26,19 @@ static inline void ixp2000_reg_write(volatile void *reg, unsigned long val)
 }
 
 /*
-                                                                 
-                                                                     
-                                                                  
-                                                                     
-                       
-  
-                                                                    
-                                                                      
-                                                                      
-                                                                     
-                                                                    
-                                                                      
-            
+ * On the IXP2400, we can't use XCB=000 due to chip bugs.  We use
+ * XCB=101 instead, but that makes all I/O accesses bufferable.  This
+ * is not a problem in general, but we do have to be slightly more
+ * careful because I/O writes are no longer automatically flushed out
+ * of the write buffer.
+ *
+ * In cases where we want to make sure that a write has been flushed
+ * out of the write buffer before we proceed, for example when masking
+ * a device interrupt before re-enabling IRQs in CPSR, we can use this
+ * function, ixp2000_reg_wrb, which performs a write, a readback, and
+ * issues a dummy instruction dependent on the value of the readback
+ * (mov rX, rX) to make sure that the readback has completed before we
+ * continue.
  */
 static inline void ixp2000_reg_wrb(volatile void *reg, unsigned long val)
 {
@@ -51,31 +51,31 @@ static inline void ixp2000_reg_wrb(volatile void *reg, unsigned long val)
 }
 
 /*
-                                                                
-                                                                 
-                                                                        
-                                                                        
-                                                                    
-                                     
-  
-                                  
-      
-                         
-      
-                      
-  
-                                                                     
-                                                                       
-  
-                                                                  
-                                                          
+ * Boards may multiplex different devices on the 2nd channel of 
+ * the slowport interface that each need different configuration 
+ * settings.  For example, the IXDP2400 uses channel 2 on the interface 
+ * to access the CPLD, the switch fabric card, and the media card.  Each
+ * one needs a different mode so drivers must save/restore the mode 
+ * before and after each operation.  
+ *
+ * acquire_slowport(&your_config);
+ * ...
+ * do slowport operations
+ * ...
+ * release_slowport();
+ *
+ * Note that while you have the slowport, you are holding a spinlock,
+ * so your code should be written as if you explicitly acquired a lock.
+ *
+ * The configuration only affects device 2 on the slowport, so the
+ * MTD map driver does not acquire/release the slowport.  
  */
 struct slowport_cfg {
-	unsigned long CCR;	/*              */
-	unsigned long WTC;	/*                      */
-	unsigned long RTC;	/*                     */
-	unsigned long PCR;	/*                           */
-	unsigned long ADC;	/*                            */
+	unsigned long CCR;	/* Clock divide */
+	unsigned long WTC;	/* Write Timing Control */
+	unsigned long RTC;	/* Read Timing Control */
+	unsigned long PCR;	/* Protocol Control Register */
+	unsigned long ADC;	/* Address/Data Width Control */
 };
 
 
@@ -83,8 +83,8 @@ void ixp2000_acquire_slowport(struct slowport_cfg *, struct slowport_cfg *);
 void ixp2000_release_slowport(struct slowport_cfg *);
 
 /*
-                                                                         
-                                           
+ * IXP2400 A0/A1 and  IXP2800 A0/A1/A2 have broken slowport that requires
+ * tweaking of addresses in the MTD driver.
  */
 static inline unsigned ixp2000_has_broken_slowport(void)
 {
@@ -92,17 +92,17 @@ static inline unsigned ixp2000_has_broken_slowport(void)
 	unsigned long id_prod = id & (IXP2000_MAJ_PROD_TYPE_MASK |
 				      IXP2000_MIN_PROD_TYPE_MASK);
 	return (((id_prod ==
-		  /*                     */
+		  /* fixed in IXP2400-B0 */
 		  (IXP2000_MAJ_PROD_TYPE_IXP2000 |
 		   IXP2000_MIN_PROD_TYPE_IXP2400)) &&
 		 ((id & IXP2000_MAJ_REV_MASK) == 0)) ||
 		((id_prod ==
-		  /*                     */
+		  /* fixed in IXP2800-B0 */
 		  (IXP2000_MAJ_PROD_TYPE_IXP2000 |
 		   IXP2000_MIN_PROD_TYPE_IXP2800)) &&
 		 ((id & IXP2000_MAJ_REV_MASK) == 0)) ||
 		((id_prod ==
-		  /*                     */
+		  /* fixed in IXP2850-B0 */
 		  (IXP2000_MAJ_PROD_TYPE_IXP2000 |
 		   IXP2000_MIN_PROD_TYPE_IXP2850)) &&
 		 ((id & IXP2000_MAJ_REV_MASK) == 0)));
@@ -135,8 +135,8 @@ int ixp2000_pci_read_config(struct pci_bus*, unsigned int, int, int, u32 *);
 int ixp2000_pci_write_config(struct pci_bus*, unsigned int, int, int, u32);
 
 /*
-                                                                            
-                                                           
+ * Several of the IXP2000 systems have banked flash so we need to extend the
+ * flash_platform_data structure with some private pointers
  */
 struct ixp2000_flash_data {
 	struct flash_platform_data *platform_data;
@@ -150,4 +150,4 @@ struct ixp2000_i2c_pins {
 };
 
 
-#endif /*                */
+#endif /*  !__ASSEMBLY__ */

@@ -53,7 +53,7 @@ static int s5p6450_epll_set_rate(struct clk *clk, unsigned long rate)
 	unsigned int epll_con, epll_con_k;
 	unsigned int i;
 
-	if (clk->rate == rate)	/*                           */
+	if (clk->rate == rate)	/* Return if nothing changed */
 		return 0;
 
 	epll_con = __raw_readl(S5P64X0_EPLL_CON);
@@ -169,9 +169,9 @@ static struct clksrc_clk clk_pclk_low = {
 };
 
 /*
-                                                                           
-                                                                              
-                          
+ * The following clocks will be disabled during clock initialization. It is
+ * recommended to keep the following clocks disabled until the driver requests
+ * for enabling the clock.
  */
 static struct clk init_clocks_off[] = {
 	{
@@ -279,7 +279,7 @@ static struct clk init_clocks_off[] = {
 };
 
 /*
-                                                                    
+ * The following clocks will be enabled during clock initialization.
  */
 static struct clk init_clocks[] = {
 	{
@@ -569,7 +569,7 @@ static struct clk_lookup s5p6450_clk_lookup[] = {
 	CLKDEV_INIT("s3c-sdhci.2", "mmc_busclk.2", &clk_sclk_mmc2.clk),
 };
 
-/*                           */
+/* Clock initialization code */
 static struct clksrc_clk *sysclks[] = {
 	&clk_mout_apll,
 	&clk_mout_epll,
@@ -609,7 +609,7 @@ void __init_or_cpufreq s5p6450_setup_clocks(void)
 	unsigned long dpll;
 	unsigned int ptr;
 
-	/*                                         */
+	/* Set S5P6450 functions for clk_fout_epll */
 
 	clk_fout_epll.enable = s5p_epll_enable;
 	clk_fout_epll.ops = &s5p6450_epll_ops;

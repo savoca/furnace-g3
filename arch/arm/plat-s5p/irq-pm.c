@@ -25,12 +25,12 @@
 #include <mach/regs-gpio.h>
 #include <mach/regs-irq.h>
 
-/*                           */
+/* state for IRQs over sleep */
 
-/*                                                                       
-                    
-  
-                                                                     
+/* default is to allow for EINT0..EINT31, and IRQ_RTC_TIC, IRQ_RTC_ALARM,
+ * as wakeup sources
+ *
+ * set bit to 1 in allow bitfield to enable the wakeup settings on it
 */
 
 unsigned long s3c_irqwake_intallow	= 0x00000006L;

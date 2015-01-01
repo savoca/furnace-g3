@@ -70,7 +70,7 @@ static struct mdss_mdp_wb mdss_mdp_wb_info;
 static void mdss_mdp_wb_free_node(struct mdss_mdp_wb_data *node);
 
 #ifdef DEBUG_WRITEBACK
-/*                                                            */
+/* for debugging: writeback output buffer to allocated memory */
 static inline
 struct mdss_mdp_data *mdss_mdp_wb_debug_buffer(struct msm_fb_data_type *mfd)
 {
@@ -128,13 +128,13 @@ struct mdss_mdp_data *mdss_mdp_wb_debug_buffer(struct msm_fb_data_type *mfd)
 #endif
 
 /*
-                                                                           
-                                                        
-                                                                 
-  
-                                                                         
-                                                                       
-                               
+ * mdss_mdp_get_secure() - Queries the secure status of a writeback session
+ * @mfd:                   Frame buffer device structure
+ * @enabled:               Pointer to convey if session is secure
+ *
+ * This api enables an entity (userspace process, driver module, etc.) to
+ * query the secure status of a writeback session. The secure status is
+ * then supplied via a pointer.
  */
 int mdss_mdp_wb_get_secure(struct msm_fb_data_type *mfd, uint8_t *enabled)
 {
@@ -146,14 +146,14 @@ int mdss_mdp_wb_get_secure(struct msm_fb_data_type *mfd, uint8_t *enabled)
 }
 
 /*
-                                                                           
-                                                        
-                                                                       
-  
-                                                                        
-                                                                    
-                                                                   
-                                                               
+ * mdss_mdp_set_secure() - Updates the secure status of a writeback session
+ * @mfd:                   Frame buffer device structure
+ * @enable:                New secure status (1: secure, 0: non-secure)
+ *
+ * This api enables an entity to modify the secure status of a writeback
+ * session. If enable is 1, we allocate a secure pipe so that MDP is
+ * allowed to write back into the secure buffer. If enable is 0, we
+ * deallocate the secure pipe (if it was allocated previously).
  */
 int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable)
 {
@@ -181,7 +181,7 @@ int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable)
 	ctl->is_secure = enable;
 	wb->is_secure = enable;
 
-	/*                                                                  */
+	/* newer revisions don't require secure src pipe for secure session */
 	if (ctl->mdata->mdp_rev > MDSS_MDP_HW_REV_100)
 		return 0;
 
@@ -189,7 +189,7 @@ int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable)
 
 	if (!enable) {
 		if (pipe) {
-			/*            */
+			/* unset pipe */
 			mdss_mdp_mixer_pipe_unstage(pipe);
 			mdss_mdp_pipe_destroy(pipe);
 			wb->secure_pipe = NULL;
@@ -381,7 +381,7 @@ static struct mdss_mdp_wb_data *get_local_node(struct mdss_mdp_wb *wb,
 	node->buf_info = *data;
 	buf = &node->buf_data.p[0];
 	buf->addr = (u32) (data->iova + data->offset);
-	buf->len = UINT_MAX; /*                */
+	buf->len = UINT_MAX; /* trusted source */
 	if (wb->is_secure)
 		buf->flags |= MDP_SECURE_OVERLAY_SESSION;
 	ret = mdss_mdp_wb_register_node(wb, node);
@@ -595,7 +595,7 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd)
 	mutex_lock(&mdss_mdp_wb_buf_lock);
 	if (wb) {
 		mutex_lock(&wb->lock);
-		/*                                                        */
+		/* in case of reinit of control path need to reset secure */
 		if (ctl->play_cnt == 0)
 			mdss_mdp_wb_set_secure(ctl->mfd, wb->is_secure);
 		if (!list_empty(&wb->free_queue) && wb->state != WB_STOPING &&
@@ -617,7 +617,7 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd)
 
 	if (wb_args.data == NULL) {
 		pr_err("unable to get writeback buf ctl=%d\n", ctl->num);
-		/*                                    */
+		/* drop buffer but don't return error */
 		ret = 0;
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_DONE);
 		goto kickoff_fail;
@@ -895,13 +895,13 @@ int msm_fb_writeback_set_secure(struct fb_info *info, int enable)
 }
 EXPORT_SYMBOL(msm_fb_writeback_set_secure);
 
-/* 
-                                                        
-                                                 
-  
-                                                                   
-                                                                   
-                                                    
+/**
+ * msm_fb_writeback_iommu_ref() - Power ON/OFF mdp clock
+ * @enable - true/false to Power ON/OFF mdp clock
+ *
+ * Call to enable mdp clock at start of mdp_mmap/mdp_munmap API and
+ * to disable mdp clock at end of these API's to ensure iommu is in
+ * proper state while driver map/un-map any buffers.
  */
 int msm_fb_writeback_iommu_ref(struct fb_info *info, int enable)
 {

@@ -14,7 +14,7 @@ struct thread_struct;
 struct task_struct;
 
 /*
-                                                      
+ *	switch_to() should switch tasks to task nr n, first
  */
 struct task_struct *sh64_switch_to(struct task_struct *prev,
 				   struct thread_struct *prev_thread,
@@ -32,4 +32,4 @@ do {								\
 } while (0)
 
 
-#endif /*                         */
+#endif /* __ASM_SH_SWITCH_TO_64_H */

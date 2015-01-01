@@ -32,8 +32,8 @@
 extern void smp_call_function_interrupt(void);
 
 /*
-                                                                   
-                                
+ * These are routines for dealing with the bcm1480 smp capabilities
+ * independent of board/firmware
  */
 
 static void *mailbox_0_set_regs[] = {
@@ -58,25 +58,25 @@ static void *mailbox_0_regs[] = {
 };
 
 /*
-                                        
+ * SMP init and finish on secondary CPUs
  */
 void __cpuinit bcm1480_smp_init(void)
 {
 	unsigned int imask = STATUSF_IP4 | STATUSF_IP3 | STATUSF_IP2 |
 		STATUSF_IP1 | STATUSF_IP0;
 
-	/*                                      */
+	/* Set interrupt mask, but don't enable */
 	change_c0_status(ST0_IM, imask);
 }
 
 /*
-                                                                  
-                                
+ * These are routines for dealing with the sb1250 smp capabilities
+ * independent of board/firmware
  */
 
 /*
-                                                                            
-                                 
+ * Simple enough; everything is set up, so just poke the appropriate mailbox
+ * register, and we should be set
  */
 static void bcm1480_send_ipi_single(int cpu, unsigned int action)
 {
@@ -93,7 +93,7 @@ static void bcm1480_send_ipi_mask(const struct cpumask *mask,
 }
 
 /*
-                                                      
+ * Code to run on secondary just after probing the CPU
  */
 static void __cpuinit bcm1480_init_secondary(void)
 {
@@ -103,8 +103,8 @@ static void __cpuinit bcm1480_init_secondary(void)
 }
 
 /*
-                                                               
-       
+ * Do any tidying up before marking online and running the idle
+ * loop
  */
 static void __cpuinit bcm1480_smp_finish(void)
 {
@@ -115,15 +115,15 @@ static void __cpuinit bcm1480_smp_finish(void)
 }
 
 /*
-                                             
+ * Final cleanup after all secondaries booted
  */
 static void bcm1480_cpus_done(void)
 {
 }
 
 /*
-                                                                 
-           
+ * Setup the PC, SP, and GP of a secondary processor and start it
+ * running!
  */
 static void __cpuinit bcm1480_boot_secondary(int cpu, struct task_struct *idle)
 {
@@ -137,11 +137,11 @@ static void __cpuinit bcm1480_boot_secondary(int cpu, struct task_struct *idle)
 }
 
 /*
-                                                              
-                                                       
-                                                  
-  
-                                                  
+ * Use CFE to find out how many CPUs are available, setting up
+ * cpu_possible_mask and the logical/physical mappings.
+ * XXXKW will the boot CPU ever not be physical 0?
+ *
+ * Common setup before any secondaries are started
  */
 static void __init bcm1480_smp_setup(void)
 {
@@ -183,10 +183,10 @@ void bcm1480_mailbox_interrupt(void)
 	unsigned int action;
 
 	kstat_incr_irqs_this_cpu(irq, irq_to_desc(irq));
-	/*                                                                   */
+	/* Load the mailbox register to figure out what we're supposed to do */
 	action = (__raw_readq(mailbox_0_regs[cpu]) >> 48) & 0xffff;
 
-	/*                                          */
+	/* Clear the mailbox to clear the interrupt */
 	__raw_writeq(((u64)action)<<48, mailbox_0_clear_regs[cpu]);
 
 	if (action & SMP_RESCHEDULE_YOURSELF)

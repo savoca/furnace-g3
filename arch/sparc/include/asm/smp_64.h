@@ -16,14 +16,14 @@
 #include <linux/cpumask.h>
 #include <linux/cache.h>
 
-#endif /*                 */
+#endif /* !(__ASSEMBLY__) */
 
 #ifdef CONFIG_SMP
 
 #ifndef __ASSEMBLY__
 
 /*
-                        
+ *	Private routines/data
  */
 
 #include <linux/bitops.h>
@@ -38,7 +38,7 @@ extern void arch_send_call_function_single_ipi(int cpu);
 extern void arch_send_call_function_ipi_mask(const struct cpumask *mask);
 
 /*
-                                                        
+ *	General functions that each host system must provide.
  */
 
 extern int hard_smp_processor_id(void);
@@ -58,7 +58,7 @@ extern int __cpu_disable(void);
 extern void __cpu_die(unsigned int cpu);
 #endif
 
-#endif /*                 */
+#endif /* !(__ASSEMBLY__) */
 
 #else
 
@@ -66,6 +66,6 @@ extern void __cpu_die(unsigned int cpu);
 #define smp_fill_in_sib_core_maps() do { } while (0)
 #define smp_fetch_global_regs() do { } while (0)
 
-#endif /*               */
+#endif /* !(CONFIG_SMP) */
 
-#endif /*                   */
+#endif /* !(_SPARC64_SMP_H) */

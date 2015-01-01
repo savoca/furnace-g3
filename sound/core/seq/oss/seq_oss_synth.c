@@ -28,28 +28,28 @@
 #include <linux/slab.h>
 
 /*
-            
+ * constants
  */
 #define SNDRV_SEQ_OSS_MAX_SYNTH_NAME	30
 #define MAX_SYSEX_BUFLEN		128
 
 
 /*
-                                   
+ * definition of synth info records
  */
 
-/*              */
+/* sysex buffer */
 struct seq_oss_synth_sysex {
 	int len;
 	int skip;
 	unsigned char buf[MAX_SYSEX_BUFLEN];
 };
 
-/*            */
+/* synth info */
 struct seq_oss_synth {
 	int seq_device;
 
-	/*                */
+	/* for synth_info */
 	int synth_type;
 	int synth_subtype;
 	int nr_voices;
@@ -65,28 +65,28 @@ struct seq_oss_synth {
 
 
 /*
-               
+ * device table
  */
 static int max_synth_devs;
 static struct seq_oss_synth *synth_devs[SNDRV_SEQ_OSS_MAX_SYNTH_DEVS];
 static struct seq_oss_synth midi_synth_dev = {
-	-1, /*            */
-	SYNTH_TYPE_MIDI, /*            */
-	0, /*               */
-	16, /*           */
-	"MIDI", /*      */
+	-1, /* seq_device */
+	SYNTH_TYPE_MIDI, /* synth_type */
+	0, /* synth_subtype */
+	16, /* nr_voices */
+	"MIDI", /* name */
 };
 
 static DEFINE_SPINLOCK(register_lock);
 
 /*
-             
+ * prototypes
  */
 static struct seq_oss_synth *get_synthdev(struct seq_oss_devinfo *dp, int dev);
 static void reset_channels(struct seq_oss_synthinfo *info);
 
 /*
-                        
+ * global initialization
  */
 void __init
 snd_seq_oss_synth_init(void)
@@ -95,7 +95,7 @@ snd_seq_oss_synth_init(void)
 }
 
 /*
-                                   
+ * registration of the synth device
  */
 int
 snd_seq_oss_synth_register(struct snd_seq_device *dev)
@@ -118,10 +118,10 @@ snd_seq_oss_synth_register(struct snd_seq_device *dev)
 	rec->opened = 0;
 	snd_use_lock_init(&rec->use_lock);
 
-	/*                                            */
+	/* copy and truncate the name of synth device */
 	strlcpy(rec->name, dev->name, sizeof(rec->name));
 
-	/*              */
+	/* registration */
 	spin_lock_irqsave(&register_lock, flags);
 	for (i = 0; i < max_synth_devs; i++) {
 		if (synth_devs[i] == NULL)
@@ -205,7 +205,7 @@ get_sdev(int dev)
 
 
 /*
-                      
+ * set up synth tables
  */
 
 void
@@ -266,7 +266,7 @@ snd_seq_oss_synth_setup(struct seq_oss_devinfo *dp)
 
 
 /*
-                                                                
+ * set up synth tables for MIDI emulation - /dev/music mode only
  */
 
 void
@@ -300,7 +300,7 @@ snd_seq_oss_synth_setup_midi(struct seq_oss_devinfo *dp)
 
 
 /*
-                        
+ * clean up synth tables
  */
 
 void
@@ -343,7 +343,7 @@ snd_seq_oss_synth_cleanup(struct seq_oss_devinfo *dp)
 }
 
 /*
-                                                      
+ * check if the specified device is MIDI mapped device
  */
 static int
 is_midi_dev(struct seq_oss_devinfo *dp, int dev)
@@ -356,7 +356,7 @@ is_midi_dev(struct seq_oss_devinfo *dp, int dev)
 }
 
 /*
-                                          
+ * return synth device information pointer
  */
 static struct seq_oss_synth *
 get_synthdev(struct seq_oss_devinfo *dp, int dev)
@@ -379,7 +379,7 @@ get_synthdev(struct seq_oss_devinfo *dp, int dev)
 
 
 /*
-                                           
+ * reset note and velocity on each channel.
  */
 static void
 reset_channels(struct seq_oss_synthinfo *info)
@@ -395,9 +395,9 @@ reset_channels(struct seq_oss_synthinfo *info)
 
 
 /*
-                      
-                                                                    
-                                   
+ * reset synth device:
+ * call reset callback.  if no callback is defined, send a heartbeat
+ * event to the corresponding port.
  */
 void
 snd_seq_oss_synth_reset(struct seq_oss_devinfo *dp, int dev)
@@ -411,13 +411,13 @@ snd_seq_oss_synth_reset(struct seq_oss_devinfo *dp, int dev)
 	if (! info->opened)
 		return;
 	if (info->sysex)
-		info->sysex->len = 0; /*             */
+		info->sysex->len = 0; /* reset sysex */
 	reset_channels(info);
 	if (info->is_midi) {
 		if (midi_synth_dev.opened <= 0)
 			return;
 		snd_seq_oss_midi_reset(dp, info->midi_mapped);
-		/*                   */
+		/* reopen the device */
 		snd_seq_oss_midi_close(dp, dev);
 		if (snd_seq_oss_midi_open(dp, info->midi_mapped,
 					  dp->file_mode) < 0) {
@@ -449,8 +449,8 @@ snd_seq_oss_synth_reset(struct seq_oss_devinfo *dp, int dev)
 
 
 /*
-                       
-                                    
+ * load a patch record:
+ * call load_patch callback function
  */
 int
 snd_seq_oss_synth_load_patch(struct seq_oss_devinfo *dp, int dev, int fmt,
@@ -476,7 +476,7 @@ snd_seq_oss_synth_load_patch(struct seq_oss_devinfo *dp, int dev, int fmt,
 }
 
 /*
-                                            
+ * check if the device is valid synth device
  */
 int
 snd_seq_oss_synth_is_valid(struct seq_oss_devinfo *dp, int dev)
@@ -492,9 +492,9 @@ snd_seq_oss_synth_is_valid(struct seq_oss_devinfo *dp, int dev)
 
 
 /*
-                                   
-                                                                       
-          
+ * receive OSS 6 byte sysex packet:
+ * the full sysex message will be sent if it reaches to the end of data
+ * (0xff).
  */
 int
 snd_seq_oss_synth_sysex(struct seq_oss_devinfo *dp, int dev, unsigned char *buf, struct snd_seq_event *ev)
@@ -516,7 +516,7 @@ snd_seq_oss_synth_sysex(struct seq_oss_devinfo *dp, int dev, unsigned char *buf,
 
 	send = 0;
 	dest = sysex->buf + sysex->len;
-	/*                                  */
+	/* copy 6 byte packet to the buffer */
 	for (i = 0; i < 6; i++) {
 		if (buf[i] == 0xff) {
 			send = 1;
@@ -535,9 +535,9 @@ snd_seq_oss_synth_sysex(struct seq_oss_devinfo *dp, int dev, unsigned char *buf,
 		if (sysex->skip) {
 			sysex->skip = 0;
 			sysex->len = 0;
-			return -EINVAL; /*      */
+			return -EINVAL; /* skip */
 		}
-		/*                                           */
+		/* copy the data to event record and send it */
 		ev->flags = SNDRV_SEQ_EVENT_LENGTH_VARIABLE;
 		if (snd_seq_oss_synth_addr(dp, dev, ev))
 			return -EINVAL;
@@ -547,11 +547,11 @@ snd_seq_oss_synth_sysex(struct seq_oss_devinfo *dp, int dev, unsigned char *buf,
 		return 0;
 	}
 
-	return -EINVAL; /*      */
+	return -EINVAL; /* skip */
 }
 
 /*
-                                              
+ * fill the event source/destination addresses
  */
 int
 snd_seq_oss_synth_addr(struct seq_oss_devinfo *dp, int dev, struct snd_seq_event *ev)
@@ -565,7 +565,7 @@ snd_seq_oss_synth_addr(struct seq_oss_devinfo *dp, int dev, struct snd_seq_event
 
 
 /*
-                       
+ * OSS compatible ioctl
  */
 int
 snd_seq_oss_synth_ioctl(struct seq_oss_devinfo *dp, int dev, unsigned int cmd, unsigned long addr)
@@ -587,7 +587,7 @@ snd_seq_oss_synth_ioctl(struct seq_oss_devinfo *dp, int dev, unsigned int cmd, u
 
 
 /*
-                                                   
+ * send OSS raw events - SEQ_PRIVATE and SEQ_VOLUME
  */
 int
 snd_seq_oss_synth_raw_event(struct seq_oss_devinfo *dp, int dev, unsigned char *data, struct snd_seq_event *ev)
@@ -601,7 +601,7 @@ snd_seq_oss_synth_raw_event(struct seq_oss_devinfo *dp, int dev, unsigned char *
 
 
 /*
-                                          
+ * create OSS compatible synth_info record
  */
 int
 snd_seq_oss_synth_make_info(struct seq_oss_devinfo *dp, int dev, struct synth_info *inf)
@@ -635,7 +635,7 @@ snd_seq_oss_synth_make_info(struct seq_oss_devinfo *dp, int dev, struct synth_in
 
 #ifdef CONFIG_PROC_FS
 /*
-                 
+ * proc interface
  */
 void
 snd_seq_oss_synth_info_read(struct snd_info_buffer *buf)
@@ -661,4 +661,4 @@ snd_seq_oss_synth_info_read(struct snd_info_buffer *buf)
 		snd_use_lock_free(&rec->use_lock);
 	}
 }
-#endif /*                */
+#endif /* CONFIG_PROC_FS */

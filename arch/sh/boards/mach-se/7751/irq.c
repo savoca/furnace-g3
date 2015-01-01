@@ -16,7 +16,7 @@
 
 static struct ipr_data ipr_irq_table[] = {
 	{ 13, 3, 3, 2 },
-	/*                                                              */
+	/* Add additional entries here as drivers are added and tested. */
 };
 
 static unsigned long ipr_offsets[] = {
@@ -42,7 +42,7 @@ static struct ipr_desc ipr_irq_desc = {
 };
 
 /*
-                         
+ * Initialize IRQ setting
  */
 void __init init_7751se_IRQ(void)
 {

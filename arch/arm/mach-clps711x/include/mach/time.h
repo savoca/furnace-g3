@@ -23,7 +23,7 @@
 extern void clps711x_setup_timer(void);
 
 /*
-                            
+ * IRQ handler for the timer
  */
 static irqreturn_t
 p720t_timer_interrupt(int irq, void *dev_id)
@@ -39,7 +39,7 @@ p720t_timer_interrupt(int irq, void *dev_id)
 }
 
 /*
-                                                                  
+ * Set up timer interrupt, and return the current time in seconds.
  */
 void __init time_init(void)
 {

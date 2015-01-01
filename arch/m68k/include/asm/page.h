@@ -5,7 +5,7 @@
 #include <asm/setup.h>
 #include <asm/page_offset.h>
 
-/*                                     */
+/* PAGE_SHIFT determines the page size */
 #if defined(CONFIG_SUN3) || defined(CONFIG_COLDFIRE)
 #define PAGE_SHIFT	13
 #else
@@ -18,7 +18,7 @@
 #ifndef __ASSEMBLY__
 
 /*
-                                                  
+ * These are used to make use of C type-checking..
  */
 typedef struct { unsigned long pte; } pte_t;
 typedef struct { unsigned long pmd[16]; } pmd_t;
@@ -40,7 +40,7 @@ extern unsigned long _rambase;
 extern unsigned long _ramstart;
 extern unsigned long _ramend;
 
-#endif /*               */
+#endif /* !__ASSEMBLY__ */
 
 #ifdef CONFIG_MMU
 #include "page_mm.h"
@@ -50,4 +50,4 @@ extern unsigned long _ramend;
 
 #include <asm-generic/getorder.h>
 
-#endif /*              */
+#endif /* _M68K_PAGE_H */

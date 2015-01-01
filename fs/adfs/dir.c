@@ -12,7 +12,7 @@
 #include "adfs.h"
 
 /*
-                                                      
+ * For future.  This should probably be per-directory.
  */
 static DEFINE_RWLOCK(adfs_dir_lock);
 
@@ -153,14 +153,14 @@ adfs_dir_lookup_byname(struct inode *inode, struct qstr *name, struct object_inf
 	obj->parent_id = inode->i_ino;
 
 	/*
-                                                     
-  */
+	 * '.' is handled by reserved_lookup() in fs/namei.c
+	 */
 	if (name->len == 2 && name->name[0] == '.' && name->name[1] == '.') {
 		/*
-                                                   
-                                                 
-                                          
-   */
+		 * Currently unable to fill in the rest of 'obj',
+		 * but this is better than nothing.  We need to
+		 * ascend one level to find it's parent.
+		 */
 		obj->name_len = 0;
 		obj->file_id  = obj->parent_id;
 		goto free_out;
@@ -209,9 +209,9 @@ adfs_hash(const struct dentry *parent, const struct inode *inode,
 		return 0;
 
 	/*
-                                      
-                                        
-  */
+	 * Truncate the name in place, avoids
+	 * having to define a compare function.
+	 */
 	qstr->len = i = name_len;
 	name = qstr->name;
 	hash = init_name_hash();
@@ -230,8 +230,8 @@ adfs_hash(const struct dentry *parent, const struct inode *inode,
 }
 
 /*
-                                                    
-                                             
+ * Compare two names, taking note of the name length
+ * requirements of the underlying filesystem.
  */
 static int
 adfs_compare(const struct dentry *parent, const struct inode *pinode,
@@ -276,9 +276,9 @@ adfs_lookup(struct inode *dir, struct dentry *dentry, struct nameidata *nd)
 	if (error == 0) {
 		error = -EACCES;
 		/*
-                                              
-           
-   */
+		 * This only returns NULL if get_empty_inode
+		 * fails.
+		 */
 		inode = adfs_iget(dir->i_sb, &obj);
 		if (inode)
 			error = 0;
@@ -288,7 +288,7 @@ adfs_lookup(struct inode *dir, struct dentry *dentry, struct nameidata *nd)
 }
 
 /*
-                                            
+ * directories can handle most operations...
  */
 const struct inode_operations adfs_dir_inode_operations = {
 	.lookup		= adfs_lookup,

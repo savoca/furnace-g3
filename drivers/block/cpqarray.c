@@ -49,8 +49,8 @@
 #define DRIVER_NAME "Compaq SMART2 Driver (v 2.6.0)"
 #define DRIVER_VERSION SMART2_DRIVER_VERSION(2,6,0)
 
-/*                                                      */
-/*                                                            */
+/* Embedded module documentation macros - see modules.h */
+/* Original author Chris Frantz - Compaq Computer Corporation */
 MODULE_AUTHOR("Compaq Computer Corporation");
 MODULE_DESCRIPTION("Driver for Compaq Smart2 Array Controllers version 2.6.0");
 MODULE_LICENSE("GPL");
@@ -61,12 +61,12 @@ MODULE_LICENSE("GPL");
 #include "ida_ioctl.h"
 
 #define READ_AHEAD	128
-#define NR_CMDS		128 /*                                        */
+#define NR_CMDS		128 /* This could probably go as high as ~400 */
 
 #define MAX_CTLR	8
 #define CTLR_SHIFT	8
 
-#define CPQARRAY_DMA_MASK	0xFFFFFFFF	/*            */
+#define CPQARRAY_DMA_MASK	0xFFFFFFFF	/* 32 bit DMA */
 
 static DEFINE_MUTEX(cpqarray_mutex);
 static int nr_ctlr;
@@ -76,9 +76,9 @@ static int eisa[8];
 
 #define NR_PRODUCTS ARRAY_SIZE(products)
 
-/*                                            
-                                          
-                                                       
+/*  board_id = Subsystem Device ID & Vendor ID
+ *  product = Marketing Name for the board
+ *  access = Address of the struct of function pointers
  */
 static struct board_type products[] = {
 	{ 0x0040110E, "IDA",			&smart1_access },
@@ -98,29 +98,29 @@ static struct board_type products[] = {
 	{ 0x40580E11, "Smart Array 431",	&smart4_access },
 };
 
-/*                                                               */
+/* define the PCI info for the PCI cards this driver can control */
 static const struct pci_device_id cpqarray_pci_device_id[] =
 {
 	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_COMPAQ_42XX,
-		0x0E11, 0x4058, 0, 0, 0},       /*       */
+		0x0E11, 0x4058, 0, 0, 0},       /* SA431 */
 	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_COMPAQ_42XX,
-		0x0E11, 0x4051, 0, 0, 0},      /*          */
+		0x0E11, 0x4051, 0, 0, 0},      /* SA4250ES */
 	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_COMPAQ_42XX,
-		0x0E11, 0x4050, 0, 0, 0},      /*        */
+		0x0E11, 0x4050, 0, 0, 0},      /* SA4200 */
 	{ PCI_VENDOR_ID_NCR, PCI_DEVICE_ID_NCR_53C1510,
-		0x0E11, 0x4048, 0, 0, 0},       /*     */
+		0x0E11, 0x4048, 0, 0, 0},       /* LC2 */
 	{ PCI_VENDOR_ID_NCR, PCI_DEVICE_ID_NCR_53C1510,
-		0x0E11, 0x4040, 0, 0, 0},      /*                  */
+		0x0E11, 0x4040, 0, 0, 0},      /* Integrated Array */
 	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_SMART2P,
-		0x0E11, 0x4034, 0, 0, 0},       /*        */
+		0x0E11, 0x4034, 0, 0, 0},       /* SA 221 */
 	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_SMART2P,
-		0x0E11, 0x4033, 0, 0, 0},       /*          */
+		0x0E11, 0x4033, 0, 0, 0},       /* SA 3100ES*/
 	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_SMART2P,
-		0x0E11, 0x4032, 0, 0, 0},       /*        */
+		0x0E11, 0x4032, 0, 0, 0},       /* SA 3200*/
 	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_SMART2P,
-		0x0E11, 0x4031, 0, 0, 0},       /*       */
+		0x0E11, 0x4031, 0, 0, 0},       /* SA 2SL*/
 	{ PCI_VENDOR_ID_COMPAQ, PCI_DEVICE_ID_COMPAQ_SMART2P,
-		0x0E11, 0x4030, 0, 0, 0},       /*       */
+		0x0E11, 0x4030, 0, 0, 0},       /* SA 2P */
 	{ 0 }
 };
 
@@ -128,13 +128,13 @@ MODULE_DEVICE_TABLE(pci, cpqarray_pci_device_id);
 
 static struct gendisk *ida_gendisk[MAX_CTLR][NWD];
 
-/*          */
+/* Debug... */
 #define DBG(s)	do { s } while(0)
-/*                         */
+/* Debug (general info)... */
 #define DBGINFO(s) do { } while(0)
-/*                   */
+/* Debug Paranoid... */
 #define DBGP(s)  do { } while(0)
-/*                         */
+/* Debug Extra Paranoid... */
 #define DBGPX(s) do { } while(0)
 
 static int cpqarray_pci_init(ctlr_info_t *c, struct pci_dev *pdev);
@@ -211,8 +211,8 @@ static struct proc_dir_entry *proc_array;
 static const struct file_operations ida_proc_fops;
 
 /*
-                                                                          
-                                              
+ * Get us a file in /proc/array that says something about each controller.
+ * Create /proc/array if it doesn't exist yet.
  */
 static void __init ida_procinit(int i)
 {
@@ -225,7 +225,7 @@ static void __init ida_procinit(int i)
 }
 
 /*
-                                            
+ * Report information about this controller.
  */
 static int ida_proc_show(struct seq_file *m, void *v)
 {
@@ -306,13 +306,13 @@ static const struct file_operations ida_proc_fops = {
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
-#endif /*                */
+#endif /* CONFIG_PROC_FS */
 
 module_param_array(eisa, int, NULL, 0);
 
 static void release_io_mem(ctlr_info_t *c)
 {
-	/*                                        */
+	/* if IO mem was not protected do nothing */
 	if( c->io_mem_addr == 0)
 		return;
 	release_region(c->io_mem_addr, c->io_mem_length);
@@ -325,9 +325,9 @@ static void __devexit cpqarray_remove_one(int i)
 	int j;
 	char buff[4];
 
-	/*                                                       
-                                                          
-                                                             */
+	/* sendcmd will turn off interrupt, and send the flush...
+	 * To write all data in the battery backed cache to disks
+	 * no data returned, but don't want to send NULL to sendcmd */
 	if( sendcmd(FLUSH_CACHE, i, buff, 4, 0, 0, 0))
 	{
 		printk(KERN_WARNING "Unable to flush cache on controller %d\n",
@@ -374,8 +374,8 @@ static void __devexit cpqarray_remove_one_pci (struct pci_dev *pdev)
 	cpqarray_remove_one(i);
 }
 
-/*                                                          
-                        
+/* removing an instance that was not removed automatically..
+ * must be an eisa card.
  */
 static void __devexit cpqarray_remove_one_eisa (int i)
 {
@@ -387,20 +387,20 @@ static void __devexit cpqarray_remove_one_eisa (int i)
 	cpqarray_remove_one(i);
 }
 
-/*                       */
+/* pdev is NULL for eisa */
 static int __devinit cpqarray_register_ctlr( int i, struct pci_dev *pdev)
 {
 	struct request_queue *q;
 	int j;
 
 	/* 
-                          
-                                  
-                                                        
-  */
+	 * register block devices
+	 * Find disks and fill in structs
+	 * Get an interrupt, set the Q depth and get into /proc
+	 */
 
-	/*                                                          */
-	/*                        */
+	/* If this successful it should insure that we are the only */
+	/* instance of the driver */
 	if (register_blkdev(COMPAQ_SMART2_MAJOR+i, hba[i]->devname)) {
 		goto Enomem4;
 	}
@@ -449,7 +449,7 @@ static int __devinit cpqarray_register_ctlr( int i, struct pci_dev *pdev)
 	if (pdev)
 		blk_queue_bounce_limit(q, hba[i]->pci_dev->dma_mask);
 
-	/*                                   */
+	/* This is a hardware imposed limit. */
 	blk_queue_max_segments(q, SG_MAX);
 
 	init_timer(&hba[i]->timer);
@@ -458,7 +458,7 @@ static int __devinit cpqarray_register_ctlr( int i, struct pci_dev *pdev)
 	hba[i]->timer.function = ida_timer;
 	add_timer(&hba[i]->timer);
 
-	/*                                                              */
+	/* Enable IRQ now that spinlock and rate limit timer are set up */
 	hba[i]->access.set_intr_mask(hba[i], FIFO_NOT_EMPTY);
 
 	for(j=0; j<NWD; j++) {
@@ -477,7 +477,7 @@ static int __devinit cpqarray_register_ctlr( int i, struct pci_dev *pdev)
 		add_disk(disk);
 	}
 
-	/*        */
+	/* done ! */
 	return(i);
 
 Enomem1:
@@ -520,7 +520,7 @@ static int __devinit cpqarray_init_one( struct pci_dev *pdev,
 	memset(hba[i], 0, sizeof(ctlr_info_t));
 	sprintf(hba[i]->devname, "ida%d", i);
 	hba[i]->ctlr = i;
-	/*                                         */
+	/* Initialize the pdev driver private data */
 	pci_set_drvdata(pdev, hba[i]);
 
 	if (cpqarray_pci_init(hba[i], pdev) != 0) {
@@ -541,8 +541,8 @@ static struct pci_driver cpqarray_pci_driver = {
 };
 
 /*
-                                                            
-                                                   
+ *  This is it.  Find all the controllers and register them.
+ *  returns the number of block devices registered.
  */
 static int __init cpqarray_init(void)
 {
@@ -550,7 +550,7 @@ static int __init cpqarray_init(void)
 	int i;
 	int rc = 0;
 
-	/*                    */
+	/* detect controllers */
 	printk(DRIVER_NAME "\n");
 
 	rc = pci_register_driver(&cpqarray_pci_driver);
@@ -571,8 +571,8 @@ static int __init cpqarray_init(void)
 	}
 }
 
-/*                                                              */
-/*                                          */
+/* Function to find the first free pointer into our hba[] array */
+/* Returns -1 if no free entries are left.  */
 static int alloc_cpqarray_hba(void)
 {
 	int i;
@@ -599,8 +599,8 @@ static void free_hba(int i)
 }
 
 /*
-                                                                     
-                                                      
+ * Find the IO address of the controller, its IRQ and so forth.  Fill
+ * in some basic stuff into the ctlr_info_t structure.
  */
 static int cpqarray_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 {
@@ -638,7 +638,7 @@ static int cpqarray_pci_init(ctlr_info_t *c, struct pci_dev *pdev)
 
 	pci_read_config_dword(pdev, 0x2c, &board_id);
 
-	/*                                              */
+	/* check to see if controller has been disabled */
 	if(!(command & 0x02)) {
 		printk(KERN_WARNING
 			"cpqarray: controller appears to be disabled\n");
@@ -662,7 +662,7 @@ DBGINFO(
 
 	for(i=0; i<6; i++) {
 		if (pci_resource_flags(pdev, i) & PCI_BASE_ADDRESS_SPACE_IO)
-		{ /*          */
+		{ /* IO space */
 			c->io_mem_addr = addr[i];
 			c->io_mem_length = pci_resource_end(pdev, i)
 				- pci_resource_start(pdev, i) + 1;
@@ -709,7 +709,7 @@ DBGINFO(
 }
 
 /*
-                                                     
+ * Map (physical) PCI mem into (virtual) kernel space
  */
 static void __iomem *remap_pci_mem(ulong base, ulong size)
 {
@@ -722,7 +722,7 @@ static void __iomem *remap_pci_mem(ulong base, ulong size)
 
 #ifndef MODULE
 /*
-                                                                         
+ * Config string is a comma separated set of i/o addresses of EISA cards.
  */
 static int cpqarray_setup(char *str)
 {
@@ -740,7 +740,7 @@ __setup("smart2=", cpqarray_setup);
 #endif
 
 /*
-                                                                     
+ * Find an EISA controller's signature.  Set up an hba if we find it.
  */
 static int __devinit cpqarray_eisa_detect(void)
 {
@@ -781,8 +781,8 @@ static int __devinit cpqarray_eisa_detect(void)
 		}
 
 		/*
-                                                   
-   */
+		 * Read the config register to find our interrupt
+		 */
 		intr = inb(eisa[i]+0xCC0) >> 4;
 		if (intr & 1) intr = 11;
 		else if (intr & 2) intr = 10;
@@ -795,7 +795,7 @@ static int __devinit cpqarray_eisa_detect(void)
 		hba[ctlr]->access = *(products[j].access);
 		hba[ctlr]->ctlr = ctlr;
 		hba[ctlr]->board_id = board_id;
-		hba[ctlr]->pci_dev = NULL; /*         */
+		hba[ctlr]->pci_dev = NULL; /* not PCI */
 
 DBGINFO(
 	printk("i = %d, j = %d\n", i, j);
@@ -818,7 +818,7 @@ DBGINFO(
 }
 
 /*
-                                               
+ * Open.  Make sure the device is really there.
  */
 static int ida_open(struct block_device *bdev, fmode_t mode)
 {
@@ -827,11 +827,11 @@ static int ida_open(struct block_device *bdev, fmode_t mode)
 
 	DBGINFO(printk("ida_open %s\n", bdev->bd_disk->disk_name));
 	/*
-                                                                       
-                                                                      
-                                                                       
-                         
-  */
+	 * Root is allowed to open raw volume zero even if it's not configured
+	 * so array config can still work.  I don't think I really like this,
+	 * but I'm already using way to many device nodes to claim another one
+	 * for "raw controller".
+	 */
 	if (!drv->nr_blks) {
 		if (!capable(CAP_SYS_RAWIO))
 			return -ENXIO;
@@ -854,7 +854,7 @@ static int ida_unlocked_open(struct block_device *bdev, fmode_t mode)
 }
 
 /*
-                      
+ * Close.  Sync first.
  */
 static int ida_release(struct gendisk *disk, fmode_t mode)
 {
@@ -869,7 +869,7 @@ static int ida_release(struct gendisk *disk, fmode_t mode)
 }
 
 /*
-                                                  
+ * Enqueuing and dequeuing functions for cmdlists.
  */
 static inline void addQ(cmdlist_t **Qptr, cmdlist_t *c)
 {
@@ -897,11 +897,11 @@ static inline cmdlist_t *removeQ(cmdlist_t **Qptr, cmdlist_t *c)
 }
 
 /*
-                                                 
-                                                                       
-                                                                           
-                                                                         
-                                    
+ * Get a request and submit it to the controller.
+ * This routine needs to grab all the requests it possibly can from the
+ * req Q and submit them.  Interrupts are off (and need to be off) when you
+ * are in here (either via the dummy do_ida_request functions or by being
+ * called from the interrupt handler
  */
 static void do_ida_request(struct request_queue *q)
 {
@@ -937,7 +937,7 @@ DBGPX(
 	sg_init_table(tmp_sg, SG_MAX);
 	seg = blk_rq_map_sg(q, creq, tmp_sg);
 
-	/*                             */
+	/* Now do all the DMA Mappings */
 	if (rq_data_dir(creq) == READ)
 		dir = PCI_DMA_FROMDEVICE;
 	else
@@ -956,7 +956,7 @@ DBGPX(	printk("Submitting %u sectors in %d segments\n", blk_rq_sectors(creq), se
 	c->req.hdr.cmd = (rq_data_dir(creq) == READ) ? IDA_READ : IDA_WRITE;
 	c->type = CMD_RWREQ;
 
-	/*                                                  */
+	/* Put the request on the tail of the request queue */
 	addQ(&h->reqQ, c);
 	h->Qdepth++;
 	if (h->Qdepth > h->maxQsinceinit) 
@@ -969,34 +969,34 @@ startio:
 }
 
 /* 
-                                                              
-                                        
-  
-                                                 
+ * start_io submits everything on a controller's request queue
+ * and moves it to the completion queue.
+ *
+ * Interrupts had better be off if you're in here
  */
 static void start_io(ctlr_info_t *h)
 {
 	cmdlist_t *c;
 
 	while((c = h->reqQ) != NULL) {
-		/*                                 */
+		/* Can't do anything if we're busy */
 		if (h->access.fifo_full(h) == 0)
 			return;
 
-		/*                                        */
+		/* Get the first entry from the request Q */
 		removeQ(&h->reqQ, c);
 		h->Qdepth--;
 	
-		/*                                       */
+		/* Tell the controller to do our bidding */
 		h->access.submit_command(h, c);
 
-		/*                           */
+		/* Get onto the completion Q */
 		addQ(&h->cmpQ, c);
 	}
 }
 
 /*
-                                                
+ * Mark all buffers that cmd was responsible for
  */
 static inline void complete_command(cmdlist_t *cmd, int timeout)
 {
@@ -1024,7 +1024,7 @@ static inline void complete_command(cmdlist_t *cmd, int timeout)
 	}
 	if (timeout)
 		error = -EIO;
-	/*                                                           */
+	/* unmap the DMA mapping for all the scatter gather elements */
 	if (cmd->req.hdr.cmd == IDA_READ)
 		ddir = PCI_DMA_FROMDEVICE;
 	else
@@ -1038,9 +1038,9 @@ static inline void complete_command(cmdlist_t *cmd, int timeout)
 }
 
 /*
-                                                                 
-                                                                        
-                           
+ *  The controller will interrupt us upon completion of commands.
+ *  Find the command on the completion queue, remove it, tell the OS and
+ *  try to queue up more IO
  */
 static irqreturn_t do_ida_intr(int irq, void *dev_id)
 {
@@ -1051,14 +1051,14 @@ static irqreturn_t do_ida_intr(int irq, void *dev_id)
 	__u32 a,a1;
 
 	istat = h->access.intr_pending(h);
-	/*                           */
+	/* Is this interrupt for us? */
 	if (istat == 0)
 		return IRQ_NONE;
 
 	/*
-                                                            
-                                        
-  */
+	 * If there are completed commands in the completion queue,
+	 * we had better do something about it.
+	 */
 	spin_lock_irqsave(IDA_LOCK(h->ctlr), flags);
 	if (istat & FIFO_NOT_EMPTY) {
 		while((a = h->access.command_completed(h))) {
@@ -1074,14 +1074,14 @@ static irqreturn_t do_ida_intr(int irq, void *dev_id)
 					break;
 			}
 			/*
-                                                 
-                              
-    */
+			 * If we've found the command, take it off the
+			 * completion Q and free it
+			 */
 			if (c->busaddr == a) {
 				removeQ(&h->cmpQ, c);
-				/*                            
-                                                                     
-                                                  
+				/*  Check for invalid command.
+                                 *  Controller returns command error,
+                                 *  But rcode = 0.
                                  */
 
 				if((a1 & 0x03) && (c->req.hdr.rcode == 0))
@@ -1100,18 +1100,18 @@ static irqreturn_t do_ida_intr(int irq, void *dev_id)
 	}
 
 	/*
-                                       
-  */
+	 * See if we can queue up some more IO
+	 */
 	do_ida_request(h->queue);
 	spin_unlock_irqrestore(IDA_LOCK(h->ctlr), flags); 
 	return IRQ_HANDLED;
 }
 
 /*
-                                                                     
-                                                                     
-                                                          
-                              
+ * This timer was for timing out requests that haven't happened after
+ * IDA_TIMEOUT.  That wasn't such a good idea.  This timer is used to
+ * reset a flags structure so we don't flood the user with
+ * "Non-Fatal error" messages.
  */
 static void ida_timer(unsigned long tdata)
 {
@@ -1140,8 +1140,8 @@ static int ida_getgeo(struct block_device *bdev, struct hd_geometry *geo)
 }
 
 /*
-                                                                          
-                                                                               
+ *  ida_ioctl does some miscellaneous stuff like reporting drive geometry,
+ *  setting readahead and submitting commands from userspace to the controller.
  */
 static int ida_locked_ioctl(struct block_device *bdev, fmode_t mode, unsigned int cmd, unsigned long arg)
 {
@@ -1223,14 +1223,14 @@ static int ida_ioctl(struct block_device *bdev, fmode_t mode,
 }
 
 /*
-                                                                           
-                                                                         
-                                                                        
-                               
-  
-                                                                             
-                                                                              
-                                                               
+ * ida_ctlr_ioctl is for passing commands to the controller from userspace.
+ * The command block (io) has already been copied to kernel space for us,
+ * however, any elements in the sglist need to be copied to kernel space
+ * or copied back to userspace.
+ *
+ * Only root may perform a controller passthru command, however I'm not doing
+ * any serious sanity checking on the arguments.  Doing an IDA_WRITE_MEDIA and
+ * putting a 64M buffer in the sglist is probably a *bad* idea.
  */
 static int ida_ctlr_ioctl(ctlr_info_t *h, int dsk, ida_ioctl_t *io)
 {
@@ -1252,7 +1252,7 @@ static int ida_ctlr_ioctl(ctlr_info_t *h, int dsk, ida_ioctl_t *io)
 	c->req.hdr.blk_cnt = io->blk_cnt;
 	c->type = CMD_IOCTL_PEND;
 
-	/*                       */
+	/* Pre submit processing */
 	switch(io->cmd) {
 	case PASSTHRU_A:
 		p = memdup_user(io->sg[0].addr, io->sg[0].size);
@@ -1308,21 +1308,21 @@ static int ida_ctlr_ioctl(ctlr_info_t *h, int dsk, ida_ioctl_t *io)
 		c->req.hdr.sg_cnt = 1;
 	}
 	
-	/*                                                  */
+	/* Put the request on the tail of the request queue */
 	spin_lock_irqsave(IDA_LOCK(ctlr), flags);
 	addQ(&h->reqQ, c);
 	h->Qdepth++;
 	start_io(h);
 	spin_unlock_irqrestore(IDA_LOCK(ctlr), flags);
 
-	/*                     */
+	/* Wait for completion */
 	while(c->type != CMD_IOCTL_DONE)
 		schedule();
 
-	/*                */
+	/* Unmap the DMA  */
 	pci_unmap_single(h->pci_dev, c->req.sg[0].addr, c->req.sg[0].size, 
 		PCI_DMA_BIDIRECTIONAL);
-	/*                        */
+	/* Post submit processing */
 	switch(io->cmd) {
 	case PASSTHRU_A:
 		pci_unmap_single(h->pci_dev, c->req.hdr.blk,
@@ -1336,7 +1336,7 @@ static int ida_ctlr_ioctl(ctlr_info_t *h, int dsk, ida_ioctl_t *io)
 			kfree(p);
 			return -EFAULT;
 		}
-		/*                         */
+		/* fall through and free p */
 	case IDA_WRITE:
 	case IDA_WRITE_MEDIA:
 	case COLLECT_BUFFER:
@@ -1344,7 +1344,7 @@ static int ida_ctlr_ioctl(ctlr_info_t *h, int dsk, ida_ioctl_t *io)
 		kfree(p);
 		break;
 	default:;
-		/*               */
+		/* Nothing to do */
 	}
 
 	io->rcode = c->req.hdr.rcode;
@@ -1353,10 +1353,10 @@ static int ida_ctlr_ioctl(ctlr_info_t *h, int dsk, ida_ioctl_t *io)
 }
 
 /*
-                                                                            
-                                                                         
-                                                                          
-                                              
+ * Commands are pre-allocated in a large block.  Here we use a simple bitmap
+ * scheme to suballocte them to the driver.  Operations that are not time
+ * critical (and can wait for kmalloc and possibly sleep) can pass in NULL
+ * as the first argument to get a new command.
  */
 static cmdlist_t * cmd_alloc(ctlr_info_t *h, int get_from_pool)
 {
@@ -1399,12 +1399,12 @@ static void cmd_free(ctlr_info_t *h, cmdlist_t *c, int got_from_pool)
 	}
 }
 
-/*                                                                      
-                        
-                                                                   
-                                  
-                                                    
-                                                                      */
+/***********************************************************************
+    name:        sendcmd
+    Send a command to an IDA using the memory mapped FIFO interface
+    and wait for it to complete.  
+    This routine should only be called at init time.
+***********************************************************************/
 static int sendcmd(
 	__u8	cmd,
 	int	ctlr,
@@ -1429,7 +1429,7 @@ static int sendcmd(
 	c->hdr.size = sizeof(rblk_t) >> 2;
 	c->size += sizeof(rblk_t);
 
-	/*                          */
+	/* The request information. */
 	c->req.hdr.next = 0;
 	c->req.hdr.rcode = 0;
 	c->req.bp = 0;
@@ -1447,11 +1447,11 @@ static int sendcmd(
 	c->req.sg[0].addr = (__u32) pci_map_single(info_p->pci_dev, 
 		buff, c->req.sg[0].size, PCI_DMA_BIDIRECTIONAL);
 	/*
-                     
-  */
+	 * Disable interrupt
+	 */
 	info_p->access.set_intr_mask(info_p, 0);
-	/*                                             */
-	/*                                                      */
+	/* Make sure there is room in the command FIFO */
+	/* Actually it should be completely empty at this time. */
 	for (i = 200000; i > 0; i--) {
 		temp = info_p->access.fifo_full(info_p);
 		if (temp != 0) {
@@ -1464,8 +1464,8 @@ DBG(
 );
 	} 
 	/*
-                
-  */
+	 * Send the cmd
+	 */
 	info_p->access.submit_command(info_p, c);
 	complete = pollcomplete(ctlr);
 	
@@ -1506,15 +1506,15 @@ DBG(
 }
 
 /*
-                                                                   
-                                                                         
-                                                                          
-                                    
-  
-                                                                      
-                                                                            
-                                                                     
-               
+ * revalidate_allvol is for online array config utilities.  After a
+ * utility reconfigures the drives in the array, it can use this function
+ * (through an ioctl) to make the driver zap any previous disk structs for
+ * that controller and get new ones.
+ *
+ * Right now I'm using the getgeometry() function to do this, but this
+ * function should probably be finer grained and allow you to revalidate one
+ * particualar logical volume (instead of all of them on a particular
+ * controller).
  */
 static int revalidate_allvol(ctlr_info_t *host)
 {
@@ -1533,9 +1533,9 @@ static int revalidate_allvol(ctlr_info_t *host)
 	spin_unlock_irqrestore(IDA_LOCK(ctlr), flags);
 
 	/*
-                                                               
-                                                                
-  */
+	 * Set the partition and block size structures for all volumes
+	 * on this controller to zero.  We will reread all of this data
+	 */
 	set_capacity(ida_gendisk[ctlr][0], 0);
 	for (i = 1; i < NWD; i++) {
 		struct gendisk *disk = ida_gendisk[ctlr][i];
@@ -1545,10 +1545,10 @@ static int revalidate_allvol(ctlr_info_t *host)
 	memset(host->drv, 0, sizeof(drv_info_t)*NWD);
 
 	/*
-                                                                 
-                                                                 
-               
-  */
+	 * Tell the array controller not to give us any interrupts while
+	 * we check the new geometry.  Then turn interrupts back on when
+	 * we're done.
+	 */
 	host->access.set_intr_mask(host, 0);
 	getgeometry(ctlr);
 	host->access.set_intr_mask(host, FIFO_NOT_EMPTY);
@@ -1577,36 +1577,36 @@ static int ida_revalidate(struct gendisk *disk)
 	return 0;
 }
 
-/*                                                                   
-                      
-                                           
-                                                        
-                                                
-                                                                    */
+/********************************************************************
+    name: pollcomplete
+    Wait polling for a command to complete.
+    The memory mapped FIFO is polled for the completion.
+    Used only at init time, interrupts disabled.
+ ********************************************************************/
 static int pollcomplete(int ctlr)
 {
 	int done;
 	int i;
 
-	/*                                                  */
+	/* Wait (up to 2 seconds) for a command to complete */
 
 	for (i = 200000; i > 0; i--) {
 		done = hba[ctlr]->access.command_completed(hba[ctlr]);
 		if (done == 0) {
-			udelay(10);	/*                     */
+			udelay(10);	/* a short fixed delay */
 		} else
 			return (done);
 	}
-	/*                                                   */
+	/* Invalid address to tell caller we ran out of time */
 	return 1;
 }
-/*                                                                
-              
-                                                       
-                                                                  
-                                                                
-                           
-                                                                */
+/*****************************************************************
+    start_fwbk
+    Starts controller firmwares background processing. 
+    Currently only the Integrated Raid controller needs this done.
+    If the PCI mem address registers are written to after this, 
+	 data corruption may occur
+*****************************************************************/
 static void start_fwbk(int ctlr)
 {
 		id_ctlr_t *id_ctlr_buf; 
@@ -1615,12 +1615,12 @@ static void start_fwbk(int ctlr)
 	if(	(hba[ctlr]->board_id != 0x40400E11)
 		&& (hba[ctlr]->board_id != 0x40480E11) )
 
-	/*                                                         */
+	/* Not a Integrated Raid, so there is nothing for us to do */
 		return;
 	printk(KERN_DEBUG "cpqarray: Starting firmware's background"
 		" processing\n");
-	/*                                                               
-         */
+	/* Command does not return anything, but idasend command needs a 
+		buffer */
 	id_ctlr_buf = kmalloc(sizeof(id_ctlr_t), GFP_KERNEL);
 	if(id_ctlr_buf==NULL)
 	{
@@ -1636,12 +1636,12 @@ static void start_fwbk(int ctlr)
 
 	kfree(id_ctlr_buf);
 }
-/*                                                                
-               
-                                                        
-                                                                  
-                                 
-                                                                */
+/*****************************************************************
+    getgeometry
+    Get ida logical volume geometry from the controller 
+    This is a large bit of code which once existed in two flavors,
+    It is used only at init time.
+*****************************************************************/
 static void getgeometry(int ctlr)
 {				
 	id_log_drv_t *id_ldrive;
@@ -1684,15 +1684,15 @@ static void getgeometry(int ctlr)
 	info_p->log_drv_map = 0;
 	info_p->drv_assign_map = 0;
 	info_p->drv_spare_map = 0;
-	info_p->mp_failed_drv_map = 0;	/*                       */
-	/*                                             */
+	info_p->mp_failed_drv_map = 0;	/* only initialized here */
+	/* Get controllers info for this logical drive */
 	ret_code = sendcmd(ID_CTLR, ctlr, id_ctlr_buf, 0, 0, 0, 0);
 	if (ret_code == IO_ERROR) {
 		/*
-                                                                  
-                                                       
-                       
-   */
+		 * If can't get controller info, set the logical drive map to 0,
+		 * so the idastubopen will fail on all logical drives
+		 * on the controller.
+		 */
 		printk(KERN_ERR "cpqarray: error sending ID controller\n");
                 goto err_4;
         }
@@ -1704,12 +1704,12 @@ static void getgeometry(int ctlr)
 
 	printk(" (%s)\n", info_p->product_name);
 	/*
-                                        
-  */
+	 * Initialize logical drive map to zero
+	 */
 	log_index = 0;
 	/*
-                                             
-  */
+	 * Get drive geometry for all logical drives
+	 */
 	if (id_ctlr_buf->nr_drvs > 16)
 		printk(KERN_WARNING "cpqarray ida%d:  This driver supports "
 			"16 logical drives per controller.\n.  "
@@ -1723,17 +1723,17 @@ static void getgeometry(int ctlr)
 		size = sizeof(sense_log_drv_stat_t);
 
 		/*
-                                             
-   */
+		   Send "Identify logical drive status" cmd
+		 */
 		ret_code = sendcmd(SENSE_LOG_DRV_STAT,
 			     ctlr, id_lstatus_buf, size, 0, 0, log_unit);
 		if (ret_code == IO_ERROR) {
 			/*
-                                            
-                                        
-                                                  
-                         
-    */
+			   If can't get logical drive status, set
+			   the logical drive map to 0, so the
+			   idastubopen will fail for all logical drives
+			   on the controller. 
+			 */
 			info_p->log_drv_map = 0;	
 			printk( KERN_WARNING
 			     "cpqarray ida%d: idaGetGeometry - Controller"
@@ -1743,16 +1743,16 @@ static void getgeometry(int ctlr)
                 	goto err_4;
 		}
 		/*
-                                              
-   */
+		   Make sure the logical drive is configured
+		 */
 		if (id_lstatus_buf->status != LOG_NOT_CONF) {
 			ret_code = sendcmd(ID_LOG_DRV, ctlr, id_ldrive,
 			       sizeof(id_log_drv_t), 0, 0, log_unit);
 			/*
-                                
-                                    
-                                     
-    */
+			   If error, the bit for this
+			   logical drive won't be set and
+			   idastubopen will return error. 
+			 */
 			if (ret_code != IO_ERROR) {
 				drv = &info_p->drv[log_unit];
 				drv->blk_size = id_ldrive->blk_size;
@@ -1781,12 +1781,12 @@ static void getgeometry(int ctlr)
 				    |= sense_config_buf->spare_asgn_map;
 				info_p->drv_spare_map
 				    |= sense_config_buf->spare_asgn_map;
-			}	/*                                 */
+			}	/* end of if no error on id_ldrive */
 			log_index = log_index + 1;
-		}		/*                                    */
-	}			/*                     */
+		}		/* end of if logical drive configured */
+	}			/* end of for log_unit */
 
-	/*                                 */
+	/* Free all the buffers and return */
 err_4:
 	kfree(sense_config_buf);
 err_3:
@@ -1805,7 +1805,7 @@ static void __exit cpqarray_exit(void)
 
 	pci_unregister_driver(&cpqarray_pci_driver);
 
-	/*                                                            */
+	/* Double check that all controller entries have been removed */
 	for(i=0; i<MAX_CTLR; i++) {
 		if (hba[i] != NULL) {
 			printk(KERN_WARNING "cpqarray: Removing EISA "

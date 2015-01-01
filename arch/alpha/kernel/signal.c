@@ -39,8 +39,8 @@ static void do_signal(struct pt_regs *, struct switch_stack *,
 
 
 /*
-                                                               
-                             
+ * The OSF/1 sigprocmask calling sequence is different from the
+ * C sigprocmask() sequence..
  */
 SYSCALL_DEFINE2(osf_sigprocmask, int, how, unsigned long, newmask)
 {
@@ -95,7 +95,7 @@ SYSCALL_DEFINE5(rt_sigaction, int, sig, const struct sigaction __user *, act,
 	struct k_sigaction new_ka, old_ka;
 	int ret;
 
-	/*                                                           */
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 
@@ -116,7 +116,7 @@ SYSCALL_DEFINE5(rt_sigaction, int, sig, const struct sigaction __user *, act,
 }
 
 /*
-                                                                 
+ * Atomically swap in the new signal mask, and wait for a signal.
  */
 SYSCALL_DEFINE1(sigsuspend, old_sigset_t, mask)
 {
@@ -141,7 +141,7 @@ sys_sigaltstack(const stack_t __user *uss, stack_t __user *uoss)
 }
 
 /*
-                                             
+ * Do a signal return; undo the signal stack.
  */
 
 #if _NSIG_WORDS > 1
@@ -161,9 +161,9 @@ struct rt_sigframe
 	unsigned int retcode[3];
 };
 
-/*                                                                      
-                                                                       
-                                                                 */
+/* If this changes, userland unwinders that Know Things about our signal
+   frame will break.  Do not undertake lightly.  It also implies an ABI
+   change wrt the size of siginfo_t, which may cause some pain.  */
 extern char compile_time_assert
         [offsetof(struct rt_sigframe, uc.uc_mcontext) == 176 ? 1 : -1];
 
@@ -222,9 +222,9 @@ restore_sigcontext(struct sigcontext __user *sc, struct pt_regs *regs,
 	return err;
 }
 
-/*                                                                
-                                                                 
-                                                  */
+/* Note that this syscall is also used by setcontext(3) to install
+   a given sigcontext.  This because it's impossible to set *all*
+   registers and transfer control from userland.  */
 
 asmlinkage void
 do_sigreturn(struct sigcontext __user *sc, struct pt_regs *regs,
@@ -232,7 +232,7 @@ do_sigreturn(struct sigcontext __user *sc, struct pt_regs *regs,
 {
 	sigset_t set;
 
-	/*                                                    */
+	/* Verify that it's a good sigcontext before using it */
 	if (!access_ok(VERIFY_READ, sc, sizeof(*sc)))
 		goto give_sigsegv;
 	if (__get_user(set.sig[0], &sc->sc_mask))
@@ -244,7 +244,7 @@ do_sigreturn(struct sigcontext __user *sc, struct pt_regs *regs,
 	if (restore_sigcontext(sc, regs, sw))
 		goto give_sigsegv;
 
-	/*                                        */
+	/* Send SIGTRAP if we're single-stepping: */
 	if (ptrace_cancel_bpt (current)) {
 		siginfo_t info;
 
@@ -267,7 +267,7 @@ do_rt_sigreturn(struct rt_sigframe __user *frame, struct pt_regs *regs,
 {
 	sigset_t set;
 
-	/*                                                    */
+	/* Verify that it's a good ucontext_t before using it */
 	if (!access_ok(VERIFY_READ, &frame->uc, sizeof(frame->uc)))
 		goto give_sigsegv;
 	if (__copy_from_user(&set, &frame->uc.uc_sigmask, sizeof(set)))
@@ -279,7 +279,7 @@ do_rt_sigreturn(struct rt_sigframe __user *frame, struct pt_regs *regs,
 	if (restore_sigcontext(&frame->uc.uc_mcontext, regs, sw))
 		goto give_sigsegv;
 
-	/*                                        */
+	/* Send SIGTRAP if we're single-stepping: */
 	if (ptrace_cancel_bpt (current)) {
 		siginfo_t info;
 
@@ -298,7 +298,7 @@ give_sigsegv:
 
 
 /*
-                         
+ * Set up a signal frame.
  */
 
 static inline void __user *
@@ -382,8 +382,8 @@ setup_frame(int sig, struct k_sigaction *ka, sigset_t *set,
 	if (err)
 		goto give_sigsegv;
 
-	/*                                                          
-                           */
+	/* Set up to return from userspace.  If provided, use a stub
+	   already in userspace.  */
 	if (ka->ka_restorer) {
 		r26 = (unsigned long) ka->ka_restorer;
 	} else {
@@ -394,16 +394,16 @@ setup_frame(int sig, struct k_sigaction *ka, sigset_t *set,
 		r26 = (unsigned long) frame->retcode;
 	}
 
-	/*                                              */
+	/* Check that everything was written properly.  */
 	if (err)
 		goto give_sigsegv;
 
-	/*                         */
+	/* "Return" to the handler */
 	regs->r26 = r26;
 	regs->r27 = regs->pc = (unsigned long) ka->sa.sa_handler;
-	regs->r16 = sig;			/*                   */
-	regs->r17 = 0;				/*                    */
-	regs->r18 = (unsigned long) &frame->sc;	/*                        */
+	regs->r16 = sig;			/* a0: signal number */
+	regs->r17 = 0;				/* a1: exception code */
+	regs->r18 = (unsigned long) &frame->sc;	/* a2: sigcontext pointer */
 	wrusp((unsigned long) frame);
 	
 #if DEBUG_SIG
@@ -432,7 +432,7 @@ setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 
 	err |= copy_siginfo_to_user(&frame->info, info);
 
-	/*                       */
+	/* Create the ucontext.  */
 	err |= __put_user(0, &frame->uc.uc_flags);
 	err |= __put_user(0, &frame->uc.uc_link);
 	err |= __put_user(set->sig[0], &frame->uc.uc_osf_sigmask);
@@ -445,8 +445,8 @@ setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 	if (err)
 		goto give_sigsegv;
 
-	/*                                                          
-                           */
+	/* Set up to return from userspace.  If provided, use a stub
+	   already in userspace.  */
 	if (ka->ka_restorer) {
 		r26 = (unsigned long) ka->ka_restorer;
 	} else {
@@ -461,12 +461,12 @@ setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 	if (err)
 		goto give_sigsegv;
 
-	/*                         */
+	/* "Return" to the handler */
 	regs->r26 = r26;
 	regs->r27 = regs->pc = (unsigned long) ka->sa.sa_handler;
-	regs->r16 = sig;			  /*                   */
-	regs->r17 = (unsigned long) &frame->info; /*                     */
-	regs->r18 = (unsigned long) &frame->uc;	  /*                      */
+	regs->r16 = sig;			  /* a0: signal number */
+	regs->r17 = (unsigned long) &frame->info; /* a1: siginfo pointer */
+	regs->r18 = (unsigned long) &frame->uc;	  /* a2: ucontext pointer */
 	wrusp((unsigned long) frame);
 
 #if DEBUG_SIG
@@ -483,7 +483,7 @@ give_sigsegv:
 
 
 /*
-                                
+ * OK, we're invoking a handler.
  */
 static inline int
 handle_signal(int sig, struct k_sigaction *ka, siginfo_t *info,
@@ -513,9 +513,9 @@ syscall_restart(unsigned long r0, unsigned long r19,
 			regs->r0 = EINTR;
 			break;
 		}
-		/*             */
+		/* fallthrough */
 	case ERESTARTNOINTR:
-		regs->r0 = r0;	/*                                    */
+		regs->r0 = r0;	/* reset v0 and a3 and replay syscall */
 		regs->r19 = r19;
 		regs->pc -= 4;
 		break;
@@ -527,17 +527,17 @@ syscall_restart(unsigned long r0, unsigned long r19,
 
 
 /*
-                                                                           
-                                                                        
-           
-  
-                                                                            
-                                                                              
-                                     
-  
-                                                                      
-                                                                       
-                                                                        
+ * Note that 'init' is a special process: it doesn't get signals it doesn't
+ * want to handle. Thus you cannot kill init even with a SIGKILL even by
+ * mistake.
+ *
+ * Note that we go through the signals twice: once to check the signals that
+ * the kernel can handle, and then we build all the user-level signal handling
+ * stack-frames in one go after that.
+ *
+ * "r0" and "r19" are the registers we need to restore for system call
+ * restart. "r0" is also used as an indicator whether we can restart at
+ * all (if we get here from anything but a syscall return, it will be 0)
  */
 static void
 do_signal(struct pt_regs * regs, struct switch_stack * sw,
@@ -554,26 +554,26 @@ do_signal(struct pt_regs * regs, struct switch_stack * sw,
 	else
 		oldset = &current->blocked;
 
-	/*                                 */
+	/* This lets the debugger run, ... */
 	signr = get_signal_to_deliver(&info, &ka, regs, NULL);
 
-	/*                                      */
+	/* ... so re-check the single stepping. */
 	single_stepping |= ptrace_cancel_bpt(current);
 
 	if (signr > 0) {
-		/*                                      */
+		/* Whee!  Actually deliver the signal.  */
 		if (r0)
 			syscall_restart(r0, r19, regs, &ka);
 		if (handle_signal(signr, &ka, &info, oldset, regs, sw) == 0) {
-			/*                                             
-                                                   
-                                                   
-                                              */
+			/* A signal was successfully delivered, and the
+			   saved sigmask was stored on the signal frame,
+			   and will be restored by sigreturn.  So we can
+			   simply clear the restore sigmask flag.  */
 			if (test_thread_flag(TIF_RESTORE_SIGMASK))
 				clear_thread_flag(TIF_RESTORE_SIGMASK);
 		}
 		if (single_stepping) 
-			ptrace_set_bpt(current); /*            */
+			ptrace_set_bpt(current); /* re-set bpt */
 		return;
 	}
 
@@ -582,27 +582,27 @@ do_signal(struct pt_regs * regs, struct switch_stack * sw,
 		case ERESTARTNOHAND:
 		case ERESTARTSYS:
 		case ERESTARTNOINTR:
-			/*                                      */
+			/* Reset v0 and a3 and replay syscall.  */
 			regs->r0 = r0;
 			regs->r19 = r19;
 			regs->pc -= 4;
 			break;
 		case ERESTART_RESTARTBLOCK:
-			/*                                             */
+			/* Force v0 to the restart syscall and reply.  */
 			regs->r0 = __NR_restart_syscall;
 			regs->pc -= 4;
 			break;
 		}
 	}
 
-	/*                                                                   */
+	/* If there's no signal to deliver, we just restore the saved mask.  */
 	if (test_thread_flag(TIF_RESTORE_SIGMASK)) {
 		clear_thread_flag(TIF_RESTORE_SIGMASK);
 		sigprocmask(SIG_SETMASK, &current->saved_sigmask, NULL);
 	}
 
 	if (single_stepping)
-		ptrace_set_bpt(current);	/*                   */
+		ptrace_set_bpt(current);	/* re-set breakpoint */
 }
 
 void

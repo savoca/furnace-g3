@@ -1,4 +1,4 @@
-/*                                                                           */
+/*****************************************************************************/
 
 /*
  *	comstats.h  -- Serial Port Stats.
@@ -21,15 +21,15 @@
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-/*                                                                           */
+/*****************************************************************************/
 #ifndef	_COMSTATS_H
 #define	_COMSTATS_H
-/*                                                                           */
+/*****************************************************************************/
 
 /*
-                                                            
-                                                                
-                  
+ *	Serial port stats structure. The structure itself is UART
+ *	independent, but some fields may be UART/driver specific (for
+ *	example state).
  */
 
 typedef struct {
@@ -69,7 +69,7 @@ typedef struct {
 
 
 /*
-                                                              
+ *	Board stats structure. Returns useful info about the board.
  */
 
 #define	COM_MAXPANELS	8
@@ -97,7 +97,7 @@ typedef struct {
 
 
 /*
-                                               
+ *	Define the ioctl operations for stats stuff.
  */
 #include <linux/ioctl.h>
 
@@ -107,13 +107,13 @@ typedef struct {
 
 
 /*
-                                                              
-                                                                  
-                              
+ *	Define the set of ioctls that give user level access to the
+ *	private port, panel and board structures. The argument required
+ *	will be driver dependent!  
  */
 #define	COM_READPORT		_IO('c',40)
 #define	COM_READBOARD		_IO('c',41)
 #define	COM_READPANEL		_IO('c',42)
 
-/*                                                                           */
+/*****************************************************************************/
 #endif

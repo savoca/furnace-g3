@@ -84,15 +84,15 @@ static struct clk sh7763_shyway_clk = {
 };
 
 /*
-                                                                            
-                  
+ * Additional SH7763-specific on-chip clocks that aren't already part of the
+ * clock framework
  */
 static struct clk *sh7763_onchip_clocks[] = {
 	&sh7763_shyway_clk,
 };
 
 static struct clk_lookup lookups[] = {
-	/*             */
+	/* main clocks */
 	CLKDEV_CON_ID("shyway_clk", &sh7763_shyway_clk),
 };
 

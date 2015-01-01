@@ -24,7 +24,7 @@ extern void pcc_ioread_byte(int, unsigned long, void *, size_t, size_t, int);
 extern void pcc_ioread_word(int, unsigned long, void *, size_t, size_t, int);
 extern void pcc_iowrite_byte(int, unsigned long, void *, size_t, size_t, int);
 extern void pcc_iowrite_word(int, unsigned long, void *, size_t, size_t, int);
-#endif /*                                  */
+#endif /* CONFIG_PCMCIA && CONFIG_M32R_CFC */
 
 #define PORT2ADDR(port)      _port2addr(port)
 #define PORT2ADDR_NE(port)   _port2addr_ne(port)
@@ -78,7 +78,7 @@ static inline void delay(void)
 }
 
 /*
-                   
+ * NIC I/O function
  */
 
 static inline unsigned char _ne_inb(void *portp)

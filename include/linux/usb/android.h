@@ -35,9 +35,9 @@ struct android_usb_platform_data {
 static inline int f_tcm_init(int (*connect_cb)(bool connect))
 {
 	/*
-                                                              
-                                              
-  */
+	 * Fail bind() not init(). If a function init() returns error
+	 * android composite registration would fail.
+	 */
 	return 0;
 }
 static inline void f_tcm_exit(void)
@@ -49,4 +49,4 @@ static inline int tcm_bind_config(struct usb_configuration *c)
 }
 #endif
 
-#endif	/*                       */
+#endif	/* __LINUX_USB_ANDROID_H */

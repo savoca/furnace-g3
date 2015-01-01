@@ -2,7 +2,7 @@
 #define __LINUX_MFD_TIMPANI_AUDIO_H
 
 /*
-       
+ * MREF
  */
 #define TIMPANI_A_MREF (0x3)
 #define TIMPANI_MREF_RWC "RW"
@@ -49,7 +49,7 @@
 #define TIMPANI_MREF_RESERVED_M 0x1
 
 
-/*                       */
+/* For CDAC_IDAC_REF_CUR */
 #define TIMPANI_A_CDAC_IDAC_REF_CUR (0x4)
 #define TIMPANI_CDAC_IDAC_REF_CUR_RWC "RW"
 #define TIMPANI_CDAC_IDAC_REF_CUR_POR 0x8c
@@ -87,7 +87,7 @@
 #define TIMPANI_CDAC_IDAC_REF_CUR_IDAC_REF_CUR_V_8UA 0x3
 
 
-/*                         */
+/* -- For TXADC12_REF_CURR */
 #define TIMPANI_A_TXADC12_REF_CURR (0x5)
 #define TIMPANI_TXADC12_REF_CURR_RWC "RW"
 #define TIMPANI_TXADC12_REF_CURR_POR 0xa0
@@ -113,7 +113,7 @@
 #define TIMPANI_TXADC12_REF_CURR_RESERVED_M 0xF
 
 
-/*                  */
+/* -- For TXADC3_EN */
 #define TIMPANI_A_TXADC3_EN (0x9)
 #define TIMPANI_TXADC3_EN_RWC "RW"
 #define TIMPANI_TXADC3_EN_POR 0
@@ -160,7 +160,7 @@
 #define TIMPANI_TXADC3_EN_RESERVED_M 0x1
 
 
-/*                  */
+/* -- For TXADC4_EN */
 #define TIMPANI_A_TXADC4_EN (0xA)
 #define TIMPANI_TXADC4_EN_RWC "RW"
 #define TIMPANI_TXADC4_EN_POR 0
@@ -207,7 +207,7 @@
 #define TIMPANI_TXADC4_EN_RESERVED_M 0x1
 
 
-/*                                      */
+/* -- For CODEC_TXADC_STATUS_REGISTER_1 */
 #define TIMPANI_A_CODEC_TXADC_STATUS_REGISTER_1 (0xB)
 #define TIMPANI_CODEC_TXADC_STATUS_REGISTER_1_RWC "R"
 #define TIMPANI_CODEC_TXADC_STATUS_REGISTER_1_POR 0
@@ -231,7 +231,7 @@
 #define TIMPANI_CODEC_TXADC_STATUS_REGISTER_1_RESERVED_M 0xF
 
 
-/*              */
+/* -- For TXFE1 */
 #define TIMPANI_A_TXFE1 (0xD)
 #define TIMPANI_TXFE1_RWC "RW"
 #define TIMPANI_TXFE1_POR 0
@@ -277,7 +277,7 @@
 #define TIMPANI_TXFE1_TXFE1_IN_AUXI_CONN_CONNECT 0x1
 
 
-/*              */
+/* -- For TXFE2 */
 #define TIMPANI_A_TXFE2 (0xE)
 #define TIMPANI_TXFE2_RWC "RW"
 #define TIMPANI_TXFE2_POR 0
@@ -323,7 +323,7 @@
 #define TIMPANI_TXFE2_TXFE2_IN_AUXI_CONN_CONNECT 0x1
 
 
-/*                     */
+/* -- For TXFE12_ATEST */
 #define TIMPANI_A_TXFE12_ATEST (0xF)
 #define TIMPANI_TXFE12_ATEST_RWC "RW"
 #define TIMPANI_TXFE12_ATEST_POR 0
@@ -372,7 +372,7 @@
 #define TIMPANI_TXFE12_ATEST_TXFE2_OUT_ATEST_CONN_CONNECT 0x1
 
 
-/*                  */
+/*  -- For TXFE_CLT */
 #define TIMPANI_A_TXFE_CLT (0x10)
 #define TIMPANI_TXFE_CLT_RWC "RW"
 #define TIMPANI_TXFE_CLT_POR 0x68
@@ -402,7 +402,7 @@
 #define TIMPANI_TXFE_CLT_RESERVED_M 0x7
 
 
-/*                  */
+/* -- For TXADC1_EN */
 #define TIMPANI_A_TXADC1_EN (0x11)
 #define TIMPANI_TXADC1_EN_RWC "RW"
 #define TIMPANI_TXADC1_EN_POR 0
@@ -449,7 +449,7 @@
 #define TIMPANI_TXADC1_EN_RESERVED_M 0x1
 
 
-/*                  */
+/* -- For TXADC2_EN */
 #define TIMPANI_A_TXADC2_EN (0x12)
 #define TIMPANI_TXADC2_EN_RWC "RW"
 #define TIMPANI_TXADC2_EN_POR 0
@@ -496,7 +496,7 @@
 #define TIMPANI_TXADC2_EN_RESERVED_M 0x1
 
 
-/*                  */
+/* -- For TXADC_CTL */
 #define TIMPANI_A_TXADC_CTL (0x13)
 #define TIMPANI_TXADC_CTL_RWC "RW"
 #define TIMPANI_TXADC_CTL_POR 0x58
@@ -533,7 +533,7 @@
 #define TIMPANI_TXADC_CTL_TXADC_VREFMID_BIAS_CUR_V_160UA 0x3
 
 
-/*                   */
+/* -- For TXADC_CTL2 */
 #define TIMPANI_A_TXADC_CTL2 (0x14)
 #define TIMPANI_TXADC_CTL2_RWC "RW"
 #define TIMPANI_TXADC_CTL2_POR 0x64
@@ -573,7 +573,7 @@
 #define TIMPANI_TXADC_CTL2_TXADC_DIG_OUT_EN_ENABLE_NORMAL_OP 0x1
 
 
-/*                   */
+/* -- For TXADC_CTL3 */
 #define TIMPANI_A_TXADC_CTL3 (0x15)
 #define TIMPANI_TXADC_CTL3_RWC "RW"
 #define TIMPANI_TXADC_CTL3_POR 0x64
@@ -611,7 +611,7 @@
 #define TIMPANI_TXADC_CTL3_RESERVED_M 0x1
 
 
-/*                       */
+/* -- For TXADC_CHOP_CTL */
 #define TIMPANI_A_TXADC_CHOP_CTL (0x16)
 #define TIMPANI_TXADC_CHOP_CTL_RWC "RW"
 #define TIMPANI_TXADC_CHOP_CTL_POR 0
@@ -649,7 +649,7 @@
 #define TIMPANI_TXADC_CHOP_CTL_RESERVED_M 0x3
 
 
-/*              */
+/* -- For TXFE3 */
 #define TIMPANI_A_TXFE3 (0x18)
 #define TIMPANI_TXFE3_RWC "RW"
 #define TIMPANI_TXFE3_POR 0
@@ -681,7 +681,7 @@
 #define TIMPANI_TXFE3_RESERVED_2_M 0x1
 
 
-/*               */
+/*  -- For TXFE4 */
 #define TIMPANI_A_TXFE4 (0x19)
 #define TIMPANI_TXFE4_RWC "RW"
 #define TIMPANI_TXFE4_POR 0
@@ -713,7 +713,7 @@
 #define TIMPANI_TXFE4_RESERVED_2_M 0x1
 
 
-/*                    */
+/* -- For TXFE3_ATEST */
 #define TIMPANI_A_TXFE3_ATEST (0x1A)
 #define TIMPANI_TXFE3_ATEST_RWC "RW"
 #define TIMPANI_TXFE3_ATEST_POR 0
@@ -762,7 +762,7 @@
 #define TIMPANI_TXFE3_ATEST_TXFE4_OUT_ATEST_CONN_CONNECT 0x1
 
 
-/*                     */
+/* -- For TXFE_DIFF_SE */
 #define TIMPANI_A_TXFE_DIFF_SE (0x1B)
 #define TIMPANI_TXFE_DIFF_SE_RWC "RW"
 #define TIMPANI_TXFE_DIFF_SE_POR 0
@@ -794,7 +794,7 @@
 #define TIMPANI_TXFE_DIFF_SE_TXADC4_IN_MODE_SINGLE_ENDED 0x1
 
 
-/*                        */
+/* -- For CDAC_RX_CLK_CTL */
 #define TIMPANI_A_CDAC_RX_CLK_CTL (0x20)
 #define TIMPANI_CDAC_RX_CLK_CTL_RWC "RW"
 #define TIMPANI_CDAC_RX_CLK_CTL_POR 0x98
@@ -842,7 +842,7 @@
 #define TIMPANI_CDAC_RX_CLK_CTL_CDAC_RESET_PULSE_GEN_ATEST_CONN_CONNECT 0x1
 
 
-/*                      */
+/* -- For CDAC_BUFF_CTL */
 #define TIMPANI_A_CDAC_BUFF_CTL (0x21)
 #define TIMPANI_CDAC_BUFF_CTL_RWC "RW"
 #define TIMPANI_CDAC_BUFF_CTL_POR 0x60
@@ -881,7 +881,7 @@
 #define TIMPANI_CDAC_BUFF_CTL_CDAC_VCOM_SOURCE_MASTER_BIAS_TO_VCOM 0x1
 
 
-/*                      */
+/* -- For CDAC_REF_CTL1 */
 #define TIMPANI_A_CDAC_REF_CTL1 (0x22)
 #define TIMPANI_CDAC_REF_CTL1_RWC "RW"
 #define TIMPANI_CDAC_REF_CTL1_POR 0xe1
@@ -919,7 +919,7 @@
 #define TIMPANI_CDAC_REF_CTL1_CDAC_CM_VOLT_V_1_1V 0x3
 
 
-/*                         */
+/* -- For IDAC_DWA_FIR_CTL */
 #define TIMPANI_A_IDAC_DWA_FIR_CTL (0x23)
 #define TIMPANI_IDAC_DWA_FIR_CTL_RWC "RW"
 #define TIMPANI_IDAC_DWA_FIR_CTL_POR 0x28
@@ -949,7 +949,7 @@
 #define TIMPANI_IDAC_DWA_FIR_CTL_RESERVED_M 0x7
 
 
-/*                      */
+/* -- For CDAC_REF_CTL2 */
 #define TIMPANI_A_CDAC_REF_CTL2 (0x24)
 #define TIMPANI_CDAC_REF_CTL2_RWC "RW"
 #define TIMPANI_CDAC_REF_CTL2_POR 0xc
@@ -985,7 +985,7 @@
 #define TIMPANI_CDAC_REF_CTL2_CDAC_OSR_V_64 0x3
 
 
-/*                  */
+/* -- For CDAC_CTL1 */
 #define TIMPANI_A_CDAC_CTL1 (0x25)
 #define TIMPANI_CDAC_CTL1_RWC "RW"
 #define TIMPANI_CDAC_CTL1_POR 0xb
@@ -1024,7 +1024,7 @@
 #define TIMPANI_CDAC_CTL1_CDAC_RESET_SOURCE_EXTERNAL_REGISTER_RESET 0x0
 
 
-/*                  */
+/* -- For CDAC_CTL2 */
 #define TIMPANI_A_CDAC_CTL2 (0x26)
 #define TIMPANI_CDAC_CTL2_RWC "RW"
 #define TIMPANI_CDAC_CTL2_POR 0xd0
@@ -1061,7 +1061,7 @@
 #define TIMPANI_CDAC_CTL2_CDAC_RESET_PULSE_GEN_UPDATE_RATE_FS_BY_16 0x2
 
 
-/*                   */
+/* -- For IDAC_L_CTL */
 #define TIMPANI_A_IDAC_L_CTL (0x28)
 #define TIMPANI_IDAC_L_CTL_RWC "RW"
 #define TIMPANI_IDAC_L_CTL_POR 0xe
@@ -1104,7 +1104,7 @@
 #define TIMPANI_IDAC_L_CTL_IDAC_L_REPLICA_BIAS_SERVO_LOOP_BIAS 0x1
 
 
-/*                   */
+/* -- For IDAC_R_CTL */
 #define TIMPANI_A_IDAC_R_CTL (0x29)
 #define TIMPANI_IDAC_R_CTL_RWC "RW"
 #define TIMPANI_IDAC_R_CTL_POR 0xe
@@ -1147,7 +1147,7 @@
 #define TIMPANI_IDAC_R_CTL_IDAC_R_REPLICA_BIAS_SERVO_LOOP_BIAS 0x1
 
 
-/*                       */
+/* -- For PA_MASTER_BIAS */
 #define TIMPANI_A_PA_MASTER_BIAS (0x2D)
 #define TIMPANI_PA_MASTER_BIAS_RWC "RW"
 #define TIMPANI_PA_MASTER_BIAS_POR 0x6f
@@ -1185,7 +1185,7 @@
 #define TIMPANI_PA_MASTER_BIAS_CLASSD_REF_BUF_MASTER_BIAS_CUR_V_2_5UA 0x3
 
 
-/*                       */
+/* -- For PA_CLASSD_BIAS */
 #define TIMPANI_A_PA_CLASSD_BIAS (0x2E)
 #define TIMPANI_PA_CLASSD_BIAS_RWC "RW"
 #define TIMPANI_PA_CLASSD_BIAS_POR 0x55
@@ -1222,7 +1222,7 @@
 #define TIMPANI_PA_CLASSD_BIAS_CLASSD_OCP_BIAS_CUR_V_2_5UA 0x3
 
 
-/*                   */
+/* -- For AUXPGA_CUR */
 #define TIMPANI_A_AUXPGA_CUR (0x2F)
 #define TIMPANI_AUXPGA_CUR_RWC "RW"
 #define TIMPANI_AUXPGA_CUR_POR 0x44
@@ -1269,7 +1269,7 @@
 #define TIMPANI_AUXPGA_CUR_AUXPGA_NMOSAB_CUR_V_4_6875UA 0xF
 
 
-/*                  */
+/* -- For AUXPGA_CM */
 #define TIMPANI_A_AUXPGA_CM (0x30)
 #define TIMPANI_AUXPGA_CM_RWC "RW"
 #define TIMPANI_AUXPGA_CM_POR 0x92
@@ -1310,7 +1310,7 @@
 #define TIMPANI_AUXPGA_CM_AUXPGA_VCM_REF_GEN_BG_VCM 0x0
 
 
-/*                             */
+/* -- For PA_HPH_EARPA_MSTB_EN */
 #define TIMPANI_A_PA_HPH_EARPA_MSTB_EN (0x31)
 #define TIMPANI_PA_HPH_EARPA_MSTB_EN_RWC "RW"
 #define TIMPANI_PA_HPH_EARPA_MSTB_EN_POR 0x4
@@ -1359,7 +1359,7 @@
 #define TIMPANI_PA_HPH_EARPA_MSTB_EN_PA_MASTER_BIAS_EN_DISABLE 0x0
 
 
-/*                        */
+/* -- For PA_LINE_AUXO_EN */
 #define TIMPANI_A_PA_LINE_AUXO_EN (0x32)
 #define TIMPANI_PA_LINE_AUXO_EN_RWC "RW"
 #define TIMPANI_PA_LINE_AUXO_EN_POR 0
@@ -1408,7 +1408,7 @@
 #define TIMPANI_PA_LINE_AUXO_EN_AUXOUT_VCM_BUFFER_EN_DISABLE 0x0
 
 
-/*                            */
+/* -- For PA_CLASSD_AUXPGA_EN */
 #define TIMPANI_A_PA_CLASSD_AUXPGA_EN (0x33)
 #define TIMPANI_PA_CLASSD_AUXPGA_EN_RWC "RW"
 #define TIMPANI_PA_CLASSD_AUXPGA_EN_POR 0
@@ -1457,7 +1457,7 @@
 #define TIMPANI_PA_CLASSD_AUXPGA_EN_CLASSD_R_EN_ENABLE 0x1
 
 
-/*                       */
+/* -- For PA_LINE_L_GAIN */
 #define TIMPANI_A_PA_LINE_L_GAIN (0x34)
 #define TIMPANI_PA_LINE_L_GAIN_RWC "RW"
 #define TIMPANI_PA_LINE_L_GAIN_POR 0xac
@@ -1516,7 +1516,7 @@
 #define TIMPANI_PA_LINE_L_GAIN_RESERVED_M 0x3
 
 
-/*                       */
+/* -- For PA_LINE_R_GAIN */
 #define TIMPANI_A_PA_LINE_R_GAIN (0x35)
 #define TIMPANI_PA_LINE_R_GAIN_RWC "RW"
 #define TIMPANI_PA_LINE_R_GAIN_POR 0xac
@@ -1575,7 +1575,7 @@
 #define TIMPANI_PA_LINE_R_GAIN_RESERVED_M 0x3
 
 
-/*                      */
+/* -- For PA_HPH_L_GAIN */
 #define TIMPANI_A_PA_HPH_L_GAIN (0x36)
 #define TIMPANI_PA_HPH_L_GAIN_RWC "RW"
 #define TIMPANI_PA_HPH_L_GAIN_POR 0xae
@@ -1639,7 +1639,7 @@
 #define TIMPANI_PA_HPH_L_GAIN_RESERVED_M 0x1
 
 
-/*                      */
+/* -- For PA_HPH_R_GAIN */
 #define TIMPANI_A_PA_HPH_R_GAIN (0x37)
 #define TIMPANI_PA_HPH_R_GAIN_RWC "RW"
 #define TIMPANI_PA_HPH_R_GAIN_POR 0xae
@@ -1703,7 +1703,7 @@
 #define TIMPANI_PA_HPH_R_GAIN_RESERVED_M 0x1
 
 
-/*                       */
+/* -- For AUXPGA_LR_GAIN */
 #define TIMPANI_A_AUXPGA_LR_GAIN (0x38)
 #define TIMPANI_AUXPGA_LR_GAIN_RWC "RW"
 #define TIMPANI_AUXPGA_LR_GAIN_POR 0xaa
@@ -1750,7 +1750,7 @@
 #define TIMPANI_AUXPGA_LR_GAIN_AUXPGA_R_GAIN_POS_12_0DB_2 0xF
 
 
-/*                           */
+/* -- For PA_AUXO_EARPA_CONN */
 #define TIMPANI_A_PA_AUXO_EARPA_CONN (0x39)
 #define TIMPANI_PA_AUXO_EARPA_CONN_RWC "RW"
 #define TIMPANI_PA_AUXO_EARPA_CONN_POR 0
@@ -1797,7 +1797,7 @@
 #define TIMPANI_PA_AUXO_EARPA_CONN_EARPA_CDAC_L_CONN_CONNECT 0x1
 
 
-/*                        */
+/* -- For PA_LINE_ST_CONN */
 #define TIMPANI_A_PA_LINE_ST_CONN (0x3A)
 #define TIMPANI_PA_LINE_ST_CONN_RWC "RW"
 #define TIMPANI_PA_LINE_ST_CONN_POR 0
@@ -1843,7 +1843,7 @@
 #define TIMPANI_PA_LINE_ST_CONN_AUXPGA_L_VCM_ADD_CURR_V_3_75UA 0x3
 
 
-/*                          */
+/* -- For PA_LINE_MONO_CONN */
 #define TIMPANI_A_PA_LINE_MONO_CONN (0x3B)
 #define TIMPANI_PA_LINE_MONO_CONN_RWC "RW"
 #define TIMPANI_PA_LINE_MONO_CONN_POR 0
@@ -1889,7 +1889,7 @@
 #define TIMPANI_PA_LINE_MONO_CONN_AUXPGA_R_VCM_ADD_CURR_V_3_75UA 0x3
 
 
-/*                       */
+/* -- For PA_HPH_ST_CONN */
 #define TIMPANI_A_PA_HPH_ST_CONN (0x3C)
 #define TIMPANI_PA_HPH_ST_CONN_RWC "RW"
 #define TIMPANI_PA_HPH_ST_CONN_POR 0
@@ -1938,7 +1938,7 @@
 #define TIMPANI_PA_HPH_ST_CONN_HPH_R_RAMP_GEN_EN_ENABLE 0x0
 
 
-/*                         */
+/* -- For PA_HPH_MONO_CONN */
 #define TIMPANI_A_PA_HPH_MONO_CONN (0x3D)
 #define TIMPANI_PA_HPH_MONO_CONN_RWC "RW"
 #define TIMPANI_PA_HPH_MONO_CONN_POR 0
@@ -1980,7 +1980,7 @@
 #define TIMPANI_PA_HPH_MONO_CONN_RESERVED_M 0x3
 
 
-/*                       */
+/* -- For PA_CLASSD_CONN */
 #define TIMPANI_A_PA_CLASSD_CONN (0x3E)
 #define TIMPANI_PA_CLASSD_CONN_RWC "RW"
 #define TIMPANI_PA_CLASSD_CONN_POR 0
@@ -2012,7 +2012,7 @@
 #define TIMPANI_PA_CLASSD_CONN_RESERVED_M 0xF
 
 
-/*                   */
+/* -- For PA_CNP_CTL */
 #define TIMPANI_A_PA_CNP_CTL (0x3F)
 #define TIMPANI_PA_CNP_CTL_RWC "RW"
 #define TIMPANI_PA_CNP_CTL_POR 0x07
@@ -2047,7 +2047,7 @@
 #define TIMPANI_PA_CNP_CTL_CLASSD_SUPPLY_DUMP_THRESH_V_2_391_V 0x7
 
 
-/*                        */
+/* -- For PA_CLASSD_L_CTL */
 #define TIMPANI_A_PA_CLASSD_L_CTL (0x40)
 #define TIMPANI_PA_CLASSD_L_CTL_RWC "RW"
 #define TIMPANI_PA_CLASSD_L_CTL_POR 0x08
@@ -2086,7 +2086,7 @@
 #define TIMPANI_PA_CLASSD_L_CTL_CLASSD_L_PA_FORCE_0_PA_OUT_TO_GND 0x1
 
 
-/*                        */
+/* -- For PA_CLASSD_R_CTL */
 #define TIMPANI_A_PA_CLASSD_R_CTL (0x41)
 #define TIMPANI_PA_CLASSD_R_CTL_RWC "RW"
 #define TIMPANI_PA_CLASSD_R_CTL_POR 0x08
@@ -2125,7 +2125,7 @@
 #define TIMPANI_PA_CLASSD_R_CTL_CLASSD_R_PA_FORCE_0_PA_OUT_TO_GND 0x1
 
 
-/*                           */
+/* -- For PA_CLASSD_INT2_CTL */
 #define TIMPANI_A_PA_CLASSD_INT2_CTL (0x42)
 #define TIMPANI_PA_CLASSD_INT2_CTL_RWC "RW"
 #define TIMPANI_PA_CLASSD_INT2_CTL_POR 0xb0
@@ -2162,7 +2162,7 @@
 #define TIMPANI_PA_CLASSD_INT2_CTL_CLASSD_R_INT2_RIN_V_200K 0x3
 
 
-/*                             */
+/* -- For PA_HPH_L_OCP_CLK_CTL */
 #define TIMPANI_A_PA_HPH_L_OCP_CLK_CTL (0x43)
 #define TIMPANI_PA_HPH_L_OCP_CLK_CTL_RWC "RW"
 #define TIMPANI_PA_HPH_L_OCP_CLK_CTL_POR 0xf2
@@ -2205,7 +2205,7 @@
 #define TIMPANI_PA_HPH_L_OCP_CLK_CTL_HPH_L_OCP_TIMER_DIV_RATIO_DIV_BY_16 0x3
 
 
-/*                           */
+/* -- For PA_CLASSD_L_SW_CTL */
 #define TIMPANI_A_PA_CLASSD_L_SW_CTL (0x44)
 #define TIMPANI_PA_CLASSD_L_SW_CTL_RWC "RW"
 #define TIMPANI_PA_CLASSD_L_SW_CTL_POR 0x37
@@ -2245,7 +2245,7 @@
 #define TIMPANI_PA_CLASSD_L_SW_CTL_CLASSD_L_CDAC_SWITCH_MODE_POWER_GROUND 0x0
 #define TIMPANI_PA_CLASSD_L_SW_CTL_CLASSD_L_CDAC_SWITCH_MODE_RST_MIDPOINT 0x1
 
-/*                         */
+/* -- For PA_CLASSD_L_OCP1 */
 #define TIMPANI_A_PA_CLASSD_L_OCP1 (0x45)
 #define TIMPANI_PA_CLASSD_L_OCP1_RWC "RW"
 #define TIMPANI_PA_CLASSD_L_OCP1_POR 0xff
@@ -2288,7 +2288,7 @@
 #define TIMPANI_PA_CLASSD_L_OCP1_CLASSD_L_OCP_NUM_CONN_ATTEMPTS_V_14 0xE
 #define TIMPANI_PA_CLASSD_L_OCP1_CLASSD_L_OCP_NUM_CONN_ATTEMPTS_V_15 0xF
 
-/*                         */
+/* -- For PA_CLASSD_L_OCP2 */
 #define TIMPANI_A_PA_CLASSD_L_OCP2 (0x46)
 #define TIMPANI_PA_CLASSD_L_OCP2_RWC "RW"
 #define TIMPANI_PA_CLASSD_L_OCP2_POR 0x77
@@ -2335,7 +2335,7 @@
 #define TIMPANI_PA_CLASSD_L_OCP2_CLASSD_L_OCP_OCP_RUN_CNT_V_4095 0xF
 
 
-/*                             */
+/* -- For PA_HPH_R_OCP_CLK_CTL */
 #define TIMPANI_A_PA_HPH_R_OCP_CLK_CTL (0x47)
 #define TIMPANI_PA_HPH_R_OCP_CLK_CTL_RWC "RW"
 #define TIMPANI_PA_HPH_R_OCP_CLK_CTL_POR 0xf2
@@ -2378,7 +2378,7 @@
 #define TIMPANI_PA_HPH_R_OCP_CLK_CTL_HPH_R_OCP_TIMER_DIV_RATIO_DIV_BY_16 0x3
 
 
-/*                           */
+/* -- For PA_CLASSD_R_SW_CTL */
 #define TIMPANI_A_PA_CLASSD_R_SW_CTL (0x48)
 #define TIMPANI_PA_CLASSD_R_SW_CTL_RWC "RW"
 #define TIMPANI_PA_CLASSD_R_SW_CTL_POR 0x37
@@ -2419,7 +2419,7 @@
 #define TIMPANI_PA_CLASSD_R_SW_CTL_CLASSD_R_CDAC_SWITCH_MODE_RST_MIDPOINT 0x1
 
 
-/*                         */
+/* -- For PA_CLASSD_R_OCP1 */
 #define TIMPANI_A_PA_CLASSD_R_OCP1 (0x49)
 #define TIMPANI_PA_CLASSD_R_OCP1_RWC "RW"
 #define TIMPANI_PA_CLASSD_R_OCP1_POR 0xff
@@ -2463,7 +2463,7 @@
 #define TIMPANI_PA_CLASSD_R_OCP1_CLASSD_R_OCP_NUM_CONN_ATTEMPTS_V_15 0xF
 
 
-/*                         */
+/* -- For PA_CLASSD_R_OCP2 */
 #define TIMPANI_A_PA_CLASSD_R_OCP2 (0x4A)
 #define TIMPANI_PA_CLASSD_R_OCP2_RWC "RW"
 #define TIMPANI_PA_CLASSD_R_OCP2_POR 0x77
@@ -2510,7 +2510,7 @@
 #define TIMPANI_PA_CLASSD_R_OCP2_CLASSD_R_OCP_OCP_RUN_CNT_V_4095 0xF
 
 
-/*                    */
+/* -- For PA_HPH_CTL1 */
 #define TIMPANI_A_PA_HPH_CTL1 (0x4B)
 #define TIMPANI_PA_HPH_CTL1_RWC "RW"
 #define TIMPANI_PA_HPH_CTL1_POR 0x44
@@ -2543,7 +2543,7 @@
 #define TIMPANI_PA_HPH_CTL1_HPH_SHORT_CIRCUIT_CUR_LIMIT_V_220MA 0x7
 
 
-/*                    */
+/* -- For PA_HPH_CTL2 */
 #define TIMPANI_A_PA_HPH_CTL2 (0x4C)
 #define TIMPANI_PA_HPH_CTL2_RWC "RW"
 #define TIMPANI_PA_HPH_CTL2_POR 0xC8
@@ -2587,7 +2587,7 @@
 #define TIMPANI_PA_HPH_CTL2_RESERVED_M 0x1
 
 
-/*                         */
+/* -- For PA_LINE_AUXO_CTL */
 #define TIMPANI_A_PA_LINE_AUXO_CTL (0x4D)
 #define TIMPANI_PA_LINE_AUXO_CTL_RWC "RW"
 #define TIMPANI_PA_LINE_AUXO_CTL_POR 0x2
@@ -2623,7 +2623,7 @@
 #define TIMPANI_PA_LINE_AUXO_CTL_LINEO_AUXO_CM_REF_SEL_VDDA_BY_2 0x3
 
 
-/*                          */
+/* -- For PA_AUXO_EARPA_CTL */
 #define TIMPANI_A_PA_AUXO_EARPA_CTL (0x4E)
 #define TIMPANI_PA_AUXO_EARPA_CTL_RWC "RW"
 #define TIMPANI_PA_AUXO_EARPA_CTL_POR 0xe
@@ -2659,7 +2659,7 @@
 #define TIMPANI_PA_AUXO_EARPA_CTL_EARPA_VCM_SOURCE_LOCAL_VCM 0x0
 
 
-/*                    */
+/* -- For PA_EARO_CTL */
 #define TIMPANI_A_PA_EARO_CTL (0x4F)
 #define TIMPANI_PA_EARO_CTL_RWC "RW"
 #define TIMPANI_PA_EARO_CTL_POR 0x0
@@ -2700,7 +2700,7 @@
 #define TIMPANI_PA_EARO_CTL_EARPA_PMOS_BIAS_CUR_V_1480UA 0x7
 
 
-/*                           */
+/* -- For PA_MASTER_BIAS_CUR */
 #define TIMPANI_A_PA_MASTER_BIAS_CUR (0x50)
 #define TIMPANI_PA_MASTER_BIAS_CUR_RWC "RW"
 #define TIMPANI_PA_MASTER_BIAS_CUR_POR 0xea
@@ -2738,7 +2738,7 @@
 #define TIMPANI_PA_MASTER_BIAS_CUR_RESERVED_M 0x1
 
 
-/*                            */
+/* -- For PA_CLASSD_SC_STATUS */
 #define TIMPANI_A_PA_CLASSD_SC_STATUS (0x51)
 #define TIMPANI_PA_CLASSD_SC_STATUS_RWC "R"
 #define TIMPANI_PA_CLASSD_SC_STATUS_POR 0
@@ -2776,7 +2776,7 @@
 #define TIMPANI_PA_CLASSD_SC_STATUS_RESERVED_M 0x1
 
 
-/*                         */
+/* -- For PA_HPH_SC_STATUS */
 #define TIMPANI_A_PA_HPH_SC_STATUS (0x52)
 #define TIMPANI_PA_HPH_SC_STATUS_RWC "R"
 #define TIMPANI_PA_HPH_SC_STATUS_POR 0
@@ -2804,7 +2804,7 @@
 #define TIMPANI_PA_HPH_SC_STATUS_RESERVED_M 0x3
 
 
-/*                 */
+/* -- For ATEST_EN */
 #define TIMPANI_A_ATEST_EN (0x53)
 #define TIMPANI_ATEST_EN_RWC "RW"
 #define TIMPANI_ATEST_EN_POR 0
@@ -2821,7 +2821,7 @@
 #define TIMPANI_ATEST_EN_RESERVED_M 0x7F
 
 
-/*                      */
+/* -- For ATEST_TSHKADC */
 #define TIMPANI_A_ATEST_TSHKADC (0x54)
 #define TIMPANI_ATEST_TSHKADC_RWC "RW"
 #define TIMPANI_ATEST_TSHKADC_POR 0
@@ -2847,7 +2847,7 @@
 #define TIMPANI_ATEST_TSHKADC_ATEST_TSADC_DIG_CONN_MUX3 0x3
 
 
-/*                      */
+/* -- For ATEST_TXADC13 */
 #define TIMPANI_A_ATEST_TXADC13 (0x55)
 #define TIMPANI_ATEST_TXADC13_RWC "RW"
 #define TIMPANI_ATEST_TXADC13_POR 0
@@ -2884,7 +2884,7 @@
 #define TIMPANI_ATEST_TXADC13_ATEST2_TXADC13_CONN_VREFN_TO_ATEST2 0x6
 
 
-/*                      */
+/* -- For ATEST_TXADC24 */
 #define TIMPANI_A_ATEST_TXADC24 (0x56)
 #define TIMPANI_ATEST_TXADC24_RWC "RW"
 #define TIMPANI_ATEST_TXADC24_POR 0
@@ -2921,7 +2921,7 @@
 #define TIMPANI_ATEST_TXADC24_ATEST2_TXADC24_CONN_VREFN_TO_ATEST2 0x6
 
 
-/*                     */
+/* -- For ATEST_AUXPGA */
 #define TIMPANI_A_ATEST_AUXPGA (0x57)
 #define TIMPANI_ATEST_AUXPGA_RWC "RW"
 #define TIMPANI_ATEST_AUXPGA_POR 0
@@ -2958,7 +2958,7 @@
 #define TIMPANI_ATEST_AUXPGA_RESERVED_M 0x7
 
 
-/*                   */
+/* -- For ATEST_CDAC */
 #define TIMPANI_A_ATEST_CDAC (0x58)
 #define TIMPANI_ATEST_CDAC_RWC "RW"
 #define TIMPANI_ATEST_CDAC_POR 0
@@ -3001,7 +3001,7 @@
 #define TIMPANI_ATEST_CDAC_ATEST_CDAC_R_CONN_TEST3 0x3
 
 
-/*                   */
+/* -- For ATEST_IDAC */
 #define TIMPANI_A_ATEST_IDAC (0x59)
 #define TIMPANI_ATEST_IDAC_RWC "RW"
 #define TIMPANI_ATEST_IDAC_POR 0
@@ -3042,7 +3042,7 @@
 #define TIMPANI_ATEST_IDAC_ATEST2_CONN_NO_CONNECT_5 0x0
 
 
-/*                  */
+/* -- For ATEST_PA1 */
 #define TIMPANI_A_ATEST_PA1 (0x5A)
 #define TIMPANI_ATEST_PA1_RWC "RW"
 #define TIMPANI_ATEST_PA1_POR 0
@@ -3091,7 +3091,7 @@
 #define TIMPANI_ATEST_PA1_ATEST2_HPH_VCM_CONN_CONNECT 0x1
 
 
-/*                     */
+/* -- For ATEST_CLASSD */
 #define TIMPANI_A_ATEST_CLASSD (0x5B)
 #define TIMPANI_ATEST_CLASSD_RWC "RW"
 #define TIMPANI_ATEST_CLASSD_POR 0
@@ -3138,7 +3138,7 @@
 #define TIMPANI_ATEST_CLASSD_CLASSD_ATEST2_CONN_R_INT1_NEG_OUT 0xF
 
 
-/*                         */
+/* -- For ATEST_LINEO_AUXO */
 #define TIMPANI_A_ATEST_LINEO_AUXO (0x5C)
 #define TIMPANI_ATEST_LINEO_AUXO_RWC "RW"
 #define TIMPANI_ATEST_LINEO_AUXO_POR 0
@@ -3187,7 +3187,7 @@
 #define TIMPANI_ATEST_LINEO_AUXO_ATEST_AUXO_NMOS_PMOS_CONN_EN 0x1
 
 
-/*                      */
+/* -- For CDC_RESET_CTL */
 #define TIMPANI_A_CDC_RESET_CTL (0x80)
 #define TIMPANI_CDC_RESET_CTL_RWC "RW"
 #define TIMPANI_CDC_RESET_CTL_POR 0
@@ -3217,7 +3217,7 @@
 #define TIMPANI_CDC_RESET_CTL_TX1_SOFT_RESET_L_M 0x1
 
 
-/*                    */
+/* -- For CDC_RX1_CTL */
 #define TIMPANI_A_CDC_RX1_CTL (0x81)
 #define TIMPANI_CDC_RX1_CTL_RWC "RW"
 #define TIMPANI_CDC_RX1_CTL_POR 0xc
@@ -3248,7 +3248,7 @@
 #define TIMPANI_CDC_RX1_CTL_RX1_I2S_MODE_SLAVE 0x0
 
 
-/*                       */
+/* -- For CDC_TX_I2S_CTL */
 #define TIMPANI_A_CDC_TX_I2S_CTL (0x82)
 #define TIMPANI_CDC_TX_I2S_CTL_RWC "RW"
 #define TIMPANI_CDC_TX_I2S_CTL_POR 0xc
@@ -3279,7 +3279,7 @@
 #define TIMPANI_CDC_TX_I2S_CTL_TX_I2S_MODE_SLAVE 0x0
 
 
-/*                   */
+/* -- For CDC_CH_CTL */
 #define TIMPANI_A_CDC_CH_CTL (0x83)
 #define TIMPANI_CDC_CH_CTL_RWC "RW"
 #define TIMPANI_CDC_CH_CTL_POR 0
@@ -3312,7 +3312,7 @@
 #define TIMPANI_CDC_CH_CTL_RX1_EN_L_M 0x1
 
 
-/*                  */
+/* -- For CDC_RX1LG */
 #define TIMPANI_A_CDC_RX1LG (0x84)
 #define TIMPANI_CDC_RX1LG_RWC "RW"
 #define TIMPANI_CDC_RX1LG_POR 0xac
@@ -3324,7 +3324,7 @@
 #define TIMPANI_CDC_RX1LG_GAIN_M 0xFF
 
 
-/*                  */
+/* -- For CDC_RX1RG */
 #define TIMPANI_A_CDC_RX1RG (0x85)
 #define TIMPANI_CDC_RX1RG_RWC "RW"
 #define TIMPANI_CDC_RX1RG_POR 0xac
@@ -3336,7 +3336,7 @@
 #define TIMPANI_CDC_RX1RG_GAIN_M 0xFF
 
 
-/*                  */
+/* -- For CDC_TX1LG */
 #define TIMPANI_A_CDC_TX1LG (0x86)
 #define TIMPANI_CDC_TX1LG_RWC "RW"
 #define TIMPANI_CDC_TX1LG_POR 0xac
@@ -3348,7 +3348,7 @@
 #define TIMPANI_CDC_TX1LG_GAIN_M 0xFF
 
 
-/*                  */
+/* -- For CDC_TX1RG */
 #define TIMPANI_A_CDC_TX1RG (0x87)
 #define TIMPANI_CDC_TX1RG_RWC "RW"
 #define TIMPANI_CDC_TX1RG_POR 0xac
@@ -3360,7 +3360,7 @@
 #define TIMPANI_CDC_TX1RG_GAIN_M 0xFF
 
 
-/*                         */
+/* -- For CDC_RX_PGA_TIMER */
 #define TIMPANI_A_CDC_RX_PGA_TIMER (0x88)
 #define TIMPANI_CDC_RX_PGA_TIMER_RWC "RW"
 #define TIMPANI_CDC_RX_PGA_TIMER_POR 0xff
@@ -3372,7 +3372,7 @@
 #define TIMPANI_CDC_RX_PGA_TIMER_TIMER_VAL_M 0xFF
 
 
-/*                         */
+/* -- For CDC_TX_PGA_TIMER */
 #define TIMPANI_A_CDC_TX_PGA_TIMER (0x89)
 #define TIMPANI_CDC_TX_PGA_TIMER_RWC "RW"
 #define TIMPANI_CDC_TX_PGA_TIMER_POR 0xff
@@ -3384,7 +3384,7 @@
 #define TIMPANI_CDC_TX_PGA_TIMER_TIMER_VAL_M 0xFF
 
 
-/*                  */
+/* -- For CDC_GCTL1 */
 #define TIMPANI_A_CDC_GCTL1 (0x8A)
 #define TIMPANI_CDC_GCTL1_RWC "RW"
 #define TIMPANI_CDC_GCTL1_POR 0x33
@@ -3417,7 +3417,7 @@
 #define TIMPANI_CDC_GCTL1_RX1_PGA_MUTE_EN_L_M 0x1
 
 
-/*                     */
+/* -- For CDC_TX1L_STG */
 #define TIMPANI_A_CDC_TX1L_STG (0x8B)
 #define TIMPANI_CDC_TX1L_STG_RWC "RW"
 #define TIMPANI_CDC_TX1L_STG_POR 0xac
@@ -3429,7 +3429,7 @@
 #define TIMPANI_CDC_TX1L_STG_GAIN_M 0xFF
 
 
-/*                   */
+/* -- For CDC_ST_CTL */
 #define TIMPANI_A_CDC_ST_CTL (0x8C)
 #define TIMPANI_CDC_ST_CTL_RWC "RW"
 #define TIMPANI_CDC_ST_CTL_POR 0x55
@@ -3462,7 +3462,7 @@
 #define TIMPANI_CDC_ST_CTL_TX1_L_SIDETONE_MUTE_EN_M 0x1
 
 
-/*                          */
+/* -- For CDC_RX1L_DCOFFSET */
 #define TIMPANI_A_CDC_RX1L_DCOFFSET (0x8D)
 #define TIMPANI_CDC_RX1L_DCOFFSET_RWC "RW"
 #define TIMPANI_CDC_RX1L_DCOFFSET_POR 0
@@ -3474,7 +3474,7 @@
 #define TIMPANI_CDC_RX1L_DCOFFSET_OFFSET_M 0xFF
 
 
-/*                          */
+/* -- For CDC_RX1R_DCOFFSET */
 #define TIMPANI_A_CDC_RX1R_DCOFFSET (0x8E)
 #define TIMPANI_CDC_RX1R_DCOFFSET_RWC "RW"
 #define TIMPANI_CDC_RX1R_DCOFFSET_POR 0
@@ -3486,7 +3486,7 @@
 #define TIMPANI_CDC_RX1R_DCOFFSET_OFFSET_M 0xFF
 
 
-/*                        */
+/* -- For CDC_BYPASS_CTL1 */
 #define TIMPANI_A_CDC_BYPASS_CTL1 (0x8F)
 #define TIMPANI_CDC_BYPASS_CTL1_RWC "RW"
 #define TIMPANI_CDC_BYPASS_CTL1_POR 0x2
@@ -3507,7 +3507,7 @@
 #define TIMPANI_CDC_BYPASS_CTL1_RX1_HPF_BP_M 0x1
 
 
-/*                       */
+/* -- For CDC_PDM_CONFIG */
 #define TIMPANI_A_CDC_PDM_CONFIG (0x90)
 #define TIMPANI_CDC_PDM_CONFIG_RWC "RW"
 #define TIMPANI_CDC_PDM_CONFIG_POR 0
@@ -3519,7 +3519,7 @@
 #define TIMPANI_CDC_PDM_CONFIG_PDM_SEL_M 0xF
 
 
-/*                      */
+/* -- For CDC_TESTMODE1 */
 #define TIMPANI_A_CDC_TESTMODE1 (0x91)
 #define TIMPANI_CDC_TESTMODE1_RWC "RW"
 #define TIMPANI_CDC_TESTMODE1_POR 0
@@ -3546,7 +3546,7 @@
 #define TIMPANI_CDC_TESTMODE1_A_LOOPBACK_EN1_M 0x1
 
 
-/*                         */
+/* -- For CDC_DMIC_CLK_CTL */
 #define TIMPANI_A_CDC_DMIC_CLK_CTL (0x92)
 #define TIMPANI_CDC_DMIC_CLK_CTL_RWC "RW"
 #define TIMPANI_CDC_DMIC_CLK_CTL_POR 0
@@ -3572,7 +3572,7 @@
 #define TIMPANI_CDC_DMIC_CLK_CTL_DMIC_CLK_EN_M 0x1
 
 
-/*                          */
+/* -- For CDC_ADC12_CLK_CTL */
 #define TIMPANI_A_CDC_ADC12_CLK_CTL (0x93)
 #define TIMPANI_CDC_ADC12_CLK_CTL_RWC "RW"
 #define TIMPANI_CDC_ADC12_CLK_CTL_POR 0
@@ -3603,7 +3603,7 @@
 #define TIMPANI_CDC_ADC12_CLK_CTL_TX1_MCLK_DIV_SEL_L_DIV_1 0x0
 
 
-/*                    */
+/* -- For CDC_TX1_CTL */
 #define TIMPANI_A_CDC_TX1_CTL (0x94)
 #define TIMPANI_CDC_TX1_CTL_RWC "RW"
 #define TIMPANI_CDC_TX1_CTL_POR 0x1b
@@ -3630,7 +3630,7 @@
 #define TIMPANI_CDC_TX1_CTL_TX1_RATE_L_OSR_64 0x0
 
 
-/*                          */
+/* -- For CDC_ADC34_CLK_CTL */
 #define TIMPANI_A_CDC_ADC34_CLK_CTL (0x95)
 #define TIMPANI_CDC_ADC34_CLK_CTL_RWC "RW"
 #define TIMPANI_CDC_ADC34_CLK_CTL_POR 0
@@ -3661,7 +3661,7 @@
 #define TIMPANI_CDC_ADC34_CLK_CTL_TX2_MCLK_DIV_SEL_L_DIV_1 0x0
 
 
-/*                    */
+/* -- For CDC_TX2_CTL */
 #define TIMPANI_A_CDC_TX2_CTL (0x96)
 #define TIMPANI_CDC_TX2_CTL_RWC "RW"
 #define TIMPANI_CDC_TX2_CTL_POR 0x1b
@@ -3688,7 +3688,7 @@
 #define TIMPANI_CDC_TX2_CTL_TX2_RATE_L_OSR_64 0x0
 
 
-/*                        */
+/* -- For CDC_RX1_CLK_CTL */
 #define TIMPANI_A_CDC_RX1_CLK_CTL (0x97)
 #define TIMPANI_CDC_RX1_CLK_CTL_RWC "RW"
 #define TIMPANI_CDC_RX1_CLK_CTL_POR 0x1
@@ -3711,7 +3711,7 @@
 #define TIMPANI_CDC_RX1_CLK_CTL_RX1_MCLK_SEL_TX_MCLK 0x0
 
 
-/*                        */
+/* -- For CDC_RX2_CLK_CTL */
 #define TIMPANI_A_CDC_RX2_CLK_CTL (0x98)
 #define TIMPANI_CDC_RX2_CLK_CTL_RWC "RW"
 #define TIMPANI_CDC_RX2_CLK_CTL_POR 0x2
@@ -3734,7 +3734,7 @@
 #define TIMPANI_CDC_RX2_CLK_CTL_RX2_MCLK_SEL_TX_MCLK 0x0
 
 
-/*                        */
+/* -- For CDC_DEC_ADC_SEL */
 #define TIMPANI_A_CDC_DEC_ADC_SEL (0x99)
 #define TIMPANI_CDC_DEC_ADC_SEL_RWC "RW"
 #define TIMPANI_CDC_DEC_ADC_SEL_POR 0
@@ -3771,7 +3771,7 @@
 #define TIMPANI_CDC_DEC_ADC_SEL_TX1_ADC_SEL_L_ADC1 0x0
 
 
-/*                          */
+/* -- For CDC_ANC_INPUT_MUX */
 #define TIMPANI_A_CDC_ANC_INPUT_MUX (0x9A)
 #define TIMPANI_CDC_ANC_INPUT_MUX_RWC "RW"
 #define TIMPANI_CDC_ANC_INPUT_MUX_POR 0
@@ -3808,7 +3808,7 @@
 #define TIMPANI_CDC_ANC_INPUT_MUX_ANC1_DMIC_SEL_MIC1_DIN_L 0x0
 
 
-/*                              */
+/* -- For CDC_ANC_RX_CLK_NS_SEL */
 #define TIMPANI_A_CDC_ANC_RX_CLK_NS_SEL (0x9B)
 #define TIMPANI_CDC_ANC_RX_CLK_NS_SEL_RWC "RW"
 #define TIMPANI_CDC_ANC_RX_CLK_NS_SEL_POR 0
@@ -3820,7 +3820,7 @@
 #define TIMPANI_CDC_ANC_RX_CLK_NS_SEL_ANC_RX_CLK_NS_SEL_M 0x1
 
 
-/*                            */
+/* -- For CDC_ANC_FB_TUNE_SEL */
 #define TIMPANI_A_CDC_ANC_FB_TUNE_SEL (0x9C)
 #define TIMPANI_CDC_ANC_FB_TUNE_SEL_RWC "RW"
 #define TIMPANI_CDC_ANC_FB_TUNE_SEL_POR 0
@@ -3839,7 +3839,7 @@
 #define TIMPANI_CDC_ANC_FB_TUNE_SEL_ANC1_FB_ADC_SEL_FB_TUNE_DIS 0x0
 
 
-/*                         */
+/* -- For CLK_DIV_SYNC_CTL */
 #define TIMPANI_A_CLK_DIV_SYNC_CTL (0x9E)
 #define TIMPANI_CLK_DIV_SYNC_CTL_RWC "RW"
 #define TIMPANI_CLK_DIV_SYNC_CTL_POR 0
@@ -3854,7 +3854,7 @@
 #define TIMPANI_CLK_DIV_SYNC_CTL_TX_DIV_SYNC_M 0x1
 
 
-/*                       */
+/* -- For CDC_ADC_CLK_EN */
 #define TIMPANI_A_CDC_ADC_CLK_EN (0x9F)
 #define TIMPANI_CDC_ADC_CLK_EN_RWC "RW"
 #define TIMPANI_CDC_ADC_CLK_EN_POR 0
@@ -3875,7 +3875,7 @@
 #define TIMPANI_CDC_ADC_CLK_EN_A_TX1_L_EN_M 0x1
 
 
-/*                      */
+/* -- For CDC_ST_MIXING */
 #define TIMPANI_A_CDC_ST_MIXING (0xA0)
 #define TIMPANI_CDC_ST_MIXING_RWC "RW"
 #define TIMPANI_CDC_ST_MIXING_POR 0
@@ -3896,7 +3896,7 @@
 #define TIMPANI_CDC_ST_MIXING_TX1_L_M 0x1
 
 
-/*                    */
+/* -- For CDC_RX2_CTL */
 #define TIMPANI_A_CDC_RX2_CTL (0xA1)
 #define TIMPANI_CDC_RX2_CTL_RWC "RW"
 #define TIMPANI_CDC_RX2_CTL_POR 0xc
@@ -3927,7 +3927,7 @@
 #define TIMPANI_CDC_RX2_CTL_RX2_I2S_MODE_SLAVE 0x0
 
 
-/*                       */
+/* -- For CDC_ARB_CLK_EN */
 #define TIMPANI_A_CDC_ARB_CLK_EN (0xA2)
 #define TIMPANI_CDC_ARB_CLK_EN_RWC "RW"
 #define TIMPANI_CDC_ARB_CLK_EN_POR 0
@@ -3939,7 +3939,7 @@
 #define TIMPANI_CDC_ARB_CLK_EN_ARB_CLK_EN_M 0x1
 
 
-/*                     */
+/* -- For CDC_I2S_CTL2 */
 #define TIMPANI_A_CDC_I2S_CTL2 (0xA3)
 #define TIMPANI_CDC_I2S_CTL2_RWC "RW"
 #define TIMPANI_CDC_I2S_CTL2_POR 0
@@ -3965,7 +3965,7 @@
 #define TIMPANI_CDC_I2S_CTL2_TX_I2SCLK_EN_M 0x1
 
 
-/*                  */
+/* -- For CDC_RX2LG */
 #define TIMPANI_A_CDC_RX2LG (0xA4)
 #define TIMPANI_CDC_RX2LG_RWC "RW"
 #define TIMPANI_CDC_RX2LG_POR 0xac
@@ -3977,7 +3977,7 @@
 #define TIMPANI_CDC_RX2LG_GAIN_M 0xFF
 
 
-/*                  */
+/* -- For CDC_RX2RG */
 #define TIMPANI_A_CDC_RX2RG (0xA5)
 #define TIMPANI_CDC_RX2RG_RWC "RW"
 #define TIMPANI_CDC_RX2RG_POR 0xac
@@ -3989,7 +3989,7 @@
 #define TIMPANI_CDC_RX2RG_GAIN_M 0xFF
 
 
-/*                  */
+/* -- For CDC_TX2LG */
 #define TIMPANI_A_CDC_TX2LG (0xA6)
 #define TIMPANI_CDC_TX2LG_RWC "RW"
 #define TIMPANI_CDC_TX2LG_POR 0xac
@@ -4001,7 +4001,7 @@
 #define TIMPANI_CDC_TX2LG_GAIN_M 0xFF
 
 
-/*                  */
+/* -- For CDC_TX2RG */
 #define TIMPANI_A_CDC_TX2RG (0xA7)
 #define TIMPANI_CDC_TX2RG_RWC "RW"
 #define TIMPANI_CDC_TX2RG_POR 0xac
@@ -4013,7 +4013,7 @@
 #define TIMPANI_CDC_TX2RG_GAIN_M 0xFF
 
 
-/*                     */
+/* -- For CDC_DMIC_MUX */
 #define TIMPANI_A_CDC_DMIC_MUX (0xA8)
 #define TIMPANI_CDC_DMIC_MUX_RWC "RW"
 #define TIMPANI_CDC_DMIC_MUX_POR 0
@@ -4050,7 +4050,7 @@
 #define TIMPANI_CDC_DMIC_MUX_TX1_DMIC_MUX_SEL_L_MIC1_DIN_L 0x0
 
 
-/*                        */
+/* -- For CDC_ARB_CLK_CTL */
 #define TIMPANI_A_CDC_ARB_CLK_CTL (0xA9)
 #define TIMPANI_CDC_ARB_CLK_CTL_RWC "RW"
 #define TIMPANI_CDC_ARB_CLK_CTL_POR 0
@@ -4066,7 +4066,7 @@
 #define TIMPANI_CDC_ARB_CLK_CTL_ARB_CLK_SEL_TCXO 0x3
 
 
-/*                   */
+/*  -- For CDC_GCTL2 */
 #define TIMPANI_A_CDC_GCTL2 (0xAA)
 #define TIMPANI_CDC_GCTL2_RWC "RW"
 #define TIMPANI_CDC_GCTL2_POR 0x33
@@ -4099,7 +4099,7 @@
 #define TIMPANI_CDC_GCTL2_RX2_PGA_MUTE_EN_L_M 0x1
 
 
-/*                        */
+/* -- For CDC_BYPASS_CTL2 */
 #define TIMPANI_A_CDC_BYPASS_CTL2 (0xAB)
 #define TIMPANI_CDC_BYPASS_CTL2_RWC "RW"
 #define TIMPANI_CDC_BYPASS_CTL2_POR 0x2D
@@ -4126,7 +4126,7 @@
 #define TIMPANI_CDC_BYPASS_CTL2_TX1_HPF_BP_L_M 0x1
 
 
-/*                        */
+/* -- For CDC_BYPASS_CTL3 */
 #define TIMPANI_A_CDC_BYPASS_CTL3 (0xAC)
 #define TIMPANI_CDC_BYPASS_CTL3_RWC "RW"
 #define TIMPANI_CDC_BYPASS_CTL3_POR 0x2D
@@ -4153,7 +4153,7 @@
 #define TIMPANI_CDC_BYPASS_CTL3_TX2_HPF_BP_L_M 0x1
 
 
-/*                        */
+/* -- For CDC_BYPASS_CTL4 */
 #define TIMPANI_A_CDC_BYPASS_CTL4 (0xAD)
 #define TIMPANI_CDC_BYPASS_CTL4_RWC "RW"
 #define TIMPANI_CDC_BYPASS_CTL4_POR 0x2
@@ -4174,7 +4174,7 @@
 #define TIMPANI_CDC_BYPASS_CTL4_RX2_HPF_BP_M 0x1
 
 
-/*                          */
+/* -- For CDC_RX2L_DCOFFSET */
 #define TIMPANI_A_CDC_RX2L_DCOFFSET (0xAE)
 #define TIMPANI_CDC_RX2L_DCOFFSET_RWC "RW"
 #define TIMPANI_CDC_RX2L_DCOFFSET_POR 0
@@ -4186,7 +4186,7 @@
 #define TIMPANI_CDC_RX2L_DCOFFSET_OFFSET_M 0xFF
 
 
-/*                          */
+/* -- For CDC_RX2R_DCOFFSET */
 #define TIMPANI_A_CDC_RX2R_DCOFFSET (0xAF)
 #define TIMPANI_CDC_RX2R_DCOFFSET_RWC "RW"
 #define TIMPANI_CDC_RX2R_DCOFFSET_POR 0
@@ -4198,7 +4198,7 @@
 #define TIMPANI_CDC_RX2R_DCOFFSET_OFFSET_M 0xFF
 
 
-/*                       */
+/* -- For CDC_RX_MIX_CTL */
 #define TIMPANI_A_CDC_RX_MIX_CTL (0xB0)
 #define TIMPANI_CDC_RX_MIX_CTL_RWC "RW"
 #define TIMPANI_CDC_RX_MIX_CTL_POR 0
@@ -4213,7 +4213,7 @@
 #define TIMPANI_CDC_RX_MIX_CTL_RX1TO2_EN_M 0x1
 
 
-/*                      */
+/* -- For CDC_SPARE_CTL */
 #define TIMPANI_A_CDC_SPARE_CTL (0xB1)
 #define TIMPANI_CDC_SPARE_CTL_RWC "RW"
 #define TIMPANI_CDC_SPARE_CTL_POR 0
@@ -4225,7 +4225,7 @@
 #define TIMPANI_CDC_SPARE_CTL_CDC_SPARE_M 0xFF
 
 
-/*                      */
+/* -- For CDC_TESTMODE2 */
 #define TIMPANI_A_CDC_TESTMODE2 (0xB2)
 #define TIMPANI_CDC_TESTMODE2_RWC "RW"
 #define TIMPANI_CDC_TESTMODE2_POR 0
@@ -4249,7 +4249,7 @@
 #define TIMPANI_CDC_TESTMODE2_A_LOOPBACK_EN2_M 0x1
 
 
-/*                   */
+/* -- For CDC_PDM_OE */
 #define TIMPANI_A_CDC_PDM_OE (0xB3)
 #define TIMPANI_CDC_PDM_OE_RWC "RW"
 #define TIMPANI_CDC_PDM_OE_POR 0
@@ -4276,7 +4276,7 @@
 #define TIMPANI_CDC_PDM_OE_PDM_3_0_OE_M 0x1
 
 
-/*                     */
+/* -- For CDC_TX1R_STG */
 #define TIMPANI_A_CDC_TX1R_STG (0xB4)
 #define TIMPANI_CDC_TX1R_STG_RWC "RW"
 #define TIMPANI_CDC_TX1R_STG_POR 0xac
@@ -4288,7 +4288,7 @@
 #define TIMPANI_CDC_TX1R_STG_GAIN_M 0xFF
 
 
-/*                     */
+/* -- For CDC_TX2L_STG */
 #define TIMPANI_A_CDC_TX2L_STG (0xB5)
 #define TIMPANI_CDC_TX2L_STG_RWC "RW"
 #define TIMPANI_CDC_TX2L_STG_POR 0xac
@@ -4300,7 +4300,7 @@
 #define TIMPANI_CDC_TX2L_STG_GAIN_M 0xFF
 
 
-/*                     */
+/* -- For CDC_TX2R_STG */
 #define TIMPANI_A_CDC_TX2R_STG (0xB6)
 #define TIMPANI_CDC_TX2R_STG_RWC "RW"
 #define TIMPANI_CDC_TX2R_STG_POR 0xac
@@ -4312,7 +4312,7 @@
 #define TIMPANI_CDC_TX2R_STG_GAIN_M 0xFF
 
 
-/*                           */
+/* -- For CDC_ARB_BYPASS_CTL */
 #define TIMPANI_A_CDC_ARB_BYPASS_CTL (0xB7)
 #define TIMPANI_CDC_ARB_BYPASS_CTL_RWC "RW"
 #define TIMPANI_CDC_ARB_BYPASS_CTL_POR 0
@@ -4326,7 +4326,7 @@
 #define TIMPANI_CDC_ARB_BYPASS_CTL_ARB_BYPASS_EN_NO_BYPASS 0x0
 
 
-/*                      */
+/* -- For CDC_ANC1_CTL1 */
 #define TIMPANI_A_CDC_ANC1_CTL1 (0xC0)
 #define TIMPANI_CDC_ANC1_CTL1_RWC "RW"
 #define TIMPANI_CDC_ANC1_CTL1_POR 0
@@ -4365,7 +4365,7 @@
 #define TIMPANI_CDC_ANC1_CTL1_ANC1_SOFT_RESET_ANC_ACTIVE 0x0
 
 
-/*                      */
+/* -- For CDC_ANC1_CTL2 */
 #define TIMPANI_A_CDC_ANC1_CTL2 (0xC1)
 #define TIMPANI_CDC_ANC1_CTL2_RWC "RW"
 #define TIMPANI_CDC_ANC1_CTL2_POR 0
@@ -4377,7 +4377,7 @@
 #define TIMPANI_CDC_ANC1_CTL2_ANC1_FREQ_SEL_M 0x1F
 
 
-/*                             */
+/* -- For CDC_ANC1_FF_FB_SHIFT */
 #define TIMPANI_A_CDC_ANC1_FF_FB_SHIFT (0xC2)
 #define TIMPANI_CDC_ANC1_FF_FB_SHIFT_RWC "RW"
 #define TIMPANI_CDC_ANC1_FF_FB_SHIFT_POR 0
@@ -4392,7 +4392,7 @@
 #define TIMPANI_CDC_ANC1_FF_FB_SHIFT_ANC1_FF_LPF_SHIFT_M 0xF
 
 
-/*                       */
+/* -- For CDC_ANC1_RX_NS */
 #define TIMPANI_A_CDC_ANC1_RX_NS (0xC3)
 #define TIMPANI_CDC_ANC1_RX_NS_RWC "RW"
 #define TIMPANI_CDC_ANC1_RX_NS_POR 0x1
@@ -4410,7 +4410,7 @@
 #define TIMPANI_CDC_ANC1_RX_NS_ANC1_DITHER_DLY_SEL_M 0x1
 
 
-/*                       */
+/* -- For CDC_ANC1_SPARE */
 #define TIMPANI_A_CDC_ANC1_SPARE (0xC4)
 #define TIMPANI_CDC_ANC1_SPARE_RWC "RW"
 #define TIMPANI_CDC_ANC1_SPARE_POR 0
@@ -4422,7 +4422,7 @@
 #define TIMPANI_CDC_ANC1_SPARE_ANC1_SPARE_M 0xFF
 
 
-/*                                */
+/*  -- For CDC_ANC1_IIR_COEFF_PTR */
 #define TIMPANI_A_CDC_ANC1_IIR_COEFF_PTR (0xC5)
 #define TIMPANI_CDC_ANC1_IIR_COEFF_PTR_RWC "RW"
 #define TIMPANI_CDC_ANC1_IIR_COEFF_PTR_POR 0
@@ -4434,7 +4434,7 @@
 #define TIMPANI_CDC_ANC1_IIR_COEFF_PTR_ANC1_IIR_COEFF_PTR_M 0x1F
 
 
-/*                               */
+/* -- For CDC_ANC1_IIR_COEFF_MSB */
 #define TIMPANI_A_CDC_ANC1_IIR_COEFF_MSB (0xC6)
 #define TIMPANI_CDC_ANC1_IIR_COEFF_MSB_RWC "RW"
 #define TIMPANI_CDC_ANC1_IIR_COEFF_MSB_POR 0
@@ -4446,7 +4446,7 @@
 #define TIMPANI_CDC_ANC1_IIR_COEFF_MSB_ANC1_IIR_COEFF_MSB_M 0x1
 
 
-/*                               */
+/* -- For CDC_ANC1_IIR_COEFF_LSB */
 #define TIMPANI_A_CDC_ANC1_IIR_COEFF_LSB (0xC7)
 #define TIMPANI_CDC_ANC1_IIR_COEFF_LSB_RWC "RW"
 #define TIMPANI_CDC_ANC1_IIR_COEFF_LSB_POR 0
@@ -4458,7 +4458,7 @@
 #define TIMPANI_CDC_ANC1_IIR_COEFF_LSB_ANC1_IIR_COEFF_LSB_M 0xFF
 
 
-/*                               */
+/* -- For CDC_ANC1_IIR_COEFF_CTL */
 #define TIMPANI_A_CDC_ANC1_IIR_COEFF_CTL (0xC8)
 #define TIMPANI_CDC_ANC1_IIR_COEFF_CTL_RWC "RW"
 #define TIMPANI_CDC_ANC1_IIR_COEFF_CTL_POR 0
@@ -4477,7 +4477,7 @@
 #define TIMPANI_CDC_ANC1_IIR_COEFF_CTL_ANC1_IIR_COEFF_EN_NO_UPDATE 0x0
 
 
-/*                               */
+/* -- For CDC_ANC1_LPF_COEFF_PTR */
 #define TIMPANI_A_CDC_ANC1_LPF_COEFF_PTR (0xC9)
 #define TIMPANI_CDC_ANC1_LPF_COEFF_PTR_RWC "RW"
 #define TIMPANI_CDC_ANC1_LPF_COEFF_PTR_POR 0
@@ -4489,7 +4489,7 @@
 #define TIMPANI_CDC_ANC1_LPF_COEFF_PTR_ANC1_LPF_COEFF_PTR_M 0xF
 
 
-/*                               */
+/* -- For CDC_ANC1_LPF_COEFF_MSB */
 #define TIMPANI_A_CDC_ANC1_LPF_COEFF_MSB (0xCA)
 #define TIMPANI_CDC_ANC1_LPF_COEFF_MSB_RWC "RW"
 #define TIMPANI_CDC_ANC1_LPF_COEFF_MSB_POR 0
@@ -4501,7 +4501,7 @@
 #define TIMPANI_CDC_ANC1_LPF_COEFF_MSB_ANC1_LPF_COEFF_MSB_M 0xF
 
 
-/*                               */
+/* -- For CDC_ANC1_LPF_COEFF_LSB */
 #define TIMPANI_A_CDC_ANC1_LPF_COEFF_LSB (0xCB)
 #define TIMPANI_CDC_ANC1_LPF_COEFF_LSB_RWC "RW"
 #define TIMPANI_CDC_ANC1_LPF_COEFF_LSB_POR 0
@@ -4513,7 +4513,7 @@
 #define TIMPANI_CDC_ANC1_LPF_COEFF_LSB_ANC1_LPF_COEFF_LSB_M 0xFF
 
 
-/*                           */
+/* -- For CDC_ANC1_SCALE_PTR */
 #define TIMPANI_A_CDC_ANC1_SCALE_PTR (0xCC)
 #define TIMPANI_CDC_ANC1_SCALE_PTR_RWC "RW"
 #define TIMPANI_CDC_ANC1_SCALE_PTR_POR 0
@@ -4525,7 +4525,7 @@
 #define TIMPANI_CDC_ANC1_SCALE_PTR_ANC1_SCALE_PTR_M 0x7
 
 
-/*                       */
+/* -- For CDC_ANC1_SCALE */
 #define TIMPANI_A_CDC_ANC1_SCALE (0xCD)
 #define TIMPANI_CDC_ANC1_SCALE_RWC "RW"
 #define TIMPANI_CDC_ANC1_SCALE_POR 0
@@ -4537,7 +4537,7 @@
 #define TIMPANI_CDC_ANC1_SCALE_ANC1_SCALE_M 0xFF
 
 
-/*                       */
+/* -- For CDC_ANC1_DEBUG */
 #define TIMPANI_A_CDC_ANC1_DEBUG (0xCE)
 #define TIMPANI_CDC_ANC1_DEBUG_RWC "RW"
 #define TIMPANI_CDC_ANC1_DEBUG_POR 0
@@ -4549,7 +4549,7 @@
 #define TIMPANI_CDC_ANC1_DEBUG_ANC1_DEBUG_SEL_M 0xF
 
 
-/*                      */
+/* -- For CDC_ANC2_CTL1 */
 #define TIMPANI_A_CDC_ANC2_CTL1 (0xD0)
 #define TIMPANI_CDC_ANC2_CTL1_RWC "RW"
 #define TIMPANI_CDC_ANC2_CTL1_POR 0
@@ -4588,7 +4588,7 @@
 #define TIMPANI_CDC_ANC2_CTL1_ANC2_SOFT_RESET_ANC_ACTIVE 0x0
 
 
-/*                      */
+/* -- For CDC_ANC2_CTL2 */
 #define TIMPANI_A_CDC_ANC2_CTL2 (0xD1)
 #define TIMPANI_CDC_ANC2_CTL2_RWC "RW"
 #define TIMPANI_CDC_ANC2_CTL2_POR 0
@@ -4600,7 +4600,7 @@
 #define TIMPANI_CDC_ANC2_CTL2_ANC2_FREQ_SEL_M 0x1F
 
 
-/*                             */
+/* -- For CDC_ANC2_FF_FB_SHIFT */
 #define TIMPANI_A_CDC_ANC2_FF_FB_SHIFT (0xD2)
 #define TIMPANI_CDC_ANC2_FF_FB_SHIFT_RWC "RW"
 #define TIMPANI_CDC_ANC2_FF_FB_SHIFT_POR 0
@@ -4615,7 +4615,7 @@
 #define TIMPANI_CDC_ANC2_FF_FB_SHIFT_ANC2_FF_LPF_SHIFT_M 0xF
 
 
-/*                       */
+/* -- For CDC_ANC2_RX_NS */
 #define TIMPANI_A_CDC_ANC2_RX_NS (0xD3)
 #define TIMPANI_CDC_ANC2_RX_NS_RWC "RW"
 #define TIMPANI_CDC_ANC2_RX_NS_POR 0x1
@@ -4633,7 +4633,7 @@
 #define TIMPANI_CDC_ANC2_RX_NS_ANC2_DITHER_DLY_SEL_M 0x1
 
 
-/*                       */
+/* -- For CDC_ANC2_SPARE */
 #define TIMPANI_A_CDC_ANC2_SPARE (0xD4)
 #define TIMPANI_CDC_ANC2_SPARE_RWC "RW"
 #define TIMPANI_CDC_ANC2_SPARE_POR 0
@@ -4645,7 +4645,7 @@
 #define TIMPANI_CDC_ANC2_SPARE_ANC2_SPARE_M 0xFF
 
 
-/*                               */
+/* -- For CDC_ANC2_IIR_COEFF_PTR */
 #define TIMPANI_A_CDC_ANC2_IIR_COEFF_PTR (0xD5)
 #define TIMPANI_CDC_ANC2_IIR_COEFF_PTR_RWC "RW"
 #define TIMPANI_CDC_ANC2_IIR_COEFF_PTR_POR 0
@@ -4657,7 +4657,7 @@
 #define TIMPANI_CDC_ANC2_IIR_COEFF_PTR_ANC2_IIR_COEFF_PTR_M 0x1F
 
 
-/*                               */
+/* -- For CDC_ANC2_IIR_COEFF_MSB */
 #define TIMPANI_A_CDC_ANC2_IIR_COEFF_MSB (0xD6)
 #define TIMPANI_CDC_ANC2_IIR_COEFF_MSB_RWC "RW"
 #define TIMPANI_CDC_ANC2_IIR_COEFF_MSB_POR 0
@@ -4669,7 +4669,7 @@
 #define TIMPANI_CDC_ANC2_IIR_COEFF_MSB_ANC2_IIR_COEFF_MSB_M 0x1
 
 
-/*                               */
+/* -- For CDC_ANC2_IIR_COEFF_LSB */
 #define TIMPANI_A_CDC_ANC2_IIR_COEFF_LSB (0xD7)
 #define TIMPANI_CDC_ANC2_IIR_COEFF_LSB_RWC "RW"
 #define TIMPANI_CDC_ANC2_IIR_COEFF_LSB_POR 0
@@ -4681,7 +4681,7 @@
 #define TIMPANI_CDC_ANC2_IIR_COEFF_LSB_ANC2_IIR_COEFF_LSB_M 0xFF
 
 
-/*                               */
+/* -- For CDC_ANC2_IIR_COEFF_CTL */
 #define TIMPANI_A_CDC_ANC2_IIR_COEFF_CTL (0xD8)
 #define TIMPANI_CDC_ANC2_IIR_COEFF_CTL_RWC "RW"
 #define TIMPANI_CDC_ANC2_IIR_COEFF_CTL_POR 0
@@ -4700,7 +4700,7 @@
 #define TIMPANI_CDC_ANC2_IIR_COEFF_CTL_ANC2_IIR_COEFF_EN_NO_UPDATE 0x0
 
 
-/*                               */
+/* -- For CDC_ANC2_LPF_COEFF_PTR */
 #define TIMPANI_A_CDC_ANC2_LPF_COEFF_PTR (0xD9)
 #define TIMPANI_CDC_ANC2_LPF_COEFF_PTR_RWC "RW"
 #define TIMPANI_CDC_ANC2_LPF_COEFF_PTR_POR 0
@@ -4712,7 +4712,7 @@
 #define TIMPANI_CDC_ANC2_LPF_COEFF_PTR_ANC2_LPF_COEFF_PTR_M 0xF
 
 
-/*                               */
+/* -- For CDC_ANC2_LPF_COEFF_MSB */
 #define TIMPANI_A_CDC_ANC2_LPF_COEFF_MSB (0xDA)
 #define TIMPANI_CDC_ANC2_LPF_COEFF_MSB_RWC "RW"
 #define TIMPANI_CDC_ANC2_LPF_COEFF_MSB_POR 0
@@ -4724,7 +4724,7 @@
 #define TIMPANI_CDC_ANC2_LPF_COEFF_MSB_ANC2_LPF_COEFF_MSB_M 0xF
 
 
-/*                               */
+/* -- For CDC_ANC2_LPF_COEFF_LSB */
 #define TIMPANI_A_CDC_ANC2_LPF_COEFF_LSB (0xDB)
 #define TIMPANI_CDC_ANC2_LPF_COEFF_LSB_RWC "RW"
 #define TIMPANI_CDC_ANC2_LPF_COEFF_LSB_POR 0
@@ -4736,7 +4736,7 @@
 #define TIMPANI_CDC_ANC2_LPF_COEFF_LSB_ANC2_LPF_COEFF_LSB_M 0xFF
 
 
-/*                           */
+/* -- For CDC_ANC2_SCALE_PTR */
 #define TIMPANI_A_CDC_ANC2_SCALE_PTR (0xDC)
 #define TIMPANI_CDC_ANC2_SCALE_PTR_RWC "RW"
 #define TIMPANI_CDC_ANC2_SCALE_PTR_POR 0
@@ -4748,7 +4748,7 @@
 #define TIMPANI_CDC_ANC2_SCALE_PTR_ANC2_SCALE_PTR_M 0x7
 
 
-/*                       */
+/* -- For CDC_ANC2_SCALE */
 #define TIMPANI_A_CDC_ANC2_SCALE (0xDD)
 #define TIMPANI_CDC_ANC2_SCALE_RWC "RW"
 #define TIMPANI_CDC_ANC2_SCALE_POR 0
@@ -4760,7 +4760,7 @@
 #define TIMPANI_CDC_ANC2_SCALE_ANC2_SCALE_M 0xFF
 
 
-/*                       */
+/* -- For CDC_ANC2_DEBUG */
 #define TIMPANI_A_CDC_ANC2_DEBUG (0xDE)
 #define TIMPANI_CDC_ANC2_DEBUG_RWC "RW"
 #define TIMPANI_CDC_ANC2_DEBUG_POR 0
@@ -4772,7 +4772,7 @@
 #define TIMPANI_CDC_ANC2_DEBUG_ANC2_DEBUG_SEL_M 0xF
 
 
-/*                        */
+/* -- For CDC_LINE_L_AVOL */
 #define TIMPANI_A_CDC_LINE_L_AVOL (0xE0)
 #define TIMPANI_CDC_LINE_L_AVOL_RWC "RW"
 #define TIMPANI_CDC_LINE_L_AVOL_POR 0xac
@@ -4787,7 +4787,7 @@
 #define TIMPANI_CDC_LINE_L_AVOL_DUMMY_M 0x3
 
 
-/*                        */
+/* -- For CDC_LINE_R_AVOL */
 #define TIMPANI_A_CDC_LINE_R_AVOL (0xE1)
 #define TIMPANI_CDC_LINE_R_AVOL_RWC "RW"
 #define TIMPANI_CDC_LINE_R_AVOL_POR 0xac
@@ -4802,7 +4802,7 @@
 #define TIMPANI_CDC_LINE_R_AVOL_DUMMY_M 0x3
 
 
-/*                       */
+/* -- For CDC_HPH_L_AVOL */
 #define TIMPANI_A_CDC_HPH_L_AVOL (0xE2)
 #define TIMPANI_CDC_HPH_L_AVOL_RWC "RW"
 #define TIMPANI_CDC_HPH_L_AVOL_POR 0xae
@@ -4822,7 +4822,7 @@
 #define TIMPANI_CDC_HPH_L_AVOL_DUMMY_M 0x1
 
 
-/*                       */
+/* -- For CDC_HPH_R_AVOL */
 #define TIMPANI_A_CDC_HPH_R_AVOL (0xE3)
 #define TIMPANI_CDC_HPH_R_AVOL_RWC "RW"
 #define TIMPANI_CDC_HPH_R_AVOL_POR 0xae
@@ -4842,7 +4842,7 @@
 #define TIMPANI_CDC_HPH_R_AVOL_DUMMY_M 0x1
 
 
-/*                      */
+/* -- For CDC_COMP_CTL1 */
 #define TIMPANI_A_CDC_COMP_CTL1 (0xE4)
 #define TIMPANI_CDC_COMP_CTL1_RWC "RW"
 #define TIMPANI_CDC_COMP_CTL1_POR 0
@@ -4875,7 +4875,7 @@
 #define TIMPANI_CDC_COMP_CTL1_HPH_L_EN_M 0x1
 
 
-/*                      */
+/* -- For CDC_COMP_CTL2 */
 #define TIMPANI_A_CDC_COMP_CTL2 (0xE5)
 #define TIMPANI_CDC_COMP_CTL2_RWC "RW"
 #define TIMPANI_CDC_COMP_CTL2_POR 0xe
@@ -4890,7 +4890,7 @@
 #define TIMPANI_CDC_COMP_CTL2_HPH_IN_MUX_M 0x3
 
 
-/*                            */
+/* -- For CDC_COMP_PEAK_METER */
 #define TIMPANI_A_CDC_COMP_PEAK_METER (0xE6)
 #define TIMPANI_CDC_COMP_PEAK_METER_RWC "RW"
 #define TIMPANI_CDC_COMP_PEAK_METER_POR 0x9
@@ -4902,7 +4902,7 @@
 #define TIMPANI_CDC_COMP_PEAK_METER_TIME_OUT_M 0xF
 
 
-/*                                  */
+/* -- For CDC_COMP_LEVEL_METER_CTL1 */
 #define TIMPANI_A_CDC_COMP_LEVEL_METER_CTL1 (0xE7)
 #define TIMPANI_CDC_COMP_LEVEL_METER_CTL1_RWC "RW"
 #define TIMPANI_CDC_COMP_LEVEL_METER_CTL1_POR 0x7
@@ -4914,7 +4914,7 @@
 #define TIMPANI_CDC_COMP_LEVEL_METER_CTL1_DIV_FACTOR_M 0xF
 
 
-/*                                  */
+/* -- For CDC_COMP_LEVEL_METER_CTL2 */
 #define TIMPANI_A_CDC_COMP_LEVEL_METER_CTL2 (0xE8)
 #define TIMPANI_CDC_COMP_LEVEL_METER_CTL2_RWC "RW"
 #define TIMPANI_CDC_COMP_LEVEL_METER_CTL2_POR 0x28
@@ -4926,7 +4926,7 @@
 #define TIMPANI_CDC_COMP_LEVEL_METER_CTL2_RESAMPLE_RATE_M 0xFF
 
 
-/*                             */
+/* -- For CDC_COMP_ZONE_SELECT */
 #define TIMPANI_A_CDC_COMP_ZONE_SELECT (0xE9)
 #define TIMPANI_CDC_COMP_ZONE_SELECT_RWC "RW"
 #define TIMPANI_CDC_COMP_ZONE_SELECT_POR 0x3b
@@ -4941,7 +4941,7 @@
 #define TIMPANI_CDC_COMP_ZONE_SELECT_SHIFT_M 0x7
 
 
-/*                        */
+/* -- For CDC_COMP_ZC_MSB */
 #define TIMPANI_A_CDC_COMP_ZC_MSB (0xEA)
 #define TIMPANI_CDC_COMP_ZC_MSB_RWC "RW"
 #define TIMPANI_CDC_COMP_ZC_MSB_POR 0
@@ -4953,7 +4953,7 @@
 #define TIMPANI_CDC_COMP_ZC_MSB_DET_WINDOW_M 0x7
 
 
-/*                        */
+/* -- For CDC_COMP_ZC_LSB */
 #define TIMPANI_A_CDC_COMP_ZC_LSB (0xEB)
 #define TIMPANI_CDC_COMP_ZC_LSB_RWC "RW"
 #define TIMPANI_CDC_COMP_ZC_LSB_POR 0x1f
@@ -4965,7 +4965,7 @@
 #define TIMPANI_CDC_COMP_ZC_LSB_DET_WINDOW_M 0xFF
 
 
-/*                           */
+/* -- For CDC_COMP_SHUT_DOWN */
 #define TIMPANI_A_CDC_COMP_SHUT_DOWN (0xEC)
 #define TIMPANI_CDC_COMP_SHUT_DOWN_RWC "RW"
 #define TIMPANI_CDC_COMP_SHUT_DOWN_POR 0x1b
@@ -4980,7 +4980,7 @@
 #define TIMPANI_CDC_COMP_SHUT_DOWN_LO_TIMEOUT_M 0x7
 
 
-/*                                  */
+/* -- For CDC_COMP_SHUT_DOWN_STATUS */
 #define TIMPANI_A_CDC_COMP_SHUT_DOWN_STATUS (0xED)
 #define TIMPANI_CDC_COMP_SHUT_DOWN_STATUS_RWC "RW"
 #define TIMPANI_CDC_COMP_SHUT_DOWN_STATUS_POR 0
@@ -5001,7 +5001,7 @@
 #define TIMPANI_CDC_COMP_SHUT_DOWN_STATUS_HPH_L_M 0x1
 
 
-/*                      */
+/* -- For CDC_COMP_HALT */
 #define TIMPANI_A_CDC_COMP_HALT (0xEE)
 #define TIMPANI_CDC_COMP_HALT_RWC "RW"
 #define TIMPANI_CDC_COMP_HALT_POR 0

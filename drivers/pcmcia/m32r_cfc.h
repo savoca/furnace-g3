@@ -9,13 +9,13 @@
 #endif
 
 /*
-                          
+ * M32R PC Card Controller
  */
 #define M32R_PCC0_BASE        0x00ef7000
 #define M32R_PCC1_BASE        0x00ef7020
 
 /*
-                   
+ * Register offsets
  */
 #define PCCR            0x00
 #define PCADR           0x04
@@ -25,12 +25,12 @@
 #define PCATCR          0x14
 
 /*
-       
+ * PCCR
  */
 #define PCCR_PCEN       (1UL<<(31-31))
 
 /*
-        
+ * PCIRC
  */
 #define PCIRC_BWERR     (1UL<<(31-7))
 #define PCIRC_CDIN1     (1UL<<(31-14))
@@ -40,7 +40,7 @@
 #define PCIRC_COIEN     (1UL<<(31-31))
 
 /*
-           
+ * PCCSIGCR
  */
 #define PCCSIGCR_SEN    (1UL<<(31-3))
 #define PCCSIGCR_VEN    (1UL<<(31-7))
@@ -48,17 +48,17 @@
 #define PCCSIGCR_COCR   (1UL<<(31-31))
 
 /*
-  
+ *
  */
 #define PCMOD_AS_ATTRIB	(1UL<<(31-19))
 #define PCMOD_AS_IO	(1UL<<(31-18))
 
-#define PCMOD_CBSZ	(1UL<<(31-23)) /*              */
+#define PCMOD_CBSZ	(1UL<<(31-23)) /* set for 8bit */
 
-#define PCMOD_DBEX	(1UL<<(31-31)) /*                  */
+#define PCMOD_DBEX	(1UL<<(31-31)) /* set for excahnge */
 
 /*
-                    
+ * M32R PCC Map addr
  */
 
 #define M32R_PCC0_MAPBASE        0x14000000
@@ -66,7 +66,7 @@
 
 #define M32R_PCC_MAPMAX		 0x02000000
 
-#define M32R_PCC_MAPSIZE	 0x00001000 /*     */
+#define M32R_PCC_MAPSIZE	 0x00001000 /* XXX */
 #define M32R_PCC_MAPMASK     	(~(M32R_PCC_MAPMAX-1))
 
 #define CFC_IOPORT_BASE		0x1000
@@ -83,5 +83,5 @@
 #define CFC_ATTR_MAPBASE	0x04014000
 #define CFC_IO_MAPBASE_BYTE	0xa4012000
 #define CFC_IO_MAPBASE_WORD	0xa4002000
-#endif	/*                  */
+#endif	/* CONFIG_PLAT_USRV */
 

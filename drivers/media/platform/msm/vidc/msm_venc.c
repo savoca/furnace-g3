@@ -1075,11 +1075,11 @@ static struct v4l2_ctrl *get_ctrl_from_cluster(int id,
 	return NULL;
 }
 
-/*                                              */
+/* Helper function to translate V4L2_* to HAL_* */
 static inline int venc_v4l2_to_hal(int id, int value)
 {
 	switch (id) {
-	/*       */
+	/* MPEG4 */
 	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_MPEG4_LEVEL_0:
@@ -1108,7 +1108,7 @@ static inline int venc_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
-	/*      */
+	/* H264 */
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		switch (value) {
 		case V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE:
@@ -1171,7 +1171,7 @@ static inline int venc_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
-		/*      */
+		/* H263 */
 	case V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE:
 		switch (value) {
 		case V4L2_MPEG_VIDC_VIDEO_H263_PROFILE_BASELINE:
@@ -1300,7 +1300,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	hdev = inst->core->device;
 
-	/*                                                                   */
+	/* Small helper macro for quickly getting a control and err checking */
 #define TRY_GET_CTRL(__ctrl_id) ({ \
 		struct v4l2_ctrl *__temp; \
 		__temp = get_ctrl_from_cluster( \
@@ -1309,8 +1309,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		if (!__temp) { \
 			dprintk(VIDC_ERR, "Can't find %s (%x) in cluster", \
 				#__ctrl_id, __ctrl_id); \
-			/*                                          */ \
-			/*                                                */ \
+			/* Clusters are hardcoded, if we can't find */ \
+			/* something then things are massively screwed up */ \
 			BUG_ON(1); \
 		} \
 		__temp; \
@@ -1347,11 +1347,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES);
 		num_p = temp_ctrl->val;
 
-		/*                                                        
-                                                           
-                                                              
-                                                               
-                   */
+		/* V4L2_CID_MPEG_VIDEO_H264_I_PERIOD and _NUM_P_FRAMES are
+		 * implicitly tied to each other.  If either is adjusted,
+		 * the other needs to be adjusted in a complementary manner.
+		 * Ideally we adjust _NUM_B_FRAMES as well but we'll leave it
+		 * alone for now */
 		if (ctrl->id == V4L2_CID_MPEG_VIDEO_H264_I_PERIOD) {
 			num_p = ctrl->val - 1 - num_b;
 			update_ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES;
@@ -1404,16 +1404,16 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		int final_mode = 0;
 		struct v4l2_ctrl update_ctrl = {.id = 0, .val = 0};
 
-		/*                                                   
-                                                       
-                                                            
-           */
+		/* V4L2_CID_MPEG_VIDEO_BITRATE_MODE and _RATE_CONTROL
+		 * manipulate the same thing.  If one control's state
+		 * changes, try to mirror the state in the other control's
+		 * value */
 		if (ctrl->id == V4L2_CID_MPEG_VIDEO_BITRATE_MODE) {
 			if (ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) {
 				final_mode = HAL_RATE_CONTROL_VBR_CFR;
 				update_ctrl.val =
 				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR;
-			} else {/*                                        */
+			} else {/* ...if (ctrl->val == _BITRATE_MODE_CBR) */
 				final_mode = HAL_RATE_CONTROL_CBR_CFR;
 				update_ctrl.val =
 				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR;
@@ -2137,9 +2137,9 @@ int msm_venc_cmd(struct msm_vidc_inst *inst, struct v4l2_encoder_cmd *enc)
 			dprintk(VIDC_ERR, "Failed to release persist buf:%d\n",
 				rc);
 		rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
-		/*                                                    
-                                                       
-                       */
+		/* Clients rely on this event for joining poll thread.
+		 * This event should be returned even if firmware has
+		 * failed to respond */
 		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_CLOSE_DONE);
 		break;
 	}
@@ -2346,7 +2346,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			hal_fmt.format = HAL_COLOR_FORMAT_NV21;
 			break;
 		default:
-			/*                             */
+			/* we really shouldn't be here */
 			rc = -ENOTSUPP;
 			goto exit;
 		}
@@ -2769,7 +2769,7 @@ int msm_venc_ctrl_init(struct msm_vidc_inst *inst)
 			"CTRL ERR: Error adding ctrls to ctrl handle, %d\n",
 			inst->ctrl_handler.error);
 
-	/*                    */
+	/* Construct clusters */
 	for (idx = 1; idx < MSM_VENC_CTRL_CLUSTER_MAX; ++idx) {
 		struct msm_vidc_ctrl_cluster *temp = NULL;
 		struct v4l2_ctrl **cluster = NULL;

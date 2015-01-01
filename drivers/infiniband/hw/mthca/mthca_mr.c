@@ -45,7 +45,7 @@ struct mthca_mtt {
 };
 
 /*
-                                                                         
+ * Must be packed because mtt_seg is 64 bits but only aligned to 32 bits.
  */
 struct mthca_mpt_entry {
 	__be32 flags;
@@ -58,7 +58,7 @@ struct mthca_mpt_entry {
 	__be32 window_count;
 	__be32 window_count_limit;
 	__be64 mtt_seg;
-	__be32 mtt_sz;		/*            */
+	__be32 mtt_sz;		/* Arbel only */
 	u32    reserved[2];
 } __attribute__((packed));
 
@@ -76,9 +76,9 @@ struct mthca_mpt_entry {
 #define SINAI_FMR_KEY_INC 0x1000000
 
 /*
-                                                                 
-                                                               
-                       
+ * Buddy allocator for MTT segments (currently not very efficient
+ * since it doesn't keep a free list and just searches linearly
+ * through the bitmaps)
  */
 
 static u32 mthca_buddy_alloc(struct mthca_buddy *buddy, int order)
@@ -274,9 +274,9 @@ static int __mthca_write_mtt(struct mthca_dev *dev, struct mthca_mtt *mtt,
 						       MTHCA_MTT_FLAG_PRESENT);
 
 		/*
-                                                      
-                                                  
-   */
+		 * If we have an odd number of entries to write, add
+		 * one more dummy entry for firmware efficiency.
+		 */
 		if (i & 1)
 			mtt_entry[i + 2] = 0;
 
@@ -301,14 +301,14 @@ int mthca_write_mtt_size(struct mthca_dev *dev)
 	if (dev->mr_table.fmr_mtt_buddy != &dev->mr_table.mtt_buddy ||
 	    !(dev->mthca_flags & MTHCA_FLAG_FMR))
 		/*
-                                     
-                                      
-                                     
-             
-   */
+		 * Be friendly to WRITE_MTT command
+		 * and leave two empty slots for the
+		 * index and reserved fields of the
+		 * mailbox.
+		 */
 		return PAGE_SIZE / sizeof (u64) - 2;
 
-	/*                                                */
+	/* For Arbel, all MTTs must fit in the same page. */
 	return mthca_is_memfree(dev) ? (PAGE_SIZE / sizeof (u64)) : 0x7ffffff;
 }
 
@@ -335,9 +335,9 @@ static void mthca_arbel_write_mtt_seg(struct mthca_dev *dev,
 	int i;
 	int s = start_index * sizeof (u64);
 
-	/*                                                */
+	/* For Arbel, all MTTs must fit in the same page. */
 	BUG_ON(s / PAGE_SIZE != (s + list_len * sizeof(u64) - 1) / PAGE_SIZE);
-	/*                       */
+	/* Require full segments */
 	BUG_ON(s % dev->limits.mtt_seg_size);
 
 	mtts = mthca_table_find(dev->mr_table.mtt_table, mtt->first_seg +
@@ -541,7 +541,7 @@ int mthca_mr_alloc_phys(struct mthca_dev *dev, u32 pd,
 	return err;
 }
 
-/*                */
+/* Free mr or fmr */
 static void mthca_free_region(struct mthca_dev *dev, u32 lkey)
 {
 	mthca_table_put(dev, dev->mr_table.mpt_table,
@@ -578,7 +578,7 @@ int mthca_fmr_alloc(struct mthca_dev *dev, u32 pd,
 	if (mr->attr.page_shift < 12 || mr->attr.page_shift >= 32)
 		return -EINVAL;
 
-	/*                                                */
+	/* For Arbel, all MTTs must fit in the same page. */
 	if (mthca_is_memfree(dev) &&
 	    mr->attr.max_pages * sizeof *mr->mem.arbel.mtts > PAGE_SIZE)
 		return -EINVAL;
@@ -696,11 +696,11 @@ static inline int mthca_check_fmr(struct mthca_fmr *fmr, u64 *page_list,
 
 	page_mask = (1 << fmr->attr.page_shift) - 1;
 
-	/*                                                        */
+	/* We are getting page lists, so va must be page aligned. */
 	if (iova & page_mask)
 		return -EINVAL;
 
-	/*                                                         */
+	/* Trust the user not to pass misaligned data in page_list */
 	if (0)
 		for (i = 0; i < list_len; ++i) {
 			if (page_list[i] & ~page_mask)
@@ -901,7 +901,7 @@ int mthca_init_mr_table(struct mthca_dev *dev)
 		if (err)
 			goto err_fmr_mtt_buddy;
 
-		/*                                         */
+		/* Prevent regular MRs from using FMR keys */
 		err = mthca_buddy_alloc(&dev->mr_table.mtt_buddy, fls(mtts - 1));
 		if (err)
 			goto err_reserve_fmr;
@@ -911,7 +911,7 @@ int mthca_init_mr_table(struct mthca_dev *dev)
 	} else
 		dev->mr_table.fmr_mtt_buddy = &dev->mr_table.mtt_buddy;
 
-	/*                                                                */
+	/* FMR table is always the first, take reserved MTTs out of there */
 	if (dev->limits.reserved_mtts) {
 		i = fls(dev->limits.reserved_mtts - 1);
 
@@ -950,7 +950,7 @@ err_mtt_buddy:
 
 void mthca_cleanup_mr_table(struct mthca_dev *dev)
 {
-	/*                                           */
+	/* XXX check if any MRs are still allocated? */
 	if (dev->limits.fmr_reserved_mtts)
 		mthca_buddy_cleanup(&dev->mr_table.tavor_fmr.mtt_buddy);
 

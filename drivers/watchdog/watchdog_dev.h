@@ -27,7 +27,7 @@
  */
 
 /*
-                                                
+ *	Functions/procedures to be called by the core
  */
 int watchdog_dev_register(struct watchdog_device *);
 int watchdog_dev_unregister(struct watchdog_device *);

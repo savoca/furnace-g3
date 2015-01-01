@@ -1,9 +1,9 @@
 /*
-                                                                                 
-  
-                                                   
-  
-                                                                           
+ * Detection routine for the NCR53c710 based BVME6000 SCSI Controllers for Linux.
+ *
+ * Based on work by Alan Hourihane and Kars de Jong
+ *
+ * Rewritten to use 53c700.c by Richard Hirst <richard@sleepie.demon.co.uk>
  */
 
 #include <linux/module.h>
@@ -50,15 +50,15 @@ bvme6000_probe(struct platform_device *dev)
 		goto out;
 	}
 
-	/*                                         */
+	/* Fill in the required pieces of hostdata */
 	hostdata->base = (void __iomem *)BVME_NCR53C710_BASE;
-	hostdata->clock = 40;	/*                                 */
+	hostdata->clock = 40;	/* XXX - depends on the CPU clock! */
 	hostdata->chip710 = 1;
 	hostdata->dmode_extra = DMODE_FC2;
 	hostdata->dcntl_extra = EA_710;
 	hostdata->ctest7_extra = CTEST7_TT1;
 
-	/*                       */
+	/* and register the chip */
 	host = NCR_700_detect(&bvme6000_scsi_driver_template, hostdata,
 			      &dev->dev);
 	if (!host) {

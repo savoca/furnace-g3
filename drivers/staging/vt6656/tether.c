@@ -37,29 +37,29 @@
 #include "tcrc.h"
 #include "tether.h"
 
-/*                                                                   */
+/*---------------------  Static Definitions -------------------------*/
 
-/*                                                                   */
+/*---------------------  Static Classes  ----------------------------*/
 
-/*                                                                   */
+/*---------------------  Static Variables  --------------------------*/
 
-/*                                                                   */
+/*---------------------  Static Functions  --------------------------*/
 
-/*                                                                   */
+/*---------------------  Export Variables  --------------------------*/
 
 
 
 /*
-                                                      
-  
-              
-       
-                                       
-        
-            
-  
-                           
-  
+ * Description: Caculate multicast hash value by CRC32
+ *
+ * Parameters:
+ *  In:
+ *		pbyMultiAddr    - Multicast Address
+ *  Out:
+ *      none
+ *
+ * Return Value: Hash value
+ *
  */
 BYTE ETHbyGetHashIndexByCrc32(PBYTE pbyMultiAddr)
 {
@@ -67,10 +67,10 @@ BYTE ETHbyGetHashIndexByCrc32(PBYTE pbyMultiAddr)
 	BYTE    byTmpHash;
 	BYTE    byHash = 0;
 
-	/*                                         */
+	/* get the least 6-bits from CRC generator */
 	byTmpHash = (BYTE)(CRCdwCrc32(pbyMultiAddr, ETH_ALEN,
 			0xFFFFFFFFL) & 0x3F);
-	/*                               */
+	/* reverse most bit to least bit */
 	for (ii = 0; ii < (sizeof(byTmpHash) * 8); ii++) {
 		byHash <<= 1;
 		if (byTmpHash & 0x01)
@@ -78,23 +78,23 @@ BYTE ETHbyGetHashIndexByCrc32(PBYTE pbyMultiAddr)
 		byTmpHash >>= 1;
 	}
 
-	/*                                 */
+	/* adjust 6-bits to the right most */
 	return byHash >> 2;
 }
 
 
 /*
-                                                          
-  
-              
-       
-                                                             
-                                                           
-        
-            
-  
-                                            
-  
+ * Description: Check CRC value of the buffer if Ok or not
+ *
+ * Parameters:
+ *  In:
+ *		pbyBuffer	    - pointer of buffer (normally is rx buffer)
+ *		cbFrameLength	- length of buffer, including CRC portion
+ *  Out:
+ *      none
+ *
+ * Return Value: TRUE if ok; FALSE if error.
+ *
  */
 BOOL ETHbIsBufferCrc32Ok(PBYTE pbyBuffer, unsigned int cbFrameLength)
 {

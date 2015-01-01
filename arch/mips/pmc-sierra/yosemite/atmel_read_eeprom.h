@@ -27,7 +27,7 @@
  */
 
 /*
-                                      
+ * Header file for atmel_read_eeprom.c
  */
 
 #include <linux/types.h>
@@ -42,8 +42,8 @@
 #include <linux/ioctl.h>
 #include <linux/fcntl.h>
 
-#define	DEFAULT_PORT 	"/dev/ttyS0"	/*              */
-#define	TXX		0 		/*                         */
+#define	DEFAULT_PORT 	"/dev/ttyS0"	/* Port to open */
+#define	TXX		0 		/* Dummy loop for spinning */
 
 #define	BLOCK_SEL	0x00
 #define	SLAVE_ADDR	0xa0
@@ -53,7 +53,7 @@
 #define	W_HEADER	SLAVE_ADDR + BLOCK_SEL + WRITE_BIT
 
 /*
-                           
+ * Clock, Voltages and Data
  */
 #define	vcc_off		(ioctl(fd, TIOCSBRK, 0))
 #define	vcc_on		(ioctl(fd, TIOCCBRK, 0))

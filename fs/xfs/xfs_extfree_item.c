@@ -48,12 +48,12 @@ xfs_efi_item_free(
 }
 
 /*
-                                                                            
-                                                                              
-                                                                              
-                                                                     
-                                                                             
-           
+ * Freeing the efi requires that we remove it from the AIL if it has already
+ * been placed there. However, the EFI may not yet have been placed in the AIL
+ * when called by xfs_efi_release() from EFD processing due to the ordering of
+ * committed vs unpin operations in bulk insert operations. Hence the
+ * test_and_clear_bit(XFS_EFI_COMMITTED) to ensure only the last caller frees
+ * the EFI.
  */
 STATIC void
 __xfs_efi_release(
@@ -63,16 +63,16 @@ __xfs_efi_release(
 
 	if (!test_and_clear_bit(XFS_EFI_COMMITTED, &efip->efi_flags)) {
 		spin_lock(&ailp->xa_lock);
-		/*                                            */
+		/* xfs_trans_ail_delete() drops the AIL lock. */
 		xfs_trans_ail_delete(ailp, &efip->efi_item);
 		xfs_efi_item_free(efip);
 	}
 }
 
 /*
-                                                                      
-                                                                         
-             
+ * This returns the number of iovecs needed to log the given efi item.
+ * We only need 1 iovec for an efi item.  It just logs the efi_log_format
+ * structure.
  */
 STATIC uint
 xfs_efi_item_size(
@@ -82,11 +82,11 @@ xfs_efi_item_size(
 }
 
 /*
-                                                             
-                                                             
-                                                            
-                                                            
-                                          
+ * This is called to fill in the vector of log iovecs for the
+ * given efi log item. We use only 1 iovec, and we point that
+ * at the efi_log_format structure embedded in the efi item.
+ * It is at this point that we assert that all of the extent
+ * slots in the efi item have been filled.
  */
 STATIC void
 xfs_efi_item_format(
@@ -113,7 +113,7 @@ xfs_efi_item_format(
 
 
 /*
-                                                          
+ * Pinning has no meaning for an efi item, so just return.
  */
 STATIC void
 xfs_efi_item_pin(
@@ -122,12 +122,12 @@ xfs_efi_item_pin(
 }
 
 /*
-                                                                               
-                                                                               
-                                                                        
-                                                                           
-                                                                             
-                                                            
+ * While EFIs cannot really be pinned, the unpin operation is the last place at
+ * which the EFI is manipulated during a transaction.  If we are being asked to
+ * remove the EFI it's because the transaction has been cancelled and by
+ * definition that means the EFI cannot be in the AIL so remove it from the
+ * transaction and free it.  Otherwise coordinate with xfs_efi_release() (via
+ * XFS_EFI_COMMITTED) to determine who gets to free the EFI.
  */
 STATIC void
 xfs_efi_item_unpin(
@@ -147,11 +147,11 @@ xfs_efi_item_unpin(
 }
 
 /*
-                                                                 
-                                                                  
-                                                                    
-                                                                    
-                                                      
+ * Efi items have no locking or pushing.  However, since EFIs are
+ * pulled from the AIL when their corresponding EFDs are committed
+ * to disk, their situation is very similar to being pinned.  Return
+ * XFS_ITEM_PINNED so that the caller will eventually flush the log.
+ * This should help in getting the EFI out of the AIL.
  */
 STATIC uint
 xfs_efi_item_trylock(
@@ -161,7 +161,7 @@ xfs_efi_item_trylock(
 }
 
 /*
-                                             
+ * Efi items have no locking, so just return.
  */
 STATIC void
 xfs_efi_item_unlock(
@@ -172,11 +172,11 @@ xfs_efi_item_unlock(
 }
 
 /*
-                                                                               
-                                                                     
-                                                                             
-                                                                               
-                           
+ * The EFI is logged only once and cannot be moved in the log, so simply return
+ * the lsn at which it's been logged.  For bulk transaction committed
+ * processing, the EFI may be processed but not yet unpinned prior to the EFD
+ * being processed. Set the XFS_EFI_COMMITTED flag so this case can be detected
+ * when processing the EFD.
  */
 STATIC xfs_lsn_t
 xfs_efi_item_committed(
@@ -190,9 +190,9 @@ xfs_efi_item_committed(
 }
 
 /*
-                                                                    
-                                                             
-                     
+ * There isn't much you can do to push on an efi item.  It is simply
+ * stuck waiting for all of its corresponding efd items to be
+ * committed to disk.
  */
 STATIC void
 xfs_efi_item_push(
@@ -201,11 +201,11 @@ xfs_efi_item_push(
 }
 
 /*
-                                                                     
-                                                                        
-                                                                      
-                                                                         
-                                              
+ * The EFI dependency tracking op doesn't do squat.  It can't because
+ * it doesn't know where the free extent is coming from.  The dependency
+ * tracking has to be handled by the "enclosing" metadata object.  For
+ * example, for inodes, the inode is locked throughout the extent freeing
+ * so the dependency should be recorded there.
  */
 STATIC void
 xfs_efi_item_committing(
@@ -215,7 +215,7 @@ xfs_efi_item_committing(
 }
 
 /*
-                                                      
+ * This is the ops vector shared by all efi log items.
  */
 static const struct xfs_item_ops xfs_efi_item_ops = {
 	.iop_size	= xfs_efi_item_size,
@@ -231,7 +231,7 @@ static const struct xfs_item_ops xfs_efi_item_ops = {
 
 
 /*
-                                                                        
+ * Allocate and initialize an efi item with the given number of extents.
  */
 struct xfs_efi_log_item *
 xfs_efi_init(
@@ -260,11 +260,11 @@ xfs_efi_init(
 }
 
 /*
-                                                                         
-                        
-                                                                                  
-                                                          
-                                                         
+ * Copy an EFI format buffer from the given buf, and into the destination
+ * EFI format structure.
+ * The given buffer can be in 32 bit or 64 bit form (which has different padding),
+ * one of which will be the native format for this kernel.
+ * It will handle the conversion of formats if necessary.
  */
 int
 xfs_efi_copy_format(xfs_log_iovec_t *buf, xfs_efi_log_format_t *dst_efi_fmt)
@@ -314,10 +314,10 @@ xfs_efi_copy_format(xfs_log_iovec_t *buf, xfs_efi_log_format_t *dst_efi_fmt)
 }
 
 /*
-                                                                               
-                                                                        
-                                                                               
-                                             
+ * This is called by the efd item code below to release references to the given
+ * efi item.  Each efd calls this with the number of extents that it has
+ * logged, and when the sum of these reaches the total number of extents logged
+ * by this efi item we can free the efi item.
  */
 void
 xfs_efi_release(xfs_efi_log_item_t	*efip,
@@ -343,9 +343,9 @@ xfs_efd_item_free(struct xfs_efd_log_item *efdp)
 }
 
 /*
-                                                                      
-                                                                         
-             
+ * This returns the number of iovecs needed to log the given efd item.
+ * We only need 1 iovec for an efd item.  It just logs the efd_log_format
+ * structure.
  */
 STATIC uint
 xfs_efd_item_size(
@@ -355,11 +355,11 @@ xfs_efd_item_size(
 }
 
 /*
-                                                             
-                                                             
-                                                            
-                                                            
-                                          
+ * This is called to fill in the vector of log iovecs for the
+ * given efd log item. We use only 1 iovec, and we point that
+ * at the efd_log_format structure embedded in the efd item.
+ * It is at this point that we assert that all of the extent
+ * slots in the efd item have been filled.
  */
 STATIC void
 xfs_efd_item_format(
@@ -384,7 +384,7 @@ xfs_efd_item_format(
 }
 
 /*
-                                                          
+ * Pinning has no meaning for an efd item, so just return.
  */
 STATIC void
 xfs_efd_item_pin(
@@ -393,8 +393,8 @@ xfs_efd_item_pin(
 }
 
 /*
-                                                               
-              
+ * Since pinning has no meaning for an efd item, unpinning does
+ * not either.
  */
 STATIC void
 xfs_efd_item_unpin(
@@ -404,7 +404,7 @@ xfs_efd_item_unpin(
 }
 
 /*
-                                                     
+ * Efd items have no locking, so just return success.
  */
 STATIC uint
 xfs_efd_item_trylock(
@@ -414,8 +414,8 @@ xfs_efd_item_trylock(
 }
 
 /*
-                                                          
-                                             
+ * Efd items have no locking or pushing, so return failure
+ * so that the caller doesn't bother with us.
  */
 STATIC void
 xfs_efd_item_unlock(
@@ -426,11 +426,11 @@ xfs_efd_item_unlock(
 }
 
 /*
-                                                            
-                                                           
-                                                         
-                                                                  
-             
+ * When the efd item is committed to disk, all we need to do
+ * is delete our reference to our partner efi item and then
+ * free ourselves.  Since we're freeing ourselves we must
+ * return -1 to keep the transaction code from further referencing
+ * this item.
  */
 STATIC xfs_lsn_t
 xfs_efd_item_committed(
@@ -440,9 +440,9 @@ xfs_efd_item_committed(
 	struct xfs_efd_log_item	*efdp = EFD_ITEM(lip);
 
 	/*
-                                                                        
-                                                          
-  */
+	 * If we got a log I/O error, it's always the case that the LR with the
+	 * EFI got unpinned and freed before the EFD got aborted.
+	 */
 	if (!(lip->li_flags & XFS_LI_ABORTED))
 		xfs_efi_release(efdp->efd_efip, efdp->efd_format.efd_nextents);
 
@@ -451,8 +451,8 @@ xfs_efd_item_committed(
 }
 
 /*
-                                                                    
-                                                   
+ * There isn't much you can do to push on an efd item.  It is simply
+ * stuck waiting for the log to be flushed to disk.
  */
 STATIC void
 xfs_efd_item_push(
@@ -461,11 +461,11 @@ xfs_efd_item_push(
 }
 
 /*
-                                                                     
-                                                                        
-                                                                      
-                                                                         
-                                              
+ * The EFD dependency tracking op doesn't do squat.  It can't because
+ * it doesn't know where the free extent is coming from.  The dependency
+ * tracking has to be handled by the "enclosing" metadata object.  For
+ * example, for inodes, the inode is locked throughout the extent freeing
+ * so the dependency should be recorded there.
  */
 STATIC void
 xfs_efd_item_committing(
@@ -475,7 +475,7 @@ xfs_efd_item_committing(
 }
 
 /*
-                                                      
+ * This is the ops vector shared by all efd log items.
  */
 static const struct xfs_item_ops xfs_efd_item_ops = {
 	.iop_size	= xfs_efd_item_size,
@@ -490,7 +490,7 @@ static const struct xfs_item_ops xfs_efd_item_ops = {
 };
 
 /*
-                                                                        
+ * Allocate and initialize an efd item with the given number of extents.
  */
 struct xfs_efd_log_item *
 xfs_efd_init(

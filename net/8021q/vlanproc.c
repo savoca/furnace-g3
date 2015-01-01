@@ -33,9 +33,9 @@
 #include "vlanproc.h"
 #include "vlan.h"
 
-/*                                                                          */
+/****** Function Prototypes *************************************************/
 
-/*                                                     */
+/* Methods for preparing data for reading proc entries */
 static int vlan_seq_show(struct seq_file *seq, void *v);
 static void *vlan_seq_start(struct seq_file *seq, loff_t *pos);
 static void *vlan_seq_next(struct seq_file *seq, void *v, loff_t *pos);
@@ -43,27 +43,27 @@ static void vlan_seq_stop(struct seq_file *seq, void *);
 static int vlandev_seq_show(struct seq_file *seq, void *v);
 
 /*
-              
+ *	Global Data
  */
 
 
 /*
-                                      
+ *	Names of the proc directory entries
  */
 
 static const char name_root[]	 = "vlan";
 static const char name_conf[]	 = "config";
 
 /*
-                                                        
-                                                                   
-           
-                                      
-                                  
+ *	Structures for interfacing with the /proc filesystem.
+ *	VLAN creates its own directory /proc/net/vlan with the following
+ *	entries:
+ *	config		device status/configuration
+ *	<device>	entry for each  device
  */
 
 /*
-                                                          
+ *	Generic /proc/net/vlan/<file> file and inode operations
  */
 
 static const struct seq_operations vlan_seq_ops = {
@@ -88,7 +88,7 @@ static const struct file_operations vlan_fops = {
 };
 
 /*
-                                                    
+ *	/proc/net/vlan/<device> file and inode operations
  */
 
 static int vlandev_seq_open(struct inode *inode, struct file *file)
@@ -105,10 +105,10 @@ static const struct file_operations vlandev_fops = {
 };
 
 /*
-                                     
+ * Proc filesystem derectory entries.
  */
 
-/*         */
+/* Strings */
 static const char *const vlan_name_type_str[VLAN_NAME_TYPE_HIGHEST] = {
     [VLAN_NAME_TYPE_RAW_PLUS_VID]        = "VLAN_NAME_TYPE_RAW_PLUS_VID",
     [VLAN_NAME_TYPE_PLUS_VID_NO_PAD]	 = "VLAN_NAME_TYPE_PLUS_VID_NO_PAD",
@@ -116,11 +116,11 @@ static const char *const vlan_name_type_str[VLAN_NAME_TYPE_HIGHEST] = {
     [VLAN_NAME_TYPE_PLUS_VID]		 = "VLAN_NAME_TYPE_PLUS_VID",
 };
 /*
-                      
+ *	Interface functions
  */
 
 /*
-                                  
+ *	Clean up /proc/net/vlan entries
  */
 
 void vlan_proc_cleanup(struct net *net)
@@ -133,13 +133,13 @@ void vlan_proc_cleanup(struct net *net)
 	if (vn->proc_vlan_dir)
 		proc_net_remove(net, name_root);
 
-	/*                                                                    
-                                                                
-  */
+	/* Dynamically added entries should be cleaned up as their vlan_device
+	 * is removed, so we should not have to take care of it here...
+	 */
 }
 
 /*
-                                
+ *	Create /proc/net/vlan entries
  */
 
 int __net_init vlan_proc_init(struct net *net)
@@ -163,7 +163,7 @@ err:
 }
 
 /*
-                                       
+ *	Add directory entry for VLAN device.
  */
 
 int vlan_proc_add_dev(struct net_device *vlandev)
@@ -180,13 +180,13 @@ int vlan_proc_add_dev(struct net_device *vlandev)
 }
 
 /*
-                                          
+ *	Delete directory entry for VLAN device.
  */
 int vlan_proc_rem_dev(struct net_device *vlandev)
 {
 	struct vlan_net *vn = net_generic(dev_net(vlandev), vlan_net_id);
 
-	/*                                                                    */
+	/** NOTE:  This will consume the memory pointed to by dent, it seems. */
 	if (vlan_dev_priv(vlandev)->dent) {
 		remove_proc_entry(vlan_dev_priv(vlandev)->dent->name,
 				  vn->proc_vlan_dir);
@@ -195,13 +195,13 @@ int vlan_proc_rem_dev(struct net_device *vlandev)
 	return 0;
 }
 
-/*                                                                          */
+/****** Proc filesystem entry points ****************************************/
 
 /*
-                                                                         
+ * The following few functions build the content of /proc/net/vlan/config
  */
 
-/*                                     */
+/* start read of /proc/net/vlan/config */
 static void *vlan_seq_start(struct seq_file *seq, loff_t *pos)
 	__acquires(rcu)
 {
@@ -301,7 +301,7 @@ static int vlandev_seq_show(struct seq_file *seq, void *offset)
 	seq_printf(seq, fmt64, "total frames transmitted", stats->tx_packets);
 	seq_printf(seq, fmt64, "total bytes transmitted", stats->tx_bytes);
 	seq_printf(seq, "Device: %s", vlan->real_dev->name);
-	/*                                                      */
+	/* now show all PRIORITY mappings relating to this VLAN */
 	seq_printf(seq, "\nINGRESS priority mappings: "
 			"0:%u  1:%u  2:%u  3:%u  4:%u  5:%u  6:%u 7:%u\n",
 		   vlan->ingress_priority_map[0],

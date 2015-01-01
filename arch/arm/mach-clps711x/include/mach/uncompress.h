@@ -35,7 +35,7 @@
 #endif
 
 /*
-                                 
+ * This does not append a newline
  */
 static inline void putc(int c)
 {
@@ -51,7 +51,7 @@ static inline void flush(void)
 }
 
 /*
-                
+ * nothing to do
  */
 #define arch_decomp_setup()
 

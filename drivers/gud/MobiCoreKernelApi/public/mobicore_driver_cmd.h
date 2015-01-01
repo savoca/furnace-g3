@@ -65,7 +65,7 @@ struct mc_drv_response_header_t {
 	uint32_t response_id;
 };
 
-#define MC_DEVICE_ID_DEFAULT	0		/*                       */
+#define MC_DEVICE_ID_DEFAULT	0		/* The default device ID */
 
 struct mc_drv_cmd_open_device_payload_t {
 	uint32_t device_id;
@@ -78,7 +78,7 @@ struct mc_drv_cmd_open_device_t {
 
 
 struct mc_drv_rsp_open_device_payload_t {
-	/*       */
+	/* empty */
 };
 
 struct mc_drv_rsp_open_device_t {
@@ -89,15 +89,15 @@ struct mc_drv_rsp_open_device_t {
 struct mc_drv_cmd_close_device_t {
 	struct mc_drv_command_header_t header;
 	/*
-                                           
-                                                            
-                                                                      
-  */
+	 * no payload here because close has none.
+	 * If we use an empty struct, C++ will count it as 4 bytes.
+	 * This will write too much into the socket at write(cmd,sizeof(cmd))
+	 */
 };
 
 
 struct mc_drv_rsp_close_device_payload_t {
-	/*       */
+	/* empty */
 };
 
 struct mc_drv_rsp_close_device_t {
@@ -141,7 +141,7 @@ struct mc_drv_cmd_close_session_t {
 
 
 struct mc_drv_rsp_close_session_payload_t {
-	/*       */
+	/* empty */
 };
 
 struct mc_drv_rsp_close_session_t {
@@ -160,7 +160,7 @@ struct mc_drv_cmd_notify_t {
 
 
 struct mc_drv_rsp_notify_payload_t {
-	/*       */
+	/* empty */
 };
 
 struct mc_drv_rsp_notify_t {
@@ -219,7 +219,7 @@ struct mc_drv_cmd_nqconnect_payload_t {
 	uint32_t device_id;
 	uint32_t session_id;
 	uint32_t device_session_id;
-	uint32_t session_magic; /*             */
+	uint32_t session_magic; /* Random data */
 };
 
 struct mc_drv_cmd_nqconnect_t {
@@ -229,7 +229,7 @@ struct mc_drv_cmd_nqconnect_t {
 
 
 struct mc_drv_rsp_nqconnect_payload_t {
-	/*        */
+	/* empty; */
 };
 
 struct mc_drv_rsp_nqconnect_t {
@@ -261,4 +261,4 @@ union mc_drv_response_t {
 	struct mc_drv_rsp_unmap_bulk_mem_t	mc_drv_rsp_unmap_bulk_mem;
 };
 
-#endif /*                         */
+#endif /* _MOBICORE_DRIVER_CMD_H_ */

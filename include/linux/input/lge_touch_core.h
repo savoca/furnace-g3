@@ -98,7 +98,7 @@ struct ghost_detection_role {
 };
 
 struct crack_detection_role {
-	u32 use_crack_mode; //                
+	u32 use_crack_mode; // Yes = 1, No = 0
 	u32 min_cap_value; 	
 };
 
@@ -121,7 +121,7 @@ struct touch_operation_role {
 	u32	booting_delay;
 	u32	reset_delay;
 	u32	wake_up_by_touch;
-	u32	use_sleep_mode; //                
+	u32	use_sleep_mode; // Yes = 1, No = 0
 	u32	use_lpwg_all;
 	u32	thermal_check;
 	u32	palm_ctrl_mode;
@@ -176,13 +176,13 @@ struct t_data {
 	u16	id;
 	u16	x;
 	u16	y;
-	u16	raw_x;		//                                       
-	u16	raw_y;		//                                       
+	u16	raw_x;		// Do not change it. (in filter function)
+	u16	raw_y;		// Do not change it. (in filter function)
 	u16	width_major;
 	u16	width_minor;
 	u16	orientation;
 	u16	pressure;
-	u16	type;	//                                
+	u16	type;	// finger, palm, pen, glove, hover
 };
 
 struct b_data {
@@ -200,15 +200,15 @@ struct touch_data {
 };
 
 struct touch_fw_info {
-	u8		ic_fw_identifier[31];	/*        */
-	u8		ic_fw_version[11]; /*        */
-	char		fw_path[256];		//                                  
-	char		fw_path_s3528_a1[256];		//                                  
-	char		fw_path_s3528_a1_suntel[256];		//                                  
-	char		fw_path_s3528_a1_factory[256];		//                                  
-	char		fw_path_s3621[256];		//                                  
-	u8		fw_force_upgrade;	//                                  
-	u8		fw_force_upgrade_cat;	//                                  
+	u8		ic_fw_identifier[31];	/* String */
+	u8		ic_fw_version[11]; /* String */
+	char		fw_path[256];		// used for dynamic firmware upgrade
+	char		fw_path_s3528_a1[256];		// used for dynamic firmware upgrade
+	char		fw_path_s3528_a1_suntel[256];		// used for dynamic firmware upgrade
+	char		fw_path_s3528_a1_factory[256];		// used for dynamic firmware upgrade
+	char		fw_path_s3621[256];		// used for dynamic firmware upgrade
+	u8		fw_force_upgrade;	// used for dynamic firmware upgrade
+	u8		fw_force_upgrade_cat;	// used for dynamic firmware upgrade
 };
 
 struct bouncing_filter_data{
@@ -286,16 +286,16 @@ struct point {
 	int y;
 };
 
-/*            
-  
-                 
-                                                                           
-  
-                                          
-                                                                          
-  
-                                                                 
-                                                                           
+/* filter_func
+ *
+ * report_id_mask
+ * - If an event is not included 'report_id_mask', it will not be reported.
+ *
+ * return value (frt : filter_return_type)
+ * - return FRT_IGNORE if the event should be ignored. (FRT_REPORT if not)
+ *
+ * Each fliter can change only the 'curr_data' and 'filter_info'.
+ * It should NOT change any other values such as 'pdata', 'prev_data', etc.
  */
 enum filter_return_type {
 	FRT_IGNORE = 0,
@@ -315,16 +315,16 @@ struct filter_data {
 };
 
 
-/*                    
-  
-                
-                                                                                     
-  
-                           
-                                                       
-                                          
-                                                                                     
-  
+/* touch_device_driver
+ *
+ * return values
+ * : All functions in 'touch_device_driver' should use 'error_type' for return value.
+ *
+ * - NO_ERROR : NO Problem.
+ * - ERROR : Error occurs, so the device will be reset.
+ * - IGNORE_EVENT : Event will be ignored.
+ * - IGNORE_EVENT_BUT_SAVE_IT : Event will not be reported, but saved in 'prev' data.
+ *
  */
 
 enum error_type {
@@ -529,9 +529,9 @@ enum{
 
 enum{
 	LPWG_NONE = 0,
-	LPWG_DOUBLE_TAP		= (1U << 0),	//  
-	LPWG_PASSWORD		= (1U << 1),	//  
-	LPWG_SIGNATURE		= (1U << 2),	//  
+	LPWG_DOUBLE_TAP		= (1U << 0),	// 1
+	LPWG_PASSWORD		= (1U << 1),	// 2
+	LPWG_SIGNATURE		= (1U << 2),	// 4
 };
 
 enum{
@@ -554,24 +554,24 @@ enum{
 
 enum{
 	DEBUG_NONE			= 0,
-	DEBUG_BASE_INFO			= (1U << 0),	//  
-	DEBUG_TRACE			= (1U << 1),	//  
-	DEBUG_GET_DATA			= (1U << 2),	//  
-	DEBUG_ABS			= (1U << 3),	//  
-	DEBUG_BUTTON			= (1U << 4),	//   
-	DEBUG_FW_UPGRADE		= (1U << 5), 	//   
-	DEBUG_GHOST			= (1U << 6),	//   
-	DEBUG_IRQ_HANDLE		= (1U << 7),	//    
-	DEBUG_POWER			= (1U << 8),	//    
-	DEBUG_JITTER			= (1U << 9),	//    
-	DEBUG_ACCURACY			= (1U << 10),	//     
-	DEBUG_BOUNCING			= (1U << 11),	//     
-	DEBUG_GRIP			= (1U << 12),	//     
-	DEBUG_FILTER_RESULT		= (1U << 13),	//     
-	DEBUG_QUICKCOVER		= (1U << 12), //     
-	DEBUG_LPWG			= (1U << 14),	//      
-	DEBUG_NOISE			= (1U << 15),	//     
-	DEBUG_LPWG_COORDINATES		= (1U << 16),	//     
+	DEBUG_BASE_INFO			= (1U << 0),	// 1
+	DEBUG_TRACE			= (1U << 1),	// 2
+	DEBUG_GET_DATA			= (1U << 2),	// 4
+	DEBUG_ABS			= (1U << 3),	// 8
+	DEBUG_BUTTON			= (1U << 4),	// 16
+	DEBUG_FW_UPGRADE		= (1U << 5), 	// 32
+	DEBUG_GHOST			= (1U << 6),	// 64
+	DEBUG_IRQ_HANDLE		= (1U << 7),	// 128
+	DEBUG_POWER			= (1U << 8),	// 256
+	DEBUG_JITTER			= (1U << 9),	// 512
+	DEBUG_ACCURACY			= (1U << 10),	// 1024
+	DEBUG_BOUNCING			= (1U << 11),	// 2048
+	DEBUG_GRIP			= (1U << 12),	// 4096
+	DEBUG_FILTER_RESULT		= (1U << 13),	// 8192
+	DEBUG_QUICKCOVER		= (1U << 12), // 4096
+	DEBUG_LPWG			= (1U << 14),	// 16384
+	DEBUG_NOISE			= (1U << 15),	//32768
+	DEBUG_LPWG_COORDINATES		= (1U << 16),	//65536
 };
 
 #ifdef LGE_TOUCH_TIME_DEBUG
@@ -586,10 +586,10 @@ enum{
 
 enum{
 	DEBUG_TIME_PROFILE_NONE			= 0,
-	DEBUG_TIME_INTERRUPT			= (1U << 0),	//  
-	DEBUG_TIME_WORKQUEUE			= (1U << 1),	//  
-	DEBUG_TIME_FW_UPGRADE			= (1U << 2),	//  
-	DEBUG_TIME_PROFILE_ALL			= (1U << 3),	//  
+	DEBUG_TIME_INTERRUPT			= (1U << 0),	// 1
+	DEBUG_TIME_WORKQUEUE			= (1U << 1),	// 2
+	DEBUG_TIME_FW_UPGRADE			= (1U << 2),	// 4
+	DEBUG_TIME_PROFILE_ALL			= (1U << 3),	// 8
 };
 #endif
 
@@ -648,8 +648,8 @@ enum{
 };
 #define LGE_TOUCH_NAME		"lge_touch"
 
-/*                    
-   
+/* Basic Logging Macro
+  *
   */
 #define TOUCH_INFO_MSG(fmt, args...) \
 	printk(KERN_INFO "[Touch] " fmt, ##args);
@@ -663,12 +663,12 @@ enum{
 		__func__, __LINE__, ##args);
 
 
-/*                   
-   
-                                                                                                  
-                                                                                                    
-                                                                                                     
-                                                                                     
+/* For Error Handling
+  *
+  * DO_IF : execute 'do_work', and if the result is true, print 'error_log' and goto 'goto_error'.
+  * DO_SAFE : execute 'do_work', and if the result is '< 0', print 'error_log' and goto 'goto_error'
+  * ASSIGN : excute 'do_assign', and if the result is 'NULL', print 'error_log' and goto 'goto_error'
+  * ERROR_IF : if the condition is true(ERROR), print 'string' and goto 'goto_error'.
   */
 #define DO_IF(do_work, goto_error) 								\
 do {												\
@@ -700,8 +700,8 @@ do {						\
 } while(0)
 
 
-/*                                 
-   
+/* For using debug_mask more easily
+  *
   */
 extern u32 touch_debug_mask;
 #define TOUCH_DEBUG(condition, fmt, args...)			\
@@ -723,8 +723,8 @@ do {								\
 	TOUCH_DEBUG(DEBUG_TRACE, " - %s %d\n", __func__, __LINE__)
 
 
-/*      
-  
+/* sysfs
+ *
  */
 struct lge_touch_attribute {
 	struct attribute	attr;

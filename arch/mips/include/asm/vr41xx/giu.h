@@ -21,7 +21,7 @@
 #define __NEC_VR41XX_GIU_H
 
 /*
-                                             
+ * NEC VR4100 series GIU platform device IDs.
  */
 enum {
 	GPIO_50PINS_PULLUPDOWN,
@@ -59,4 +59,4 @@ typedef enum {
 
 extern int vr41xx_gpio_pullupdown(unsigned int pin, gpio_pull_t pull);
 
-#endif /*                    */
+#endif /* __NEC_VR41XX_GIU_H */

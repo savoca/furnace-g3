@@ -20,7 +20,7 @@
 #include <asm/ide.h>
 
     /*
-                                   
+     *  Bases of the IDE interfaces
      */
 
 #define Q40IDE_NUM_HWIFS	2
@@ -33,8 +33,8 @@
 #define PCIDE_BASE6	0x160
 
 static const unsigned long pcide_bases[Q40IDE_NUM_HWIFS] = {
-    PCIDE_BASE1, PCIDE_BASE2, /*                                         
-                */
+    PCIDE_BASE1, PCIDE_BASE2, /* PCIDE_BASE3, PCIDE_BASE4  , PCIDE_BASE5,
+    PCIDE_BASE6 */
 };
 
 static int q40ide_default_irq(unsigned long base)
@@ -50,13 +50,13 @@ static int q40ide_default_irq(unsigned long base)
 
 
 /*
-                                                  
+ * Addresses are pretranslated for Q40 ISA access.
  */
 static void q40_ide_setup_ports(struct ide_hw *hw, unsigned long base, int irq)
 {
 	memset(hw, 0, sizeof(*hw));
-	/*                  
-                                                           */
+	/* BIG FAT WARNING: 
+	   assumption: only DATA port is ever used in 16 bit mode */
 	hw->io_ports.data_addr = Q40_ISA_IO_W(base);
 	hw->io_ports.error_addr = Q40_ISA_IO_B(base + 1);
 	hw->io_ports.nsect_addr = Q40_ISA_IO_B(base + 2);
@@ -96,7 +96,7 @@ static void q40ide_output_data(ide_drive_t *drive, struct ide_cmd *cmd,
 	raw_outsw_swapw((u16 *)data_addr, buf, (len + 1) / 2);
 }
 
-/*                                      */
+/* Q40 has a byte-swapped IDE interface */
 static const struct ide_tp_ops q40ide_tp_ops = {
 	.exec_command		= ide_exec_command,
 	.read_status		= ide_read_status,
@@ -119,15 +119,15 @@ static const struct ide_port_info q40ide_port_info = {
 };
 
 /* 
-                                                                         
-                                               
+ * the static array is needed to have the name reported in /proc/ioports,
+ * hwif->name unfortunately isn't available yet
  */
 static const char *q40_ide_names[Q40IDE_NUM_HWIFS]={
 	"ide0", "ide1"
 };
 
 /*
-                                
+ *  Probe for Q40 IDE interfaces
  */
 
 static int __init q40ide_init(void)

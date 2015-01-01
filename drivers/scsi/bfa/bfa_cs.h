@@ -16,7 +16,7 @@
  */
 
 /*
-                                
+ *  bfa_cs.h BFA common services
  */
 
 #ifndef __BFA_CS_H__
@@ -25,7 +25,7 @@
 #include "bfad_drv.h"
 
 /*
-          
+ * BFA TRC
  */
 
 #ifndef BFA_TRC_MAX
@@ -73,16 +73,16 @@ struct bfa_trc_mod_s {
 };
 
 enum {
-	BFA_TRC_HAL  = 1,	/*              */
-	BFA_TRC_FCS  = 2,	/*                  */
-	BFA_TRC_LDRV = 3,	/*                       */
-	BFA_TRC_CNA  = 4,	/*                 */
+	BFA_TRC_HAL  = 1,	/*  BFA modules */
+	BFA_TRC_FCS  = 2,	/*  BFA FCS modules */
+	BFA_TRC_LDRV = 3,	/*  Linux driver modules */
+	BFA_TRC_CNA  = 4,	/*  Common modules */
 };
 #define BFA_TRC_MOD_SH	10
 #define BFA_TRC_MOD(__mod)	((BFA_TRC_ ## __mod) << BFA_TRC_MOD_SH)
 
 /*
-                                                                             
+ * Define a new tracing file (module). Module should match one defined above.
  */
 #define BFA_TRC_FILE(__mod, __submod)					\
 	static int __trc_fileno = ((BFA_TRC_ ## __mod ## _ ## __submod) | \
@@ -152,13 +152,13 @@ __bfa_trc32(struct bfa_trc_mod_s *trcm, int fileno, int line, u32 data)
 		__FILE__, __LINE__, (__event));				\
 } while (0)
 
-/*                       */
+/* BFA queue definitions */
 #define bfa_q_first(_q) ((void *)(((struct list_head *) (_q))->next))
 #define bfa_q_next(_qe) (((struct list_head *) (_qe))->next)
 #define bfa_q_prev(_qe) (((struct list_head *) (_qe))->prev)
 
 /*
-                                                
+ * bfa_q_qe_init - to initialize a queue element
  */
 #define bfa_q_qe_init(_qe) {				\
 	bfa_q_next(_qe) = (struct list_head *) NULL;	\
@@ -166,7 +166,7 @@ __bfa_trc32(struct bfa_trc_mod_s *trcm, int fileno, int line, u32 data)
 }
 
 /*
-                                                        
+ * bfa_q_deq - dequeue an element from head of the queue
  */
 #define bfa_q_deq(_q, _qe) {						\
 	if (!list_empty(_q)) {						\
@@ -180,7 +180,7 @@ __bfa_trc32(struct bfa_trc_mod_s *trcm, int fileno, int line, u32 data)
 }
 
 /*
-                                                             
+ * bfa_q_deq_tail - dequeue an element from tail of the queue
  */
 #define bfa_q_deq_tail(_q, _qe) {					\
 	if (!list_empty(_q)) {						\
@@ -213,16 +213,16 @@ bfa_q_is_on_q_func(struct list_head *q, struct list_head *qe)
 	bfa_q_is_on_q_func(_q, (struct list_head *)(_qe))
 
 /*
-                                 
+ * @ BFA state machine interfaces
  */
 
 typedef void (*bfa_sm_t)(void *sm, int event);
 
 /*
-                                
-                        
-                                            
-                                          
+ * oc - object class eg. bfa_ioc
+ * st - state, eg. reset
+ * otype - object type, eg. struct bfa_ioc_s
+ * etype - object type, eg. enum ioc_event
  */
 #define bfa_sm_state_decl(oc, st, otype, etype)		\
 	static void oc ## _sm_ ## st(otype * fsm, etype event)
@@ -233,25 +233,25 @@ typedef void (*bfa_sm_t)(void *sm, int event);
 #define bfa_sm_cmp_state(_sm, _state)	((_sm)->sm == (bfa_sm_t)(_state))
 
 /*
-                                                                
+ * For converting from state machine function to state encoding.
  */
 struct bfa_sm_table_s {
-	bfa_sm_t	sm;	/*                         */
-	int		state;	/*                         */
-	char		*name;	/*                         */
+	bfa_sm_t	sm;	/*  state machine function	*/
+	int		state;	/*  state machine encoding	*/
+	char		*name;	/*  state name for display	*/
 };
 #define BFA_SM(_sm)	((bfa_sm_t)(_sm))
 
 /*
-                                    
+ * State machine with entry actions.
  */
 typedef void (*bfa_fsm_t)(void *fsm, int event);
 
 /*
-                                
-                        
-                                            
-                                          
+ * oc - object class eg. bfa_ioc
+ * st - state, eg. reset
+ * otype - object type, eg. struct bfa_ioc_s
+ * etype - object type, eg. enum ioc_event
  */
 #define bfa_fsm_state_decl(oc, st, otype, etype)		\
 	static void oc ## _sm_ ## st(otype * fsm, etype event);      \
@@ -278,7 +278,7 @@ bfa_sm_to_state(struct bfa_sm_table_s *smt, bfa_sm_t sm)
 }
 
 /*
-                          
+ * @ Generic wait counter.
  */
 
 typedef void (*bfa_wc_resume_t) (void *cbarg);
@@ -304,7 +304,7 @@ bfa_wc_down(struct bfa_wc_s *wc)
 }
 
 /*
-                                
+ * Initialize a waiting counter.
  */
 static inline void
 bfa_wc_init(struct bfa_wc_s *wc, bfa_wc_resume_t wc_resume, void *wc_cbarg)
@@ -316,7 +316,7 @@ bfa_wc_init(struct bfa_wc_s *wc, bfa_wc_resume_t wc_resume, void *wc_cbarg)
 }
 
 /*
-                                 
+ * Wait for counter to reach zero
  */
 static inline void
 bfa_wc_wait(struct bfa_wc_s *wc)
@@ -363,4 +363,4 @@ fcid2str(char *fcid_str, u32 fcid)
 
 #define bfa_ntoh3b(_x)  bfa_hton3b(_x)
 
-#endif /*              */
+#endif /* __BFA_CS_H__ */

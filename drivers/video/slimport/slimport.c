@@ -39,16 +39,16 @@
 static uint8_t anx7808_chip_detect(void);
 
 
-/*                                   */
-/*                                      */
+/* Enable or Disable HDCP by default */
+/* hdcp_enable = 1: Enable,  0: Disable */
 static int hdcp_enable;
 
-/*                               */
-/*                                          */
+/* HDCP switch for external block*/
+/* external_block_en = 1: enable, 0: disable*/
 int external_block_en;
 
 
-/*                                */
+/* to access global platform data */
 static struct anx7808_platform_data *g_pdata;
 
 
@@ -82,7 +82,7 @@ bool slimport_is_connected(void)
 	if (!pdata)
 		return false;
 
-	/*                          */
+	/* spin_lock(&pdata->lock); */
 
 	if (gpio_get_value_cansleep(pdata->gpio_cbl_det)) {
 		mdelay(10);
@@ -91,14 +91,14 @@ bool slimport_is_connected(void)
 			result = true;
 		}
 	}
-	/*                            */
+	/* spin_unlock(&pdata->lock); */
 
 	return result;
 }
 EXPORT_SYMBOL(slimport_is_connected);
 
 
-/*                                                   */
+/*sysfs interface : Enable or Disable HDCP by default*/
 static ssize_t sp_hdcp_feature_show(struct device *dev, struct device_attribute *attr,
 		 char *buf)
 {
@@ -118,7 +118,7 @@ static ssize_t sp_hdcp_feature_store(struct device *dev, struct device_attribute
 	return count;
 }
 
-/*                                                 */
+/*sysfs  interface : HDCP switch for external block*/
 static ssize_t sp_external_block_show(struct device *dev, struct device_attribute *attr,
 		 char *buf)
 {
@@ -137,10 +137,10 @@ static ssize_t sp_external_block_store(struct device *dev, struct device_attribu
 	return count;
 }
 
-/*                                                            
-                                                                       
-                                        
-                                                 
+/*sysfs  interface : i2c_master_read_reg, i2c_master_write_reg
+anx7730 addr id:: DP_rx(0x50:0, 0x8c:1) HDMI_tx(0x72:5, 0x7a:6, 0x70:7)
+ex:read ) 05df   = read:0  id:5 reg:0xdf
+ex:write) 15df5f = write:1 id:5 reg:0xdf val:0x5f
 */
 static ssize_t anx7730_write_reg_store(struct device *dev, struct device_attribute *attr,
 		 const char *buf, size_t count)
@@ -183,12 +183,12 @@ static ssize_t anx7730_write_reg_store(struct device *dev, struct device_attribu
 
 	switch (op) {
 
-	case 0x30: /*             */
+	case 0x30: /* "0" -> read */
 		i2c_master_read_reg(id, reg, &tmp);
 		pr_info("anx7730 read(%d,0x%x)= 0x%x \n", id, reg, tmp);
 		break;
 
-	case 0x31: /*              */
+	case 0x31: /* "1" -> write */
 		ret = snprintf(v, 3, buf+4);
 		val = simple_strtoul(v, NULL, 16);
 
@@ -205,10 +205,10 @@ static ssize_t anx7730_write_reg_store(struct device *dev, struct device_attribu
 	return count;
 }
 
-/*                                            
-                                                                       
-                                        
-                                                 
+/*sysfs  interface : sp_read_reg, sp_write_reg
+anx7808 addr id:: HDMI_rx(0x7e:0, 0x80:1) DP_tx(0x72:5, 0x7a:6, 0x78:7)
+ex:read ) 05df   = read:0  id:5 reg:0xdf
+ex:write) 15df5f = write:1 id:5 reg:0xdf val:0x5f
 */
 static int anx7808_id_change(int id)
 {
@@ -216,19 +216,19 @@ static int anx7808_id_change(int id)
 
 	switch (id) {
 	case 0:
-		chg_id = 0x7e; /*       */
+		chg_id = 0x7e; /* RX_P0 */
 		break;
 	case 1:
-		chg_id = 0x80; /*       */
+		chg_id = 0x80; /* RX_P1 */
 		break;
 	case 5:
-		chg_id = 0x72; /*       */
+		chg_id = 0x72; /* TX_P2 */
 		break;
 	case 6:
-		chg_id = 0x7a; /*       */
+		chg_id = 0x7a; /* TX_P1 */
 		break;
 	case 7:
-		chg_id = 0x78; /*       */
+		chg_id = 0x78; /* TX_P0 */
 		break;
 	}
 	return chg_id;
@@ -268,15 +268,15 @@ static ssize_t anx7808_write_reg_store(struct device *dev, struct device_attribu
 		return -EINVAL;
 	}
 
-	id = anx7808_id_change(id); /*               */
+	id = anx7808_id_change(id); /* ex) 5 -> 0x72 */
 
 	switch (op) {
-	case 0x30: /*             */
+	case 0x30: /* "0" -> read */
 		sp_read_reg(id, reg, &tmp);
 		pr_info("anx7808 read(0x%x,0x%x)= 0x%x \n", id, reg, tmp);
 		break;
 
-	case 0x31: /*              */
+	case 0x31: /* "1" -> write */
 		ret = snprintf(v, 3, buf+4);
 		val = simple_strtoul(v, NULL, 16);
 
@@ -294,7 +294,7 @@ static ssize_t anx7808_write_reg_store(struct device *dev, struct device_attribu
 }
 
 
-/*               */
+/* for debugging */
 static struct device_attribute slimport_device_attrs[] = {
 	__ATTR(hdcp, S_IRUGO | S_IWUSR, sp_hdcp_feature_show, sp_hdcp_feature_store),
 	__ATTR(hdcp_switch, S_IRUGO | S_IWUSR, sp_external_block_show, sp_external_block_store),
@@ -353,7 +353,7 @@ void sp_tx_hardware_poweron(void)
 	msleep(10);
 	gpio_set_value(pdata->gpio_p_dwn, 0);
 	msleep(20);
-	/*                 */
+	/* Enable 1.0V LDO */
 	gpio_set_value(pdata->gpio_v10_ctrl, 1);
 	msleep(30);
 	gpio_set_value(pdata->gpio_reset, 1);
@@ -621,7 +621,7 @@ static int anx7808_init_gpio(struct anx7808_data *anx7808)
 	gpio_direction_output(anx7808->pdata->gpio_v33_ctrl, 0);
 
 	gpio_set_value(anx7808->pdata->gpio_v10_ctrl, 0);
-	/*                        */
+	/* need to be check below */
 	gpio_set_value(anx7808->pdata->gpio_v33_ctrl, 1);
 
 	gpio_set_value(anx7808->pdata->gpio_reset, 0);
@@ -757,9 +757,9 @@ static int anx7808_i2c_probe(struct i2c_client *client,
 			return -ENOMEM;
 		}
 		client->dev.platform_data = pdata;
-	/*                                   */
+	/* device tree parsing function call */
 		ret = anx7808_parse_dt(&client->dev, pdata);
-		if (ret != 0) /*                 */
+		if (ret != 0) /* if occurs error */
 			goto err0;
 
 		anx7808->pdata = pdata;
@@ -767,7 +767,7 @@ static int anx7808_i2c_probe(struct i2c_client *client,
 		anx7808->pdata = client->dev.platform_data;
 	}
 
-	/*                                */
+	/* to access global platform data */
 	g_pdata = anx7808->pdata;
 
 	anx7808_client = client;
@@ -872,11 +872,11 @@ bool is_slimport_vga(void)
 	return ((sp_tx_rx_type == RX_VGA_9832)
 		|| (sp_tx_rx_type == RX_VGA_GEN)) ? TRUE : FALSE;
 }
-/*                              
-                               
-                                                   
-                                                        
-                                   */
+/* 0x01: hdmi device is attached
+    0x02: DP device is attached
+    0x03: Old VGA device is attached // RX_VGA_9832
+    0x04: new combo VGA device is attached // RX_VGA_GEN
+    0x00: unknow device            */
 EXPORT_SYMBOL(is_slimport_vga);
 bool is_slimport_dp(void)
 {

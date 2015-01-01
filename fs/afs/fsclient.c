@@ -17,7 +17,7 @@
 #include "afs_fs.h"
 
 /*
-                         
+ * decode an AFSFid block
  */
 static void xdr_decode_AFSFid(const __be32 **_bp, struct afs_fid *fid)
 {
@@ -30,7 +30,7 @@ static void xdr_decode_AFSFid(const __be32 **_bp, struct afs_fid *fid)
 }
 
 /*
-                                 
+ * decode an AFSFetchStatus block
  */
 static void xdr_decode_AFSFetchStatus(const __be32 **_bp,
 				      struct afs_file_status *status,
@@ -41,7 +41,7 @@ static void xdr_decode_AFSFetchStatus(const __be32 **_bp,
 	const __be32 *bp = *_bp;
 	umode_t mode;
 	u64 data_version, size;
-	u32 changed = 0; /*                                             */
+	u32 changed = 0; /* becomes non-zero if ctime-type changes seen */
 
 #define EXTRACT(DST)				\
 	do {					\
@@ -57,20 +57,20 @@ static void xdr_decode_AFSFetchStatus(const __be32 **_bp,
 	data_version = ntohl(*bp++);
 	EXTRACT(status->author);
 	EXTRACT(status->owner);
-	EXTRACT(status->caller_access); /*                       */
+	EXTRACT(status->caller_access); /* call ticket dependent */
 	EXTRACT(status->anon_access);
 	EXTRACT(status->mode);
 	EXTRACT(status->parent.vnode);
 	EXTRACT(status->parent.unique);
-	bp++; /*          */
+	bp++; /* seg size */
 	status->mtime_client = ntohl(*bp++);
 	status->mtime_server = ntohl(*bp++);
 	EXTRACT(status->group);
-	bp++; /*              */
+	bp++; /* sync counter */
 	data_version |= (u64) ntohl(*bp++) << 32;
 	EXTRACT(status->lock_count);
 	size |= (u64) ntohl(*bp++) << 32;
-	bp++; /*         */
+	bp++; /* spare 4 */
 	*_bp = bp;
 
 	if (size != status->size) {
@@ -124,7 +124,7 @@ static void xdr_decode_AFSFetchStatus(const __be32 **_bp,
 }
 
 /*
-                              
+ * decode an AFSCallBack block
  */
 static void xdr_decode_AFSCallBack(const __be32 **_bp, struct afs_vnode *vnode)
 {
@@ -149,7 +149,7 @@ static void xdr_decode_AFSCallBack_raw(const __be32 **_bp,
 }
 
 /*
-                             
+ * decode an AFSVolSync block
  */
 static void xdr_decode_AFSVolSync(const __be32 **_bp,
 				  struct afs_volsync *volsync)
@@ -157,16 +157,16 @@ static void xdr_decode_AFSVolSync(const __be32 **_bp,
 	const __be32 *bp = *_bp;
 
 	volsync->creation = ntohl(*bp++);
-	bp++; /*        */
-	bp++; /*        */
-	bp++; /*        */
-	bp++; /*        */
-	bp++; /*        */
+	bp++; /* spare2 */
+	bp++; /* spare3 */
+	bp++; /* spare4 */
+	bp++; /* spare5 */
+	bp++; /* spare6 */
 	*_bp = bp;
 }
 
 /*
-                                                               
+ * encode the requested attributes into an AFSStoreStatus block
  */
 static void xdr_encode_AFS_StoreStatus(__be32 **_bp, struct iattr *attr)
 {
@@ -199,12 +199,12 @@ static void xdr_encode_AFS_StoreStatus(__be32 **_bp, struct iattr *attr)
 	*bp++ = htonl(owner);
 	*bp++ = htonl(group);
 	*bp++ = htonl(mode);
-	*bp++ = 0;		/*              */
+	*bp++ = 0;		/* segment size */
 	*_bp = bp;
 }
 
 /*
-                                       
+ * decode an AFSFetchVolumeStatus block
  */
 static void xdr_decode_AFSFetchVolumeStatus(const __be32 **_bp,
 					    struct afs_volume_status *vs)
@@ -227,7 +227,7 @@ static void xdr_decode_AFSFetchVolumeStatus(const __be32 **_bp,
 }
 
 /*
-                                          
+ * deliver reply data to an FS.FetchStatus
  */
 static int afs_deliver_fs_fetch_status(struct afs_call *call,
 				       struct sk_buff *skb, bool last)
@@ -244,7 +244,7 @@ static int afs_deliver_fs_fetch_status(struct afs_call *call,
 	if (call->reply_size != call->reply_max)
 		return -EBADMSG;
 
-	/*                                                    */
+	/* unmarshall the reply once we've received all of it */
 	bp = call->buffer;
 	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, NULL);
 	xdr_decode_AFSCallBack(&bp, vnode);
@@ -256,7 +256,7 @@ static int afs_deliver_fs_fetch_status(struct afs_call *call,
 }
 
 /*
-                                
+ * FS.FetchStatus operation type
  */
 static const struct afs_call_type afs_RXFSFetchStatus = {
 	.name		= "FS.FetchStatus",
@@ -266,7 +266,7 @@ static const struct afs_call_type afs_RXFSFetchStatus = {
 };
 
 /*
-                                          
+ * fetch the status information for a file
  */
 int afs_fs_fetch_file_status(struct afs_server *server,
 			     struct key *key,
@@ -290,7 +290,7 @@ int afs_fs_fetch_file_status(struct afs_server *server,
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	bp[0] = htonl(FSFETCHSTATUS);
 	bp[1] = htonl(vnode->fid.vid);
@@ -301,7 +301,7 @@ int afs_fs_fetch_file_status(struct afs_server *server,
 }
 
 /*
-                                        
+ * deliver reply data to an FS.FetchData
  */
 static int afs_deliver_fs_fetch_data(struct afs_call *call,
 				     struct sk_buff *skb, bool last)
@@ -323,9 +323,9 @@ static int afs_deliver_fs_fetch_data(struct afs_call *call,
 			goto no_msw;
 		}
 
-		/*                                                         
-                                                          
-             */
+		/* extract the upper part of the returned data length of an
+		 * FSFETCHDATA64 op (which should always be 0 using this
+		 * client) */
 	case 1:
 		_debug("extract data length (MSW)");
 		ret = afs_extract_data(call, skb, last, &call->tmp, 4);
@@ -343,7 +343,7 @@ static int afs_deliver_fs_fetch_data(struct afs_call *call,
 		call->unmarshall++;
 
 	no_msw:
-		/*                                  */
+		/* extract the returned data length */
 	case 2:
 		_debug("extract data length");
 		ret = afs_extract_data(call, skb, last, &call->tmp, 4);
@@ -360,7 +360,7 @@ static int afs_deliver_fs_fetch_data(struct afs_call *call,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                           */
+		/* extract the returned data */
 	case 3:
 		_debug("extract data");
 		if (call->count > 0) {
@@ -379,7 +379,7 @@ static int afs_deliver_fs_fetch_data(struct afs_call *call,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                      */
+		/* extract the metadata */
 	case 4:
 		ret = afs_extract_data(call, skb, last, call->buffer,
 				       (21 + 3 + 6) * 4);
@@ -421,7 +421,7 @@ static int afs_deliver_fs_fetch_data(struct afs_call *call,
 }
 
 /*
-                              
+ * FS.FetchData operation type
  */
 static const struct afs_call_type afs_RXFSFetchData = {
 	.name		= "FS.FetchData",
@@ -438,7 +438,7 @@ static const struct afs_call_type afs_RXFSFetchData64 = {
 };
 
 /*
-                                    
+ * fetch data from a very large file
  */
 static int afs_fs_fetch_data64(struct afs_server *server,
 			       struct key *key,
@@ -460,13 +460,13 @@ static int afs_fs_fetch_data64(struct afs_server *server,
 
 	call->key = key;
 	call->reply = vnode;
-	call->reply2 = NULL; /*         */
+	call->reply2 = NULL; /* volsync */
 	call->reply3 = buffer;
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 	call->operation_ID = FSFETCHDATA64;
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	bp[0] = htonl(FSFETCHDATA64);
 	bp[1] = htonl(vnode->fid.vid);
@@ -481,7 +481,7 @@ static int afs_fs_fetch_data64(struct afs_server *server,
 }
 
 /*
-                         
+ * fetch data from a file
  */
 int afs_fs_fetch_data(struct afs_server *server,
 		      struct key *key,
@@ -505,13 +505,13 @@ int afs_fs_fetch_data(struct afs_server *server,
 
 	call->key = key;
 	call->reply = vnode;
-	call->reply2 = NULL; /*         */
+	call->reply2 = NULL; /* volsync */
 	call->reply3 = buffer;
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 	call->operation_ID = FSFETCHDATA;
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	bp[0] = htonl(FSFETCHDATA);
 	bp[1] = htonl(vnode->fid.vid);
@@ -524,7 +524,7 @@ int afs_fs_fetch_data(struct afs_server *server,
 }
 
 /*
-                                              
+ * deliver reply data to an FS.GiveUpCallBacks
  */
 static int afs_deliver_fs_give_up_callbacks(struct afs_call *call,
 					    struct sk_buff *skb, bool last)
@@ -532,12 +532,12 @@ static int afs_deliver_fs_give_up_callbacks(struct afs_call *call,
 	_enter(",{%u},%d", skb->len, last);
 
 	if (skb->len > 0)
-		return -EBADMSG; /*                             */
+		return -EBADMSG; /* shouldn't be any reply data */
 	return 0;
 }
 
 /*
-                                    
+ * FS.GiveUpCallBacks operation type
  */
 static const struct afs_call_type afs_RXFSGiveUpCallBacks = {
 	.name		= "FS.GiveUpCallBacks",
@@ -547,8 +547,8 @@ static const struct afs_call_type afs_RXFSGiveUpCallBacks = {
 };
 
 /*
-                             
-                                                        
+ * give up a set of callbacks
+ * - the callbacks are held in the server->cb_break ring
  */
 int afs_fs_give_up_callbacks(struct afs_server *server,
 			     const struct afs_wait_mode *wait_mode)
@@ -578,7 +578,7 @@ int afs_fs_give_up_callbacks(struct afs_server *server,
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	tp = bp + 2 + ncallbacks * 3;
 	*bp++ = htonl(FSGIVEUPCALLBACKS);
@@ -609,7 +609,7 @@ int afs_fs_give_up_callbacks(struct afs_server *server,
 }
 
 /*
-                                                          
+ * deliver reply data to an FS.CreateFile or an FS.MakeDir
  */
 static int afs_deliver_fs_create_vnode(struct afs_call *call,
 				       struct sk_buff *skb, bool last)
@@ -626,20 +626,20 @@ static int afs_deliver_fs_create_vnode(struct afs_call *call,
 	if (call->reply_size != call->reply_max)
 		return -EBADMSG;
 
-	/*                                                    */
+	/* unmarshall the reply once we've received all of it */
 	bp = call->buffer;
 	xdr_decode_AFSFid(&bp, call->reply2);
 	xdr_decode_AFSFetchStatus(&bp, call->reply3, NULL, NULL);
 	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, NULL);
 	xdr_decode_AFSCallBack_raw(&bp, call->reply4);
-	/*                                           */
+	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
 
 	_leave(" = 0 [done]");
 	return 0;
 }
 
 /*
-                                              
+ * FS.CreateFile and FS.MakeDir operation type
  */
 static const struct afs_call_type afs_RXFSCreateXXXX = {
 	.name		= "FS.CreateXXXX",
@@ -649,7 +649,7 @@ static const struct afs_call_type afs_RXFSCreateXXXX = {
 };
 
 /*
-                                    
+ * create a file or make a directory
  */
 int afs_fs_create(struct afs_server *server,
 		  struct key *key,
@@ -684,7 +684,7 @@ int afs_fs_create(struct afs_server *server,
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(S_ISDIR(mode) ? FSMAKEDIR : FSCREATEFILE);
 	*bp++ = htonl(vnode->fid.vid);
@@ -698,17 +698,17 @@ int afs_fs_create(struct afs_server *server,
 		bp = (void *) bp + padsz;
 	}
 	*bp++ = htonl(AFS_SET_MODE);
-	*bp++ = 0; /*       */
-	*bp++ = 0; /*       */
-	*bp++ = 0; /*       */
-	*bp++ = htonl(mode & S_IALLUGO); /*           */
-	*bp++ = 0; /*              */
+	*bp++ = 0; /* mtime */
+	*bp++ = 0; /* owner */
+	*bp++ = 0; /* group */
+	*bp++ = htonl(mode & S_IALLUGO); /* unix mode */
+	*bp++ = 0; /* segment size */
 
 	return afs_make_call(&server->addr, call, GFP_NOFS, wait_mode);
 }
 
 /*
-                                                         
+ * deliver reply data to an FS.RemoveFile or FS.RemoveDir
  */
 static int afs_deliver_fs_remove(struct afs_call *call,
 				 struct sk_buff *skb, bool last)
@@ -725,17 +725,17 @@ static int afs_deliver_fs_remove(struct afs_call *call,
 	if (call->reply_size != call->reply_max)
 		return -EBADMSG;
 
-	/*                                                    */
+	/* unmarshall the reply once we've received all of it */
 	bp = call->buffer;
 	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, NULL);
-	/*                                           */
+	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
 
 	_leave(" = 0 [done]");
 	return 0;
 }
 
 /*
-                                            
+ * FS.RemoveDir/FS.RemoveFile operation type
  */
 static const struct afs_call_type afs_RXFSRemoveXXXX = {
 	.name		= "FS.RemoveXXXX",
@@ -745,7 +745,7 @@ static const struct afs_call_type afs_RXFSRemoveXXXX = {
 };
 
 /*
-                             
+ * remove a file or directory
  */
 int afs_fs_remove(struct afs_server *server,
 		  struct key *key,
@@ -773,7 +773,7 @@ int afs_fs_remove(struct afs_server *server,
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(isdir ? FSREMOVEDIR : FSREMOVEFILE);
 	*bp++ = htonl(vnode->fid.vid);
@@ -791,7 +791,7 @@ int afs_fs_remove(struct afs_server *server,
 }
 
 /*
-                                   
+ * deliver reply data to an FS.Link
  */
 static int afs_deliver_fs_link(struct afs_call *call,
 			       struct sk_buff *skb, bool last)
@@ -808,18 +808,18 @@ static int afs_deliver_fs_link(struct afs_call *call,
 	if (call->reply_size != call->reply_max)
 		return -EBADMSG;
 
-	/*                                                    */
+	/* unmarshall the reply once we've received all of it */
 	bp = call->buffer;
 	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, NULL);
 	xdr_decode_AFSFetchStatus(&bp, &dvnode->status, dvnode, NULL);
-	/*                                           */
+	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
 
 	_leave(" = 0 [done]");
 	return 0;
 }
 
 /*
-                         
+ * FS.Link operation type
  */
 static const struct afs_call_type afs_RXFSLink = {
 	.name		= "FS.Link",
@@ -829,7 +829,7 @@ static const struct afs_call_type afs_RXFSLink = {
 };
 
 /*
-                   
+ * make a hard link
  */
 int afs_fs_link(struct afs_server *server,
 		struct key *key,
@@ -858,7 +858,7 @@ int afs_fs_link(struct afs_server *server,
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(FSLINK);
 	*bp++ = htonl(dvnode->fid.vid);
@@ -879,7 +879,7 @@ int afs_fs_link(struct afs_server *server,
 }
 
 /*
-                                      
+ * deliver reply data to an FS.Symlink
  */
 static int afs_deliver_fs_symlink(struct afs_call *call,
 				  struct sk_buff *skb, bool last)
@@ -896,19 +896,19 @@ static int afs_deliver_fs_symlink(struct afs_call *call,
 	if (call->reply_size != call->reply_max)
 		return -EBADMSG;
 
-	/*                                                    */
+	/* unmarshall the reply once we've received all of it */
 	bp = call->buffer;
 	xdr_decode_AFSFid(&bp, call->reply2);
 	xdr_decode_AFSFetchStatus(&bp, call->reply3, NULL, NULL);
 	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, NULL);
-	/*                                           */
+	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
 
 	_leave(" = 0 [done]");
 	return 0;
 }
 
 /*
-                            
+ * FS.Symlink operation type
  */
 static const struct afs_call_type afs_RXFSSymlink = {
 	.name		= "FS.Symlink",
@@ -918,7 +918,7 @@ static const struct afs_call_type afs_RXFSSymlink = {
 };
 
 /*
-                         
+ * create a symbolic link
  */
 int afs_fs_symlink(struct afs_server *server,
 		   struct key *key,
@@ -955,7 +955,7 @@ int afs_fs_symlink(struct afs_server *server,
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(FSSYMLINK);
 	*bp++ = htonl(vnode->fid.vid);
@@ -976,17 +976,17 @@ int afs_fs_symlink(struct afs_server *server,
 		bp = (void *) bp + c_padsz;
 	}
 	*bp++ = htonl(AFS_SET_MODE);
-	*bp++ = 0; /*       */
-	*bp++ = 0; /*       */
-	*bp++ = 0; /*       */
-	*bp++ = htonl(S_IRWXUGO); /*           */
-	*bp++ = 0; /*              */
+	*bp++ = 0; /* mtime */
+	*bp++ = 0; /* owner */
+	*bp++ = 0; /* group */
+	*bp++ = htonl(S_IRWXUGO); /* unix mode */
+	*bp++ = 0; /* segment size */
 
 	return afs_make_call(&server->addr, call, GFP_NOFS, wait_mode);
 }
 
 /*
-                                     
+ * deliver reply data to an FS.Rename
  */
 static int afs_deliver_fs_rename(struct afs_call *call,
 				  struct sk_buff *skb, bool last)
@@ -1003,20 +1003,20 @@ static int afs_deliver_fs_rename(struct afs_call *call,
 	if (call->reply_size != call->reply_max)
 		return -EBADMSG;
 
-	/*                                                    */
+	/* unmarshall the reply once we've received all of it */
 	bp = call->buffer;
 	xdr_decode_AFSFetchStatus(&bp, &orig_dvnode->status, orig_dvnode, NULL);
 	if (new_dvnode != orig_dvnode)
 		xdr_decode_AFSFetchStatus(&bp, &new_dvnode->status, new_dvnode,
 					  NULL);
-	/*                                           */
+	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
 
 	_leave(" = 0 [done]");
 	return 0;
 }
 
 /*
-                           
+ * FS.Rename operation type
  */
 static const struct afs_call_type afs_RXFSRename = {
 	.name		= "FS.Rename",
@@ -1026,7 +1026,7 @@ static const struct afs_call_type afs_RXFSRename = {
 };
 
 /*
-                         
+ * create a symbolic link
  */
 int afs_fs_rename(struct afs_server *server,
 		  struct key *key,
@@ -1063,7 +1063,7 @@ int afs_fs_rename(struct afs_server *server,
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(FSRENAME);
 	*bp++ = htonl(orig_dvnode->fid.vid);
@@ -1092,7 +1092,7 @@ int afs_fs_rename(struct afs_server *server,
 }
 
 /*
-                                        
+ * deliver reply data to an FS.StoreData
  */
 static int afs_deliver_fs_store_data(struct afs_call *call,
 				     struct sk_buff *skb, bool last)
@@ -1114,11 +1114,11 @@ static int afs_deliver_fs_store_data(struct afs_call *call,
 		return -EBADMSG;
 	}
 
-	/*                                                    */
+	/* unmarshall the reply once we've received all of it */
 	bp = call->buffer;
 	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode,
 				  &call->store_version);
-	/*                                           */
+	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
 
 	afs_pages_written_back(vnode, call);
 
@@ -1127,7 +1127,7 @@ static int afs_deliver_fs_store_data(struct afs_call *call,
 }
 
 /*
-                              
+ * FS.StoreData operation type
  */
 static const struct afs_call_type afs_RXFSStoreData = {
 	.name		= "FS.StoreData",
@@ -1144,7 +1144,7 @@ static const struct afs_call_type afs_RXFSStoreData64 = {
 };
 
 /*
-                                            
+ * store a set of pages to a very large file
  */
 static int afs_fs_store_data64(struct afs_server *server,
 			       struct afs_writeback *wb,
@@ -1179,19 +1179,19 @@ static int afs_fs_store_data64(struct afs_server *server,
 	call->send_pages = true;
 	call->store_version = vnode->status.data_version + 1;
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(FSSTOREDATA64);
 	*bp++ = htonl(vnode->fid.vid);
 	*bp++ = htonl(vnode->fid.vnode);
 	*bp++ = htonl(vnode->fid.unique);
 
-	*bp++ = 0; /*      */
-	*bp++ = 0; /*       */
-	*bp++ = 0; /*       */
-	*bp++ = 0; /*       */
-	*bp++ = 0; /*           */
-	*bp++ = 0; /*              */
+	*bp++ = 0; /* mask */
+	*bp++ = 0; /* mtime */
+	*bp++ = 0; /* owner */
+	*bp++ = 0; /* group */
+	*bp++ = 0; /* unix mode */
+	*bp++ = 0; /* segment size */
 
 	*bp++ = htonl(pos >> 32);
 	*bp++ = htonl((u32) pos);
@@ -1204,7 +1204,7 @@ static int afs_fs_store_data64(struct afs_server *server,
 }
 
 /*
-                       
+ * store a set of pages
  */
 int afs_fs_store_data(struct afs_server *server, struct afs_writeback *wb,
 		      pgoff_t first, pgoff_t last,
@@ -1256,19 +1256,19 @@ int afs_fs_store_data(struct afs_server *server, struct afs_writeback *wb,
 	call->send_pages = true;
 	call->store_version = vnode->status.data_version + 1;
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(FSSTOREDATA);
 	*bp++ = htonl(vnode->fid.vid);
 	*bp++ = htonl(vnode->fid.vnode);
 	*bp++ = htonl(vnode->fid.unique);
 
-	*bp++ = 0; /*      */
-	*bp++ = 0; /*       */
-	*bp++ = 0; /*       */
-	*bp++ = 0; /*       */
-	*bp++ = 0; /*           */
-	*bp++ = 0; /*              */
+	*bp++ = 0; /* mask */
+	*bp++ = 0; /* mtime */
+	*bp++ = 0; /* owner */
+	*bp++ = 0; /* group */
+	*bp++ = 0; /* unix mode */
+	*bp++ = 0; /* segment size */
 
 	*bp++ = htonl(pos);
 	*bp++ = htonl(size);
@@ -1278,7 +1278,7 @@ int afs_fs_store_data(struct afs_server *server, struct afs_writeback *wb,
 }
 
 /*
-                                          
+ * deliver reply data to an FS.StoreStatus
  */
 static int afs_deliver_fs_store_status(struct afs_call *call,
 				       struct sk_buff *skb, bool last)
@@ -1301,21 +1301,21 @@ static int afs_deliver_fs_store_status(struct afs_call *call,
 		return -EBADMSG;
 	}
 
-	/*                                                    */
+	/* unmarshall the reply once we've received all of it */
 	store_version = NULL;
 	if (call->operation_ID == FSSTOREDATA)
 		store_version = &call->store_version;
 
 	bp = call->buffer;
 	xdr_decode_AFSFetchStatus(&bp, &vnode->status, vnode, store_version);
-	/*                                           */
+	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
 
 	_leave(" = 0 [done]");
 	return 0;
 }
 
 /*
-                                
+ * FS.StoreStatus operation type
  */
 static const struct afs_call_type afs_RXFSStoreStatus = {
 	.name		= "FS.StoreStatus",
@@ -1339,8 +1339,8 @@ static const struct afs_call_type afs_RXFSStoreData64_as_Status = {
 };
 
 /*
-                                                                          
-                                                   
+ * set the attributes on a very large file, using FS.StoreData rather than
+ * FS.StoreStatus so as to alter the file size also
  */
 static int afs_fs_setattr_size64(struct afs_server *server, struct key *key,
 				 struct afs_vnode *vnode, struct iattr *attr,
@@ -1367,7 +1367,7 @@ static int afs_fs_setattr_size64(struct afs_server *server, struct key *key,
 	call->store_version = vnode->status.data_version + 1;
 	call->operation_ID = FSSTOREDATA;
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(FSSTOREDATA64);
 	*bp++ = htonl(vnode->fid.vid);
@@ -1376,19 +1376,19 @@ static int afs_fs_setattr_size64(struct afs_server *server, struct key *key,
 
 	xdr_encode_AFS_StoreStatus(&bp, attr);
 
-	*bp++ = 0;				/*                            */
+	*bp++ = 0;				/* position of start of write */
 	*bp++ = 0;
-	*bp++ = 0;				/*               */
+	*bp++ = 0;				/* size of write */
 	*bp++ = 0;
-	*bp++ = htonl(attr->ia_size >> 32);	/*                 */
+	*bp++ = htonl(attr->ia_size >> 32);	/* new file length */
 	*bp++ = htonl((u32) attr->ia_size);
 
 	return afs_make_call(&server->addr, call, GFP_NOFS, wait_mode);
 }
 
 /*
-                                                                              
-                                    
+ * set the attributes on a file, using FS.StoreData rather than FS.StoreStatus
+ * so as to alter the file size also
  */
 static int afs_fs_setattr_size(struct afs_server *server, struct key *key,
 			       struct afs_vnode *vnode, struct iattr *attr,
@@ -1418,7 +1418,7 @@ static int afs_fs_setattr_size(struct afs_server *server, struct key *key,
 	call->store_version = vnode->status.data_version + 1;
 	call->operation_ID = FSSTOREDATA;
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(FSSTOREDATA);
 	*bp++ = htonl(vnode->fid.vid);
@@ -1427,16 +1427,16 @@ static int afs_fs_setattr_size(struct afs_server *server, struct key *key,
 
 	xdr_encode_AFS_StoreStatus(&bp, attr);
 
-	*bp++ = 0;				/*                            */
-	*bp++ = 0;				/*               */
-	*bp++ = htonl(attr->ia_size);		/*                 */
+	*bp++ = 0;				/* position of start of write */
+	*bp++ = 0;				/* size of write */
+	*bp++ = htonl(attr->ia_size);		/* new file length */
 
 	return afs_make_call(&server->addr, call, GFP_NOFS, wait_mode);
 }
 
 /*
-                                                                               
-                                     
+ * set the attributes on a file, using FS.StoreData if there's a change in file
+ * size, and FS.StoreStatus otherwise
  */
 int afs_fs_setattr(struct afs_server *server, struct key *key,
 		   struct afs_vnode *vnode, struct iattr *attr,
@@ -1464,7 +1464,7 @@ int afs_fs_setattr(struct afs_server *server, struct key *key,
 	call->port = htons(AFS_FS_PORT);
 	call->operation_ID = FSSTORESTATUS;
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(FSSTORESTATUS);
 	*bp++ = htonl(vnode->fid.vid);
@@ -1477,7 +1477,7 @@ int afs_fs_setattr(struct afs_server *server, struct key *key,
 }
 
 /*
-                                              
+ * deliver reply data to an FS.GetVolumeStatus
  */
 static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 					    struct sk_buff *skb, bool last)
@@ -1493,7 +1493,7 @@ static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                                    */
+		/* extract the returned status record */
 	case 1:
 		_debug("extract status");
 		ret = afs_extract_data(call, skb, last, call->buffer,
@@ -1509,7 +1509,7 @@ static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                                */
+		/* extract the volume name length */
 	case 2:
 		ret = afs_extract_data(call, skb, last, &call->tmp, 4);
 		switch (ret) {
@@ -1525,7 +1525,7 @@ static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                         */
+		/* extract the volume name */
 	case 3:
 		_debug("extract volname");
 		if (call->count > 0) {
@@ -1545,7 +1545,7 @@ static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                                 */
+		/* extract the volume name padding */
 		if ((call->count & 3) == 0) {
 			call->unmarshall++;
 			goto no_volname_padding;
@@ -1565,7 +1565,7 @@ static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 		call->unmarshall++;
 	no_volname_padding:
 
-		/*                                    */
+		/* extract the offline message length */
 	case 5:
 		ret = afs_extract_data(call, skb, last, &call->tmp, 4);
 		switch (ret) {
@@ -1581,7 +1581,7 @@ static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                             */
+		/* extract the offline message */
 	case 6:
 		_debug("extract offline");
 		if (call->count > 0) {
@@ -1601,7 +1601,7 @@ static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                                     */
+		/* extract the offline message padding */
 		if ((call->count & 3) == 0) {
 			call->unmarshall++;
 			goto no_offline_padding;
@@ -1621,7 +1621,7 @@ static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 		call->unmarshall++;
 	no_offline_padding:
 
-		/*                                       */
+		/* extract the message of the day length */
 	case 8:
 		ret = afs_extract_data(call, skb, last, &call->tmp, 4);
 		switch (ret) {
@@ -1637,7 +1637,7 @@ static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                                */
+		/* extract the message of the day */
 	case 9:
 		_debug("extract motd");
 		if (call->count > 0) {
@@ -1657,7 +1657,7 @@ static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                                        */
+		/* extract the message of the day padding */
 		if ((call->count & 3) == 0) {
 			call->unmarshall++;
 			goto no_motd_padding;
@@ -1692,7 +1692,7 @@ static int afs_deliver_fs_get_volume_status(struct afs_call *call,
 }
 
 /*
-                                     
+ * destroy an FS.GetVolumeStatus call
  */
 static void afs_get_volume_status_call_destructor(struct afs_call *call)
 {
@@ -1702,7 +1702,7 @@ static void afs_get_volume_status_call_destructor(struct afs_call *call)
 }
 
 /*
-                                    
+ * FS.GetVolumeStatus operation type
  */
 static const struct afs_call_type afs_RXFSGetVolumeStatus = {
 	.name		= "FS.GetVolumeStatus",
@@ -1712,7 +1712,7 @@ static const struct afs_call_type afs_RXFSGetVolumeStatus = {
 };
 
 /*
-                               
+ * fetch the status of a volume
  */
 int afs_fs_get_volume_status(struct afs_server *server,
 			     struct key *key,
@@ -1743,7 +1743,7 @@ int afs_fs_get_volume_status(struct afs_server *server,
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	bp[0] = htonl(FSGETVOLUMESTATUS);
 	bp[1] = htonl(vnode->fid.vid);
@@ -1752,7 +1752,7 @@ int afs_fs_get_volume_status(struct afs_server *server,
 }
 
 /*
-                                                                       
+ * deliver reply data to an FS.SetLock, FS.ExtendLock or FS.ReleaseLock
  */
 static int afs_deliver_fs_xxxx_lock(struct afs_call *call,
 				    struct sk_buff *skb, bool last)
@@ -1768,16 +1768,16 @@ static int afs_deliver_fs_xxxx_lock(struct afs_call *call,
 	if (call->reply_size != call->reply_max)
 		return -EBADMSG;
 
-	/*                                                    */
+	/* unmarshall the reply once we've received all of it */
 	bp = call->buffer;
-	/*                                           */
+	/* xdr_decode_AFSVolSync(&bp, call->replyX); */
 
 	_leave(" = 0 [done]");
 	return 0;
 }
 
 /*
-                            
+ * FS.SetLock operation type
  */
 static const struct afs_call_type afs_RXFSSetLock = {
 	.name		= "FS.SetLock",
@@ -1787,7 +1787,7 @@ static const struct afs_call_type afs_RXFSSetLock = {
 };
 
 /*
-                               
+ * FS.ExtendLock operation type
  */
 static const struct afs_call_type afs_RXFSExtendLock = {
 	.name		= "FS.ExtendLock",
@@ -1797,7 +1797,7 @@ static const struct afs_call_type afs_RXFSExtendLock = {
 };
 
 /*
-                                
+ * FS.ReleaseLock operation type
  */
 static const struct afs_call_type afs_RXFSReleaseLock = {
 	.name		= "FS.ReleaseLock",
@@ -1807,7 +1807,7 @@ static const struct afs_call_type afs_RXFSReleaseLock = {
 };
 
 /*
-                       
+ * get a lock on a file
  */
 int afs_fs_set_lock(struct afs_server *server,
 		    struct key *key,
@@ -1829,7 +1829,7 @@ int afs_fs_set_lock(struct afs_server *server,
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(FSSETLOCK);
 	*bp++ = htonl(vnode->fid.vid);
@@ -1841,7 +1841,7 @@ int afs_fs_set_lock(struct afs_server *server,
 }
 
 /*
-                          
+ * extend a lock on a file
  */
 int afs_fs_extend_lock(struct afs_server *server,
 		       struct key *key,
@@ -1862,7 +1862,7 @@ int afs_fs_extend_lock(struct afs_server *server,
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(FSEXTENDLOCK);
 	*bp++ = htonl(vnode->fid.vid);
@@ -1873,7 +1873,7 @@ int afs_fs_extend_lock(struct afs_server *server,
 }
 
 /*
-                           
+ * release a lock on a file
  */
 int afs_fs_release_lock(struct afs_server *server,
 			struct key *key,
@@ -1894,7 +1894,7 @@ int afs_fs_release_lock(struct afs_server *server,
 	call->service_id = FS_SERVICE;
 	call->port = htons(AFS_FS_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(FSRELEASELOCK);
 	*bp++ = htonl(vnode->fid.vid);

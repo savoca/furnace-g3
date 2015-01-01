@@ -29,7 +29,7 @@
 #include <linux/gpio.h>
 
 /*
-                            
+ * UCB1400 AC-link registers
  */
 
 #define UCB_IO_DATA		0x5a

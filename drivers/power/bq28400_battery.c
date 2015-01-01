@@ -12,10 +12,10 @@
  */
 
 /*
-                          
-                                               
-                        
-                                               
+ * High Level description:
+ * http://www.ti.com/lit/ds/symlink/bq28400.pdf
+ * Thechnical Reference:
+ * http://www.ti.com/lit/ug/sluu431/sluu431.pdf
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -37,7 +37,7 @@
 #define BQ28400_NAME "bq28400"
 #define BQ28400_REV  "1.0"
 
-/*                         */
+/* SBS Commands (page 63)  */
 
 #define SBS_MANUFACTURER_ACCESS		0x00
 #define SBS_BATTERY_MODE		0x03
@@ -46,7 +46,7 @@
 #define SBS_CURRENT			0x0A
 #define SBS_AVG_CURRENT			0x0B
 #define SBS_MAX_ERROR			0x0C
-#define SBS_RSOC			0x0D	/*                          */
+#define SBS_RSOC			0x0D	/* Relative State Of Charge */
 #define SBS_REMAIN_CAPACITY		0x0F
 #define SBS_FULL_CAPACITY		0x10
 #define SBS_CHG_CURRENT			0x14
@@ -66,7 +66,7 @@
 #define SBS_CELL_VOLTAGE1		0x3E
 #define SBS_CELL_VOLTAGE2		0x3F
 
-/*                                  */
+/* Extended SBS Commands (page 71)  */
 
 #define SBS_FET_CONTROL			0x46
 #define SBS_SAFETY_ALERT		0x50
@@ -88,8 +88,8 @@
 #define SBS_SENSE_RESISTOR		0x71
 #define SBS_TEMP_RANGE			0x72
 
-/*                            */
-/*                             */
+/* SBS Sub-Commands (16 bits) */
+/* SBS_MANUFACTURER_ACCESS CMD */
 #define SUBCMD_DEVICE_TYPE		0x01
 #define SUBCMD_FIRMWARE_VERSION		0x02
 #define SUBCMD_HARDWARE_VERSION		0x03
@@ -97,7 +97,7 @@
 #define SUBCMD_EDV			0x05
 #define SUBCMD_CHEMISTRY_ID		0x08
 
-/*                     */
+/* SBS_CHARGING_STATUS */
 #define CHG_STATUS_BATTERY_DEPLETED	BIT(0)
 #define CHG_STATUS_OVERCHARGE		BIT(1)
 #define CHG_STATUS_OVERCHARGE_CURRENT	BIT(2)
@@ -111,12 +111,12 @@
 #define CHG_STATUS_SUSPENDED		BIT(14)
 #define CHG_STATUS_DISABLED		BIT(15)
 
-/*                */
+/* SBS_FET_STATUS */
 #define FET_STATUS_DISCHARGE		BIT(1)
 #define FET_STATUS_CHARGE		BIT(2)
 #define FET_STATUS_PRECHARGE		BIT(3)
 
-/*                    */
+/* SBS_BATTERY_STATUS */
 #define BAT_STATUS_SBS_ERROR		0x0F
 #define BAT_STATUS_EMPTY		BIT(4)
 #define BAT_STATUS_FULL			BIT(5)
@@ -136,8 +136,8 @@ struct bq28400_device {
 	struct power_supply	batt_psy;
 	struct power_supply	*dc_psy;
 	bool			is_charging_enabled;
-	u32			temp_cold;	/*                   */
-	u32			temp_hot;	/*                   */
+	u32			temp_cold;	/* in degree celsius */
+	u32			temp_hot;	/* in degree celsius */
 };
 
 static struct bq28400_device *bq28400_dev;
@@ -170,7 +170,7 @@ module_param(fake_battery, int, 0644);
 #define BQ28400_DEBUG_REG(x) {#x, SBS_##x, 0}
 #define BQ28400_DEBUG_SUBREG(x, y) {#y, SBS_##x, SUBCMD_##y}
 
-/*                                                       */
+/* Note: Some register can be read only in Unsealed mode */
 static struct debug_reg bq28400_debug_regs[] = {
 	BQ28400_DEBUG_REG(MANUFACTURER_ACCESS),
 	BQ28400_DEBUG_REG(BATTERY_MODE),
@@ -255,7 +255,7 @@ static int bq28400_read_subcmd(struct i2c_client *client, u8 reg, u16 subcmd)
 	buf[1] = subcmd & 0xFF;
 	buf[2] = (subcmd >> 8) & 0xFF;
 
-	/*                     */
+	/* Control sub-command */
 	ret = i2c_master_send(client, buf, 3);
 	if (ret < 0) {
 		pr_err("i2c tx fail. reg = 0x%x.ret = %d.\n", reg, ret);
@@ -263,7 +263,7 @@ static int bq28400_read_subcmd(struct i2c_client *client, u8 reg, u16 subcmd)
 	}
 	udelay(66);
 
-	/*                       */
+	/* Read Result of subcmd */
 	ret = i2c_master_send(client, buf, 1);
 	memset(buf, 0xAA, sizeof(buf));
 	ret = i2c_master_recv(client, buf, 2);
@@ -297,8 +297,8 @@ static int bq28400_read_block(struct i2c_client *client, u8 reg,
 }
 
 /*
-                               
-                                                                         
+ * Read a string from a device.
+ * Returns string length on success or error on failure (negative value).
  */
 static int bq28400_read_string(struct i2c_client *client, u8 reg, char *str,
 			       u8 max_len)
@@ -310,14 +310,14 @@ static int bq28400_read_string(struct i2c_client *client, u8 reg, char *str,
 	if (ret < 0)
 		return ret;
 
-	len = str[0]; /*               */
-	if (len > max_len - 2) { /*                          */
+	len = str[0]; /* Actual length */
+	if (len > max_len - 2) { /* reduce len byte and null */
 		pr_err("len = %d invalid.\n", len);
 		return -EINVAL;
 	}
 
-	memcpy(&str[0], &str[1], len); /*                         */
-	str[len] = 0; /*                            */
+	memcpy(&str[0], &str[1], len); /* Move sting to the start */
+	str[len] = 0; /* put NULL after actual size */
 
 	pr_debug("len = %d.str = %s.\n", len, str);
 
@@ -326,14 +326,14 @@ static int bq28400_read_string(struct i2c_client *client, u8 reg, char *str,
 
 #define BQ28400_INVALID_TEMPERATURE	-999
 /*
-                                                             
-                                 
+ * Return the battery temperature in tenths of degree Celsius
+ * Or -99.9 C if something fails.
  */
 static int bq28400_read_temperature(struct i2c_client *client)
 {
 	int temp;
 
-	/*                                   */
+	/* temperature resolution 0.1 Kelvin */
 	temp = bq28400_read_reg(client, SBS_TEMPERATURE);
 	if (temp < 0)
 		return BQ28400_INVALID_TEMPERATURE;
@@ -346,8 +346,8 @@ static int bq28400_read_temperature(struct i2c_client *client)
 }
 
 /*
-                                                  
-                             
+ * Return the battery Voltage in milivolts 0..20 V
+ * Or < 0 if something fails.
  */
 static int bq28400_read_voltage(struct i2c_client *client)
 {
@@ -363,11 +363,11 @@ static int bq28400_read_voltage(struct i2c_client *client)
 }
 
 /*
-                                         
-                           
-                                      
-                                          
-                                          
+ * Return the battery Current in miliamps
+ * Or 0 if something fails.
+ * Positive current indicates charging
+ * Negative current indicates discharging.
+ * Current-now is calculated every second.
  */
 static int bq28400_read_current(struct i2c_client *client)
 {
@@ -381,11 +381,11 @@ static int bq28400_read_current(struct i2c_client *client)
 }
 
 /*
-                                                 
-                           
-                                      
-                                          
-                                                           
+ * Return the Average battery Current in miliamps
+ * Or 0 if something fails.
+ * Positive current indicates charging
+ * Negative current indicates discharging.
+ * Average Current is the rolling 1 minute average current.
  */
 static int bq28400_read_avg_current(struct i2c_client *client)
 {
@@ -399,8 +399,8 @@ static int bq28400_read_avg_current(struct i2c_client *client)
 }
 
 /*
-                                                       
-                                        
+ * Return the battery Relative-State-Of-Charge 0..100 %
+ * Or negative value if something fails.
  */
 static int bq28400_read_rsoc(struct i2c_client *client)
 {
@@ -411,7 +411,7 @@ static int bq28400_read_rsoc(struct i2c_client *client)
 		return fake_battery;
 	}
 
-	/*                              */
+	/* This register is only 1 byte */
 	percentage = i2c_smbus_read_byte_data(client, SBS_RSOC);
 
 	if (percentage < 0) {
@@ -425,8 +425,8 @@ static int bq28400_read_rsoc(struct i2c_client *client)
 }
 
 /*
-                                      
-                           
+ * Return the battery Capacity in mAh.
+ * Or 0 if something fails.
  */
 static int bq28400_read_full_capacity(struct i2c_client *client)
 {
@@ -442,8 +442,8 @@ static int bq28400_read_full_capacity(struct i2c_client *client)
 }
 
 /*
-                                      
-                           
+ * Return the battery Capacity in mAh.
+ * Or 0 if something fails.
  */
 static int bq28400_read_remain_capacity(struct i2c_client *client)
 {
@@ -503,16 +503,16 @@ static int bq28400_get_prop_status(struct i2c_client *client)
 	rsoc = bq28400_read_rsoc(client);
 	current_ma = bq28400_read_current(client);
 	temperature = bq28400_read_temperature(client);
-	temperature = temperature / 10; /*                   */
+	temperature = temperature / 10; /* in degree celsius */
 
 	if (battery_status & BAT_STATUS_EMPTY)
 		pr_debug("Battery report Empty.\n");
 
-	/*                                            
-                                      
-                                                         
-                                                                      
-  */
+	/* Battery may report FULL before rsoc is 100%
+	 * for protection and cell-balancing.
+	 * The FULL report may remain when rsoc drops from 100%.
+	 * If battery is full but DC-Jack is removed then report discahrging.
+	 */
 	if (battery_status & BAT_STATUS_FULL) {
 		pr_debug("Battery report Full.\n");
 		bq28400_enable_charging(bq28400_dev, false);
@@ -527,17 +527,17 @@ static int bq28400_get_prop_status(struct i2c_client *client)
 		return POWER_SUPPLY_STATUS_FULL;
 	}
 
-	/*                                                                */
+	/* Enable charging when battery is not full and temperature is ok */
 	if ((temperature > dev->temp_cold) && (temperature < dev->temp_hot))
 		bq28400_enable_charging(bq28400_dev, true);
 	else
 		bq28400_enable_charging(bq28400_dev, false);
 
 	/*
-                                      
-                                          
-                                              
- */
+	* Positive current indicates charging
+	* Negative current indicates discharging.
+	* Charging is stopped at termination-current.
+	*/
 	if (current_ma < 0) {
 		pr_debug("Discharging.\n");
 		status = POWER_SUPPLY_STATUS_DISCHARGING;
@@ -622,21 +622,21 @@ static bool bq28400_get_prop_present(struct i2c_client *client)
 
 	val = bq28400_read_reg(client, SBS_BATTERY_STATUS);
 
-	/*                                          
-                                                            
-  */
+	/* If the bq28400 is inside the battery pack
+	 * then when battery is removed the i2c transfer will fail.
+	 */
 
 	if (val < 0)
 		return false;
 
-	/*                                                             */
+	/* TODO - support when bq28400 is not embedded in battery pack */
 
 	return true;
 }
 
 /*
-                                    
-                                                  
+ * User sapce read the battery info.
+ * Get data online via I2C from the battery gauge.
  */
 static int bq28400_get_property(struct power_supply *psy,
 				  enum power_supply_property psp,
@@ -661,7 +661,7 @@ static int bq28400_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = bq28400_read_voltage(client);
-		val->intval *= 1000; /*          */
+		val->intval *= 1000; /* mV to uV */
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = bq28400_read_rsoc(client);
@@ -669,14 +669,14 @@ static int bq28400_get_property(struct power_supply *psy,
 			ret = -EINVAL;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		/*                                    */
+		/* Positive current indicates drawing */
 		val->intval = -bq28400_read_current(client);
-		val->intval *= 1000; /*          */
+		val->intval *= 1000; /* mA to uA */
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
-		/*                                    */
+		/* Positive current indicates drawing */
 		val->intval = -bq28400_read_avg_current(client);
-		val->intval *= 1000; /*          */
+		val->intval *= 1000; /* mA to uA */
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = bq28400_read_temperature(client);
@@ -781,12 +781,12 @@ static void bq28400_external_power_changed(struct power_supply *psy)
 {
 	pr_debug("Notify power_supply_changed.\n");
 
-	/*                                                                   
-                                                                        
-                                       
-  */
+	/* The battery gauge monitors the current and voltage every 1 second.
+	 * Therefore a delay from the time that the charger start/stop charging
+	 * until the battery gauge detects it.
+	 */
 	msleep(1000);
-	/*                                */
+	/* Update LEDs and notify uevents */
 	power_supply_changed(&bq28400_dev->batt_psy);
 }
 
@@ -814,15 +814,15 @@ static int __devinit bq28400_register_psy(struct bq28400_device *bq28400_dev)
 	return 0;
 }
 
-/* 
-                                   
-                                                         
-                                
-                                                            
-             
-                                                              
-                                                               
-                  
+/**
+ * Update userspace every 1 minute.
+ * Normally it takes more than 120 minutes (two hours) to
+ * charge/discahrge the battery,
+ * so updating every 1 minute should be enough for 1% change
+ * detection.
+ * Any immidiate change detected by the DC charger is notified
+ * by the bq28400_external_power_changed callback, which notify
+ * the user space.
  */
 static void bq28400_periodic_user_space_update_worker(struct work_struct *work)
 {
@@ -830,7 +830,7 @@ static void bq28400_periodic_user_space_update_worker(struct work_struct *work)
 
 	pr_debug("Notify user space.\n");
 
-	/*                                                          */
+	/* Notify user space via kobject_uevent change notification */
 	power_supply_changed(&bq28400_dev->batt_psy);
 
 	schedule_delayed_work(&bq28400_dev->periodic_user_space_update_work,
@@ -866,7 +866,7 @@ static int __devinit bq28400_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
-	/*                                                            */
+	/* Note: Lithium-ion battery normal temperature range 0..40 C */
 	ret = of_property_read_u32(dev_node, "ti,temp-cold",
 				   &(bq28400_dev->temp_cold));
 	if (ret) {

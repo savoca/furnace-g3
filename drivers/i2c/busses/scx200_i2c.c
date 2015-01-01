@@ -65,9 +65,9 @@ static int scx200_i2c_getsda(void *data)
 	return scx200_gpio_get(sda);
 }
 
-/*                                                                         
-                                                                       
-                                                                      
+/* ------------------------------------------------------------------------
+ * Encapsulate the above functions in the correct operations structure.
+ * This is only done when more than one hardware adapter is supported.
  */
 
 static struct i2c_algo_bit_data scx200_i2c_data = {
@@ -102,7 +102,7 @@ static int scx200_i2c_init(void)
 		return -EINVAL;
 	}
 
-	/*                                           */
+	/* Configure GPIOs as open collector outputs */
 	scx200_gpio_configure(scl, ~2, 5);
 	scx200_gpio_configure(sda, ~2, 5);
 
@@ -124,8 +124,8 @@ module_init(scx200_i2c_init);
 module_exit(scx200_i2c_cleanup);
 
 /*
-                    
-                                                                       
-                         
-        
+    Local variables:
+        compile-command: "make -k -C ../.. SUBDIRS=drivers/i2c modules"
+        c-basic-offset: 8
+    End:
 */

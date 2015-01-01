@@ -17,7 +17,7 @@
 #include <asm/uaccess.h>
 
 /*
-                                        
+ * Nothing too terribly exciting here ..
  */
 void copy_page(void *to, void *from)
 {

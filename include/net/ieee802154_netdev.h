@@ -27,8 +27,8 @@
 #define IEEE802154_NETDEVICE_H
 
 /*
-                                                                     
-                         
+ * A control block of skb passed between the ARPHRD_IEEE802154 device
+ * and other stack parts.
  */
 struct ieee802154_mac_cb {
 	u8 lqi;
@@ -76,10 +76,10 @@ static inline int mac_cb_type(struct sk_buff *skb)
 
 struct wpan_phy;
 /*
-                                                
-  
-                                                                   
-                                          
+ * This should be located at net_device->ml_priv
+ *
+ * get_phy should increment the reference counting on returned phy.
+ * Use wpan_wpy_put to put that reference.
  */
 struct ieee802154_mlme_ops {
 	int (*assoc_req)(struct net_device *dev,
@@ -101,9 +101,9 @@ struct ieee802154_mlme_ops {
 	struct wpan_phy *(*get_phy)(const struct net_device *dev);
 
 	/*
-                                                             
-                                                        
-  */
+	 * FIXME: these should become the part of PIB/MIB interface.
+	 * However we still don't have IB interface of any kind
+	 */
 	u16 (*get_pan_id)(const struct net_device *dev);
 	u16 (*get_short_addr)(const struct net_device *dev);
 	u8 (*get_dsn)(const struct net_device *dev);

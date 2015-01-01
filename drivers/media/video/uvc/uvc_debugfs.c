@@ -18,8 +18,8 @@
 
 #include "uvcvideo.h"
 
-/*                                                                              
-             
+/* -----------------------------------------------------------------------------
+ * Statistics
  */
 
 #define UVC_DEBUGFS_BUF_SIZE	1024
@@ -69,8 +69,8 @@ static const struct file_operations uvc_debugfs_stats_fops = {
 	.release = uvc_debugfs_stats_release,
 };
 
-/*                                                                              
-                                           
+/* -----------------------------------------------------------------------------
+ * Global and stream initialization/cleanup
  */
 
 static struct dentry *uvc_debugfs_root_dir;

@@ -108,4 +108,4 @@ typedef struct
 } tRcvFltMcAddrList, *tpRcvFltMcAddrList;
 
 #endif
-#endif //                                
+#endif // __WLAN_HDD_PACKET_FILTERING_H__

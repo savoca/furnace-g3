@@ -56,7 +56,7 @@
 #define	FTMAC100_OFFSET_XP		0xf8
 
 /*
-                                                      
+ * Interrupt status register & interrupt mask register
  */
 #define	FTMAC100_INT_RPKT_FINISH	(1 << 0)
 #define	FTMAC100_INT_NORXBUF		(1 << 1)
@@ -70,7 +70,7 @@
 #define	FTMAC100_INT_PHYSTS_CHG		(1 << 9)
 
 /*
-                                   
+ * Interrupt timer control register
  */
 #define FTMAC100_ITC_RXINT_CNT(x)	(((x) & 0xf) << 0)
 #define FTMAC100_ITC_RXINT_THR(x)	(((x) & 0x7) << 4)
@@ -80,7 +80,7 @@
 #define FTMAC100_ITC_TXINT_TIME_SEL	(1 << 15)
 
 /*
-                                           
+ * Automatic polling timer control register
  */
 #define	FTMAC100_APTC_RXPOLL_CNT(x)	(((x) & 0xf) << 0)
 #define	FTMAC100_APTC_RXPOLL_TIME_SEL	(1 << 4)
@@ -88,7 +88,7 @@
 #define	FTMAC100_APTC_TXPOLL_TIME_SEL	(1 << 12)
 
 /*
-                                                    
+ * DMA burst length and arbitration control register
  */
 #define FTMAC100_DBLAC_INCR4_EN		(1 << 0)
 #define FTMAC100_DBLAC_INCR8_EN		(1 << 1)
@@ -98,7 +98,7 @@
 #define FTMAC100_DBLAC_RX_THR_EN	(1 << 9)
 
 /*
-                       
+ * MAC control register
  */
 #define	FTMAC100_MACCR_XDMA_EN		(1 << 0)
 #define	FTMAC100_MACCR_RDMA_EN		(1 << 1)
@@ -118,7 +118,7 @@
 #define	FTMAC100_MACCR_RX_BROADPKT	(1 << 17)
 
 /*
-                       
+ * PHY control register
  */
 #define FTMAC100_PHYCR_MIIRDATA		0xffff
 #define FTMAC100_PHYCR_PHYAD(x)		(((x) & 0x1f) << 16)
@@ -127,18 +127,18 @@
 #define FTMAC100_PHYCR_MIIWR		(1 << 27)
 
 /*
-                          
+ * PHY write data register
  */
 #define FTMAC100_PHYWDATA_MIIWDATA(x)	((x) & 0xffff)
 
 /*
-                                           
+ * Transmit descriptor, aligned to 16 bytes
  */
 struct ftmac100_txdes {
 	unsigned int	txdes0;
 	unsigned int	txdes1;
-	unsigned int	txdes2;	/*            */
-	unsigned int	txdes3;	/*                */
+	unsigned int	txdes2;	/* TXBUF_BADR */
+	unsigned int	txdes3;	/* not used by HW */
 } __attribute__ ((aligned(16)));
 
 #define	FTMAC100_TXDES0_TXPKT_LATECOL	(1 << 0)
@@ -153,13 +153,13 @@ struct ftmac100_txdes {
 #define	FTMAC100_TXDES1_EDOTR		(1 << 31)
 
 /*
-                                          
+ * Receive descriptor, aligned to 16 bytes
  */
 struct ftmac100_rxdes {
 	unsigned int	rxdes0;
 	unsigned int	rxdes1;
-	unsigned int	rxdes2;	/*            */
-	unsigned int	rxdes3;	/*                */
+	unsigned int	rxdes2;	/* RXBUF_BADR */
+	unsigned int	rxdes3;	/* not used by HW */
 } __attribute__ ((aligned(16)));
 
 #define	FTMAC100_RXDES0_RFL		0x7ff
@@ -177,4 +177,4 @@ struct ftmac100_rxdes {
 #define	FTMAC100_RXDES1_RXBUF_SIZE(x)	((x) & 0x7ff)
 #define	FTMAC100_RXDES1_EDORR		(1 << 31)
 
-#endif /*              */
+#endif /* __FTMAC100_H */

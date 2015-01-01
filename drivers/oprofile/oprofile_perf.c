@@ -9,7 +9,7 @@
 #include <linux/slab.h>
 
 /*
-                                                               
+ * Per performance monitor configuration as set via oprofilefs.
  */
 struct op_counter_config {
 	unsigned long count;
@@ -29,7 +29,7 @@ static struct perf_event **perf_events[nr_cpumask_bits];
 static int num_counters;
 
 /*
-                                  
+ * Overflow callback for oprofile.
  */
 static void op_overflow_handler(struct perf_event *event,
 			struct perf_sample_data *data, struct pt_regs *regs)
@@ -49,9 +49,9 @@ static void op_overflow_handler(struct perf_event *event,
 }
 
 /*
-                                                                                 
-                                                                            
-                                           
+ * Called by oprofile_perf_setup to create perf attributes to mirror the oprofile
+ * settings in counter_config. Attributes are created as `pinned' events and
+ * so are permanently scheduled on the PMU.
  */
 static void op_perf_setup(void)
 {
@@ -107,8 +107,8 @@ static void op_destroy_counter(int cpu, int event)
 }
 
 /*
-                                                                          
-                                    
+ * Called by oprofile_perf_start to create active perf events based on the
+ * perviously configured attributes.
  */
 static int op_perf_start(void)
 {
@@ -126,7 +126,7 @@ static int op_perf_start(void)
 }
 
 /*
-                                                              
+ * Called by oprofile_perf_stop at the end of a profiling run.
  */
 static void op_perf_stop(void)
 {
@@ -248,7 +248,7 @@ static void exit_driverfs(void)
 static inline int  init_driverfs(void) { return 0; }
 static inline void exit_driverfs(void) { }
 
-#endif /*           */
+#endif /* CONFIG_PM */
 
 void oprofile_perf_exit(void)
 {

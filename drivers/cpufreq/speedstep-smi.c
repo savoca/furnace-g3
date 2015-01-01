@@ -8,9 +8,9 @@
  */
 
 
-/*                                                                    
-                                                                      
-                                                                     */
+/*********************************************************************
+ *                        SPEEDSTEP - DEFINITIONS                    *
+ *********************************************************************/
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -24,22 +24,22 @@
 
 #include "speedstep-lib.h"
 
-/*                                                    
-  
-                                                   
-                                    
-  
+/* speedstep system management interface port/command.
+ *
+ * These parameters are got from IST-SMI BIOS call.
+ * If user gives it, these are used.
+ *
  */
 static int smi_port;
 static int smi_cmd;
 static unsigned int smi_sig;
 
-/*                          */
+/* info about the processor */
 static enum speedstep_processor speedstep_processor;
 
 /*
-                                                                 
-                                 
+ * There are only two frequency states for each processor. Values
+ * are in kHz for the time being.
  */
 static struct cpufreq_frequency_table speedstep_freqs[] = {
 	{SPEEDSTEP_HIGH,	0},
@@ -52,12 +52,12 @@ static struct cpufreq_frequency_table speedstep_freqs[] = {
 #define SET_SPEEDSTEP_STATE 2
 #define GET_SPEEDSTEP_FREQS 4
 
-/*                                                                 
-                             */
+/* how often shall the SMI call be tried if it failed, e.g. because
+ * of DMA activity going on? */
 #define SMI_TRIES 5
 
-/* 
-                          
+/**
+ * speedstep_smi_ownership
  */
 static int speedstep_smi_ownership(void)
 {
@@ -88,14 +88,14 @@ static int speedstep_smi_ownership(void)
 	return result;
 }
 
-/* 
-                                                                    
-                                               
-                                                 
-  
-                                                                              
-                                                                               
-                                                              
+/**
+ * speedstep_smi_get_freqs - get SpeedStep preferred & current freq.
+ * @low: the low frequency value is placed here
+ * @high: the high frequency value is placed here
+ *
+ * Only available on later SpeedStep-enabled systems, returns false results or
+ * even hangs [cf. bugme.osdl.org # 1422] on earlier systems. Empirical testing
+ * shows that the latter occurs if !(ist_info.event & 0xFFFF).
  */
 static int speedstep_smi_get_freqs(unsigned int *low, unsigned int *high)
 {
@@ -130,7 +130,7 @@ static int speedstep_smi_get_freqs(unsigned int *low, unsigned int *high)
 	pr_debug("result %x, low_freq %u, high_freq %u\n",
 			result, low_mhz, high_mhz);
 
-	/*                                             */
+	/* abort if results are obviously incorrect... */
 	if ((high_mhz + low_mhz) < 600)
 		return -EINVAL;
 
@@ -140,10 +140,10 @@ static int speedstep_smi_get_freqs(unsigned int *low, unsigned int *high)
 	return result;
 }
 
-/* 
-                                                
-                                                                      
-  
+/**
+ * speedstep_get_state - set the SpeedStep state
+ * @state: processor frequency state (SPEEDSTEP_LOW or SPEEDSTEP_HIGH)
+ *
  */
 static int speedstep_get_state(void)
 {
@@ -172,10 +172,10 @@ static int speedstep_get_state(void)
 }
 
 
-/* 
-                                                
-                                                                          
-  
+/**
+ * speedstep_set_state - set the SpeedStep state
+ * @state: new processor frequency state (SPEEDSTEP_LOW or SPEEDSTEP_HIGH)
+ *
  */
 static void speedstep_set_state(unsigned int state)
 {
@@ -187,7 +187,7 @@ static void speedstep_set_state(unsigned int state)
 	if (state > 0x1)
 		return;
 
-	/*              */
+	/* Disable IRQs */
 	local_irq_save(flags);
 
 	command = (smi_sig & 0xffffff00) | (smi_cmd & 0xff);
@@ -215,7 +215,7 @@ static void speedstep_set_state(unsigned int state)
 			);
 	} while ((new_state != state) && (retry <= SMI_TRIES));
 
-	/*             */
+	/* enable IRQs */
 	local_irq_restore(flags);
 
 	if (new_state == state)
@@ -232,13 +232,13 @@ static void speedstep_set_state(unsigned int state)
 }
 
 
-/* 
-                                              
-                      
-                         
-             
-  
-                                  
+/**
+ * speedstep_target - set a new CPUFreq policy
+ * @policy: new policy
+ * @target_freq: new freq
+ * @relation:
+ *
+ * Sets a new CPUFreq policy/freq.
  */
 static int speedstep_target(struct cpufreq_policy *policy,
 			unsigned int target_freq, unsigned int relation)
@@ -252,7 +252,7 @@ static int speedstep_target(struct cpufreq_policy *policy,
 
 	freqs.old = speedstep_freqs[speedstep_get_state()].frequency;
 	freqs.new = speedstep_freqs[newstate].frequency;
-	freqs.cpu = 0; /*                               */
+	freqs.cpu = 0; /* speedstep.c is UP only driver */
 
 	if (freqs.old == freqs.new)
 		return 0;
@@ -265,12 +265,12 @@ static int speedstep_target(struct cpufreq_policy *policy,
 }
 
 
-/* 
-                                                   
-                      
-  
-                                                                        
-                                
+/**
+ * speedstep_verify - verifies a new CPUFreq policy
+ * @policy: new policy
+ *
+ * Limit must be within speedstep_low_freq and speedstep_high_freq, with
+ * at least one border included.
  */
 static int speedstep_verify(struct cpufreq_policy *policy)
 {
@@ -284,7 +284,7 @@ static int speedstep_cpu_init(struct cpufreq_policy *policy)
 	unsigned int speed, state;
 	unsigned int *low, *high;
 
-	/*                  */
+	/* capability check */
 	if (policy->cpu != 0)
 		return -ENODEV;
 
@@ -294,14 +294,14 @@ static int speedstep_cpu_init(struct cpufreq_policy *policy)
 		return -EINVAL;
 	}
 
-	/*                               */
+	/* detect low and high frequency */
 	low = &speedstep_freqs[SPEEDSTEP_LOW].frequency;
 	high = &speedstep_freqs[SPEEDSTEP_HIGH].frequency;
 
 	result = speedstep_smi_get_freqs(low, high);
 	if (result) {
-		/*                                                
-                         */
+		/* fall back to speedstep_lib.c dection mechanism:
+		 * try both states out */
 		pr_debug("could not detect low and high frequencies "
 				"by SMI call.\n");
 		result = speedstep_get_freqs(speedstep_processor,
@@ -317,7 +317,7 @@ static int speedstep_cpu_init(struct cpufreq_policy *policy)
 			pr_debug("workaround worked.\n");
 	}
 
-	/*                           */
+	/* get current speed setting */
 	state = speedstep_get_state();
 	speed = speedstep_freqs[state].frequency;
 
@@ -326,7 +326,7 @@ static int speedstep_cpu_init(struct cpufreq_policy *policy)
 		? "low" : "high",
 		(speed / 1000));
 
-	/*                                   */
+	/* cpuinfo and default policy values */
 	policy->cpuinfo.transition_latency = CPUFREQ_ETERNAL;
 	policy->cur = speed;
 
@@ -387,16 +387,16 @@ static const struct x86_cpu_id ss_smi_ids[] = {
 	{}
 };
 #if 0
-/*                           */
+/* Not auto loaded currently */
 MODULE_DEVICE_TABLE(x86cpu, ss_smi_ids);
 #endif
 
-/* 
-                                                            
-  
-                                                                      
-                                                               
-           
+/**
+ * speedstep_init - initializes the SpeedStep CPUFreq driver
+ *
+ *   Initializes the SpeedStep support. Returns -ENODEV on unsupported
+ * BIOS, -EINVAL on problems during initiatization, and zero on
+ * success.
  */
 static int __init speedstep_init(void)
 {
@@ -424,8 +424,8 @@ static int __init speedstep_init(void)
 		ist_info.signature, ist_info.command,
 		ist_info.event, ist_info.perf_level);
 
-	/*                                    
-                                            */
+	/* Error if no IST-SMI BIOS or no PARM
+		 sig= 'ISGE' aka 'Intel Speedstep Gate E' */
 	if ((ist_info.signature !=  0x47534943) && (
 	    (smi_port == 0) || (smi_cmd == 0)))
 		return -ENODEV;
@@ -435,7 +435,7 @@ static int __init speedstep_init(void)
 	else
 		smi_sig = ist_info.signature;
 
-	/*                                          */
+	/* setup smi_port from MODLULE_PARM or BIOS */
 	if ((smi_port > 0xff) || (smi_port < 0))
 		return -EINVAL;
 	else if (smi_port == 0)
@@ -450,10 +450,10 @@ static int __init speedstep_init(void)
 }
 
 
-/* 
-                                                 
-  
-                                   
+/**
+ * speedstep_exit - unregisters SpeedStep support
+ *
+ *   Unregisters SpeedStep support.
  */
 static void __exit speedstep_exit(void)
 {

@@ -47,23 +47,23 @@ int wusbhc_sec_create(struct wusbhc *wusbhc)
 }
 
 
-/*                                 */
+/* Called when the HC is destroyed */
 void wusbhc_sec_destroy(struct wusbhc *wusbhc)
 {
 }
 
 
-/* 
-                                                            
-                                      
-                                                  
-                                            
-  
-                                                                     
-                                                                     
-                                                                  
-                                                                     
-                                                                
+/**
+ * wusbhc_next_tkid - generate a new, currently unused, TKID
+ * @wusbhc:   the WUSB host controller
+ * @wusb_dev: the device whose PTK the TKID is for
+ *            (or NULL for a TKID for a GTK)
+ *
+ * The generated TKID consist of two parts: the device's authenicated
+ * address (or 0 or a GTK); and an incrementing number.  This ensures
+ * that TKIDs cannot be shared between devices and by the time the
+ * incrementing number wraps around the older TKIDs will no longer be
+ * in use (a maximum of two keys may be active at any one time).
  */
 static u32 wusbhc_next_tkid(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev)
 {
@@ -97,13 +97,13 @@ static void wusbhc_generate_gtk(struct wusbhc *wusbhc)
 	get_random_bytes(wusbhc->gtk.descr.bKeyData, key_size);
 }
 
-/* 
-                                                           
-                                    
-  
-                                                          
-  
-                                 
+/**
+ * wusbhc_sec_start - start the security management process
+ * @wusbhc: the WUSB host controller
+ *
+ * Generate and set an initial GTK on the host controller.
+ *
+ * Called when the HC is started.
  */
 int wusbhc_sec_start(struct wusbhc *wusbhc)
 {
@@ -121,11 +121,11 @@ int wusbhc_sec_start(struct wusbhc *wusbhc)
 	return result;
 }
 
-/* 
-                                                         
-                                    
-  
-                                           
+/**
+ * wusbhc_sec_stop - stop the security management process
+ * @wusbhc: the WUSB host controller
+ *
+ * Wait for any pending GTK rekeys to stop.
  */
 void wusbhc_sec_stop(struct wusbhc *wusbhc)
 {
@@ -133,7 +133,7 @@ void wusbhc_sec_stop(struct wusbhc *wusbhc)
 }
 
 
-/*                                */
+/** @returns encryption type name */
 const char *wusb_et_name(u8 x)
 {
 	switch (x) {
@@ -147,10 +147,10 @@ const char *wusb_et_name(u8 x)
 EXPORT_SYMBOL_GPL(wusb_et_name);
 
 /*
-                                   
-  
-                                                                     
-                                    
+ * Set the device encryption method
+ *
+ * We tell the device which encryption method to use; we do this when
+ * setting up the device's security.
  */
 static int wusb_dev_set_encryption(struct usb_device *usb_dev, int value)
 {
@@ -161,14 +161,14 @@ static int wusb_dev_set_encryption(struct usb_device *usb_dev, int value)
 	if (value) {
 		value = wusb_dev->ccm1_etd.bEncryptionValue;
 	} else {
-		/*                                                           */
+		/* FIXME: should be wusb_dev->etd[UNSECURE].bEncryptionValue */
 		value = 0;
 	}
-	/*              */
+	/* Set device's */
 	result = usb_control_msg(usb_dev, usb_sndctrlpipe(usb_dev, 0),
 			USB_REQ_SET_ENCRYPTION,
 			USB_DIR_OUT | USB_TYPE_STANDARD | USB_RECIP_DEVICE,
-			value, 0, NULL, 0, 1000 /*                  */);
+			value, 0, NULL, 0, 1000 /* FIXME: arbitrary */);
 	if (result < 0)
 		dev_err(dev, "Can't set device's WUSB encryption to "
 			"%s (value %d): %d\n",
@@ -178,9 +178,9 @@ static int wusb_dev_set_encryption(struct usb_device *usb_dev, int value)
 }
 
 /*
-                                      
-  
-                                    
+ * Set the GTK to be used by a device.
+ *
+ * The device must be authenticated.
  */
 static int wusb_dev_set_gtk(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev)
 {
@@ -196,7 +196,7 @@ static int wusb_dev_set_gtk(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev)
 }
 
 
-/*                                      */
+/* FIXME: prototype for adding security */
 int wusb_dev_sec_add(struct wusbhc *wusbhc,
 		     struct usb_device *usb_dev, struct wusb_dev *wusb_dev)
 {
@@ -259,9 +259,9 @@ int wusb_dev_sec_add(struct wusbhc *wusbhc,
 		if (etd->bEncryptionType == USB_ENC_TYPE_CCM_1)
 			ccm1_etd = etd;
 	}
-	/*                                         */
-	/*                                                 
-                          */
+	/* This code only supports CCM1 as of now. */
+	/* FIXME: user has to choose which sec mode to use?
+	 * In theory we want CCM */
 	if (ccm1_etd == NULL) {
 		dev_err(dev, "WUSB device doesn't support CCM1 encryption, "
 			"can't use!\n");
@@ -280,17 +280,17 @@ out:
 
 void wusb_dev_sec_rm(struct wusb_dev *wusb_dev)
 {
-	/*                */
+	/* Nothing so far */
 }
 
-/* 
-                                                       
-  
-                                                                     
-                                
-  
-                                                                     
-                                                                             
+/**
+ * Update the address of an unauthenticated WUSB device
+ *
+ * Once we have successfully authenticated, we take it to addr0 state
+ * and then to a normal address.
+ *
+ * Before the device's address (as known by it) was usb_dev->devnum |
+ * 0x80 (unauthenticated address). With this we update it to usb_dev->devnum.
  */
 int wusb_dev_update_address(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev)
 {
@@ -299,10 +299,10 @@ int wusb_dev_update_address(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev)
 	struct device *dev = &usb_dev->dev;
 	u8 new_address = wusb_dev->addr & 0x7F;
 
-	/*               */
+	/* Set address 0 */
 	result = usb_control_msg(usb_dev, usb_sndctrlpipe(usb_dev, 0),
 				 USB_REQ_SET_ADDRESS, 0,
-				 0, 0, NULL, 0, 1000 /*                  */);
+				 0, 0, NULL, 0, 1000 /* FIXME: arbitrary */);
 	if (result < 0) {
 		dev_err(dev, "auth failed: can't set address 0: %d\n",
 			result);
@@ -314,11 +314,11 @@ int wusb_dev_update_address(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev)
 	usb_set_device_state(usb_dev, USB_STATE_DEFAULT);
 	usb_ep0_reinit(usb_dev);
 
-	/*                                  */
+	/* Set new (authenticated) address. */
 	result = usb_control_msg(usb_dev, usb_sndctrlpipe(usb_dev, 0),
 				 USB_REQ_SET_ADDRESS, 0,
 				 new_address, 0, NULL, 0,
-				 1000 /*                  */);
+				 1000 /* FIXME: arbitrary */);
 	if (result < 0) {
 		dev_err(dev, "auth failed: can't set address %u: %d\n",
 			new_address, result);
@@ -336,10 +336,10 @@ error_addr0:
 }
 
 /*
-  
-  
+ *
+ *
  */
-/*                          */
+/* FIXME: split and cleanup */
 int wusb_dev_4way_handshake(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev,
 			    struct wusb_ckhdid *ck)
 {
@@ -360,8 +360,8 @@ int wusb_dev_4way_handshake(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev,
 		goto error_kzalloc;
 	}
 
-	/*                                                     
-                             */
+	/* We need to turn encryption before beginning the 4way
+	 * hshake (WUSB1.0[.3.2.2]) */
 	result = wusb_dev_set_encryption(usb_dev, 1);
 	if (result < 0)
 		goto error_dev_set_encryption;
@@ -375,24 +375,24 @@ int wusb_dev_4way_handshake(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev,
 	hs[0].bReserved = 0;
 	memcpy(hs[0].CDID, &wusb_dev->cdid, sizeof(hs[0].CDID));
 	get_random_bytes(&hs[0].nonce, sizeof(hs[0].nonce));
-	memset(hs[0].MIC, 0, sizeof(hs[0].MIC));	/*                    */
+	memset(hs[0].MIC, 0, sizeof(hs[0].MIC));	/* Per WUSB1.0[T7-22] */
 
 	result = usb_control_msg(
 		usb_dev, usb_sndctrlpipe(usb_dev, 0),
 		USB_REQ_SET_HANDSHAKE,
 		USB_DIR_OUT | USB_TYPE_STANDARD | USB_RECIP_DEVICE,
-		1, 0, &hs[0], sizeof(hs[0]), 1000 /*                  */);
+		1, 0, &hs[0], sizeof(hs[0]), 1000 /* FIXME: arbitrary */);
 	if (result < 0) {
 		dev_err(dev, "Handshake1: request failed: %d\n", result);
 		goto error_hs1;
 	}
 
-	/*                                                       */
+	/* Handshake 2, from the device -- need to verify fields */
 	result = usb_control_msg(
 		usb_dev, usb_rcvctrlpipe(usb_dev, 0),
 		USB_REQ_GET_HANDSHAKE,
 		USB_DIR_IN | USB_TYPE_STANDARD | USB_RECIP_DEVICE,
-		2, 0, &hs[1], sizeof(hs[1]), 1000 /*                  */);
+		2, 0, &hs[1], sizeof(hs[1]), 1000 /* FIXME: arbitrary */);
 	if (result < 0) {
 		dev_err(dev, "Handshake2: request failed: %d\n", result);
 		goto error_hs2;
@@ -421,14 +421,14 @@ int wusb_dev_4way_handshake(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev,
 		goto error_hs2;
 	}
 
-	/*                     */
-	memset(&ccm_n.sfn, 0, sizeof(ccm_n.sfn));	/*                    */
+	/* Setup the CCM nonce */
+	memset(&ccm_n.sfn, 0, sizeof(ccm_n.sfn));	/* Per WUSB1.0[6.5.2] */
 	memcpy(ccm_n.tkid, &tkid_le, sizeof(ccm_n.tkid));
 	ccm_n.src_addr = wusbhc->uwb_rc->uwb_dev.dev_addr;
 	ccm_n.dest_addr.data[0] = wusb_dev->addr;
 	ccm_n.dest_addr.data[1] = 0;
 
-	/*                                                         */
+	/* Derive the KCK and PTK from CK, the CCM, H and D nonces */
 	memcpy(keydvt_in.hnonce, hs[0].nonce, sizeof(keydvt_in.hnonce));
 	memcpy(keydvt_in.dnonce, hs[1].nonce, sizeof(keydvt_in.dnonce));
 	result = wusb_key_derive(&keydvt_out, ck->data, &ccm_n, &keydvt_in);
@@ -438,7 +438,7 @@ int wusb_dev_4way_handshake(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev,
 		goto error_hs2;
 	}
 
-	/*                           */
+	/* Compute MIC and verify it */
 	result = wusb_oob_mic(mic, keydvt_out.kck, &ccm_n, &hs[1]);
 	if (result < 0) {
 		dev_err(dev, "Handshake2 failed: cannot compute MIC: %d\n",
@@ -451,7 +451,7 @@ int wusb_dev_4way_handshake(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev,
 		goto error_hs2;
 	}
 
-	/*                 */
+	/* Send Handshake3 */
 	hs[2].bMessageNumber = 3;
 	hs[2].bStatus = 0;
 	memcpy(hs[2].tTKID, &tkid_le, sizeof(hs[2].tTKID));
@@ -469,7 +469,7 @@ int wusb_dev_4way_handshake(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev,
 		usb_dev, usb_sndctrlpipe(usb_dev, 0),
 		USB_REQ_SET_HANDSHAKE,
 		USB_DIR_OUT | USB_TYPE_STANDARD | USB_RECIP_DEVICE,
-		3, 0, &hs[2], sizeof(hs[2]), 1000 /*                  */);
+		3, 0, &hs[2], sizeof(hs[2]), 1000 /* FIXME: arbitrary */);
 	if (result < 0) {
 		dev_err(dev, "Handshake3: request failed: %d\n", result);
 		goto error_hs3;
@@ -487,7 +487,7 @@ int wusb_dev_4way_handshake(struct wusbhc *wusbhc, struct wusb_dev *wusb_dev,
 		goto error_wusbhc_set_gtk;
 	}
 
-	/*                                                 */
+	/* Update the device's address from unauth to auth */
 	if (usb_dev->authenticated == 0) {
 		result = wusb_dev_update_address(wusbhc, wusb_dev);
 		if (result < 0)
@@ -516,8 +516,8 @@ error_kzalloc:
 }
 
 /*
-                                                                     
-                                    
+ * Once all connected and authenticated devices have received the new
+ * GTK, switch the host to using it.
  */
 static void wusbhc_gtk_rekey_done_work(struct work_struct *work)
 {
@@ -539,16 +539,16 @@ static void wusbhc_set_gtk_callback(struct urb *urb)
 	queue_work(wusbd, &wusbhc->gtk_rekey_done_work);
 }
 
-/* 
-                                                       
-                                    
-  
-                                                            
-                                                                      
-                   
-  
-                                                                
-                     
+/**
+ * wusbhc_gtk_rekey - generate and distribute a new GTK
+ * @wusbhc: the WUSB host controller
+ *
+ * Generate a new GTK and distribute it to all connected and
+ * authenticated devices.  When all devices have the new GTK, the host
+ * starts using it.
+ *
+ * This must be called after every device disconnect (see [WUSB]
+ * section 6.2.11.2).
  */
 void wusbhc_gtk_rekey(struct wusbhc *wusbhc)
 {

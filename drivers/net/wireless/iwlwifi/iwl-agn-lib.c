@@ -55,22 +55,22 @@ int iwlagn_send_tx_power(struct iwl_priv *priv)
 		      "TX Power requested while scanning!\n"))
 		return -EAGAIN;
 
-	/*                           */
+	/* half dBm need to multiply */
 	tx_power_cmd.global_lmt = (s8)(2 * priv->tx_power_user_lmt);
 
 	if (priv->tx_power_lmt_in_half_dbm &&
 	    priv->tx_power_lmt_in_half_dbm < tx_power_cmd.global_lmt) {
 		/*
-                                                               
-                                                               
-                                                     
-                                                              
-                                                          
-                                                           
-                                                        
-                                                        
-                                                         
-   */
+		 * For the newer devices which using enhanced/extend tx power
+		 * table in EEPROM, the format is in half dBm. driver need to
+		 * convert to dBm format before report to mac80211.
+		 * By doing so, there is a possibility of 1/2 dBm resolution
+		 * lost. driver will perform "round-up" operation before
+		 * reporting, but it will cause 1/2 dBm tx power over the
+		 * regulatory limit. Perform the checking here, if the
+		 * "tx_power_user_lmt" is higher than EEPROM value (in
+		 * half-dBm format), lower the tx power based on EEPROM
+		 */
 		tx_power_cmd.global_lmt = priv->tx_power_lmt_in_half_dbm;
 	}
 	tx_power_cmd.flags = IWLAGN_TX_POWER_NO_CLOSED;
@@ -89,7 +89,7 @@ void iwlagn_temperature(struct iwl_priv *priv)
 {
 	lockdep_assert_held(&priv->statistics.lock);
 
-	/*                                                        */
+	/* store temperature from correct statistics (in Celsius) */
 	priv->temperature = le32_to_cpu(priv->statistics.common.temperature);
 	iwl_tt_handler(priv);
 }
@@ -105,7 +105,7 @@ u16 iwl_eeprom_calib_version(struct iwl_shared *shrd)
 }
 
 /*
-         
+ * EEPROM
  */
 static u32 eeprom_indirect_address(const struct iwl_shared *shrd, u32 address)
 {
@@ -145,7 +145,7 @@ static u32 eeprom_indirect_address(const struct iwl_shared *shrd, u32 address)
 		break;
 	}
 
-	/*                                         */
+	/* translate the offset from words to byte */
 	return (address & ADDRESS_MSK) + (offset << 1);
 }
 
@@ -166,7 +166,7 @@ struct iwl_mod_params iwlagn_mod_params = {
 	.bt_ch_announce = true,
 	.wanted_ucode_alternative = 1,
 	.auto_agg = true,
-	/*                           */
+	/* the rest are 0 by default */
 };
 
 int iwlagn_hwrate_to_mac80211_idx(u32 rate_n_flags, enum ieee80211_band band)
@@ -174,11 +174,11 @@ int iwlagn_hwrate_to_mac80211_idx(u32 rate_n_flags, enum ieee80211_band band)
 	int idx = 0;
 	int band_offset = 0;
 
-	/*                                                                 */
+	/* HT rate format: mac80211 wants an MCS number, which is just LSB */
 	if (rate_n_flags & RATE_MCS_HT_MSK) {
 		idx = (rate_n_flags & 0xff);
 		return idx;
-	/*                                               */
+	/* Legacy rate format, search for match in table */
 	} else {
 		if (band == IEEE80211_BAND_5GHZ)
 			band_offset = IWL_FIRST_OFDM_RATE;
@@ -203,12 +203,12 @@ int iwlagn_manage_ibss_station(struct iwl_priv *priv,
 				  vif->bss_conf.bssid);
 }
 
-/* 
-                                                                
-  
-                    
-                                   
-                                               
+/**
+ * iwlagn_txfifo_flush: send REPLY_TXFIFO_FLUSH command to uCode
+ *
+ * pre-requirements:
+ *  1. acquire mutex before calling
+ *  2. make sure rf is on and not in exit state
  */
 int iwlagn_txfifo_flush(struct iwl_priv *priv, u16 flush_control)
 {
@@ -260,21 +260,21 @@ done:
 }
 
 /*
-          
+ * BT coex
  */
 /*
-                                     
-  
-                                                                          
-                                           
-  
-                                                              
-  
-                                                                           
-                                                                             
-                                                                 
-  
-                                   
+ * Macros to access the lookup table.
+ *
+ * The lookup table has 7 inputs: bt3_prio, bt3_txrx, bt_rf_act, wifi_req,
+* wifi_prio, wifi_txrx and wifi_sh_ant_req.
+ *
+ * It has three outputs: WLAN_ACTIVE, WLAN_KILL and ANT_SWITCH
+ *
+ * The format is that "registers" 8 through 11 contain the WLAN_ACTIVE bits
+ * one after another in 32-bit registers, and "registers" 0 through 7 contain
+ * the WLAN_KILL and ANT_SWITCH bits interleaved (in that order).
+ *
+ * These macros encode that format.
  */
 #define LUT_VALUE(bt3_prio, bt3_txrx, bt_rf_act, wifi_req, wifi_prio, \
 		  wifi_txrx, wifi_sh_ant_req) \
@@ -398,11 +398,11 @@ void iwlagn_send_advance_bt_config(struct iwl_priv *priv)
 	basic.valid = priv->bt_valid;
 
 	/*
-                                                       
-                                                      
-                                                      
-                                                      
-  */
+	 * Configure BT coex mode to "no coexistence" when the
+	 * user disabled BT coexistence, we have no interface
+	 * (might be in monitor mode), or the interface is in
+	 * IBSS mode (no proper uCode support for coex then).
+	 */
 	if (!iwlagn_mod_params.bt_coex_active ||
 	    priv->iw_mode == NL80211_IFTYPE_ADHOC) {
 		basic.flags = IWLAGN_BT_FLAG_COEX_MODE_DISABLED;
@@ -455,7 +455,7 @@ void iwlagn_bt_adjust_rssi_monitor(struct iwl_priv *priv, bool rssi_ena)
 
 	lockdep_assert_held(&priv->mutex);
 
-	/*                                        */
+	/* Check whether AP or GO mode is active. */
 	if (rssi_ena) {
 		for_each_context(priv, ctx) {
 			if (ctx->vif && ctx->vif->type == NL80211_IFTYPE_AP &&
@@ -467,9 +467,9 @@ void iwlagn_bt_adjust_rssi_monitor(struct iwl_priv *priv, bool rssi_ena)
 	}
 
 	/*
-                                                          
-                 
-  */
+	 * If disable was received or If GO/AP mode, disable RSSI
+	 * measurements.
+	 */
 	if (!rssi_ena || found_ap) {
 		if (priv->cur_rssi_ctx) {
 			ctx = priv->cur_rssi_ctx;
@@ -480,9 +480,9 @@ void iwlagn_bt_adjust_rssi_monitor(struct iwl_priv *priv, bool rssi_ena)
 	}
 
 	/*
-                                                                    
-                                            
-  */
+	 * If rssi measurements need to be enabled, consider all cases now.
+	 * Figure out how many contexts are active.
+	 */
 	for_each_context(priv, ctx) {
 		if (ctx->vif && ctx->vif->type == NL80211_IFTYPE_STATION &&
 		    iwl_is_associated_ctx(ctx)) {
@@ -492,18 +492,18 @@ void iwlagn_bt_adjust_rssi_monitor(struct iwl_priv *priv, bool rssi_ena)
 	}
 
 	/*
-                                                                    
-          
-  */
+	 * rssi monitor already enabled for the correct interface...nothing
+	 * to do.
+	 */
 	if (found_ctx == priv->cur_rssi_ctx)
 		return;
 
 	/*
-                                                              
-                                                              
-                                                      
-                          
-  */
+	 * Figure out if rssi monitor is currently enabled, and needs
+	 * to be changed. If rssi monitor is already enabled, disable
+	 * it first else just enable rssi measurements on the
+	 * interface found above.
+	 */
 	if (priv->cur_rssi_ctx) {
 		ctx = priv->cur_rssi_ctx;
 		if (ctx->vif)
@@ -534,15 +534,15 @@ static void iwlagn_bt_traffic_change_work(struct work_struct *work)
 	int smps_request = -1;
 
 	if (priv->bt_enable_flag == IWLAGN_BT_FLAG_COEX_MODE_DISABLED) {
-		/*                  */
+		/* bt coex disabled */
 		return;
 	}
 
 	/*
-                                                                
-                                                                      
-                                                      
-  */
+	 * Note: bt_traffic_load can be overridden by scan complete and
+	 * coex profile notifications. Ignore that since only bad consequence
+	 * can be not matching debug print with actual state.
+	 */
 	IWL_DEBUG_COEX(priv, "BT traffic load changes: %d\n",
 		       priv->bt_traffic_load);
 
@@ -569,12 +569,12 @@ static void iwlagn_bt_traffic_change_work(struct work_struct *work)
 	mutex_lock(&priv->mutex);
 
 	/*
-                                                                     
-                                                                     
-                                                                 
-                                                                
-                                                                      
-  */
+	 * We can not send command to firmware while scanning. When the scan
+	 * complete we will schedule this work again. We do check with mutex
+	 * locked to prevent new scan request to arrive. We do not check
+	 * STATUS_SCANNING to avoid race when queue_work two times from
+	 * different notifications, but quit and not perform any work at all.
+	 */
 	if (test_bit(STATUS_SCAN_HW, &priv->status))
 		goto out;
 
@@ -589,18 +589,18 @@ static void iwlagn_bt_traffic_change_work(struct work_struct *work)
 	}
 
 	/*
-                                                                      
-              
-  */
+	 * Dynamic PS poll related functionality. Adjust RSSI measurements if
+	 * necessary.
+	 */
 	iwlagn_bt_coex_rssi_monitor(priv);
 out:
 	mutex_unlock(&priv->mutex);
 }
 
 /*
-                                                                           
-                                                                      
-           
+ * If BT sco traffic, and RSSI monitor is enabled, move measurements to the
+ * correct interface or disable it if this is the last interface to be
+ * removed.
  */
 void iwlagn_bt_coex_rssi_monitor(struct iwl_priv *priv)
 {
@@ -700,7 +700,7 @@ static void iwlagn_set_kill_msk(struct iwl_priv *priv,
 		priv->bt_valid |= IWLAGN_BT_VALID_KILL_CTS_MASK;
 		priv->kill_cts_mask = bt_kill_cts_msg[kill_msk];
 
-		/*                                    */
+		/* schedule to send runtime bt_config */
 		queue_work(priv->workqueue, &priv->bt_runtime_config);
 	}
 }
@@ -714,7 +714,7 @@ int iwlagn_bt_coex_profile_notif(struct iwl_priv *priv,
 	struct iwl_bt_uart_msg *uart_msg = &coex->last_bt_uart_msg;
 
 	if (priv->bt_enable_flag == IWLAGN_BT_FLAG_COEX_MODE_DISABLED) {
-		/*                  */
+		/* bt coex disabled */
 		return 0;
 	}
 
@@ -732,7 +732,7 @@ int iwlagn_bt_coex_profile_notif(struct iwl_priv *priv,
 		if (priv->bt_status != coex->bt_status ||
 		    priv->last_bt_traffic_load != coex->bt_traffic_load) {
 			if (coex->bt_status) {
-				/*       */
+				/* BT on */
 				if (!priv->bt_ch_announce)
 					priv->bt_traffic_load =
 						IWL_BT_COEX_TRAFFIC_LOAD_HIGH;
@@ -740,7 +740,7 @@ int iwlagn_bt_coex_profile_notif(struct iwl_priv *priv,
 					priv->bt_traffic_load =
 						coex->bt_traffic_load;
 			} else {
-				/*        */
+				/* BT off */
 				priv->bt_traffic_load =
 					IWL_BT_COEX_TRAFFIC_LOAD_NONE;
 			}
@@ -752,7 +752,7 @@ int iwlagn_bt_coex_profile_notif(struct iwl_priv *priv,
 
 	iwlagn_set_kill_msk(priv, uart_msg);
 
-	/*                                                     */
+	/* FIXME: based on notification, adjust the prio_boost */
 
 	priv->bt_ci_compliance = coex->bt_ci_compliance;
 	return 0;
@@ -787,14 +787,14 @@ static bool is_single_rx_stream(struct iwl_priv *priv)
 #define IWL_NUM_IDLE_CHAINS_SINGLE	1
 
 /*
-                                                     
-  
-                                                                   
-                                                                  
-              
-  
-                                                                   
-                                                                
+ * Determine how many receiver/antenna chains to use.
+ *
+ * More provides better reception via diversity.  Fewer saves power
+ * at the expense of throughput, but only when not in powersave to
+ * start with.
+ *
+ * MIMO (dual stream) requires at least 2, but works better with 3.
+ * This does not determine *which* chains to use, just how many.
  */
 static int iwl_get_active_rx_chain_count(struct iwl_priv *priv)
 {
@@ -803,12 +803,12 @@ static int iwl_get_active_rx_chain_count(struct iwl_priv *priv)
 	    (priv->bt_full_concurrent ||
 	     priv->bt_traffic_load >= IWL_BT_COEX_TRAFFIC_LOAD_HIGH)) {
 		/*
-                                                  
-                          
-   */
+		 * only use chain 'A' in bt high traffic load or
+		 * full concurrency mode
+		 */
 		return IWL_NUM_RX_CHAINS_SINGLE;
 	}
-	/*                                            */
+	/* # of Rx chains to use when expecting MIMO. */
 	if (is_single_rx_stream(priv))
 		return IWL_NUM_RX_CHAINS_SINGLE;
 	else
@@ -816,12 +816,12 @@ static int iwl_get_active_rx_chain_count(struct iwl_priv *priv)
 }
 
 /*
-                                                                  
-                                                                    
+ * When we are in power saving mode, unless device support spatial
+ * multiplexing power save, use the active count for rx chain count.
  */
 static int iwl_get_idle_rx_chain_count(struct iwl_priv *priv, int active_cnt)
 {
-	/*                                                 */
+	/* # Rx chains when idling, depending on SMPS mode */
 	switch (priv->current_ht_config.smps) {
 	case IEEE80211_SMPS_STATIC:
 	case IEEE80211_SMPS_DYNAMIC:
@@ -836,7 +836,7 @@ static int iwl_get_idle_rx_chain_count(struct iwl_priv *priv, int active_cnt)
 	}
 }
 
-/*                */
+/* up to 4 chains */
 static u8 iwl_count_chain_bitmap(u32 chain_bitmap)
 {
 	u8 res;
@@ -847,11 +847,11 @@ static u8 iwl_count_chain_bitmap(u32 chain_bitmap)
 	return res;
 }
 
-/* 
-                                                                        
-  
-                                                                  
-                                                                            
+/**
+ * iwlagn_set_rxon_chain - Set up Rx chain usage in "staging" RXON image
+ *
+ * Selects how many and which Rx receivers/antennas/chains to use.
+ * This should not be used for scan command ... it puts data in wrong place.
  */
 void iwlagn_set_rxon_chain(struct iwl_priv *priv, struct iwl_rxon_context *ctx)
 {
@@ -861,10 +861,10 @@ void iwlagn_set_rxon_chain(struct iwl_priv *priv, struct iwl_rxon_context *ctx)
 	u32 active_chains;
 	u16 rx_chain;
 
-	/*                                                  
-                                                                   
-                                                               
-                                                       */
+	/* Tell uCode which antennas are actually connected.
+	 * Before first association, we assume all antennas are connected.
+	 * Just after first association, iwl_chain_noise_calibration()
+	 *    checks which antennas actually *are* connected. */
 	if (priv->chain_noise_data.active_chains)
 		active_chains = priv->chain_noise_data.active_chains;
 	else
@@ -875,22 +875,22 @@ void iwlagn_set_rxon_chain(struct iwl_priv *priv, struct iwl_rxon_context *ctx)
 	    (priv->bt_full_concurrent ||
 	     priv->bt_traffic_load >= IWL_BT_COEX_TRAFFIC_LOAD_HIGH)) {
 		/*
-                                                  
-                          
-   */
+		 * only use chain 'A' in bt high traffic load or
+		 * full concurrency mode
+		 */
 		active_chains = first_antenna(active_chains);
 	}
 
 	rx_chain = active_chains << RXON_RX_CHAIN_VALID_POS;
 
-	/*                                   */
+	/* How many receivers should we use? */
 	active_rx_cnt = iwl_get_active_rx_chain_count(priv);
 	idle_rx_cnt = iwl_get_idle_rx_chain_count(priv, active_rx_cnt);
 
 
-	/*                                             
-                               
-  */
+	/* correct rx chain count according hw settings
+	 * and chain noise calibration
+	 */
 	valid_rx_cnt = iwl_count_chain_bitmap(active_chains);
 	if (valid_rx_cnt < active_rx_cnt)
 		active_rx_cnt = valid_rx_cnt;
@@ -1011,15 +1011,15 @@ static void iwlagn_wowlan_program_keys(struct ieee80211_hw *hw,
 		}
 
 		/*
-                                                                
-                                                                 
-                                       
-   */
+		 * For non-QoS this relies on the fact that both the uCode and
+		 * mac80211 use TID 0 (as they need to to avoid replay attacks)
+		 * for checking the IV in the frames.
+		 */
 		for (i = 0; i < IWLAGN_NUM_RSC; i++) {
 			ieee80211_get_key_rx_seq(key, i, &seq);
 			tkip_sc[i].iv16 = cpu_to_le16(seq.tkip.iv16);
 			tkip_sc[i].iv32 = cpu_to_le32(seq.tkip.iv32);
-			/*                                       */
+			/* wrapping isn't allowed, AP must rekey */
 			if (seq.tkip.iv32 > cur_rx_iv32)
 				cur_rx_iv32 = seq.tkip.iv32;
 		}
@@ -1056,9 +1056,9 @@ static void iwlagn_wowlan_program_keys(struct ieee80211_hw *hw,
 			aes_sc = data->rsc_tsc->all_tsc_rsc.aes.multicast_rsc;
 
 		/*
-                                                                
-                                                          
-   */
+		 * For non-QoS this relies on the fact that both the uCode and
+		 * mac80211 use TID 0 for checking the IV in the frames.
+		 */
 		for (i = 0; i < IWLAGN_NUM_RSC; i++) {
 			u8 *pn = seq.ccmp.pn;
 
@@ -1145,16 +1145,16 @@ int iwlagn_suspend(struct iwl_priv *priv, struct cfg80211_wowlan *wowlan)
 	memset(&wakeup_filter_cmd, 0, sizeof(wakeup_filter_cmd));
 
 	/*
-                                                                   
-                                     
-  */
+	 * We know the last used seqno, and the uCode expects to know that
+	 * one, it will increment before TX.
+	 */
 	seq = le16_to_cpu(priv->last_seq_ctl) & IEEE80211_SCTL_SEQ;
 	wakeup_filter_cmd.non_qos_seq = cpu_to_le16(seq);
 
 	/*
-                                                                    
-                                                         
-  */
+	 * For QoS counters, we store the one to use next, so subtract 0x10
+	 * since the uCode will add 0x10 before using the value.
+	 */
 	for (i = 0; i < IWL_MAX_TID_COUNT; i++) {
 		seq = priv->tid_data[IWL_AP_ID][i].seq_number;
 		seq -= 0x10;
@@ -1198,7 +1198,7 @@ int iwlagn_suspend(struct iwl_priv *priv, struct cfg80211_wowlan *wowlan)
 	if (ret)
 		goto out;
 
-	/*                            */
+	/* now configure WoWLAN ucode */
 	ret = iwl_alive_start(priv);
 	if (ret)
 		goto out;
@@ -1213,15 +1213,15 @@ int iwlagn_suspend(struct iwl_priv *priv, struct cfg80211_wowlan *wowlan)
 		goto out;
 
 	if (!iwlagn_mod_params.sw_crypto) {
-		/*                     */
+		/* mark all keys clear */
 		priv->ucode_key_table = 0;
 		ctx->key_mapping_keys = 0;
 
 		/*
-                                                   
-                                                 
-                                        
-   */
+		 * This needs to be unlocked due to lock ordering
+		 * constraints. Since we're in the suspend path
+		 * that isn't really a problem though.
+		 */
 		mutex_unlock(&priv->mutex);
 		ieee80211_iter_keys(priv->hw, ctx->vif,
 				    iwlagn_wowlan_program_keys,
@@ -1299,10 +1299,10 @@ int iwl_dvm_send_cmd(struct iwl_priv *priv, struct iwl_host_cmd *cmd)
 	}
 
 	/*
-                                                    
-                                                    
-                                             
-  */
+	 * Synchronous commands from this op-mode must hold
+	 * the mutex, this ensures we don't try to send two
+	 * (or more) synchronous commands at a time.
+	 */
 	if (cmd->flags & CMD_SYNC)
 		lockdep_assert_held(&priv->mutex);
 

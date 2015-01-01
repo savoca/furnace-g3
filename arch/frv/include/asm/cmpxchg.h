@@ -16,9 +16,9 @@
 
 #include <linux/types.h>
 
-/*                                                                           */
+/*****************************************************************************/
 /*
-                             
+ * exchange value with memory
  */
 extern uint64_t __xchg_64(uint64_t i, volatile void *v);
 
@@ -71,11 +71,11 @@ extern uint32_t __xchg_32(uint32_t i, volatile void *v);
 
 #define tas(ptr) (xchg((ptr), 1))
 
-/*                                                                           */
+/*****************************************************************************/
 /*
-                                                       
-                                                     
-                                        
+ * compare and conditionally exchange value with memory
+ * - if (*ptr == test) then orig = *ptr; *ptr = test;
+ * - if (*ptr != test) then orig = *ptr;
  */
 extern uint64_t __cmpxchg_64(uint64_t test, uint64_t new, volatile uint64_t *v);
 
@@ -161,12 +161,12 @@ static inline unsigned long __cmpxchg_local(volatile void *ptr,
 }
 
 /*
-                                                                            
-                  
+ * cmpxchg_local and cmpxchg64_local are atomic wrt current CPU. Always make
+ * them available.
  */
 #define cmpxchg_local(ptr, o, n)				  	\
 	((__typeof__(*(ptr)))__cmpxchg_local((ptr), (unsigned long)(o),	\
 			(unsigned long)(n), sizeof(*(ptr))))
 #define cmpxchg64_local(ptr, o, n) __cmpxchg64_local_generic((ptr), (o), (n))
 
-#endif /*                */
+#endif /* _ASM_CMPXCHG_H */

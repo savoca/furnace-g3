@@ -23,9 +23,9 @@
 
 #define A_LIMB_1 ((mpi_limb_t) 1)
 
-/*               
-                                                              
-                                                                    
+/****************
+ * Sometimes we have MSL (most significant limbs) which are 0;
+ * this is for some reasons not good, so this function removes them.
  */
 void mpi_normalize(MPI a)
 {
@@ -33,8 +33,8 @@ void mpi_normalize(MPI a)
 		;
 }
 
-/*               
-                                  
+/****************
+ * Return the number of bits in A.
  */
 unsigned mpi_get_nbits(MPI a)
 {
@@ -55,8 +55,8 @@ unsigned mpi_get_nbits(MPI a)
 }
 EXPORT_SYMBOL_GPL(mpi_get_nbits);
 
-/*               
-                             
+/****************
+ * Test whether bit N is set.
  */
 int mpi_test_bit(MPI a, unsigned n)
 {
@@ -67,13 +67,13 @@ int mpi_test_bit(MPI a, unsigned n)
 	bitno = n % BITS_PER_MPI_LIMB;
 
 	if (limbno >= a->nlimbs)
-		return 0;	/*                           */
+		return 0;	/* too far left: this is a 0 */
 	limb = a->d[limbno];
 	return (limb & (A_LIMB_1 << bitno)) ? 1 : 0;
 }
 
-/*               
-                  
+/****************
+ * Set bit N of A.
  */
 int mpi_set_bit(MPI a, unsigned n)
 {
@@ -82,7 +82,7 @@ int mpi_set_bit(MPI a, unsigned n)
 	limbno = n / BITS_PER_MPI_LIMB;
 	bitno = n % BITS_PER_MPI_LIMB;
 
-	if (limbno >= a->nlimbs) {	/*        */
+	if (limbno >= a->nlimbs) {	/* resize */
 		if (a->alloced >= limbno)
 			if (mpi_resize(a, limbno + 1) < 0)
 				return -ENOMEM;
@@ -92,8 +92,8 @@ int mpi_set_bit(MPI a, unsigned n)
 	return 0;
 }
 
-/*               
-                                           
+/****************
+ * Set bit N of A. and clear all bits above
  */
 int mpi_set_highbit(MPI a, unsigned n)
 {
@@ -102,7 +102,7 @@ int mpi_set_highbit(MPI a, unsigned n)
 	limbno = n / BITS_PER_MPI_LIMB;
 	bitno = n % BITS_PER_MPI_LIMB;
 
-	if (limbno >= a->nlimbs) {	/*        */
+	if (limbno >= a->nlimbs) {	/* resize */
 		if (a->alloced >= limbno)
 			if (mpi_resize(a, limbno + 1) < 0)
 				return -ENOMEM;
@@ -115,8 +115,8 @@ int mpi_set_highbit(MPI a, unsigned n)
 	return 0;
 }
 
-/*               
-                                      
+/****************
+ * clear bit N of A and all bits above
  */
 void mpi_clear_highbit(MPI a, unsigned n)
 {
@@ -126,15 +126,15 @@ void mpi_clear_highbit(MPI a, unsigned n)
 	bitno = n % BITS_PER_MPI_LIMB;
 
 	if (limbno >= a->nlimbs)
-		return;		/*                                          */
+		return;		/* not allocated, so need to clear bits :-) */
 
 	for (; bitno < BITS_PER_MPI_LIMB; bitno++)
 		a->d[limbno] &= ~(A_LIMB_1 << bitno);
 	a->nlimbs = limbno + 1;
 }
 
-/*               
-                    
+/****************
+ * Clear bit N of A.
  */
 void mpi_clear_bit(MPI a, unsigned n)
 {
@@ -144,13 +144,13 @@ void mpi_clear_bit(MPI a, unsigned n)
 	bitno = n % BITS_PER_MPI_LIMB;
 
 	if (limbno >= a->nlimbs)
-		return;		/*                                                   */
+		return;		/* don't need to clear this bit, it's to far to left */
 	a->d[limbno] &= ~(A_LIMB_1 << bitno);
 }
 
-/*               
-                                 
-                                                    
+/****************
+ * Shift A by N bits to the right
+ * FIXME: should use alloc_limb if X and A are same.
  */
 int mpi_rshift(MPI x, MPI a, unsigned n)
 {
@@ -171,9 +171,9 @@ int mpi_rshift(MPI x, MPI a, unsigned n)
 	return 0;
 }
 
-/*               
-                                     
-                                           
+/****************
+ * Shift A by COUNT limbs to the left
+ * This is used only within the MPI library
  */
 int mpi_lshift_limbs(MPI a, unsigned int count)
 {
@@ -196,9 +196,9 @@ int mpi_lshift_limbs(MPI a, unsigned int count)
 	return 0;
 }
 
-/*               
-                                      
-                                           
+/****************
+ * Shift A by COUNT limbs to the right
+ * This is used only within the MPI library
  */
 void mpi_rshift_limbs(MPI a, unsigned int count)
 {

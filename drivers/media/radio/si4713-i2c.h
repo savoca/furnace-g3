@@ -20,7 +20,7 @@
 
 #define SI4713_PRODUCT_NUMBER		0x0D
 
-/*                  */
+/* Command Timeouts */
 #define DEFAULT_TIMEOUT			500
 #define TIMEOUT_SET_PROPERTY		20
 #define TIMEOUT_TX_TUNE_POWER		30000
@@ -28,7 +28,7 @@
 #define TIMEOUT_POWER_UP		200000
 
 /*
-                                        
+ * Command and its arguments definitions
  */
 #define SI4713_PWUP_CTSIEN		(1<<7)
 #define SI4713_PWUP_GPO2OEN		(1<<6)
@@ -106,7 +106,7 @@
 #define SI4713_CMD_GPO_SET		0x81
 
 /*
-                            
+ * Bits from status response
  */
 #define SI4713_CTS			(1<<7)
 #define SI4713_ERR			(1<<6)
@@ -115,7 +115,7 @@
 #define SI4713_STC_INT			(1<<0)
 
 /*
-                       
+ * Property definitions
  */
 #define SI4713_GPO_IEN			0x0001
 #define SI4713_DIG_INPUT_FORMAT		0x0101
@@ -167,15 +167,15 @@ struct rds_info {
 #define MAX_RDS_DEVIATION		90000
 	u32 deviation;
 /*
-                                                                 
-                                                             
+ * PSNAME is known to be defined as 8 character sized (RDS Spec).
+ * However, there is receivers which scroll PSNAME 8xN sized.
  */
 #define MAX_RDS_PS_NAME			96
 	u8 ps_name[MAX_RDS_PS_NAME + 1];
 /*
-                                                                              
-                              
-                                                         
+ * MAX_RDS_RADIO_TEXT is known to be defined as 32 (2A group) or 64 (2B group)
+ * character sized (RDS Spec).
+ * However, there is receivers which scroll them as well.
  */
 #define MAX_RDS_RADIO_TEXT		384
 	u8 radio_text[MAX_RDS_RADIO_TEXT + 1];
@@ -214,12 +214,12 @@ struct acomp_info {
 #define SI4713_NUM_SUPPLIES		2
 
 /*
-                               
+ * si4713_device - private data
  */
 struct si4713_device {
-	/*                                                       */
+	/* v4l2_subdev and i2c reference (v4l2_subdev priv data) */
 	struct v4l2_subdev sd;
-	/*                         */
+	/* private data structures */
 	struct mutex mutex;
 	struct completion work;
 	struct rds_info rds_info;
@@ -237,4 +237,4 @@ struct si4713_device {
 	u32 stereo;
 	u32 tune_rnl;
 };
-#endif /*                     */
+#endif /* ifndef SI4713_I2C_H */

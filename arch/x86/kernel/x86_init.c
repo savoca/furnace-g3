@@ -31,8 +31,8 @@ void iommu_shutdown_noop(void) { }
 void wallclock_init_noop(void) { }
 
 /*
-                                                                     
-                            
+ * The platform setup functions are preset with the default functions
+ * for standard PC hardware.
  */
 struct x86_init_ops x86_init __initdata = {
 

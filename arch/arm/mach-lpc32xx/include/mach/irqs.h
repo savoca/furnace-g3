@@ -23,7 +23,7 @@
 #define LPC32XX_SIC2_IRQ(n)		(64 + (n))
 
 /*
-                 
+ * MIC interrupts
  */
 #define IRQ_LPC32XX_SUB1IRQ		0
 #define IRQ_LPC32XX_SUB2IRQ		1
@@ -57,7 +57,7 @@
 #define IRQ_LPC32XX_SUB2FIQ		31
 
 /*
-                                     
+ * SIC1 interrupts start at offset 32
  */
 #define IRQ_LPC32XX_JTAG_COMM_TX	LPC32XX_SIC1_IRQ(1)
 #define IRQ_LPC32XX_JTAG_COMM_RX	LPC32XX_SIC1_IRQ(2)
@@ -84,7 +84,7 @@
 #define IRQ_LPC32XX_USB_I2C		LPC32XX_SIC1_IRQ(31)
 
 /*
-                                     
+ * SIC2 interrupts start at offset 64
  */
 #define IRQ_LPC32XX_GPIO_00		LPC32XX_SIC2_IRQ(0)
 #define IRQ_LPC32XX_GPIO_01		LPC32XX_SIC2_IRQ(1)

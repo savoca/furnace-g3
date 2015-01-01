@@ -62,7 +62,7 @@ enum {
 	VPCCMD_W_CAMERA,
 	VPCCMD_R_3G,
 	VPCCMD_W_3G,
-	VPCCMD_R_ODD, /*      */
+	VPCCMD_R_ODD, /* 0x21 */
 	VPCCMD_R_RF = 0x23,
 	VPCCMD_W_RF,
 	VPCCMD_W_BL_POWER = 0x33,
@@ -84,9 +84,9 @@ module_param(no_bt_rfkill, bool, 0444);
 MODULE_PARM_DESC(no_bt_rfkill, "No rfkill for bluetooth.");
 
 /*
-               
+ * ACPI Helpers
  */
-#define IDEAPAD_EC_TIMEOUT (100) /*       */
+#define IDEAPAD_EC_TIMEOUT (100) /* in ms */
 
 static int read_method_int(acpi_handle handle, const char *method, int *val)
 {
@@ -192,7 +192,7 @@ static int write_ec_cmd(acpi_handle handle, int cmd, unsigned long data)
 }
 
 /*
-          
+ * debugfs
  */
 #define DEBUGFS_EVENT_LEN (4096)
 static int debugfs_status_show(struct seq_file *s, void *data)
@@ -332,7 +332,7 @@ static void ideapad_debugfs_exit(struct ideapad_private *priv)
 }
 
 /*
-        
+ * sysfs
  */
 static ssize_t show_ideapad_cam(struct device *dev,
 				struct device_attribute *attr,
@@ -390,7 +390,7 @@ static struct attribute_group ideapad_attribute_group = {
 };
 
 /*
-         
+ * Rfkill
  */
 struct ideapad_rfk_data {
 	char *name;
@@ -439,7 +439,7 @@ static int __devinit ideapad_register_rfkill(struct acpi_device *adevice,
 
 	if (no_bt_rfkill &&
 	    (ideapad_rfk_data[dev].type == RFKILL_TYPE_BLUETOOTH)) {
-		/*                                               */
+		/* Force to enable bluetooth when no_bt_rfkill=1 */
 		write_ec_cmd(ideapad_handle,
 			     ideapad_rfk_data[dev].opcode, 1);
 		return 0;
@@ -479,7 +479,7 @@ static void ideapad_unregister_rfkill(struct acpi_device *adevice, int dev)
 }
 
 /*
-                  
+ * Platform device
  */
 static int __devinit ideapad_platform_init(struct ideapad_private *priv)
 {
@@ -515,7 +515,7 @@ static void ideapad_platform_exit(struct ideapad_private *priv)
 }
 
 /*
-               
+ * input device
  */
 static const struct key_entry ideapad_keymap[] = {
 	{ KE_KEY, 6,  { KEY_SWITCHVIDEOMODE } },
@@ -589,7 +589,7 @@ static void ideapad_input_novokey(struct ideapad_private *priv)
 }
 
 /*
-            
+ * backlight
  */
 static int ideapad_backlight_get_brightness(struct backlight_device *blightdev)
 {
@@ -674,7 +674,7 @@ static void ideapad_backlight_notify_brightness(struct ideapad_private *priv)
 {
 	unsigned long now;
 
-	/*                                                */
+	/* if we control brightness via acpi video driver */
 	if (priv->blightdev == NULL) {
 		read_ec_data(ideapad_handle, VPCCMD_R_BL, &now);
 		return;
@@ -684,7 +684,7 @@ static void ideapad_backlight_notify_brightness(struct ideapad_private *priv)
 }
 
 /*
-                   
+ * module init/exit
  */
 static const struct acpi_device_id ideapad_device_ids[] = {
 	{ "VPC2004", 0},

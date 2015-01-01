@@ -1,5 +1,5 @@
 /*
-                                      
+ * Architecture specific OF callbacks.
  */
 #include <linux/bootmem.h>
 #include <linux/export.h>
@@ -29,8 +29,8 @@ int __initdata of_ioapic;
 unsigned long pci_address_to_pio(phys_addr_t address)
 {
 	/*
-                                                         
-  */
+	 * The ioport address can be directly used by inX / outX
+	 */
 	BUG_ON(address >= (1 << 16));
 	return (unsigned long)address;
 }
@@ -67,7 +67,7 @@ void __init add_dtb(u64 data)
 }
 
 /*
-                                                                          
+ * CE4100 ids. Will be moved to machine_device_initcall() once we have it.
  */
 static struct of_device_id __initdata ce4100_ids[] = {
 	{ .compatible = "intel,ce4100-cp", },
@@ -174,7 +174,7 @@ static void __init dtb_lapic_setup(void)
 	if (WARN_ON(ret))
 		return;
 
-	/*                                            */
+	/* Did the boot loader setup the local APIC ? */
 	if (!cpu_has_apic) {
 		if (apic_force_enable(r.start))
 			return;
@@ -253,7 +253,7 @@ static void __init x86_flattree_get_config(void)
 
 	initial_boot_params = new_dtb;
 
-	/*                          */
+	/* root level address cells */
 	of_scan_flat_dt(early_init_dt_scan_root, NULL);
 
 	unflatten_device_tree();

@@ -27,10 +27,10 @@ static volatile unsigned char * wrppmc_led = \
 	(volatile unsigned char *)KSEG1ADDR(WRPPMC_LED_BASE);
 
 /*
-                             
-                                               
-                                               
-                                               
+ * PPMC LED control register:
+ * -) bit[0] controls DS1 LED (1 - OFF, 0 - ON)
+ * -) bit[1] controls DS2 LED (1 - OFF, 0 - ON)
+ * -) bit[2] controls DS4 LED (1 - OFF, 0 - ON)
  */
 void wrppmc_led_on(int mask)
 {
@@ -40,7 +40,7 @@ void wrppmc_led_on(int mask)
 	*wrppmc_led = value;
 }
 
-/*                                */
+/* If mask = 0, turn off all LEDs */
 void wrppmc_led_off(int mask)
 {
 	unsigned char value = *wrppmc_led;
@@ -50,7 +50,7 @@ void wrppmc_led_off(int mask)
 }
 
 /*
-                                                                
+ * We assume that bootloader has initialized UART16550 correctly
  */
 void __init wrppmc_early_putc(char ch)
 {
@@ -58,7 +58,7 @@ void __init wrppmc_early_putc(char ch)
 		(volatile unsigned char *)KSEG1ADDR(WRPPMC_UART16550_BASE);
 	unsigned char value;
 
-	/*                                               */
+	/* Wait until Transmit-Holding-Register is empty */
 	while (1) {
 		value = *(wrppmc_uart + 5);
 		if (value & 0x20)
@@ -80,15 +80,15 @@ void __init wrppmc_early_printk(const char *fmt, ...)
 	i = vsprintf(pbuf, fmt, args);
 	va_end(args);
 
-	/*                  */
+	/* Print the string */
 	while (*ch != '\0') {
 		wrppmc_early_putc(*ch);
-		/*                                */
+		/* if print '\n', also print '\r' */
 		if (*ch++ == '\n')
 			wrppmc_early_putc('\r');
 	}
 }
-#endif /*                    */
+#endif /* WRPPMC_EARLY_DEBUG */
 
 void __init prom_free_prom_memory(void)
 {
@@ -103,9 +103,9 @@ void __init plat_mem_setup(void)
 	_machine_halt	 = wrppmc_machine_halt;
 	pm_power_off	 = wrppmc_machine_halt;
 
-	/*                                                  
-                                                  
-  */
+	/* This makes the operations of 'in/out[bwl]' to the
+	 * physical address ( < KSEG0) can work via KSEG1
+	 */
 	set_io_port_base(KSEG1);
 }
 
@@ -115,8 +115,8 @@ const char *get_system_type(void)
 }
 
 /*
-                                                                      
-                                                
+ * Initializes basic routines and structures pointers, memory size (as
+ * given by the bios and saves the command line.
  */
 void __init prom_init(void)
 {

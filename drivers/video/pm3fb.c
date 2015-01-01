@@ -53,36 +53,36 @@
 #define PM3_PIXMAP_SIZE	(2048 * 4)
 
 /*
-              
+ * Driver data
  */
 static int hwcursor = 1;
 static char *mode_option __devinitdata;
 static bool noaccel __devinitdata;
 
-/*             */
+/* mtrr option */
 #ifdef CONFIG_MTRR
 static bool nomtrr __devinitdata;
 #endif
 
 /*
-                                                                           
-                                                                            
-                                                                          
-                                                                       
-                                                     
+ * This structure defines the hardware state of the graphics card. Normally
+ * you place this in a header file in linux/include/video. This file usually
+ * also includes register information. That allows other driver subsystems
+ * and userland applications the ability to use the same header file to
+ * avoid duplicate work and easy porting of software.
  */
 struct pm3_par {
-	unsigned char	__iomem *v_regs;/*                           */
-	u32		video;		/*                             */
-	u32		base;		/*                              */
+	unsigned char	__iomem *v_regs;/* virtual address of p_regs */
+	u32		video;		/* video flags before blanking */
+	u32		base;		/* screen base in 128 bits unit */
 	u32		palette[16];
 	int		mtrr_handle;
 };
 
 /*
-                                                                             
-                                                                           
-                                                                      
+ * Here we define the default structs fb_fix_screeninfo and fb_var_screeninfo
+ * if we don't use modedb. If we do use modedb see pm3fb_init how to use it
+ * to get a fb_var_screeninfo. Otherwise define a default var as well.
  */
 static struct fb_fix_screeninfo pm3fb_fix __devinitdata = {
 	.id =		"Permedia3",
@@ -95,7 +95,7 @@ static struct fb_fix_screeninfo pm3fb_fix __devinitdata = {
 };
 
 /*
-                    
+ * Utility functions
  */
 
 static inline u32 PM3_READ_REG(struct pm3_par *par, s32 off)
@@ -148,7 +148,7 @@ static void pm3fb_clear_colormap(struct pm3_par *par,
 
 }
 
-/*                                      */
+/* Calculating various clock parameters */
 static void pm3fb_calculate_clock(unsigned long reqclock,
 				unsigned char *prescale,
 				unsigned char *feedback,
@@ -200,7 +200,7 @@ static inline int pm3fb_shift_bpp(unsigned bpp, int v)
 	return 0;
 }
 
-/*              */
+/* acceleration */
 static int pm3fb_sync(struct fb_info *info)
 {
 	struct pm3_par *par = info->par;
@@ -291,7 +291,7 @@ static void pm3fb_init_engine(struct fb_info *info)
 
 	PM3_WAIT(par, 2);
 	{
-		/*                        */
+		/* invert bits in bitmask */
 		unsigned long rm = 1 | (3 << 7);
 		switch (info->var.bits_per_pixel) {
 		case 8:
@@ -334,7 +334,7 @@ static void pm3fb_init_engine(struct fb_info *info)
 
 	PM3_WRITE_REG(par, PM3SizeOfFramebuffer, 0x0);
 	{
-		/*                     */
+		/* size in lines of FB */
 		unsigned long sofb = info->screen_size /
 			info->fix.line_length;
 		if (sofb > 4095)
@@ -370,7 +370,7 @@ static void pm3fb_init_engine(struct fb_info *info)
 	PM3_WRITE_REG(par, PM3StartY, 0x0);
 	PM3_WRITE_REG(par, PM3Count, 0x0);
 
-/*                                             */
+/* Disable LocalBuffer. better safe than sorry */
 	PM3_WRITE_REG(par, PM3LBDestReadMode, 0x0);
 	PM3_WRITE_REG(par, PM3LBDestReadEnables, 0x0);
 	PM3_WRITE_REG(par, PM3LBSourceReadMode, 0x0);
@@ -396,9 +396,9 @@ static void pm3fb_fillrect(struct fb_info *info,
 		return;
 	}
 	if (region->rop == ROP_COPY )
-		rop = PM3Config2D_ForegroundROP(0x3); /*        */
+		rop = PM3Config2D_ForegroundROP(0x3); /* GXcopy */
 	else
-		rop = PM3Config2D_ForegroundROP(0x6) | /*       */
+		rop = PM3Config2D_ForegroundROP(0x6) | /* GXxor */
 			PM3Config2D_FBDestReadEnable;
 
 	vxres = info->var.xres_virtual;
@@ -421,7 +421,7 @@ static void pm3fb_fillrect(struct fb_info *info,
 		color |= color << 16;
 
 	PM3_WAIT(par, 4);
-	/*                   */
+	/* ROP Ox3 is GXcopy */
 	PM3_WRITE_REG(par, PM3Config2D,
 			PM3Config2D_UseConstantSource |
 			PM3Config2D_ForegroundROPEnable |
@@ -477,8 +477,8 @@ static void pm3fb_copyarea(struct fb_info *info,
 	if (modded.dy + modded.height > vyres)
 		modded.height = vyres - modded.dy;
 
-	o_x = modded.sx - modded.dx;	/*                                    */
-	o_y = modded.sy - modded.dy;	/*                                    */
+	o_x = modded.sx - modded.dx;	/*(sx > dx ) ? (sx - dx) : (dx - sx); */
+	o_y = modded.sy - modded.dy;	/*(sy > dy ) ? (sy - dy) : (dy - sy); */
 
 	x_align = (modded.sx & 0x1f);
 
@@ -488,7 +488,7 @@ static void pm3fb_copyarea(struct fb_info *info,
 			PM3Config2D_UserScissorEnable |
 			PM3Config2D_ForegroundROPEnable |
 			PM3Config2D_Blocking |
-			PM3Config2D_ForegroundROP(0x3) | /*               */
+			PM3Config2D_ForegroundROP(0x3) | /* Ox3 is GXcopy */
 			PM3Config2D_FBWriteEnable);
 
 	PM3_WRITE_REG(par, PM3ScissorMinXY,
@@ -558,7 +558,7 @@ static void pm3fb_imageblit(struct fb_info *info, const struct fb_image *image)
 	PM3_WRITE_REG(par, PM3ForegroundColor, fgx);
 	PM3_WRITE_REG(par, PM3BackgroundColor, bgx);
 
-	/*                   */
+	/* ROP Ox3 is GXcopy */
 	PM3_WRITE_REG(par, PM3Config2D,
 			PM3Config2D_UserScissorEnable |
 			PM3Config2D_UseConstantSource |
@@ -606,10 +606,10 @@ static void pm3fb_imageblit(struct fb_info *info, const struct fb_image *image)
 		}
 	}
 }
-/*                               */
+/* end of acceleration functions */
 
 /*
-                           
+ *	Hardware Cursor support.
  */
 static const u8 cursor_bits_lookup[16] = {
 	0x00, 0x40, 0x10, 0x50, 0x04, 0x44, 0x14, 0x54,
@@ -622,9 +622,9 @@ static int pm3fb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 	u8 mode;
 
 	if (!hwcursor)
-		return -EINVAL;	/*                                  */
+		return -EINVAL;	/* just to force soft_cursor() call */
 
-	/*                                        */
+	/* Too large of a cursor or wrong bpp :-( */
 	if (cursor->image.width > 64 ||
 	    cursor->image.height > 64 ||
 	    cursor->image.depth > 1)
@@ -637,10 +637,10 @@ static int pm3fb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 	PM3_WRITE_DAC_REG(par, PM3RD_CursorMode, mode);
 
 	/*
-                                                                 
-                                                                    
-                                                    
-  */
+	 * If the cursor is not be changed this means either we want the
+	 * current cursor state (if enable is set) or we want to query what
+	 * we can do with the cursor (if enable is not set)
+	 */
 	if (!cursor->set)
 		return 0;
 
@@ -666,7 +666,7 @@ static int pm3fb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 		u32 bg_idx = cursor->image.bg_color;
 		struct fb_cmap cmap = info->cmap;
 
-		/*                                                          */
+		/* the X11 driver says one should use these color registers */
 		PM3_WRITE_DAC_REG(par, PM3RD_CursorPalette(39),
 				  cmap.red[fg_idx] >> 8 );
 		PM3_WRITE_DAC_REG(par, PM3RD_CursorPalette(40),
@@ -697,11 +697,11 @@ static int pm3fb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 
 				if (cursor->rop == ROP_COPY)
 					data = *mask & *bitmap;
-				/*                             */
+				/* Upper 4 bits of bitmap data */
 				PM3_WRITE_DAC_REG(par, pos++,
 					cursor_bits_lookup[data >> 4] |
 					(cursor_bits_lookup[*mask >> 4] << 1));
-				/*                        */
+				/* Lower 4 bits of bitmap */
 				PM3_WRITE_DAC_REG(par, pos++,
 					cursor_bits_lookup[data & 0xf] |
 					(cursor_bits_lookup[*mask & 0xf] << 1));
@@ -719,7 +719,7 @@ static int pm3fb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 	return 0;
 }
 
-/*                             */
+/* write the mode to registers */
 static void pm3fb_write_mode(struct fb_info *info)
 {
 	struct pm3_par *par = info->par;
@@ -781,7 +781,7 @@ static void pm3fb_write_mode(struct fb_info *info)
 		PM3_WRITE_REG(par, PM3ByAperture2Mode,
 				   PM3ByApertureMode_PIXELSIZE_16BIT |
 				   PM3ByApertureMode_BYTESWAP_BADC);
-#endif /*                */
+#endif /* ! __BIG_ENDIAN */
 		break;
 
 	case 32:
@@ -797,7 +797,7 @@ static void pm3fb_write_mode(struct fb_info *info)
 		PM3_WRITE_REG(par, PM3ByAperture2Mode,
 				   PM3ByApertureMode_PIXELSIZE_32BIT |
 				   PM3ByApertureMode_BYTESWAP_DCBA);
-#endif /*                */
+#endif /* ! __BIG_ENDIAN */
 		break;
 
 	default:
@@ -806,11 +806,11 @@ static void pm3fb_write_mode(struct fb_info *info)
 	}
 
 	/*
-                                                            
-                                                           
-                                                             
-                                             
-  */
+	 * Oxygen VX1 - it appears that setting PM3VideoControl and
+	 * then PM3RD_SyncControl to the same SYNC settings undoes
+	 * any net change - they seem to xor together.  Only set the
+	 * sync options in PM3RD_SyncControl.  --rmk
+	 */
 	{
 		unsigned int video = par->video;
 
@@ -828,9 +828,9 @@ static void pm3fb_write_mode(struct fb_info *info)
 
 	wmb();
 	{
-		unsigned char uninitialized_var(m);	/*             */
-		unsigned char uninitialized_var(n);	/*                  */
-		unsigned char uninitialized_var(p);	/*              */
+		unsigned char uninitialized_var(m);	/* ClkPreScale */
+		unsigned char uninitialized_var(n);	/* ClkFeedBackScale */
+		unsigned char uninitialized_var(p);	/* ClkPostScale */
 		unsigned long pixclock = PICOS2KHZ(info->var.pixclock);
 
 		(void)pm3fb_calculate_clock(pixclock, &m, &n, &p);
@@ -843,11 +843,11 @@ static void pm3fb_write_mode(struct fb_info *info)
 		PM3_WRITE_DAC_REG(par, PM3RD_DClk0PostScale, p);
 	}
 	/*
-                                                     
-  */
+	   PM3_WRITE_DAC_REG(par, PM3RD_IndexControl, 0x00);
+	 */
 	/*
-                                                      
-  */
+	   PM3_SLOW_WRITE_REG(par, PM3RD_IndexControl, 0x00);
+	 */
 	if ((par->video & PM3VideoControl_HSYNC_MASK) ==
 	    PM3VideoControl_HSYNC_ACTIVE_HIGH)
 		tempsync |= PM3RD_SyncControl_HSYNC_ACTIVE_HIGH;
@@ -913,7 +913,7 @@ static void pm3fb_write_mode(struct fb_info *info)
 }
 
 /*
-                                 
+ * hardware independent functions
  */
 static int pm3fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 {
@@ -922,7 +922,7 @@ static int pm3fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 			+ var->blue.length + var->transp.length;
 
 	if (bpp != var->bits_per_pixel) {
-		/*                                                 */
+		/* set predefined mode for bits_per_pixel settings */
 
 		switch (var->bits_per_pixel) {
 		case 8:
@@ -953,7 +953,7 @@ static int pm3fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 			return -EINVAL;
 		}
 	}
-	/*                          */
+	/* it is assumed BGRA order */
 	if (var->bits_per_pixel > 8 ) {
 		var->blue.offset = 0;
 		var->green.offset = var->blue.length;
@@ -985,7 +985,7 @@ static int pm3fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 		return -EINVAL;
 	}
 
-	var->xres = (var->xres + 31) & ~31; /*                      */
+	var->xres = (var->xres + 31) & ~31; /* could sometimes be 8 */
 	lpitch = var->xres * ((var->bits_per_pixel + 7) >> 3);
 
 	if (var->xres < 200 || var->xres > 2048) {
@@ -1010,7 +1010,7 @@ static int pm3fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 		return -EINVAL;
 	}
 
-	var->accel_flags = 0;	/*                          */
+	var->accel_flags = 0;	/* Can't mmap if this is on */
 
 	DPRINTK("Checking graphics mode at %dx%d depth %d\n",
 		var->xres, var->yres, var->bits_per_pixel);
@@ -1064,7 +1064,7 @@ static int pm3fb_set_par(struct fb_info *info)
 		(bpp == 8) ? FB_VISUAL_PSEUDOCOLOR : FB_VISUAL_TRUECOLOR;
 	info->fix.line_length = ((info->var.xres_virtual + 7)  >> 3) * bpp;
 
-/*                             */
+/*	pm3fb_clear_memory(info, 0);*/
 	pm3fb_clear_colormap(par, 0, 0, 0);
 	PM3_WRITE_DAC_REG(par, PM3RD_CursorMode, 0);
 	pm3fb_init_engine(info);
@@ -1078,37 +1078,37 @@ static int pm3fb_setcolreg(unsigned regno, unsigned red, unsigned green,
 {
 	struct pm3_par *par = info->par;
 
-	if (regno >= 256)  /*                     */
+	if (regno >= 256)  /* no. of hw registers */
 	   return -EINVAL;
 
-	/*                                                  */
-	/*                                      */
+	/* grayscale works only partially under directcolor */
+	/* grayscale = 0.30*R + 0.59*G + 0.11*B */
 	if (info->var.grayscale)
 	   red = green = blue = (red * 77 + green * 151 + blue * 28) >> 8;
 
-	/*             
-                                                    
-                                                     
-                                              
-                                                            
-                             
-                          
-                                                   
-                                            
-   
-                
-                            
-                                                           
-                                              
-                              
-                                                 
-                                     
-  */
+	/* Directcolor:
+	 *   var->{color}.offset contains start of bitfield
+	 *   var->{color}.length contains length of bitfield
+	 *   {hardwarespecific} contains width of DAC
+	 *   pseudo_palette[X] is programmed to (X << red.offset) |
+	 *					(X << green.offset) |
+	 *					(X << blue.offset)
+	 *   RAMDAC[X] is programmed to (red, green, blue)
+	 *   color depth = SUM(var->{color}.length)
+	 *
+	 * Pseudocolor:
+	 *	var->{color}.offset is 0
+	 *	var->{color}.length contains width of DAC or the number
+	 *			of unique colors available (color depth)
+	 *	pseudo_palette is not used
+	 *	RAMDAC[X] is programmed to (red, green, blue)
+	 *	color depth = var->{color}.length
+	 */
 
 	/*
-                                                                    
-                                  
-  */
+	 * This is the point where the color is converted to something that
+	 * is acceptable by the hardware.
+	 */
 #define CNVT_TOHW(val, width) ((((val) << (width)) + 0x7FFF - (val)) >> 16)
 	red = CNVT_TOHW(red, info->var.red.length);
 	green = CNVT_TOHW(green, info->var.green.length);
@@ -1163,11 +1163,11 @@ static int pm3fb_blank(int blank_mode, struct fb_info *info)
 	u32 video = par->video;
 
 	/*
-                                                            
-                                                           
-                                                             
-                                             
-  */
+	 * Oxygen VX1 - it appears that setting PM3VideoControl and
+	 * then PM3RD_SyncControl to the same SYNC settings undoes
+	 * any net change - they seem to xor together.  Only set the
+	 * sync options in PM3RD_SyncControl.  --rmk
+	 */
 	video &= ~(PM3VideoControl_HSYNC_MASK |
 		   PM3VideoControl_VSYNC_MASK);
 	video |= PM3VideoControl_HSYNC_ACTIVE_HIGH |
@@ -1204,8 +1204,8 @@ static int pm3fb_blank(int blank_mode, struct fb_info *info)
 }
 
 	/*
-                            
-  */
+	 *  Frame buffer operations
+	 */
 
 static struct fb_ops pm3fb_ops = {
 	.owner		= THIS_MODULE,
@@ -1221,22 +1221,22 @@ static struct fb_ops pm3fb_ops = {
 	.fb_cursor	= pm3fb_cursor,
 };
 
-/*                                                                           */
+/* ------------------------------------------------------------------------- */
 
 	/*
-                   
-  */
+	 *  Initialization
+	 */
 
-/*                                                               */
-/*                                      */
+/* mmio register are already mapped when this function is called */
+/* the pm3fb_fix.smem_start is also set */
 static unsigned long __devinit pm3fb_size_memory(struct pm3_par *par)
 {
 	unsigned long	memsize = 0;
 	unsigned long	tempBypass, i, temp1, temp2;
 	unsigned char	__iomem *screen_mem;
 
-	pm3fb_fix.smem_len = 64 * 1024l * 1024; /*                            */
-	/*                                                  */
+	pm3fb_fix.smem_len = 64 * 1024l * 1024; /* request full aperture size */
+	/* Linear frame buffer - request region and map it. */
 	if (!request_mem_region(pm3fb_fix.smem_start, pm3fb_fix.smem_len,
 				 "pm3fb smem")) {
 		printk(KERN_WARNING "pm3fb: Can't reserve smem.\n");
@@ -1250,8 +1250,8 @@ static unsigned long __devinit pm3fb_size_memory(struct pm3_par *par)
 		return 0;
 	}
 
-	/*                                                               */
-	/*                                            */
+	/* TODO: card-specific stuff, *before* accessing *any* FB memory */
+	/* For Appian Jeronimo 2000 board second head */
 
 	tempBypass = PM3_READ_REG(par, PM3MemBypassWriteMask);
 
@@ -1260,16 +1260,16 @@ static unsigned long __devinit pm3fb_size_memory(struct pm3_par *par)
 	PM3_WAIT(par, 1);
 	PM3_WRITE_REG(par, PM3MemBypassWriteMask, 0xFFFFFFFF);
 
-	/*                                                 
-                        
-  */
+	/* pm3 split up memory, replicates, and do a lot of
+	 * nasty stuff IMHO ;-)
+	 */
 	for (i = 0; i < 32; i++) {
 		fb_writel(i * 0x00345678,
 			  (screen_mem + (i * 1048576)));
 		mb();
 		temp1 = fb_readl((screen_mem + (i * 1048576)));
 
-		/*                                                            */
+		/* Let's check for wrapover, write will fail at 16MB boundary */
 		if (temp1 == (i * 0x00345678))
 			memsize = i;
 		else
@@ -1280,7 +1280,7 @@ static unsigned long __devinit pm3fb_size_memory(struct pm3_par *par)
 
 	if (memsize + 1 == i) {
 		for (i = 0; i < 32; i++) {
-			/*                                                */
+			/* Clear first 32MB ; 0 is 0, no need to byteswap */
 			writel(0x0000000, (screen_mem + (i * 1048576)));
 		}
 		wmb();
@@ -1293,7 +1293,7 @@ static unsigned long __devinit pm3fb_size_memory(struct pm3_par *par)
 			    fb_readl((screen_mem + (i * 1048576)));
 			temp2 =
 			    fb_readl((screen_mem + ((i - 32) * 1048576)));
-			/*                                   */
+			/* different value, different RAM... */
 			if ((temp1 == (i * 0x00345678)) && (temp2 == 0))
 				memsize = i;
 			else
@@ -1319,7 +1319,7 @@ static int __devinit pm3fb_probe(struct pci_dev *dev,
 {
 	struct fb_info *info;
 	struct pm3_par *par;
-	struct device *device = &dev->dev; /*                 */
+	struct device *device = &dev->dev; /* for pci drivers */
 	int err;
 	int retval = -ENXIO;
 
@@ -1329,8 +1329,8 @@ static int __devinit pm3fb_probe(struct pci_dev *dev,
 		return err;
 	}
 	/*
-                                     
-  */
+	 * Dynamically allocate info and par
+	 */
 	info = framebuffer_alloc(sizeof(struct pm3_par), device);
 
 	if (!info)
@@ -1338,9 +1338,9 @@ static int __devinit pm3fb_probe(struct pci_dev *dev,
 	par = info->par;
 
 	/*
-                                                             
-                        
-  */
+	 * Here we set the screen_base to the virtual memory address
+	 * for the framebuffer.
+	 */
 	pm3fb_fix.mmio_start = pci_resource_start(dev, 0);
 	pm3fb_fix.mmio_len = PM3_REGS_SIZE;
 #if defined(__BIG_ENDIAN)
@@ -1348,7 +1348,7 @@ static int __devinit pm3fb_probe(struct pci_dev *dev,
 	DPRINTK("Adjusting register base for big-endian.\n");
 #endif
 
-	/*                                        */
+	/* Registers - request region and map it. */
 	if (!request_mem_region(pm3fb_fix.mmio_start, pm3fb_fix.mmio_len,
 				 "pm3fb regbase")) {
 		printk(KERN_WARNING "pm3fb: Can't reserve regbase.\n");
@@ -1363,7 +1363,7 @@ static int __devinit pm3fb_probe(struct pci_dev *dev,
 		goto err_exit_neither;
 	}
 
-	/*                                                  */
+	/* Linear frame buffer - request region and map it. */
 	pm3fb_fix.smem_start = pci_resource_start(dev, 1);
 	pm3fb_fix.smem_len = pm3fb_size_memory(par);
 	if (!pm3fb_fix.smem_len) {
@@ -1419,9 +1419,9 @@ static int __devinit pm3fb_probe(struct pci_dev *dev,
 	info->pixmap.flags = FB_PIXMAP_SYSTEM;
 
 	/*
-                                                                      
-                                      
-  */
+	 * This should give a reasonable default video mode. The following is
+	 * done when we can set a video mode.
+	 */
 	if (!mode_option)
 		mode_option = "640x480@60";
 
@@ -1438,8 +1438,8 @@ static int __devinit pm3fb_probe(struct pci_dev *dev,
 	}
 
 	/*
-                           
-  */
+	 * For drivers that can...
+	 */
 	pm3fb_check_var(&info->var, info);
 
 	if (register_framebuffer(info) < 0) {
@@ -1467,8 +1467,8 @@ static int __devinit pm3fb_probe(struct pci_dev *dev,
 }
 
 	/*
-            
-  */
+	 *  Cleanup
+	 */
 static void __devexit pm3fb_remove(struct pci_dev *dev)
 {
 	struct fb_info *info = pci_get_drvdata(dev);
@@ -1484,7 +1484,7 @@ static void __devexit pm3fb_remove(struct pci_dev *dev)
 	if (par->mtrr_handle >= 0)
 		mtrr_del(par->mtrr_handle, info->fix.smem_start,
 			 info->fix.smem_len);
-#endif /*             */
+#endif /* CONFIG_MTRR */
 		iounmap(info->screen_base);
 		release_mem_region(fix->smem_start, fix->smem_len);
 		iounmap(par->v_regs);
@@ -1502,7 +1502,7 @@ static struct pci_device_id pm3fb_id_table[] = {
 	{ 0, }
 };
 
-/*                 */
+/* For PCI drivers */
 static struct pci_driver pm3fb_driver = {
 	.name =		"pm3fb",
 	.id_table =	pm3fb_id_table,
@@ -1514,18 +1514,18 @@ MODULE_DEVICE_TABLE(pci, pm3fb_id_table);
 
 #ifndef MODULE
 	/*
-          
-  */
+	 *  Setup
+	 */
 
 /*
-                                                       
-                                                    
+ * Only necessary if your driver takes special options,
+ * otherwise we fall back on the generic fb_setup().
  */
 static int __init pm3fb_setup(char *options)
 {
 	char *this_opt;
 
-	/*                                               */
+	/* Parse user specified options (`video=pm3fb:') */
 	if (!options || !*options)
 		return 0;
 
@@ -1545,13 +1545,13 @@ static int __init pm3fb_setup(char *options)
 	}
 	return 0;
 }
-#endif /*        */
+#endif /* MODULE */
 
 static int __init pm3fb_init(void)
 {
 	/*
-                                                                
-  */
+	 *  For kernel boot options (in 'video=pm3fb:<options>' format)
+	 */
 #ifndef MODULE
 	char *option = NULL;
 

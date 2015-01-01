@@ -239,7 +239,7 @@ static int __devinit cn_probe(struct spmi_device *spmi)
 	}
 	chip->iadc_base = IADC_BASE;
 	chip->base = BMS_BASE;
-	chip->r_sense_uohm = RSENSE_MICRO_OHM; /*                  */
+	chip->r_sense_uohm = RSENSE_MICRO_OHM; /* rsense is 10mohm */
 
 	rc = spmi_cn_add_controller(chip, spmi);
 	if (rc) {
@@ -267,7 +267,7 @@ static int __devinit cn_probe(struct spmi_device *spmi)
 		pr_err("power_supply_register bms failed rc = %d\n", rc);
 		goto unregister_dc;
 	}
-	/*                   */
+	/* Enable BMS_EN_CTL */
 	rc = cn_masked_write_base(chip, BMS_EN_CTL, BMS_EN_MASK, 0x80);
 	if (rc)
 		pr_err("Fail to enable BMS_EN_CTL!! rc=%d\n", rc);

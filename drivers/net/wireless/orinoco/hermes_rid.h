@@ -2,7 +2,7 @@
 #define _HERMES_RID_H
 
 /*
-                     
+ * Configuration RIDs
  */
 #define HERMES_RID_CNFPORTTYPE			0xFC00
 #define HERMES_RID_CNFOWNMACADDR		0xFC01
@@ -104,7 +104,7 @@
 #define HERMES_RID_CNFHOSTSCAN			0xFCE5
 
 /*
-                   
+ * Information RIDs
  */
 #define HERMES_RID_MAXLOADTIME			0xFD00
 #define HERMES_RID_DOWNLOADBUFFER		0xFD01

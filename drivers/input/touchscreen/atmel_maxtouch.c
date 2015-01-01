@@ -21,9 +21,9 @@
  */
 
 /*
-   
-                                                         
-  
+ * 
+ * Driver for Atmel maXTouch family of touch controllers.
+ *
  */
 
 #include <linux/i2c.h>
@@ -43,7 +43,7 @@
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 
-/*                     */
+/* Early-suspend level */
 #define MXT_SUSPEND_LEVEL 1
 #endif
 
@@ -60,8 +60,8 @@ MODULE_PARM_DESC(comms, "Select communications mode");
 
 #define T7_DATA_SIZE 3
 
-/*                        */
-/*                                                     */
+/* Device Info descriptor */
+/* Parsed from maXTouch "Id information" inside device */
 struct mxt_device_info {
 	u8   family_id;
 	u8   variant_id;
@@ -71,12 +71,12 @@ struct mxt_device_info {
 	u8   num_objs;
 	u8   x_size;
 	u8   y_size;
-	char family_name[16];	 /*             */
-	char variant_name[16];    /*              */
-	u16  num_nodes;           /*                        */
+	char family_name[16];	 /* Family name */
+	char variant_name[16];    /* Variant name */
+	u16  num_nodes;           /* Number of sensor nodes */
 };
 
-/*                                                              */
+/* object descriptor table, parsed from maXTouch "object table" */
 struct mxt_object {
 	u16 chip_addr;
 	u8  type;
@@ -86,22 +86,22 @@ struct mxt_object {
 };
 
 
-/*                                                    */
+/* Mapping from report id to object type and instance */
 struct report_id_map {
 	u8  object;
 	u8  instance;
 /*
-                                                                    
-                                                                    
-                                                             
-                                                                 
-          
+ * This is the first report ID belonging to object. It enables us to
+ * find out easily the touch number: each touch has different report
+ * ID (which are assigned to touches in increasing order). By
+ * subtracting the first report ID from current, we get the touch
+ * number.
  */
 	u8  first_rid;
 };
 
 
-/*                      */
+/* Driver datastructure */
 struct mxt_data {
 	struct i2c_client    *client;
 	struct input_dev     *input;
@@ -149,16 +149,16 @@ struct mxt_data {
 	u8                   (*valid_interrupt)(void);
 	u8                   (*read_chg)(void);
 
-	/*                   */
+	/* debugfs variables */
 	struct dentry        *debug_dir;
 	int                  current_debug_datap;
 
 	struct mutex         debug_mutex;
 	u16                  *debug_data;
 
-        /*                            */
+        /* Character device variables */
 	struct cdev          cdev;
-	struct cdev          cdev_messages;  /*                           */
+	struct cdev          cdev_messages;  /* 2nd Char dev for messages */
 	dev_t                dev_num;
 	struct class         *mxt_class;
 
@@ -166,10 +166,10 @@ struct mxt_data {
 	u16                  address_pointer;
 	bool                 valid_ap;
 
-	/*                           */
+	/* Message buffer & pointers */
 	char                 *messages;
 	int                  msg_buffer_startp, msg_buffer_endp;
-        /*                                                      */
+        /* Put only non-touch messages to buffer if this is set */
 	char                 nontouch_msg_only; 
 	struct mutex         msg_mutex;
 #if defined(CONFIG_HAS_EARLYSUSPEND)
@@ -178,7 +178,7 @@ struct mxt_data {
 	u8 t7_data[T7_DATA_SIZE];
 	bool is_suspended;
 };
-/*                                        */
+/*default value, enough to read versioning*/
 #define CONFIG_DATA_SIZE	6
 static u16 t38_size = CONFIG_DATA_SIZE;
 static int mxt_read_block(struct i2c_client *client, u16 addr, u16 length,
@@ -194,20 +194,20 @@ static u8 mxt_valid_interrupt_dummy(void)
 #define I2C_RETRY_COUNT 5
 #define I2C_PAYLOAD_SIZE 254
 
-/*                                                    */
+/* Returns the start address of object in mXT memory. */
 #define	MXT_BASE_ADDR(object_type, mxt)					\
 	get_object_address(object_type, 0, mxt->object_table,           \
 			   mxt->device_info.num_objs)
 
-/*                                                          */
+/* Maps a report ID to an object type (object type number). */
 #define	REPORT_ID_TO_OBJECT(rid, mxt)			\
 	(((rid) == 0xff) ? 0 : mxt->rid_map[rid].object)
 
-/*                                              */
+/* Maps a report ID to an object type (string). */
 #define	REPORT_ID_TO_OBJECT_NAME(rid, mxt)			\
 	object_type_name[REPORT_ID_TO_OBJECT(rid, mxt)]
 
-/*                                                    */
+/* Returns non-zero if given object is a touch object */
 #define IS_TOUCH_OBJECT(object) \
 	((object == MXT_TOUCH_MULTITOUCHSCREEN_T9) || \
 	 (object == MXT_TOUCH_KEYARRAY_T15) ||	\
@@ -228,12 +228,12 @@ static u8 mxt_valid_interrupt_dummy(void)
 
 
 /* 
-                                                                            
-                                                                   
-                                                                             
-                                                                              
-                                         
-  
+ * Check whether we have multi-touch enabled kernel; if not, report just the
+ * first touch (on mXT224, the maximum is 10 simultaneous touches).
+ * Because just the 1st one is reported, it might seem that the screen is not
+ * responding to touch if the first touch is removed while the screen is being
+ * touched by another finger, so beware. 
+ *
  */
 
 #ifdef ABS_MT_TRACKING_ID
@@ -320,7 +320,7 @@ ssize_t debug_data_read(struct mxt_data *mxt, char *buf, size_t count,
 	if (data == NULL)
 		return -EIO;
 
-	/*                                                    */
+	/* If first read after open, read all data to buffer. */
 	if (mxt->current_debug_datap == 0){
 
 		diagnostics_reg = MXT_BASE_ADDR(MXT_GEN_COMMANDPROCESSOR_T6, 
@@ -343,8 +343,8 @@ ssize_t debug_data_read(struct mxt_data *mxt, char *buf, size_t count,
 					MXT_CMD_T6_PAGE_DOWN);
 			if (error < 0)
 				return error;
-			/*                                                 
-                                */
+			/* Wait for command to be handled; when it has, the
+			   register will be cleared. */
 			debug_command_reg = 1;
 			while (debug_command_reg != 0) {
 				error = mxt_read_block(mxt->client, 
@@ -365,18 +365,18 @@ ssize_t debug_data_read(struct mxt_data *mxt, char *buf, size_t count,
 		}
 
 		/*
-                                                              
-                                                             
-                                        
-   */
+		 * Lock mutex to prevent writing some unwanted data to debug
+		 * command register. User can still write through the char 
+		 * device interface though. TODO: fix?
+		 */
 
 		mutex_lock(&mxt->debug_mutex);
-		/*                                                        */
+		/* Configure Debug Diagnostics object to show deltas/refs */
 		error = mxt_write_byte(mxt->client, diagnostics_reg,
 				debug_command);
 
-                /*                                                 
-                               */
+                /* Wait for command to be handled; when it has, the
+		 * register will be cleared. */
 		debug_command_reg = 1;
 		while (debug_command_reg != 0) {
 			error = mxt_read_block(mxt->client, 
@@ -414,7 +414,7 @@ ssize_t debug_data_read(struct mxt_data *mxt, char *buf, size_t count,
 			offset += read_size/2;
 			size -= read_size;
 
-			/*                  */
+			/* Select next page */
 			error = mxt_write_byte(mxt->client, diagnostics_reg, 
 					MXT_CMD_T6_PAGE_UP);
 			if (error < 0) {
@@ -629,11 +629,11 @@ static long mxt_ioctl(struct file *file,
 } 
 
 /*
-                                             
-  
-                                                                  
-                      
-   
+ * Copies messages from buffer to user space.
+ *
+ * NOTE: if less than (mxt->message_size * 5 + 1) bytes requested,
+ * this will return 0!
+ * 
  */
 ssize_t mxt_message_read(struct file *file, char *buf, size_t count, 
 			 loff_t *ppos)
@@ -648,7 +648,7 @@ ssize_t mxt_message_read(struct file *file, char *buf, size_t count,
 	buf_start = buf;
 
 	mutex_lock(&mxt->msg_mutex);
-	/*                                                            */
+	/* Copy messages until buffer empty, or 'count' bytes written */
 	while ((mxt->msg_buffer_startp != mxt->msg_buffer_endp) &&
 		((buf - buf_start) < (count - (5 * mxt->message_size) - 1))){
 
@@ -682,7 +682,7 @@ static struct file_operations mxt_memory_fops = {
 };
 
 
-/*                                                         */
+/* Writes the address pointer (to set up following reads). */
 
 int mxt_write_ap(struct mxt_data *mxt, u16 ap)
 {
@@ -702,7 +702,7 @@ int mxt_write_ap(struct mxt_data *mxt, u16 ap)
 
 
 
-/*                                */
+/* Calculates the 24-bit CRC sum. */
 static u32 CRC_24(u32 crc, u8 byte1, u8 byte2)
 {
 	static const u32 crcpoly = 0x80001B;
@@ -716,7 +716,7 @@ static u32 CRC_24(u32 crc, u8 byte1, u8 byte2)
 	return result;
 }
 
-/*                                                                    */
+/* Returns object address in mXT chip, or zero if object is not found */
 static u16 get_object_address(uint8_t object_type,
 			      uint8_t instance,
 			      struct mxt_object *object_table,
@@ -731,7 +731,7 @@ static u16 get_object_address(uint8_t object_type,
 		obj = &object_table[object_table_index];
 		if (obj->type == object_type) {
 			address_found = 1;
-			/*                                               */
+			/* Are there enough instances defined in the FW? */
 			if (obj->instances >= instance) {
 				address = obj->chip_addr +
 					  (obj->size + 1) * instance;
@@ -746,10 +746,10 @@ static u16 get_object_address(uint8_t object_type,
 
 
 /*
-                                                                     
-                                                                          
-                                                                  
-                                                                      
+ * Reads a block of bytes from given address from mXT chip. If we are
+ * reading from message window, and previous read was from message window,
+ * there's no need to write the address pointer: the mXT chip will
+ * automatically set the address pointer back to message window start.
  */
 
 static int mxt_read_block(struct i2c_client *client,
@@ -796,7 +796,7 @@ static int mxt_read_block(struct i2c_client *client,
 
 }
 
-/*                                                            */
+/* Reads a block of bytes from current address from mXT chip. */
 
 static int mxt_read_block_wo_addr(struct i2c_client *client,
 			   u16 length,
@@ -815,7 +815,7 @@ static int mxt_read_block_wo_addr(struct i2c_client *client,
 }
 
 
-/*                                               */
+/* Writes one byte to given address in mXT chip. */
 
 static int mxt_write_byte(struct i2c_client *client, u16 addr, u8 value)
 {
@@ -839,7 +839,7 @@ static int mxt_write_byte(struct i2c_client *client, u16 addr, u8 value)
 }
 
 
-/*                                                                 */
+/* Writes a block of bytes (max 256) to given address in mXT chip. */
 static int mxt_write_block(struct i2c_client *client,
 		    u16 addr,
 		    u16 length,
@@ -870,7 +870,7 @@ static int mxt_write_block(struct i2c_client *client,
 		return -EIO;
 }
 
-/*                                             */
+/* Calculates the CRC value for mXT infoblock. */
 int calculate_infoblock_crc(u32 *crc_result, u8 *data, int crc_area_size)
 {
 	u32 crc = 0;
@@ -878,16 +878,16 @@ int calculate_infoblock_crc(u32 *crc_result, u8 *data, int crc_area_size)
 
 	for (i = 0; i < (crc_area_size - 1); i = i + 2)
 		crc = CRC_24(crc, *(data + i), *(data + i + 1));
-	/*                               */
+	/* If uneven size, pad with zero */
 	if (crc_area_size & 0x0001)
 		crc = CRC_24(crc, *(data + i), 0);
-	/*                             */
+	/* Return only 24 bits of CRC. */
 	*crc_result = (crc & 0x00FFFFFF);
 
 	return 0;
 }
 
-/*                                  */
+/* Processes a touchscreen message. */
 void process_T9_message(u8 *message, struct mxt_data *mxt, int last_touch)
 {
 
@@ -906,20 +906,20 @@ void process_T9_message(u8 *message, struct mxt_data *mxt, int last_touch)
 	int i;
 	int active_touches = 0;
 	/*
-                                                                   
-            
-                                                                      
-             
-             
-   */ 
+	 * If the 'last_touch' flag is set, we have received all the touch
+	 * messages
+	 * there are available in this cycle, so send the events for touches 
+	 * that are 
+  	 * active.
+ 	 */ 
 	if (last_touch){
-        /*                                                                 
-          */
+        /* TODO: For compatibility with single-touch systems, send ABS_X & 
+	 * ABS_Y */
         /*
-                            
-                                                             
-                                                             
-         */
+        if (stored_size[0]){
+            input_report_abs(mxt->input, ABS_X, stored_x[0]);
+            input_report_abs(mxt->input, ABS_Y, stored_y[0]);
+        }*/
 
     
 		for (i = 0; i < 10; i++){
@@ -952,11 +952,11 @@ void process_T9_message(u8 *message, struct mxt_data *mxt, int last_touch)
 	report_id = message[0];
 
 	if (status & MXT_MSGB_T9_SUPPRESS) {
-		/*                                        */
-		/*                                        */
+		/* Touch has been suppressed by grip/face */
+		/* detection                              */
 		mxt_debug(DEBUG_TRACE, "SUPRESS");
 	} else {
-		/*                                                */
+		/* Put together the 10-/12-bit coordinate values. */
 		xpos = message[MXT_MSG_T9_XPOSMSB] * 16 +
 			((message[MXT_MSG_T9_XYPOSLSB] >> 4) & 0xF);
 		ypos = message[MXT_MSG_T9_YPOSMSB] * 16 +
@@ -975,36 +975,36 @@ void process_T9_message(u8 *message, struct mxt_data *mxt, int last_touch)
 
 		if (status & MXT_MSGB_T9_DETECT) {
 			/*
-                                                 
-                                                
-                                                         
-                                                         
-                                                          
-                                                        
-                                              
-    */
+			 * mXT224 reports the number of touched nodes,
+			 * so the exact value for touch ellipse major
+			 * axis length in nodes would be 2*sqrt(touch_size/pi)
+			 * (assuming round touch shape), which would then need
+			 * to be scaled using information about how many sensor
+			 * lines we do have. So this is very much simplified,
+			 * but sufficient for most if not all apps?
+			 */
 			touch_size = message[MXT_MSG_T9_TCHAREA];
 			touch_size = touch_size >> 2;
 			if (!touch_size)
 				touch_size = 1;
 			/*
-                                                                    
+             * report_mt(touch_number, touch_size, xpos, ypos, mxt);
              */
 
             stored_size[touch_number] = touch_size;
 
 			if (status & MXT_MSGB_T9_AMP)
-				/*                                */
+				/* Amplitude of touch has changed */
 				amplitude = message[MXT_MSG_T9_TCHAMPLITUDE];
 		}
 
 		if (status & MXT_MSGB_T9_RELEASE) {
-			/*                                                */
-			/*                                              */
+			/* The previously reported touch has been removed.*/
+			/* report_mt(touch_number, 0, xpos, ypos, mxt); */
             stored_size[touch_number] = 0;
 		}
 
-		/*                    */
+		/* input_sync(input); */
 	}
 	
 	if (status & MXT_MSGB_T9_SUPPRESS) {
@@ -1048,7 +1048,7 @@ int process_message(u8 *message, u8 object, struct mxt_data *mxt)
 	if ((mxt->nontouch_msg_only == 0) ||
 	    (!IS_TOUCH_OBJECT(object))){
 		mutex_lock(&mxt->msg_mutex);
-		/*                            */
+		/* Copy the message to buffer */
 		if (mxt->msg_buffer_startp < MXT_MESSAGE_BUFFER_SIZE) {
 			mxt->msg_buffer_startp++;
 		} else {
@@ -1083,9 +1083,9 @@ int process_message(u8 *message, u8 object, struct mxt_data *mxt)
 		}
 		if (status & MXT_MSGB_T6_CFGERR) {
 			/* 
-                                                 
-                                                
-    */
+			 * Configuration error. A proper configuration
+			 * needs to be written to chip and backed up.
+			 */
 			if ((!error_cond) & MXT_MSGB_T6_CFGERR){
 				dev_err(&client->dev,
 					"maXTouch configuration error\n");
@@ -1093,16 +1093,16 @@ int process_message(u8 *message, u8 object, struct mxt_data *mxt)
 			}
 		}
 		if (status & MXT_MSGB_T6_CAL) {
-			/*                                         */
+			/* Calibration in action, no need to react */
 			dev_dbg(&client->dev,
 				"maXTouch calibration in progress\n");
 		}
 		if (status & MXT_MSGB_T6_SIGERR) {
 			/* 
-                                                      
-                                                     
-          
-    */
+			 * Signal acquisition error, something is seriously
+			 * wrong, not much we can in the driver to correct
+			 * this
+			 */
 			if ((!error_cond) & MXT_MSGB_T6_SIGERR){
 				dev_err(&client->dev,
 					"maXTouch acquisition error\n");
@@ -1111,19 +1111,19 @@ int process_message(u8 *message, u8 object, struct mxt_data *mxt)
 		}
 		if (status & MXT_MSGB_T6_OFL) {
 			/*
-                                                      
-            
-    */
+			 * Cycle overflow, the acquisition interval is too 
+			 * short.
+			 */
 			dev_err(&client->dev,
 				"maXTouch cycle overflow\n");
 		}
 		if (status & MXT_MSGB_T6_RESET) {
-			/*                                     */
+			/* Chip has reseted, no need to react. */
 			dev_dbg(&client->dev,
 				"maXTouch chip reset\n");
 		}
 		if (status == 0) {
-			/*                             */
+			/* Chip status back to normal. */
 			dev_dbg(&client->dev,
 				"maXTouch status normal\n");
 			error_cond = 0;
@@ -1267,10 +1267,10 @@ int process_message(u8 *message, u8 object, struct mxt_data *mxt)
 
 
 /*
-                                                                      
-                                                                    
-                                                      
-  
+ * Processes messages when the interrupt line (CHG) is asserted. Keeps
+ * reading messages until a message with report ID 0xFF is received,
+ * which indicates that there is no more new messages.
+ *
  */
 
 static void mxt_worker(struct work_struct *work)
@@ -1309,8 +1309,8 @@ static void mxt_worker(struct work_struct *work)
 	mxt_debug(DEBUG_TRACE, "maXTouch worker active:\n");
 	
 	do {
-		/*                                       */
-        /*                                     */
+		/* Read next message, reread on failure. */
+        /* TODO: message length, CRC included? */
 		mxt->message_counter++;
 		for (i = 1; i < I2C_RETRY_COUNT; i++) {
 			error = mxt_read_block(client,
@@ -1337,7 +1337,7 @@ static void mxt_worker(struct work_struct *work)
 				  REPORT_ID_TO_OBJECT_NAME(report_id, mxt),
 				  mxt->message_counter
 			);
-			/*                           */
+			/* 5 characters per one byte */
 			message_string = kmalloc(message_length * 5, 
 						 GFP_KERNEL);
 			if (message_string == NULL) {
@@ -1360,7 +1360,7 @@ static void mxt_worker(struct work_struct *work)
 			memcpy(mxt->last_message, message, message_length);
 			mxt->new_msgs = 1;
 			smp_wmb();
-			/*                                            */
+			/* Get type of object and process the message */
 			object = mxt->rid_map[report_id].object;
 			process_message(message, object, mxt);
 		}
@@ -1369,13 +1369,13 @@ static void mxt_worker(struct work_struct *work)
 	} while (comms ? (mxt->read_chg() == 0) : 
 		((report_id != MXT_END_OF_MESSAGES) && (report_id != 0)));
 
-	/*                                          */
+	/* All messages processed, send the events) */
 	process_T9_message(NULL, mxt, 1);
 
 	kfree(message);
 
 fail_worker:
-	/*                                            */
+	/* Make sure we just didn't miss a interrupt. */
 	if (mxt->read_chg() == 0){
 		schedule_delayed_work(&mxt->dwork, 0);
 	} else
@@ -1384,9 +1384,9 @@ fail_worker:
 
 
 /*
-                                                                            
-                                                                             
-                
+ * The maXTouch device will signal the host about a new message by asserting
+ * the CHG line. This ISR schedules a worker routine to read the message when
+ * that happens.
  */
 
 static irqreturn_t mxt_irq_handler(int irq, void *_mxt)
@@ -1395,7 +1395,7 @@ static irqreturn_t mxt_irq_handler(int irq, void *_mxt)
 
 	mxt->irq_counter++;
 	if (mxt->valid_interrupt()) {
-		/*                                                         */
+		/* Send the signal only if falling edge generated the irq. */
 		disable_irq_nosync(mxt->irq);
 		schedule_delayed_work(&mxt->dwork, 0);
 		mxt->valid_irq_counter++;
@@ -1409,9 +1409,9 @@ static irqreturn_t mxt_irq_handler(int irq, void *_mxt)
 
 
 
-/*                                                                            */
-/*                                                                            */
-/*                                                                            */
+/******************************************************************************/
+/* Initialization of driver                                                   */
+/******************************************************************************/
 
 static int __devinit mxt_identify(struct i2c_client *client,
 				  struct mxt_data *mxt,
@@ -1423,7 +1423,7 @@ static int __devinit mxt_identify(struct i2c_client *client,
 
 	identified = 0;
 
-	/*                                            */
+	/* Read Device info to check if chip is valid */
 	error = mxt_read_block(client, MXT_ADDR_INFO_BLOCK, MXT_ID_BLOCK_SIZE,
 			       (u8 *) buf);
 
@@ -1447,11 +1447,11 @@ static int __devinit mxt_identify(struct i2c_client *client,
 				      mxt->device_info.y_size;
 
 	/*
-                                                                  
-                          
+         * Check Family & Variant Info; warn if not recognized but
+         * still continue.
          */
 
-	/*        */
+	/* MXT224 */
 	if (mxt->device_info.family_id == MXT224_FAMILYID) {
 		strcpy(mxt->device_info.family_name, "mXT224");
 
@@ -1466,10 +1466,10 @@ static int __devinit mxt_identify(struct i2c_client *client,
 				"supported\n",
 				mxt->device_info.variant_id);
 			strcpy(mxt->device_info.variant_name, "UNKNOWN");
-			/*                      */
+			/* identified = -ENXIO; */
 		}
 
-	/*         */
+	/* MXT1386 */
 	} else if (mxt->device_info.family_id == MXT1386_FAMILYID) {
 		strcpy(mxt->device_info.family_name, "mXT1386");
 
@@ -1481,16 +1481,16 @@ static int __devinit mxt_identify(struct i2c_client *client,
 				"supported\n",
 				mxt->device_info.variant_id);
 			strcpy(mxt->device_info.variant_name, "UNKNOWN");
-			/*                      */
+			/* identified = -ENXIO; */
 		}
-	/*                    */
+	/* Unknown family ID! */
 	} else {
 		dev_err(&client->dev,
 			"Warning: maXTouch Family ID [%d] not supported\n",
 			mxt->device_info.family_id);
 		strcpy(mxt->device_info.family_name, "UNKNOWN");
 		strcpy(mxt->device_info.variant_name, "UNKNOWN");
-		/*                      */
+		/* identified = -ENXIO; */
 	}
 
 	dev_info(
@@ -1516,11 +1516,11 @@ static int __devinit mxt_identify(struct i2c_client *client,
 }
 
 /*
-                                                                    
-                                                                         
-                                                                        
-                           
-  
+ * Reads the object table from maXTouch chip to get object data like
+ * address, size, report id. For Info Block CRC calculation, already read
+ * id data is passed to this function too (Info Block consists of the ID
+ * block and object table).
+ *
  */
 static int __devinit mxt_read_object_table(struct i2c_client *client,
 					   struct mxt_data *mxt,
@@ -1567,7 +1567,7 @@ static int __devinit mxt_read_object_table(struct i2c_client *client,
 		goto err_ib_alloc;
 	}
 
-	/*                                       */
+	/* Copy the ID data for CRC calculation. */
 	memcpy(raw_ib_data, raw_id_data, MXT_ID_BLOCK_SIZE);
 	ib_pointer = MXT_ID_BLOCK_SIZE;
 
@@ -1613,9 +1613,9 @@ static int __devinit mxt_read_object_table(struct i2c_client *client,
 
 		if (object_type == 38)
 			t38_size = object_size;
-		/*                                                    */
+		/* TODO: check whether object is known and supported? */
 		
-		/*                              */
+		/* Save frequently needed info. */
 		if (object_type == MXT_GEN_MESSAGEPROCESSOR_T5) {
 			mxt->msg_proc_addr = object_address;
 			mxt->message_size = object_size;
@@ -1633,7 +1633,7 @@ static int __devinit mxt_read_object_table(struct i2c_client *client,
 
 	mxt->rid_map =
 		kzalloc(sizeof(struct report_id_map) * (report_id_count + 1),
-			/*                                            */
+			/* allocate for report_id 0, even if not used */
 			GFP_KERNEL);
 	if (mxt->rid_map == NULL) {
 		printk(KERN_WARNING "maXTouch: Can't allocate memory!\n");
@@ -1657,7 +1657,7 @@ static int __devinit mxt_read_object_table(struct i2c_client *client,
 	}
 
 	mxt->report_id_count = report_id_count;
-	if (report_id_count > 254) {	/*                      */
+	if (report_id_count > 254) {	/* 0 & 255 are reserved */
 			dev_err(&client->dev,
 				"Too many maXTouch report id's [%d]\n",
 				report_id_count);
@@ -1665,10 +1665,10 @@ static int __devinit mxt_read_object_table(struct i2c_client *client,
 			goto err_max_rid;
 	}
 
-	/*                                                */
-	report_id = 1; /*                              */
+	/* Create a mapping from report id to object type */
+	report_id = 1; /* Start from 1, 0 is reserved. */
 
-	/*                                                               */
+	/* Create table associating report id's with objects & instances */
 	for (i = 0; i < mxt->device_info.num_objs; i++) {
 		for (object_instance = 0;
 		     object_instance < object_table[i].instances;
@@ -1688,7 +1688,7 @@ static int __devinit mxt_read_object_table(struct i2c_client *client,
 		}
 	}
 
-	/*                 */
+	/* Read 3 byte CRC */
 	error = mxt_read_block(client, object_info_address, 3, buf);
 	if (error < 0) {
 		mxt->read_fail_counter++;
@@ -1772,19 +1772,19 @@ static int mxt_suspend(struct device *dev)
 		t7_deepsl_data[i] = 0;
 
 	t7_addr = MXT_BASE_ADDR(MXT_GEN_POWERCONFIG_T7, mxt);
-	/*                                 */
+	/* save current power state values */
 	error = mxt_read_block(mxt->client, t7_addr,
 			ARRAY_SIZE(mxt->t7_data), mxt->t7_data);
 	if (error < 0)
 		goto err_enable_irq;
 
-	/*                           */
+	/* configure deep sleep mode */
 	error = mxt_write_block(mxt->client, t7_addr,
 			ARRAY_SIZE(t7_deepsl_data), t7_deepsl_data);
 	if (error < 0)
 		goto err_enable_irq;
 
-	/*                      */
+	/* power off the device */
 	if (mxt->power_on) {
 		error = mxt->power_on(false);
 		if (error) {
@@ -1817,7 +1817,7 @@ static int mxt_resume(struct device *dev)
 	if (!mxt->is_suspended)
 		return 0;
 
-	/*                     */
+	/* power on the device */
 	if (mxt->power_on) {
 		error = mxt->power_on(true);
 		if (error) {
@@ -1827,13 +1827,13 @@ static int mxt_resume(struct device *dev)
 	}
 
 	t7_addr = MXT_BASE_ADDR(MXT_GEN_POWERCONFIG_T7, mxt);
-	/*                                    */
+	/* restore the old power state values */
 	error = mxt_write_block(mxt->client, t7_addr,
 			ARRAY_SIZE(mxt->t7_data), mxt->t7_data);
 	if (error < 0)
 		goto err_write_block;
 
-	/*                                            */
+	/* Make sure we just didn't miss a interrupt. */
 	if (mxt->read_chg() == 0)
 		schedule_delayed_work(&mxt->dwork, 0);
 	else
@@ -1903,7 +1903,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 		return	-EINVAL;
 	}
 
-	/*                                             */
+	/* Enable runtime PM ops, start in ACTIVE mode */
 	error = pm_runtime_set_active(&client->dev);
 	if (error < 0)
 		dev_dbg(&client->dev, "unable to set runtime pm state\n");
@@ -1919,7 +1919,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 
 	mxt_debug(DEBUG_TRACE, "maXTouch driver functionality OK\n");
 
-	/*                                                    */
+	/* Allocate structure - we need it to identify device */
 	mxt = kzalloc(sizeof(struct mxt_data), GFP_KERNEL);
 	if (mxt == NULL) {
 		dev_err(&client->dev, "insufficient memory\n");
@@ -1941,7 +1941,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 		goto err_input_dev_alloc;
 	}
 
-	/*                          */
+	/* Initialize Platform data */
 
 	pdata = client->dev.platform_data;
 	if (pdata == NULL) {
@@ -1970,7 +1970,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	mxt->max_x_val         = pdata->max_x;
 	mxt->max_y_val         = pdata->max_y;
 
-	/*                                                  */
+	/* Get data that is defined in board specific code. */
 	mxt->init_hw = pdata->init_platform_hw;
 	mxt->exit_hw = pdata->exit_platform_hw;
 	mxt->power_on = pdata->power_on;
@@ -1989,7 +1989,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 		}
 	}
 
-	/*                     */
+	/* power on the device */
 	if (mxt->power_on) {
 		error = mxt->power_on(true);
 		if (error) {
@@ -2006,7 +2006,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 		error = -ENODEV;
 		goto err_identify;
 	}
-	/*                           */
+	/* Chip is valid and active. */
 	if (debug >= DEBUG_TRACE)
 		printk(KERN_INFO "maXTouch driver allocating input device\n");
 
@@ -2036,7 +2036,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	set_bit(BTN_TOUCH, input->keybit);
 	set_bit(INPUT_PROP_DIRECT, input->propbit);
 
-	/*              */
+	/* Single touch */
 	input_set_abs_params(input, ABS_X, mxt->min_x_val,
 				mxt->max_x_val, 0, 0);
 	input_set_abs_params(input, ABS_Y, mxt->min_y_val,
@@ -2046,7 +2046,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	input_set_abs_params(input, ABS_TOOL_WIDTH, 0, MXT_MAX_REPORTED_WIDTH,
 			     0, 0);
 
-	/*            */
+	/* Multitouch */
 	input_set_abs_params(input, ABS_MT_POSITION_X, mxt->min_x_val,
 				mxt->max_x_val, 0, 0);
 	input_set_abs_params(input, ABS_MT_POSITION_Y, mxt->min_y_val,
@@ -2079,10 +2079,10 @@ static int __devinit mxt_probe(struct i2c_client *client,
 		goto err_read_ot;
 
 
-	/*                         */
+	/* Create debugfs entries. */
 	mxt->debug_dir = debugfs_create_dir("maXTouch", NULL);
 	if (mxt->debug_dir == ERR_PTR(-ENODEV)) {
-		/*                         */
+		/* debugfs is not enabled. */
 		printk(KERN_WARNING "debugfs not enabled in kernel\n");
 	} else if (mxt->debug_dir == NULL) {
 		printk(KERN_WARNING "error creating debugfs dir\n");
@@ -2095,14 +2095,14 @@ static int __devinit mxt_probe(struct i2c_client *client,
 				    &refs_fops);
 	}
 
-        /*                                                               */
+        /* Create character device nodes for reading & writing registers */
 	mxt->mxt_class = class_create(THIS_MODULE, "maXTouch_memory");
 	if (IS_ERR(mxt->mxt_class)){
 	  printk(KERN_WARNING "class create failed! exiting...");
 	  goto err_class_create;
 	  
 	}
-	/*                                                */
+	/* 2 numbers; one for memory and one for messages */
 	error = alloc_chrdev_region(&mxt->dev_num, 0, 2, 
 				    "maXTouch_memory");
 	mxt_debug(DEBUG_VERBOSE, 
@@ -2138,22 +2138,22 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	mxt->msg_buffer_startp = 0;
 	mxt->msg_buffer_endp = 0;
 
-	/*                        */
+	/* Allocate the interrupt */
 	mxt_debug(DEBUG_TRACE, "maXTouch driver allocating interrupt...\n");
 	mxt->irq = client->irq;
 	mxt->valid_irq_counter = 0;
 	mxt->invalid_irq_counter = 0;
 	mxt->irq_counter = 0;
 	if (mxt->irq) {
-		/*                                                    
-                                                           */
+		/* Try to request IRQ with falling edge first. This is
+		 * not always supported. If it fails, try with any edge. */
 		error = request_irq(mxt->irq,
 				    mxt_irq_handler,
 				    IRQF_TRIGGER_FALLING,
 				    client->dev.driver->name,
 				    mxt);
 		if (error < 0) {
-			/*                                    */
+			/* TODO: why only 0 works on STK1000? */
 			error = request_irq(mxt->irq,
 					    mxt_irq_handler,
 					    0,
@@ -2185,8 +2185,8 @@ static int __devinit mxt_probe(struct i2c_client *client,
 		t38_data[0], t38_data[1], t38_data[2],
 		t38_data[3], t38_data[4], t38_data[5]);
 
-	/*                                                               
-                                              */
+	/* Schedule a worker routine to read any messages that might have
+	 * been sent before interrupts were enabled. */
 	cancel_delayed_work(&mxt->dwork);
 	disable_irq(mxt->irq);
 	schedule_delayed_work(&mxt->dwork, 0);
@@ -2250,7 +2250,7 @@ static int __devexit mxt_remove(struct i2c_client *client)
 
 	mxt = i2c_get_clientdata(client);
 
-	/*                          */
+	/* Remove debug dir entries */
 	debugfs_remove_recursive(mxt->debug_dir);
 
 	device_init_wakeup(&client->dev, 0);

@@ -24,7 +24,7 @@
 #include <asm/mach/pci.h>
 #include <asm/hardware/iop3xx.h>
 
-//              
+// #define DEBUG
 
 #ifdef DEBUG
 #define  DBG(x...) printk(x)
@@ -33,8 +33,8 @@
 #endif
 
 /*
-                                                                             
-                                                                  
+ * This routine builds either a type0 or type1 configuration command.  If the
+ * bus is on the 803xx then a type0 made, else a type1 is created.
  */
 static u32 iop3xx_cfg_address(struct pci_bus *bus, int devfn, int where)
 {
@@ -52,11 +52,11 @@ static u32 iop3xx_cfg_address(struct pci_bus *bus, int devfn, int where)
 }
 
 /*
-                                                                               
-                                                                              
-                                                                              
-                                                                           
-                       
+ * This routine checks the status of the last configuration cycle.  If an error
+ * was detected it returns a 1, else it returns a 0.  The errors being checked
+ * are parity, master abort, target abort (master and target).  These types of
+ * errors occur during a config cycle where there is no device, like during
+ * the discovery stage.
  */
 static int iop3xx_pci_status(void)
 {
@@ -64,8 +64,8 @@ static int iop3xx_pci_status(void)
 	int ret = 0;
 
 	/*
-                               
-  */
+	 * Check the status registers.
+	 */
 	status = *IOP3XX_ATUSR;
 	if (status & 0xf900) {
 		DBG("\t\t\tPCI: P0 - status = 0x%08x\n", status);
@@ -84,9 +84,9 @@ static int iop3xx_pci_status(void)
 }
 
 /*
-                                                               
-                                                                
-                               
+ * Simply write the address register and read the configuration
+ * data.  Note that the 4 nops ensure that we are able to handle
+ * a delayed abort (in theory.)
  */
 static u32 iop3xx_read(unsigned long addr)
 {
@@ -106,8 +106,8 @@ static u32 iop3xx_read(unsigned long addr)
 }
 
 /*
-                                                                          
-                                                                  
+ * The read routines must check the error status of the last configuration
+ * cycle.  If there was an error, the routine returns all hex f's.
  */
 static int
 iop3xx_read_config(struct pci_bus *bus, unsigned int devfn, int where,
@@ -166,8 +166,8 @@ static struct pci_ops iop3xx_ops = {
 };
 
 /*
-                                                                          
-                                                                          
+ * When a PCI device does not exist during config cycles, the 80200 gets a
+ * bus error instead of returning 0xffffffff. This handler simply returns.
  */
 static int
 iop3xx_pci_abort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
@@ -176,9 +176,9 @@ iop3xx_pci_abort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 		addr, fsr, regs->ARM_pc, regs->ARM_lr);
 
 	/*
-                                                             
-                                                 
-  */
+	 * If it was an imprecise abort, then we need to correct the
+	 * return address to be _after_ the instruction.
+	 */
 	if (fsr & (1 << 10))
 		regs->ARM_pc += 4;
 
@@ -209,8 +209,8 @@ int iop3xx_pci_setup(int nr, struct pci_sys_data *sys)
 	request_resource(&iomem_resource, &res[1]);
 
 	/*
-                                              
-  */
+	 * Use whatever translation is already setup.
+	 */
 	sys->mem_offset = IOP3XX_PCI_LOWER_MEM_PA - *IOP3XX_OMWTVR0;
 	sys->io_offset  = IOP3XX_PCI_LOWER_IO_PA - *IOP3XX_OIOWTVR;
 
@@ -228,50 +228,50 @@ struct pci_bus *iop3xx_pci_scan_bus(int nr, struct pci_sys_data *sys)
 
 void __init iop3xx_atu_setup(void)
 {
-	/*                    */
+	/* BAR 0 ( Disabled ) */
 	*IOP3XX_IAUBAR0 = 0x0;
 	*IOP3XX_IABAR0  = 0x0;
 	*IOP3XX_IATVR0  = 0x0;
 	*IOP3XX_IALR0   = 0x0;
 
-	/*                    */
+	/* BAR 1 ( Disabled ) */
 	*IOP3XX_IAUBAR1 = 0x0;
 	*IOP3XX_IABAR1  = 0x0;
 	*IOP3XX_IALR1   = 0x0;
 
-	/*                                       */
-	/*                      */
+	/* BAR 2 (1:1 mapping with Physical RAM) */
+	/* Set limit and enable */
 	*IOP3XX_IALR2 = ~((u32)IOP3XX_MAX_RAM_SIZE - 1) & ~0x1;
 	*IOP3XX_IAUBAR2 = 0x0;
 
-	/*                                               */
+	/* Align the inbound bar with the base of memory */
 	*IOP3XX_IABAR2 = PHYS_OFFSET |
 			       PCI_BASE_ADDRESS_MEM_TYPE_64 |
 			       PCI_BASE_ADDRESS_MEM_PREFETCH;
 
 	*IOP3XX_IATVR2 = PHYS_OFFSET;
 
-	/*                   */
+	/* Outbound window 0 */
 	*IOP3XX_OMWTVR0 = IOP3XX_PCI_LOWER_MEM_BA;
 	*IOP3XX_OUMWTVR0 = 0;
 
-	/*                   */
+	/* Outbound window 1 */
 	*IOP3XX_OMWTVR1 = IOP3XX_PCI_LOWER_MEM_BA +
 			  IOP3XX_PCI_MEM_WINDOW_SIZE / 2;
 	*IOP3XX_OUMWTVR1 = 0;
 
-	/*                    */
+	/* BAR 3 ( Disabled ) */
 	*IOP3XX_IAUBAR3 = 0x0;
 	*IOP3XX_IABAR3  = 0x0;
 	*IOP3XX_IATVR3  = 0x0;
 	*IOP3XX_IALR3   = 0x0;
 
-	/*                  
-  */
+	/* Setup the I/O Bar
+	 */
 	*IOP3XX_OIOWTVR = IOP3XX_PCI_LOWER_IO_BA;
 
-	/*                                   
-  */
+	/* Enable inbound and outbound cycles
+	 */
 	*IOP3XX_ATUCMD |= PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER |
 			       PCI_COMMAND_PARITY | PCI_COMMAND_SERR;
 	*IOP3XX_ATUCR |= IOP3XX_ATUCR_OUT_EN;
@@ -282,51 +282,51 @@ void __init iop3xx_atu_disable(void)
 	*IOP3XX_ATUCMD = 0;
 	*IOP3XX_ATUCR = 0;
 
-	/*                            */
+	/* wait for cycles to quiesce */
 	while (*IOP3XX_PCSR & (IOP3XX_PCSR_OUT_Q_BUSY |
 				     IOP3XX_PCSR_IN_Q_BUSY))
 		cpu_relax();
 
-	/*                    */
+	/* BAR 0 ( Disabled ) */
 	*IOP3XX_IAUBAR0 = 0x0;
 	*IOP3XX_IABAR0  = 0x0;
 	*IOP3XX_IATVR0  = 0x0;
 	*IOP3XX_IALR0   = 0x0;
 
-	/*                    */
+	/* BAR 1 ( Disabled ) */
 	*IOP3XX_IAUBAR1 = 0x0;
 	*IOP3XX_IABAR1  = 0x0;
 	*IOP3XX_IALR1   = 0x0;
 
-	/*                    */
+	/* BAR 2 ( Disabled ) */
 	*IOP3XX_IAUBAR2 = 0x0;
 	*IOP3XX_IABAR2  = 0x0;
 	*IOP3XX_IATVR2  = 0x0;
 	*IOP3XX_IALR2   = 0x0;
 
-	/*                    */
+	/* BAR 3 ( Disabled ) */
 	*IOP3XX_IAUBAR3 = 0x0;
 	*IOP3XX_IABAR3  = 0x0;
 	*IOP3XX_IATVR3  = 0x0;
 	*IOP3XX_IALR3   = 0x0;
 
-	/*                            */
+	/* Clear the outbound windows */
 	*IOP3XX_OIOWTVR  = 0;
 
-	/*                   */
+	/* Outbound window 0 */
 	*IOP3XX_OMWTVR0 = 0;
 	*IOP3XX_OUMWTVR0 = 0;
 
-	/*                   */
+	/* Outbound window 1 */
 	*IOP3XX_OMWTVR1 = 0;
 	*IOP3XX_OUMWTVR1 = 0;
 }
 
-/*                                                                          */
+/* Flag to determine whether the ATU is initialized and the PCI bus scanned */
 int init_atu;
 
 int iop3xx_get_init_atu(void) {
-	/*                                      */
+	/* check if default has been overridden */
 	if (init_atu != IOP3XX_INIT_ATU_DEFAULT)
 		return init_atu;
 	else
@@ -361,7 +361,7 @@ static void __init iop3xx_atu_debug(void)
 	hook_fault_code(16+6, iop3xx_pci_abort, SIGBUS, 0, "imprecise external abort");
 }
 
-/*                                               */
+/* for platforms that might be host-bus-adapters */
 void __init iop3xx_pci_preinit_cond(void)
 {
 	if (iop3xx_get_init_atu() == IOP3XX_INIT_ATU_ENABLE) {
@@ -381,7 +381,7 @@ void __init iop3xx_pci_preinit(void)
 	iop3xx_atu_debug();
 }
 
-/*                                      */
+/* allow init_atu to be user overridden */
 static int __init iop3xx_init_atu_setup(char *str)
 {
 	init_atu = IOP3XX_INIT_ATU_DEFAULT;

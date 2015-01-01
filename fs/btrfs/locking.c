@@ -27,9 +27,9 @@
 void btrfs_assert_tree_read_locked(struct extent_buffer *eb);
 
 /*
-                                                        
-                                                      
-                                             
+ * if we currently have a spinning reader or writer lock
+ * (indicated by the rw flag) this will bump the count
+ * of blocking holders and drop the spinlock.
  */
 void btrfs_set_lock_blocking_rw(struct extent_buffer *eb, int rw)
 {
@@ -60,8 +60,8 @@ void btrfs_set_lock_blocking_rw(struct extent_buffer *eb, int rw)
 }
 
 /*
-                                                          
-                              
+ * if we currently have a blocking lock, take the spinlock
+ * and drop our blocking count
  */
 void btrfs_clear_lock_blocking_rw(struct extent_buffer *eb, int rw)
 {
@@ -91,8 +91,8 @@ void btrfs_clear_lock_blocking_rw(struct extent_buffer *eb, int rw)
 }
 
 /*
-                                                              
-          
+ * take a spinning read lock.  This will wait for any blocking
+ * writers
  */
 void btrfs_tree_read_lock(struct extent_buffer *eb)
 {
@@ -101,11 +101,11 @@ again:
 	if (atomic_read(&eb->blocking_writers) &&
 	    current->pid == eb->lock_owner) {
 		/*
-                                                                
-                                                                  
-                                                                
-                                            
-   */
+		 * This extent is already write-locked by our thread. We allow
+		 * an additional read lock to be added because it's for the same
+		 * thread. btrfs_find_all_roots() depends on this as it may be
+		 * called on a partly (write-)locked tree.
+		 */
 		BUG_ON(eb->lock_nested);
 		eb->lock_nested = 1;
 		read_unlock(&eb->lock);
@@ -123,8 +123,8 @@ again:
 }
 
 /*
-                                                      
-                                       
+ * returns 1 if we get the read lock and 0 if we don't
+ * this won't wait for blocking writers
  */
 int btrfs_try_tree_read_lock(struct extent_buffer *eb)
 {
@@ -142,8 +142,8 @@ int btrfs_try_tree_read_lock(struct extent_buffer *eb)
 }
 
 /*
-                                                      
-                                                  
+ * returns 1 if we get the read lock and 0 if we don't
+ * this won't wait for blocking writers or readers
  */
 int btrfs_try_tree_write_lock(struct extent_buffer *eb)
 {
@@ -163,7 +163,7 @@ int btrfs_try_tree_write_lock(struct extent_buffer *eb)
 }
 
 /*
-                            
+ * drop a spinning read lock
  */
 void btrfs_tree_read_unlock(struct extent_buffer *eb)
 {
@@ -184,7 +184,7 @@ void btrfs_tree_read_unlock(struct extent_buffer *eb)
 }
 
 /*
-                            
+ * drop a blocking read lock
  */
 void btrfs_tree_read_unlock_blocking(struct extent_buffer *eb)
 {
@@ -205,8 +205,8 @@ void btrfs_tree_read_unlock_blocking(struct extent_buffer *eb)
 }
 
 /*
-                                                       
-                              
+ * take a spinning write lock.  This will wait for both
+ * blocking readers or writers
  */
 void btrfs_tree_lock(struct extent_buffer *eb)
 {
@@ -233,7 +233,7 @@ again:
 }
 
 /*
-                                            
+ * drop a spinning or a blocking write lock.
  */
 void btrfs_tree_unlock(struct extent_buffer *eb)
 {

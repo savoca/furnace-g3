@@ -40,7 +40,7 @@ static unsigned long get_unshared_area(unsigned long addr, unsigned long len)
 	addr = PAGE_ALIGN(addr);
 
 	for (vma = find_vma(current->mm, addr); ; vma = vma->vm_next) {
-		/*                                               */
+		/* At this point:  (!vma || addr < vma->vm_end). */
 		if (TASK_SIZE - len < addr)
 			return -ENOMEM;
 		if (!vma || addr + len <= vma->vm_start)
@@ -52,14 +52,14 @@ static unsigned long get_unshared_area(unsigned long addr, unsigned long len)
 #define DCACHE_ALIGN(addr) (((addr) + (SHMLBA - 1)) &~ (SHMLBA - 1))
 
 /*
-                                                                 
-                                                                      
-                                                                   
-                              
-  
-                                                                            
-                                                                           
-                                              
+ * We need to know the offset to use.  Old scheme was to look for
+ * existing mapping and use the same offset.  New scheme is to use the
+ * address of the kernel data structure as the seed for the offset.
+ * We'll see how that works...
+ *
+ * The mapping is cacheline aligned, so there's no information in the bottom
+ * few bits of the address.  We're looking for 10 bits (4MB / 4k), so let's
+ * drop the bottom 8 bits and use bits 8-17.  
  */
 static int get_offset(struct address_space *mapping)
 {
@@ -76,13 +76,13 @@ static unsigned long get_shared_area(struct address_space *mapping,
 	addr = DCACHE_ALIGN(addr - offset) + offset;
 
 	for (vma = find_vma(current->mm, addr); ; vma = vma->vm_next) {
-		/*                                               */
+		/* At this point:  (!vma || addr < vma->vm_end). */
 		if (TASK_SIZE - len < addr)
 			return -ENOMEM;
 		if (!vma || addr + len <= vma->vm_start)
 			return addr;
 		addr = DCACHE_ALIGN(vma->vm_end - offset) + offset;
-		if (addr < vma->vm_end) /*                   */
+		if (addr < vma->vm_end) /* handle wraparound */
 			return -ENOMEM;
 	}
 }
@@ -92,9 +92,9 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 {
 	if (len > TASK_SIZE)
 		return -ENOMEM;
-	/*                                                                 
-                                
-  */
+	/* Might want to check for cache aliasing issues for MAP_FIXED case
+	 * like ARM or MIPS ??? --BenH.
+	 */
 	if (flags & MAP_FIXED)
 		return addr;
 	if (!addr)
@@ -114,8 +114,8 @@ asmlinkage unsigned long sys_mmap2(unsigned long addr, unsigned long len,
 	unsigned long prot, unsigned long flags, unsigned long fd,
 	unsigned long pgoff)
 {
-	/*                                                                         
-             */
+	/* Make sure the shift for mmap2 is constant (12), no matter what PAGE_SIZE
+	   we have. */
 	return sys_mmap_pgoff(addr, len, prot, flags, fd,
 			      pgoff >> (PAGE_SHIFT - 12));
 }
@@ -132,7 +132,7 @@ asmlinkage unsigned long sys_mmap(unsigned long addr, unsigned long len,
 	}
 }
 
-/*                    */
+/* Fucking broken ABI */
 
 #ifdef CONFIG_64BIT
 asmlinkage long parisc_truncate64(const char __user * path,
@@ -147,8 +147,8 @@ asmlinkage long parisc_ftruncate64(unsigned int fd,
 	return sys_ftruncate(fd, (long)high << 32 | low);
 }
 
-/*                                                                          
-                         */
+/* stubs for the benefit of the syscall_table since truncate64 and truncate 
+ * are identical on LP64 */
 asmlinkage long sys_truncate64(const char __user * path, unsigned long length)
 {
 	return sys_truncate(path, length);

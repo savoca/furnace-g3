@@ -20,7 +20,7 @@
 #include <asm/uaccess.h>
 #include "mem_user.h"
 
-/*                                                             */
+/* These are set in mmapper_init, which is called at boot time */
 static unsigned long mmapper_size;
 static unsigned long p_buf;
 static char *v_buf;
@@ -58,9 +58,9 @@ static int mmapper_mmap(struct file *file, struct vm_area_struct *vma)
 		return -EFAULT;
 
 	/*
-                                                              
-                                        
-  */
+	 * XXX A comment above remap_pfn_range says it should only be
+	 * called when the mm semaphore is held
+	 */
 	if (remap_pfn_range(vma, vma->vm_start, p_buf >> PAGE_SHIFT, size,
 			    vma->vm_page_prot))
 		goto out;
@@ -91,7 +91,7 @@ static const struct file_operations mmapper_fops = {
 };
 
 /*
-                                                                               
+ * No locking needed - only used (and modified) by below initcall and exitcall.
  */
 static struct miscdevice mmapper_dev = {
 	.minor		= MISC_DYNAMIC_MINOR,

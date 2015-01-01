@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 /*
-                                        
-  
+ * Qualcomm PMIC 8821 driver header file
+ *
  */
 
 #ifndef __MFD_PM8821_H
@@ -29,16 +29,16 @@
 #define PM8821_MPP_BLOCK_START	(4)
 
 /*
-                                                           
-                                     
+ * Block 0 does not exist in PM8821 IRQ SSBI address space,
+ * IRQ0 is assigned to bit0 of block1
  */
 #define PM8821_IRQ_BLOCK_BIT(block, bit) ((block-1) * 8 + (bit))
 
-/*            */
+/* MPPs [1,N] */
 #define PM8821_MPP_IRQ(base, mpp)	((base) + \
 		PM8821_IRQ_BLOCK_BIT(PM8821_MPP_BLOCK_START, (mpp)-1))
 
-/*                 */
+/* PMIC Interrupts */
 #define PM8821_OVERTEMP_IRQ		PM8821_IRQ_BLOCK_BIT(5, 2)
 #define PM8821_TEMPSTAT_IRQ		PM8821_IRQ_BLOCK_BIT(5, 7)
 

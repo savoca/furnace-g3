@@ -382,7 +382,7 @@ int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
 
 		bus_idx = (cur_bus_idx % (num_cases - 1)) + 1;
 
-		/*                                                        */
+		/* aligning to avoid performing updates for small changes */
 		ab_quota = ALIGN(ab_quota, SZ_64M);
 		ib_quota = ALIGN(ib_quota, SZ_64M);
 
@@ -963,13 +963,13 @@ static int mdp3_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 	} else if (pan_name[0] == '1') {
 		pan_cfg->lk_cfg = true;
 	} else {
-		/*              */
+		/* read from dt */
 		pan_cfg->lk_cfg = true;
 		pan_cfg->pan_intf = MDSS_PANEL_INTF_INVALID;
 		return -EINVAL;
 	}
 
-	/*                                     */
+	/* skip lk cfg and delimiter; ex: "0:" */
 	strlcpy(pan_name, &pan_name[2], MDSS_MAX_PANEL_LEN);
 	t = strnstr(pan_name, ":", MDSS_MAX_PANEL_LEN);
 	if (!t) {
@@ -983,7 +983,7 @@ static int mdp3_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 		pan_intf_str[i] = *(pan_name + i);
 	pan_intf_str[i] = 0;
 	pr_debug("%s:%d panel intf %s\n", __func__, __LINE__, pan_intf_str);
-	/*                                  */
+	/* point to the start of panel name */
 	t = t + 1;
 	strlcpy(&pan_cfg->arg_cfg[0], t, sizeof(pan_cfg->arg_cfg));
 	pr_debug("%s:%d: t=[%s] panel name=[%s]\n", __func__, __LINE__,
@@ -1017,7 +1017,7 @@ static int mdp3_parse_bootarg(struct platform_device *pdev)
 	panel_name = &pan_cfg->arg_cfg[0];
 	intf_type = &pan_cfg->pan_intf;
 
-	/*                          */
+	/* reads from dt by default */
 	pan_cfg->lk_cfg = true;
 
 	chosen_node = of_find_node_by_name(NULL, "chosen");
@@ -1086,7 +1086,7 @@ static int mdp3_parse_bootarg(struct platform_device *pdev)
 
 get_dt_pan:
 	rc = mdp3_parse_dt_pan_intf(pdev);
-	/*                                 */
+	/* if pref pan intf is not present */
 	if (rc)
 		pr_err("%s:unable to parse device tree for pan intf\n",
 			__func__);
@@ -1208,7 +1208,7 @@ static void mdp3_iommu_meta_destroy(struct kref *kref)
 
 static void mdp3_iommu_meta_put(struct mdp3_iommu_meta *meta)
 {
-	/*                                                     */
+	/* Need to lock here to prevent race against map/unmap */
 	mutex_lock(&mdp3_res->iommu_lock);
 	kref_put(&meta->ref, mdp3_iommu_meta_destroy);
 	mutex_unlock(&mdp3_res->iommu_lock);
@@ -1300,11 +1300,11 @@ static int mdp3_iommu_map_iommu(struct mdp3_iommu_meta *meta,
 	size = meta->size;
 	table = meta->table;
 
-	/*                                                          
-                                                                
-                                                                     
-                                                               
-  */
+	/* Use the biggest alignment to allow bigger IOMMU mappings.
+	 * Use the first entry since the first entry will always be the
+	 * biggest entry. To take advantage of bigger mapping sizes both the
+	 * VA and PA addresses have to be aligned to the biggest size.
+	 */
 	if (sg_dma_len(table->sgl) > align)
 		align = sg_dma_len(table->sgl);
 
@@ -1321,7 +1321,7 @@ static int mdp3_iommu_map_iommu(struct mdp3_iommu_meta *meta,
 		goto out1;
 	}
 
-	/*                                 */
+	/* Adding padding to before buffer */
 	if (padding) {
 		unsigned long phys_addr = sg_phys(table->sgl);
 		ret = msm_iommu_map_extra(domain, meta->iova_addr, phys_addr,
@@ -1330,7 +1330,7 @@ static int mdp3_iommu_map_iommu(struct mdp3_iommu_meta *meta,
 			goto out1;
 	}
 
-	/*                       */
+	/* Mapping actual buffer */
 	ret = iommu_map_range(domain, meta->iova_addr + padding,
 			table->sgl, size, prot);
 	if (ret) {
@@ -1340,7 +1340,7 @@ static int mdp3_iommu_map_iommu(struct mdp3_iommu_meta *meta,
 		goto out2;
 	}
 
-	/*                                 */
+	/* Adding padding to end of buffer */
 	if (padding) {
 		unsigned long phys_addr = sg_phys(table->sgl);
 		unsigned long extra_iova_addr = meta->iova_addr +
@@ -1401,8 +1401,8 @@ out:
 }
 
 /*
-                                                                   
-                                                     
+ * PPP hw reads in tiles of 16 which might be outside mapped region
+ * need to map buffers ourseleve to add extra padding
  */
 int mdp3_self_map_iommu(struct ion_client *client, struct ion_handle *handle,
 	unsigned long align, unsigned long padding, unsigned long *iova,
@@ -1425,7 +1425,7 @@ int mdp3_self_map_iommu(struct ion_client *client, struct ion_handle *handle,
 
 	padding = PAGE_ALIGN(padding);
 
-	/*                                                 */
+	/* Adding 16 lines padding before and after buffer */
 	iova_length = size + 2 * padding;
 
 	if (size & ~PAGE_MASK) {
@@ -1655,11 +1655,11 @@ static int mdp3_init(struct msm_fb_data_type *mfd)
 u32 mdp3_fb_stride(u32 fb_index, u32 xres, int bpp)
 {
 	/*
-                                                                 
-                                                               
-                                                     
-                                     
-  */
+	 * The adreno GPU hardware requires that the pitch be aligned to
+	 * 32 pixels for color buffers, so for the cases where the GPU
+	 * is writing directly to fb0, the framebuffer pitch
+	 * also needs to be 32 pixel aligned
+	 */
 
 	if (fb_index == 0)
 		return ALIGN(xres, 32) * bpp;
@@ -1770,7 +1770,7 @@ int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd)
 
 void mdp3_release_splash_memory(struct msm_fb_data_type *mfd)
 {
-	/*                                             */
+	/* Give back the reserved memory to the system */
 	if (mdp3_res->splash_mem_addr) {
 		mdp3_free(mfd);
 		pr_debug("mdp3_release_splash_memory\n");
@@ -2048,15 +2048,15 @@ int mdp3_misr_get(struct mdp_misr *misr_resp)
 	switch (misr_resp->block_id) {
 	case DISPLAY_MISR_DSI0:
 		MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_EN, 0);
-		/*                                                        */
+		/* Sleep for one vsync after DSI video engine is disabled */
 		msleep(20);
-		/*                               */
+		/* Enable DSI_VIDEO_0 MISR Block */
 		MDP3_REG_WRITE(MDP3_REG_MODE_DSI_PCLK, 0x20);
-		/*                  */
+		/* Reset MISR Block */
 		MDP3_REG_WRITE(MDP3_REG_MISR_RESET_DSI_PCLK, 1);
-		/*                             */
+		/* Clear MISR capture done bit */
 		MDP3_REG_WRITE(MDP3_REG_CAPTURED_DSI_PCLK, 0);
-		/*                          */
+		/* Enable MDP DSI interface */
 		MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_EN, 1);
 		ret = readl_poll_timeout(mdp3_res->mdp_base +
 			MDP3_REG_CAPTURED_DSI_PCLK, result,
@@ -2064,7 +2064,7 @@ int mdp3_misr_get(struct mdp_misr *misr_resp)
 			MISR_POLL_SLEEP, MISR_POLL_TIMEOUT);
 			MDP3_REG_WRITE(MDP3_REG_MODE_DSI_PCLK, 0);
 		if (ret == 0) {
-			/*                            */
+			/* Disable DSI MISR interface */
 			MDP3_REG_WRITE(MDP3_REG_MODE_DSI_PCLK, 0x0);
 			crc = MDP3_REG_READ(MDP3_REG_MISR_CAPT_VAL_DSI_PCLK);
 			pr_debug("CRC Val %d\n", crc);
@@ -2074,17 +2074,17 @@ int mdp3_misr_get(struct mdp_misr *misr_resp)
 		break;
 
 	case DISPLAY_MISR_DSI_CMD:
-		/*                        */
+		/* Select DSI PCLK Domain */
 		MDP3_REG_WRITE(MDP3_REG_SEL_CLK_OR_HCLK_TEST_BUS, 0x004);
-		/*                         */
+		/* Select Block id DSI_CMD */
 		MDP3_REG_WRITE(MDP3_REG_MODE_DSI_PCLK, 0x10);
-		/*                  */
+		/* Reset MISR Block */
 		MDP3_REG_WRITE(MDP3_REG_MISR_RESET_DSI_PCLK, 1);
-		/*                        */
+		/* Drive Data on Test Bus */
 		MDP3_REG_WRITE(MDP3_REG_EXPORT_MISR_DSI_PCLK, 0);
-		/*                */
+		/* Kikk off DMA_P */
 		MDP3_REG_WRITE(MDP3_REG_DMA_P_START, 0x11);
-		/*                     */
+		/* Wait for DMA_P Done */
 		ret = readl_poll_timeout(mdp3_res->mdp_base +
 			MDP3_REG_INTR_STATUS, result,
 			result & MDP3_INTR_DMA_P_DONE_BIT,

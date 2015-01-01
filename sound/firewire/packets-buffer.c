@@ -10,13 +10,13 @@
 #include <linux/slab.h>
 #include "packets-buffer.h"
 
-/* 
-                                                             
-                                         
-                                                   
-                                
-                                                         
-                                                 
+/**
+ * iso_packets_buffer_init - allocates the memory for packets
+ * @b: the buffer structure to initialize
+ * @unit: the device at the other end of the stream
+ * @count: the number of packets
+ * @packet_size: the (maximum) size of a packet, in bytes
+ * @direction: %DMA_TO_DEVICE or %DMA_FROM_DEVICE
  */
 int iso_packets_buffer_init(struct iso_packets_buffer *b, struct fw_unit *unit,
 			    unsigned int count, unsigned int packet_size,
@@ -63,10 +63,10 @@ error:
 }
 EXPORT_SYMBOL(iso_packets_buffer_init);
 
-/* 
-                                                             
-                                   
-                                                   
+/**
+ * iso_packets_buffer_destroy - frees packet buffer resources
+ * @b: the buffer structure to free
+ * @unit: the device at the other end of the stream
  */
 void iso_packets_buffer_destroy(struct iso_packets_buffer *b,
 				struct fw_unit *unit)

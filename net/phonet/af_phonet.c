@@ -34,7 +34,7 @@
 #include <net/phonet/phonet.h>
 #include <net/phonet/pn_dev.h>
 
-/*                                 */
+/* Transport protocol registration */
 static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
 
 static struct phonet_protocol *phonet_proto_get(unsigned int protocol)
@@ -58,7 +58,7 @@ static inline void phonet_proto_put(struct phonet_protocol *pp)
 	module_put(pp->prot->owner);
 }
 
-/*                           */
+/* protocol family functions */
 
 static int pn_socket_create(struct net *net, struct socket *sock, int protocol,
 			    int kern)
@@ -72,7 +72,7 @@ static int pn_socket_create(struct net *net, struct socket *sock, int protocol,
 		return -EPERM;
 
 	if (protocol == 0) {
-		/*                            */
+		/* Default protocol selection */
 		switch (sock->type) {
 		case SOCK_DGRAM:
 			protocol = PN_PROTO_PHONET;
@@ -126,7 +126,7 @@ static const struct net_proto_family phonet_proto_family = {
 	.owner = THIS_MODULE,
 };
 
-/*                                 */
+/* Phonet device header operations */
 static int pn_header_create(struct sk_buff *skb, struct net_device *dev,
 				unsigned short type, const void *daddr,
 				const void *saddr, unsigned len)
@@ -156,7 +156,7 @@ struct header_ops phonet_header_ops = {
 EXPORT_SYMBOL(phonet_header_ops);
 
 /*
-                                               
+ * Prepends an ISI header and sends a datagram.
  */
 static int pn_send(struct sk_buff *skb, struct net_device *dev,
 			u16 dst, u16 src, u8 res, u8 irq)
@@ -164,20 +164,20 @@ static int pn_send(struct sk_buff *skb, struct net_device *dev,
 	struct phonethdr *ph;
 	int err;
 
-	if (skb->len + 2 > 0xffff /*                           */ ||
+	if (skb->len + 2 > 0xffff /* Phonet length field limit */ ||
 	    skb->len + sizeof(struct phonethdr) > dev->mtu) {
 		err = -EMSGSIZE;
 		goto drop;
 	}
 
-	/*                                      */
+	/* Broadcast sending is not implemented */
 	if (pn_addr(dst) == PNADDR_BROADCAST) {
 		err = -EOPNOTSUPP;
 		goto drop;
 	}
 
 	skb_reset_transport_header(skb);
-	WARN_ON(skb_headroom(skb) & 1); /*                           */
+	WARN_ON(skb_headroom(skb) & 1); /* HW assumes word alignment */
 	skb_push(skb, sizeof(struct phonethdr));
 	skb_reset_network_header(skb);
 	ph = pn_hdr(skb);
@@ -231,8 +231,8 @@ static int pn_raw_send(const void *data, int len, struct net_device *dev,
 }
 
 /*
-                                                              
-                                                        
+ * Create a Phonet header for the skb and send it out. Returns
+ * non-zero error code if failed. The skb is freed then.
  */
 int pn_skb_send(struct sock *sk, struct sk_buff *skb,
 		const struct sockaddr_pn *target)
@@ -261,7 +261,7 @@ int pn_skb_send(struct sock *sk, struct sk_buff *skb,
 		dev = phonet_device_get(net);
 		skb->pkt_type = PACKET_LOOPBACK;
 	} else if (dst == 0) {
-		/*                                                  */
+		/* Resource routing (small race until phonet_rcv()) */
 		struct sock *sk = pn_find_sock_by_res(net, res);
 		if (sk)	{
 			sock_put(sk);
@@ -294,7 +294,7 @@ drop:
 }
 EXPORT_SYMBOL(pn_skb_send);
 
-/*                                                              */
+/* Do not send an error message in response to an error message */
 static inline int can_respond(struct sk_buff *skb)
 {
 	const struct phonethdr *ph;
@@ -307,10 +307,10 @@ static inline int can_respond(struct sk_buff *skb)
 	ph = pn_hdr(skb);
 	if (ph->pn_res == PN_PREFIX && !pskb_may_pull(skb, 5))
 		return 0;
-	if (ph->pn_res == PN_COMMGR) /*             */
+	if (ph->pn_res == PN_COMMGR) /* indications */
 		return 0;
 
-	ph = pn_hdr(skb); /*                         */
+	ph = pn_hdr(skb); /* re-acquires the pointer */
 	pm = pn_msg(skb);
 	if (pm->pn_msg_id != PN_COMMON_MESSAGE)
 		return 1;
@@ -351,8 +351,8 @@ static int send_reset_indications(struct sk_buff *rskb)
 {
 	struct phonethdr *oph = pn_hdr(rskb);
 	static const u8 data[4] = {
-		0x00 /*          */, 0x10 /*               */,
-		0x00 /*                    */, 0x00 /*       */
+		0x00 /* trans ID */, 0x10 /* subscribe msg */,
+		0x00 /* subscription count */, 0x00 /* dummy */
 	};
 
 	return pn_raw_send(data, sizeof(data), rskb->dev,
@@ -362,11 +362,11 @@ static int send_reset_indications(struct sk_buff *rskb)
 }
 
 
-/*                       */
+/* packet type functions */
 
 /*
-                                                
-                                                   
+ * Stuff received packets to associated sockets.
+ * On error, returns non-zero and releases the skb.
  */
 static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
 			struct packet_type *pkttype,
@@ -377,11 +377,11 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
 	struct sockaddr_pn sa;
 	u16 len;
 
-	/*                                             */
+	/* check we have at least a full Phonet header */
 	if (!pskb_pull(skb, sizeof(struct phonethdr)))
 		goto out;
 
-	/*                                             */
+	/* check that the advertised length is correct */
 	ph = pn_hdr(skb);
 	len = get_unaligned_be16(&ph->pn_length);
 	if (len < 2)
@@ -393,22 +393,22 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	pn_skb_get_dst_sockaddr(skb, &sa);
 
-	/*                              */
+	/* check if this is broadcasted */
 	if (pn_sockaddr_get_addr(&sa) == PNADDR_BROADCAST) {
 		pn_deliver_sock_broadcast(net, skb);
 		goto out;
 	}
 
-	/*                  */
+	/* resource routing */
 	if (pn_sockaddr_get_object(&sa) == 0) {
 		struct sock *sk = pn_find_sock_by_res(net, sa.spn_resource);
 		if (sk)
 			return sk_receive_skb(sk, skb, 0);
 	}
 
-	/*                                 */
+	/* check if we are the destination */
 	if (phonet_address_lookup(net, pn_sockaddr_get_addr(&sa)) == 0) {
-		/*                     */
+		/* Phonet packet input */
 		struct sock *sk = pn_find_sock_by_sa(net, &sa);
 
 		if (sk)
@@ -419,9 +419,9 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
 			send_reset_indications(skb);
 		}
 	} else if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
-		goto out; /*                                            */
+		goto out; /* Race between address deletion and loopback */
 	else {
-		/*                       */
+		/* Phonet packet routing */
 		struct net_device *out_dev;
 
 		out_dev = phonet_route_output(net, pn_sockaddr_get_addr(&sa));
@@ -438,7 +438,7 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
 					pn_sockaddr_get_addr(&sa), dev->name);
 			goto out_dev;
 		}
-		/*                                                         */
+		/* Some drivers (e.g. TUN) do not allocate HW header space */
 		if (skb_cow_head(skb, out_dev->hard_header_len))
 			goto out_dev;
 
@@ -498,7 +498,7 @@ void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp)
 }
 EXPORT_SYMBOL(phonet_proto_unregister);
 
-/*                     */
+/* Module registration */
 static int __init phonet_init(void)
 {
 	int err;

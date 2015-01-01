@@ -10,7 +10,7 @@
  */
 
 /*
-         
+ * Names.
  */
 
 #define I8042_KBD_PHYS_DESC "R4030/serio0"
@@ -18,7 +18,7 @@
 #define I8042_MUX_PHYS_DESC "R4030/serio%d"
 
 /*
-        
+ * IRQs.
  */
 
 #define I8042_KBD_IRQ JAZZ_KEYBOARD_IRQ
@@ -51,7 +51,7 @@ static inline void i8042_write_command(int val)
 static inline int i8042_platform_init(void)
 {
 #if 0
-	/*                                                */
+	/* XXX JAZZ_KEYBOARD_ADDRESS is a virtual address */
 	if (!request_mem_region(JAZZ_KEYBOARD_ADDRESS, 2, "i8042"))
 		return -EBUSY;
 #endif
@@ -66,4 +66,4 @@ static inline void i8042_platform_exit(void)
 #endif
 }
 
-#endif /*               */
+#endif /* _I8042_JAZZ_H */

@@ -72,8 +72,8 @@ static int __devinit sa11x0_drv_pcmcia_probe(struct platform_device *dev)
 	int i, ret = -ENODEV;
 
 	/*
-                                             
-  */
+	 * Initialise any "on-board" PCMCIA sockets.
+	 */
 	for (i = 0; i < ARRAY_SIZE(sa11x0_pcmcia_hw_init); i++) {
 		ret = sa11x0_pcmcia_hw_init[i](&dev->dev);
 		if (ret == 0)
@@ -106,23 +106,23 @@ static struct platform_driver sa11x0_pcmcia_driver = {
 	.remove		= sa11x0_drv_pcmcia_remove,
 };
 
-/*                     
-                       
-  
-                                                                 
-                                                   
-  
-                                                   
+/* sa11x0_pcmcia_init()
+ * ^^^^^^^^^^^^^^^^^^^^
+ *
+ * This routine performs low-level PCMCIA initialization and then
+ * registers this socket driver with Card Services.
+ *
+ * Returns: 0 on success, -ve error code on failure
  */
 static int __init sa11x0_pcmcia_init(void)
 {
 	return platform_driver_register(&sa11x0_pcmcia_driver);
 }
 
-/*                     
-                       
-                                                                         
-                                                   
+/* sa11x0_pcmcia_exit()
+ * ^^^^^^^^^^^^^^^^^^^^
+ * Invokes the low-level kernel service to free IRQs associated with this
+ * socket controller and reset GPIO edge detection.
  */
 static void __exit sa11x0_pcmcia_exit(void)
 {

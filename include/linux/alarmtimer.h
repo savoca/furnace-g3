@@ -23,15 +23,15 @@ enum alarmtimer_restart {
 #define ALARMTIMER_STATE_ENQUEUED	0x01
 #define ALARMTIMER_STATE_CALLBACK	0x02
 
-/* 
-                                       
-                                                                 
-                                      
-                                      
-                                                                   
-                                        
-                                                                    
-                              
+/**
+ * struct alarm - Alarm timer structure
+ * @node:	timerqueue node for adding to the event list this value
+ *		also includes the expiration time.
+ * @period:	Period for recuring alarms
+ * @function:	Function pointer to be executed when the timer fires.
+ * @type:	Alarm type (BOOTTIME/REALTIME)
+ * @enabled:	Flag that represents if the alarm is set to fire or not
+ * @data:	Internal data value.
  */
 struct alarm {
 	struct timerqueue_node	node;
@@ -50,8 +50,8 @@ int alarm_cancel(struct alarm *alarm);
 u64 alarm_forward(struct alarm *alarm, ktime_t now, ktime_t interval);
 
 /*
-                                                                     
-                                
+ * A alarmtimer is active, when it is enqueued into timerqueue or the
+ * callback function is running.
  */
 static inline int alarmtimer_active(const struct alarm *timer)
 {
@@ -59,7 +59,7 @@ static inline int alarmtimer_active(const struct alarm *timer)
 }
 
 /*
-                                                                      
+ * Helper function to check, whether the timer is on one of the queues
  */
 static inline int alarmtimer_is_queued(struct alarm *timer)
 {
@@ -67,8 +67,8 @@ static inline int alarmtimer_is_queued(struct alarm *timer)
 }
 
 /*
-                                                                      
-           
+ * Helper function to check, whether the timer is running the callback
+ * function
  */
 static inline int alarmtimer_callback_running(struct alarm *timer)
 {
@@ -76,7 +76,7 @@ static inline int alarmtimer_callback_running(struct alarm *timer)
 }
 
 
-/*                                                                */
+/* Provide way to access the rtc device being used by alarmtimers */
 struct rtc_device *alarmtimer_get_rtcdev(void);
 
 #endif

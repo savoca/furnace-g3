@@ -190,8 +190,8 @@ struct ehea_eqtemm {
 };
 
 /*
-                                                                    
-                                                
+ * These access functions will be changed when the dissuccsion about
+ * the new access methods for POWER has settled.
  */
 
 static inline u64 epa_load(struct h_epa epa, u32 offset)
@@ -202,7 +202,7 @@ static inline u64 epa_load(struct h_epa epa, u32 offset)
 static inline void epa_store(struct h_epa epa, u32 offset, u64 value)
 {
 	__raw_writeq(value, (void __iomem *)(epa.addr + offset));
-	epa_load(epa, offset);	/*                                */
+	epa_load(epa, offset);	/* synchronize explicitly to eHEA */
 }
 
 static inline void epa_store_acc(struct h_epa epa, u32 offset, u64 value)
@@ -264,4 +264,4 @@ static inline void ehea_reset_cq_ep(struct ehea_cq *my_cq)
 		      EHEA_BMASK_SET(CQX_EP_EVENT_PENDING, 0));
 }
 
-#endif	/*               */
+#endif	/* __EHEA_HW_H__ */

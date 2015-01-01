@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-        
-  
-                                                 
+/**
+ * @file
+ *
+ * @brief Comm event signaling, host kernel side.
  */
 
 #include <linux/net.h>
@@ -35,14 +35,14 @@
 
 static struct socket *sock;
 
-/* 
-                                                                           
-                                                                              
-                                                          
-                                                                             
-                                             
-                                        
-                                         
+/**
+ * @brief Raises a transport event on the provided event ID (address). This
+ *    function is called from a comm_transp provider, such as comm_transp_mvp,
+ *    when it needs to signal an event on a given channel.
+ * @param targetEvID opaque event channel ID (interpreted by implementation).
+ * @param transpID ID of transport to signal.
+ * @param eventType event type to raise.
+ * @return 0 if successful, -1 otherwise.
  */
 int
 CommTranspEvent_Raise(unsigned int targetEvID,
@@ -58,7 +58,7 @@ CommTranspEvent_Raise(unsigned int targetEvID,
 	if (!sock || !transpID)
 		return -1;
 
-	(void)targetEvID; /*                   */
+	(void)targetEvID; /* Currently unused. */
 	guestAddr.mk_family = AF_MKSCK;
 	guestAddr.mk_addr.addr = Mksck_AddrInit(transpID->d32[0],
 						MKSCK_PORT_COMM_EV);
@@ -78,9 +78,9 @@ CommTranspEvent_Raise(unsigned int targetEvID,
 	return rc;
 }
 
-/* 
-                                                                     
-                                         
+/**
+ * @brief Performs one-time, global initialization of event provider.
+ * @return 0 if successful, -1 otherwise.
  */
 int
 CommTranspEvent_Init(void)
@@ -107,8 +107,8 @@ out:
 	return rc;
 }
 
-/* 
-                                                     
+/**
+ * @brief Performs global clean-up of event provider.
  */
 void
 CommTranspEvent_Exit(void)

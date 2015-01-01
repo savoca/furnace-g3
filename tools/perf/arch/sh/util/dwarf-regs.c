@@ -23,7 +23,7 @@
 #include <dwarf-regs.h>
 
 /*
-                                 
+ * Generic dwarf analysis helpers
  */
 
 #define SH_MAX_REGS 18
@@ -48,7 +48,7 @@ const char *sh_regs_table[SH_MAX_REGS] = {
 	"pr",
 };
 
-/*                                                                   */
+/* Return architecture dependent register string (for kprobe-tracer) */
 const char *get_arch_regstr(unsigned int n)
 {
 	return (n <= SH_MAX_REGS) ? sh_regs_table[n] : NULL;

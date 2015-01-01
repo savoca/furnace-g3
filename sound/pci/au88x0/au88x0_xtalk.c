@@ -24,7 +24,7 @@
 
 #include "au88x0_xtalk.h"
 
-/*                                 */
+/* Data (a whole lot of data.... ) */
 
 static short const sXtalkWideKLeftEq = 0x269C;
 static short const sXtalkWideKRightEq = 0x269C;
@@ -62,7 +62,7 @@ static xtalk_gains_t const asXtalkGains1Chan = {
 	0x7FFF, 0, 0, 0, 0,
 };
 
-//                                                                   
+// Input gain for 4 A3D slices. One possible input pair is left zero.
 static xtalk_gains_t const asXtalkGainsAllChan = {
 	0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF, 0,
 	0x7FFF, 0x7FFF, 0x7FFF, 0x7FFF,	0
@@ -249,7 +249,7 @@ static xtalk_coefs_t const asDiamondCoefsRightXt = {
 };
 
  /**/
-/*                 */
+/* XTalk EQ and XT */
 static void
 vortex_XtalkHw_SetLeftEQ(vortex_t * vortex, short arg_0, short arg_4,
 			 xtalk_coefs_t const coefs)
@@ -536,7 +536,7 @@ vortex_XtalkHw_GetRightXTStates(vortex_t * vortex, xtalk_instate_t arg_0,
 }
 
 #endif
-/*       */
+/* Gains */
 
 static void
 vortex_XtalkHw_SetGains(vortex_t * vortex, xtalk_gains_t const gains)
@@ -564,7 +564,7 @@ static void vortex_XtalkHw_GetGains(vortex_t * vortex, xtalk_gains_t gains)
 }
 
 #endif
-/*                  */
+/* Delay parameters */
 
 static void
 vortex_XtalkHw_SetDelay(vortex_t * vortex, unsigned short right,
@@ -637,7 +637,7 @@ static void vortex_XtalkHw_GetRightDline(vortex_t * vortex, xtalk_dline_t dline)
 }
 
 #endif
-/*                      */
+/* Control/Global stuff */
 
 #if 0
 static void vortex_XtalkHw_SetControlReg(vortex_t * vortex, u32 ctrl)
@@ -697,7 +697,7 @@ static void vortex_XtalkHw_ZeroIO(vortex_t * vortex)
 
 static void vortex_XtalkHw_ZeroState(vortex_t * vortex)
 {
-	vortex_XtalkHw_ZeroIO(vortex);	//        
+	vortex_XtalkHw_ZeroIO(vortex);	// inlined
 
 	vortex_XtalkHw_SetLeftEQ(vortex, 0, 0, asXtalkCoefsZeros);
 	vortex_XtalkHw_SetRightEQ(vortex, 0, 0, asXtalkCoefsZeros);
@@ -705,14 +705,14 @@ static void vortex_XtalkHw_ZeroState(vortex_t * vortex)
 	vortex_XtalkHw_SetLeftXT(vortex, 0, 0, asXtalkCoefsZeros);
 	vortex_XtalkHw_SetRightXT(vortex, 0, 0, asXtalkCoefsZeros);
 
-	vortex_XtalkHw_SetGains(vortex, asXtalkGainsZeros);	//        
+	vortex_XtalkHw_SetGains(vortex, asXtalkGainsZeros);	// inlined
 
-	vortex_XtalkHw_SetDelay(vortex, 0, 0);	//        
+	vortex_XtalkHw_SetDelay(vortex, 0, 0);	// inlined
 
-	vortex_XtalkHw_SetLeftDline(vortex, alXtalkDlineZeros);	//        
-	vortex_XtalkHw_SetRightDline(vortex, alXtalkDlineZeros);	//        
-	vortex_XtalkHw_SetLeftDline(vortex, alXtalkDlineZeros);	//        
-	vortex_XtalkHw_SetRightDline(vortex, alXtalkDlineZeros);	//        
+	vortex_XtalkHw_SetLeftDline(vortex, alXtalkDlineZeros);	// inlined
+	vortex_XtalkHw_SetRightDline(vortex, alXtalkDlineZeros);	// inlined
+	vortex_XtalkHw_SetLeftDline(vortex, alXtalkDlineZeros);	// inlined
+	vortex_XtalkHw_SetRightDline(vortex, alXtalkDlineZeros);	// inlined
 
 	vortex_XtalkHw_SetLeftEQStates(vortex, asXtalkInStateZeros,
 				       asXtalkOutStateZeros);
@@ -732,7 +732,7 @@ static void vortex_XtalkHw_ProgramPipe(vortex_t * vortex)
 	vortex_XtalkHw_SetLeftXT(vortex, 0, 0, asXtalkCoefsZeros);
 	vortex_XtalkHw_SetRightXT(vortex, 0, 0, asXtalkCoefsZeros);
 
-	vortex_XtalkHw_SetDelay(vortex, 0, 0);	//        
+	vortex_XtalkHw_SetDelay(vortex, 0, 0);	// inlined
 }
 
 static void vortex_XtalkHw_ProgramXtalkWide(vortex_t * vortex)
@@ -749,7 +749,7 @@ static void vortex_XtalkHw_ProgramXtalkWide(vortex_t * vortex)
 				  sXtalkWideShiftLeftXt,
 				  asXtalkWideCoefsLeftXt);
 
-	vortex_XtalkHw_SetDelay(vortex, wXtalkWideRightDelay, wXtalkWideLeftDelay);	//        
+	vortex_XtalkHw_SetDelay(vortex, wXtalkWideRightDelay, wXtalkWideLeftDelay);	// inlined
 }
 
 static void vortex_XtalkHw_ProgramXtalkNarrow(vortex_t * vortex)
@@ -768,13 +768,13 @@ static void vortex_XtalkHw_ProgramXtalkNarrow(vortex_t * vortex)
 				  sXtalkNarrowShiftLeftXt,
 				  asXtalkNarrowCoefsLeftXt);
 
-	vortex_XtalkHw_SetDelay(vortex, wXtalkNarrowRightDelay, wXtalkNarrowLeftDelay);	//        
+	vortex_XtalkHw_SetDelay(vortex, wXtalkNarrowRightDelay, wXtalkNarrowLeftDelay);	// inlined
 }
 
 static void vortex_XtalkHw_ProgramDiamondXtalk(vortex_t * vortex)
 {
 
-	//                                                     
+	//sDiamondKLeftEq,sDiamondKRightXt,asDiamondCoefsLeftEq
 	vortex_XtalkHw_SetLeftEQ(vortex, sDiamondKLeftEq,
 				 sDiamondShiftLeftEq, asDiamondCoefsLeftEq);
 	vortex_XtalkHw_SetRightEQ(vortex, sDiamondKRightEq,
@@ -784,7 +784,7 @@ static void vortex_XtalkHw_ProgramDiamondXtalk(vortex_t * vortex)
 	vortex_XtalkHw_SetRightXT(vortex, sDiamondKLeftXt,
 				  sDiamondShiftLeftXt, asDiamondCoefsLeftXt);
 
-	vortex_XtalkHw_SetDelay(vortex, wDiamondRightDelay, wDiamondLeftDelay);	//        
+	vortex_XtalkHw_SetDelay(vortex, wDiamondRightDelay, wDiamondLeftDelay);	// inlined
 }
 
 static void vortex_XtalkHw_init(vortex_t * vortex)
@@ -792,4 +792,4 @@ static void vortex_XtalkHw_init(vortex_t * vortex)
 	vortex_XtalkHw_ZeroState(vortex);
 }
 
-/*             */
+/* End of file */

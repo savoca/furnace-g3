@@ -50,7 +50,7 @@ fci_s32 fci_hpi_write(HANDLE handle, fci_u8 chip, fci_u8 addr, fci_u8 alen, fci_
 
 	for (i = 0; i < len; i++, data++)
 		bbm_write(handle, 0x0f00 | addr, *data);
-	/*                                                        */
+	/*return bbm_bulk_write(handle, 0x0f00 | addr, data, len);*/
 #endif
 
 	return BBM_OK;

@@ -24,7 +24,7 @@
 #include "mpc83xx.h"
 
 /*
-                         
+ * Setup the architecture
  */
 static void __init mpc831x_rdb_setup_arch(void)
 {
@@ -42,7 +42,7 @@ static const char *board[] __initdata = {
 };
 
 /*
-                                                               
+ * Called very early, MMU is off, device-tree isn't unflattened
  */
 static int __init mpc831x_rdb_probe(void)
 {

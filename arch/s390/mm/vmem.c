@@ -77,7 +77,7 @@ static pte_t __ref *vmem_pte_alloc(unsigned long address)
 }
 
 /*
-                                                  
+ * Add a physical memory range to the 1:1 mapping.
  */
 static int vmem_add_mem(unsigned long start, unsigned long size, int ro)
 {
@@ -136,8 +136,8 @@ out:
 }
 
 /*
-                                                       
-                                                 
+ * Remove a physical memory range from the 1:1 mapping.
+ * Currently only invalidates page table entries.
  */
 static void vmem_remove_range(unsigned long start, unsigned long size)
 {
@@ -171,7 +171,7 @@ static void vmem_remove_range(unsigned long start, unsigned long size)
 }
 
 /*
-                                                           
+ * Add a backed mem_map array to the virtual mem_map array.
  */
 int __meminit vmemmap_populate(struct page *start, unsigned long nr, int node)
 {
@@ -230,8 +230,8 @@ out:
 }
 
 /*
-                                                                    
-                              
+ * Add memory segment to the segment list if it doesn't overlap with
+ * an already present segment.
  */
 static int insert_memory_segment(struct memory_segment *seg)
 {
@@ -253,7 +253,7 @@ static int insert_memory_segment(struct memory_segment *seg)
 }
 
 /*
-                                               
+ * Remove memory segment from the segment list.
  */
 static void remove_memory_segment(struct memory_segment *seg)
 {
@@ -322,9 +322,9 @@ out:
 }
 
 /*
-                                                                 
-                                                                     
-                              
+ * map whole physical memory to virtual memory (identity mapping)
+ * we reserve enough space in the vmalloc area for vmemmap to hotplug
+ * additional memory segments.
  */
 void __init vmem_map_init(void)
 {
@@ -359,8 +359,8 @@ void __init vmem_map_init(void)
 }
 
 /*
-                                                                           
-                                                                 
+ * Convert memory chunk array to a memory segment list so there is a single
+ * list that contains both r/w memory and shared memory segments.
  */
 static int __init vmem_convert_memory_chunk(void)
 {

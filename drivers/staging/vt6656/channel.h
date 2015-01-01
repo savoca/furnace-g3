@@ -32,9 +32,9 @@
 
 #include "ttype.h"
 
-/*                                                                   */
+/*---------------------  Export Definitions -------------------------*/
 
-/*                                                                   */
+/*---------------------  Export Classes  ----------------------------*/
 
 typedef struct tagSChannelTblElement {
     BYTE    byChannelNumber;
@@ -42,9 +42,9 @@ typedef struct tagSChannelTblElement {
     BOOL    bValid;
 } SChannelTblElement, *PSChannelTblElement;
 
-/*                                                                   */
+/*---------------------  Export Variables  --------------------------*/
 
-/*                                                                   */
+/*---------------------  Export Functions  --------------------------*/
 
 BOOL    ChannelValid(unsigned int CountryCode, unsigned int ChannelNum);
 void    CHvInitChannelTable(void *pDeviceHandler);
@@ -52,4 +52,4 @@ BYTE    CHbyGetChannelMapping(BYTE byChannelNumber);
 
 BOOL CHvChannelGetList(unsigned int uCountryCodeIdx, PBYTE pbyChannelTable);
 
-#endif  /*             */
+#endif  /* _CHANNEL_H_ */

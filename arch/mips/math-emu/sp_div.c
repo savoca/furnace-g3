@@ -1,5 +1,5 @@
-/*                                  
-                   
+/* IEEE754 floating point arithmetic
+ * single precision
  */
 /*
  * MIPS floating point support
@@ -68,8 +68,8 @@ ieee754sp ieee754sp_div(ieee754sp x, ieee754sp y)
 		return x;
 
 
-		/*                  
-   */
+		/* Infinity handling
+		 */
 
 	case CLPAIR(IEEE754_CLASS_INF, IEEE754_CLASS_INF):
 		SETCX(IEEE754_INVALID_OPERATION);
@@ -85,8 +85,8 @@ ieee754sp ieee754sp_div(ieee754sp x, ieee754sp y)
 	case CLPAIR(IEEE754_CLASS_INF, IEEE754_CLASS_DNORM):
 		return ieee754sp_inf(xs ^ ys);
 
-		/*              
-   */
+		/* Zero handling
+		 */
 
 	case CLPAIR(IEEE754_CLASS_ZERO, IEEE754_CLASS_ZERO):
 		SETCX(IEEE754_INVALID_OPERATION);
@@ -118,12 +118,12 @@ ieee754sp ieee754sp_div(ieee754sp x, ieee754sp y)
 	assert(xm & SP_HIDDEN_BIT);
 	assert(ym & SP_HIDDEN_BIT);
 
-	/*                        */
+	/* provide rounding space */
 	xm <<= 3;
 	ym <<= 3;
 
 	{
-		/*                    */
+		/* now the dirty work */
 
 		unsigned rm = 0;
 		int re = xe - ye;
@@ -140,12 +140,12 @@ ieee754sp ieee754sp_div(ieee754sp x, ieee754sp y)
 		}
 		rm <<= 1;
 		if (xm)
-			rm |= 1;	/*                            */
+			rm |= 1;	/* have remainder, set sticky */
 
 		assert(rm);
 
-		/*                                     
-   */
+		/* normalise rm to rounding precision ?
+		 */
 		while ((rm >> (SP_MBITS + 3)) == 0) {
 			rm <<= 1;
 			re--;

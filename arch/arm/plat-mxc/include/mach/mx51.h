@@ -2,24 +2,24 @@
 #define __MACH_MX51_H__
 
 /*
-       
+ * IROM
  */
 #define MX51_IROM_BASE_ADDR		0x0
 #define MX51_IROM_SIZE			SZ_64K
 
 /*
-       
+ * IRAM
  */
-#define MX51_IRAM_BASE_ADDR		0x1ffe0000	/*              */
+#define MX51_IRAM_BASE_ADDR		0x1ffe0000	/* internal ram */
 #define MX51_IRAM_PARTITIONS		16
-#define MX51_IRAM_SIZE		(MX51_IRAM_PARTITIONS * SZ_8K)	/*       */
+#define MX51_IRAM_SIZE		(MX51_IRAM_PARTITIONS * SZ_8K)	/* 128KB */
 
 #define MX51_GPU_BASE_ADDR		0x20000000
 #define MX51_GPU_CTRL_BASE_ADDR		0x30000000
 #define MX51_IPU_CTRL_BASE_ADDR		0x40000000
 
 /*
-                                
+ * SPBA global module enabled #0
  */
 #define MX51_SPBA0_BASE_ADDR		0x70000000
 #define MX51_SPBA0_SIZE			SZ_1M
@@ -38,7 +38,7 @@
 #define MX51_SPBA_CTRL_BASE_ADDR	(MX51_SPBA0_BASE_ADDR + 0x3c000)
 
 /*
-         
+ * AIPS 1
  */
 #define MX51_AIPS1_BASE_ADDR		0x73f00000
 #define MX51_AIPS1_SIZE			SZ_1M
@@ -68,7 +68,7 @@
 #define MX51_GPC_BASE_ADDR		(MX51_AIPS1_BASE_ADDR + 0xd8000)
 
 /*
-         
+ * AIPS 2
  */
 #define MX51_AIPS2_BASE_ADDR		0x83f00000
 #define MX51_AIPS2_SIZE			SZ_1M
@@ -116,9 +116,9 @@
 #define MX51_CS5_BASE_ADDR		0xce000000
 
 /*
-      
+ * NFC
  */
-#define MX51_NFC_AXI_BASE_ADDR		0xcfff0000	/*                */
+#define MX51_NFC_AXI_BASE_ADDR		0xcfff0000	/* NAND flash AXI */
 #define MX51_NFC_AXI_SIZE		SZ_64K
 
 #define MX51_GPU2D_BASE_ADDR		0xd0000000
@@ -129,7 +129,7 @@
 #define MX51_IO_ADDRESS(x)		IOMEM(MX51_IO_P2V(x))
 
 /*
-                           
+ * defines for SPBA modules
  */
 #define MX51_SPBA_SDHC1	0x04
 #define MX51_SPBA_SDHC2	0x08
@@ -145,7 +145,7 @@
 #define MX51_SPBA_CTRL	0x3c
 
 /*
-                                                            
+ * Defines for modules using static and dynamic DMA channels
  */
 #define MX51_MXC_DMA_CHANNEL_IRAM	30
 #define MX51_MXC_DMA_CHANNEL_SPDIF_TX	MXC_DMA_DYNAMIC_CHANNEL
@@ -162,9 +162,9 @@
 #define MX51_MXC_DMA_CHANNEL_SSI2_RX	MXC_DMA_DYNAMIC_CHANNEL
 #ifdef CONFIG_SDMA_IRAM
 #define MX51_MXC_DMA_CHANNEL_SSI2_TX	(MX51_MXC_DMA_CHANNEL_IRAM + 1)
-#else				/*                 */
+#else				/*CONFIG_SDMA_IRAM */
 #define MX51_MXC_DMA_CHANNEL_SSI2_TX	MXC_DMA_DYNAMIC_CHANNEL
-#endif				/*                 */
+#endif				/*CONFIG_SDMA_IRAM */
 #define MX51_MXC_DMA_CHANNEL_CSPI1_RX	MXC_DMA_DYNAMIC_CHANNEL
 #define MX51_MXC_DMA_CHANNEL_CSPI1_TX	MXC_DMA_DYNAMIC_CHANNEL
 #define MX51_MXC_DMA_CHANNEL_CSPI2_RX	MXC_DMA_DYNAMIC_CHANNEL
@@ -178,7 +178,7 @@
 #define MX51_IS_MEM_DEVICE_NONSHARED(x)		0
 
 /*
-                          
+ * DMA request assignments
  */
 #define MX51_DMA_REQ_VPU		0
 #define MX51_DMA_REQ_GPC		1
@@ -230,7 +230,7 @@
 #define MX51_DMA_REQ_SSI3_TX0		47
 
 /*
-                    
+ * Interrupt numbers
  */
 #define MX51_INT_BASE			0
 #define MX51_INT_RESV0			0
@@ -342,4 +342,4 @@ extern int mx51_revision(void);
 extern void mx51_display_revision(void);
 #endif
 
-#endif	/*                        */
+#endif	/* ifndef __MACH_MX51_H__ */

@@ -31,11 +31,11 @@
 #include "prm-regbits-24xx.h"
 
 /*
-                                                                      
-                                                                     
-                                                                   
-                                                                  
-                                            
+ * XXX This does not actually enable the osc_ck, since the osc_ck must
+ * be running for this function to be called.  Instead, this function
+ * is used to disable an autoidle mode on the osc_ck.  The existing
+ * clk_enable/clk_disable()-based usecounting for osc_ck should be
+ * replaced with autoidle-based usecounting.
  */
 static int omap2_enable_osc_ck(struct clk *clk)
 {
@@ -49,11 +49,11 @@ static int omap2_enable_osc_ck(struct clk *clk)
 }
 
 /*
-                                                                      
-                                                                  
-                                                       
-                                                                  
-                                            
+ * XXX This does not actually disable the osc_ck, since doing so would
+ * immediately halt the system.  Instead, this function is used to
+ * enable an autoidle mode on the osc_ck.  The existing
+ * clk_enable/clk_disable()-based usecounting for osc_ck should be
+ * replaced with autoidle-based usecounting.
  */
 static void omap2_disable_osc_ck(struct clk *clk)
 {

@@ -19,7 +19,7 @@
 
 DEFINE_MSM_MUTEX(msm_actuator_mutex);
 
-/*                           */
+/*#define MSM_ACUTUATOR_DEBUG*/
 #undef CDBG
 #ifdef MSM_ACUTUATOR_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
@@ -83,8 +83,8 @@ static void msm_actuator_parse_i2c_params(struct msm_actuator_ctrl_t *a_ctrl,
 	struct msm_camera_i2c_reg_array *i2c_tbl = a_ctrl->i2c_reg_tbl;
 	CDBG("Enter\n");
 	for (i = 0; i < size; i++) {
-		/*                                                          
-                                */
+		/* check that the index into i2c_tbl cannot grow larger that
+		the allocated size of i2c_tbl */
 		if ((a_ctrl->total_steps + 1) < (a_ctrl->i2c_tbl_index)) {
 			break;
 		}
@@ -166,7 +166,7 @@ static int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
 }
 
 /*                                                                             */
-#if 0 //             
+#if 0 // QMC Original
 static void msm_actuator_write_focus(
 	struct msm_actuator_ctrl_t *a_ctrl,
 	uint16_t curr_lens_pos,
@@ -182,7 +182,7 @@ static void msm_actuator_write_focus(
 	damping_code_step = damping_params->damping_step;
 	wait_time = damping_params->damping_delay;
 
-	/*                                                 */
+	/* Write code based on damping_code_step in a loop */
 	for (next_lens_pos =
 		curr_lens_pos + (sign_direction * damping_code_step);
 		(sign_direction * next_lens_pos) <=
@@ -201,7 +201,7 @@ static void msm_actuator_write_focus(
 	}
 	CDBG("Exit\n");
 }
-#else //          
+#else // LG Modify
 static void msm_actuator_write_focus(
 	struct msm_actuator_ctrl_t *a_ctrl,
 	uint16_t curr_lens_pos,
@@ -341,7 +341,7 @@ static int32_t msm_actuator_move_focus(
 			curr_lens_pos = target_lens_pos;
 
 		} else {
-#if 0 //            
+#if 0 //QMC Original
 			target_step_pos = step_boundary;
 #else
 			target_step_pos = dest_step_pos;   /*                                                                                             */
@@ -410,7 +410,7 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 	kfree(a_ctrl->step_position_table);
 	a_ctrl->step_position_table = NULL;
 
-	/*                          */
+	/* Fill step position table */
 	a_ctrl->step_position_table =
 		kmalloc(sizeof(uint16_t) *
 		(set_info->af_tuning_params.total_steps + 1), GFP_KERNEL);
@@ -452,7 +452,7 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 		step_index++)
 /*                                                                                */
     {
-     //                                           
+     // if (current_moment == CAMERA_ENTER_MOMENT)
       {
         if ( (step_index>=0 && step_index<=4) || (step_index>=99) )
 	    pr_err("step_position_table[%d] = %d", step_index,
@@ -465,7 +465,7 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 
 /*                                                                         */
 #ifdef PLACE_LENS_INF_POS_WHEN_ENTER_CAMERA
-	inf_pos = a_ctrl->step_position_table[200];	//                                  
+	inf_pos = a_ctrl->step_position_table[200];	// to fit 550 code change 2014-04-14
 
 	wdata[0] = (inf_pos & 0xFFF0)>>4;
 	wdata[1] = ((inf_pos & 0x000F)<<4) | 0b0100 ;
@@ -495,7 +495,7 @@ static int32_t msm_actuator_set_default_focus(
 	int32_t rc = 0;
 	CDBG("Enter\n");
 
-#if 0 //            
+#if 0 //QMC Original
 	if (a_ctrl->curr_step_pos != 0)
 		rc = a_ctrl->func_tbl->actuator_move_focus(a_ctrl, move_params);
 #else
@@ -805,7 +805,7 @@ static int32_t msm_actuator_check_move_done(struct msm_actuator_ctrl_t * a_ctrl)
 {
 	uint16_t read_data, read_addr, read_cnt=0;
 
-	read_addr = 0xDC51;  //                            
+	read_addr = 0xDC51;  //actuator ringing setting off
 	while (read_cnt<20){
 		msm_camera_cci_i2c_read(&a_ctrl->i2c_client, read_addr, &read_data, 2);
 		pr_err("%s : read data : 0x%x , cnt: %d\n",__func__, read_data, read_cnt);
@@ -829,10 +829,10 @@ static int msm_actuator_StablePosition_move(struct msm_actuator_ctrl_t * a_ctrl,
 
 		if(a_ctrl->i2c_reg_tbl != NULL){
 			a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl, next_dac, damping_parm, 0);
-//                                                                      
-//                       
-//                                              
-//                          
+//			rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write_table_w_microdelay(
+//			&a_ctrl->i2c_client,
+//			a_ctrl->i2c_reg_tbl, a_ctrl->i2c_tbl_index,
+//			a_ctrl->i2c_data_type);
 
 			if (rc < 0) {
 				pr_err("%s: i2c write error:[1]%d\n",
@@ -860,19 +860,19 @@ static int16_t msm_actuator_StablePosition_dac_calc(struct msm_actuator_ctrl_t *
 
 static unsigned int msm_actuator_StablePosition_delay_calc(int16_t cur_dac, int16_t next_dac)
 {
-	//                            
+	//You can use the delay tuning
 	unsigned int delay = 0;
 	delay = (cur_dac - next_dac) * 2 / 3;
 	if(delay > 200) delay = 200;
 	else if(delay < 50) delay = 60;
 
-	//             
+	//return delay;
 	return 0; /*                                                                                                  */
 }
 
 static int16_t msm_actuator_StablePosition_pos_calc(int16_t cur_pos)
 {
-	//                                       
+	//You can use the actuator postion tuning
 #if defined(CONFIG_LG_OIS)
 	return 0;
 #else
@@ -918,7 +918,7 @@ static int32_t msm_actuator_StablePosition(struct msm_actuator_ctrl_t *a_ctrl)
 			else if(next_pos == 0)
 			{
 				next_dac = msm_actuator_StablePosition_dac_calc(a_ctrl, next_pos);
-				//                                                                                         
+				//rc = msm_actuator_StablePosition_move(a_ctrl, next_dac, IMX135_ACT_HW_DAMPING_LAST, 110);
 				/*                                                                      */
 				rc = msm_actuator_StablePosition_move(a_ctrl, next_dac, IMX135_ACT_HW_DAMPING_FASTEST, delay);
 				if (rc < 0) {
@@ -941,7 +941,7 @@ static int32_t msm_actuator_StablePosition(struct msm_actuator_ctrl_t *a_ctrl)
 /*                                                                         */
 #if 0
 	a_ctrl->i2c_tbl_index = 0;
-	msleep(50); //                                                          
+	msleep(50); // delay can be changed but put max due to it's small enough
 	a_ctrl->curr_step_pos = 0;
 #endif
 /*                                                                         */
@@ -1101,7 +1101,7 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	act_ctrl_t->i2c_client.client = client;
 	act_ctrl_t->curr_step_pos = 0,
 	act_ctrl_t->curr_region_index = 0,
-	/*                        */
+	/* Set device type as I2C */
 	act_ctrl_t->act_device_type = MSM_CAMERA_I2C_DEVICE;
 	act_ctrl_t->i2c_client.i2c_func_tbl = &msm_sensor_qup_func_tbl;
 	act_ctrl_t->act_v4l2_subdev_ops = &msm_actuator_subdev_ops;
@@ -1109,11 +1109,11 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 
 	act_ctrl_t->cam_name = act_ctrl_t->subdev_id;
 	CDBG("act_ctrl_t->cam_name: %d", act_ctrl_t->cam_name);
-	/*                            */
+	/* Assign name for sub device */
 	snprintf(act_ctrl_t->msm_sd.sd.name, sizeof(act_ctrl_t->msm_sd.sd.name),
 		"%s", act_ctrl_t->i2c_driver->driver.name);
 
-	/*                       */
+	/* Initialize sub device */
 	v4l2_i2c_subdev_init(&act_ctrl_t->msm_sd.sd,
 		act_ctrl_t->i2c_client.client,
 		act_ctrl_t->act_v4l2_subdev_ops);
@@ -1170,9 +1170,9 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 	msm_actuator_t->actuator_mutex = &msm_actuator_mutex;
 	msm_actuator_t->cam_name = pdev->id;
 
-	/*                            */
+	/* Set platform device handle */
 	msm_actuator_t->pdev = pdev;
-	/*                                    */
+	/* Set device type as platform device */
 	msm_actuator_t->act_device_type = MSM_CAMERA_PLATFORM_DEVICE;
 	msm_actuator_t->i2c_client.i2c_func_tbl = &msm_sensor_cci_func_tbl;
 	msm_actuator_t->i2c_client.cci_client = kzalloc(sizeof(

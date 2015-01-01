@@ -41,7 +41,7 @@
 #include <mach/irqs.h>
 #include <asm/mach/serial_sa1100.h>
 
-/*                                                                     */
+/* We've been assigned a range on the "Low-density serial ports" major */
 #define SERIAL_SA1100_MAJOR	204
 #define MINOR_START		5
 
@@ -50,7 +50,7 @@
 #define SA1100_ISR_PASS_LIMIT	256
 
 /*
-                                                                  
+ * Convert from ignore_status_mask or read_status_mask to UTSR[01]
  */
 #define SM_TO_UTSR0(x)	((x) & 0xff)
 #define SM_TO_UTSR1(x)	((x) >> 8)
@@ -74,15 +74,15 @@
 #define UART_PUT_CHAR(sport,v)	__raw_writel((v),(sport)->port.membase + UTDR)
 
 /*
-                                                    
+ * This is the size of our serial port register set.
  */
 #define UART_PORT_SIZE	0x24
 
 /*
-                                                              
-                                                             
-                                                             
-                                                   
+ * This determines how often we check the modem status signals
+ * for any change.  They generally aren't connected to an IRQ
+ * so we have to poll them.  We also check immediately before
+ * filling the TX fifo incase CTS has been dropped.
  */
 #define MCTRL_TIMEOUT	(250*HZ/1000)
 
@@ -93,7 +93,7 @@ struct sa1100_port {
 };
 
 /*
-                                                                      
+ * Handle any change of modem status signal since we were last called.
  */
 static void sa1100_mctrl_check(struct sa1100_port *sport)
 {
@@ -120,8 +120,8 @@ static void sa1100_mctrl_check(struct sa1100_port *sport)
 }
 
 /*
-                                                         
-                        
+ * This is our per-port timeout handler, for checking the
+ * modem status signals.
  */
 static void sa1100_timeout(unsigned long data)
 {
@@ -138,7 +138,7 @@ static void sa1100_timeout(unsigned long data)
 }
 
 /*
-                               
+ * interrupts disabled on entry
  */
 static void sa1100_stop_tx(struct uart_port *port)
 {
@@ -151,7 +151,7 @@ static void sa1100_stop_tx(struct uart_port *port)
 }
 
 /*
-                                      
+ * port locked and interrupts disabled
  */
 static void sa1100_start_tx(struct uart_port *port)
 {
@@ -164,7 +164,7 @@ static void sa1100_start_tx(struct uart_port *port)
 }
 
 /*
-                     
+ * Interrupts enabled
  */
 static void sa1100_stop_rx(struct uart_port *port)
 {
@@ -176,7 +176,7 @@ static void sa1100_stop_rx(struct uart_port *port)
 }
 
 /*
-                                                   
+ * Set the modem control timer to fire immediately.
  */
 static void sa1100_enable_ms(struct uart_port *port)
 {
@@ -201,9 +201,9 @@ sa1100_rx_chars(struct sa1100_port *sport)
 		flg = TTY_NORMAL;
 
 		/*
-                                         
-                                   
-   */
+		 * note that the error handling code is
+		 * out of the main execution path
+		 */
 		if (status & UTSR1_TO_SM(UTSR1_PRE | UTSR1_FRE | UTSR1_ROR)) {
 			if (status & UTSR1_TO_SM(UTSR1_PRE))
 				sport->port.icount.parity++;
@@ -248,9 +248,9 @@ static void sa1100_tx_chars(struct sa1100_port *sport)
 	}
 
 	/*
-                                        
-                          
-  */
+	 * Check the modem control lines before
+	 * transmitting anything.
+	 */
 	sa1100_mctrl_check(sport);
 
 	if (uart_circ_empty(xmit) || uart_tx_stopped(&sport->port)) {
@@ -259,9 +259,9 @@ static void sa1100_tx_chars(struct sa1100_port *sport)
 	}
 
 	/*
-                                                      
-                                             
-  */
+	 * Tried using FIFO (not checking TNF) for fifo fill:
+	 * still had the '4 bytes repeated' problem.
+	 */
 	while (UART_GET_UTSR1(sport) & UTSR1_TNF) {
 		UART_PUT_CHAR(sport, xmit->buf[xmit->tail]);
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
@@ -287,13 +287,13 @@ static irqreturn_t sa1100_int(int irq, void *dev_id)
 	status &= SM_TO_UTSR0(sport->port.read_status_mask) | ~UTSR0_TFS;
 	do {
 		if (status & (UTSR0_RFS | UTSR0_RID)) {
-			/*                                     */
+			/* Clear the receiver idle bit, if set */
 			if (status & UTSR0_RID)
 				UART_PUT_UTSR0(sport, UTSR0_RID);
 			sa1100_rx_chars(sport);
 		}
 
-		/*                               */
+		/* Clear the relevant break bits */
 		if (status & (UTSR0_RBB | UTSR0_REB))
 			UART_PUT_UTSR0(sport, status & (UTSR0_RBB | UTSR0_REB));
 
@@ -317,7 +317,7 @@ static irqreturn_t sa1100_int(int irq, void *dev_id)
 }
 
 /*
-                                                    
+ * Return TIOCSER_TEMT when transmitter is not busy.
  */
 static unsigned int sa1100_tx_empty(struct uart_port *port)
 {
@@ -336,7 +336,7 @@ static void sa1100_set_mctrl(struct uart_port *port, unsigned int mctrl)
 }
 
 /*
-                              
+ * Interrupts always disabled.
  */
 static void sa1100_break_ctl(struct uart_port *port, int break_state)
 {
@@ -360,22 +360,22 @@ static int sa1100_startup(struct uart_port *port)
 	int retval;
 
 	/*
-                    
-  */
+	 * Allocate the IRQ
+	 */
 	retval = request_irq(sport->port.irq, sa1100_int, 0,
 			     "sa11x0-uart", sport);
 	if (retval)
 		return retval;
 
 	/*
-                                        
-  */
+	 * Finally, clear and enable interrupts
+	 */
 	UART_PUT_UTSR0(sport, -1);
 	UART_PUT_UTCR3(sport, UTCR3_RXE | UTCR3_TXE | UTCR3_RIE);
 
 	/*
-                                  
-  */
+	 * Enable modem status interrupts
+	 */
 	spin_lock_irq(&sport->port.lock);
 	sa1100_enable_ms(&sport->port);
 	spin_unlock_irq(&sport->port.lock);
@@ -388,18 +388,18 @@ static void sa1100_shutdown(struct uart_port *port)
 	struct sa1100_port *sport = (struct sa1100_port *)port;
 
 	/*
-                   
-  */
+	 * Stop our timer.
+	 */
 	del_timer_sync(&sport->timer);
 
 	/*
-                      
-  */
+	 * Free the interrupt
+	 */
 	free_irq(sport->port.irq, sport);
 
 	/*
-                                                     
-  */
+	 * Disable all interrupts, port and break condition.
+	 */
 	UART_PUT_UTCR3(sport, 0);
 }
 
@@ -413,8 +413,8 @@ sa1100_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned int old_csize = old ? old->c_cflag & CSIZE : CS8;
 
 	/*
-                                
-  */
+	 * We only support CS7 and CS8.
+	 */
 	while ((termios->c_cflag & CSIZE) != CS7 &&
 	       (termios->c_cflag & CSIZE) != CS8) {
 		termios->c_cflag &= ~CSIZE;
@@ -436,8 +436,8 @@ sa1100_set_termios(struct uart_port *port, struct ktermios *termios,
 	}
 
 	/*
-                                                 
-  */
+	 * Ask the core to calculate the divisor for us.
+	 */
 	baud = uart_get_baud_rate(port, termios, old, 0, port->uartclk/16); 
 	quot = uart_get_divisor(port, baud);
 
@@ -453,8 +453,8 @@ sa1100_set_termios(struct uart_port *port, struct ktermios *termios,
 				UTSR0_TO_SM(UTSR0_RBB | UTSR0_REB);
 
 	/*
-                        
-  */
+	 * Characters to ignore
+	 */
 	sport->port.ignore_status_mask = 0;
 	if (termios->c_iflag & IGNPAR)
 		sport->port.ignore_status_mask |=
@@ -463,9 +463,9 @@ sa1100_set_termios(struct uart_port *port, struct ktermios *termios,
 		sport->port.ignore_status_mask |=
 				UTSR0_TO_SM(UTSR0_RBB | UTSR0_REB);
 		/*
-                                                   
-                                                
-   */
+		 * If we're ignoring parity and break indicators,
+		 * ignore overruns too (for real raw support).
+		 */
 		if (termios->c_iflag & IGNPAR)
 			sport->port.ignore_status_mask |=
 				UTSR1_TO_SM(UTSR1_ROR);
@@ -474,26 +474,26 @@ sa1100_set_termios(struct uart_port *port, struct ktermios *termios,
 	del_timer_sync(&sport->timer);
 
 	/*
-                                
-  */
+	 * Update the per-port timeout.
+	 */
 	uart_update_timeout(port, termios->c_cflag, baud);
 
 	/*
-                                            
-  */
+	 * disable interrupts and drain transmitter
+	 */
 	old_utcr3 = UART_GET_UTCR3(sport);
 	UART_PUT_UTCR3(sport, old_utcr3 & ~(UTCR3_RIE | UTCR3_TIE));
 
 	while (UART_GET_UTSR1(sport) & UTSR1_TBY)
 		barrier();
 
-	/*                          */
+	/* then, disable everything */
 	UART_PUT_UTCR3(sport, 0);
 
-	/*                                         */
+	/* set the parity, stop bits and data size */
 	UART_PUT_UTCR0(sport, utcr0);
 
-	/*                   */
+	/* set the baud rate */
 	quot -= 1;
 	UART_PUT_UTCR1(sport, ((quot & 0xf00) >> 8));
 	UART_PUT_UTCR2(sport, (quot & 0xff));
@@ -516,7 +516,7 @@ static const char *sa1100_type(struct uart_port *port)
 }
 
 /*
-                                                     
+ * Release the memory region(s) being used by 'port'.
  */
 static void sa1100_release_port(struct uart_port *port)
 {
@@ -526,7 +526,7 @@ static void sa1100_release_port(struct uart_port *port)
 }
 
 /*
-                                                     
+ * Request the memory region(s) being used by 'port'.
  */
 static int sa1100_request_port(struct uart_port *port)
 {
@@ -537,7 +537,7 @@ static int sa1100_request_port(struct uart_port *port)
 }
 
 /*
-                                    
+ * Configure/autoconfigure the port.
  */
 static void sa1100_config_port(struct uart_port *port, int flags)
 {
@@ -549,9 +549,9 @@ static void sa1100_config_port(struct uart_port *port, int flags)
 }
 
 /*
-                                                  
-                                                          
-                                                      
+ * Verify the new serial_struct (for TIOCSSERIAL).
+ * The only change we allow are to the flags and type, and
+ * even then only between PORT_SA1100 and PORT_UNKNOWN
  */
 static int
 sa1100_verify_port(struct uart_port *port, struct serial_struct *ser)
@@ -598,16 +598,16 @@ static struct uart_ops sa1100_pops = {
 static struct sa1100_port sa1100_ports[NR_PORTS];
 
 /*
-                                                                      
-                                                                        
-  
-                                                                         
-                                                                     
-                                                                       
-                                             
-  
-                                                                   
-             
+ * Setup the SA1100 serial ports.  Note that we don't include the IrDA
+ * port here since we have our own SIR/FIR driver (see drivers/net/irda)
+ *
+ * Note also that we support "console=ttySAx" where "x" is either 0 or 1.
+ * Which serial port this ends up being depends on the machine you're
+ * running this kernel on.  I'm not convinced that this is a good idea,
+ * but that's the way it traditionally works.
+ *
+ * Note that NanoEngine UART3 becomes UART2, and UART2 is no longer
+ * used here.
  */
 static void __init sa1100_init_ports(void)
 {
@@ -630,9 +630,9 @@ static void __init sa1100_init_ports(void)
 	}
 
 	/*
-                                                      
-                                               
-  */
+	 * make transmit lines outputs, so that when the port
+	 * is closed, the output is in the MARK state.
+	 */
 	PPDR |= PPC_TXD1 | PPC_TXD3;
 	PPSR |= PPC_TXD1 | PPC_TXD3;
 }
@@ -694,7 +694,7 @@ static void sa1100_console_putchar(struct uart_port *port, int ch)
 }
 
 /*
-                                      
+ * Interrupts are disabled on entering
  */
 static void
 sa1100_console_write(struct console *co, const char *s, unsigned int count)
@@ -703,8 +703,8 @@ sa1100_console_write(struct console *co, const char *s, unsigned int count)
 	unsigned int old_utcr3, status;
 
 	/*
-                                                 
-  */
+	 *	First, save UTCR3 and then disable interrupts
+	 */
 	old_utcr3 = UART_GET_UTCR3(sport);
 	UART_PUT_UTCR3(sport, (old_utcr3 & ~(UTCR3_RIE | UTCR3_TIE)) |
 				UTCR3_TXE);
@@ -712,9 +712,9 @@ sa1100_console_write(struct console *co, const char *s, unsigned int count)
 	uart_console_write(&sport->port, s, count, sa1100_console_putchar);
 
 	/*
-                                                 
-                     
-  */
+	 *	Finally, wait for transmitter to become empty
+	 *	and restore UTCR3
+	 */
 	do {
 		status = UART_GET_UTSR1(sport);
 	} while (status & UTSR1_TBY);
@@ -722,8 +722,8 @@ sa1100_console_write(struct console *co, const char *s, unsigned int count)
 }
 
 /*
-                                                              
-                                      
+ * If the port was already initialised (eg, by a boot loader),
+ * try to determine the current setup.
  */
 static void __init
 sa1100_console_get_options(struct sa1100_port *sport, int *baud,
@@ -733,7 +733,7 @@ sa1100_console_get_options(struct sa1100_port *sport, int *baud,
 
 	utcr3 = UART_GET_UTCR3(sport) & (UTCR3_RXE | UTCR3_TXE);
 	if (utcr3 == (UTCR3_RXE | UTCR3_TXE)) {
-		/*                          */
+		/* ok, the port was enabled */
 		unsigned int utcr0, quot;
 
 		utcr0 = UART_GET_UTCR0(sport);
@@ -767,10 +767,10 @@ sa1100_console_setup(struct console *co, char *options)
 	int flow = 'n';
 
 	/*
-                                                                
-                                                             
-                    
-  */
+	 * Check whether an invalid uart number has been specified, and
+	 * if so, search for the first available port that does have
+	 * console support.
+	 */
 	if (co->index == -1 || co->index >= NR_PORTS)
 		co->index = 0;
 	sport = &sa1100_ports[co->index];

@@ -18,7 +18,7 @@
 #include <asm/scatterlist.h>
 
 /*
-                                                 
+ * These give mapping size of each iommu pte/tlb.
  */
 #define IO_PAGE_SHIFT			13
 #define IO_PAGE_SIZE			(1UL << IO_PAGE_SHIFT)
@@ -29,7 +29,7 @@
 #define IO_TSB_SIZE			(IO_TSB_ENTRIES * 8)
 
 /*
-                                                           
+ * This is the hardwired shift in the iotlb tag/data parts.
  */
 #define IOMMU_PAGE_SHIFT		13
 
@@ -56,4 +56,4 @@ extern void iommu_range_free(struct iommu *iommu,
 			     dma_addr_t dma_addr,
 			     unsigned long npages);
 
-#endif /*                 */
+#endif /* _IOMMU_COMMON_H */

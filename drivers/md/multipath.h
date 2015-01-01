@@ -16,9 +16,9 @@ struct mpconf {
 };
 
 /*
-                                                            
-                                                                        
-                                                        
+ * this is our 'private' 'collective' MULTIPATH buffer head.
+ * it contains information about what kind of IO operations were started
+ * for this MULTIPATH operation, and about their status:
  */
 
 struct multipath_bh {

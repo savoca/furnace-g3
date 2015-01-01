@@ -38,20 +38,20 @@ struct vmbus_channel_message_table_entry {
 };
 
 
-/* 
-                                                                                      
-                                              
-                                                           
-                                
-  
-                                           
-                                             
-                                                                           
-                                                                           
-                                                                           
-           
-  
-                                  
+/**
+ * vmbus_prep_negotiate_resp() - Create default response for Hyper-V Negotiate message
+ * @icmsghdrp: Pointer to msg header structure
+ * @icmsg_negotiate: Pointer to negotiate message structure
+ * @buf: Raw buffer channel data
+ *
+ * @icmsghdrp is of type &struct icmsg_hdr.
+ * @negop is of type &struct icmsg_negotiate.
+ * Set up and fill in default negotiate response message. This response can
+ * come from both the vmbus driver and the hv_utils driver. The current api
+ * will respond properly to both Windows 2008 and Windows 2008-R2 operating
+ * systems.
+ *
+ * Mainly used by Hyper-V drivers.
  */
 void vmbus_prep_negotiate_resp(struct icmsg_hdr *icmsghdrp,
 			       struct icmsg_negotiate *negop, u8 *buf)
@@ -83,7 +83,7 @@ void vmbus_prep_negotiate_resp(struct icmsg_hdr *icmsghdrp,
 EXPORT_SYMBOL_GPL(vmbus_prep_negotiate_resp);
 
 /*
-                                                                 
+ * alloc_channel - Allocate and initialize a vmbus channel object
  */
 static struct vmbus_channel *alloc_channel(void)
 {
@@ -105,7 +105,7 @@ static struct vmbus_channel *alloc_channel(void)
 }
 
 /*
-                                                           
+ * release_hannel - Release the vmbus channel object itself
  */
 static void release_channel(struct work_struct *work)
 {
@@ -119,16 +119,16 @@ static void release_channel(struct work_struct *work)
 }
 
 /*
-                                                                        
+ * free_channel - Release the resources used by the vmbus channel object
  */
 static void free_channel(struct vmbus_channel *channel)
 {
 
 	/*
-                                                                    
-                            
-                                  
-  */
+	 * We have to release the channel's workqueue/thread in the vmbus's
+	 * workqueue/thread context
+	 * ie we can't destroy ourselves.
+	 */
 	INIT_WORK(&channel->work, release_channel);
 	queue_work(vmbus_connection.work_queue, &channel->work);
 }
@@ -136,8 +136,8 @@ static void free_channel(struct vmbus_channel *channel)
 
 
 /*
-                                
-                                                   
+ * vmbus_process_rescind_offer -
+ * Rescind the offer by initiating a device removal
  */
 static void vmbus_process_rescind_offer(struct work_struct *work)
 {
@@ -160,8 +160,8 @@ void vmbus_free_channels(void)
 }
 
 /*
-                                                                       
-                             
+ * vmbus_process_offer - Process the offer by creating a channel/device
+ * associated with this offer
  */
 static void vmbus_process_offer(struct work_struct *work)
 {
@@ -173,10 +173,10 @@ static void vmbus_process_offer(struct work_struct *work)
 	int ret;
 	unsigned long flags;
 
-	/*                                            */
+	/* The next possible work is rescind handling */
 	INIT_WORK(&newchannel->work, vmbus_process_rescind_offer);
 
-	/*                               */
+	/* Make sure this is a new offer */
 	spin_lock_irqsave(&vmbus_connection.channel_lock, flags);
 
 	list_for_each_entry(channel, &vmbus_connection.chn_list, listentry) {
@@ -201,20 +201,20 @@ static void vmbus_process_offer(struct work_struct *work)
 	}
 
 	/*
-                                                         
-                                                        
-                         
-  */
+	 * Start the process of binding this offer to the driver
+	 * We need to set the DeviceObject field before calling
+	 * vmbus_child_dev_add()
+	 */
 	newchannel->device_obj = vmbus_device_create(
 		&newchannel->offermsg.offer.if_type,
 		&newchannel->offermsg.offer.if_instance,
 		newchannel);
 
 	/*
-                                                                   
-                                                                    
-           
-  */
+	 * Add the new device to the bus. This will kick off device-driver
+	 * binding which eventually invokes the device driver's AddDevice()
+	 * method.
+	 */
 	ret = vmbus_device_register(newchannel->device_obj);
 	if (ret != 0) {
 		pr_err("unable to add child device object (relid %d)\n",
@@ -228,17 +228,17 @@ static void vmbus_process_offer(struct work_struct *work)
 		free_channel(newchannel);
 	} else {
 		/*
-                                                     
-                                                      
-                         
-   */
+		 * This state is used to indicate a successful open
+		 * so that when we do close the channel normally, we
+		 * can cleanup properly
+		 */
 		newchannel->state = CHANNEL_OPEN_STATE;
 	}
 }
 
 /*
-                                                                             
-  
+ * vmbus_onoffer - Handler for channel offers from vmbus in parent partition.
+ *
  */
 static void vmbus_onoffer(struct vmbus_channel_message_header *hdr)
 {
@@ -252,7 +252,7 @@ static void vmbus_onoffer(struct vmbus_channel_message_header *hdr)
 	guidtype = &offer->offer.if_type;
 	guidinstance = &offer->offer.if_instance;
 
-	/*                                                  */
+	/* Allocate the channel object and save this offer. */
 	newchannel = alloc_channel();
 	if (!newchannel) {
 		pr_err("Unable to allocate channel object\n");
@@ -269,9 +269,9 @@ static void vmbus_onoffer(struct vmbus_channel_message_header *hdr)
 }
 
 /*
-                                                 
-  
-                                                           
+ * vmbus_onoffer_rescind - Rescind offer handler.
+ *
+ * We queue a work item to process this offer synchronously
  */
 static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
 {
@@ -282,19 +282,19 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
 	channel = relid2channel(rescind->child_relid);
 
 	if (channel == NULL)
-		/*                                    */
+		/* Just return here, no channel found */
 		return;
 
-	/*                                                           
-                                                        */
+	/* work is initialized for vmbus_process_rescind_offer() from
+	 * vmbus_process_offer() where the channel got created */
 	queue_work(channel->controlwq, &channel->work);
 }
 
 /*
-                             
-                                                       
-  
-                      
+ * vmbus_onoffers_delivered -
+ * This is invoked when all offers have been delivered.
+ *
+ * Nothing to do here.
  */
 static void vmbus_onoffers_delivered(
 			struct vmbus_channel_message_header *hdr)
@@ -302,11 +302,11 @@ static void vmbus_onoffers_delivered(
 }
 
 /*
-                                             
-  
-                                                                           
-                                                                         
-          
+ * vmbus_onopen_result - Open result handler.
+ *
+ * This is invoked when we received a response to our channel open request.
+ * Find the matching request, copy the response and signal the requesting
+ * thread.
  */
 static void vmbus_onopen_result(struct vmbus_channel_message_header *hdr)
 {
@@ -319,8 +319,8 @@ static void vmbus_onopen_result(struct vmbus_channel_message_header *hdr)
 	result = (struct vmbus_channel_open_result *)hdr;
 
 	/*
-                                                                        
-  */
+	 * Find the open msg, copy the result and signal/unblock the wait event
+	 */
 	spin_lock_irqsave(&vmbus_connection.channelmsg_lock, flags);
 
 	list_for_each_entry(msginfo, &vmbus_connection.chn_msg_list,
@@ -346,11 +346,11 @@ static void vmbus_onopen_result(struct vmbus_channel_message_header *hdr)
 }
 
 /*
-                                                 
-  
-                                                                           
-                                                                         
-          
+ * vmbus_ongpadl_created - GPADL created handler.
+ *
+ * This is invoked when we received a response to our gpadl create request.
+ * Find the matching request, copy the response and signal the requesting
+ * thread.
  */
 static void vmbus_ongpadl_created(struct vmbus_channel_message_header *hdr)
 {
@@ -363,9 +363,9 @@ static void vmbus_ongpadl_created(struct vmbus_channel_message_header *hdr)
 	gpadlcreated = (struct vmbus_channel_gpadl_created *)hdr;
 
 	/*
-                                                                       
-         
-  */
+	 * Find the establish msg, copy the result and signal/unblock the wait
+	 * event
+	 */
 	spin_lock_irqsave(&vmbus_connection.channelmsg_lock, flags);
 
 	list_for_each_entry(msginfo, &vmbus_connection.chn_msg_list,
@@ -393,11 +393,11 @@ static void vmbus_ongpadl_created(struct vmbus_channel_message_header *hdr)
 }
 
 /*
-                                                   
-  
-                                                                             
-                                                                         
-          
+ * vmbus_ongpadl_torndown - GPADL torndown handler.
+ *
+ * This is invoked when we received a response to our gpadl teardown request.
+ * Find the matching request, copy the response and signal the requesting
+ * thread.
  */
 static void vmbus_ongpadl_torndown(
 			struct vmbus_channel_message_header *hdr)
@@ -411,8 +411,8 @@ static void vmbus_ongpadl_torndown(
 	gpadl_torndown = (struct vmbus_channel_gpadl_torndown *)hdr;
 
 	/*
-                                                                        
-  */
+	 * Find the open msg, copy the result and signal/unblock the wait event
+	 */
 	spin_lock_irqsave(&vmbus_connection.channelmsg_lock, flags);
 
 	list_for_each_entry(msginfo, &vmbus_connection.chn_msg_list,
@@ -438,11 +438,11 @@ static void vmbus_ongpadl_torndown(
 }
 
 /*
-                                                      
-  
-                                                                               
-                                                                         
-          
+ * vmbus_onversion_response - Version response handler
+ *
+ * This is invoked when we received a response to our initiate contact request.
+ * Find the matching request, copy the response and signal the requesting
+ * thread.
  */
 static void vmbus_onversion_response(
 		struct vmbus_channel_message_header *hdr)
@@ -474,7 +474,7 @@ static void vmbus_onversion_response(
 	spin_unlock_irqrestore(&vmbus_connection.channelmsg_lock, flags);
 }
 
-/*                                */
+/* Channel message dispatch table */
 static struct vmbus_channel_message_table_entry
 	channel_message_table[CHANNELMSG_COUNT] = {
 	{CHANNELMSG_INVALID,			NULL},
@@ -497,9 +497,9 @@ static struct vmbus_channel_message_table_entry
 };
 
 /*
-                                                           
-  
-                                                      
+ * vmbus_onmessage - Handler for channel protocol messages.
+ *
+ * This is invoked in the vmbus worker thread context.
  */
 void vmbus_onmessage(void *context)
 {
@@ -525,7 +525,7 @@ void vmbus_onmessage(void *context)
 }
 
 /*
-                                                                       
+ * vmbus_request_offers - Send a request to get all our pending offers.
  */
 int vmbus_request_offers(void)
 {
@@ -568,4 +568,4 @@ cleanup:
 	return ret;
 }
 
-/*     */
+/* eof */

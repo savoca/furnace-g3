@@ -31,16 +31,16 @@
 
 EXPORT_SYMBOL(ip_vs_scheduler_err);
 /*
-                       
+ *  IPVS scheduler list
  */
 static LIST_HEAD(ip_vs_schedulers);
 
-/*                        */
+/* lock for service table */
 static DEFINE_SPINLOCK(ip_vs_sched_lock);
 
 
 /*
-                                   
+ *  Bind a service with a scheduler
  */
 int ip_vs_bind_scheduler(struct ip_vs_service *svc,
 			 struct ip_vs_scheduler *scheduler)
@@ -62,7 +62,7 @@ int ip_vs_bind_scheduler(struct ip_vs_service *svc,
 
 
 /*
-                                       
+ *  Unbind a service with its scheduler
  */
 int ip_vs_unbind_scheduler(struct ip_vs_service *svc)
 {
@@ -84,7 +84,7 @@ int ip_vs_unbind_scheduler(struct ip_vs_service *svc)
 
 
 /*
-                                               
+ *  Get scheduler in the scheduler list by name
  */
 static struct ip_vs_scheduler *ip_vs_sched_getbyname(const char *sched_name)
 {
@@ -96,16 +96,16 @@ static struct ip_vs_scheduler *ip_vs_sched_getbyname(const char *sched_name)
 
 	list_for_each_entry(sched, &ip_vs_schedulers, n_list) {
 		/*
-                                        
-   */
+		 * Test and get the modules atomically
+		 */
 		if (sched->module && !try_module_get(sched->module)) {
 			/*
-                                    
-    */
+			 * This scheduler is just deleted
+			 */
 			continue;
 		}
 		if (strcmp(sched_name, sched->name)==0) {
-			/*     */
+			/* HIT */
 			spin_unlock_bh(&ip_vs_sched_lock);
 			return sched;
 		}
@@ -119,20 +119,20 @@ static struct ip_vs_scheduler *ip_vs_sched_getbyname(const char *sched_name)
 
 
 /*
-                                                           
+ *  Lookup scheduler and try to load it if it doesn't exist
  */
 struct ip_vs_scheduler *ip_vs_scheduler_get(const char *sched_name)
 {
 	struct ip_vs_scheduler *sched;
 
 	/*
-                                           
-  */
+	 *  Search for the scheduler by sched_name
+	 */
 	sched = ip_vs_sched_getbyname(sched_name);
 
 	/*
-                                                             
-  */
+	 *  If scheduler not found, load the module and search again
+	 */
 	if (sched == NULL) {
 		request_module("ip_vs_%s", sched_name);
 		sched = ip_vs_sched_getbyname(sched_name);
@@ -148,7 +148,7 @@ void ip_vs_scheduler_put(struct ip_vs_scheduler *scheduler)
 }
 
 /*
-                                            
+ * Common error output helper for schedulers
  */
 
 void ip_vs_scheduler_err(struct ip_vs_service *svc, const char *msg)
@@ -173,7 +173,7 @@ void ip_vs_scheduler_err(struct ip_vs_service *svc, const char *msg)
 }
 
 /*
-                                              
+ *  Register a scheduler in the scheduler list
  */
 int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
 {
@@ -189,7 +189,7 @@ int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
 		return -EINVAL;
 	}
 
-	/*                               */
+	/* increase the module use count */
 	ip_vs_use_count_inc();
 
 	spin_lock_bh(&ip_vs_sched_lock);
@@ -203,9 +203,9 @@ int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
 	}
 
 	/*
-                                                              
-                           
-  */
+	 *  Make sure that the scheduler with this name doesn't exist
+	 *  in the scheduler list.
+	 */
 	list_for_each_entry(sched, &ip_vs_schedulers, n_list) {
 		if (strcmp(scheduler->name, sched->name) == 0) {
 			spin_unlock_bh(&ip_vs_sched_lock);
@@ -216,8 +216,8 @@ int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
 		}
 	}
 	/*
-                                           
-  */
+	 *	Add it into the d-linked scheduler list
+	 */
 	list_add(&scheduler->n_list, &ip_vs_schedulers);
 	spin_unlock_bh(&ip_vs_sched_lock);
 
@@ -228,7 +228,7 @@ int register_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
 
 
 /*
-                                                  
+ *  Unregister a scheduler from the scheduler list
  */
 int unregister_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
 {
@@ -246,12 +246,12 @@ int unregister_ip_vs_scheduler(struct ip_vs_scheduler *scheduler)
 	}
 
 	/*
-                                              
-  */
+	 *	Remove it from the d-linked scheduler list
+	 */
 	list_del(&scheduler->n_list);
 	spin_unlock_bh(&ip_vs_sched_lock);
 
-	/*                               */
+	/* decrease the module use count */
 	ip_vs_use_count_dec();
 
 	pr_info("[%s] scheduler unregistered.\n", scheduler->name);

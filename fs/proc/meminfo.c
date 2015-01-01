@@ -30,7 +30,7 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 	int lru;
 
 /*
-                        
+ * display in kilobytes.
  */
 #define K(x) ((x) << (PAGE_SHIFT - 10))
 	si_meminfo(&i);
@@ -50,8 +50,8 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 		pages[lru] = global_page_state(NR_LRU_BASE + lru);
 
 	/*
-                                                   
-  */
+	 * Tagged format, for easy grepping and expansion.
+	 */
 	seq_printf(m,
 		"MemTotal:       %8lu kB\n"
 		"MemFree:        %8lu kB\n"

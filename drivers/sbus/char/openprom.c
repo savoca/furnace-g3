@@ -52,23 +52,23 @@ MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
 MODULE_ALIAS_MISCDEV(SUN_OPENPROM_MINOR);
 
-/*                                                      */
+/* Private data kept by the driver for each descriptor. */
 typedef struct openprom_private_data
 {
-	struct device_node *current_node; /*                                */
+	struct device_node *current_node; /* Current node for SunOS ioctls. */
 	struct device_node *lastnode; /* Last valid node used by BSD ioctls. */
 } DATA;
 
-/*                                                           */
+/* ID of the PROM node containing all of the EEPROM options. */
 static DEFINE_MUTEX(openprom_mutex);
 static struct device_node *options_node;
 
 /*
-                                                                  
-                                                                
-                                                                    
-                                                                   
-                               
+ * Copy an openpromio structure into kernel space from user space.
+ * This routine does error checking to make sure that all memory
+ * accesses are within bounds. A pointer to the allocated openpromio
+ * structure will be placed in "*opp_p". Return value is the length
+ * of the user supplied buffer.
  */
 static int copyin(struct openpromio __user *info, struct openpromio **opp_p)
 {
@@ -83,9 +83,9 @@ static int copyin(struct openpromio __user *info, struct openpromio **opp_p)
 	if (bufsize == 0)
 		return -EINVAL;
 
-	/*                                            
-                            
-  */
+	/* If the bufsize is too large, just limit it.
+	 * Fix from Jason Rappleye.
+	 */
 	if (bufsize > OPROMMAXPARAM)
 		bufsize = OPROMMAXPARAM;
 
@@ -131,7 +131,7 @@ static int getstrings(struct openpromio __user *info, struct openpromio **opp_p)
 }
 
 /*
-                                                                   
+ * Copy an openpromio structure in kernel space back to user space.
  */
 static int copyout(void __user *info, struct openpromio *opp, int len)
 {
@@ -224,7 +224,7 @@ static int opromnext(void __user *argp, unsigned int cmd, struct device_node *dp
 			break;
 		};
 	} else {
-		/*                                         */
+		/* Sibling of node zero is the root node.  */
 		if (cmd != OPROMNEXT)
 			return -EINVAL;
 
@@ -296,7 +296,7 @@ static int opromgetbootargs(void __user *argp, struct openpromio *op, int bufsiz
 }
 
 /*
-                                               
+ *	SunOS and Solaris /dev/openprom ioctl calls.
  */
 static long openprom_sunos_ioctl(struct file * file,
 				 unsigned int cmd, unsigned long arg,
@@ -382,7 +382,7 @@ static struct device_node *get_node(phandle n, DATA *data)
 	return dp;
 }
 
-/*                                                         */
+/* Copy in a whole string from userspace into kernelspace. */
 static int copyin_string(char __user *user, size_t len, char **ptr)
 {
 	char *tmp;
@@ -596,7 +596,7 @@ static int openprom_bsd_ioctl(struct file * file,
 
 
 /*
-                                                
+ *	Handoff control to the correct ioctl handler.
  */
 static long openprom_ioctl(struct file * file,
 			   unsigned int cmd, unsigned long arg)

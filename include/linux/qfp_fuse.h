@@ -25,12 +25,12 @@
 
 
 /*
-                                                                       
-                                                                          
-            
-                                                                          
-                                                        
-                                                                 
+ * This structure is used to exchange the fuse parameters with the user
+ * space application. The pointer to this structure is passed to the ioctl
+ * function.
+ * offset   = offset from the QFPROM base for the data to be read/written.
+ * size     = number of 32-bit words to be read/written.
+ * data     = pointer to the 32 bit word denoting userspace data.
  */
 struct qfp_fuse_req {
 	u32 offset;

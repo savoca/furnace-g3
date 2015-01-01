@@ -6,15 +6,15 @@
  */
 
 /*
-                            
+ * Driver debug definitions.
  */
-/*                   */			/*                */
-/*                           */		/*                         */
-/*                           */
-/*                           */
-/*                           */
+/* #define QL_DEBUG  */			/* DEBUG messages */
+/* #define QL_DEBUG_LEVEL_3  */		/* Output function tracing */
+/* #define QL_DEBUG_LEVEL_4  */
+/* #define QL_DEBUG_LEVEL_5  */
+/* #define QL_DEBUG_LEVEL_9  */
 
-#define QL_DEBUG_LEVEL_2	/*                               */
+#define QL_DEBUG_LEVEL_2	/* ALways enable error messagess */
 #if defined(QL_DEBUG)
 #define DEBUG(x)   do {x;} while (0);
 #else

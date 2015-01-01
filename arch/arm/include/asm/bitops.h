@@ -30,9 +30,9 @@
 #define smp_mb__after_clear_bit()	smp_mb()
 
 /*
-                                                
-  
-                                                     
+ * These functions are the basis of our bit ops.
+ *
+ * First, the atomic bitops. These use native endian.
  */
 static inline void ____atomic_set_bit(unsigned int bit, volatile unsigned long *p)
 {
@@ -124,32 +124,32 @@ ____atomic_test_and_change_bit(unsigned int bit, volatile unsigned long *p)
 #include <asm-generic/bitops/non-atomic.h>
 
 /*
-                             
-                             
-  
-                                                                   
-                                                      
-  
-                                                           
-                                                           
-                                                          
-                                                          
-  
-                                                                      
-                                             
-  
-                                                                       
-                                                                    
-                                      
-  
-                                                                      
-                          
-  
-                                                                        
+ *  A note about Endian-ness.
+ *  -------------------------
+ *
+ * When the ARM is put into big endian mode via CR15, the processor
+ * merely swaps the order of bytes within words, thus:
+ *
+ *          ------------ physical data bus bits -----------
+ *          D31 ... D24  D23 ... D16  D15 ... D8  D7 ... D0
+ * little     byte 3       byte 2       byte 1      byte 0
+ * big        byte 0       byte 1       byte 2      byte 3
+ *
+ * This means that reading a 32-bit word at address 0 returns the same
+ * value irrespective of the endian mode bit.
+ *
+ * Peripheral devices should be connected with the data bus reversed in
+ * "Big Endian" mode.  ARM Application Note 61 is applicable, and is
+ * available from http://www.arm.com/.
+ *
+ * The following assumes that the data bus connectivity for big endian
+ * mode has been followed.
+ *
+ * Note that bit 0 is defined to be 32-bit word bit 0, not byte 0 bit 0.
  */
 
 /*
-                                                          
+ * Native endian assembly bitops.  nr = 0 -> word 0 bit 0.
  */
 extern void _set_bit(int nr, volatile unsigned long * p);
 extern void _clear_bit(int nr, volatile unsigned long * p);
@@ -159,7 +159,7 @@ extern int _test_and_clear_bit(int nr, volatile unsigned long * p);
 extern int _test_and_change_bit(int nr, volatile unsigned long * p);
 
 /*
-                                                          
+ * Little endian assembly bitops.  nr = 0 -> byte 0 bit 0.
  */
 extern int _find_first_zero_bit_le(const void * p, unsigned size);
 extern int _find_next_zero_bit_le(const void * p, int size, int offset);
@@ -167,7 +167,7 @@ extern int _find_first_bit_le(const unsigned long *p, unsigned size);
 extern int _find_next_bit_le(const unsigned long *p, int size, int offset);
 
 /*
-                                                       
+ * Big endian assembly bitops.  nr = 0 -> byte 3 bit 0.
  */
 extern int _find_first_zero_bit_be(const void * p, unsigned size);
 extern int _find_next_zero_bit_be(const void * p, int size, int offset);
@@ -176,7 +176,7 @@ extern int _find_next_bit_be(const unsigned long *p, int size, int offset);
 
 #ifndef CONFIG_SMP
 /*
-                                                              
+ * The __* form of bitops are non-atomic and may be reordered.
  */
 #define ATOMIC_BITOP(name,nr,p)			\
 	(__builtin_constant_p(nr) ? ____atomic_##name(nr, p) : _##name(nr,p))
@@ -185,7 +185,7 @@ extern int _find_next_bit_be(const unsigned long *p, int size, int offset);
 #endif
 
 /*
-                                    
+ * Native endian atomic definitions.
  */
 #define set_bit(nr,p)			ATOMIC_BITOP(set_bit,nr,p)
 #define clear_bit(nr,p)			ATOMIC_BITOP(clear_bit,nr,p)
@@ -196,7 +196,7 @@ extern int _find_next_bit_be(const unsigned long *p, int size, int offset);
 
 #ifndef __ARMEB__
 /*
-                                                   
+ * These are the little endian, atomic definitions.
  */
 #define find_first_zero_bit(p,sz)	_find_first_zero_bit_le(p,sz)
 #define find_next_zero_bit(p,sz,off)	_find_next_zero_bit_le(p,sz,off)
@@ -205,7 +205,7 @@ extern int _find_next_bit_be(const unsigned long *p, int size, int offset);
 
 #else
 /*
-                                                
+ * These are the big endian, atomic definitions.
  */
 #define find_first_zero_bit(p,sz)	_find_first_zero_bit_be(p,sz)
 #define find_next_zero_bit(p,sz,off)	_find_next_zero_bit_be(p,sz,off)
@@ -254,8 +254,8 @@ static inline int constant_fls(int x)
 }
 
 /*
-                                                               
-                                                       
+ * On ARMv5 and above those functions can be implemented around
+ * the clz instruction for much better code efficiency.
  */
 
 static inline int fls(int x)
@@ -308,10 +308,10 @@ static inline int find_next_bit_le(const void *p, int size, int offset)
 #include <asm-generic/bitops/le.h>
 
 /*
-                                                      
+ * Ext2 is defined to use little-endian byte ordering.
  */
 #include <asm-generic/bitops/ext2-atomic-setbit.h>
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*               */
+#endif /* _ARM_BITOPS_H */

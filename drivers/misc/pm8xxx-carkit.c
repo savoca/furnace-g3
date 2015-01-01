@@ -248,7 +248,7 @@ static int __devinit pm8xxx_carkit_probe(struct platform_device *pdev)
 
 	printk("%s : init cradle\n", __func__);
 
-	/*                             */
+	/* initialize irq of gpio_hall */
 	if (cradle->pdata->hallic_carkit_detect_pin > 0) {
 		hallic_carkit_gpio_irq = gpio_to_irq(cradle->pdata->hallic_carkit_detect_pin);
 		printk("%s : hall_carkit_gpio_irq = [%d]\n", __func__, hallic_carkit_gpio_irq);

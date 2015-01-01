@@ -3,8 +3,8 @@
 
 #ifdef CONFIG_SPARSEMEM
 /*
-                                                                 
-                                                                              
+ * SECTION_SIZE_BITS            2^N: how big each section will be
+ * MAX_PHYSMEM_BITS             2^N: how much memory we can have in that space
  */
 
 #define SECTION_SIZE_BITS	(30)
@@ -16,5 +16,5 @@
 #endif
 #endif
 
-#endif /*                  */
-#endif /*                       */
+#endif /* CONFIG_SPARSEMEM */
+#endif /* _ASM_IA64_SPARSEMEM_H */

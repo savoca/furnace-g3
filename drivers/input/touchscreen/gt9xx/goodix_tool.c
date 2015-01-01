@@ -31,20 +31,20 @@
 static char procname[20] = {0};
 
 struct st_cmd_head {
-	u8  wr;		/*                                  */
-	u8  flag;	/*                                             */
-	u8 flag_addr[2];/*              */
-	u8  flag_val;	/*          */
-	u8  flag_relation; /*                                           */
-	u16 circle;	/*               */
-	u8  times;	/*              */
-	u8  retry;	/*                 */
-	u16 delay;	/*                                 */
-	u16 data_len;	/*             */
-	u8  addr_len;	/*                */
-	u8  addr[2];	/*         */
-	u8  res[3];	/*          */
-	u8  *data;	/*              */
+	u8  wr;		/* write read flag 0:R 1:W 2:PID 3: */
+	u8  flag;	/* 0:no need flag/int 1: need flag  2:need int */
+	u8 flag_addr[2];/* flag address */
+	u8  flag_val;	/* flag val */
+	u8  flag_relation; /* flag_val:flag 0:not equal 1:equal 2:> 3:< */
+	u16 circle;	/* polling cycle */
+	u8  times;	/* plling times */
+	u8  retry;	/* I2C retry times */
+	u16 delay;	/* delay befor read or after write */
+	u16 data_len;	/* data length */
+	u8  addr_len;	/* address length */
+	u8  addr[2];	/* address */
+	u8  res[3];	/* reserved */
+	u8  *data;	/* data pointer */
 } __packed;
 
 static struct st_cmd_head cmd_head;
@@ -70,7 +70,7 @@ static void tool_set_proc_name(char *procname)
 	int i = 0, n_month = 1, n_day = 0, n_year = 0;
 	snprintf(date, 20, "%s", __DATE__);
 
-	/*                                     */
+	/* pr_debug("compile date: %s", date); */
 
 	sscanf(date, "%s %d %d", month, &n_day, &n_year);
 
@@ -82,7 +82,7 @@ static void tool_set_proc_name(char *procname)
 	}
 
 	snprintf(procname, 20, "gmnode%04d%02d%02d", n_year, n_month, n_day);
-	/*                                      */
+	/* pr_debug("procname = %s", procname); */
 }
 
 static s32 tool_i2c_read_no_extra(u8 *buf, u16 len)
@@ -239,14 +239,14 @@ static u8 relation(u8 src, u8 dst, u8 rlt)
 	return ret;
 }
 
-/*                                                      
-         
-                     
-      
-       
-       
-                        
-                                                       */
+/*******************************************************
+Function:
+    Comfirm function.
+Input:
+  None.
+Output:
+    Return write length.
+********************************************************/
 static u8 comfirm(void)
 {
 	s32 i = 0;
@@ -299,14 +299,14 @@ static s32 fill_update_info(char __user *user_buf,
 }
 #endif
 
-/*                                                       
-         
-                               
-     
-                                     
-       
-                        
-                                                       */
+/********************************************************
+Function:
+    Goodix tool write function.
+nput:
+  standard proc write function param.
+Output:
+    Return write length.
+********************************************************/
 static s32 goodix_tool_write(struct file *filp, const char __user *userbuf,
 						size_t count, loff_t *ppos)
 {
@@ -359,7 +359,7 @@ static s32 goodix_tool_write(struct file *filp, const char __user *userbuf,
 				goto exit;
 			}
 		} else if (cmd_head.flag == GTP_NEED_INTERRUPT) {
-			/*                 */
+			/* Need interrupt! */
 		}
 		if (tool_i2c_write(
 		&cmd_head.data[GTP_ADDR_LENGTH - cmd_head.addr_len],
@@ -374,7 +374,7 @@ static s32 goodix_tool_write(struct file *filp, const char __user *userbuf,
 
 		ret = cmd_head.data_len + CMD_HEAD_LENGTH;
 		goto exit;
-	} else if (cmd_head.wr == GTP_RW_WRITE_IC_TYPE) {  /*               */
+	} else if (cmd_head.wr == GTP_RW_WRITE_IC_TYPE) {  /* Write ic type */
 		ret = copy_from_user(&cmd_head.data[0],
 				&userbuf[CMD_HEAD_LENGTH],
 				cmd_head.data_len);
@@ -399,7 +399,7 @@ static s32 goodix_tool_write(struct file *filp, const char __user *userbuf,
 	} else if (cmd_head.wr == GTP_RW_NO_WRITE) {
 		ret = cmd_head.data_len + CMD_HEAD_LENGTH;
 		goto exit;
-	} else if (cmd_head.wr == GTP_RW_DISABLE_IRQ) { /*              */
+	} else if (cmd_head.wr == GTP_RW_DISABLE_IRQ) { /* disable irq! */
 		gtp_irq_disable(i2c_get_clientdata(gt_client));
 
 		#if GTP_ESD_PROTECT
@@ -407,7 +407,7 @@ static s32 goodix_tool_write(struct file *filp, const char __user *userbuf,
 		#endif
 		ret = CMD_HEAD_LENGTH;
 		goto exit;
-	} else if (cmd_head.wr == GTP_RW_ENABLE_IRQ) { /*             */
+	} else if (cmd_head.wr == GTP_RW_ENABLE_IRQ) { /* enable irq! */
 		gtp_irq_enable(i2c_get_clientdata(gt_client));
 
 		#if GTP_ESD_PROTECT
@@ -433,16 +433,16 @@ static s32 goodix_tool_write(struct file *filp, const char __user *userbuf,
 		ret = CMD_HEAD_LENGTH;
 		goto exit;
 	} else if (cmd_head.wr == GTP_RW_ENTER_UPDATE_MODE) {
-		/*                    */
+		/* Enter update mode! */
 		if (gup_enter_update_mode(gt_client) ==  FAIL) {
 			ret = -EBUSY;
 			goto exit;
 		}
 	} else if (cmd_head.wr == GTP_RW_LEAVE_UPDATE_MODE) {
-		/*                    */
+		/* Leave update mode! */
 		gup_leave_update_mode(gt_client);
 	} else if (cmd_head.wr == GTP_RW_UPDATE_FW) {
-		/*                  */
+		/* Update firmware! */
 		show_len = 0;
 		total_len = 0;
 		if (cmd_head.data_len + 1 > data_length) {
@@ -467,14 +467,14 @@ exit:
 	return ret;
 }
 
-/*                                                      
-         
-                              
-      
-                                        
-       
-                       
-                                                       */
+/*******************************************************
+Function:
+    Goodix tool read function.
+Input:
+  standard seq file read function param.
+Output:
+    Return read length.
+********************************************************/
 static s32 goodix_tool_read(struct file *file, char __user *user_buf,
 					size_t count, loff_t *ppos)
 {
@@ -498,7 +498,7 @@ static s32 goodix_tool_read(struct file *file, char __user *user_buf,
 				goto exit;
 			}
 		} else if (cmd_head.flag == GTP_NEED_INTERRUPT) {
-			/*                 */
+			/* Need interrupt! */
 		}
 
 		memcpy(cmd_head.data, cmd_head.addr, cmd_head.addr_len);
@@ -533,7 +533,7 @@ static s32 goodix_tool_read(struct file *file, char __user *user_buf,
 		ret = fill_update_info(user_buf, count, ppos);
 		break;
 	case GTP_RW_READ_VERSION:
-		/*                     */
+		/* Read driver version */
 		data_len = scnprintf(buf, sizeof(buf), "%s\n",
 			GTP_DRIVER_VERSION);
 		ret = simple_read_from_buffer(user_buf, count, ppos,

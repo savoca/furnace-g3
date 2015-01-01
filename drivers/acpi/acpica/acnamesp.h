@@ -1,8 +1,8 @@
-/*                                                                             
-  
-                                                                   
-  
-                                                                             */
+/******************************************************************************
+ *
+ * Name: acnamesp.h - Namespace subcomponent prototypes and defines
+ *
+ *****************************************************************************/
 
 /*
  * Copyright (C) 2000 - 2012, Intel Corp.
@@ -44,19 +44,19 @@
 #ifndef __ACNAMESP_H__
 #define __ACNAMESP_H__
 
-/*                                                           */
+/* To search the entire name space, pass this as search_base */
 
 #define ACPI_NS_ALL                 ((acpi_handle)0)
 
 /*
-                                                     
-                                                           
+ * Elements of acpi_ns_properties are bit significant
+ * and should be one-to-one with values of acpi_object_type
  */
 #define ACPI_NS_NORMAL              0
-#define ACPI_NS_NEWSCOPE            1	/*                                              */
-#define ACPI_NS_LOCAL               2	/*                                     */
+#define ACPI_NS_NEWSCOPE            1	/* a definition of this type opens a name scope */
+#define ACPI_NS_LOCAL               2	/* suppress search of enclosing scopes */
 
-/*                                                    */
+/* Flags for acpi_ns_lookup, acpi_ns_search_and_enter */
 
 #define ACPI_NS_NO_UPSEARCH         0
 #define ACPI_NS_SEARCH_PARENT       0x01
@@ -67,29 +67,29 @@
 #define ACPI_NS_EXTERNAL            0x20
 #define ACPI_NS_TEMPORARY           0x40
 
-/*                                  */
+/* Flags for acpi_ns_walk_namespace */
 
 #define ACPI_NS_WALK_NO_UNLOCK      0
 #define ACPI_NS_WALK_UNLOCK         0x01
 #define ACPI_NS_WALK_TEMP_NODES     0x02
 
-/*                                 */
+/* Object is not a package element */
 
 #define ACPI_NOT_PACKAGE_ELEMENT    ACPI_UINT32_MAX
 
-/*                                                          */
+/* Always emit warning message, not dependent on node flags */
 
 #define ACPI_WARN_ALWAYS            0
 
 /*
-                                    
+ * nsinit - Namespace initialization
  */
 acpi_status acpi_ns_initialize_objects(void);
 
 acpi_status acpi_ns_initialize_devices(void);
 
 /*
-                              
+ * nsload -  Namespace loading
  */
 acpi_status acpi_ns_load_namespace(void);
 
@@ -97,7 +97,7 @@ acpi_status
 acpi_ns_load_table(u32 table_index, struct acpi_namespace_node *node);
 
 /*
-                              
+ * nswalk - walk the namespace
  */
 acpi_status
 acpi_ns_walk_namespace(acpi_object_type type,
@@ -122,7 +122,7 @@ struct acpi_namespace_node *acpi_ns_get_next_node_typed(acpi_object_type type,
 							*child);
 
 /*
-                          
+ * nsparse - table parsing
  */
 acpi_status
 acpi_ns_parse_table(u32 table_index, struct acpi_namespace_node *start_node);
@@ -133,7 +133,7 @@ acpi_ns_one_complete_parse(u32 pass_number,
 			   struct acpi_namespace_node *start_node);
 
 /*
-                                        
+ * nsaccess - Top-level namespace access
  */
 acpi_status acpi_ns_root_initialize(void);
 
@@ -147,7 +147,7 @@ acpi_ns_lookup(union acpi_generic_state *scope_info,
 	       struct acpi_namespace_node **ret_node);
 
 /*
-                                                 
+ * nsalloc - Named object allocation/deallocation
  */
 struct acpi_namespace_node *acpi_ns_create_node(u32 name);
 
@@ -167,11 +167,11 @@ void acpi_ns_delete_children(struct acpi_namespace_node *parent);
 int acpi_ns_compare_names(char *name1, char *name2);
 
 /*
-                                          
+ * nsdump - Namespace dump/print utilities
  */
 #ifdef	ACPI_FUTURE_USAGE
 void acpi_ns_dump_tables(acpi_handle search_base, u32 max_depth);
-#endif				/*                   */
+#endif				/* ACPI_FUTURE_USAGE */
 
 void acpi_ns_dump_entry(acpi_handle handle, u32 debug_level);
 
@@ -190,17 +190,17 @@ acpi_ns_dump_objects(acpi_object_type type,
 		     u8 display_type,
 		     u32 max_depth,
 		     acpi_owner_id owner_id, acpi_handle start_handle);
-#endif				/*                   */
+#endif				/* ACPI_FUTURE_USAGE */
 
 /*
-                                          
+ * nseval - Namespace evaluation functions
  */
 acpi_status acpi_ns_evaluate(struct acpi_evaluate_info *info);
 
 void acpi_ns_exec_module_code_list(void);
 
 /*
-                                                   
+ * nspredef - Support for predefined/reserved names
  */
 acpi_status
 acpi_ns_check_predefined_names(struct acpi_namespace_node *node,
@@ -219,7 +219,7 @@ acpi_ns_check_parameter_count(char *pathname,
 			      const union acpi_predefined_info *info);
 
 /*
-                                        
+ * nsnames - Name and Scope manipulation
  */
 u32 acpi_ns_opens_scope(acpi_object_type type);
 
@@ -246,7 +246,7 @@ acpi_ns_get_node(struct acpi_namespace_node *prefix_node,
 acpi_size acpi_ns_get_pathname_length(struct acpi_namespace_node *node);
 
 /*
-                                                   
+ * nsobject - Object management for namespace nodes
  */
 acpi_status
 acpi_ns_attach_object(struct acpi_namespace_node *node,
@@ -273,8 +273,8 @@ acpi_ns_get_attached_data(struct acpi_namespace_node *node,
 			  acpi_object_handler handler, void **data);
 
 /*
-                                                  
-                             
+ * nsrepair - General return object repair for all
+ * predefined methods/objects
  */
 acpi_status
 acpi_ns_repair_object(struct acpi_predefined_data *data,
@@ -299,8 +299,8 @@ acpi_ns_remove_null_elements(struct acpi_predefined_data *data,
 			     union acpi_operand_object *obj_desc);
 
 /*
-                                                
-                             
+ * nsrepair2 - Return object repair for specific
+ * predefined methods/objects
  */
 acpi_status
 acpi_ns_complex_repairs(struct acpi_predefined_data *data,
@@ -309,7 +309,7 @@ acpi_ns_complex_repairs(struct acpi_predefined_data *data,
 			union acpi_operand_object **return_object_ptr);
 
 /*
-                                           
+ * nssearch - Namespace searching and entry
  */
 acpi_status
 acpi_ns_search_and_enter(u32 entry_name,
@@ -331,7 +331,7 @@ acpi_ns_install_node(struct acpi_walk_state *walk_state,
 		     struct acpi_namespace_node *node, acpi_object_type type);
 
 /*
-                              
+ * nsutils - Utility functions
  */
 u8 acpi_ns_valid_root_prefix(char prefix);
 
@@ -358,4 +358,4 @@ struct acpi_namespace_node *acpi_ns_validate_handle(acpi_handle handle);
 
 void acpi_ns_terminate(void);
 
-#endif				/*                */
+#endif				/* __ACNAMESP_H__ */

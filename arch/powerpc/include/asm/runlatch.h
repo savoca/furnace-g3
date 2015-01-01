@@ -10,9 +10,9 @@ extern void __ppc64_runlatch_on(void);
 extern void __ppc64_runlatch_off(void);
 
 /*
-                                                  
-                                                
-                                               
+ * We manually hard enable-disable, this is called
+ * in the idle loop and we don't want to mess up
+ * with soft-disable/enable & interrupt replay.
  */
 #define ppc64_runlatch_off()					\
 	do {							\
@@ -40,6 +40,6 @@ extern void __ppc64_runlatch_off(void);
 #else
 #define ppc64_runlatch_on()
 #define ppc64_runlatch_off()
-#endif /*              */
+#endif /* CONFIG_PPC64 */
 
-#endif /*                         */
+#endif /* _ASM_POWERPC_RUNLATCH_H */

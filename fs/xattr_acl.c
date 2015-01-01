@@ -12,7 +12,7 @@
 
 
 /*
-                                                               
+ * Convert from extended attribute to in-memory representation.
  */
 struct posix_acl *
 posix_acl_from_xattr(const void *value, size_t size)
@@ -71,7 +71,7 @@ fail:
 EXPORT_SYMBOL (posix_acl_from_xattr);
 
 /*
-                                                               
+ * Convert from in-memory to extended attribute representation.
  */
 int
 posix_acl_to_xattr(const struct posix_acl *acl, void *buffer, size_t size)

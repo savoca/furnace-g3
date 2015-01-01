@@ -13,8 +13,8 @@
 #define __UNICORE_STRING_H__
 
 /*
-                                                 
-                                               
+ * We don't do inline string functions, since the
+ * optimised inline asm versions are not small.
  */
 
 #define __HAVE_ARCH_STRRCHR

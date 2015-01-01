@@ -22,7 +22,7 @@
 #include "dialog.h"
 
 /*
-                              
+ * Display termination buttons
  */
 static void print_buttons(WINDOW * dialog, int height, int width, int selected)
 {
@@ -37,7 +37,7 @@ static void print_buttons(WINDOW * dialog, int height, int width, int selected)
 }
 
 /*
-                                                     
+ * Display a dialog box with two buttons - Yes and No
  */
 int dialog_yesno(const char *title, const char *prompt, int height, int width)
 {
@@ -50,7 +50,7 @@ do_resize:
 	if (getmaxx(stdscr) < (width + 4))
 		return -ERRDISPLAYTOOSMALL;
 
-	/*                             */
+	/* center dialog box on screen */
 	x = (COLS - width) / 2;
 	y = (LINES - height) / 2;
 
@@ -110,5 +110,5 @@ do_resize:
 	}
 
 	delwin(dialog);
-	return key;		/*             */
+	return key;		/* ESC pressed */
 }

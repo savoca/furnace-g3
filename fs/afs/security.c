@@ -18,7 +18,7 @@
 #include "internal.h"
 
 /*
-            
+ * get a key
  */
 struct key *afs_request_key(struct afs_cell *cell)
 {
@@ -35,18 +35,18 @@ struct key *afs_request_key(struct afs_cell *cell)
 			return key;
 		}
 
-		/*                       */
+		/* act as anonymous user */
 		_leave(" = {%x} [anon]", key_serial(cell->anonymous_key));
 		return key_get(cell->anonymous_key);
 	} else {
-		/*                        */
+		/* act as authorised user */
 		_leave(" = {%x} [auth]", key_serial(key));
 		return key;
 	}
 }
 
 /*
-                            
+ * dispose of a permits list
  */
 void afs_zap_permits(struct rcu_head *rcu)
 {
@@ -62,7 +62,7 @@ void afs_zap_permits(struct rcu_head *rcu)
 }
 
 /*
-                                                                           
+ * dispose of a permits list in which all the key pointers have been copied
  */
 static void afs_dispose_of_permits(struct rcu_head *rcu)
 {
@@ -75,10 +75,10 @@ static void afs_dispose_of_permits(struct rcu_head *rcu)
 }
 
 /*
-                                                                           
-                                                                             
-          
-                                                 
+ * get the authorising vnode - this is the specified inode itself if it's a
+ * directory or it's the parent directory if the specified inode is a file or
+ * symlink
+ * - the caller must release the ref on the inode
  */
 static struct afs_vnode *afs_get_auth_inode(struct afs_vnode *vnode,
 					    struct key *key)
@@ -104,7 +104,7 @@ static struct afs_vnode *afs_get_auth_inode(struct afs_vnode *vnode,
 }
 
 /*
-                                              
+ * clear the permit cache on a directory vnode
  */
 void afs_clear_permits(struct afs_vnode *vnode)
 {
@@ -123,8 +123,8 @@ void afs_clear_permits(struct afs_vnode *vnode)
 }
 
 /*
-                                                                             
-                                
+ * add the result obtained for a vnode to its or its parent directory's cache
+ * for the key used to access it
  */
 void afs_cache_permit(struct afs_vnode *vnode, struct key *key, long acl_order)
 {
@@ -144,23 +144,23 @@ void afs_cache_permit(struct afs_vnode *vnode, struct key *key, long acl_order)
 
 	mutex_lock(&auth_vnode->permits_lock);
 
-	/*                                                               
-         */
+	/* guard against a rename being detected whilst we waited for the
+	 * lock */
 	if (memcmp(&auth_vnode->fid, &vnode->status.parent,
 		   sizeof(struct afs_fid)) != 0) {
 		_debug("renamed");
 		goto out_unlock;
 	}
 
-	/*                                                                     
-                                                                    
-                                            */
+	/* have to be careful as the directory's callback may be broken between
+	 * us receiving the status we're trying to cache and us getting the
+	 * lock to update the cache for the status */
 	if (auth_vnode->acl_order - acl_order > 0) {
 		_debug("ACL changed?");
 		goto out_unlock;
 	}
 
-	/*                                  */
+	/* always update the anonymous mask */
 	_debug("anon access %x", vnode->status.anon_access);
 	auth_vnode->status.anon_access = vnode->status.anon_access;
 	if (key == vnode->volume->cell->anonymous_key)
@@ -169,9 +169,9 @@ void afs_cache_permit(struct afs_vnode *vnode, struct key *key, long acl_order)
 	xpermits = auth_vnode->permits;
 	count = 0;
 	if (xpermits) {
-		/*                                         
-                                           
-   */
+		/* see if the permit is already in the list
+		 * - if it is then we just amend the list
+		 */
 		count = xpermits->count;
 		permit = xpermits->permits;
 		for (loop = count; loop > 0; loop--) {
@@ -210,9 +210,9 @@ out_unlock:
 }
 
 /*
-                                                                           
-                                                                              
-             
+ * check with the fileserver to see if the directory or parent directory is
+ * permitted to be accessed with this authorisation, and if so, what access it
+ * is granted
  */
 static int afs_check_permit(struct afs_vnode *vnode, struct key *key,
 			    afs_access_t *_access)
@@ -235,7 +235,7 @@ static int afs_check_permit(struct afs_vnode *vnode, struct key *key,
 
 	ASSERT(S_ISDIR(auth_vnode->vfs_inode.i_mode));
 
-	/*                                               */
+	/* check the permits to see if we've got one yet */
 	if (key == auth_vnode->volume->cell->anonymous_key) {
 		_debug("anon");
 		*_access = auth_vnode->status.anon_access;
@@ -260,8 +260,8 @@ static int afs_check_permit(struct afs_vnode *vnode, struct key *key,
 	}
 
 	if (!valid) {
-		/*                                                          
-                                                               */
+		/* check the status on the file we're actually interested in
+		 * (the post-processing will cache the result on auth_vnode) */
 		_debug("no valid permit");
 
 		set_bit(AFS_VNODE_CB_BROKEN, &vnode->flags);
@@ -281,9 +281,9 @@ static int afs_check_permit(struct afs_vnode *vnode, struct key *key,
 }
 
 /*
-                                       
-                                                                               
-                           
+ * check the permissions on an AFS file
+ * - AFS ACLs are attached to directories only, and a file is controlled by its
+ *   parent directory's ACL
  */
 int afs_permission(struct inode *inode, int mask)
 {
@@ -304,7 +304,7 @@ int afs_permission(struct inode *inode, int mask)
 		return PTR_ERR(key);
 	}
 
-	/*                                                               */
+	/* if the promise has expired, we need to check the server again */
 	if (!vnode->cb_promised) {
 		_debug("not promised");
 		ret = afs_vnode_fetch_status(vnode, NULL, key);
@@ -313,12 +313,12 @@ int afs_permission(struct inode *inode, int mask)
 		_debug("new promise [fl=%lx]", vnode->flags);
 	}
 
-	/*                                               */
+	/* check the permits to see if we've got one yet */
 	ret = afs_check_permit(vnode, key, &access);
 	if (ret < 0)
 		goto error;
 
-	/*                           */
+	/* interpret the access mask */
 	_debug("REQ %x ACC %x on %s",
 	       mask, access, S_ISDIR(inode->i_mode) ? "dir" : "file");
 
@@ -330,9 +330,9 @@ int afs_permission(struct inode *inode, int mask)
 			if (!(access & AFS_ACE_READ))
 				goto permission_denied;
 		} else if (mask & MAY_WRITE) {
-			if (!(access & (AFS_ACE_DELETE | /*                            */
-					AFS_ACE_INSERT | /*                                   */
-					AFS_ACE_WRITE))) /*       */
+			if (!(access & (AFS_ACE_DELETE | /* rmdir, unlink, rename from */
+					AFS_ACE_INSERT | /* create, mkdir, symlink, rename to */
+					AFS_ACE_WRITE))) /* chmod */
 				goto permission_denied;
 		} else {
 			BUG();

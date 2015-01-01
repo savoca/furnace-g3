@@ -3,7 +3,7 @@
  */
 
 /*
-                                             
+ * Gunze AHL-51S touchscreen driver for Linux
  */
 
 /*
@@ -41,13 +41,13 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
 
 /*
-                               
+ * Definitions & global arrays.
  */
 
 #define	GUNZE_MAX_LENGTH	10
 
 /*
-                        
+ * Per-touchscreen data.
  */
 
 struct gunze {
@@ -90,7 +90,7 @@ static irqreturn_t gunze_interrupt(struct serio *serio,
 }
 
 /*
-                                                        
+ * gunze_disconnect() is the opposite of gunze_connect()
  */
 
 static void gunze_disconnect(struct serio *serio)
@@ -106,9 +106,9 @@ static void gunze_disconnect(struct serio *serio)
 }
 
 /*
-                                                                    
-                                                                    
-                   
+ * gunze_connect() is the routine that is called when someone adds a
+ * new serio device that supports Gunze protocol and registers it as
+ * an input device.
  */
 
 static int gunze_connect(struct serio *serio, struct serio_driver *drv)
@@ -160,7 +160,7 @@ static int gunze_connect(struct serio *serio, struct serio_driver *drv)
 }
 
 /*
-                              
+ * The serio driver structure.
  */
 
 static struct serio_device_id gunze_serio_ids[] = {
@@ -187,7 +187,7 @@ static struct serio_driver gunze_drv = {
 };
 
 /*
-                                                       
+ * The functions for inserting/removing us as a module.
  */
 
 static int __init gunze_init(void)

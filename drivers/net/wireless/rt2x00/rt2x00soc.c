@@ -20,8 +20,8 @@
  */
 
 /*
-                  
-                                              
+	Module: rt2x00soc
+	Abstract: rt2x00 generic soc device routines.
  */
 
 #include <linux/bug.h>
@@ -123,8 +123,8 @@ int rt2x00soc_remove(struct platform_device *pdev)
 	struct rt2x00_dev *rt2x00dev = hw->priv;
 
 	/*
-                            
-  */
+	 * Free all allocated data.
+	 */
 	rt2x00lib_remove_dev(rt2x00dev);
 	rt2x00soc_free_reg(rt2x00dev);
 	ieee80211_free_hw(hw);
@@ -151,10 +151,10 @@ int rt2x00soc_resume(struct platform_device *pdev)
 	return rt2x00lib_resume(rt2x00dev);
 }
 EXPORT_SYMBOL_GPL(rt2x00soc_resume);
-#endif /*           */
+#endif /* CONFIG_PM */
 
 /*
-                                
+ * rt2x00soc module information.
  */
 MODULE_AUTHOR(DRV_PROJECT);
 MODULE_VERSION(DRV_VERSION);

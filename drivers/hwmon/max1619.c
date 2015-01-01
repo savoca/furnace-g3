@@ -41,7 +41,7 @@ static const unsigned short normal_i2c[] = {
 	0x18, 0x19, 0x1a, 0x29, 0x2a, 0x2b, 0x4c, 0x4d, 0x4e, I2C_CLIENT_END };
 
 /*
-                        
+ * The MAX1619 registers
  */
 
 #define MAX1619_REG_R_MAN_ID		0xFE
@@ -63,7 +63,7 @@ static const unsigned short normal_i2c[] = {
 #define MAX1619_REG_W_TCRIT_HYST	0x13
 
 /*
-              
+ * Conversions
  */
 
 static int temp_from_reg(int val)
@@ -77,7 +77,7 @@ static int temp_to_reg(int val)
 }
 
 /*
-                        
+ * Functions declaration
  */
 
 static int max1619_probe(struct i2c_client *client,
@@ -89,7 +89,7 @@ static int max1619_remove(struct i2c_client *client);
 static struct max1619_data *max1619_update_device(struct device *dev);
 
 /*
-                                      
+ * Driver data (common to all clients)
  */
 
 static const struct i2c_device_id max1619_id[] = {
@@ -111,25 +111,25 @@ static struct i2c_driver max1619_driver = {
 };
 
 /*
-                                         
+ * Client data (each client gets its own)
  */
 
 struct max1619_data {
 	struct device *hwmon_dev;
 	struct mutex update_lock;
-	char valid; /*                                       */
-	unsigned long last_updated; /*            */
+	char valid; /* zero until following fields are valid */
+	unsigned long last_updated; /* in jiffies */
 
-	/*                  */
-	u8 temp_input1; /*       */
-	u8 temp_input2, temp_low2, temp_high2; /*        */
+	/* registers values */
+	u8 temp_input1; /* local */
+	u8 temp_input2, temp_low2, temp_high2; /* remote */
 	u8 temp_crit2;
 	u8 temp_hyst2;
 	u8 alarms;
 };
 
 /*
-              
+ * Sysfs stuff
  */
 
 #define show_temp(value) \
@@ -222,10 +222,10 @@ static const struct attribute_group max1619_group = {
 };
 
 /*
-            
+ * Real code
  */
 
-/*                                                        */
+/* Return 0 if detection is successful, -ENODEV otherwise */
 static int max1619_detect(struct i2c_client *client,
 			  struct i2c_board_info *info)
 {
@@ -235,7 +235,7 @@ static int max1619_detect(struct i2c_client *client,
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA))
 		return -ENODEV;
 
-	/*           */
+	/* detection */
 	reg_config = i2c_smbus_read_byte_data(client, MAX1619_REG_R_CONFIG);
 	reg_convrate = i2c_smbus_read_byte_data(client, MAX1619_REG_R_CONVRATE);
 	reg_status = i2c_smbus_read_byte_data(client, MAX1619_REG_R_STATUS);
@@ -246,7 +246,7 @@ static int max1619_detect(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	/*                */
+	/* identification */
 	man_id = i2c_smbus_read_byte_data(client, MAX1619_REG_R_MAN_ID);
 	chip_id = i2c_smbus_read_byte_data(client, MAX1619_REG_R_CHIP_ID);
 	if (man_id != 0x4D || chip_id != 0x04) {
@@ -277,10 +277,10 @@ static int max1619_probe(struct i2c_client *new_client,
 	data->valid = 0;
 	mutex_init(&data->update_lock);
 
-	/*                             */
+	/* Initialize the MAX1619 chip */
 	max1619_init_client(new_client);
 
-	/*                      */
+	/* Register sysfs hooks */
 	err = sysfs_create_group(&new_client->dev.kobj, &max1619_group);
 	if (err)
 		goto exit_free;
@@ -306,14 +306,14 @@ static void max1619_init_client(struct i2c_client *client)
 	u8 config;
 
 	/*
-                          
-  */
+	 * Start the conversions.
+	 */
 	i2c_smbus_write_byte_data(client, MAX1619_REG_W_CONVRATE,
-				  5); /*      */
+				  5); /* 2 Hz */
 	config = i2c_smbus_read_byte_data(client, MAX1619_REG_R_CONFIG);
 	if (config & 0x40)
 		i2c_smbus_write_byte_data(client, MAX1619_REG_W_CONFIG,
-					  config & 0xBF); /*     */
+					  config & 0xBF); /* run */
 }
 
 static int max1619_remove(struct i2c_client *client)

@@ -94,8 +94,8 @@ static const u32 default_msg = NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK
 static int debug = -1;
 static int nics_per_function = 1;
 
-/* 
-                  
+/**
+ * nes_netdev_poll
  */
 static int nes_netdev_poll(struct napi_struct *napi, int budget)
 {
@@ -113,12 +113,12 @@ static int nes_netdev_poll(struct napi_struct *napi, int budget)
 
 	if (nescq->cqes_pending == 0) {
 		napi_complete(napi);
-		/*                                  */
+		/* clear out completed cqes and arm */
 		nes_write32(nesdev->regs+NES_CQE_ALLOC, NES_CQE_ALLOC_NOTIFY_NEXT |
 				nescq->cq_number | (nescq->cqe_allocs_pending << 16));
 		nes_read32(nesdev->regs+NES_CQE_ALLOC);
 	} else {
-		/*                                        */
+		/* clear out completed cqes but don't arm */
 		nes_write32(nesdev->regs+NES_CQE_ALLOC,
 				nescq->cq_number | (nescq->cqe_allocs_pending << 16));
 		nes_debug(NES_DBG_NETDEV, "%s: exiting with work pending\n",
@@ -128,9 +128,9 @@ static int nes_netdev_poll(struct napi_struct *napi, int budget)
 }
 
 
-/* 
-                                                             
-           
+/**
+ * nes_netdev_open - Activate the network interface; ifconfig
+ * ethx up.
  */
 static int nes_netdev_open(struct net_device *netdev)
 {
@@ -175,7 +175,7 @@ static int nes_netdev_open(struct net_device *netdev)
 			}
 		}
 	}
-	/*                    */
+	/* Set packet filters */
 	nic_active_bit = 1 << nesvnic->nic_index;
 	nic_active = nes_read_indexed(nesdev, NES_IDX_NIC_ACTIVE);
 	nic_active |= nic_active_bit;
@@ -195,7 +195,7 @@ static int nes_netdev_open(struct net_device *netdev)
 	macaddr_low  += ((u32)netdev->dev_addr[4]) << 8;
 	macaddr_low  += (u32)netdev->dev_addr[5];
 
-	/*                              */
+	/* Program the various MAC regs */
 	for (i = 0; i < NES_MAX_PORT_COUNT; i++) {
 		if (nesvnic->qp_nic_index[i] == 0xf) {
 			break;
@@ -235,7 +235,7 @@ static int nes_netdev_open(struct net_device *netdev)
 	}
 
 	if (first_nesvnic->linkup) {
-		/*                        */
+		/* Enable network packets */
 		nesvnic->linkup = 1;
 		netif_start_queue(netdev);
 		netif_carrier_on(netdev);
@@ -271,8 +271,8 @@ static int nes_netdev_open(struct net_device *netdev)
 }
 
 
-/* 
-                  
+/**
+ * nes_netdev_stop
  */
 static int nes_netdev_stop(struct net_device *netdev)
 {
@@ -293,7 +293,7 @@ static int nes_netdev_stop(struct net_device *netdev)
 		printk(KERN_INFO PFX "%s: disabling interface\n", netdev->name);
 	netif_carrier_off(netdev);
 
-	/*                         */
+	/* Disable network packets */
 	napi_disable(&nesvnic->napi);
 	netif_stop_queue(netdev);
 	list_for_each_safe(list_pos, list_temp, &nesdev->nesadapter->nesvnic_list[nesdev->mac_index]) {
@@ -354,8 +354,8 @@ static int nes_netdev_stop(struct net_device *netdev)
 }
 
 
-/* 
-               
+/**
+ * nes_nic_send
  */
 static int nes_nic_send(struct sk_buff *skb, struct net_device *netdev)
 {
@@ -366,14 +366,14 @@ static int nes_nic_send(struct sk_buff *skb, struct net_device *netdev)
 	struct tcphdr *tcph;
 	__le16 *wqe_fragment_length;
 	u32 wqe_misc;
-	u16 wqe_fragment_index = 1;	/*                                           */
+	u16 wqe_fragment_index = 1;	/* first fragment (0) is used by copy buffer */
 	u16 skb_fragment_index;
 	dma_addr_t bus_address;
 
 	nic_sqe = &nesnic->sq_vbase[nesnic->sq_head];
 	wqe_fragment_length = (__le16 *)&nic_sqe->wqe_words[NES_NIC_SQ_WQE_LENGTH_0_TAG_IDX];
 
-	/*                               */
+	/* setup the VLAN tag if present */
 	if (vlan_tx_tag_present(skb)) {
 		nes_debug(NES_DBG_NIC_TX, "%s: VLAN packet to send... VLAN = %08X\n",
 				netdev->name, vlan_tx_tag_get(skb));
@@ -382,16 +382,16 @@ static int nes_nic_send(struct sk_buff *skb, struct net_device *netdev)
 	} else
 		wqe_misc = 0;
 
-	/*                        */
+	/* bump past the vlan tag */
 	wqe_fragment_length++;
-	/*                                                                                  */
+	/*	wqe_fragment_address = (u64 *)&nic_sqe->wqe_words[NES_NIC_SQ_WQE_FRAG0_LOW_IDX]; */
 
 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
 		tcph = tcp_hdr(skb);
 		if (1) {
 			if (skb_is_gso(skb)) {
-				/*                                                                
-                                      */
+				/* nes_debug(NES_DBG_NIC_TX, "%s: TSO request... seg size = %u\n",
+						netdev->name, skb_is_gso(skb)); */
 				wqe_misc |= NES_NIC_SQ_WQE_LSO_ENABLE |
 						NES_NIC_SQ_WQE_COMPLETION | (u16)skb_is_gso(skb);
 				set_wqe_32bit_value(nic_sqe->wqe_words, NES_NIC_SQ_WQE_LSO_INFO_IDX,
@@ -401,7 +401,7 @@ static int nes_nic_send(struct sk_buff *skb, struct net_device *netdev)
 				wqe_misc |= NES_NIC_SQ_WQE_COMPLETION;
 			}
 		}
-	} else {	/*             */
+	} else {	/* CHECKSUM_HW */
 		wqe_misc |= NES_NIC_SQ_WQE_DISABLE_CHKSUM | NES_NIC_SQ_WQE_COMPLETION;
 	}
 
@@ -437,7 +437,7 @@ static int nes_nic_send(struct sk_buff *skb, struct net_device *netdev)
 			nesnic->tx_skb[nesnic->sq_head] = skb;
 		}
 	} else {
-		/*                     */
+		/* Deal with Fragments */
 		nesnic->tx_skb[nesnic->sq_head] = skb;
 		for (skb_fragment_index = 0; skb_fragment_index < skb_shinfo(skb)->nr_frags;
 				skb_fragment_index++) {
@@ -464,8 +464,8 @@ static int nes_nic_send(struct sk_buff *skb, struct net_device *netdev)
 }
 
 
-/* 
-                        
+/**
+ * nes_netdev_start_xmit
  */
 static int nes_netdev_start_xmit(struct sk_buff *skb, struct net_device *netdev)
 {
@@ -474,9 +474,9 @@ static int nes_netdev_start_xmit(struct sk_buff *skb, struct net_device *netdev)
 	struct nes_hw_nic *nesnic = &nesvnic->nic;
 	struct nes_hw_nic_sq_wqe *nic_sqe;
 	struct tcphdr *tcph;
-	/*                      */
+	/* struct udphdr *udph; */
 #define NES_MAX_TSO_FRAGS MAX_SKB_FRAGS
-	/*                                        */
+	/* 64K segment plus overflow on each side */
 	dma_addr_t tso_bus_address[NES_MAX_TSO_FRAGS];
 	dma_addr_t bus_address;
 	u32 tso_frag_index;
@@ -489,8 +489,8 @@ static int nes_netdev_start_xmit(struct sk_buff *skb, struct net_device *netdev)
 	__le16 *wqe_fragment_length;
 	u32 nr_frags;
 	u32 original_first_length;
-	/*                            */
-	/*                                           */
+	/* u64 *wqe_fragment_address; */
+	/* first fragment (0) is used by copy buffer */
 	u16 wqe_fragment_index=1;
 	u16 hoffset;
 	u16 nhoffset;
@@ -499,11 +499,11 @@ static int nes_netdev_start_xmit(struct sk_buff *skb, struct net_device *netdev)
 	u32 wqe_misc;
 
 	/*
-                                                                                  
-                                  
-                                              
-                                                 
-  */
+	 * nes_debug(NES_DBG_NIC_TX, "%s Request to tx NIC packet length %u, headlen %u,"
+	 *		" (%u frags), tso_size=%u\n",
+	 *		netdev->name, skb->len, skb_headlen(skb),
+	 *		skb_shinfo(skb)->nr_frags, skb_is_gso(skb));
+	 */
 
 	if (!netif_carrier_ok(netdev))
 		return NETDEV_TX_OK;
@@ -511,7 +511,7 @@ static int nes_netdev_start_xmit(struct sk_buff *skb, struct net_device *netdev)
 	if (netif_queue_stopped(netdev))
 		return NETDEV_TX_BUSY;
 
-	/*                     */
+	/* Check if SQ is full */
 	if ((((nesnic->sq_tail+(nesnic->sq_size*2))-nesnic->sq_head) & (nesnic->sq_size - 1)) == 1) {
 		if (!netif_queue_stopped(netdev)) {
 			netif_stop_queue(netdev);
@@ -530,12 +530,12 @@ sq_no_longer_full:
 	if (skb_headlen(skb) > NES_FIRST_FRAG_SIZE) {
 		nr_frags++;
 	}
-	/*                             */
+	/* Check if too many fragments */
 	if (unlikely((nr_frags > 4))) {
 		if (skb_is_gso(skb)) {
 			nesvnic->segmented_tso_requests++;
 			nesvnic->tso_requests++;
-			/*                                                                 */
+			/* Basically 4 fragments available per WQE with extended fragments */
 			wqes_needed = nr_frags >> 2;
 			wqes_needed += (nr_frags&3)?1:0;
 			wqes_available = (((nesnic->sq_tail+nesnic->sq_size)-nesnic->sq_head) - 1) &
@@ -558,7 +558,7 @@ sq_no_longer_full:
 				return NETDEV_TX_BUSY;
 			}
 tso_sq_no_longer_full:
-			/*                     */
+			/* Map all the buffers */
 			for (tso_frag_count=0; tso_frag_count < skb_shinfo(skb)->nr_frags;
 					tso_frag_count++) {
 				skb_frag_t *frag =
@@ -580,7 +580,7 @@ tso_sq_no_longer_full:
 				nic_sqe = &nesnic->sq_vbase[nesnic->sq_head];
 				wqe_fragment_length =
 						(__le16 *)&nic_sqe->wqe_words[NES_NIC_SQ_WQE_LENGTH_0_TAG_IDX];
-				/*                               */
+				/* setup the VLAN tag if present */
 				if (vlan_tx_tag_present(skb)) {
 					nes_debug(NES_DBG_NIC_TX, "%s: VLAN packet to send... VLAN = %08X\n",
 							netdev->name, vlan_tx_tag_get(skb) );
@@ -589,10 +589,10 @@ tso_sq_no_longer_full:
 				} else
 					wqe_misc = 0;
 
-				/*                        */
+				/* bump past the vlan tag */
 				wqe_fragment_length++;
 
-				/*                                                                          */
+				/* Assumes header totally fits in allocated buffer and is in first fragment */
 				if (original_first_length > NES_FIRST_FRAG_SIZE) {
 					nes_debug(NES_DBG_NIC_TX, "ERROR: SKB header too big, headlen=%u, FIRST_FRAG_SIZE=%u\n",
 							original_first_length, NES_FIRST_FRAG_SIZE);
@@ -699,8 +699,8 @@ tso_sq_no_longer_full:
 }
 
 
-/* 
-                       
+/**
+ * nes_netdev_get_stats
  */
 static struct net_device_stats *nes_netdev_get_stats(struct net_device *netdev)
 {
@@ -790,8 +790,8 @@ static struct net_device_stats *nes_netdev_get_stats(struct net_device *netdev)
 }
 
 
-/* 
-                        
+/**
+ * nes_netdev_tx_timeout
  */
 static void nes_netdev_tx_timeout(struct net_device *netdev)
 {
@@ -802,8 +802,8 @@ static void nes_netdev_tx_timeout(struct net_device *netdev)
 }
 
 
-/* 
-                             
+/**
+ * nes_netdev_set_mac_address
  */
 static int nes_netdev_set_mac_address(struct net_device *netdev, void *p)
 {
@@ -857,8 +857,8 @@ static void set_allmulti(struct nes_device *nesdev, u32 nic_active_bit)
 
 #define get_addr(addrs, index) ((addrs) + (index) * ETH_ALEN)
 
-/* 
-                                
+/**
+ * nes_netdev_set_multicast_list
  */
 static void nes_netdev_set_multicast_list(struct net_device *netdev)
 {
@@ -974,7 +974,7 @@ static void nes_netdev_set_multicast_list(struct net_device *netdev)
 			}
 		}
 		kfree(addrs);
-		/*                         */
+		/* PFT is not large enough */
 		if (i < mc_count)
 			set_allmulti(nesdev, nic_active_bit);
 	}
@@ -984,8 +984,8 @@ unlock:
 }
 
 
-/* 
-                        
+/**
+ * nes_netdev_change_mtu
  */
 static int nes_netdev_change_mtu(struct net_device *netdev, int new_mtu)
 {
@@ -1097,8 +1097,8 @@ static const char nes_ethtool_stringset[][ETH_GSTRING_LEN] = {
 #define NES_ETHTOOL_STAT_COUNT  ARRAY_SIZE(nes_ethtool_stringset)
 
 
-/* 
-                            
+/**
+ * nes_netdev_get_sset_count
  */
 static int nes_netdev_get_sset_count(struct net_device *netdev, int stringset)
 {
@@ -1109,8 +1109,8 @@ static int nes_netdev_get_sset_count(struct net_device *netdev, int stringset)
 }
 
 
-/* 
-                         
+/**
+ * nes_netdev_get_strings
  */
 static void nes_netdev_get_strings(struct net_device *netdev, u32 stringset,
 		u8 *ethtool_strings)
@@ -1122,8 +1122,8 @@ static void nes_netdev_get_strings(struct net_device *netdev, u32 stringset,
 }
 
 
-/* 
-                               
+/**
+ * nes_netdev_get_ethtool_stats
  */
 
 static void nes_netdev_get_ethtool_stats(struct net_device *netdev,
@@ -1312,8 +1312,8 @@ static void nes_netdev_get_ethtool_stats(struct net_device *netdev,
 	target_stat_values[++index] = atomic_read(&pau_qps_destroyed);
 }
 
-/* 
-                         
+/**
+ * nes_netdev_get_drvinfo
  */
 static void nes_netdev_get_drvinfo(struct net_device *netdev,
 		struct ethtool_drvinfo *drvinfo)
@@ -1332,8 +1332,8 @@ static void nes_netdev_get_drvinfo(struct net_device *netdev,
 }
 
 
-/* 
-                          
+/**
+ * nes_netdev_set_coalesce
  */
 static int nes_netdev_set_coalesce(struct net_device *netdev,
 		struct ethtool_coalesce	*et_coalesce)
@@ -1362,7 +1362,7 @@ static int nes_netdev_set_coalesce(struct net_device *netdev,
 	}
 	spin_unlock_irqrestore(&nesadapter->periodic_timer_lock, flags);
 
-	/*                                                */
+	/* using this to drive total interrupt moderation */
 	nesadapter->et_rx_coalesce_usecs_irq = et_coalesce->rx_coalesce_usecs_irq;
 	if (et_coalesce->use_adaptive_rx_coalesce) {
 		nesadapter->et_use_adaptive_rx_coalesce	= 1;
@@ -1383,8 +1383,8 @@ static int nes_netdev_set_coalesce(struct net_device *netdev,
 }
 
 
-/* 
-                          
+/**
+ * nes_netdev_get_coalesce
  */
 static int nes_netdev_get_coalesce(struct net_device *netdev,
 		struct ethtool_coalesce	*et_coalesce)
@@ -1416,8 +1416,8 @@ static int nes_netdev_get_coalesce(struct net_device *netdev,
 }
 
 
-/* 
-                            
+/**
+ * nes_netdev_get_pauseparam
  */
 static void nes_netdev_get_pauseparam(struct net_device *netdev,
 		struct ethtool_pauseparam *et_pauseparam)
@@ -1430,8 +1430,8 @@ static void nes_netdev_get_pauseparam(struct net_device *netdev,
 }
 
 
-/* 
-                            
+/**
+ * nes_netdev_set_pauseparam
  */
 static int nes_netdev_set_pauseparam(struct net_device *netdev,
 		struct ethtool_pauseparam *et_pauseparam)
@@ -1441,7 +1441,7 @@ static int nes_netdev_set_pauseparam(struct net_device *netdev,
 	u32 u32temp;
 
 	if (et_pauseparam->autoneg) {
-		/*                                 */
+		/* TODO: should return unsupported */
 		return 0;
 	}
 	if ((et_pauseparam->tx_pause == 1) && (nesdev->disable_tx_flow_control == 1)) {
@@ -1479,8 +1479,8 @@ static int nes_netdev_set_pauseparam(struct net_device *netdev,
 }
 
 
-/* 
-                          
+/**
+ * nes_netdev_get_settings
  */
 static int nes_netdev_get_settings(struct net_device *netdev, struct ethtool_cmd *et_cmd)
 {
@@ -1543,8 +1543,8 @@ static int nes_netdev_get_settings(struct net_device *netdev, struct ethtool_cmd
 }
 
 
-/* 
-                          
+/**
+ * nes_netdev_set_settings
  */
 static int nes_netdev_set_settings(struct net_device *netdev, struct ethtool_cmd *et_cmd)
 {
@@ -1561,10 +1561,10 @@ static int nes_netdev_set_settings(struct net_device *netdev, struct ethtool_cmd
 		spin_lock_irqsave(&nesadapter->phy_lock, flags);
 		nes_read_1G_phy_reg(nesdev, 0, phy_index, &phy_data);
 		if (et_cmd->autoneg) {
-			/*                                                           */
+			/* Turn on Full duplex, Autoneg, and restart autonegotiation */
 			phy_data |= 0x1300;
 		} else {
-			/*                  */
+			/* Turn off autoneg */
 			phy_data &= ~0x1000;
 		}
 		nes_write_1G_phy_reg(nesdev, 0, phy_index, phy_data);
@@ -1599,7 +1599,7 @@ static void nes_vlan_mode(struct net_device *netdev, struct nes_device *nesdev, 
 
 	nes_debug(NES_DBG_NETDEV, "%s: %s\n", __func__, netdev->name);
 
-	/*                               */
+	/* Enable/Disable VLAN Stripping */
 	u32temp = nes_read_indexed(nesdev, NES_IDX_PCIX_DIAG);
 	if (features & NETIF_F_HW_VLAN_RX)
 		u32temp &= 0xfdffffff;
@@ -1613,9 +1613,9 @@ static void nes_vlan_mode(struct net_device *netdev, struct nes_device *nesdev, 
 static netdev_features_t nes_fix_features(struct net_device *netdev, netdev_features_t features)
 {
 	/*
-                                                           
-                                                                   
-  */
+	 * Since there is no support for separate rx/tx vlan accel
+	 * enable/disable make sure tx flag is always in same state as rx.
+	 */
 	if (features & NETIF_F_HW_VLAN_RX)
 		features |= NETIF_F_HW_VLAN_TX;
 	else
@@ -1650,8 +1650,8 @@ static const struct net_device_ops nes_netdev_ops = {
 	.ndo_set_features	= nes_set_features,
 };
 
-/* 
-                                              
+/**
+ * nes_netdev_init - initialize network device
  */
 struct net_device *nes_netdev_init(struct nes_device *nesdev,
 		void __iomem *mmio_addr)
@@ -1686,7 +1686,7 @@ struct net_device *nes_netdev_init(struct nes_device *nesdev,
 	nes_debug(NES_DBG_INIT, "Enabling VLAN Insert/Delete.\n");
 	netdev->features |= NETIF_F_HW_VLAN_TX;
 
-	/*                            */
+	/* Fill in the port structure */
 	nesvnic->netdev = netdev;
 	nesvnic->nesdev = nesdev;
 	nesvnic->msg_enable = netif_msg_init(debug, default_msg);
@@ -1699,7 +1699,7 @@ struct net_device *nes_netdev_init(struct nes_device *nesdev,
 	nesvnic->nic_index = curr_qp_map[nesdev->netdev_count].nic_index;
 	nesvnic->logical_port = curr_qp_map[nesdev->netdev_count].logical_port;
 
-	/*                                 */
+	/* Setup the burned in MAC address */
 	u64temp = (u64)nesdev->nesadapter->mac_addr_low;
 	u64temp += ((u64)nesdev->nesadapter->mac_addr_high) << 32;
 	u64temp += nesvnic->nic_index;
@@ -1789,8 +1789,8 @@ struct net_device *nes_netdev_init(struct nes_device *nesdev,
 				(0x200 * (nesdev->mac_index & 1)), u32temp);
 		}
 
-		/*                                                      */
-		/*                                                          */
+		/* Check and set linkup here.  This is for back to back */
+		/* configuration where second port won't get link interrupt */
 		switch (phy_type) {
 		case NES_PHY_TYPE_PUMA_1G:
 			if (nesdev->mac_index < 2) {
@@ -1836,7 +1836,7 @@ struct net_device *nes_netdev_init(struct nes_device *nesdev,
 				nesvnic->linkup = 1;
 		}
 
-		/*                                                                            */
+		/* clear the MAC interrupt status, assumes direct logical to physical mapping */
 		u32temp = nes_read_indexed(nesdev, NES_IDX_MAC_INT_STATUS + (0x200 * nesdev->mac_index));
 		nes_debug(NES_DBG_INIT, "Phy interrupt status = 0x%X.\n", u32temp);
 		nes_write_indexed(nesdev, NES_IDX_MAC_INT_STATUS + (0x200 * nesdev->mac_index), u32temp);
@@ -1850,15 +1850,15 @@ struct net_device *nes_netdev_init(struct nes_device *nesdev,
 }
 
 
-/* 
-                                                        
+/**
+ * nes_netdev_destroy - destroy network device structure
  */
 void nes_netdev_destroy(struct net_device *netdev)
 {
 	struct nes_vnic *nesvnic = netdev_priv(netdev);
 
-	/*                                                  */
-	/*                          */
+	/* make sure 'stop' method is called by Linux stack */
+	/* nes_netdev_stop(netdev); */
 
 	list_del(&nesvnic->list);
 
@@ -1870,8 +1870,8 @@ void nes_netdev_destroy(struct net_device *netdev)
 }
 
 
-/* 
-                                                    
+/**
+ * nes_nic_cm_xmit -- CM calls this to send out pkts
  */
 int nes_nic_cm_xmit(struct sk_buff *skb, struct net_device *netdev)
 {

@@ -62,10 +62,10 @@ static int toshiba_bluetooth_enable(acpi_handle handle)
 	u64 result;
 
 	/*
-                                                      
-                                                       
-             
-  */
+	 * Query ACPI to verify RFKill switch is set to 'on'.
+	 * If not, we return silently, no need to report it as
+	 * an error.
+	 */
 	res1 = acpi_evaluate_integer(handle, "BTST", NULL, &result);
 	if (ACPI_FAILURE(res1))
 		return res1;
@@ -100,10 +100,10 @@ static int toshiba_bt_rfkill_add(struct acpi_device *device)
 	int result = -ENODEV;
 
 	/*
-                                                          
-                                                             
-                                                         
-  */
+	 * Some Toshiba laptops may have a fake TOS6205 device in
+	 * their ACPI BIOS, so query the _STA method to see if there
+	 * is really anything there, before trying to enable it.
+	 */
 	status = acpi_evaluate_integer(device->handle, "_STA", NULL,
 				       &bt_present);
 
@@ -132,7 +132,7 @@ static int __init toshiba_bt_rfkill_init(void)
 
 static int toshiba_bt_rfkill_remove(struct acpi_device *device, int type)
 {
-	/*          */
+	/* clean up */
 	return 0;
 }
 

@@ -3,7 +3,7 @@
  */
 
 /*
-                                                        
+ * Microsoft SideWinder joystick family driver for Linux
  */
 
 /*
@@ -42,22 +42,22 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
 
 /*
-                                                                           
-                               
+ * These are really magic values. Changing them can make a problem go away,
+ * as well as break everything.
  */
 
 #undef SW_DEBUG
 #undef SW_DEBUG_DATA
 
-#define SW_START	600	/*                                             */
-#define SW_STROBE	60	/*                          */
-#define SW_TIMEOUT	6	/*                                      */
-#define SW_KICK		45	/*                                      */
-#define SW_END		8	/*                                             */
-#define SW_FAIL		16	/*                                                       */
-#define SW_BAD		2	/*                                                                */
-#define SW_OK		64	/*                                                                */
-#define SW_LENGTH	512	/*                                */
+#define SW_START	600	/* The time we wait for the first bit [600 us] */
+#define SW_STROBE	60	/* Max time per bit [60 us] */
+#define SW_TIMEOUT	6	/* Wait for everything to settle [6 ms] */
+#define SW_KICK		45	/* Wait after A0 fall till kick [45 us] */
+#define SW_END		8	/* Number of bits before end of packet to kick */
+#define SW_FAIL		16	/* Number of packet read errors to fail and reinitialize */
+#define SW_BAD		2	/* Number of packet read errors to switch off 3d Pro optimization */
+#define SW_OK		64	/* Number of packet read successes to switch optimization back on */
+#define SW_LENGTH	512	/* Max number of bits in a packet */
 
 #ifdef SW_DEBUG
 #define dbg(format, arg...) printk(KERN_DEBUG __FILE__ ": " format "\n" , ## arg)
@@ -66,7 +66,7 @@ MODULE_LICENSE("GPL");
 #endif
 
 /*
-                                
+ * SideWinder joystick types ...
  */
 
 #define SW_ID_3DP	0
@@ -77,7 +77,7 @@ MODULE_LICENSE("GPL");
 #define SW_ID_FFW	5
 
 /*
-                           
+ * Names, buttons, axes ...
  */
 
 static char *sw_name[] = {	"3D Pro", "GamePad", "Precision Pro", "Force Feedback Pro", "FreeStyle Pro",
@@ -128,9 +128,9 @@ struct sw {
 };
 
 /*
-                                                                         
-                                                                          
-                                                                        
+ * sw_read_packet() is a function which reads either a data packet, or an
+ * identification packet from a SideWinder joystick. The protocol is very,
+ * very, very braindamaged. Microsoft patented it in US patent #5628686.
  */
 
 static int sw_read_packet(struct gameport *gameport, unsigned char *buf, int length, int id)
@@ -139,60 +139,60 @@ static int sw_read_packet(struct gameport *gameport, unsigned char *buf, int len
 	int timeout, bitout, sched, i, kick, start, strobe;
 	unsigned char pending, u, v;
 
-	i = -id;						/*                                     */
-	timeout = id ? gameport_time(gameport, SW_TIMEOUT * 1000) : 0; /*                                     */
-	kick = id ? gameport_time(gameport, SW_KICK) : 0;	/*                                   */
+	i = -id;						/* Don't care about data, only want ID */
+	timeout = id ? gameport_time(gameport, SW_TIMEOUT * 1000) : 0; /* Set up global timeout for ID packet */
+	kick = id ? gameport_time(gameport, SW_KICK) : 0;	/* Set up kick timeout for ID packet */
 	start = gameport_time(gameport, SW_START);
 	strobe = gameport_time(gameport, SW_STROBE);
 	bitout = start;
 	pending = 0;
 	sched = 0;
 
-        local_irq_save(flags);					/*               */
+        local_irq_save(flags);					/* Quiet, please */
 
-	gameport_trigger(gameport);				/*         */
+	gameport_trigger(gameport);				/* Trigger */
 	v = gameport_read(gameport);
 
 	do {
 		bitout--;
 		u = v;
 		v = gameport_read(gameport);
-	} while (!(~v & u & 0x10) && (bitout > 0));		/*                                      */
+	} while (!(~v & u & 0x10) && (bitout > 0));		/* Wait for first falling edge on clock */
 
 	if (bitout > 0)
-		bitout = strobe;				/*                              */
+		bitout = strobe;				/* Extend time if not timed out */
 
 	while ((timeout > 0 || bitout > 0) && (i < length)) {
 
 		timeout--;
-		bitout--;					/*                  */
+		bitout--;					/* Decrement timers */
 		sched--;
 
 		u = v;
 		v = gameport_read(gameport);
 
-		if ((~u & v & 0x10) && (bitout > 0)) {		/*                                 */
-			if (i >= 0)				/*                */
-				buf[i] = v >> 5;		/*          */
-			i++;					/*               */
-			bitout = strobe;			/*                             */
+		if ((~u & v & 0x10) && (bitout > 0)) {		/* Rising edge on clock - data bit */
+			if (i >= 0)				/* Want this data */
+				buf[i] = v >> 5;		/* Store it */
+			i++;					/* Advance index */
+			bitout = strobe;			/* Extend timeout for next bit */
 		}
 
-		if (kick && (~v & u & 0x01)) {			/*                        */
-			sched = kick;				/*                         */
-			kick = 0;				/*                                          */
-			pending = 1;				/*               */
+		if (kick && (~v & u & 0x01)) {			/* Falling edge on axis 0 */
+			sched = kick;				/* Schedule second trigger */
+			kick = 0;				/* Don't schedule next time on falling edge */
+			pending = 1;				/* Mark schedule */
 		}
 
-		if (pending && sched < 0 && (i > -SW_END)) {	/*                     */
-			gameport_trigger(gameport);		/*         */
-			bitout = start;				/*                  */
-			pending = 0;				/*                 */
-			timeout = 0;				/*                                    */
+		if (pending && sched < 0 && (i > -SW_END)) {	/* Second trigger time */
+			gameport_trigger(gameport);		/* Trigger */
+			bitout = start;				/* Long bit timeout */
+			pending = 0;				/* Unmark schedule */
+			timeout = 0;				/* Switch from global to bit timeouts */
 		}
 	}
 
-	local_irq_restore(flags);					/*              */
+	local_irq_restore(flags);					/* Done - relax */
 
 #ifdef SW_DEBUG_DATA
 	{
@@ -207,10 +207,10 @@ static int sw_read_packet(struct gameport *gameport, unsigned char *buf, int len
 }
 
 /*
-                                                                            
-                                                                                 
-                                                                                 
-                                 
+ * sw_get_bits() and GB() compose bits from the triplet buffer into a __u64.
+ * Parameter 'pos' is bit number inside packet where to start at, 'num' is number
+ * of bits to be read, 'shift' is offset in the resulting __u64 to start at, bits
+ * is number of bits per triplet.
  */
 
 #define GB(pos,num) sw_get_bits(buf, pos, num, sw->bits)
@@ -218,14 +218,14 @@ static int sw_read_packet(struct gameport *gameport, unsigned char *buf, int len
 static __u64 sw_get_bits(unsigned char *buf, int pos, int num, char bits)
 {
 	__u64 data = 0;
-	int tri = pos % bits;						/*                */
+	int tri = pos % bits;						/* Start position */
 	int i   = pos / bits;
 	int bit = 0;
 
 	while (num--) {
-		data |= (__u64)((buf[i] >> tri++) & 1) << bit++;	/*              */
+		data |= (__u64)((buf[i] >> tri++) & 1) << bit++;	/* Transfer bit */
 		if (tri == bits) {
-			i++;						/*              */
+			i++;						/* Next triplet */
 			tri = 0;
 		}
 	}
@@ -234,8 +234,8 @@ static __u64 sw_get_bits(unsigned char *buf, int pos, int num, char bits)
 }
 
 /*
-                                                             
-                     
+ * sw_init_digital() initializes a SideWinder 3D Pro joystick
+ * into digital mode.
  */
 
 static void sw_init_digital(struct gameport *gameport)
@@ -248,19 +248,19 @@ static void sw_init_digital(struct gameport *gameport)
 
 	i = 0;
         do {
-                gameport_trigger(gameport);			/*         */
+                gameport_trigger(gameport);			/* Trigger */
 		t = gameport_time(gameport, SW_TIMEOUT * 1000);
-		while ((gameport_read(gameport) & 1) && t) t--;	/*                                 */
-                udelay(seq[i]);					/*                  */
+		while ((gameport_read(gameport) & 1) && t) t--;	/* Wait for axis to fall back to 0 */
+                udelay(seq[i]);					/* Delay magic time */
         } while (seq[++i]);
 
-	gameport_trigger(gameport);				/*              */
+	gameport_trigger(gameport);				/* Last trigger */
 
 	local_irq_restore(flags);
 }
 
 /*
-                                       
+ * sw_parity() computes parity of __u64
  */
 
 static int sw_parity(__u64 t)
@@ -276,17 +276,17 @@ static int sw_parity(__u64 t)
 }
 
 /*
-                                                                            
+ * sw_ccheck() checks synchronization bits and computes checksum of nibbles.
  */
 
 static int sw_check(__u64 t)
 {
 	unsigned char sum = 0;
 
-	if ((t & 0x8080808080808080ULL) ^ 0x80)			/*      */
+	if ((t & 0x8080808080808080ULL) ^ 0x80)			/* Sync */
 		return -1;
 
-	while (t) {						/*     */
+	while (t) {						/* Sum */
 		sum += t & 0xf;
 		t >>= 4;
 	}
@@ -295,8 +295,8 @@ static int sw_check(__u64 t)
 }
 
 /*
-                                                                            
-                               
+ * sw_parse() analyzes SideWinder joystick data, and writes the results into
+ * the axes and buttons arrays.
  */
 
 static int sw_parse(unsigned char *buf, struct sw *sw)
@@ -418,9 +418,9 @@ static int sw_parse(unsigned char *buf, struct sw *sw)
 }
 
 /*
-                                                              
-                                                                            
-                                                     
+ * sw_read() reads SideWinder joystick data, and reinitializes
+ * the joystick in case of persistent problems. This is the function that is
+ * called from the generic code to poll the joystick.
  */
 
 static int sw_read(struct sw *sw)
@@ -430,33 +430,33 @@ static int sw_read(struct sw *sw)
 
 	i = sw_read_packet(sw->gameport, buf, sw->length, 0);
 
-	if (sw->type == SW_ID_3DP && sw->length == 66 && i != 66) {		/*                           */
+	if (sw->type == SW_ID_3DP && sw->length == 66 && i != 66) {		/* Broken packet, try to fix */
 
-		if (i == 64 && !sw_check(sw_get_bits(buf,0,64,1))) {		/*                              */
+		if (i == 64 && !sw_check(sw_get_bits(buf,0,64,1))) {		/* Last init failed, 1 bit mode */
 			printk(KERN_WARNING "sidewinder.c: Joystick in wrong mode on %s"
 				" - going to reinitialize.\n", sw->gameport->phys);
-			sw->fail = SW_FAIL;					/*              */
-			i = 128;						/*             */
+			sw->fail = SW_FAIL;					/* Reinitialize */
+			i = 128;						/* Bogus value */
 		}
 
-		if (i < 66 && GB(0,64) == GB(i*3-66,64))			/*        */
-			i = 66;							/*                    */
+		if (i < 66 && GB(0,64) == GB(i*3-66,64))			/* 1 == 3 */
+			i = 66;							/* Everything is fine */
 
-		if (i < 66 && GB(0,64) == GB(66,64))				/*        */
-			i = 66;							/*                    */
+		if (i < 66 && GB(0,64) == GB(66,64))				/* 1 == 2 */
+			i = 66;							/* Everything is fine */
 
-		if (i < 66 && GB(i*3-132,64) == GB(i*3-66,64)) {		/*        */
-			memmove(buf, buf + i - 22, 22);				/*           */
-			i = 66;							/*          */
+		if (i < 66 && GB(i*3-132,64) == GB(i*3-66,64)) {		/* 2 == 3 */
+			memmove(buf, buf + i - 22, 22);				/* Move data */
+			i = 66;							/* Carry on */
 		}
 	}
 
-	if (i == sw->length && !sw_parse(buf, sw)) {				/*            */
+	if (i == sw->length && !sw_parse(buf, sw)) {				/* Parse data */
 
 		sw->fail = 0;
 		sw->ok++;
 
-		if (sw->type == SW_ID_3DP && sw->length == 66			/*                 */
+		if (sw->type == SW_ID_3DP && sw->length == 66			/* Many packets OK */
 			&& sw->ok > SW_OK) {
 
 			printk(KERN_INFO "sidewinder.c: No more trouble on %s"
@@ -470,7 +470,7 @@ static int sw_read(struct sw *sw)
 	sw->ok = 0;
 	sw->fail++;
 
-	if (sw->type == SW_ID_3DP && sw->length == 22 && sw->fail > SW_BAD) {	/*                         */
+	if (sw->type == SW_ID_3DP && sw->length == 22 && sw->fail > SW_BAD) {	/* Consecutive bad packets */
 
 		printk(KERN_INFO "sidewinder.c: Many bit errors on %s"
 			" - disabling optimization.\n", sw->gameport->phys);
@@ -478,20 +478,20 @@ static int sw_read(struct sw *sw)
 	}
 
 	if (sw->fail < SW_FAIL)
-		return -1;							/*                                    */
+		return -1;							/* Not enough, don't reinitialize yet */
 
 	printk(KERN_WARNING "sidewinder.c: Too many bit errors on %s"
 		" - reinitializing joystick.\n", sw->gameport->phys);
 
-	if (!i && sw->type == SW_ID_3DP) {					/*                              */
+	if (!i && sw->type == SW_ID_3DP) {					/* 3D Pro can be in analog mode */
 		mdelay(3 * SW_TIMEOUT);
 		sw_init_digital(sw->gameport);
 	}
 
 	mdelay(SW_TIMEOUT);
-	i = sw_read_packet(sw->gameport, buf, SW_LENGTH, 0);			/*                         */
+	i = sw_read_packet(sw->gameport, buf, SW_LENGTH, 0);			/* Read normal data packet */
 	mdelay(SW_TIMEOUT);
-	sw_read_packet(sw->gameport, buf, SW_LENGTH, i);			/*                                            */
+	sw_read_packet(sw->gameport, buf, SW_LENGTH, i);			/* Read ID packet, this initializes the stick */
 
 	sw->fail = SW_FAIL;
 
@@ -523,7 +523,7 @@ static void sw_close(struct input_dev *dev)
 }
 
 /*
-                                                                
+ * sw_print_packet() prints the contents of a SideWinder packet.
  */
 
 static void sw_print_packet(char *name, int length, unsigned char *buf, char bits)
@@ -537,8 +537,8 @@ static void sw_print_packet(char *name, int length, unsigned char *buf, char bit
 }
 
 /*
-                                                                 
-                                                                    
+ * sw_3dp_id() translates the 3DP id into a human legible string.
+ * Unfortunately I don't know how to do this for the other SW types.
  */
 
 static void sw_3dp_id(unsigned char *buf, char *comment, size_t size)
@@ -546,16 +546,16 @@ static void sw_3dp_id(unsigned char *buf, char *comment, size_t size)
 	int i;
 	char pnp[8], rev[9];
 
-	for (i = 0; i < 7; i++)						/*              */
+	for (i = 0; i < 7; i++)						/* ASCII PnP ID */
 		pnp[i] = sw_get_bits(buf, 24+8*i, 8, 1);
 
-	for (i = 0; i < 8; i++)						/*                         */
+	for (i = 0; i < 8; i++)						/* ASCII firmware revision */
 		rev[i] = sw_get_bits(buf, 88+8*i, 8, 1);
 
 	pnp[7] = rev[8] = 0;
 
 	snprintf(comment, size, " [PnP %d.%02d id %s rev %s]",
-		(int) ((sw_get_bits(buf, 8, 6, 1) << 6) |		/*                  */
+		(int) ((sw_get_bits(buf, 8, 6, 1) << 6) |		/* Two 6-bit values */
 			sw_get_bits(buf, 16, 6, 1)) / 100,
 		(int) ((sw_get_bits(buf, 8, 6, 1) << 6) |
 			sw_get_bits(buf, 16, 6, 1)) % 100,
@@ -563,10 +563,10 @@ static void sw_3dp_id(unsigned char *buf, char *comment, size_t size)
 }
 
 /*
-                                                                  
-                                                                       
-                                                                   
-                                  
+ * sw_guess_mode() checks the upper two button bits for toggling -
+ * indication of that the joystick is in 3-bit mode. This is documented
+ * behavior for 3DP ID packet, and for example the FSP does this in
+ * normal packets instead. Fun ...
  */
 
 static int sw_guess_mode(unsigned char *buf, int len)
@@ -581,7 +581,7 @@ static int sw_guess_mode(unsigned char *buf, int len)
 }
 
 /*
-                                                     
+ * sw_connect() probes for SideWinder type joysticks.
  */
 
 static int sw_connect(struct gameport *gameport, struct gameport_driver *drv)
@@ -590,8 +590,8 @@ static int sw_connect(struct gameport *gameport, struct gameport_driver *drv)
 	struct input_dev *input_dev;
 	int i, j, k, l;
 	int err = 0;
-	unsigned char *buf = NULL;	/*             */
-	unsigned char *idbuf = NULL;	/*             */
+	unsigned char *buf = NULL;	/* [SW_LENGTH] */
+	unsigned char *idbuf = NULL;	/* [SW_LENGTH] */
 	unsigned char m = 1;
 	char comment[40];
 
@@ -616,29 +616,29 @@ static int sw_connect(struct gameport *gameport, struct gameport_driver *drv)
 	dbg("Init 0: Opened %s, io %#x, speed %d",
 		gameport->phys, gameport->io, gameport->speed);
 
-	i = sw_read_packet(gameport, buf, SW_LENGTH, 0);		/*                    */
+	i = sw_read_packet(gameport, buf, SW_LENGTH, 0);		/* Read normal packet */
 	msleep(SW_TIMEOUT);
 	dbg("Init 1: Mode %d. Length %d.", m , i);
 
-	if (!i) {							/*                              */
-		sw_init_digital(gameport);				/*                   */
+	if (!i) {							/* No data. 3d Pro analog mode? */
+		sw_init_digital(gameport);				/* Switch to digital */
 		msleep(SW_TIMEOUT);
-		i = sw_read_packet(gameport, buf, SW_LENGTH, 0);	/*                      */
+		i = sw_read_packet(gameport, buf, SW_LENGTH, 0);	/* Retry reading packet */
 		msleep(SW_TIMEOUT);
 		dbg("Init 1b: Length %d.", i);
-		if (!i) {						/*                 */
+		if (!i) {						/* No data -> FAIL */
 			err = -ENODEV;
 			goto fail2;
 		}
 	}
 
-	j = sw_read_packet(gameport, idbuf, SW_LENGTH, i);		/*                                     */
-	m |= sw_guess_mode(idbuf, j);					/*                                        */
+	j = sw_read_packet(gameport, idbuf, SW_LENGTH, i);		/* Read ID. This initializes the stick */
+	m |= sw_guess_mode(idbuf, j);					/* ID packet should carry mode info [3DP] */
 	dbg("Init 2: Mode %d. ID Length %d.", m, j);
 
-	if (j <= 0) {							/*                                             */
+	if (j <= 0) {							/* Read ID failed. Happens in 1-bit mode on PP */
 		msleep(SW_TIMEOUT);
-		i = sw_read_packet(gameport, buf, SW_LENGTH, 0);	/*                      */
+		i = sw_read_packet(gameport, buf, SW_LENGTH, 0);	/* Retry reading packet */
 		m |= sw_guess_mode(buf, i);
 		dbg("Init 2b: Mode %d. Length %d.", m, i);
 		if (!i) {
@@ -646,23 +646,23 @@ static int sw_connect(struct gameport *gameport, struct gameport_driver *drv)
 			goto fail2;
 		}
 		msleep(SW_TIMEOUT);
-		j = sw_read_packet(gameport, idbuf, SW_LENGTH, i);	/*                  */
+		j = sw_read_packet(gameport, idbuf, SW_LENGTH, i);	/* Retry reading ID */
 		dbg("Init 2c: ID Length %d.", j);
 	}
 
 	sw->type = -1;
-	k = SW_FAIL;							/*                   */
+	k = SW_FAIL;							/* Try SW_FAIL times */
 	l = 0;
 
 	do {
 		k--;
 		msleep(SW_TIMEOUT);
-		i = sw_read_packet(gameport, buf, SW_LENGTH, 0);	/*                  */
+		i = sw_read_packet(gameport, buf, SW_LENGTH, 0);	/* Read data packet */
 		dbg("Init 3: Mode %d. Length %d. Last %d. Tries %d.", m, i, l, k);
 
-		if (i > l) {						/*                                            */
-									/*                                                */
-			l = i;						/*                       */
+		if (i > l) {						/* Longer? As we can only lose bits, it makes */
+									/* no sense to try detection for a packet shorter */
+			l = i;						/* than the previous one */
 
 			sw->number = 1;
 			sw->gameport = gameport;
@@ -674,8 +674,8 @@ static int sw_connect(struct gameport *gameport, struct gameport_driver *drv)
 			switch (i * m) {
 				case 60:
 					sw->number++;
-				case 45:				/*                         */
-					if (j <= 40) {			/*                                */
+				case 45:				/* Ambiguous packet length */
+					if (j <= 40) {			/* ID length less or eq 40 -> FSP */
 				case 43:
 						sw->type = SW_ID_FSP;
 						break;
@@ -690,8 +690,8 @@ static int sw_connect(struct gameport *gameport, struct gameport_driver *drv)
 				case 31:
 					sw->type = SW_ID_FFW;
 					break;
-				case 48:				/*           */
-					if (j == 14) {			/*                       */
+				case 48:				/* Ambiguous */
+					if (j == 14) {			/* ID length 14*3 -> FFP */
 						sw->type = SW_ID_FFP;
 						sprintf(comment, " [AC %s]", sw_get_bits(idbuf,38,1,3) ? "off" : "on");
 					} else

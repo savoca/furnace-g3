@@ -30,7 +30,7 @@ EXPORT_SYMBOL(_mcount);
 #endif
 
 /*
-                                                                          
+ * Assembly functions that may be used (directly or indirectly) by modules
  */
 EXPORT_SYMBOL(__copy_tofrom_user);
 EXPORT_SYMBOL(__strncpy_user);

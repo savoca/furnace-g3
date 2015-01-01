@@ -43,75 +43,75 @@
 			 DEBUG_PHASES|DEBUG_CONNECT|DEBUG_DISCON|DEBUG_ABORT|\
 			 DEBUG_DMA|DEBUG_QUEUES)
 
-/*                     
-  
-                                
-  
-                                                                           
-                                                                      
-                                                                      
-                               
-  
-                                                                     
-                                                                              
-              
-  
-                                                                                  
-                                                                                     
-                         
+/* DRIVER CONFIGURATION
+ *
+ * SCSI-II Tagged queue support.
+ *
+ * I don't have any SCSI devices that support it, so it is totally untested
+ * (except to make sure that it doesn't interfere with any non-tagging
+ * devices).  It is not fully implemented either - what happens when a
+ * tagging device reconnects???
+ *
+ * You can tell if you have a device that supports tagged queueing my
+ * cating (eg) /proc/scsi/acornscsi/0 and see if the SCSI revision is reported
+ * as '2 TAG'.
+ *
+ * Also note that CONFIG_SCSI_ACORNSCSI_TAGGED_QUEUE is normally set in the config
+ * scripts, but disabled here.  Once debugged, remove the #undef, otherwise to debug,
+ * comment out the undef.
  */
 #undef CONFIG_SCSI_ACORNSCSI_TAGGED_QUEUE
 /*
-                                  
-  
-                                                                               
-                   
+ * SCSI-II Linked command support.
+ *
+ * The higher level code doesn't support linked commands yet, and so the option
+ * is undef'd here.
  */
 #undef CONFIG_SCSI_ACORNSCSI_LINK
 /*
-                                        
-  
-                      
-  
-                                                                            
-                                                           
-                                       
+ * SCSI-II Synchronous transfer support.
+ *
+ * Tried and tested...
+ *
+ * SDTR_SIZE	  - maximum number of un-acknowledged bytes (0 = off, 12 = max)
+ * SDTR_PERIOD	  - period of REQ signal (min=125, max=1020)
+ * DEFAULT_PERIOD - default REQ period.
  */
 #define SDTR_SIZE	12
 #define SDTR_PERIOD	125
 #define DEFAULT_PERIOD	500
 
 /*
-                        
-  
-                                     
-                                                                        
-                                                  
+ * Debugging information
+ *
+ * DEBUG	  - bit mask from list above
+ * DEBUG_TARGET   - is defined to the target number if you want to debug
+ *		    a specific target. [only recon/write/dma].
  */
 #define DEBUG (DEBUG_RESET|DEBUG_WRITE|DEBUG_NO_WRITE)
-/*                                     */
+/* only allow writing to SCSI device 0 */
 #define NO_WRITE 0xFE
-/*                      */
+/*#define DEBUG_TARGET 2*/
 /*
-                                      
-  
-                                                                          
-                                                  
+ * Select timeout time (in 10ms units)
+ *
+ * This is the timeout used between the start of selection and the WD33C93
+ * chip deciding that the device isn't responding.
  */
 #define TIMEOUT_TIME 10
 /*
-                                                              
-                   
+ * Define this if you want to have verbose explanation of SCSI
+ * status/messages.
  */
 #undef CONFIG_ACORNSCSI_CONSTANTS
 /*
-                                                                              
-                                                           
+ * Define this if you want to use the on board DMAC [don't remove this option]
+ * If not set, then use PIO mode (not currently supported).
  */
 #define USE_DMAC
 
 /*
-                                                                                       
+ * ====================================================================================
  */
 
 #ifdef DEBUG_TARGET
@@ -166,7 +166,7 @@
 
 #ifdef USE_DMAC
 /*
-                        
+ * DMAC setup parameters
  */ 
 #define INIT_DEVCON0	(DEVCON0_RQL|DEVCON0_EXW|DEVCON0_CMP)
 #define INIT_DEVCON1	(DEVCON1_BHLD)
@@ -177,7 +177,7 @@
 #define scsi_xferred	have_data_in
 
 /*
-                              
+ * Size of on-board DMA buffer
  */
 #define DMAC_BUFFER_SIZE	65536
 #endif
@@ -193,16 +193,16 @@ static int acornscsi_reconnect_finish(AS_Host *host);
 static void acornscsi_dma_cleanup(AS_Host *host);
 static void acornscsi_abortcmd(AS_Host *host, unsigned char tag);
 
-/*                                                                                     
-                
+/* ====================================================================================
+ * Miscellaneous
  */
 
-/*                        */
+/* Offsets from MEMC base */
 #define SBIC_REGIDX	0x2000
 #define SBIC_REGVAL	0x2004
 #define DMAC_OFFSET	0x3000
 
-/*                            */
+/* Offsets from FAST IOC base */
 #define INT_REG		0x2000
 #define PAGE_REG	0x3000
 
@@ -325,18 +325,18 @@ void acornscsi_resetcard(AS_Host *host)
 {
     unsigned int i, timeout;
 
-    /*                   */
+    /* assert reset line */
     host->card.page_reg = 0x80;
     writeb(host->card.page_reg, host->fast + PAGE_REG);
 
-    /*                                      */
+    /* wait 3 cs.  SCSI standard says 25ms. */
     acornscsi_csdelay(3);
 
     host->card.page_reg = 0;
     writeb(host->card.page_reg, host->fast + PAGE_REG);
 
     /*
-                                       
+     * Should get a reset from the card
      */
     timeout = 1000;
     do {
@@ -352,12 +352,12 @@ void acornscsi_resetcard(AS_Host *host)
     sbic_arm_read(host, SBIC_ASR);
     sbic_arm_read(host, SBIC_SSR);
 
-    /*                       */
+    /* setup sbic - WD33C93A */
     sbic_arm_write(host, SBIC_OWNID, OWNID_EAF | host->host->this_id);
     sbic_arm_write(host, SBIC_CMND, CMND_RESET);
 
     /*
-                                             
+     * Command should cause a reset interrupt
      */
     timeout = 1000;
     do {
@@ -383,7 +383,7 @@ void acornscsi_resetcard(AS_Host *host)
     host->card.page_reg = 0x40;
     writeb(host->card.page_reg, host->fast + PAGE_REG);
 
-    /*                       */
+    /* setup dmac - uPC71071 */
     dmac_write(host, DMAC_INIT, 0);
 #ifdef USE_DMAC
     dmac_write(host, DMAC_INIT, INIT_8BIT);
@@ -403,12 +403,12 @@ void acornscsi_resetcard(AS_Host *host)
 	host->device[i].disconnect_ok = 1;
     }
 
-    /*                                        */
+    /* wait 25 cs.  SCSI standard says 250ms. */
     acornscsi_csdelay(25);
 }
 
-/*                                                                                             
-                               
+/*=============================================================================================
+ * Utility routines (eg. debug)
  */
 #ifdef CONFIG_ACORNSCSI_CONSTANTS
 static char *acornscsi_interrupttype[] = {
@@ -438,39 +438,39 @@ static signed char acornscsi_map[] = {
 };      
 
 static char *acornscsi_interruptcode[] = {
-    /*   */
-    "reset - normal mode",	/*    */
-    "reset - advanced mode",	/*    */
+    /* 0 */
+    "reset - normal mode",	/* 00 */
+    "reset - advanced mode",	/* 01 */
 
-    /*   */
-    "sel",			/*    */
-    "sel+xfer", 		/*    */
-    "data-out", 		/*    */
-    "data-in",			/*    */
-    "cmd",			/*    */
-    "stat",			/*    */
-    "??-out",			/*    */
-    "??-in",			/*    */
-    "msg-out",			/*    */
-    "msg-in",			/*    */
+    /* 2 */
+    "sel",			/* 11 */
+    "sel+xfer", 		/* 16 */
+    "data-out", 		/* 18 */
+    "data-in",			/* 19 */
+    "cmd",			/* 1A */
+    "stat",			/* 1B */
+    "??-out",			/* 1C */
+    "??-in",			/* 1D */
+    "msg-out",			/* 1E */
+    "msg-in",			/* 1F */
 
-    /*    */
-    "/ACK asserted",		/*    */
-    "save-data-ptr",		/*    */
-    "{re}sel",			/*    */
+    /* 12 */
+    "/ACK asserted",		/* 20 */
+    "save-data-ptr",		/* 21 */
+    "{re}sel",			/* 22 */
 
-    /*    */
-    "inv cmd",			/*    */
-    "unexpected disconnect",	/*    */
-    "sel timeout",		/*    */
-    "P err",			/*    */
-    "P err+ATN",		/*    */
-    "bad status byte",		/*    */
+    /* 15 */
+    "inv cmd",			/* 40 */
+    "unexpected disconnect",	/* 41 */
+    "sel timeout",		/* 42 */
+    "P err",			/* 43 */
+    "P err+ATN",		/* 44 */
+    "bad status byte",		/* 47 */
 
-    /*    */
-    "resel, no id",		/*    */
-    "resel",			/*    */
-    "discon",			/*    */
+    /* 21 */
+    "resel, no id",		/* 80 */
+    "resel",			/* 81 */
+    "discon",			/* 85 */
 };
 
 static
@@ -576,12 +576,12 @@ char acornscsi_target(AS_Host *host)
 }
 
 /*
-                                                      
-                                                               
-                                            
-                                            
-                                         
-                                   
+ * Prototype: cmdtype_t acornscsi_cmdtype(int command)
+ * Purpose  : differentiate READ from WRITE from other commands
+ * Params   : command - command to interpret
+ * Returns  : CMD_READ	- command reads data,
+ *	      CMD_WRITE - command writes data,
+ *	      CMD_MISC	- everything else
  */
 static inline
 cmdtype_t acornscsi_cmdtype(int command)
@@ -597,12 +597,12 @@ cmdtype_t acornscsi_cmdtype(int command)
 }
 
 /*
-                                                      
-                                                                      
-                             
-                                            
-                                                   
-                                             
+ * Prototype: int acornscsi_datadirection(int command)
+ * Purpose  : differentiate between commands that have a DATA IN phase
+ *	      and a DATA OUT phase
+ * Params   : command - command to interpret
+ * Returns  : DATADIR_OUT - data out phase expected
+ *	      DATADIR_IN  - data in phase expected
  */
 static
 datadir_t acornscsi_datadirection(int command)
@@ -639,10 +639,10 @@ static struct sync_xfer_tbl {
 };
 
 /*
-                                                             
-                                                         
-                                              
-                           
+ * Prototype: int acornscsi_getperiod(unsigned char syncxfer)
+ * Purpose  : period for the synchronous transfer setting
+ * Params   : syncxfer SYNCXFER register value
+ * Returns  : period in ns.
  */
 static
 int acornscsi_getperiod(unsigned char syncxfer)
@@ -694,15 +694,15 @@ unsigned char calc_sync_xfer(unsigned int period, unsigned int offset)
 		((offset < SDTR_SIZE) ? offset : SDTR_SIZE);
 }
 
-/*                                                                                     
-                    
+/* ====================================================================================
+ * Command functions
  */
 /*
-                                          
-                                           
-                                           
-                                                         
-                                            
+ * Function: acornscsi_kick(AS_Host *host)
+ * Purpose : kick next command to interface
+ * Params  : host - host to send command to
+ * Returns : INTR_IDLE if idle, otherwise INTR_PROCESSING
+ * Notes   : interrupts are always disabled!
  */
 static
 intr_ret_t acornscsi_kick(AS_Host *host)
@@ -710,11 +710,11 @@ intr_ret_t acornscsi_kick(AS_Host *host)
     int from_queue = 0;
     struct scsi_cmnd *SCpnt;
 
-    /*                                                           */
+    /* first check to see if a command is waiting to be executed */
     SCpnt = host->origSCpnt;
     host->origSCpnt = NULL;
 
-    /*                       */
+    /* retrieve next command */
     if (!SCpnt) {
 	SCpnt = queue_remove_exclude(&host->queues.issue, host->busyluns);
 	if (!SCpnt)
@@ -734,8 +734,8 @@ intr_ret_t acornscsi_kick(AS_Host *host)
     }
 
     /*
-                                                                         
-                                                            
+     * If we have an interrupt pending, then we may have been reselected.
+     * In this case, we don't want to write to the registers
      */
     if (!(sbic_arm_read(host, SBIC_ASR) & (ASR_INT|ASR_BSY|ASR_CIP))) {
 	sbic_arm_write(host, SBIC_DESTID, SCpnt->device->id);
@@ -743,8 +743,8 @@ intr_ret_t acornscsi_kick(AS_Host *host)
     }
 
     /*
-                                                                
-                                                          
+     * claim host busy - all of these must happen atomically wrt
+     * our interrupt routine.  Failure means command loss.
      */
     host->scsi.phase = PHASE_CONNECTING;
     host->SCpnt = SCpnt;
@@ -762,8 +762,8 @@ intr_ret_t acornscsi_kick(AS_Host *host)
     if (from_queue) {
 #ifdef CONFIG_SCSI_ACORNSCSI_TAGGED_QUEUE
 	/*
-                                                        
-  */
+	 * tagged queueing - allocate a new tag to this command
+	 */
 	if (SCpnt->device->simple_tags) {
 	    SCpnt->device->current_tag += 1;
 	    if (SCpnt->device->current_tag == 0)
@@ -792,17 +792,17 @@ intr_ret_t acornscsi_kick(AS_Host *host)
 }    
 
 /*
-                                                                                               
-                                            
-                                              
-                                      
+ * Function: void acornscsi_done(AS_Host *host, struct scsi_cmnd **SCpntp, unsigned int result)
+ * Purpose : complete processing for command
+ * Params  : host   - interface that completed
+ *	     result - driver byte of result
  */
 static void acornscsi_done(AS_Host *host, struct scsi_cmnd **SCpntp,
 			   unsigned int result)
 {
 	struct scsi_cmnd *SCpnt = *SCpntp;
 
-    /*          */
+    /* clean up */
     sbic_arm_write(host, SBIC_SOURCEID, SOURCEID_ER | SOURCEID_DSP);
 
     host->stats.fins += 1;
@@ -815,13 +815,13 @@ static void acornscsi_done(AS_Host *host, struct scsi_cmnd **SCpntp,
 	SCpnt->result = result << 16 | host->scsi.SCp.Message << 8 | host->scsi.SCp.Status;
 
 	/*
-                                                                 
-                                                                    
-                                                                     
-                                                                 
-                                                                     
-                        
-  */
+	 * In theory, this should not happen.  In practice, it seems to.
+	 * Only trigger an error if the device attempts to report all happy
+	 * but with untransferred buffers...  If we don't do something, then
+	 * data loss will occur.  Should we check SCpnt->underflow here?
+	 * It doesn't appear to be set to something meaningful by the higher
+	 * levels all the time.
+	 */
 	if (result == DID_OK) {
 		int xfer_warn = 0;
 
@@ -835,18 +835,18 @@ static void acornscsi_done(AS_Host *host, struct scsi_cmnd **SCpntp,
 				xfer_warn = 1;
 		}
 
-		/*                                                
-                                                      
-                                                      
-                                                 
-                                            
-    
-                                                          
-                                                         
-                                                              
-                                                            
-                      
-   */
+		/* ANSI standard says: (SCSI-2 Rev 10c Sect 5.6.6)
+		 *  Targets which break data transfers into multiple
+		 *  connections shall end each successful connection
+		 *  (except possibly the last) with a SAVE DATA
+		 *  POINTER - DISCONNECT message sequence.
+		 *
+		 * This makes it difficult to ensure that a transfer has
+		 * completed.  If we reach the end of a transfer during
+		 * the command, then we can only have finished the transfer.
+		 * therefore, if we seem to have some data remaining, this
+		 * is not a problem.
+		 */
 		if (host->dma.xfer_done)
 			xfer_warn = 0;
 
@@ -883,12 +883,12 @@ static void acornscsi_done(AS_Host *host, struct scsi_cmnd **SCpntp,
     host->scsi.phase = PHASE_IDLE;
 }
 
-/*                                                                                     
-               
+/* ====================================================================================
+ * DMA routines
  */
 /*
-                                      
-                                                    
+ * Purpose  : update SCSI Data Pointer
+ * Notes    : this will only be one SG entry or less
  */
 static
 void acornscsi_data_updateptr(AS_Host *host, struct scsi_pointer *SCp, unsigned int length)
@@ -901,14 +901,14 @@ void acornscsi_data_updateptr(AS_Host *host, struct scsi_pointer *SCp, unsigned 
 }
 
 /*
-                                                                
-                                                   
-                                    
-                                          
-                            
-                                      
-                                             
-                                                    
+ * Prototype: void acornscsi_data_read(AS_Host *host, char *ptr,
+ *				unsigned int start_addr, unsigned int length)
+ * Purpose  : read data from DMA RAM
+ * Params   : host - host to transfer from
+ *	      ptr  - DRAM address
+ *	      start_addr - host mem address
+ *	      length - number of bytes to transfer
+ * Notes    : this will only be one SG entry or less
  */
 static
 void acornscsi_data_read(AS_Host *host, char *ptr,
@@ -946,14 +946,14 @@ void acornscsi_data_read(AS_Host *host, char *ptr,
 }
 
 /*
-                                                                 
-                                                   
-                                   
-                                          
-                            
-                                      
-                                             
-                                                    
+ * Prototype: void acornscsi_data_write(AS_Host *host, char *ptr,
+ *				unsigned int start_addr, unsigned int length)
+ * Purpose  : write data to DMA RAM
+ * Params   : host - host to transfer from
+ *	      ptr  - DRAM address
+ *	      start_addr - host mem address
+ *	      length - number of bytes to transfer
+ * Notes    : this will only be one SG entry or less
  */
 static
 void acornscsi_data_write(AS_Host *host, char *ptr,
@@ -990,16 +990,16 @@ void acornscsi_data_write(AS_Host *host, char *ptr,
     writeb(host->card.page_reg, host->fast + PAGE_REG);
 }
 
-/*                                                                                          
-                        
+/* =========================================================================================
+ * On-board DMA routines
  */
 #ifdef USE_DMAC
 /*
-                                                   
-                          
-                                              
-                                                            
-                                   
+ * Prototype: void acornscsi_dmastop(AS_Host *host)
+ * Purpose  : stop all DMA
+ * Params   : host - host on which to stop DMA
+ * Notes    : This is called when leaving DATA IN/OUT phase,
+ *	      or when interface is RESET
  */
 static inline
 void acornscsi_dma_stop(AS_Host *host)
@@ -1013,12 +1013,12 @@ void acornscsi_dma_stop(AS_Host *host)
 }
 
 /*
-                                                                        
-                                                   
-                                 
-                                           
-                                                             
-                                       
+ * Function: void acornscsi_dma_setup(AS_Host *host, dmadir_t direction)
+ * Purpose : setup DMA controller for data transfer
+ * Params  : host - host to setup
+ *	     direction - data transfer direction
+ * Notes   : This is called when entering DATA I/O phase, not
+ *	     while we're in a DATA I/O phase
  */
 static
 void acornscsi_dma_setup(AS_Host *host, dmadir_t direction)
@@ -1042,7 +1042,7 @@ void acornscsi_dma_setup(AS_Host *host, dmadir_t direction)
 	mode = DMAC_READ;
 
     /*
-                                                                  
+     * Allocate some buffer space, limited to half the buffer size
      */
     length = min_t(unsigned int, host->scsi.SCp.this_residual, DMAC_BUFFER_SIZE / 2);
     if (length) {
@@ -1051,8 +1051,8 @@ void acornscsi_dma_setup(AS_Host *host, dmadir_t direction)
 				(DMAC_BUFFER_SIZE - 1);
 
 	/*
-                               
-  */
+	 * Transfer data to DMA memory
+	 */
 	if (direction == DMA_OUT)
 	    acornscsi_data_write(host, host->scsi.SCp.ptr, host->dma.start_addr,
 				length);
@@ -1074,12 +1074,12 @@ void acornscsi_dma_setup(AS_Host *host, dmadir_t direction)
 }
 
 /*
-                                                      
-                                                                                     
-                                  
-                                              
-                                                           
-                                                               
+ * Function: void acornscsi_dma_cleanup(AS_Host *host)
+ * Purpose : ensure that all DMA transfers are up-to-date & host->scsi.SCp is correct
+ * Params  : host - host to finish
+ * Notes   : This is called when a command is:
+ *		terminating, RESTORE_POINTERS, SAVE_POINTERS, DISCONECT
+ *	   : This must not return until all transfers are completed.
  */
 static
 void acornscsi_dma_cleanup(AS_Host *host)
@@ -1088,7 +1088,7 @@ void acornscsi_dma_cleanup(AS_Host *host)
     dmac_clearintr(host);
 
     /*
-                                   
+     * Check for a pending transfer
      */
     if (host->dma.xfer_required) {
 	host->dma.xfer_required = 0;
@@ -1098,7 +1098,7 @@ void acornscsi_dma_cleanup(AS_Host *host)
     }
 
     /*
-                                 
+     * Has a transfer been setup?
      */
     if (host->dma.xfer_setup) {
 	unsigned int transferred;
@@ -1110,8 +1110,8 @@ void acornscsi_dma_cleanup(AS_Host *host)
 #endif
 
 	/*
-                                                   
-  */
+	 * Calculate number of bytes transferred from DMA.
+	 */
 	transferred = dmac_address(host) - host->dma.start_addr;
 	host->dma.transferred += transferred;
 
@@ -1120,8 +1120,8 @@ void acornscsi_dma_cleanup(AS_Host *host)
 				 host->dma.start_addr, transferred);
 
 	/*
-                        
-  */
+	 * Update SCSI pointers
+	 */
 	acornscsi_data_updateptr(host, &host->scsi.SCp, transferred);
 #if (DEBUG & DEBUG_DMA)
 	DBG(host->SCpnt, acornscsi_dumpdma(host, "cupo"));
@@ -1130,14 +1130,14 @@ void acornscsi_dma_cleanup(AS_Host *host)
 }
 
 /*
-                                                   
-                                               
-                                   
-                                                              
-                                       
-                                                            
-               
-                                                            
+ * Function: void acornscsi_dmacintr(AS_Host *host)
+ * Purpose : handle interrupts from DMAC device
+ * Params  : host - host to process
+ * Notes   : If reading, we schedule the read to main memory &
+ *	     allow the transfer to continue.
+ *	   : If writing, we fill the onboard DMA memory from main
+ *	     memory.
+ *	   : Called whenever DMAC finished it's current transfer.
  */
 static
 void acornscsi_dma_intr(AS_Host *host)
@@ -1152,13 +1152,13 @@ void acornscsi_dma_intr(AS_Host *host)
     dmac_clearintr(host);
 
     /*
-                                           
+     * Calculate amount transferred via DMA
      */
     transferred = dmac_address(host) - host->dma.start_addr;
     host->dma.transferred += transferred;
 
     /*
-                                      
+     * Schedule DMA transfer off board
      */
     if (host->dma.direction == DMA_IN) {
 	host->dma.xfer_start = host->dma.start_addr;
@@ -1170,7 +1170,7 @@ void acornscsi_dma_intr(AS_Host *host)
     acornscsi_data_updateptr(host, &host->scsi.SCp, transferred);
 
     /*
-                                                                        
+     * Allocate some buffer space, limited to half the on-board RAM size
      */
     length = min_t(unsigned int, host->scsi.SCp.this_residual, DMAC_BUFFER_SIZE / 2);
     if (length) {
@@ -1179,8 +1179,8 @@ void acornscsi_dma_intr(AS_Host *host)
 				(DMAC_BUFFER_SIZE - 1);
 
 	/*
-                               
-  */
+	 * Transfer data to DMA memory
+	 */
 	if (host->dma.direction == DMA_OUT)
 	    acornscsi_data_write(host, host->scsi.SCp.ptr, host->dma.start_addr,
 				length);
@@ -1200,11 +1200,11 @@ void acornscsi_dma_intr(AS_Host *host)
 	host->dma.xfer_setup = 0;
 #if 0
 	/*
-                                                             
-                                                            
-                                                           
-                                        
-  */
+	 * If the interface still wants more, then this is an error.
+	 * We give it another byte, but we also attempt to raise an
+	 * attention condition.  We continue giving one byte until
+	 * the device recognises the attention.
+	 */
 	if (dmac_read(host, DMAC_STATUS) & STATUS_RQ0) {
 	    acornscsi_abortcmd(host, host->SCpnt->tag);
 
@@ -1220,9 +1220,9 @@ void acornscsi_dma_intr(AS_Host *host)
 }
 
 /*
-                                                   
-                                                       
-                                   
+ * Function: void acornscsi_dma_xfer(AS_Host *host)
+ * Purpose : transfer data between AcornSCSI and memory
+ * Params  : host - host to process
  */
 static
 void acornscsi_dma_xfer(AS_Host *host)
@@ -1235,10 +1235,10 @@ void acornscsi_dma_xfer(AS_Host *host)
 }
 
 /*
-                                                     
-                                                                 
-                              
-                                                
+ * Function: void acornscsi_dma_adjust(AS_Host *host)
+ * Purpose : adjust DMA pointers & count for bytes transferred to
+ *	     SBIC but not SCSI bus.
+ * Params  : host - host to adjust DMA count for
  */
 static
 void acornscsi_dma_adjust(AS_Host *host)
@@ -1249,16 +1249,16 @@ void acornscsi_dma_adjust(AS_Host *host)
 	DBG(host->SCpnt, acornscsi_dumpdma(host, "adji"));
 #endif
 	/*
-                                                                  
-            
-                                                       
-                                               
-                                                             
-                                                      
-   
-                                                                      
-                               
-  */
+	 * Calculate correct DMA address - DMA is ahead of SCSI bus while
+	 * writing.
+	 *  host->scsi.SCp.scsi_xferred is the number of bytes
+	 *  actually transferred to/from the SCSI bus.
+	 *  host->dma.transferred is the number of bytes transferred
+	 *  over DMA since host->dma.start_addr was last set.
+	 *
+	 * real_dma_addr = host->dma.start_addr + host->scsi.SCp.scsi_xferred
+	 *		   - host->dma.transferred
+	 */
 	transferred = host->scsi.SCp.scsi_xferred - host->dma.transferred;
 	if (transferred < 0)
 	    printk("scsi%d.%c: Ack! DMA write correction %ld < 0!\n",
@@ -1278,8 +1278,8 @@ void acornscsi_dma_adjust(AS_Host *host)
 }
 #endif
 
-/*                                                                                          
-           
+/* =========================================================================================
+ * Data I/O
  */
 static int
 acornscsi_write_pio(AS_Host *host, char *bytes, int *ptr, int len, unsigned int max_timeout)
@@ -1307,9 +1307,9 @@ acornscsi_write_pio(AS_Host *host, char *bytes, int *ptr, int len, unsigned int 
 }
 
 /*
-                                                      
-                                       
-                                                     
+ * Function: void acornscsi_sendcommand(AS_Host *host)
+ * Purpose : send a command to a target
+ * Params  : host - host which is connected to target
  */
 static void
 acornscsi_sendcommand(AS_Host *host)
@@ -1371,13 +1371,13 @@ void acornscsi_sendmessage(AS_Host *host)
 
     default:
 	/*
-                                                    
-                                                          
-                                                           
-                                                          
-                                                       
-                                                            
-  */
+	 * ANSI standard says: (SCSI-2 Rev 10c Sect 5.6.14)
+	 * 'When a target sends this (MESSAGE_REJECT) message, it
+	 *  shall change to MESSAGE IN phase and send this message
+	 *  prior to requesting additional message bytes from the
+	 *  initiator.  This provides an interlock so that the
+	 *  initiator can determine which message byte is rejected.
+	 */
 	sbic_arm_write(host, SBIC_TRANSCNTH, 0);
 	sbic_arm_writenext(host, 0);
 	sbic_arm_writenext(host, message_length);
@@ -1408,9 +1408,9 @@ void acornscsi_sendmessage(AS_Host *host)
 }
 
 /*
-                                                         
-                                                   
-                                            
+ * Function: void acornscsi_readstatusbyte(AS_Host *host)
+ * Purpose : Read status byte from connected target
+ * Params  : host - host connected to target
  */
 static
 void acornscsi_readstatusbyte(AS_Host *host)
@@ -1421,9 +1421,9 @@ void acornscsi_readstatusbyte(AS_Host *host)
 }
 
 /*
-                                                                   
-                                                        
-                                            
+ * Function: unsigned char acornscsi_readmessagebyte(AS_Host *host)
+ * Purpose : Read one message byte from connected target
+ * Params  : host - host connected to target
  */
 static
 unsigned char acornscsi_readmessagebyte(AS_Host *host)
@@ -1436,7 +1436,7 @@ unsigned char acornscsi_readmessagebyte(AS_Host *host)
 
     message = sbic_arm_read(host, SBIC_DATA);
 
-    /*                            */
+    /* wait for MSGIN-XFER-PAUSED */
     acornscsi_sbic_wait(host, ASR_INT, ASR_INT, 1000, "for interrupt after message byte");
 
     sbic_arm_read(host, SBIC_SSR);
@@ -1445,9 +1445,9 @@ unsigned char acornscsi_readmessagebyte(AS_Host *host)
 }
 
 /*
-                                                  
-                                                                         
-                                            
+ * Function: void acornscsi_message(AS_Host *host)
+ * Purpose : Read complete message from connected target & action message
+ * Params  : host - host connected to target
  */
 static
 void acornscsi_message(AS_Host *host)
@@ -1474,7 +1474,7 @@ void acornscsi_message(AS_Host *host)
 	if (msgidx < msglen) {
 	    acornscsi_sbic_issuecmd(host, CMND_NEGATEACK);
 
-	    /*                      */
+	    /* wait for next msg-in */
 	    acornscsi_sbic_wait(host, ASR_INT, ASR_INT, 1000, "for interrupt after negate ack");
 	    sbic_arm_read(host, SBIC_SSR);
 	}
@@ -1489,11 +1489,11 @@ void acornscsi_message(AS_Host *host)
 
     if (host->scsi.phase == PHASE_RECONNECTED) {
 	/*
-                                                             
-                                                             
-                                                             
-                                                           
-  */
+	 * ANSI standard says: (Section SCSI-2 Rev. 10c Sect 5.6.17)
+	 * 'Whenever a target reconnects to an initiator to continue
+	 *  a tagged I/O process, the SIMPLE QUEUE TAG message shall
+	 *  be sent immediately following the IDENTIFY message...'
+	 */
 	if (message[0] == SIMPLE_QUEUE_TAG)
 	    host->scsi.reconnected.tag = message[1];
 	if (acornscsi_reconnect_finish(host))
@@ -1515,11 +1515,11 @@ void acornscsi_message(AS_Host *host)
 
     case SAVE_POINTERS:
 	/*
-                                                             
-                                                           
-                                                            
-                                                        
-  */
+	 * ANSI standard says: (Section SCSI-2 Rev. 10c Sect 5.6.20)
+	 * 'The SAVE DATA POINTER message is sent from a target to
+	 *  direct the initiator to copy the active data pointer to
+	 *  the saved data pointer for the current I/O process.
+	 */
 	acornscsi_dma_cleanup(host);
 	host->SCpnt->SCp = host->scsi.SCp;
 	host->SCpnt->SCp.sent_command = 0;
@@ -1528,14 +1528,14 @@ void acornscsi_message(AS_Host *host)
 
     case RESTORE_POINTERS:
 	/*
-                                                             
-                                                          
-                                                         
-                                                           
-                                                           
-                                                          
-                                           
-  */
+	 * ANSI standard says: (Section SCSI-2 Rev. 10c Sect 5.6.19)
+	 * 'The RESTORE POINTERS message is sent from a target to
+	 *  direct the initiator to copy the most recently saved
+	 *  command, data, and status pointers for the I/O process
+	 *  to the corresponding active pointers.  The command and
+	 *  status pointers shall be restored to the beginning of
+	 *  the present command and status areas.'
+	 */
 	acornscsi_dma_cleanup(host);
 	host->scsi.SCp = host->SCpnt->SCp;
 	host->scsi.phase = PHASE_MSGIN;
@@ -1543,33 +1543,33 @@ void acornscsi_message(AS_Host *host)
 
     case DISCONNECT:
 	/*
-                                                            
-                                                                   
-                                                                  
-                                                                     
-                                                                
-                                                              
-                                        
-  */
+	 * ANSI standard says: (Section SCSI-2 Rev. 10c Sect 6.4.2)
+	 * 'On those occasions when an error or exception condition occurs
+	 *  and the target elects to repeat the information transfer, the
+	 *  target may repeat the transfer either issuing a RESTORE POINTERS
+	 *  message or by disconnecting without issuing a SAVE POINTERS
+	 *  message.  When reconnection is completed, the most recent
+	 *  saved pointer values are restored.'
+	 */
 	acornscsi_dma_cleanup(host);
 	host->scsi.phase = PHASE_DISCONNECT;
 	break;
 
     case MESSAGE_REJECT:
-#if 0 /*                            */
+#if 0 /* this isn't needed any more */
 	/*
-                                                              
-                                                                     
-                                                                
-                                                                   
-  */
+	 * If we were negociating sync transfer, we don't yet know if
+	 * this REJECT is for the sync transfer or for the tagged queue/wide
+	 * transfer.  Re-initiate sync transfer negotiation now, and if
+	 * we got a REJECT in response to SDTR, then it'll be set to DONE.
+	 */
 	if (host->device[host->SCpnt->device->id].sync_state == SYNC_SENT_REQUEST)
 	    host->device[host->SCpnt->device->id].sync_state = SYNC_NEGOCIATE;
 #endif
 
 	/*
-                                                                  
-  */
+	 * If we have any messages waiting to go out, then assert ATN now
+	 */
 	if (msgqueue_msglength(&host->scsi.msgs))
 	    acornscsi_sbic_issuecmd(host, CMND_ASSERTATN);
 
@@ -1579,11 +1579,11 @@ void acornscsi_message(AS_Host *host)
 	case ORDERED_QUEUE_TAG:
 	case SIMPLE_QUEUE_TAG:
 	    /*
-                                                                 
-                                                                      
-                                                                    
-                                                                   
-      */
+	     * ANSI standard says: (Section SCSI-2 Rev. 10c Sect 5.6.17)
+	     *  If a target does not implement tagged queuing and a queue tag
+	     *  message is received, it shall respond with a MESSAGE REJECT
+	     *  message and accept the I/O process as if it were untagged.
+	     */
 	    printk(KERN_NOTICE "scsi%d.%c: disabling tagged queueing\n",
 		    host->host->host_no, acornscsi_target(host));
 	    host->SCpnt->device->simple_tags = 0;
@@ -1592,8 +1592,8 @@ void acornscsi_message(AS_Host *host)
 #endif
 	case EXTENDED_MESSAGE | (EXTENDED_SDTR << 8):
 	    /*
-                                                 
-      */
+	     * Target can't handle synchronous transfers
+	     */
 	    printk(KERN_NOTICE "scsi%d.%c: Using asynchronous transfer\n",
 		    host->host->host_no, acornscsi_target(host));
 	    host->device[host->SCpnt->device->id].sync_xfer = SYNCHTRANSFER_2DBA;
@@ -1607,11 +1607,11 @@ void acornscsi_message(AS_Host *host)
 	break;
 
     case QUEUE_FULL:
-	/*                            */
+	/* TODO: target queue is full */
 	break;
 
     case SIMPLE_QUEUE_TAG:
-	/*                                                                                                 */
+	/* tag queue reconnect... message[1] = queue tag.  Print something to indicate something happened! */
 	printk("scsi%d.%c: reconnect queue tag %02X\n",
 		host->host->host_no, acornscsi_target(host),
 		message[1]);
@@ -1623,11 +1623,11 @@ void acornscsi_message(AS_Host *host)
 	case EXTENDED_SDTR:
 	    if (host->device[host->SCpnt->device->id].sync_state == SYNC_SENT_REQUEST) {
 		/*
-                                                                   
-                                                                      
-                                                                  
-                                                                       
-   */
+		 * We requested synchronous transfers.  This isn't quite right...
+		 * We can only say if this succeeded if we proceed on to execute the
+		 * command from this message.  If we get a MESSAGE PARITY ERROR,
+		 * and the target retries fail, then we fallback to asynchronous mode
+		 */
 		host->device[host->SCpnt->device->id].sync_state = SYNC_COMPLETED;
 		printk(KERN_NOTICE "scsi%d.%c: Using synchronous transfer, offset %d, %d ns\n",
 			host->host->host_no, acornscsi_target(host),
@@ -1637,9 +1637,9 @@ void acornscsi_message(AS_Host *host)
 	    } else {
 		unsigned char period, length;
 		/*
-                                                                   
-                                                                  
-   */
+		 * Target requested synchronous transfers.  The agreement is only
+		 * to be in operation AFTER the target leaves message out phase.
+		 */
 		acornscsi_sbic_issuecmd(host, CMND_ASSERTATN);
 		period = max_t(unsigned int, message[3], sdtr_period / 4);
 		length = min_t(unsigned int, message[4], sdtr_size);
@@ -1651,15 +1651,15 @@ void acornscsi_message(AS_Host *host)
 	    sbic_arm_write(host, SBIC_SYNCHTRANSFER, host->device[host->SCpnt->device->id].sync_xfer);
 	    break;
 #else
-	    /*                                                        
-                       
-      */
+	    /* We do not accept synchronous transfers.  Respond with a
+	     * MESSAGE_REJECT.
+	     */
 #endif
 
 	case EXTENDED_WDTR:
-	    /*                                                              
-                                        
-      */
+	    /* The WD33C93A is only 8-bit.  We respond with a MESSAGE_REJECT
+	     * to a wide data transfer request.
+	     */
 	default:
 	    acornscsi_sbic_issuecmd(host, CMND_ASSERTATN);
 	    msgqueue_flush(&host->scsi.msgs);
@@ -1672,17 +1672,17 @@ void acornscsi_message(AS_Host *host)
     case LINKED_CMD_COMPLETE:
     case LINKED_FLG_CMD_COMPLETE:
 	/*
-                                        
-  */
+	 * We don't support linked commands yet
+	 */
 	if (0) {
 #if (DEBUG & DEBUG_LINK)
 	    printk("scsi%d.%c: lun %d tag %d linked command complete\n",
 		    host->host->host_no, acornscsi_target(host), host->SCpnt->tag);
 #endif
 	    /*
-                                                                         
-                                                    
-      */
+	     * A linked command should only terminate with one of these messages
+	     * if there are more linked commands available.
+	     */
 	    if (!host->SCpnt->next_link) {
 		printk(KERN_WARNING "scsi%d.%c: lun %d tag %d linked command complete, but no next_link\n",
 			instance->host_no, acornscsi_target(host), host->SCpnt->tag);
@@ -1698,13 +1698,13 @@ void acornscsi_message(AS_Host *host)
 		SCpnt->result = DID_OK | host->scsi.SCp.Message << 8 | host->Scsi.SCp.Status;
 		SCpnt->done(SCpnt);
 
-		/*                             */
+		/* initialise host->SCpnt->SCp */
 	    }
 	    break;
 	}
 #endif
 
-    default: /*                */
+    default: /* reject message */
 	printk(KERN_ERR "scsi%d.%c: unrecognised message %02X, rejecting\n",
 		host->host->host_no, acornscsi_target(host),
 		message[0]);
@@ -1718,15 +1718,15 @@ void acornscsi_message(AS_Host *host)
 }
 
 /*
-                                                       
-                                                     
-                                           
+ * Function: int acornscsi_buildmessages(AS_Host *host)
+ * Purpose : build the connection messages for a host
+ * Params  : host - host to add messages to
  */
 static
 void acornscsi_buildmessages(AS_Host *host)
 {
 #if 0
-    /*                                 */
+    /* does the device need resetting? */
     if (cmd_reset) {
 	msgqueue_addmsg(&host->scsi.msgs, 1, BUS_DEVICE_RESET);
 	return;
@@ -1738,7 +1738,7 @@ void acornscsi_buildmessages(AS_Host *host)
 			     host->SCpnt->device->lun));
 
 #if 0
-    /*                                                  */
+    /* does the device need the current command aborted */
     if (cmd_aborted) {
 	acornscsi_abortcmd(host->SCpnt->tag);
 	return;
@@ -1770,17 +1770,17 @@ void acornscsi_buildmessages(AS_Host *host)
 }
 
 /*
-                                                       
-                                                   
-                                                     
-                         
+ * Function: int acornscsi_starttransfer(AS_Host *host)
+ * Purpose : transfer data to/from connected target
+ * Params  : host - host to which target is connected
+ * Returns : 0 if failure
  */
 static
 int acornscsi_starttransfer(AS_Host *host)
 {
     int residual;
 
-    if (!host->scsi.SCp.ptr /*                               */) {
+    if (!host->scsi.SCp.ptr /*&& host->scsi.SCp.this_residual*/) {
 	printk(KERN_ERR "scsi%d.%c: null buffer passed to acornscsi_starttransfer\n",
 		host->host->host_no, acornscsi_target(host));
 	return 0;
@@ -1796,16 +1796,16 @@ int acornscsi_starttransfer(AS_Host *host)
     return 1;
 }
 
-/*                                                                                          
-                             
+/* =========================================================================================
+ * Connection & Disconnection
  */
 /*
-                                                
-                                                         
-                                       
-                             
-                                                        
-                                                            
+ * Function : acornscsi_reconnect(AS_Host *host)
+ * Purpose  : reconnect a previously disconnected command
+ * Params   : host - host specific data
+ * Remarks  : SCSI spec says:
+ *		'The set of active pointers is restored from the set
+ *		 of saved pointers upon reconnection of the I/O process'
  */
 static
 int acornscsi_reconnect(AS_Host *host)
@@ -1846,7 +1846,7 @@ int acornscsi_reconnect(AS_Host *host)
     if (ok) {
 	host->scsi.phase = PHASE_RECONNECTED;
     } else {
-	/*                           */
+	/* this doesn't seem to work */
 	printk(KERN_ERR "scsi%d.%c: reselected with no command "
 		"to reconnect with\n",
 		host->host->host_no, '0' + target);
@@ -1862,10 +1862,10 @@ int acornscsi_reconnect(AS_Host *host)
 }
 
 /*
-                                                         
-                                          
-                                    
-                        
+ * Function: int acornscsi_reconect_finish(AS_Host *host)
+ * Purpose : finish reconnecting a command
+ * Params  : host - host to complete
+ * Returns : 0 if failed
  */
 static
 int acornscsi_reconnect_finish(AS_Host *host)
@@ -1904,8 +1904,8 @@ int acornscsi_reconnect_finish(AS_Host *host)
 	acornscsi_abortcmd(host, host->scsi.reconnected.tag);
     else {
 	/*
-                                             
-  */
+	 * Restore data pointer from SAVED pointers.
+	 */
 	host->scsi.SCp = host->SCpnt->SCp;
 #if (DEBUG & (DEBUG_QUEUES|DEBUG_DISCON))
 	printk(", data pointers: [%p, %X]",
@@ -1922,9 +1922,9 @@ int acornscsi_reconnect_finish(AS_Host *host)
 }
 
 /*
-                                                                
-                                            
-                                                     
+ * Function: void acornscsi_disconnect_unexpected(AS_Host *host)
+ * Purpose : handle an unexpected disconnect
+ * Params  : host - host on which disconnect occurred
  */
 static
 void acornscsi_disconnect_unexpected(AS_Host *host)
@@ -1939,10 +1939,10 @@ void acornscsi_disconnect_unexpected(AS_Host *host)
 }
 
 /*
-                                                                      
-                                                
-                                                        
-                           
+ * Function: void acornscsi_abortcmd(AS_host *host, unsigned char tag)
+ * Purpose : abort a currently executing command
+ * Params  : host - host with connected command to abort
+ *	     tag  - tag to abort
  */
 static
 void acornscsi_abortcmd(AS_Host *host, unsigned char tag)
@@ -1959,16 +1959,16 @@ void acornscsi_abortcmd(AS_Host *host, unsigned char tag)
 	msgqueue_addmsg(&host->scsi.msgs, 1, ABORT);
 }
 
-/*                                                                                           
-                      
+/* ==========================================================================================
+ * Interrupt routines.
  */
 /*
-                                                  
-                                               
-                                   
-                                                             
-                                 
-                                                                    
+ * Function: int acornscsi_sbicintr(AS_Host *host)
+ * Purpose : handle interrupts from SCSI device
+ * Params  : host - host to process
+ * Returns : INTR_PROCESS if expecting another SBIC interrupt
+ *	     INTR_IDLE if no interrupt
+ *	     INTR_NEXT_COMMAND if we have finished processing the command
  */
 static
 intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
@@ -1991,15 +1991,15 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	ADD_STATUS(host->SCpnt->device->id, ssr, host->scsi.phase, in_irq);
 
     switch (ssr) {
-    case 0x00:				/*                              */
+    case 0x00:				/* reset state - not advanced			*/
 	printk(KERN_ERR "scsi%d: reset in standard mode but wanted advanced mode.\n",
 		host->host->host_no);
-	/*                       */
+	/* setup sbic - WD33C93A */
 	sbic_arm_write(host, SBIC_OWNID, OWNID_EAF | host->host->this_id);
 	sbic_arm_write(host, SBIC_CMND, CMND_RESET);
 	return INTR_IDLE;
 
-    case 0x01:				/*                          */
+    case 0x01:				/* reset state - advanced			*/
 	sbic_arm_write(host, SBIC_CTRL, INIT_SBICDMA | CTRL_IDI);
 	sbic_arm_write(host, SBIC_TIMEOUT, TIMEOUT_TIME);
 	sbic_arm_write(host, SBIC_SYNCHTRANSFER, SYNCHTRANSFER_2DBA);
@@ -2007,20 +2007,20 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	msgqueue_flush(&host->scsi.msgs);
 	return INTR_IDLE;
 
-    case 0x41:				/*                                       */
+    case 0x41:				/* unexpected disconnect aborted command	*/
 	acornscsi_disconnect_unexpected(host);
 	return INTR_NEXT_COMMAND;
     }
 
     switch (host->scsi.phase) {
-    case PHASE_CONNECTING:		/*                                         */
+    case PHASE_CONNECTING:		/* STATE: command removed from issue queue	*/
 	switch (ssr) {
-	case 0x11:			/*                       */
-	    /*                       */
+	case 0x11:			/* -> PHASE_CONNECTED				*/
+	    /* BUS FREE -> SELECTION */
 	    host->scsi.phase = PHASE_CONNECTED;
 	    msgqueue_flush(&host->scsi.msgs);
 	    host->dma.transferred = host->scsi.SCp.scsi_xferred;
-	    /*                                                 */
+	    /* 33C93 gives next interrupt indicating bus phase */
 	    asr = sbic_arm_read(host, SBIC_ASR);
 	    if (!(asr & ASR_INT))
 		break;
@@ -2029,13 +2029,13 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	    ADD_STATUS(host->SCpnt->device->id, ssr, host->scsi.phase, 1);
 	    goto connected;
 	    
-	case 0x42:			/*                     */
-					/*                  */
+	case 0x42:			/* select timed out				*/
+					/* -> PHASE_IDLE				*/
 	    acornscsi_done(host, &host->SCpnt, DID_NO_CONNECT);
 	    return INTR_NEXT_COMMAND;
 
-	case 0x81:			/*                                       */
-	    /*                         */
+	case 0x81:			/* -> PHASE_RECONNECTED or PHASE_ABORTED	*/
+	    /* BUS FREE -> RESELECTION */
 	    host->origSCpnt = host->SCpnt;
 	    host->SCpnt = NULL;
 	    msgqueue_flush(&host->scsi.msgs);
@@ -2051,30 +2051,30 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	return INTR_PROCESSING;
 
     connected:
-    case PHASE_CONNECTED:		/*                             */
+    case PHASE_CONNECTED:		/* STATE: device selected ok			*/
 	switch (ssr) {
 #ifdef NONSTANDARD
-	case 0x8a:			/*                                       */
-	    /*                      */
+	case 0x8a:			/* -> PHASE_COMMAND, PHASE_COMMANDPAUSED	*/
+	    /* SELECTION -> COMMAND */
 	    acornscsi_sendcommand(host);
 	    break;
 
-	case 0x8b:			/*                    */
-	    /*                     */
+	case 0x8b:			/* -> PHASE_STATUS				*/
+	    /* SELECTION -> STATUS */
 	    acornscsi_readstatusbyte(host);
 	    host->scsi.phase = PHASE_STATUSIN;
 	    break;
 #endif
 
-	case 0x8e:			/*                    */
-	    /*                         */
+	case 0x8e:			/* -> PHASE_MSGOUT				*/
+	    /* SELECTION ->MESSAGE OUT */
 	    host->scsi.phase = PHASE_MSGOUT;
 	    acornscsi_buildmessages(host);
 	    acornscsi_sendmessage(host);
 	    break;
 
-	/*                         */
-	case 0x85:			/*                        */
+	/* these should not happen */
+	case 0x85:			/* target disconnected				*/
 	    acornscsi_done(host, &host->SCpnt, DID_ERROR);
 	    break;
 
@@ -2086,33 +2086,33 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	}
 	return INTR_PROCESSING;
 
-    case PHASE_MSGOUT:			/*                                          */
+    case PHASE_MSGOUT:			/* STATE: connected & sent IDENTIFY message	*/
 	/*
-                                                                   
-                                                               
-  */
+	 * SCSI standard says that MESSAGE OUT phases can be followed by a
+	 * DATA phase, STATUS phase, MESSAGE IN phase or COMMAND phase
+	 */
 	switch (ssr) {
-	case 0x8a:			/*                                       */
-	case 0x1a:			/*                                       */
-	    /*                        */
+	case 0x8a:			/* -> PHASE_COMMAND, PHASE_COMMANDPAUSED	*/
+	case 0x1a:			/* -> PHASE_COMMAND, PHASE_COMMANDPAUSED	*/
+	    /* MESSAGE OUT -> COMMAND */
 	    acornscsi_sendcommand(host);
 	    break;
 
-	case 0x8b:			/*                    */
-	case 0x1b:			/*                    */
-	    /*                       */
+	case 0x8b:			/* -> PHASE_STATUS				*/
+	case 0x1b:			/* -> PHASE_STATUS				*/
+	    /* MESSAGE OUT -> STATUS */
 	    acornscsi_readstatusbyte(host);
 	    host->scsi.phase = PHASE_STATUSIN;
 	    break;
 
-	case 0x8e:			/*                    */
-	    /*                                       */
+	case 0x8e:			/* -> PHASE_MSGOUT				*/
+	    /* MESSAGE_OUT(MESSAGE_IN) ->MESSAGE OUT */
 	    acornscsi_sendmessage(host);
 	    break;
 
-	case 0x4f:			/*                                   */
-	case 0x1f:			/*                                   */
-	    /*                           */
+	case 0x4f:			/* -> PHASE_MSGIN, PHASE_DISCONNECT		*/
+	case 0x1f:			/* -> PHASE_MSGIN, PHASE_DISCONNECT		*/
+	    /* MESSAGE OUT -> MESSAGE IN */
 	    acornscsi_message(host);
 	    break;
 
@@ -2123,10 +2123,10 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	}
 	return INTR_PROCESSING;
 
-    case PHASE_COMMAND: 		/*                                  */
+    case PHASE_COMMAND: 		/* STATE: connected & command sent		*/
 	switch (ssr) {
-	case 0x18:			/*                     */
-	    /*                     */
+	case 0x18:			/* -> PHASE_DATAOUT				*/
+	    /* COMMAND -> DATA OUT */
 	    if (host->scsi.SCp.sent_command != host->SCpnt->cmd_len)
 		acornscsi_abortcmd(host, host->SCpnt->tag);
 	    acornscsi_dma_setup(host, DMA_OUT);
@@ -2135,8 +2135,8 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	    host->scsi.phase = PHASE_DATAOUT;
 	    return INTR_IDLE;
 
-	case 0x19:			/*                    */
-	    /*                    */
+	case 0x19:			/* -> PHASE_DATAIN				*/
+	    /* COMMAND -> DATA IN */
 	    if (host->scsi.SCp.sent_command != host->SCpnt->cmd_len)
 		acornscsi_abortcmd(host, host->SCpnt->tag);
 	    acornscsi_dma_setup(host, DMA_IN);
@@ -2145,19 +2145,19 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	    host->scsi.phase = PHASE_DATAIN;
 	    return INTR_IDLE;
 
-	case 0x1b:			/*                    */
-	    /*                   */
+	case 0x1b:			/* -> PHASE_STATUS				*/
+	    /* COMMAND -> STATUS */
 	    acornscsi_readstatusbyte(host);
 	    host->scsi.phase = PHASE_STATUSIN;
 	    break;
 
-	case 0x1e:			/*                    */
-	    /*                        */
+	case 0x1e:			/* -> PHASE_MSGOUT				*/
+	    /* COMMAND -> MESSAGE OUT */
 	    acornscsi_sendmessage(host);
 	    break;
 
-	case 0x1f:			/*                                   */
-	    /*                       */
+	case 0x1f:			/* -> PHASE_MSGIN, PHASE_DISCONNECT		*/
+	    /* COMMAND -> MESSAGE IN */
 	    acornscsi_message(host);
 	    break;
 
@@ -2168,8 +2168,8 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	}
 	return INTR_PROCESSING;
 
-    case PHASE_DISCONNECT:		/*                                           */
-	if (ssr == 0x85) {		/*                  */
+    case PHASE_DISCONNECT:		/* STATE: connected, received DISCONNECT msg	*/
+	if (ssr == 0x85) {		/* -> PHASE_IDLE				*/
 	    host->scsi.disconnectable = 1;
 	    host->scsi.reconnected.tag = 0;
 	    host->scsi.phase = PHASE_IDLE;
@@ -2181,8 +2181,8 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	}
 	return INTR_NEXT_COMMAND;
 
-    case PHASE_IDLE:			/*                        */
-	if (ssr == 0x81)		/*                                       */
+    case PHASE_IDLE:			/* STATE: disconnected				*/
+	if (ssr == 0x81)		/* -> PHASE_RECONNECTED or PHASE_ABORTED	*/
 	    acornscsi_reconnect(host);
 	else {
 	    printk(KERN_ERR "scsi%d.%c: PHASE_IDLE, SSR %02X while idle?\n",
@@ -2191,57 +2191,57 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	}
 	return INTR_PROCESSING;
 
-    case PHASE_RECONNECTED:		/*                                        */
+    case PHASE_RECONNECTED:		/* STATE: device reconnected to initiator	*/
 	/*
-                                                            
-                                                           
-  */
+	 * Command reconnected - if MESGIN, get message - it may be
+	 * the tag.  If not, get command out of disconnected queue
+	 */
 	/*
-                                                                       
-                           
-  */
+	 * If we reconnected and we're not in MESSAGE IN phase after IDENTIFY,
+	 * reconnect I_T_L command
+	 */
 	if (ssr != 0x8f && !acornscsi_reconnect_finish(host))
 	    return INTR_IDLE;
 	ADD_STATUS(host->SCpnt->device->id, ssr, host->scsi.phase, in_irq);
 	switch (ssr) {
-	case 0x88:			/*                   */
-					/*                     */
-	    /*                        */
+	case 0x88:			/* data out phase				*/
+					/* -> PHASE_DATAOUT				*/
+	    /* MESSAGE IN -> DATA OUT */
 	    acornscsi_dma_setup(host, DMA_OUT);
 	    if (!acornscsi_starttransfer(host))
 		acornscsi_abortcmd(host, host->SCpnt->tag);
 	    host->scsi.phase = PHASE_DATAOUT;
 	    return INTR_IDLE;
 
-	case 0x89:			/*                  */
-					/*                    */
-	    /*                       */
+	case 0x89:			/* data in phase				*/
+					/* -> PHASE_DATAIN				*/
+	    /* MESSAGE IN -> DATA IN */
 	    acornscsi_dma_setup(host, DMA_IN);
 	    if (!acornscsi_starttransfer(host))
 		acornscsi_abortcmd(host, host->SCpnt->tag);
 	    host->scsi.phase = PHASE_DATAIN;
 	    return INTR_IDLE;
 
-	case 0x8a:			/*                 */
-	    /*                       */
-	    acornscsi_sendcommand(host);/*                                       */
+	case 0x8a:			/* command out					*/
+	    /* MESSAGE IN -> COMMAND */
+	    acornscsi_sendcommand(host);/* -> PHASE_COMMAND, PHASE_COMMANDPAUSED	*/
 	    break;
 
-	case 0x8b:			/*               */
-					/*                      */
-	    /*                      */
+	case 0x8b:			/* status in					*/
+					/* -> PHASE_STATUSIN				*/
+	    /* MESSAGE IN -> STATUS */
 	    acornscsi_readstatusbyte(host);
 	    host->scsi.phase = PHASE_STATUSIN;
 	    break;
 
-	case 0x8e:			/*                 */
-					/*                    */
-	    /*                           */
+	case 0x8e:			/* message out					*/
+					/* -> PHASE_MSGOUT				*/
+	    /* MESSAGE IN -> MESSAGE OUT */
 	    acornscsi_sendmessage(host);
 	    break;
 
-	case 0x8f:			/*                */
-	    acornscsi_message(host);	/*                                   */
+	case 0x8f:			/* message in					*/
+	    acornscsi_message(host);	/* -> PHASE_MSGIN, PHASE_DISCONNECT		*/
 	    break;
 
 	default:
@@ -2251,21 +2251,21 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	}
 	return INTR_PROCESSING;
 
-    case PHASE_DATAIN:			/*                              */
+    case PHASE_DATAIN:			/* STATE: transferred data in			*/
 	/*
-                                                                     
-            
-  */
+	 * This is simple - if we disconnect then the DMA address & count is
+	 * correct.
+	 */
 	switch (ssr) {
-	case 0x19:			/*                    */
-	case 0x89:			/*                    */
+	case 0x19:			/* -> PHASE_DATAIN				*/
+	case 0x89:			/* -> PHASE_DATAIN				*/
 	    acornscsi_abortcmd(host, host->SCpnt->tag);
 	    return INTR_IDLE;
 
-	case 0x1b:			/*                      */
-	case 0x4b:			/*                      */
-	case 0x8b:			/*                      */
-	    /*                   */
+	case 0x1b:			/* -> PHASE_STATUSIN				*/
+	case 0x4b:			/* -> PHASE_STATUSIN				*/
+	case 0x8b:			/* -> PHASE_STATUSIN				*/
+	    /* DATA IN -> STATUS */
 	    host->scsi.SCp.scsi_xferred = scsi_bufflen(host->SCpnt) -
 					  acornscsi_sbic_xfcount(host);
 	    acornscsi_dma_stop(host);
@@ -2273,24 +2273,24 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	    host->scsi.phase = PHASE_STATUSIN;
 	    break;
 
-	case 0x1e:			/*                    */
-	case 0x4e:			/*                    */
-	case 0x8e:			/*                    */
-	    /*                        */
+	case 0x1e:			/* -> PHASE_MSGOUT				*/
+	case 0x4e:			/* -> PHASE_MSGOUT				*/
+	case 0x8e:			/* -> PHASE_MSGOUT				*/
+	    /* DATA IN -> MESSAGE OUT */
 	    host->scsi.SCp.scsi_xferred = scsi_bufflen(host->SCpnt) -
 					  acornscsi_sbic_xfcount(host);
 	    acornscsi_dma_stop(host);
 	    acornscsi_sendmessage(host);
 	    break;
 
-	case 0x1f:			/*                */
-	case 0x4f:			/*                */
-	case 0x8f:			/*                */
-	    /*                       */
+	case 0x1f:			/* message in					*/
+	case 0x4f:			/* message in					*/
+	case 0x8f:			/* message in					*/
+	    /* DATA IN -> MESSAGE IN */
 	    host->scsi.SCp.scsi_xferred = scsi_bufflen(host->SCpnt) -
 					  acornscsi_sbic_xfcount(host);
 	    acornscsi_dma_stop(host);
-	    acornscsi_message(host);	/*                                   */
+	    acornscsi_message(host);	/* -> PHASE_MSGIN, PHASE_DISCONNECT		*/
 	    break;
 
 	default:
@@ -2300,21 +2300,21 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	}
 	return INTR_PROCESSING;
 
-    case PHASE_DATAOUT: 		/*                               */
+    case PHASE_DATAOUT: 		/* STATE: transferred data out			*/
 	/*
-                                                                    
-                                                
-  */
+	 * This is more complicated - if we disconnect, the DMA could be 12
+	 * bytes ahead of us.  We need to correct this.
+	 */
 	switch (ssr) {
-	case 0x18:			/*                     */
-	case 0x88:			/*                     */
+	case 0x18:			/* -> PHASE_DATAOUT				*/
+	case 0x88:			/* -> PHASE_DATAOUT				*/
 	    acornscsi_abortcmd(host, host->SCpnt->tag);
 	    return INTR_IDLE;
 
-	case 0x1b:			/*                      */
-	case 0x4b:			/*                      */
-	case 0x8b:			/*                      */
-	    /*                    */
+	case 0x1b:			/* -> PHASE_STATUSIN				*/
+	case 0x4b:			/* -> PHASE_STATUSIN				*/
+	case 0x8b:			/* -> PHASE_STATUSIN				*/
+	    /* DATA OUT -> STATUS */
 	    host->scsi.SCp.scsi_xferred = scsi_bufflen(host->SCpnt) -
 					  acornscsi_sbic_xfcount(host);
 	    acornscsi_dma_stop(host);
@@ -2323,10 +2323,10 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	    host->scsi.phase = PHASE_STATUSIN;
 	    break;
 
-	case 0x1e:			/*                    */
-	case 0x4e:			/*                    */
-	case 0x8e:			/*                    */
-	    /*                         */
+	case 0x1e:			/* -> PHASE_MSGOUT				*/
+	case 0x4e:			/* -> PHASE_MSGOUT				*/
+	case 0x8e:			/* -> PHASE_MSGOUT				*/
+	    /* DATA OUT -> MESSAGE OUT */
 	    host->scsi.SCp.scsi_xferred = scsi_bufflen(host->SCpnt) -
 					  acornscsi_sbic_xfcount(host);
 	    acornscsi_dma_stop(host);
@@ -2334,15 +2334,15 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	    acornscsi_sendmessage(host);
 	    break;
 
-	case 0x1f:			/*                */
-	case 0x4f:			/*                */
-	case 0x8f:			/*                */
-	    /*                        */
+	case 0x1f:			/* message in					*/
+	case 0x4f:			/* message in					*/
+	case 0x8f:			/* message in					*/
+	    /* DATA OUT -> MESSAGE IN */
 	    host->scsi.SCp.scsi_xferred = scsi_bufflen(host->SCpnt) -
 					  acornscsi_sbic_xfcount(host);
 	    acornscsi_dma_stop(host);
 	    acornscsi_dma_adjust(host);
-	    acornscsi_message(host);	/*                                   */
+	    acornscsi_message(host);	/* -> PHASE_MSGIN, PHASE_DISCONNECT		*/
 	    break;
 
 	default:
@@ -2352,17 +2352,17 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	}
 	return INTR_PROCESSING;
 
-    case PHASE_STATUSIN:		/*                             */
+    case PHASE_STATUSIN:		/* STATE: status in complete			*/
 	switch (ssr) {
-	case 0x1f:			/*                                              */
-	case 0x8f:			/*                                              */
-	    /*                      */
+	case 0x1f:			/* -> PHASE_MSGIN, PHASE_DONE, PHASE_DISCONNECT */
+	case 0x8f:			/* -> PHASE_MSGIN, PHASE_DONE, PHASE_DISCONNECT */
+	    /* STATUS -> MESSAGE IN */
 	    acornscsi_message(host);
 	    break;
 
-	case 0x1e:			/*                    */
-	case 0x8e:			/*                    */
-	    /*                       */
+	case 0x1e:			/* -> PHASE_MSGOUT				*/
+	case 0x8e:			/* -> PHASE_MSGOUT				*/
+	    /* STATUS -> MESSAGE OUT */
 	    acornscsi_sendmessage(host);
 	    break;
 
@@ -2373,16 +2373,16 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	}
 	return INTR_PROCESSING;
 
-    case PHASE_MSGIN:			/*                      */
+    case PHASE_MSGIN:			/* STATE: message in				*/
 	switch (ssr) {
-	case 0x1e:			/*                    */
-	case 0x4e:			/*                    */
-	case 0x8e:			/*                    */
-	    /*                           */
+	case 0x1e:			/* -> PHASE_MSGOUT				*/
+	case 0x4e:			/* -> PHASE_MSGOUT				*/
+	case 0x8e:			/* -> PHASE_MSGOUT				*/
+	    /* MESSAGE IN -> MESSAGE OUT */
 	    acornscsi_sendmessage(host);
 	    break;
 
-	case 0x1f:			/*                                              */
+	case 0x1f:			/* -> PHASE_MSGIN, PHASE_DONE, PHASE_DISCONNECT */
 	case 0x2f:
 	case 0x4f:
 	case 0x8f:
@@ -2403,9 +2403,9 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 	}
 	return INTR_PROCESSING;
 
-    case PHASE_DONE:			/*                                   */
+    case PHASE_DONE:			/* STATE: received status & message		*/
 	switch (ssr) {
-	case 0x85:			/*                  */
+	case 0x85:			/* -> PHASE_IDLE				*/
 	    acornscsi_done(host, &host->SCpnt, DID_OK);
 	    return INTR_NEXT_COMMAND;
 
@@ -2456,10 +2456,10 @@ intr_ret_t acornscsi_sbicintr(AS_Host *host, int in_irq)
 }
 
 /*
-                                                        
-                                                    
-                                       
-                                                          
+ * Prototype: void acornscsi_intr(int irq, void *dev_id)
+ * Purpose  : handle interrupts from Acorn SCSI card
+ * Params   : irq    - interrupt number
+ *	      dev_id - device specific data (AS_Host structure)
  */
 static irqreturn_t
 acornscsi_intr(int irq, void *dev_id)
@@ -2483,10 +2483,10 @@ acornscsi_intr(int irq, void *dev_id)
 	    ret = acornscsi_sbicintr(host, in_irq);
 
 	/*
-                                            
-                                                                   
-             
-  */
+	 * If we have a transfer pending, start it.
+	 * Only start it if the interface has already started transferring
+	 * it's data
+	 */
 	if (host->dma.xfer_required)
 	    acornscsi_dma_xfer(host);
 
@@ -2499,16 +2499,16 @@ acornscsi_intr(int irq, void *dev_id)
     return IRQ_HANDLED;
 }
 
-/*                                                                                             
-                                                             
+/*=============================================================================================
+ * Interfaces between interrupt handler and rest of scsi code
  */
 
 /*
-                                                                                         
-                                   
-                                 
-                                                                                 
-                                 
+ * Function : acornscsi_queuecmd(struct scsi_cmnd *cmd, void (*done)(struct scsi_cmnd *))
+ * Purpose  : queues a SCSI command
+ * Params   : cmd  - SCSI command
+ *	      done - function called on completion, with pointer to command descriptor
+ * Returns  : 0, or < 0 on error.
  */
 static int acornscsi_queuecmd_lck(struct scsi_cmnd *SCpnt,
 		       void (*done)(struct scsi_cmnd *))
@@ -2516,7 +2516,7 @@ static int acornscsi_queuecmd_lck(struct scsi_cmnd *SCpnt,
     AS_Host *host = (AS_Host *)SCpnt->device->host->hostdata;
 
     if (!done) {
-	/*                                                                            */
+	/* there should be some way of rejecting errors like this without panicing... */
 	panic("scsi%d: queuecommand called with NULL done function [cmd=%p]",
 		host->host->host_no, SCpnt);
 	return -EINVAL;
@@ -2563,12 +2563,12 @@ static int acornscsi_queuecmd_lck(struct scsi_cmnd *SCpnt,
 DEF_SCSI_QCMD(acornscsi_queuecmd)
 
 /*
-                                                                                                             
-                                                                         
-                                                    
-                                              
-                                                                 
-                                                                                    
+ * Prototype: void acornscsi_reportstatus(struct scsi_cmnd **SCpntp1, struct scsi_cmnd **SCpntp2, int result)
+ * Purpose  : pass a result to *SCpntp1, and check if *SCpntp1 = *SCpntp2
+ * Params   : SCpntp1 - pointer to command to return
+ *	      SCpntp2 - pointer to command to check
+ *	      result  - result to pass back to mid-level done function
+ * Returns  : *SCpntp2 = NULL if *SCpntp1 is the same command structure as *SCpntp2.
  */
 static inline void acornscsi_reportstatus(struct scsi_cmnd **SCpntp1,
 					  struct scsi_cmnd **SCpntp2,
@@ -2590,10 +2590,10 @@ static inline void acornscsi_reportstatus(struct scsi_cmnd **SCpntp1,
 enum res_abort { res_not_running, res_success, res_success_clear, res_snooze };
 
 /*
-                                                                  
-                                          
-                                      
-                              
+ * Prototype: enum res acornscsi_do_abort(struct scsi_cmnd *SCpnt)
+ * Purpose  : abort a command on this host
+ * Params   : SCpnt - command to abort
+ * Returns  : our abort status
  */
 static enum res_abort acornscsi_do_abort(AS_Host *host, struct scsi_cmnd *SCpnt)
 {
@@ -2601,44 +2601,44 @@ static enum res_abort acornscsi_do_abort(AS_Host *host, struct scsi_cmnd *SCpnt)
 
 	if (queue_remove_cmd(&host->queues.issue, SCpnt)) {
 		/*
-                                                         
-                                                           
-                                                            
-                                      
-   */
-//                         
+		 * The command was on the issue queue, and has not been
+		 * issued yet.  We can remove the command from the queue,
+		 * and acknowledge the abort.  Neither the devices nor the
+		 * interface know about the command.
+		 */
+//#if (DEBUG & DEBUG_ABORT)
 		printk("on issue queue ");
-//      
+//#endif
 		res = res_success;
 	} else if (queue_remove_cmd(&host->queues.disconnected, SCpnt)) {
 		/*
-                                                       
-                                                         
-                                                       
-                                                     
-                     
-   */
-//                         
+		 * The command was on the disconnected queue.  Simply
+		 * acknowledge the abort condition, and when the target
+		 * reconnects, we will give it an ABORT message.  The
+		 * target should then disconnect, and we will clear
+		 * the busylun bit.
+		 */
+//#if (DEBUG & DEBUG_ABORT)
 		printk("on disconnected queue ");
-//      
+//#endif
 		res = res_success;
 	} else if (host->SCpnt == SCpnt) {
 		unsigned long flags;
 
-//                         
+//#if (DEBUG & DEBUG_ABORT)
 		printk("executing ");
-//      
+//#endif
 
 		local_irq_save(flags);
 		switch (host->scsi.phase) {
 		/*
-                                                                   
-                                                                 
-                                                                   
-                                                                 
-                                                                  
-                     
-   */
+		 * If the interface is idle, and the command is 'disconnectable',
+		 * then it is the same as on the disconnected queue.  We simply
+		 * remove all traces of the command.  When the target reconnects,
+		 * we will give it an ABORT message since the command could not
+		 * be found.  When the target finally disconnects, we will clear
+		 * the busylun bit.
+		 */
 		case PHASE_IDLE:
 			if (host->scsi.disconnectable) {
 				host->scsi.disconnectable = 0;
@@ -2648,10 +2648,10 @@ static enum res_abort acornscsi_do_abort(AS_Host *host, struct scsi_cmnd *SCpnt)
 			break;
 
 		/*
-                                                           
-                                                          
-                 
-   */
+		 * If the command has connected and done nothing further,
+		 * simply force a disconnect.  We also need to clear the
+		 * busylun bit.
+		 */
 		case PHASE_CONNECTED:
 			sbic_arm_write(host, SBIC_CMND, CMND_DISCONNECT);
 			host->SCpnt = NULL;
@@ -2665,15 +2665,15 @@ static enum res_abort acornscsi_do_abort(AS_Host *host, struct scsi_cmnd *SCpnt)
 		local_irq_restore(flags);
 	} else if (host->origSCpnt == SCpnt) {
 		/*
-                                                     
-                                                          
-                                                         
-              
-   */
+		 * The command will be executed next, but a command
+		 * is currently using the interface.  This is similar to
+		 * being on the issue queue, except the busylun bit has
+		 * been set.
+		 */
 		host->origSCpnt = NULL;
-//                         
+//#if (DEBUG & DEBUG_ABORT)
 		printk("waiting for execution ");
-//      
+//#endif
 		res = res_success_clear;
 	} else
 		printk("unknown ");
@@ -2682,10 +2682,10 @@ static enum res_abort acornscsi_do_abort(AS_Host *host, struct scsi_cmnd *SCpnt)
 }
 
 /*
-                                                          
-                                          
-                                      
-                                       
+ * Prototype: int acornscsi_abort(struct scsi_cmnd *SCpnt)
+ * Purpose  : abort a command on this host
+ * Params   : SCpnt - command to abort
+ * Returns  : one of SCSI_ABORT_ macros
  */
 int acornscsi_abort(struct scsi_cmnd *SCpnt)
 {
@@ -2710,51 +2710,51 @@ int acornscsi_abort(struct scsi_cmnd *SCpnt)
 
 	switch (acornscsi_do_abort(host, SCpnt)) {
 	/*
-                                                      
-                                                       
-                                            
-  */
+	 * We managed to find the command and cleared it out.
+	 * We do not expect the command to be executing on the
+	 * target, but we have set the busylun bit.
+	 */
 	case res_success_clear:
-//                         
+//#if (DEBUG & DEBUG_ABORT)
 		printk("clear ");
-//      
+//#endif
 		clear_bit(SCpnt->device->id * 8 + SCpnt->device->lun, host->busyluns);
 
 	/*
-                                                     
-                                                     
-                                          
-  */
+	 * We found the command, and cleared it out.  Either
+	 * the command is still known to be executing on the
+	 * target, or the busylun bit is not set.
+	 */
 	case res_success:
-//                         
+//#if (DEBUG & DEBUG_ABORT)
 		printk("success\n");
-//      
+//#endif
 		result = SUCCESS;
 		break;
 
 	/*
-                                                          
-                                                        
-                                                
-  */
+	 * We did find the command, but unfortunately we couldn't
+	 * unhook it from ourselves.  Wait some more, and if it
+	 * still doesn't complete, reset the interface.
+	 */
 	case res_snooze:
-//                         
+//#if (DEBUG & DEBUG_ABORT)
 		printk("snooze\n");
-//      
+//#endif
 		result = FAILED;
 		break;
 
 	/*
-                                                                
-                      
-  */
+	 * The command could not be found (either because it completed,
+	 * or it got dropped.
+	 */
 	default:
 	case res_not_running:
 		acornscsi_dumplog(host, SCpnt->device->id);
 		result = FAILED;
-//                         
+//#if (DEBUG & DEBUG_ABORT)
 		printk("not running\n");
-//      
+//#endif
 		break;
 	}
 
@@ -2762,10 +2762,10 @@ int acornscsi_abort(struct scsi_cmnd *SCpnt)
 }
 
 /*
-                                                          
-                                                          
-                                            
-                                       
+ * Prototype: int acornscsi_reset(struct scsi_cmnd *SCpnt)
+ * Purpose  : reset a command on this host/reset this host
+ * Params   : SCpnt  - command causing reset
+ * Returns  : one of SCSI_RESET_ macros
  */
 int acornscsi_bus_reset(struct scsi_cmnd *SCpnt)
 {
@@ -2790,8 +2790,8 @@ int acornscsi_bus_reset(struct scsi_cmnd *SCpnt)
     acornscsi_dma_stop(host);
 
     /*
-                                                                      
-                                                 
+     * do hard reset.  This resets all devices on this host, and so we
+     * must set the reset status on all commands.
      */
     acornscsi_resetcard(host);
 
@@ -2801,15 +2801,15 @@ int acornscsi_bus_reset(struct scsi_cmnd *SCpnt)
     return SUCCESS;
 }
 
-/*                                                                                              
-                                         
+/*==============================================================================================
+ * initialisation & miscellaneous support
  */
 
 /*
-                                                         
-                                                      
-                                               
-                              
+ * Function: char *acornscsi_info(struct Scsi_Host *host)
+ * Purpose : return a string describing this interface
+ * Params  : host - host to give information on
+ * Returns : a constant string
  */
 const
 char *acornscsi_info(struct Scsi_Host *host)
@@ -3041,8 +3041,8 @@ static void __devexit acornscsi_remove(struct expansion_card *ec)
 	scsi_remove_host(host);
 
 	/*
-                             
-  */
+	 * Put card into RESET state
+	 */
 	writeb(0x80, ashost->fast + PAGE_REG);
 
 	free_irq(host->irq, ashost);

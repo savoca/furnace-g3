@@ -47,8 +47,8 @@ struct spi_device *fc8080_spi = NULL;
 #ifdef USE_QCT_DMA_LGE
 #include <linux/miscdevice.h>
 static fci_u8 tx_data[10] __cacheline_aligned;
-static fci_u8 tdata_buf[40] __cacheline_aligned ;//      
-static fci_u8 rdata_buf[8196] __cacheline_aligned;//       
+static fci_u8 tdata_buf[40] __cacheline_aligned ;//= {0};
+static fci_u8 rdata_buf[8196] __cacheline_aligned;// = {0};
 #else
 static fci_u8 tx_data[10];
 static fci_u8 tdata_buf[40] = {0};

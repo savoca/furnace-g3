@@ -24,10 +24,10 @@
  */
 
 /*
-                                                                        
-                                                             
-                                                                        
-                           
+ * WARNING: This controller is attached to System Bus 2 of the PXA which
+ * needs its arbiter to be enabled explicitly (CKENB & 1<<9).
+ * There is currently no way to do this from Linux, so you need to teach
+ * your bootloader for now.
  */
 
 #include <linux/module.h>
@@ -70,8 +70,8 @@
 
 #define SHARED_SIZE	PAGE_ALIGN(sizeof(struct pxa3xx_gcu_shared))
 
-/*                          */
-/*                                */
+/* #define PXA3XX_GCU_DEBUG */
+/* #define PXA3XX_GCU_DEBUG_TIMER */
 
 #ifdef PXA3XX_GCU_DEBUG
 #define QDUMP(msg)					\
@@ -155,10 +155,10 @@ pxa3xx_gcu_reset(struct pxa3xx_gcu_priv *priv)
 {
 	QDUMP("RESET");
 
-	/*                    */
+	/* disable interrupts */
 	gc_writel(priv, REG_GCIECR, 0);
 
-	/*                */
+	/* reset hardware */
 	gc_writel(priv, REG_GCCR, GCCR_ABORT);
 	gc_writel(priv, REG_GCCR, 0);
 
@@ -168,12 +168,12 @@ pxa3xx_gcu_reset(struct pxa3xx_gcu_priv *priv)
 
 	do_gettimeofday(&priv->base_time);
 
-	/*                                 */
+	/* set up the ring buffer pointers */
 	gc_writel(priv, REG_GCRBLR, 0);
 	gc_writel(priv, REG_GCRBBR, priv->shared_phys);
 	gc_writel(priv, REG_GCRBTR, priv->shared_phys);
 
-	/*                            */
+	/* enable all IRQs except EOB */
 	gc_writel(priv, REG_GCIECR, IE_ALL & ~IE_EOB);
 }
 
@@ -237,13 +237,13 @@ run_ready(struct pxa3xx_gcu_priv *priv)
 	gc_writel(priv, REG_GCRBLR, 0);
 	shared->hw_running = 1;
 
-	/*                   */
+	/* ring base address */
 	gc_writel(priv, REG_GCRBBR, shared->buffer_phys);
 
-	/*                   */
+	/* ring tail address */
 	gc_writel(priv, REG_GCRBTR, shared->buffer_phys + num * 4);
 
-	/*             */
+	/* ring length */
 	gc_writel(priv, REG_GCRBLR, ((num + 63) & ~63) * 4);
 }
 
@@ -271,15 +271,15 @@ pxa3xx_gcu_handle_irq(int irq, void *ctx)
 		if (priv->ready) {
 			run_ready(priv);
 		} else {
-			/*                                                 
-                                                        
-               */
+			/* There is no more data prepared by the userspace.
+			 * Set hw_running = 0 and wait for the next userspace
+			 * kick-off */
 			shared->num_idle++;
 			shared->hw_running = 0;
 
 			QDUMP(" '-> Idle.");
 
-			/*                                */
+			/* set ring buffer length to zero */
 			gc_writel(priv, REG_GCRBLR, 0);
 
 			wake_up_all(&priv->wait_idle);
@@ -291,7 +291,7 @@ pxa3xx_gcu_handle_irq(int irq, void *ctx)
 		dump_whole_state(priv);
 	}
 
-	/*                     */
+	/* Clear the interrupt */
 	gc_writel(priv, REG_GCISCR, status);
 	spin_unlock(&priv->spinlock);
 
@@ -305,8 +305,8 @@ pxa3xx_gcu_wait_idle(struct pxa3xx_gcu_priv *priv)
 
 	QDUMP("Waiting for idle...");
 
-	/*                                                          
-                                             */
+	/* Does not need to be atomic. There's a lock in user space,
+	 * but anyhow, this is just for statistics. */
 	priv->shared->num_wait_idle++;
 
 	while (priv->shared->hw_running) {
@@ -342,8 +342,8 @@ pxa3xx_gcu_wait_free(struct pxa3xx_gcu_priv *priv)
 
 	QDUMP("Waiting for free...");
 
-	/*                                                          
-                                             */
+	/* Does not need to be atomic. There's a lock in user space,
+	 * but anyhow, this is just for statistics. */
 	priv->shared->num_wait_free++;
 
 	while (!priv->free) {
@@ -370,7 +370,7 @@ pxa3xx_gcu_wait_free(struct pxa3xx_gcu_priv *priv)
 	return ret;
 }
 
-/*                   */
+/* Misc device layer */
 
 static ssize_t
 pxa3xx_gcu_misc_write(struct file *filp, const char *buff,
@@ -384,17 +384,17 @@ pxa3xx_gcu_misc_write(struct file *filp, const char *buff,
 
 	int words = count / 4;
 
-	/*                                                          
-                                             */
+	/* Does not need to be atomic. There's a lock in user space,
+	 * but anyhow, this is just for statistics. */
 	priv->shared->num_writes++;
 
 	priv->shared->num_words += words;
 
-	/*                                                 */
+	/* Last word reserved for batch buffer end command */
 	if (words >= PXA3XX_GCU_BATCH_WORDS)
 		return -E2BIG;
 
-	/*                        */
+	/* Wait for a free buffer */
 	if (!priv->free) {
 		ret = pxa3xx_gcu_wait_free(priv);
 		if (ret < 0)
@@ -402,8 +402,8 @@ pxa3xx_gcu_misc_write(struct file *filp, const char *buff,
 	}
 
 	/*
-                             
-  */
+	 * Get buffer from free list
+	 */
 	spin_lock_irqsave(&priv->spinlock, flags);
 
 	buffer = priv->free;
@@ -412,7 +412,7 @@ pxa3xx_gcu_misc_write(struct file *filp, const char *buff,
 	spin_unlock_irqrestore(&priv->spinlock, flags);
 
 
-	/*                                 */
+	/* Copy data from user into buffer */
 	ret = copy_from_user(buffer->ptr, buff, words * 4);
 	if (ret) {
 		spin_lock_irqsave(&priv->spinlock, flags);
@@ -424,12 +424,12 @@ pxa3xx_gcu_misc_write(struct file *filp, const char *buff,
 
 	buffer->length = words;
 
-	/*                                 */
+	/* Append batch buffer end command */
 	buffer->ptr[words] = 0x01000000;
 
 	/*
-                            
-  */
+	 * Add buffer to ready list
+	 */
 	spin_lock_irqsave(&priv->spinlock, flags);
 
 	buffer->next = NULL;
@@ -482,7 +482,7 @@ pxa3xx_gcu_misc_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	switch (vma->vm_pgoff) {
 	case 0:
-		/*                               */
+		/* hand out the shared data area */
 		if (size != SHARED_SIZE)
 			return -EINVAL;
 
@@ -490,8 +490,8 @@ pxa3xx_gcu_misc_mmap(struct file *filp, struct vm_area_struct *vma)
 			priv->shared, priv->shared_phys, size);
 
 	case SHARED_SIZE >> PAGE_SHIFT:
-		/*                                                  
-                    */
+		/* hand out the MMIO base for direct register access
+		 * from userspace */
 		if (size != resource_size(priv->resource_mem))
 			return -EINVAL;
 
@@ -516,11 +516,11 @@ static void pxa3xx_gcu_debug_timedout(unsigned long ptr)
 
 	QERROR("Timer DUMP");
 
-	/*                          */
+	/* init the timer structure */
 	init_timer(&pxa3xx_gcu_debug_timer);
 	pxa3xx_gcu_debug_timer.function = pxa3xx_gcu_debug_timedout;
 	pxa3xx_gcu_debug_timer.data = ptr;
-	pxa3xx_gcu_debug_timer.expires = jiffies + 5*HZ; /*            */
+	pxa3xx_gcu_debug_timer.expires = jiffies + 5*HZ; /* one second */
 
 	add_timer(&pxa3xx_gcu_debug_timer);
 }
@@ -600,10 +600,10 @@ pxa3xx_gcu_probe(struct platform_device *dev)
 	init_waitqueue_head(&priv->wait_free);
 	spin_lock_init(&priv->spinlock);
 
-	/*                                                                     
-                                                               
-                                                                        
-                                                 */
+	/* we allocate the misc device structure as part of our own allocation,
+	 * so we can get a pointer to our priv structure later on with
+	 * container_of(). This isn't really necessary as we have a fixed minor
+	 * number anyway, but this is to avoid statics. */
 
 	priv->misc_fops.owner	= THIS_MODULE;
 	priv->misc_fops.write	= pxa3xx_gcu_misc_write;
@@ -614,7 +614,7 @@ pxa3xx_gcu_probe(struct platform_device *dev)
 	priv->misc_dev.name	= DRV_NAME,
 	priv->misc_dev.fops	= &priv->misc_fops,
 
-	/*                      */
+	/* register misc device */
 	ret = misc_register(&priv->misc_dev);
 	if (ret < 0) {
 		dev_err(&dev->dev, "misc_register() for minor %d failed\n",
@@ -622,7 +622,7 @@ pxa3xx_gcu_probe(struct platform_device *dev)
 		goto err_free_priv;
 	}
 
-	/*                     */
+	/* handle IO resources */
 	r = platform_get_resource(dev, IORESOURCE_MEM, 0);
 	if (r == NULL) {
 		dev_err(&dev->dev, "no I/O memory resource defined\n");
@@ -643,7 +643,7 @@ pxa3xx_gcu_probe(struct platform_device *dev)
 		goto err_free_mem_region;
 	}
 
-	/*                     */
+	/* allocate dma memory */
 	priv->shared = dma_alloc_coherent(&dev->dev, SHARED_SIZE,
 					  &priv->shared_phys, GFP_KERNEL);
 
@@ -653,7 +653,7 @@ pxa3xx_gcu_probe(struct platform_device *dev)
 		goto err_free_io;
 	}
 
-	/*                  */
+	/* enable the clock */
 	priv->clk = clk_get(&dev->dev, NULL);
 	if (IS_ERR(priv->clk)) {
 		dev_err(&dev->dev, "failed to get clock\n");
@@ -667,7 +667,7 @@ pxa3xx_gcu_probe(struct platform_device *dev)
 		goto err_put_clk;
 	}
 
-	/*                 */
+	/* request the IRQ */
 	irq = platform_get_irq(dev, 0);
 	if (irq < 0) {
 		dev_err(&dev->dev, "no IRQ defined\n");

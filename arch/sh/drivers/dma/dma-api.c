@@ -28,9 +28,9 @@ struct dma_info *get_dma_info(unsigned int chan)
 	struct dma_info *info;
 
 	/*
-                                                            
-                   
-  */
+	 * Look for each DMAC's range to determine who the owner of
+	 * the channel is.
+	 */
 	list_for_each_entry(info, &registered_dmac_list, list) {
 		if ((chan <  info->first_vchannel_nr) ||
 		    (chan >= info->first_vchannel_nr + info->nr_channels))
@@ -114,18 +114,18 @@ static int search_cap(const char **haystack, const char *needle)
 	return 0;
 }
 
-/* 
-                                                                       
-                                           
-                              
-  
-                                                                     
-                                                                
-                                                                
-  
-                                                                  
-                                                          
-                                                            
+/**
+ * request_dma_bycap - Allocate a DMA channel based on its capabilities
+ * @dmac: List of DMA controllers to search
+ * @caps: List of capabilities
+ *
+ * Search all channels of all DMA controllers to find a channel which
+ * matches the requested capabilities. The result is the channel
+ * number if a match is found, or %-ENODEV if no match is found.
+ *
+ * Note that not all DMA controllers export capabilities, in which
+ * case they can never be allocated using this API, and so
+ * request_dma() must be used specifying the channel number.
  */
 int request_dma_bycap(const char **dmac, const char **caps, const char *dev_id)
 {
@@ -318,14 +318,14 @@ static int dma_read_proc(char *buf, char **start, off_t off,
 		return 0;
 
 	/*
-                                     
-  */
+	 * Iterate over each registered DMAC
+	 */
 	list_for_each_entry(info, &registered_dmac_list, list) {
 		int i;
 
 		/*
-                              
-   */
+		 * Iterate over each channel
+		 */
 		for (i = 0; i < info->nr_channels; i++) {
 			struct dma_channel *channel = info->channels + i;
 
@@ -357,8 +357,8 @@ int register_dmac(struct dma_info *info)
 		return PTR_ERR(info->pdev);
 
 	/*
-                                       
-  */
+	 * Don't touch pre-configured channels
+	 */
 	if (!(info->flags & DMAC_CHANNELS_CONFIGURED)) {
 		unsigned int size;
 

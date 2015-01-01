@@ -19,7 +19,7 @@
 
 #if 0
 struct workqueue_struct *afs_cm_workqueue;
-#endif  /*     */
+#endif  /*  0  */
 
 static int afs_deliver_cb_init_call_back_state(struct afs_call *,
 					       struct sk_buff *, bool);
@@ -33,7 +33,7 @@ static int afs_deliver_cb_tell_me_about_yourself(struct afs_call *,
 static void afs_cm_destructor(struct afs_call *);
 
 /*
-                             
+ * CB.CallBack operation type
  */
 static const struct afs_call_type afs_SRXCBCallBack = {
 	.name		= "CB.CallBack",
@@ -43,7 +43,7 @@ static const struct afs_call_type afs_SRXCBCallBack = {
 };
 
 /*
-                                      
+ * CB.InitCallBackState operation type
  */
 static const struct afs_call_type afs_SRXCBInitCallBackState = {
 	.name		= "CB.InitCallBackState",
@@ -53,7 +53,7 @@ static const struct afs_call_type afs_SRXCBInitCallBackState = {
 };
 
 /*
-                                       
+ * CB.InitCallBackState3 operation type
  */
 static const struct afs_call_type afs_SRXCBInitCallBackState3 = {
 	.name		= "CB.InitCallBackState3",
@@ -63,7 +63,7 @@ static const struct afs_call_type afs_SRXCBInitCallBackState3 = {
 };
 
 /*
-                          
+ * CB.Probe operation type
  */
 static const struct afs_call_type afs_SRXCBProbe = {
 	.name		= "CB.Probe",
@@ -73,7 +73,7 @@ static const struct afs_call_type afs_SRXCBProbe = {
 };
 
 /*
-                              
+ * CB.ProbeUuid operation type
  */
 static const struct afs_call_type afs_SRXCBProbeUuid = {
 	.name		= "CB.ProbeUuid",
@@ -83,7 +83,7 @@ static const struct afs_call_type afs_SRXCBProbeUuid = {
 };
 
 /*
-                                        
+ * CB.TellMeAboutYourself operation type
  */
 static const struct afs_call_type afs_SRXCBTellMeAboutYourself = {
 	.name		= "CB.TellMeAboutYourself",
@@ -93,8 +93,8 @@ static const struct afs_call_type afs_SRXCBTellMeAboutYourself = {
 };
 
 /*
-                                       
-                                    
+ * route an incoming cache manager call
+ * - return T if supported, F if not
  */
 bool afs_cm_incoming_call(struct afs_call *call)
 {
@@ -124,7 +124,7 @@ bool afs_cm_incoming_call(struct afs_call *call)
 }
 
 /*
-                                
+ * clean up a cache manager call
  */
 static void afs_cm_destructor(struct afs_call *call)
 {
@@ -137,7 +137,7 @@ static void afs_cm_destructor(struct afs_call *call)
 }
 
 /*
-                                                                  
+ * allow the fileserver to see if the cache manager is still alive
  */
 static void SRXAFSCB_CallBack(struct work_struct *work)
 {
@@ -145,11 +145,11 @@ static void SRXAFSCB_CallBack(struct work_struct *work)
 
 	_enter("");
 
-	/*                                                                     
-                                                                        
-                                                                      
-                                                                        
-        */
+	/* be sure to send the reply *before* attempting to spam the AFS server
+	 * with FSFetchStatus requests on the vnodes with broken callbacks lest
+	 * the AFS server get into a vicious cycle of trying to break further
+	 * callbacks because it hadn't received completion of the CBCallBack op
+	 * yet */
 	afs_send_empty_reply(call);
 
 	afs_break_callbacks(call->server, call->count, call->request);
@@ -157,7 +157,7 @@ static void SRXAFSCB_CallBack(struct work_struct *work)
 }
 
 /*
-                                             
+ * deliver request data to a CB.CallBack call
  */
 static int afs_deliver_cb_callback(struct afs_call *call, struct sk_buff *skb,
 				   bool last)
@@ -176,7 +176,7 @@ static int afs_deliver_cb_callback(struct afs_call *call, struct sk_buff *skb,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                                                  */
+		/* extract the FID array and its count in two steps */
 	case 1:
 		_debug("extract FID count");
 		ret = afs_extract_data(call, skb, last, &call->tmp, 4);
@@ -226,7 +226,7 @@ static int afs_deliver_cb_callback(struct afs_call *call, struct sk_buff *skb,
 		call->offset = 0;
 		call->unmarshall++;
 
-		/*                                                       */
+		/* extract the callback array and its count in two steps */
 	case 3:
 		_debug("extract CB count");
 		ret = afs_extract_data(call, skb, last, &call->tmp, 4);
@@ -280,8 +280,8 @@ static int afs_deliver_cb_callback(struct afs_call *call, struct sk_buff *skb,
 
 	call->state = AFS_CALL_REPLYING;
 
-	/*                                                                
-                           */
+	/* we'll need the file server record as that tells us which set of
+	 * vnodes to operate upon */
 	memcpy(&addr, &ip_hdr(skb)->saddr, 4);
 	server = afs_find_server(&addr);
 	if (!server)
@@ -294,7 +294,7 @@ static int afs_deliver_cb_callback(struct afs_call *call, struct sk_buff *skb,
 }
 
 /*
-                                                                     
+ * allow the fileserver to request callback state (re-)initialisation
  */
 static void SRXAFSCB_InitCallBackState(struct work_struct *work)
 {
@@ -308,7 +308,7 @@ static void SRXAFSCB_InitCallBackState(struct work_struct *work)
 }
 
 /*
-                                                      
+ * deliver request data to a CB.InitCallBackState call
  */
 static int afs_deliver_cb_init_call_back_state(struct afs_call *call,
 					       struct sk_buff *skb,
@@ -324,11 +324,11 @@ static int afs_deliver_cb_init_call_back_state(struct afs_call *call,
 	if (!last)
 		return 0;
 
-	/*                           */
+	/* no unmarshalling required */
 	call->state = AFS_CALL_REPLYING;
 
-	/*                                                                
-                           */
+	/* we'll need the file server record as that tells us which set of
+	 * vnodes to operate upon */
 	memcpy(&addr, &ip_hdr(skb)->saddr, 4);
 	server = afs_find_server(&addr);
 	if (!server)
@@ -341,7 +341,7 @@ static int afs_deliver_cb_init_call_back_state(struct afs_call *call,
 }
 
 /*
-                                                       
+ * deliver request data to a CB.InitCallBackState3 call
  */
 static int afs_deliver_cb_init_call_back_state3(struct afs_call *call,
 						struct sk_buff *skb,
@@ -355,11 +355,11 @@ static int afs_deliver_cb_init_call_back_state3(struct afs_call *call,
 	if (!last)
 		return 0;
 
-	/*                           */
+	/* no unmarshalling required */
 	call->state = AFS_CALL_REPLYING;
 
-	/*                                                                
-                           */
+	/* we'll need the file server record as that tells us which set of
+	 * vnodes to operate upon */
 	memcpy(&addr, &ip_hdr(skb)->saddr, 4);
 	server = afs_find_server(&addr);
 	if (!server)
@@ -372,7 +372,7 @@ static int afs_deliver_cb_init_call_back_state3(struct afs_call *call,
 }
 
 /*
-                                                                  
+ * allow the fileserver to see if the cache manager is still alive
  */
 static void SRXAFSCB_Probe(struct work_struct *work)
 {
@@ -384,7 +384,7 @@ static void SRXAFSCB_Probe(struct work_struct *work)
 }
 
 /*
-                                          
+ * deliver request data to a CB.Probe call
  */
 static int afs_deliver_cb_probe(struct afs_call *call, struct sk_buff *skb,
 				bool last)
@@ -396,7 +396,7 @@ static int afs_deliver_cb_probe(struct afs_call *call, struct sk_buff *skb,
 	if (!last)
 		return 0;
 
-	/*                           */
+	/* no unmarshalling required */
 	call->state = AFS_CALL_REPLYING;
 
 	INIT_WORK(&call->work, SRXAFSCB_Probe);
@@ -405,7 +405,7 @@ static int afs_deliver_cb_probe(struct afs_call *call, struct sk_buff *skb,
 }
 
 /*
-                                                                               
+ * allow the fileserver to quickly find out if the fileserver has been rebooted
  */
 static void SRXAFSCB_ProbeUuid(struct work_struct *work)
 {
@@ -429,7 +429,7 @@ static void SRXAFSCB_ProbeUuid(struct work_struct *work)
 }
 
 /*
-                                              
+ * deliver request data to a CB.ProbeUuid call
  */
 static int afs_deliver_cb_probe_uuid(struct afs_call *call, struct sk_buff *skb,
 				     bool last)
@@ -501,7 +501,7 @@ static int afs_deliver_cb_probe_uuid(struct afs_call *call, struct sk_buff *skb,
 }
 
 /*
-                                                                     
+ * allow the fileserver to ask about the cache manager's capabilities
  */
 static void SRXAFSCB_TellMeAboutYourself(struct work_struct *work)
 {
@@ -510,14 +510,14 @@ static void SRXAFSCB_TellMeAboutYourself(struct work_struct *work)
 	int loop, nifs;
 
 	struct {
-		struct /*               */ {
+		struct /* InterfaceAddr */ {
 			__be32 nifs;
 			__be32 uuid[11];
 			__be32 ifaddr[32];
 			__be32 netmask[32];
 			__be32 mtu[32];
 		} ia;
-		struct /*              */ {
+		struct /* Capabilities */ {
 			__be32 capcount;
 			__be32 caps[1];
 		} cap;
@@ -564,7 +564,7 @@ static void SRXAFSCB_TellMeAboutYourself(struct work_struct *work)
 }
 
 /*
-                                                        
+ * deliver request data to a CB.TellMeAboutYourself call
  */
 static int afs_deliver_cb_tell_me_about_yourself(struct afs_call *call,
 						 struct sk_buff *skb, bool last)
@@ -576,7 +576,7 @@ static int afs_deliver_cb_tell_me_about_yourself(struct afs_call *call,
 	if (!last)
 		return 0;
 
-	/*                           */
+	/* no unmarshalling required */
 	call->state = AFS_CALL_REPLYING;
 
 	INIT_WORK(&call->work, SRXAFSCB_TellMeAboutYourself);

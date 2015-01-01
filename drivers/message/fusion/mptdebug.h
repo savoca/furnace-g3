@@ -7,35 +7,35 @@
  *  (mailto:DL-MPTFusionLinux@lsi.com)
  *
  */
-/*                                                                           */
+/*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
 
 #ifndef MPTDEBUG_H_INCLUDED
 #define MPTDEBUG_H_INCLUDED
 
 /*
-                                                                  
-  
-                                                         
-  
-                                                  
-  
-                                                           
-                                           
-                                                               
-  
-                                              
-  
-                                      
-  
-                                                           
-                                                              
-                                             
-  
-  
-                                                           
-                                                                    
-                                                                      
-                                                            
+ * debug level can be programmed on the fly via SysFS (hex values)
+ *
+ * Example:  (programming for MPT_DEBUG_EVENTS on host 5)
+ *
+ * echo 8 > /sys/class/scsi_host/host5/debug_level
+ *
+ * --------------------------------------------------------
+ * mpt_debug_level - command line parameter
+ * this allow enabling debug at driver load time (for all iocs)
+ *
+ * Example  (programming for MPT_DEBUG_EVENTS)
+ *
+ * insmod mptbase.ko mpt_debug_level=8
+ *
+ * --------------------------------------------------------
+ * CONFIG_FUSION_LOGGING - enables compiling debug into driver
+ * this can be enabled in the driver Makefile
+ *
+ *
+ * --------------------------------------------------------
+ * Please note most debug prints are set to logging priority = debug
+ * This is the lowest level, and most verbose.  Please refer to manual
+ * pages for syslogd or syslogd-ng on how to configure this.
  */
 
 #define MPT_DEBUG			0x00000001
@@ -61,7 +61,7 @@
 #define MPT_DEBUG_36GB_MEM              0x00400000
 
 /*
-                                             
+ * CONFIG_FUSION_LOGGING - enabled in Kconfig
  */
 
 #ifdef CONFIG_FUSION_LOGGING
@@ -76,7 +76,7 @@
 
 
 /*
-               
+ * debug macros
  */
 
 #define dprintk(IOC, CMD)			\
@@ -141,7 +141,7 @@
 
 
 /*
-                  
+ * Verbose logging
  */
 #if defined(MPT_DEBUG_VERBOSE) && defined(CONFIG_FUSION_LOGGING)
 static inline void
@@ -272,7 +272,7 @@ DBG_DUMP_TM_REPLY_FRAME(MPT_ADAPTER *ioc, u32 *mfp)
 #define dmfprintk(IOC, CMD)			\
 	MPT_CHECK_LOGGING(IOC, CMD, MPT_DEBUG_MSG_FRAME)
 
-# else /*                    */
+# else /* ifdef MPT_DEBUG_MF */
 
 #define DBG_DUMP_FW_DOWNLOAD(IOC, mfp, numfrags)
 #define DBG_DUMP_PUT_MSG_FRAME(IOC, mfp)
@@ -286,6 +286,6 @@ DBG_DUMP_TM_REPLY_FRAME(MPT_ADAPTER *ioc, u32 *mfp)
 #define dmfprintk(IOC, CMD)			\
 	MPT_CHECK_LOGGING(IOC, CMD, MPT_DEBUG_MSG_FRAME)
 
-#endif /*                                                              */
+#endif /* defined(MPT_DEBUG_VERBOSE) && defined(CONFIG_FUSION_LOGGING) */
 
-#endif /*                            */
+#endif /* ifndef MPTDEBUG_H_INCLUDED */

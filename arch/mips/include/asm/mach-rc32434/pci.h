@@ -33,9 +33,9 @@
 #define PCI_LBA_COUNT		4
 
 struct pci_map {
-	u32 address;		/*          */
-	u32 control;		/*          */
-	u32 mapping;		/*          */
+	u32 address;		/* Address. */
+	u32 control;		/* Control. */
+	u32 mapping;		/* mapping. */
 };
 
 struct pci_reg {
@@ -68,7 +68,7 @@ struct pci_msu {
 };
 
 /*
-                       
+ * PCI Control Register
  */
 
 #define PCI_CTL_EN		(1 << 0)
@@ -81,18 +81,18 @@ struct pci_msu {
 #define PCI_CTL_PCIM		0x000001c0
 
 #define PCI_CTL_PCIM_DIS	0
-#define PCI_CTL_PCIM_TNR	1 /*                              */
-#define PCI_CTL_PCIM_SUS	2 /*                            */
-#define PCI_CTL_PCIM_EXT	3 /*                          */
-#define PCI_CTL PCIM_PRIO	4 /*                            */
-#define PCI_CTL_PCIM_RR		5 /*                              */
+#define PCI_CTL_PCIM_TNR	1 /* Satellite - target not ready */
+#define PCI_CTL_PCIM_SUS	2 /* Satellite - suspended CPU. */
+#define PCI_CTL_PCIM_EXT	3 /* Host - external arbiter. */
+#define PCI_CTL PCIM_PRIO	4 /* Host - fixed priority arb. */
+#define PCI_CTL_PCIM_RR		5 /* Host - round robin priority. */
 #define PCI_CTL_PCIM_RSVD6	6
 #define PCI_CTL_PCIM_RSVD7	7
 
 #define PCI_CTL_IGM		(1 << 9)
 
 /*
-                      
+ * PCI Status Register
  */
 
 #define PCI_STAT_EED		(1 << 0)
@@ -115,7 +115,7 @@ struct pci_msu {
 #define PCI_STAT_RIP		(1 << 17)
 
 /*
-                           
+ * PCI Status Mask Register
  */
 
 #define PCI_STATM_EED		PCI_STAT_EED
@@ -138,27 +138,27 @@ struct pci_msu {
 #define PCI_STATM_RIP		PCI_STAT_RIP
 
 /*
-                                     
+ * PCI Configuration Address Register
  */
 #define PCI_CFGA_REG_BIT	2
 #define PCI_CFGA_REG		0x000000fc
-#define	 PCI_CFGA_REG_ID	(0x00 >> 2)	/*            */
-#define	 PCI_CFGA_REG_04	(0x04 >> 2)	/*             */
-#define	 PCI_CFGA_REG_08	(0x08 >> 2)	/*             */
-#define	 PCI_CFGA_REG_0C	(0x0C >> 2)	/*             */
-#define	 PCI_CFGA_REG_PBA0	(0x10 >> 2)	/*             */
-#define	 PCI_CFGA_REG_PBA1	(0x14 >> 2)	/*             */
-#define	 PCI_CFGA_REG_PBA2	(0x18 >> 2)	/*             */
-#define	 PCI_CFGA_REG_PBA3	(0x1c >> 2)	/*             */
-#define	 PCI_CFGA_REG_SUBSYS	(0x2c >> 2)	/*             */
-#define  PCI_CFGA_REG_3C	(0x3C >> 2)	/*             */
-#define	 PCI_CFGA_REG_PBBA0C	(0x44 >> 2)	/*              */
+#define	 PCI_CFGA_REG_ID	(0x00 >> 2)	/* use PCFGID */
+#define	 PCI_CFGA_REG_04	(0x04 >> 2)	/* use PCFG04_ */
+#define	 PCI_CFGA_REG_08	(0x08 >> 2)	/* use PCFG08_ */
+#define	 PCI_CFGA_REG_0C	(0x0C >> 2)	/* use PCFG0C_ */
+#define	 PCI_CFGA_REG_PBA0	(0x10 >> 2)	/* use PCIPBA_ */
+#define	 PCI_CFGA_REG_PBA1	(0x14 >> 2)	/* use PCIPBA_ */
+#define	 PCI_CFGA_REG_PBA2	(0x18 >> 2)	/* use PCIPBA_ */
+#define	 PCI_CFGA_REG_PBA3	(0x1c >> 2)	/* use PCIPBA_ */
+#define	 PCI_CFGA_REG_SUBSYS	(0x2c >> 2)	/* use PCFGSS_ */
+#define  PCI_CFGA_REG_3C	(0x3C >> 2)	/* use PCFG3C_ */
+#define	 PCI_CFGA_REG_PBBA0C	(0x44 >> 2)	/* use PCIPBAC_ */
 #define  PCI_CFGA_REG_PBA0M	(0x48 >> 2)
-#define	 PCI_CFGA_REG_PBA1C	(0x4c >> 2)	/*              */
+#define	 PCI_CFGA_REG_PBA1C	(0x4c >> 2)	/* use PCIPBAC_ */
 #define  PCI_CFGA_REG_PBA1M	(0x50 >> 2)
-#define	 PCI_CFGA_REG_PBA2C	(0x54 >> 2)	/*              */
+#define	 PCI_CFGA_REG_PBA2C	(0x54 >> 2)	/* use PCIPBAC_ */
 #define	 PCI_CFGA_REG_PBA2M	(0x58 >> 2)
-#define	 PCI_CFGA_REG_PBA3C	(0x5c >> 2)	/*              */
+#define	 PCI_CFGA_REG_PBA3C	(0x5c >> 2)	/* use PCIPBAC_ */
 #define	 PCI_CFGA_REG_PBA3M	(0x60 >> 2)
 #define	 PCI_CFGA_REG_PMGT	(0x64 >> 2)
 #define PCI_CFGA_FUNC_BIT	8
@@ -171,7 +171,7 @@ struct pci_msu {
 #define PCI_CFGA_BUS_TYPE0	0
 #define PCI_CFGA_EN		(1 << 31)
 
-/*                    */
+/* PCI CFG04 commands */
 #define PCI_CFG04_CMD_IO_ENA	(1 << 0)
 #define PCI_CFG04_CMD_MEM_ENA	(1 << 1)
 #define PCI_CFG04_CMD_BM_ENA	(1 << 2)
@@ -180,7 +180,7 @@ struct pci_msu {
 #define PCI_CFG04_CMD_SER_ENA	(1 << 8)
 #define PCI_CFG04_CMD_FAST_ENA	(1 << 9)
 
-/*                         */
+/* PCI CFG04 status fields */
 #define PCI_CFG04_STAT_BIT	16
 #define PCI_CFG04_STAT		0xffff0000
 #define PCI_CFG04_STAT_66_MHZ	(1 << 21)
@@ -196,7 +196,7 @@ struct pci_msu {
 #define PCI_PBA_MSI		(1 << 0)
 #define PCI_PBA_P		(1 << 2)
 
-/*                    */
+/* PCI PBAC registers */
 #define PCI_PBAC_MSI		(1 << 0)
 #define PCI_PBAC_P		(1 << 1)
 #define PCI_PBAC_SIZE_BIT	2
@@ -216,14 +216,14 @@ struct pci_msu {
 #define PCI_CFG40_RET_LIM	0x0000ff00
 
 /*
-                                            
+ * PCI Local Base Address [0|1|2|3] Register
  */
 
 #define PCI_LBA_BADDR_BIT	0
 #define PCI_LBA_BADDR		0xffffff00
 
 /*
-                                          
+ * PCI Local Base Address Control Register
  */
 
 #define PCI_LBAC_MSI		(1 << 0)
@@ -237,18 +237,18 @@ struct pci_msu {
 #define  PCI_LBAC_RT_PREF	1
 
 /*
-                                                    
+ * PCI Local Base Address [0|1|2|3] Mapping Register
  */
 #define PCI_LBAM_MADDR_BIT	8
 #define PCI_LBAM_MADDR		0xffffff00
 
 /*
-                                        
+ * PCI Decoupled Access Control Register
  */
 #define PCI_DAC_DEN		(1 << 0)
 
 /*
-                                       
+ * PCI Decoupled Access Status Register
  */
 #define PCI_DAS_D		(1 << 0)
 #define PCI_DAS_B		(1 << 1)
@@ -259,40 +259,40 @@ struct pci_msu {
 #define PCI_DAS_IFF		(1 << 6)
 
 /*
-                                           
+ * PCI DMA Channel 8 Configuration Register
  */
 #define PCI_DMA8C_MBS_BIT	0
-#define PCI_DMA8C_MBS		0x00000fff /*                     */
+#define PCI_DMA8C_MBS		0x00000fff /* Maximum Burst Size. */
 #define PCI_DMA8C_OUR		(1 << 12)
 
 /*
-                                           
+ * PCI DMA Channel 9 Configuration Register
  */
-#define PCI_DMA9C_MBS_BIT	0	/*                     */
+#define PCI_DMA9C_MBS_BIT	0	/* Maximum Burst Size. */
 #define PCI_DMA9C_MBS		0x00000fff
 
 /*
-                                                                               
+ * PCI to Memory(DMA Channel 8) AND Memory to PCI DMA(DMA Channel 9)Descriptors
  */
 
-#define PCI_DMAD_PT_BIT		22		/*                              */
-#define PCI_DMAD_PT		0x00c00000	/*                             */
-/*                                     */
-#define PCI_DMAD_DEVCMD_MR	0		/*             */
-#define	PCI_DMAD_DEVCMD_MRL	1		/*                  */
-#define	PCI_DMAD_DEVCMD_MRM	2		/*                      */
-#define	PCI_DMAD_DEVCMD_IOR	3		/*          */
-/*                                      */
-#define PCI_DMAD_DEVCMD_MW	0		/*              */
-#define	PCI_DMAD_DEVCMD_MWI	1		/*                         */
-#define	PCI_DMAD_DEVCMD_IOW	3		/*           */
+#define PCI_DMAD_PT_BIT		22		/* in DEVCMD field (descriptor) */
+#define PCI_DMAD_PT		0x00c00000	/* preferred transaction field */
+/* These are for reads (DMA channel 8) */
+#define PCI_DMAD_DEVCMD_MR	0		/* memory read */
+#define	PCI_DMAD_DEVCMD_MRL	1		/* memory read line */
+#define	PCI_DMAD_DEVCMD_MRM	2		/* memory read multiple */
+#define	PCI_DMAD_DEVCMD_IOR	3		/* I/O read */
+/* These are for writes (DMA channel 9) */
+#define PCI_DMAD_DEVCMD_MW	0		/* memory write */
+#define	PCI_DMAD_DEVCMD_MWI	1		/* memory write invalidate */
+#define	PCI_DMAD_DEVCMD_IOW	3		/* I/O write */
 
-/*                                                     */
-#define	PCI_DMAD_SB		(1 << 24)	/*                 */
+/* Swap byte field applies to both DMA channel 8 and 9 */
+#define	PCI_DMAD_SB		(1 << 24)	/* swap byte field */
 
 
 /*
-                              
+ * PCI Target Control Register
  */
 
 #define PCI_TC_RTIMER_BIT	0
@@ -303,7 +303,7 @@ struct pci_msu {
 #define PCI_TC_DDT		(1 << 19)
 
 /*
-                                                                       
+ * PCI messaging unit [applies to both inbound and outbound registers ]
  */
 #define PCI_MSU_M0		(1 << 0)
 #define PCI_MSU_M1		(1 << 1)
@@ -394,11 +394,11 @@ struct pci_msu {
 		      (KORINA_MASTER_LAT<<8) | \
 		      KORINA_CACHE_LINE_SIZE)
 
-#define KORINA_BAR0	0x00000008	/*               */
-#define KORINA_BAR1	0x18800001	/*         */
-#define KORINA_BAR2	0x18000001	/*                          
-                           */
-#define KORINA_BAR3	0x48000008	/*                     */
+#define KORINA_BAR0	0x00000008	/* 128 MB Memory */
+#define KORINA_BAR1	0x18800001	/* 1 MB IO */
+#define KORINA_BAR2	0x18000001	/* 2 MB IO window for Korina
+					   internal Registers */
+#define KORINA_BAR3	0x48000008	/* Spare 128 MB Memory */
 
 #define KORINA_CNFG4	KORINA_BAR0
 #define KORINA_CNFG5    KORINA_BAR1
@@ -478,4 +478,4 @@ struct pci_msu {
 #define	PCITC_DTIMER_VAL	8
 #define PCITC_RTIMER_VAL	0x10
 
-#endif  /*                     */
+#endif  /* __ASM_RC32434_PCI_H */

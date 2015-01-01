@@ -21,18 +21,18 @@
 
 
 /*
-                                                                  
-                                                                    
-                                                   
-  
-                                                                    
-                                                                    
-                                                                      
-                                      
+ * When Tauros2 is used on a CPU that supports the v7 hierarchical
+ * cache operations, the cache handling code in proc-v7.S takes care
+ * of everything, including handling DMA coherency.
+ *
+ * So, we only need to register outer cache operations here if we're
+ * being used on a pre-v7 CPU, and we only need to build support for
+ * outer cache operations into the kernel image if the kernel has been
+ * configured to support a pre-v7 CPU.
  */
 #if __LINUX_ARM_ARCH__ < 7
 /*
-                                          
+ * Low-level cache maintenance operations.
  */
 static inline void tauros2_clean_pa(unsigned long addr)
 {
@@ -51,34 +51,34 @@ static inline void tauros2_inv_pa(unsigned long addr)
 
 
 /*
-                    
-  
-                                                             
-                
+ * Linux primitives.
+ *
+ * Note that the end addresses passed to Linux primitives are
+ * noninclusive.
  */
 #define CACHE_LINE_SIZE		32
 
 static void tauros2_inv_range(unsigned long start, unsigned long end)
 {
 	/*
-                                                  
-  */
+	 * Clean and invalidate partial first cache line.
+	 */
 	if (start & (CACHE_LINE_SIZE - 1)) {
 		tauros2_clean_inv_pa(start & ~(CACHE_LINE_SIZE - 1));
 		start = (start | (CACHE_LINE_SIZE - 1)) + 1;
 	}
 
 	/*
-                                                 
-  */
+	 * Clean and invalidate partial last cache line.
+	 */
 	if (end & (CACHE_LINE_SIZE - 1)) {
 		tauros2_clean_inv_pa(end & ~(CACHE_LINE_SIZE - 1));
 		end &= ~(CACHE_LINE_SIZE - 1);
 	}
 
 	/*
-                                                              
-  */
+	 * Invalidate all full cache lines between 'start' and 'end'.
+	 */
 	while (start < end) {
 		tauros2_inv_pa(start);
 		start += CACHE_LINE_SIZE;
@@ -129,9 +129,9 @@ static void __init disable_l2_prefetch(void)
 	u32 u;
 
 	/*
-                                                            
-                                   
-  */
+	 * Read the CPU Extra Features register and verify that the
+	 * Disable L2 Prefetch bit is set.
+	 */
 	u = read_extra_features();
 	if (!(u & 0x01000000)) {
 		printk(KERN_INFO "Tauros2: Disabling L2 prefetch.\n");
@@ -181,9 +181,9 @@ void __init tauros2_init(void)
 		u32 feat;
 
 		/*
-                                                      
-                                                
-   */
+		 * v5 CPUs with Tauros2 have the L2 cache enable bit
+		 * located in the CPU Extra Features register.
+		 */
 		feat = read_extra_features();
 		if (!(feat & 0x00400000)) {
 			printk(KERN_INFO "Tauros2: Enabling L2 cache.\n");
@@ -199,17 +199,17 @@ void __init tauros2_init(void)
 
 #ifdef CONFIG_CPU_32v6
 	/*
-                                                                
-                                                               
-                                                               
-         
-  */
+	 * Check whether this CPU lacks support for the v7 hierarchical
+	 * cache ops.  (PJ4 is in its v6 personality mode if the MMFR3
+	 * register indicates no support for the v7 hierarchical cache
+	 * ops.)
+	 */
 	if (cpuid_scheme() && (read_mmfr3() & 0xf) == 0) {
 		/*
-                                                    
-                                                     
-                                               
-   */
+		 * When Tauros2 is used in an ARMv6 system, the L2
+		 * enable bit is in the ARMv6 ARM-mandated position
+		 * (bit [26] of the System Control Register).
+		 */
 		if (!(get_cr() & 0x04000000)) {
 			printk(KERN_INFO "Tauros2: Enabling L2 cache.\n");
 			adjust_cr(0x04000000, 0x04000000);
@@ -224,26 +224,26 @@ void __init tauros2_init(void)
 
 #ifdef CONFIG_CPU_32v7
 	/*
-                                                              
-                                                               
-                                                            
-         
-   
-                                                         
-                                                              
-                                                            
-                                                            
-                         
-  */
+	 * Check whether this CPU has support for the v7 hierarchical
+	 * cache ops.  (PJ4 is in its v7 personality mode if the MMFR3
+	 * register indicates support for the v7 hierarchical cache
+	 * ops.)
+	 *
+	 * (Although strictly speaking there may exist CPUs that
+	 * implement the v7 cache ops but are only ARMv6 CPUs (due to
+	 * not complying with all of the other ARMv7 requirements),
+	 * there are no real-life examples of Tauros2 being used on
+	 * such CPUs as of yet.)
+	 */
 	if (cpuid_scheme() && (read_mmfr3() & 0xf) == 1) {
 		u32 actlr;
 
 		/*
-                                                    
-                                                          
-                                                        
-                                                            
-   */
+		 * When Tauros2 is used in an ARMv7 system, the L2
+		 * enable bit is located in the Auxiliary System Control
+		 * Register (which is the only register allowed by the
+		 * ARMv7 spec to contain fine-grained cache control bits).
+		 */
 		actlr = read_actlr();
 		if (!(actlr & 0x00000002)) {
 			printk(KERN_INFO "Tauros2: Enabling L2 cache.\n");

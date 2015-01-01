@@ -19,8 +19,8 @@
  */
 
 /*
-                  
-                                                 
+	Module: rt2x00lib
+	Abstract: rt2x00 led datastructures and routines
  */
 
 #ifndef RT2X00LEDS_H
@@ -43,4 +43,4 @@ struct rt2x00_led {
 #define LED_REGISTERED		( 1 << 1 )
 };
 
-#endif /*              */
+#endif /* RT2X00LEDS_H */

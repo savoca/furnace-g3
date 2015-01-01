@@ -68,14 +68,14 @@ void show_regs(struct pt_regs * regs)
 }
 
 /*
-                         
+ * Create a kernel thread
  */
 __noreturn void kernel_thread_helper(void *arg, int (*fn)(void *))
 {
 	do_exit(fn(arg));
 }
 
-/*                                                    */
+/* Don't use this in BL=1(cli).  Or else, CPU resets! */
 int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 {
 	struct pt_regs regs;
@@ -91,7 +91,7 @@ int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 	regs.sr |= SR_FD;
 #endif
 
-	/*                              */
+	/* Ok, create the new process.. */
 	pid = do_fork(flags | CLONE_VM | CLONE_UNTRACED, 0,
 		      &regs, 0, NULL, NULL);
 
@@ -112,7 +112,7 @@ void start_thread(struct pt_regs *regs, unsigned long new_pc,
 EXPORT_SYMBOL(start_thread);
 
 /*
-                                            
+ * Free current thread data structures etc..
  */
 void exit_thread(void)
 {
@@ -125,7 +125,7 @@ void flush_thread(void)
 	flush_ptrace_hw_breakpoint(tsk);
 
 #if defined(CONFIG_SH_FPU)
-	/*                       */
+	/* Forget lazy FPU state */
 	clear_fpu(tsk, task_pt_regs(tsk));
 	clear_used_math();
 #endif
@@ -133,10 +133,10 @@ void flush_thread(void)
 
 void release_thread(struct task_struct *dead_task)
 {
-	/*            */
+	/* do nothing */
 }
 
-/*                                             */
+/* Fill in the fpu structure for a core dump.. */
 int dump_fpu(struct pt_regs *regs, elf_fpregset_t *fpu)
 {
 	int fpvalid = 0;
@@ -156,8 +156,8 @@ int dump_fpu(struct pt_regs *regs, elf_fpregset_t *fpu)
 EXPORT_SYMBOL(dump_fpu);
 
 /*
-                                                            
-                            
+ * This gets called before we allocate a new thread and copy
+ * the current task into it.
  */
 void prepare_to_copy(struct task_struct *tsk)
 {
@@ -177,10 +177,10 @@ int copy_thread(unsigned long clone_flags, unsigned long usp,
 	struct task_struct *tsk = current;
 
 	if (is_dsp_enabled(tsk)) {
-		/*                                                   
-                   
-                                          
-   */
+		/* We can use the __save_dsp or just copy the struct:
+		 * __save_dsp(p);
+		 * p->thread.dsp_status.status |= SR_DSP
+		 */
 		p->thread.dsp_status = tsk->thread.dsp_status;
 	}
 #endif
@@ -201,7 +201,7 @@ int copy_thread(unsigned long clone_flags, unsigned long usp,
 	if (clone_flags & CLONE_SETTLS)
 		childregs->gbr = childregs->regs[0];
 
-	childregs->regs[0] = 0; /*                            */
+	childregs->regs[0] = 0; /* Set return value for child */
 
 	p->thread.sp = (unsigned long) childregs;
 	p->thread.pc = (unsigned long) ret_from_fork;
@@ -212,8 +212,8 @@ int copy_thread(unsigned long clone_flags, unsigned long usp,
 }
 
 /*
-                                                  
-  
+ *	switch_to(x,y) should switch tasks from x to y.
+ *
  */
 __notrace_funcgraph struct task_struct *
 __switch_to(struct task_struct *prev, struct task_struct *next)
@@ -222,25 +222,25 @@ __switch_to(struct task_struct *prev, struct task_struct *next)
 
 	unlazy_fpu(prev, task_pt_regs(prev));
 
-	/*                                                            */
+	/* we're going to use this soon, after a few expensive things */
 	if (next->fpu_counter > 5)
 		prefetch(next_t->xstate);
 
 #ifdef CONFIG_MMU
 	/*
-                                    
-                 
-  */
+	 * Restore the kernel mode register
+	 *	k7 (r7_bank1)
+	 */
 	asm volatile("ldc	%0, r7_bank"
-		     : /*           */
+		     : /* no output */
 		     : "r" (task_thread_info(next)));
 #endif
 
 	/*
-                                                                  
-                                                                
-                                                      
-  */
+	 * If the task has used fpu the last 5 timeslices, just do a full
+	 * restore of the math state immediately to avoid the trap; the
+	 * chances of needing FPU soon are obviously high now
+	 */
 	if (next->fpu_counter > 5)
 		__fpu_state_restore();
 
@@ -255,7 +255,7 @@ asmlinkage int sys_fork(unsigned long r4, unsigned long r5,
 	struct pt_regs *regs = RELOC_HIDE(&__regs, 0);
 	return do_fork(SIGCHLD, regs->regs[15], regs, 0, NULL, NULL);
 #else
-	/*                                                                   */
+	/* fork almost works, enough to trick you into looking elsewhere :-( */
 	return -EINVAL;
 #endif
 }
@@ -274,14 +274,14 @@ asmlinkage int sys_clone(unsigned long clone_flags, unsigned long newsp,
 }
 
 /*
-                                                       
-                                           
-  
-                                                           
-                                                         
-                                                          
-                                                          
-                            
+ * This is trivial, and on the face of it looks like it
+ * could equally well be done in user mode.
+ *
+ * Not so, for quite unobvious reasons - register pressure.
+ * In user mode vfork() cannot have a stack frame, and if
+ * done by calling the "clone()" system call directly, you
+ * do not have enough call-clobbered registers to hold all
+ * the information you need.
  */
 asmlinkage int sys_vfork(unsigned long r4, unsigned long r5,
 			 unsigned long r6, unsigned long r7,
@@ -293,7 +293,7 @@ asmlinkage int sys_vfork(unsigned long r4, unsigned long r5,
 }
 
 /*
-                                       
+ * sys_execve() executes a new program.
  */
 asmlinkage int sys_execve(const char __user *ufilename,
 			  const char __user *const __user *uargv,
@@ -323,8 +323,8 @@ unsigned long get_wchan(struct task_struct *p)
 		return 0;
 
 	/*
-                                                          
-  */
+	 * The same comment as on the Alpha applies here, too ...
+	 */
 	pc = thread_saved_pc(p);
 
 #ifdef CONFIG_FRAME_POINTER

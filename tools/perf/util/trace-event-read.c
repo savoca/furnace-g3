@@ -91,7 +91,7 @@ static int read_or_die(void *data, int size)
 	return r;
 }
 
-/*                                           */
+/* If it fails, the next read will report it */
 static void skip(int size)
 {
 	char buf[BUFSIZ];
@@ -208,9 +208,9 @@ static void read_header_files(void)
 	skip(size);
 
 	/*
-                                               
-                                                     
-  */
+	 * The size field in the page is of type long,
+	 * use that instead, since it represents the kernel.
+	 */
 	long_size = header_page_size_size;
 
 	read_or_die(buf, 13);
@@ -315,7 +315,7 @@ static void get_next_page(int cpu)
 
 		update_cpu_data_index(cpu);
 
-		/*                                                            */
+		/* other parts of the code may expect the pointer to not move */
 		save_seek = lseek(input_fd, 0, SEEK_CUR);
 
 		ret = lseek(input_fd, cpu_data[cpu].offset, SEEK_SET);
@@ -325,7 +325,7 @@ static void get_next_page(int cpu)
 		if (ret < 0)
 			die("failed to read page");
 
-		/*                             */
+		/* reset the file pointer back */
 		lseek(input_fd, save_seek, SEEK_SET);
 
 		return;
@@ -386,7 +386,7 @@ struct record *trace_peek_data(int cpu)
 		return NULL;
 
 	if (!idx) {
-		/*                           */
+		/* FIXME: handle header page */
 		if (header_page_ts_size != 8)
 			die("expected a long long type for timestamp");
 		cpu_data[cpu].timestamp = data2host8(ptr);

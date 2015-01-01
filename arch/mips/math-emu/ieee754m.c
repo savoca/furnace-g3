@@ -1,5 +1,5 @@
 /*
-                     
+ * floor, trunc, ceil
  */
 /*
  * MIPS floating point support

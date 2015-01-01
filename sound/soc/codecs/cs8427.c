@@ -20,7 +20,7 @@
 #include <linux/bitrev.h>
 #include <linux/bitops.h>
 #include <linux/module.h>
-//                         
+//#include <linux/export.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
 #include <asm/unaligned.h>
@@ -45,9 +45,9 @@
 
 struct cs8427_stream {
 	struct snd_pcm_substream *substream;
-	char hw_status[CHANNEL_STATUS_SIZE];		/*                 */
-	char def_status[CHANNEL_STATUS_SIZE];		/*                */
-	char pcm_status[CHANNEL_STATUS_SIZE];		/*                    */
+	char hw_status[CHANNEL_STATUS_SIZE];		/* hardware status */
+	char def_status[CHANNEL_STATUS_SIZE];		/* default status */
+	char pcm_status[CHANNEL_STATUS_SIZE];		/* PCM private status */
 	char hw_udata[32];
 	struct snd_kcontrol *pcm_ctl;
 };
@@ -55,7 +55,7 @@ struct cs8427_stream {
 struct cs8427 {
 	struct i2c_client *client;
 	struct i2c_msg xfer_msg[2];
-	unsigned char regmap[0x14];	/*                               */
+	unsigned char regmap[0x14];	/* map of first 1 + 13 registers */
 	unsigned int reset_timeout;
 	struct cs8427_stream playback;
 };
@@ -82,10 +82,10 @@ static int cs8427_i2c_write_device(struct cs8427 *cs8427_i2c,
 	msg->buf = data;
 	ret = i2c_transfer(cs8427_i2c->client->adapter,
 				cs8427_i2c->xfer_msg, 1);
-	/*                             
-                                                    
-                                   
-  */
+	/* Try again if the write fails
+	 * checking with ebusy and number of bytes executed
+	 * for write ret value should be 1
+	 */
 	if ((ret != 1) || (ret == -EBUSY)) {
 		ret = i2c_transfer(
 				cs8427_i2c->client->adapter,
@@ -106,9 +106,9 @@ static int cs8427_i2c_write(struct cs8427 *chip, unsigned short reg,
 	int ret = 0, err = 0;
 	struct cs8427_platform_data *pdata = chip->client->dev.platform_data;
 	/*
-                                                  
-                    
-  */
+	 * enable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
 	if (pdata->enable) {
 		err = pdata->enable(1, pdata->ls_gpio);
 		if (err < 0) {
@@ -120,9 +120,9 @@ static int cs8427_i2c_write(struct cs8427 *chip, unsigned short reg,
 	ret = cs8427_i2c_write_device(chip, reg, src, bytes);
 
 	/*
-                                                   
-                    
-  */
+	 * Disable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
 	if (pdata->enable) {
 		err = pdata->enable(0, pdata->ls_gpio);
 		if (err < 0) {
@@ -163,9 +163,9 @@ static int cs8427_i2c_read_device(struct cs8427 *cs8427_i2c,
 		ret = i2c_transfer(cs8427_i2c->client->adapter,
 					cs8427_i2c->xfer_msg, 2);
 
-		/*                                   
-                                                  
-                                */
+		/* Try again if read fails first time
+		checking with ebusy and number of bytes executed
+		for read ret value should be 2*/
 		if ((ret != 2) || (ret == -EBUSY)) {
 			ret = i2c_transfer(
 					cs8427_i2c->client->adapter,
@@ -188,9 +188,9 @@ static int cs8427_i2c_read(struct cs8427 *chip,
 	u32 err = 0, ret = 0;
 	struct cs8427_platform_data *pdata = chip->client->dev.platform_data;
 	/*
-                                                  
-                    
-  */
+	 * enable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
 	if (pdata->enable) {
 		err = pdata->enable(1, pdata->ls_gpio);
 		if (err < 0) {
@@ -203,9 +203,9 @@ static int cs8427_i2c_read(struct cs8427 *chip,
 					bytes, dest);
 
 	/*
-                                                   
-                    
-  */
+	 * Disable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
 	if (pdata->enable) {
 		err = pdata->enable(0, pdata->ls_gpio);
 		if (err < 0) {
@@ -235,9 +235,9 @@ static int cs8427_i2c_sendbytes(struct cs8427 *chip,
 		return -EINVAL;
 	}
 	/*
-                                                  
-                    
-  */
+	 * enable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
 	if (pdata->enable) {
 		err = pdata->enable(1, pdata->ls_gpio);
 		if (err < 0) {
@@ -258,9 +258,9 @@ static int cs8427_i2c_sendbytes(struct cs8427 *chip,
 	}
 
 	/*
-                                                   
-                    
-  */
+	 * Disable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
 	if (pdata->enable) {
 		err = pdata->enable(0, pdata->ls_gpio);
 		if (err < 0) {
@@ -273,9 +273,9 @@ static int cs8427_i2c_sendbytes(struct cs8427 *chip,
 }
 
 /*
-                                                              
-                                                             
-                                                       
+ * Reset the chip using run bit, also lock PLL using ILRCK and
+ * put back AES3INPUT. This workaround is described in latest
+ * CS8427 datasheet, otherwise TXDSERIAL will not work.
  */
 static void snd_cs8427_reset(struct cs8427 *chip)
 {
@@ -286,7 +286,7 @@ static void snd_cs8427_reset(struct cs8427 *chip)
 	if (snd_BUG_ON(!chip))
 		return;
 	if ((chip->regmap[CS8427_REG_CLOCKSOURCE] & CS8427_RXDAES3INPUT) ==
-	    CS8427_RXDAES3INPUT) /*                 */
+	    CS8427_RXDAES3INPUT) /* AES3 bit is set */
 		aes3input = 1;
 	chip->regmap[CS8427_REG_CLOCKSOURCE] &= ~(CS8427_RUN | CS8427_RXDMASK);
 	cs8427_i2c_write(chip, CS8427_REG_CLOCKSOURCE,
@@ -428,7 +428,7 @@ static int snd_cs8427_send_corudata(struct cs8427 *obj,
 	}
 	idx = 0;
 	memcpy(data, ndata, CHANNEL_STATUS_SIZE);
-	/*                                          */
+	/* address from where the bufferhas to write*/
 	addr = 0x20;
 	ret = cs8427_i2c_sendbytes(chip, &addr, data, count);
 	if (ret != count)
@@ -619,9 +619,9 @@ static int cs8427_startup(struct snd_pcm_substream *substream,
 		return -ENODEV;
 	}
 	/*
-                                                     
-                                   
-  */
+	 * we need to make the pll lock for the I2S tranfers
+	 * reset the cs8427 chip for this.
+	 */
 	snd_cs8427_reset(chip);
 	dev_dbg(&chip->client->dev,
 		"%s(): substream = %s  stream = %d\n" , __func__,
@@ -751,7 +751,7 @@ int poweron_cs8427(struct cs8427 *chip)
 				pdata->reset_gpio);
 		return ret;
 	}
-	/*                           */
+	/*bring the chip out of reset*/
 	gpio_direction_output(pdata->reset_gpio, 1);
 	msleep(20);
 	gpio_direction_output(pdata->reset_gpio, 0);
@@ -766,57 +766,57 @@ static __devinit int cs8427_i2c_probe(struct i2c_client *client,
 {
 	static unsigned char initvals1[] = {
 	  CS8427_REG_CONTROL1 | CS8427_REG_AUTOINC,
-	  /*                                                                   
-                 
-    */
+	  /* CS8427_REG_CONTROL1: RMCK to OMCK, valid PCM audio, disable mutes,
+	   * TCBL=output
+	   */
 	  CS8427_SWCLK | CS8427_TCBLDIR,
-	  /*                                                                
-                             
-    */
+	  /* CS8427_REG_CONTROL2: hold last valid audio sample, RMCK=256*Fs,
+	   * normal stereo operation
+	   */
 	  0x08,
-	  /*                     
-                                                             
-                                                      
-    */
+	  /* CS8427_REG_DATAFLOW:
+	   * AES3 Transmitter data source => Serial Audio input port
+	   * Serial audio output port data source => reserved
+	   */
 	  CS8427_TXDSERIAL,
-	  /*                                              
-                                                                       
-                                                                
-                                        
-    */
+	  /* CS8427_REG_CLOCKSOURCE: Run off, CMCK=256*Fs,
+	   * output time base = OMCK, input time base = recovered input clock,
+	   * recovered input clock source is ILRCK changed to AES3INPUT
+	   * (workaround, see snd_cs8427_reset)
+	   */
 	  CS8427_RXDILRCK | CS8427_OUTC,
-	  /*                                                                   
-                    
-    */
+	  /* CS8427_REG_SERIALINPUT: Serial audio input port data format = I2S,
+	   * 24-bit, 64*Fsi
+	   */
 	  CS8427_SIDEL | CS8427_SILRPOL | CS8427_SORES16,
-	  /*                                                              
-                            
-    */
+	  /* CS8427_REG_SERIALOUTPUT: Serial audio output port data format
+	   *  = I2S, 24-bit, 64*Fsi
+	   */
 	  CS8427_SODEL | CS8427_SOLRPOL | CS8427_SIRES16,
 	};
 	static unsigned char initvals2[] = {
 	  CS8427_REG_RECVERRMASK | CS8427_REG_AUTOINC,
-	  /*                                                                   
-                                 
-                                                                       
-    */
-	  0xff, /*                */
-	  /*                      
-                                         
-                                                                       
-                                              
-                                     
-                                                                
-                                                   
-    */
+	  /* CS8427_REG_RECVERRMASK: unmask the input PLL clock, V, confidence,
+	   * biphase, parity status bits
+	   * CS8427_UNLOCK | CS8427_V | CS8427_CONF | CS8427_BIP | CS8427_PAR,
+	   */
+	  0xff, /* set everything */
+	  /* CS8427_REG_CSDATABUF:
+	   * Registers 32-55 window to CS buffer
+	   * Inhibit D->E transfers from overwriting first 5 bytes of CS data.
+	   * Inhibit D->E transfers (all) of CS data.
+	   * Allow E->F transfer of CS data.
+	   * One byte mode; both A/B channels get same written CB data.
+	   * A channel info is output to chip's EMPH* pin.
+	   */
 	  CS8427_CBMR | CS8427_DETCI,
-	  /*                     
-                                                    
-                                
-                                     
-                             
-                             
-    */
+	  /* CS8427_REG_UDATABUF:
+	   * Use internal buffer to transmit User (U) data.
+	   * Chip's U pin is an output.
+	   * Transmit all O's for user data.
+	   * Inhibit D->E transfers.
+	   * Inhibit E->F transfers.
+	   */
 	  CS8427_UD | CS8427_EFTUI | CS8427_DETUI,
 	};
 	int err;
@@ -853,7 +853,7 @@ static __devinit int cs8427_i2c_probe(struct i2c_client *client,
 
 	err = cs8427_i2c_read(chip, CS8427_REG_ID_AND_VER, 1, &val);
 	if (err < 0) {
-		/*                    */
+		/* give second chance */
 		dev_err(&chip->client->dev,
 			"failed to read cs8427 trying once again\n");
 		err = cs8427_i2c_read(chip, CS8427_REG_ID_AND_VER,
@@ -876,11 +876,11 @@ static __devinit int cs8427_i2c_probe(struct i2c_client *client,
 		return -EFAULT;
 	}
 	val = 0;
-	/*                                                        */
+	/* turn off run bit while making changes to configuration */
 	err = cs8427_i2c_write(chip, CS8427_REG_CLOCKSOURCE, 1, &val);
 	if (err < 0)
 		goto __fail;
-	/*                     */
+	/* send initial values */
 	memcpy(chip->regmap + (initvals1[0] & 0x7f), initvals1 + 1, 6);
 	addr = 1;
 	err = cs8427_i2c_sendbytes(chip, &addr, &initvals1[1], 6);
@@ -888,14 +888,14 @@ static __devinit int cs8427_i2c_probe(struct i2c_client *client,
 		err = err < 0 ? err : -EIO;
 		goto __fail;
 	}
-	/*                                                              */
+	/* Turn off CS8427 interrupt stuff that is not used in hardware */
 	memset(buf, 0, 7);
-	/*                      */
+	/* from address 9 to 15 */
 	addr = 9;
 	err = cs8427_i2c_sendbytes(chip, &addr, buf, 7);
 	if (err != 7)
 		goto __fail;
-	/*                                       */
+	/* send transfer initialization sequence */
 	addr = 0x11;
 	memcpy(chip->regmap + (initvals2[0] & 0x7f), initvals2 + 1, 3);
 	err = cs8427_i2c_sendbytes(chip, &addr, &initvals2[1], 3);
@@ -903,7 +903,7 @@ static __devinit int cs8427_i2c_probe(struct i2c_client *client,
 		err = err < 0 ? err : -EIO;
 		goto __fail;
 	}
-	/*                                    */
+	/* write default channel status bytes */
 	put_unaligned_le32(SNDRV_PCM_DEFAULT_CON_SPDIF, buf);
 	memset(buf + 4, 0, CHANNEL_STATUS_SIZE - 4);
 	if (snd_cs8427_send_corudata(chip, 0, buf, CHANNEL_STATUS_SIZE) < 0)
@@ -911,7 +911,7 @@ static __devinit int cs8427_i2c_probe(struct i2c_client *client,
 	memcpy(chip->playback.def_status, buf, CHANNEL_STATUS_SIZE);
 	memcpy(chip->playback.pcm_status, buf, CHANNEL_STATUS_SIZE);
 
-	/*                                 */
+	/* turn on run bit and rock'n'roll */
 	if (reset_timeout < 1)
 		reset_timeout = 1;
 	chip->reset_timeout = reset_timeout;

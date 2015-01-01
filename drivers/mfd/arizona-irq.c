@@ -124,9 +124,9 @@ static irqreturn_t arizona_ctrlif_err(int irq, void *data)
 	struct arizona *arizona = data;
 
 	/*
-                                                               
-                                                        
-  */
+	 * For pretty much all potential sources a register cache sync
+	 * won't help, we've just got a software bug somewhere.
+	 */
 	dev_err(arizona->dev, "Control interface error\n");
 
 	return IRQ_HANDLED;
@@ -150,13 +150,13 @@ static irqreturn_t arizona_irq_thread(int irq, void *data)
 	do {
 		poll = false;
 
-		/*                              */
+		/* Always handle the AoD domain */
 		handle_nested_irq(arizona->virq[0]);
 
 		/*
-                                                             
-                                
-   */
+		 * Check if one of the main interrupts is asserted and only
+		 * check that domain if it is.
+		 */
 		ret = regmap_read(arizona->regmap, ARIZONA_IRQ_PIN_STATUS,
 				  &val);
 		if (ret == 0 && val & ARIZONA_IRQ1_STS) {
@@ -167,9 +167,9 @@ static irqreturn_t arizona_irq_thread(int irq, void *data)
 		}
 
 		/*
-                                                        
-                                                    
-   */
+		 * Poll the IRQ pin status to see if we're really done
+		 * if the interrupt controller can't do it for us.
+		 */
 		if (!arizona->pdata.irq_gpio) {
 			break;
 		} else if (arizona->pdata.irq_flags & IRQF_TRIGGER_RISING &&
@@ -230,12 +230,12 @@ int arizona_irq_init(struct arizona *arizona)
 		return -EINVAL;
 	}
 
-	/*                                     */
+	/* Disable all wake sources by default */
 	regmap_write(arizona->regmap, ARIZONA_WAKE_CONTROL, 0);
 
-	/*                                             */
+	/*arizona->pdata.irq_flags = IRQF_TRIGGER_HIGH;*/
 
-	/*                                                               */
+	/* Read the flags from the interrupt controller if not specified */
 	if (!arizona->pdata.irq_flags) {
 		irq_data = irq_get_irq_data(arizona->irq);
 		if (!irq_data) {
@@ -254,7 +254,7 @@ int arizona_irq_init(struct arizona *arizona)
 
 		case IRQ_TYPE_NONE:
 		default:
-			/*                */
+			/* Device default */
 			arizona->pdata.irq_flags = IRQF_TRIGGER_LOW;
 			break;
 		}
@@ -273,7 +273,7 @@ int arizona_irq_init(struct arizona *arizona)
 
 	flags |= arizona->pdata.irq_flags;
 
-        /*                     */
+        /* set up virtual IRQs */
 	irq_base = irq_alloc_descs(arizona->pdata.irq_base, 0,
 				   ARRAY_SIZE(arizona->virq), 0);
 	if (irq_base < 0) {
@@ -291,8 +291,8 @@ int arizona_irq_init(struct arizona *arizona)
 					 handle_edge_irq);
 		irq_set_nested_thread(arizona->virq[i], 1);
 
-                /*                                                 
-                                                            */
+                /* ARM needs us to explicitly flag the IRQ as valid
+                 * and will set them noprobe when we do so. */
 #ifdef CONFIG_ARM
                 set_irq_flags(arizona->virq[i], IRQF_VALID);
 #else
@@ -319,7 +319,7 @@ int arizona_irq_init(struct arizona *arizona)
 		goto err_aod;
 	}
 
-	/*                                                     */
+	/* Make sure the boot done IRQ is unmasked for resumes */
 	i = arizona_map_irq(arizona, ARIZONA_IRQ_BOOT_DONE);
 	ret = request_threaded_irq(i, NULL, arizona_boot_done, IRQF_ONESHOT,
 				   "Boot done", arizona);
@@ -329,7 +329,7 @@ int arizona_irq_init(struct arizona *arizona)
 		goto err_boot_done;
 	}
 
-	/*                                             */
+	/* Handle control interface errors in the core */
 	if (ctrlif_error) {
 		i = arizona_map_irq(arizona, ARIZONA_IRQ_CTRLIF_ERR);
 		ret = request_threaded_irq(i, NULL, arizona_ctrlif_err,
@@ -343,7 +343,7 @@ int arizona_irq_init(struct arizona *arizona)
 		}
 	}
 
-	/*                                                               */
+	/* Used to emulate edge trigger and to work around broken pinmux */
 	if (arizona->pdata.irq_gpio) {
 		if (gpio_to_irq(arizona->pdata.irq_gpio) != arizona->irq) {
 			dev_warn(arizona->dev, "IRQ %d is not GPIO %d (%d)\n",
@@ -362,18 +362,18 @@ int arizona_irq_init(struct arizona *arizona)
 		}
 	}
 
-/*                                                                   
-                                  
+/*	ret = request_threaded_irq(arizona->irq, NULL, arizona_irq_thread,
+				   flags, "arizona", arizona);
 
-                
-                                                                 
-                      
-                    
-  
+	if (ret != 0) {
+		dev_err(arizona->dev, "Failed to request primary IRQ %d: %d\n",
+			arizona->irq, ret);
+		goto err_main_irq;
+	}
 
 
-             
-                                                                     
+err_main_irq:
+	free_irq(arizona_map_irq(arizona, ARIZONA_IRQ_CTRLIF_ERR), arizona);
 */
 	return 0;
 err_ctrlif:

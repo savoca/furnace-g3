@@ -1,13 +1,13 @@
 /*
-                                          
-  
-                  
-  
-            
-  
-                                                                   
-                                          
-  
+ * QNX6 file system, Linux implementation.
+ *
+ * Version : 1.0.0
+ *
+ * History :
+ *
+ * 01-02-2012 by Kai Bankett (chaosman@ontika.net) : first release.
+ * 16-02-2012 pagemap extension by Al Viro
+ *
  */
 
 #include "qnx6.h"
@@ -51,9 +51,9 @@ static struct qnx6_long_filename *qnx6_longname(struct super_block *sb,
 					 struct page **p)
 {
 	struct qnx6_sb_info *sbi = QNX6_SB(sb);
-	u32 s = fs32_to_cpu(sbi, de->de_long_inode); /*                */
-	u32 n = s >> (PAGE_CACHE_SHIFT - sb->s_blocksize_bits); /*          */
-	/*             */
+	u32 s = fs32_to_cpu(sbi, de->de_long_inode); /* in block units */
+	u32 n = s >> (PAGE_CACHE_SHIFT - sb->s_blocksize_bits); /* in pages */
+	/* within page */
 	u32 offs = (s << sb->s_blocksize_bits) & ~PAGE_CACHE_MASK;
 	struct address_space *mapping = sbi->longfile->i_mapping;
 	struct page *page = read_mapping_page(mapping, n, NULL);
@@ -75,8 +75,8 @@ static int qnx6_dir_longfilename(struct inode *inode,
 	int lf_size;
 
 	if (de->de_size != 0xff) {
-		/*                                                    
-                 */
+		/* error - long filename entries always have size 0xff
+		   in direntry */
 		printk(KERN_ERR "qnx6: invalid direntry size (%i).\n",
 				de->de_size);
 		return 0;
@@ -96,8 +96,8 @@ static int qnx6_dir_longfilename(struct inode *inode,
 		return 0;
 	}
 
-	/*                                      
-                                                  */
+	/* calc & validate longfilename checksum
+	   mmi 3g filesystem does not have that checksum */
 	if (!test_opt(s, MMI_FS) && fs32_to_cpu(sbi, de->de_checksum) !=
 			qnx6_lfile_checksum(lf->lf_fname, lf_size))
 		printk(KERN_INFO "qnx6: long filename checksum error.\n");
@@ -111,7 +111,7 @@ static int qnx6_dir_longfilename(struct inode *inode,
 	}
 
 	qnx6_put_page(page);
-	/*         */
+	/* success */
 	return 1;
 }
 
@@ -149,9 +149,9 @@ static int qnx6_readdir(struct file *filp, void *dirent, filldir_t filldir)
 				continue;
 
 			if (size > QNX6_SHORT_NAME_MAX) {
-				/*                       
-                                          
-                         */
+				/* long filename detected
+				   get the filename from long filename
+				   structure / block */
 				if (!qnx6_dir_longfilename(inode,
 					(struct qnx6_long_dir_entry *)de,
 					dirent, pos, no_inode,
@@ -178,7 +178,7 @@ static int qnx6_readdir(struct file *filp, void *dirent, filldir_t filldir)
 }
 
 /*
-                                         
+ * check if the long filename is correct.
  */
 static unsigned qnx6_long_match(int len, const char *name,
 			struct qnx6_long_dir_entry *de, struct inode *dir)
@@ -206,7 +206,7 @@ static unsigned qnx6_long_match(int len, const char *name,
 }
 
 /*
-                                    
+ * check if the filename is correct.
  */
 static unsigned qnx6_match(struct super_block *s, int len, const char *name,
 			struct qnx6_dir_entry *de)
@@ -248,14 +248,14 @@ unsigned qnx6_find_entry(int len, struct inode *dir, const char *name,
 			de = (struct qnx6_dir_entry *)page_address(page);
 			for (i = 0; i < limit; i++, de++) {
 				if (len <= QNX6_SHORT_NAME_MAX) {
-					/*                */
+					/* short filename */
 					if (len != de->de_size)
 						continue;
 					ino = qnx6_match(s, len, name, de);
 					if (ino)
 						goto found;
 				} else if (de->de_size == 0xff) {
-					/*                         */
+					/* deal with long filename */
 					lde = (struct qnx6_long_dir_entry *)de;
 					ino = qnx6_long_match(len,
 								name, lde, dir);

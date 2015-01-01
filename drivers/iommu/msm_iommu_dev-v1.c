@@ -48,9 +48,9 @@ static int msm_iommu_parse_bfb_settings(struct platform_device *pdev,
 	int ret;
 
 	/*
-                                                              
-                                                                     
-  */
+	 * It is not valid for a device to have the BFB_REG_NODE_NAME
+	 * property but not the BFB_DATA_NODE_NAME property, and vice versa.
+	 */
 	if (!of_get_property(pdev->dev.of_node, BFB_REG_NODE_NAME, &nreg)) {
 		if (of_get_property(pdev->dev.of_node, BFB_DATA_NODE_NAME,
 				    &nval))
@@ -102,7 +102,7 @@ static int __get_bus_vote_client(struct platform_device *pdev,
 	struct msm_bus_scale_pdata *bs_table;
 	const char *dummy;
 
-	/*                                                            */
+	/* Check whether bus scaling has been specified for this node */
 	ret = of_property_read_string(pdev->dev.of_node, "qcom,msm-bus,name",
 				      &dummy);
 	if (ret)
@@ -439,11 +439,11 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	if (ret)
 		goto out;
 
-	/*                                                                
-                                                                      
-                                                                     
-           
-  */
+	/* Calculate the context bank number using the base addresses. The
+	 * first 8 pages belong to the global address space which is followed
+	 * by the context banks, hence subtract by 8 to get the context bank
+	 * number.
+	 */
 	ctx_drvdata->num = ((r->start - rp.start) >> CTX_SHIFT) - 8;
 
 	if (of_property_read_string(pdev->dev.of_node, "label",

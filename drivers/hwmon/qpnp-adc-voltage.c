@@ -35,7 +35,7 @@
 #include <mach/board_lge.h>
 #endif
 
-/*                               */
+/* QPNP VADC register definition */
 #define QPNP_VADC_REVISION1				0x0
 #define QPNP_VADC_REVISION2				0x1
 #define QPNP_VADC_REVISION3				0x2
@@ -119,7 +119,7 @@
 #define TOUCH_HIGH_TEMPERATURE	55
 #define TOUCH_LOW_TEMPERATURE	52
 extern int touch_thermal_status;
-#endif /*                                       */
+#endif /* CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 */
 
 struct qpnp_vadc_chip {
 	struct device			*dev;
@@ -287,7 +287,7 @@ static int32_t qpnp_vadc_enable(struct qpnp_vadc_chip *vadc, bool state)
 }
 
 #ifdef CONFIG_MACH_LGE
-/*                                                                                   */
+/* Reg. address list which is possible to be read , related to PM8941 VADC1_USR_VADC */
 static int adc_reg[] = {  0x04, 0x05, 0x08, 0x09, 0x10, 0x11, 0x12
                         , 0x13, 0x15, 0x16, 0x18, 0x19, 0x1a, 0x1b, 0x40
                         , 0x46, 0x48, 0x50, 0x51, 0x54, 0x55, 0x57, 0x59
@@ -398,7 +398,7 @@ static int32_t qpnp_vadc_configure(struct qpnp_vadc_chip *vadc,
 	u8 mode_ctrl = 0;
 	int rc = 0;
 
-	/*                */
+	/* Mode selection */
 	mode_ctrl |= ((chan_prop->mode_sel << QPNP_VADC_OP_MODE_SHIFT) |
 			(QPNP_VADC_ADC_TRIM_EN | QPNP_VADC_AMUX_TRIM_EN));
 	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_MODE_CTL, mode_ctrl);
@@ -408,7 +408,7 @@ static int32_t qpnp_vadc_configure(struct qpnp_vadc_chip *vadc,
 	}
 
 
-	/*                   */
+	/* Channel selection */
 	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_ADC_CH_SEL_CTL,
 						chan_prop->amux_channel);
 	if (rc < 0) {
@@ -416,7 +416,7 @@ static int32_t qpnp_vadc_configure(struct qpnp_vadc_chip *vadc,
 		return rc;
 	}
 
-	/*                         */
+	/* Digital parameter setup */
 	decimation = chan_prop->decimation <<
 				QPNP_VADC_ADC_DIG_DEC_RATIO_SEL_SHIFT;
 	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_ADC_DIG_PARAM, decimation);
@@ -425,7 +425,7 @@ static int32_t qpnp_vadc_configure(struct qpnp_vadc_chip *vadc,
 		return rc;
 	}
 
-	/*                        */
+	/* HW settling time delay */
 	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_HW_SETTLE_DELAY,
 						chan_prop->hw_settle_time);
 	if (rc < 0) {
@@ -435,7 +435,7 @@ static int32_t qpnp_vadc_configure(struct qpnp_vadc_chip *vadc,
 
 	if (chan_prop->mode_sel == (ADC_OP_NORMAL_MODE <<
 					QPNP_VADC_OP_MODE_SHIFT)) {
-		/*                         */
+		/* Normal measurement mode */
 		rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_FAST_AVG_CTL,
 						chan_prop->fast_avg_setup);
 		if (rc < 0) {
@@ -444,7 +444,7 @@ static int32_t qpnp_vadc_configure(struct qpnp_vadc_chip *vadc,
 		}
 	} else if (chan_prop->mode_sel == (ADC_OP_CONVERSION_SEQUENCER <<
 					QPNP_VADC_OP_MODE_SHIFT)) {
-		/*                          */
+		/* Conversion sequence mode */
 		conv_sequence = ((ADC_SEQ_HOLD_100US <<
 				QPNP_VADC_CONV_SEQ_HOLDOFF_SHIFT) |
 				ADC_CONV_SEQ_TIMEOUT_5MS);
@@ -474,7 +474,7 @@ static int32_t qpnp_vadc_configure(struct qpnp_vadc_chip *vadc,
 		return rc;
 
 	if (!vadc->vadc_iadc_sync_lock) {
-		/*                    */
+		/* Request conversion */
 		rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_CONV_REQ,
 					QPNP_VADC_CONV_REQ_SET);
 		if (rc < 0) {
@@ -765,7 +765,7 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 		return 0;
 
 	if (version != QPNP_REV_ID_8941_3_1) {
-		/*                          */
+		/* min(die_temp_c, 60_degC) */
 		if (die_temp > 60000)
 			die_temp = 60000;
 	}
@@ -779,7 +779,7 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 			break;
 		default:
 		case COMP_ID_GF:
-			/*                          */
+			/* min(die_temp_c, 60_degC) */
 			if (die_temp > 60000)
 				die_temp = 60000;
 			temp_var = ((die_temp - 25000) *
@@ -895,7 +895,7 @@ static void qpnp_vadc_625mv_channel_sel(struct qpnp_vadc_chip *vadc,
 {
 	uint32_t dt_index = 0;
 
-	/*                                            */
+	/* Check if the buffered 625mV channel exists */
 	while ((vadc->adc->adc_channels[dt_index].channel_num
 		!= SPARE1) && (dt_index < vadc->max_channels_available))
 		dt_index++;
@@ -1001,7 +1001,7 @@ static int32_t qpnp_vadc_calib_device(struct qpnp_vadc_chip *vadc)
 					calib_read_1;
 	vadc->adc->amux_prop->chan_prop->adc_graph[CALIB_ABSOLUTE].adc_gnd =
 					calib_read_2;
-	/*                         */
+	/* Ratiometric Calibration */
 	conv.amux_channel = VDD_VADC;
 	conv.decimation = DECIMATION_TYPE2;
 	conv.mode_sel = ADC_OP_NORMAL_MODE << QPNP_VADC_OP_MODE_SHIFT;
@@ -1485,7 +1485,7 @@ void xo_therm_logging(void)
 				touch_thermal_status = 1;
 			else if (tmp.physical <= TOUCH_LOW_TEMPERATURE)
 				touch_thermal_status = 0;
-#endif /*                                       */
+#endif /* CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 */
 		}
 	} else
 		pr_err("Can't find vadc_chip\n");

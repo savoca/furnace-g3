@@ -14,10 +14,10 @@
 #include "internal.h"
 
 /*
-                                                      
-                                                                           
-              
-                                                         
+ * try to determine where a shared mapping can be made
+ * - only supported for NOMMU at the moment (MMU can't doesn't copy private
+ *   mappings)
+ * - attempts to map through to the underlying MTD device
  */
 static unsigned long romfs_get_unmapped_area(struct file *file,
 					     unsigned long addr,
@@ -33,7 +33,7 @@ static unsigned long romfs_get_unmapped_area(struct file *file,
 	if (!mtd)
 		return (unsigned long) -ENOSYS;
 
-	/*                                           */
+	/* the mapping mustn't extend beyond the EOF */
 	lpages = (len + PAGE_SIZE - 1) >> PAGE_SHIFT;
 	isize = i_size_read(inode);
 	offset = pgoff << PAGE_SHIFT;
@@ -59,8 +59,8 @@ static unsigned long romfs_get_unmapped_area(struct file *file,
 }
 
 /*
-                                                                         
-           
+ * permit a R/O mapping to be made directly through onto an MTD device if
+ * possible
  */
 static int romfs_mmap(struct file *file, struct vm_area_struct *vma)
 {

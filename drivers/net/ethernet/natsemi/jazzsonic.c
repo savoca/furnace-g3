@@ -1,21 +1,21 @@
 /*
-              
-  
-                      
-  
-                                                                 
-                                  
-  
-                                                                   
-  
-                                                               
-                         
-  
-                                                   
-  
-                                                                  
-                                                             
-                       
+ * jazzsonic.c
+ *
+ * (C) 2005 Finn Thain
+ *
+ * Converted to DMA API, and (from the mac68k project) introduced
+ * dhd's support for 16-bit cards.
+ *
+ * (C) 1996,1998 by Thomas Bogendoerfer (tsbogend@alpha.franken.de)
+ *
+ * This driver is based on work from Andreas Busse, but most of
+ * the code is rewritten.
+ *
+ * (C) 1995 by Andreas Busse (andy@waldorf-gmbh.de)
+ *
+ * A driver for the onboard Sonic ethernet controller on Mips Jazz
+ * systems (Acer Pica-61, Mips Magnum 4000, Olivetti M700 and
+ * perhaps others, too)
  */
 
 #include <linux/kernel.h>
@@ -51,7 +51,7 @@ static char jazz_sonic_string[] = "jazzsonic";
 #include "sonic.h"
 
 /*
-                                   
+ * Macros to access SONIC registers
  */
 #define SONIC_READ(reg) (*((volatile unsigned int *)dev->base_addr+reg))
 
@@ -61,7 +61,7 @@ do {									\
 } while (0)
 
 
-/*                                                        */
+/* use 0 for production, 1 for verification, >1 for debug */
 #ifdef SONIC_DEBUG
 static unsigned int sonic_debug = SONIC_DEBUG;
 #else
@@ -69,14 +69,14 @@ static unsigned int sonic_debug = 1;
 #endif
 
 /*
-                                                                  
-                                                                
-                                                      
+ * We cannot use station (ethernet) address prefixes to detect the
+ * sonic controller since these are board manufacturer depended.
+ * So we check for known Silicon Revision IDs instead.
  */
 static unsigned short known_revisions[] =
 {
-	0x04,			/*                  */
-	0xffff			/*             */
+	0x04,			/* Mips Magnum 4000 */
+	0xffff			/* end of list */
 };
 
 static int jazzsonic_open(struct net_device* dev)
@@ -130,10 +130,10 @@ static int __devinit sonic_probe1(struct net_device *dev)
 		return -EBUSY;
 
 	/*
-                                                            
-                                                           
-                          
-  */
+	 * get the Silicon Revision ID. If this is one of the known
+	 * one assume that we found a SONIC ethernet controller at
+	 * the expected location.
+	 */
 	silicon_revision = SONIC_READ(SONIC_SR);
 	if (sonic_debug > 1)
 		printk("SONIC Silicon Revision = 0x%04x\n",silicon_revision);
@@ -156,9 +156,9 @@ static int __devinit sonic_probe1(struct net_device *dev)
 	       dev_name(lp->device), dev->base_addr);
 
 	/*
-                                           
-                                            
-  */
+	 * Put the sonic into software reset, then
+	 * retrieve and print the ethernet address.
+	 */
 	SONIC_WRITE(SONIC_CMD,SONIC_CR_RST);
 	SONIC_WRITE(SONIC_CEP,0);
 	for (i=0; i<3; i++) {
@@ -169,12 +169,12 @@ static int __devinit sonic_probe1(struct net_device *dev)
 
 	err = -ENOMEM;
 
-	/*                                  */
+	/* Initialize the device structure. */
 
 	lp->dma_bitmode = SONIC_BITMODE32;
 
-	/*                                                         
-                                                       */
+	/* Allocate the entire chunk of memory for the descriptors.
+           Note that this cannot cross a 64K boundary. */
 	if ((lp->descriptors = dma_alloc_coherent(lp->device,
 				SIZEOF_SONIC_DESC * SONIC_BUS_SCALE(lp->dma_bitmode),
 				&lp->descriptors_laddr, GFP_KERNEL)) == NULL) {
@@ -183,7 +183,7 @@ static int __devinit sonic_probe1(struct net_device *dev)
 		goto out;
 	}
 
-	/*                                                            */
+	/* Now set up the pointers to point to the appropriate places */
 	lp->cda = lp->descriptors;
 	lp->tda = lp->cda + (SIZEOF_SONIC_CDA
 	                     * SONIC_BUS_SCALE(lp->dma_bitmode));
@@ -204,8 +204,8 @@ static int __devinit sonic_probe1(struct net_device *dev)
 	dev->watchdog_timeo = TX_TIMEOUT;
 
 	/*
-                       
-  */
+	 * clear tally counter
+	 */
 	SONIC_WRITE(SONIC_CRCT,0xffff);
 	SONIC_WRITE(SONIC_FAET,0xffff);
 	SONIC_WRITE(SONIC_MPT,0xffff);
@@ -217,8 +217,8 @@ out:
 }
 
 /*
-                                                              
-                                                      
+ * Probe for a SONIC ethernet controller on a Mips Jazz board.
+ * Actually probing is superfluous but we're paranoid.
  */
 static int __devinit jazz_sonic_probe(struct platform_device *pdev)
 {

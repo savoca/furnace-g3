@@ -9,9 +9,9 @@
 
 */
 
-/*         
+/* Changes:
 
-                                              
+	1.01	GRG 1998.05.05	init_proto, release_proto
 
 */
 
@@ -29,8 +29,8 @@
 
 #define j44(a,b)                ((((a>>4)&0x0f)|(b&0xf0))^0x88)
 
-/*                                         
-                                         
+/* cont = 0 - access the IDE register file 
+   cont = 1 - access the IDE command set 
 */
 
 static int  cont_map[2] = { 0x08, 0x20 };

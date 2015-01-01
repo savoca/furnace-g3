@@ -12,12 +12,12 @@
 
 
 /*
-                     
+ * some useful macros
  */
 #define in_range(b,first,len)	((b)>=(first)&&(b)<(first)+(len))
 
 /*
-                              
+ * functions used for retyping
  */
 static inline struct ufs_buffer_head *UCPI_UBH(struct ufs_cg_private_info *cpi)
 {
@@ -31,7 +31,7 @@ static inline struct ufs_buffer_head *USPI_UBH(struct ufs_sb_private_info *spi)
 
 
 /*
-                                       
+ * macros used for accessing structures
  */
 static inline s32
 ufs_get_fs_state(struct super_block *sb, struct ufs_super_block_first *usb1,
@@ -41,7 +41,7 @@ ufs_get_fs_state(struct super_block *sb, struct ufs_super_block_first *usb1,
 	case UFS_ST_SUNOS:
 		if (fs32_to_cpu(sb, usb3->fs_postblformat) == UFS_42POSTBLFMT)
 			return fs32_to_cpu(sb, usb1->fs_u0.fs_sun.fs_state);
-		/*                            */
+		/* Fall Through to UFS_ST_SUN */
 	case UFS_ST_SUN:
 		return fs32_to_cpu(sb, usb3->fs_un2.fs_sun.fs_state);
 	case UFS_ST_SUNx86:
@@ -62,7 +62,7 @@ ufs_set_fs_state(struct super_block *sb, struct ufs_super_block_first *usb1,
 			usb1->fs_u0.fs_sun.fs_state = cpu_to_fs32(sb, value);
 			break;
 		}
-		/*                            */
+		/* Fall Through to UFS_ST_SUN */
 	case UFS_ST_SUN:
 		usb3->fs_un2.fs_sun.fs_state = cpu_to_fs32(sb, value);
 		break;
@@ -139,7 +139,7 @@ ufs_get_de_namlen(struct super_block *sb, struct ufs_dir_entry *de)
 	if ((UFS_SB(sb)->s_flags & UFS_DE_MASK) == UFS_DE_OLD)
 		return fs16_to_cpu(sb, de->d_u.d_namlen);
 	else
-		return de->d_u.d_44.d_namlen; /*                      */
+		return de->d_u.d_44.d_namlen; /* XXX this seems wrong */
 }
 
 static inline void
@@ -148,7 +148,7 @@ ufs_set_de_namlen(struct super_block *sb, struct ufs_dir_entry *de, u16 value)
 	if ((UFS_SB(sb)->s_flags & UFS_DE_MASK) == UFS_DE_OLD)
 		de->d_u.d_namlen = cpu_to_fs16(sb, value);
 	else
-		de->d_u.d_44.d_namlen = value; /*                      */
+		de->d_u.d_44.d_namlen = value; /* XXX this seems wrong */
 }
 
 static inline void
@@ -158,8 +158,8 @@ ufs_set_de_type(struct super_block *sb, struct ufs_dir_entry *de, int mode)
 		return;
 
 	/*
-                                      
-  */
+	 * TODO turn this into a table lookup
+	 */
 	switch (mode & S_IFMT) {
 	case S_IFSOCK:
 		de->d_u.d_44.d_type = DT_SOCK;
@@ -196,7 +196,7 @@ ufs_get_inode_uid(struct super_block *sb, struct ufs_inode *inode)
 	case UFS_UID_EFT:
 		if (inode->ui_u1.oldids.ui_suid == 0xFFFF)
 			return fs32_to_cpu(sb, inode->ui_u3.ui_sun.ui_uid);
-		/*              */
+		/* Fall through */
 	default:
 		return fs16_to_cpu(sb, inode->ui_u1.oldids.ui_suid);
 	}
@@ -214,7 +214,7 @@ ufs_set_inode_uid(struct super_block *sb, struct ufs_inode *inode, u32 value)
 		inode->ui_u3.ui_sun.ui_uid = cpu_to_fs32(sb, value);
 		if (value > 0xFFFF)
 			value = 0xFFFF;
-		/*              */
+		/* Fall through */
 	default:
 		inode->ui_u1.oldids.ui_suid = cpu_to_fs16(sb, value);
 		break;
@@ -230,7 +230,7 @@ ufs_get_inode_gid(struct super_block *sb, struct ufs_inode *inode)
 	case UFS_UID_EFT:
 		if (inode->ui_u1.oldids.ui_suid == 0xFFFF)
 			return fs32_to_cpu(sb, inode->ui_u3.ui_sun.ui_gid);
-		/*              */
+		/* Fall through */
 	default:
 		return fs16_to_cpu(sb, inode->ui_u1.oldids.ui_sgid);
 	}
@@ -248,7 +248,7 @@ ufs_set_inode_gid(struct super_block *sb, struct ufs_inode *inode, u32 value)
 		inode->ui_u3.ui_sun.ui_gid = cpu_to_fs32(sb, value);
 		if (value > 0xFFFF)
 			value = 0xFFFF;
-		/*              */
+		/* Fall through */
 	default:
 		inode->ui_u1.oldids.ui_sgid =  cpu_to_fs16(sb, value);
 		break;
@@ -260,7 +260,7 @@ extern void ufs_set_inode_dev(struct super_block *, struct ufs_inode_info *, dev
 extern int ufs_prepare_chunk(struct page *page, loff_t pos, unsigned len);
 
 /*
-                                         
+ * These functions manipulate ufs buffers
  */
 #define ubh_bread(sb,fragment,size) _ubh_bread_(uspi,sb,fragment,size)  
 extern struct ufs_buffer_head * _ubh_bread_(struct ufs_sb_private_info *, struct super_block *, u64 , u64);
@@ -277,7 +277,7 @@ extern void _ubh_ubhcpymem_(struct ufs_sb_private_info *, unsigned char *, struc
 #define ubh_memcpyubh(ubh,mem,size) _ubh_memcpyubh_(uspi,ubh,mem,size)
 extern void _ubh_memcpyubh_(struct ufs_sb_private_info *, struct ufs_buffer_head *, unsigned char *, unsigned);
 
-/*                                      */
+/* This functions works with cache pages*/
 extern struct page *ufs_get_locked_page(struct address_space *mapping,
 					pgoff_t index);
 static inline void ufs_put_locked_page(struct page *page)
@@ -288,7 +288,7 @@ static inline void ufs_put_locked_page(struct page *page)
 
 
 /*
-                                                                                  
+ * macros and inline function to get important structures from ufs_sb_private_info
  */
 
 static inline void *get_usb_offset(struct ufs_sb_private_info *uspi,
@@ -316,8 +316,8 @@ static inline void *get_usb_offset(struct ufs_sb_private_info *uspi,
 
 
 /*
-                                    
-                                                                 
+ * Extract byte from ufs_buffer_head
+ * Extract the bits for a block from a map inside ufs_buffer_head
  */
 #define ubh_get_addr8(ubh,begin) \
 	((u8*)(ubh)->bh[(begin) >> uspi->s_fshift]->b_data + \
@@ -351,8 +351,8 @@ static inline void *ubh_get_data_ptr(struct ufs_sb_private_info *uspi,
 	((*ubh_get_addr(ubh, (begin) + ((bit) >> 3)) >> ((bit) & 7)) & (0xff >> (UFS_MAXFRAG - uspi->s_fpb)))
 
 /*
-                                                  
-                                 
+ * Determine the number of available frags given a
+ * percentage to hold in reserve.
  */
 static inline u64
 ufs_freespace(struct ufs_sb_private_info *uspi, int percentreserved)
@@ -363,7 +363,7 @@ ufs_freespace(struct ufs_sb_private_info *uspi, int percentreserved)
 }
 
 /*
-                                                   
+ * Macros to access cylinder group array structures
  */
 #define ubh_cg_blktot(ucpi,cylno) \
 	(*((__fs32*)ubh_get_addr(UCPI_UBH(ucpi), (ucpi)->c_btotoff + ((cylno) << 2))))
@@ -373,12 +373,12 @@ ufs_freespace(struct ufs_sb_private_info *uspi, int percentreserved)
 	(ucpi)->c_boff + (((cylno) * uspi->s_nrpos + (rpos)) << 1 ))))
 
 /*
-                    
-                                                         
-                                                        
-                                                             
-                                                                       
-                                           
+ * Bitmap operations
+ * These functions work like classical bitmap operations.
+ * The difference is that we don't have the whole bitmap
+ * in one contiguous chunk of memory, but in several buffers.
+ * The parameters of each function are super_block, ufs_buffer_head and
+ * position of the beginning of the bitmap.
  */
 #define ubh_setbit(ubh,begin,bit) \
 	(*ubh_get_addr(ubh, (begin) + ((bit) >> 3)) |= (1 << ((bit) & 7)))

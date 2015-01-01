@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-        
-  
-                                    
+/**
+ * @file
+ *
+ * @brief common definitions for GCC
  */
 
 #ifndef _MVP_COMPILER_GCC_H
@@ -38,13 +38,13 @@
 #define INCLUDE_ALLOW_GPL
 #include "include_check.h"
 
-/* 
-                               
-  
-                                    
-  
-                                                                   
-                      
+/**
+ * @brief Count leading zeroes.
+ *
+ * @param n unsigned 32-bit integer.
+ *
+ * @return 32 if n == 0 otherwise 31 - the bit position of the most
+ * significant 1 in n.
  */
 #ifdef __COVERITY__
 static inline int
@@ -73,10 +73,10 @@ CLZ(unsigned int n)
 #define UNLIKELY(x)     __builtin_expect((x), 0)
 
 /*
-                                                                               
-                                                                              
-                                                                          
-                                       
+ * For debug builds, we want to omit __attribute__((noreturn)) so that gcc will
+ * keep stack linkages and then we will have useful core dumps.  For non-debug
+ * builds, we don't care about the stack frames and want the little bit of
+ * optimization that noreturn gives us.
  */
 #if defined(__COVERITY__) || !defined(MVP_DEBUG)
 #define NORETURN __attribute__((noreturn))

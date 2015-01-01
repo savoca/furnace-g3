@@ -32,7 +32,7 @@
 #include <mach/msm_xo.h>
 #include <mach/msm_hsusb.h>
 
-/*                            */
+/* Config Regs  and their bits*/
 #define PM8058_CHG_TEST			0x75
 #define IGNORE_LL			2
 #define PM8058_CHG_TEST_2		0xEA
@@ -51,12 +51,12 @@
 #define CHG_VCP_EN			0
 
 #define PM8058_CHG_CNTRL_2		0xD8
-#define ATC_DIS				7	/*                 */
+#define ATC_DIS				7	/* coincell backed */
 #define CHARGE_AUTO_DIS			6
-#define DUMB_CHG_OVRD			5	/*                 */
+#define DUMB_CHG_OVRD			5	/* coincell backed */
 #define ENUM_DONE			4
 #define CHG_TEMP_MODE			3
-#define CHG_BATT_TEMP_DIS		1	/*                 */
+#define CHG_BATT_TEMP_DIS		1	/* coincell backed */
 #define CHG_FAILED_CLEAR		0
 
 #define PM8058_CHG_VMAX_SEL		0x21
@@ -70,20 +70,20 @@
 #define PM8058_CHG_TEMP_REG		0xE3
 #define PM8058_CHG_PULSE		0x22
 
-/*                      */
+/* IRQ STATUS and CLEAR */
 #define PM8058_CHG_STATUS_CLEAR_IRQ_1	0x31
 #define PM8058_CHG_STATUS_CLEAR_IRQ_3	0x33
 #define PM8058_CHG_STATUS_CLEAR_IRQ_10	0xB3
 #define PM8058_CHG_STATUS_CLEAR_IRQ_11	0xB4
 
-/*           */
+/* IRQ MASKS */
 #define PM8058_CHG_MASK_IRQ_1		0x38
 
 #define PM8058_CHG_MASK_IRQ_3		0x3A
 #define PM8058_CHG_MASK_IRQ_10		0xBA
 #define PM8058_CHG_MASK_IRQ_11		0xBB
 
-/*                           */
+/* IRQ Real time status regs */
 #define PM8058_CHG_STATUS_RT_1		0x3F
 #define STATUS_RTCHGVAL			7
 #define STATUS_RTCHGINVAL		6
@@ -96,7 +96,7 @@
 #define PM8058_CHG_STATUS_RT_10		0xC1
 #define PM8058_CHG_STATUS_RT_11		0xC2
 
-/*       */
+/* VTRIM */
 #define PM8058_CHG_VTRIM		0x1D
 #define PM8058_CHG_VBATDET_TRIM		0x1E
 #define PM8058_CHG_ITRIM		0x1F
@@ -128,28 +128,28 @@
 #define PM8058_CHG_V_STEP_MV 25
 #define PM8058_CHG_V_MIN_MV  2400
 /*
-                                            
-                                             
-                                               
-                                   
-                                                      
-                                                           
-                                   
-                                  
-                                   
-                                                             
-                                                          
-                                                           
-                                                      
-                                           
-                                          
-                         
-                                     
-                           
-                                
-                             
-                     
-                    
+ * enum pmic_chg_interrupts: pmic interrupts
+ * @CHGVAL_IRQ: charger V between 3.3 and 7.9
+ * @CHGINVAL_IRQ: charger V outside 3.3 and 7.9
+ * @VBATDET_LOW_IRQ: VBAT < VBATDET
+ * @VCP_IRQ: VDD went below VBAT: BAT_FET is turned on
+ * @CHGILIM_IRQ: mA consumed>IMAXSEL: chgloop draws less mA
+ * @ATC_DONE_IRQ: Auto Trickle done
+ * @ATCFAIL_IRQ: Auto Trickle fail
+ * @AUTO_CHGDONE_IRQ: Auto chg done
+ * @AUTO_CHGFAIL_IRQ: time exceeded w/o reaching term current
+ * @CHGSTATE_IRQ: something happend causing a state change
+ * @FASTCHG_IRQ: trkl charging completed: moving to fastchg
+ * @CHG_END_IRQ: mA has dropped to termination current
+ * @BATTTEMP_IRQ: batt temp is out of range
+ * @CHGHOT_IRQ: the pass device is too hot
+ * @CHGTLIMIT_IRQ: unused
+ * @CHG_GONE_IRQ: charger was removed
+ * @VCPMAJOR_IRQ: vcp major
+ * @VBATDET_IRQ: VBAT >= VBATDET
+ * @BATFET_IRQ: BATFET closed
+ * @BATT_REPLACE_IRQ:
+ * @BATTCONNECT_IRQ:
  */
 enum pmic_chg_interrupts {
 	CHGVAL_IRQ,
@@ -397,7 +397,7 @@ static inline void __dump_chg_regs(void)
 }
 #endif
 
-/*                                       */
+/* SSBI register access helper functions */
 static int pm_chg_suspend(int value)
 {
 	u8 temp;
@@ -476,7 +476,7 @@ static int pm_chg_imaxsel_set(int chg_current)
 		return -EINVAL;
 	}
 	temp = diff / PM8058_CHG_I_STEP_MA;
-	/*                                                     */
+	/* make sure we arent writing more than 5 bits of data */
 	if (temp > 31) {
 		dev_warn(pm8058_chg.dev, "%s max mA=1500 requested mA=%d\n",
 			__func__, chg_current);
@@ -684,7 +684,7 @@ static int __pm8058_start_charging(int chg_current, int termination_current,
 	if (ret)
 		goto out;
 
-	/*                                               */
+	/* wait for the enable to update interrupt status*/
 	msleep(20);
 
 	pm8058_chg_enable_irq(AUTO_CHGFAIL_IRQ);
@@ -729,7 +729,7 @@ static void charging_check_work(struct work_struct *work)
 	int rc;
 
 	switch (fsm_state) {
-	/*                                 */
+	/* We're charging, so disarm alarm */
 	case PMIC8058_CHG_STATE_ATC:
 	case PMIC8058_CHG_STATE_FAST_CHG:
 	case PMIC8058_CHG_STATE_TRKL_CHG:
@@ -743,7 +743,7 @@ static void charging_check_work(struct work_struct *work)
 				"%s: unable to set alarm state\n", __func__);
 		break;
 	default:
-		/*                                            */
+		/* Still not charging, so update driver state */
 		chg_done_cleanup();
 		break;
 	};
@@ -758,9 +758,9 @@ static int pm8058_start_charging(struct msm_hardware_charger *hw_chg,
 	cancel_delayed_work_sync(&pm8058_chg.charging_check_work);
 
 	/*
-                                                                       
-                                          
-  */
+	 * adjust the max current for PC USB connection - set the higher limit
+	 * to 450 and make sure we never cross it
+	 */
 	if (chg_current == 500)
 		chg_current = 450;
 
@@ -774,26 +774,26 @@ static int pm8058_start_charging(struct msm_hardware_charger *hw_chg,
 	if (ret)
 		goto out;
 
-	/*                                 */
+	/* set vbat to  CC to CV threshold */
 	ret = pm_chg_vbatdet_set(AUTO_CHARGING_VBATDET);
 	if (ret)
 		goto out;
 
 	pm8058_chg.vbatdet = AUTO_CHARGING_VBATDET;
 	/*
-                                                  
-                                                       
-                                                            
-                                   
-  */
+	 * get the state of vbat and if it is higher than
+	 * AUTO_CHARGING_VBATDET we start the veoc start timer
+	 * else wait for the voltage to go to AUTO_CHARGING_VBATDET
+	 * and then start the 90 min timer
+	 */
 	vbat_higher_than_vbatdet =
 	    pm_chg_get_rt_status(pm8058_chg.pmic_chg_irq[VBATDET_IRQ]);
 	if (vbat_higher_than_vbatdet) {
 		/*
-                                                 
-                                                       
-                        
-   */
+		 * we are in constant voltage phase of charging
+		 * IEOC should happen withing 90 mins of this instant
+		 * else we enable VEOC
+		 */
 		dev_info(pm8058_chg.dev, "%s begin veoc timer\n", __func__);
 		schedule_delayed_work(&pm8058_chg.veoc_begin_work,
 				      round_jiffies_relative(msecs_to_jiffies
@@ -806,11 +806,11 @@ static int pm8058_start_charging(struct msm_hardware_charger *hw_chg,
 	pm8058_chg.current_charger_current = chg_current;
 
 	/*
-                                                                    
-                                                                    
-                                                                   
-          
-  */
+	 * We want to check the FSM state to verify we're charging. We must
+	 * wait before doing this to allow the VBATDET to settle. The worst
+	 * case for this is two seconds. The batt alarm does not have this
+	 * delay.
+	 */
 	schedule_delayed_work(&pm8058_chg.charging_check_work,
 				      round_jiffies_relative(msecs_to_jiffies
 			     (AUTO_CHARGING_VBATDET_DEBOUNCE_TIME_MS)));
@@ -821,14 +821,14 @@ out:
 
 static void veoc_begin_work(struct work_struct *work)
 {
-	/*                                                       
-                                                          */
+	/* we have been doing CV for 90mins with no signs of IEOC
+	 * start checking for VEOC in addition with 16min charges*/
 	dev_info(pm8058_chg.dev, "%s begin veoc detection\n", __func__);
 	pm8058_chg.waiting_for_veoc = 1;
 	/*
-                                                                   
-                
-  */
+	 * disable VBATDET irq we dont need it unless we are at the end of
+	 * charge cycle
+	 */
 	pm8058_chg_disable_irq(VBATDET_IRQ);
 	__pm8058_start_charging(pm8058_chg.current_charger_current,
 				AUTO_CHARGING_VEOC_ITERM,
@@ -838,9 +838,9 @@ static void veoc_begin_work(struct work_struct *work)
 static void vbat_low_work(struct work_struct *work)
 {
 	/*
-                                                              
-                                                    
-  */
+	 * It has been one minute and the battery still holds voltage
+	 * start the final topoff - charging is almost done
+	 */
 	dev_info(pm8058_chg.dev, "%s vbatt maintains for a minute"
 		"starting topoff\n", __func__);
 	pm8058_chg.waiting_for_veoc = 0;
@@ -858,7 +858,7 @@ static irqreturn_t pm8058_chg_chgval_handler(int irq, void *dev_id)
 	u8 old, temp;
 	int ret;
 
-	if (is_chg_plugged_in()) {	/*                   */
+	if (is_chg_plugged_in()) {	/* this debounces it */
 		if (!pm8058_chg.present) {
 			msm_charger_notify_event(&usb_hw_chg,
 						CHG_INSERTED_EVENT);
@@ -876,7 +876,7 @@ static irqreturn_t pm8058_chg_chgval_handler(int irq, void *dev_id)
 			temp = 0xFC;
 			ret = pm8xxx_writeb(pm8058_chg.dev->parent,
 					PM8058_CHG_TEST, temp);
-			/*                                          */
+			/* 10 ms sleep is for the VCHG to discharge */
 			msleep(10);
 			temp = 0xF0;
 			ret = pm8xxx_writeb(pm8058_chg.dev->parent,
@@ -915,7 +915,7 @@ static irqreturn_t pm8058_chg_chginval_handler(int irq, void *dev_id)
 		temp = 0xFC;
 		ret = pm8xxx_writeb(pm8058_chg.dev->parent,
 				PM8058_CHG_TEST, temp);
-		/*                                          */
+		/* 10 ms sleep is for the VCHG to discharge */
 		msleep(10);
 		temp = 0xF0;
 		ret = pm8xxx_writeb(pm8058_chg.dev->parent,
@@ -928,7 +928,7 @@ static irqreturn_t pm8058_chg_chginval_handler(int irq, void *dev_id)
 					CHG_REMOVED_EVENT);
 			pm8058_chg.present = 0;
 		} else {
-			/*            */
+			/* was a fake */
 			pm8058_chg_enable_irq(CHGINVAL_IRQ);
 		}
 	}
@@ -950,9 +950,9 @@ static irqreturn_t pm8058_chg_auto_chgdone_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-/*                                                               
-                                                           
-                             */
+/* can only happen with the pmic charger when it has been charing
+ * for either 16 mins wating for VEOC or 32 mins for topoff
+ * without a IEOC indication */
 static irqreturn_t pm8058_chg_auto_chgfail_handler(int irq, void *dev_id)
 {
 	pm8058_chg_disable_irq(AUTO_CHGFAIL_IRQ);
@@ -961,17 +961,17 @@ static irqreturn_t pm8058_chg_auto_chgfail_handler(int irq, void *dev_id)
 		dev_info(pm8058_chg.dev, "%s topoff done, charging done\n",
 			__func__);
 		pm8058_chg.waiting_for_topoff = 0;
-		/*                             */
+		/* notify we are done charging */
 		msm_charger_notify_event(&usb_hw_chg, CHG_DONE_EVENT);
 	} else {
-		/*                                                */
+		/* start one minute timer and monitor VBATDET_LOW */
 		dev_info(pm8058_chg.dev, "%s monitoring vbat_low for a"
 			"minute\n", __func__);
 		schedule_delayed_work(&pm8058_chg.check_vbat_low_work,
 				      round_jiffies_relative(msecs_to_jiffies
 			     (AUTO_CHARGING_VEOC_VBAT_LOW_CHECK_TIME_MS)));
 
-		/*                             */
+		/* note we are waiting on veoc */
 		pm8058_chg.waiting_for_veoc = 1;
 
 		pm_chg_vbatdet_set(AUTO_CHARGING_VEOC_VBATDET);
@@ -997,7 +997,7 @@ static irqreturn_t pm8058_chg_fastchg_handler(int irq, void *dev_id)
 {
 	pm8058_chg_disable_irq(FASTCHG_IRQ);
 
-	/*                                       */
+	/* we have begun the fast charging state */
 	dev_info(pm8058_chg.dev, "%s begin fast charging"
 		, __func__);
 	msm_charger_notify_event(&usb_hw_chg, CHG_BATT_BEGIN_FAST_CHARGING);
@@ -1008,14 +1008,14 @@ static irqreturn_t pm8058_chg_batttemp_handler(int irq, void *dev_id)
 {
 	int ret;
 
-	/*                         
-                                             
-  */
+	/* we could get temperature
+	 * interrupt when the battery is plugged out
+	 */
 	ret = pm_chg_get_rt_status(pm8058_chg.pmic_chg_irq[BATTCONNECT_IRQ]);
 	if (ret) {
 		msm_charger_notify_event(&usb_hw_chg, CHG_BATT_REMOVED);
 	} else {
-		/*                                                       */
+		/* read status to determine we are inrange or outofrange */
 		ret =
 		    pm_chg_get_rt_status(pm8058_chg.pmic_chg_irq[BATTTEMP_IRQ]);
 		if (ret)
@@ -1033,7 +1033,7 @@ static irqreturn_t pm8058_chg_vbatdet_handler(int irq, void *dev_id)
 {
 	int ret;
 
-	/*               */
+	/* settling time */
 	msleep(20);
 	ret = pm_chg_get_rt_status(pm8058_chg.pmic_chg_irq[VBATDET_IRQ]);
 
@@ -1041,10 +1041,10 @@ static irqreturn_t pm8058_chg_vbatdet_handler(int irq, void *dev_id)
 		if (pm8058_chg.vbatdet == AUTO_CHARGING_VBATDET
 			&& !delayed_work_pending(&pm8058_chg.veoc_begin_work)) {
 			/*
-                                                  
-                                                        
-                         
-    */
+			 * we are in constant voltage phase of charging
+			 * IEOC should happen withing 90 mins of this instant
+			 * else we enable VEOC
+			 */
 			dev_info(pm8058_chg.dev, "%s entered constant voltage"
 				"begin veoc timer\n", __func__);
 			schedule_delayed_work(&pm8058_chg.veoc_begin_work,
@@ -1060,10 +1060,10 @@ static irqreturn_t pm8058_chg_vbatdet_handler(int irq, void *dev_id)
 			if (pm8058_chg.waiting_for_topoff
 			    || pm8058_chg.waiting_for_veoc) {
 				/*
-                                                 
-                                                
-                                             
-     */
+				 * the battery dropped its voltage below 4100
+				 * around a minute charge the battery for 16
+				 * mins and check vbat again for a minute
+				 */
 				dev_info(pm8058_chg.dev, "%s batt dropped vlt"
 					"within a minute\n", __func__);
 				pm8058_chg.waiting_for_topoff = 0;
@@ -1088,9 +1088,9 @@ static irqreturn_t pm8058_chg_batt_replace_handler(int irq, void *dev_id)
 	if (ret) {
 		msm_charger_notify_event(&usb_hw_chg, CHG_BATT_INSERTED);
 		/*
-                                           
-                                    
-   */
+		 * battery is present enable batt removal
+		 * and batt temperatture interrupt
+		 */
 		pm8058_chg_enable_irq(BATTCONNECT_IRQ);
 	}
 	return IRQ_HANDLED;
@@ -1420,7 +1420,7 @@ static int pm8058_stop_charging(struct msm_hardware_charger *hw_chg)
 
 	dev_info(pm8058_chg.dev, "%s stopping charging\n", __func__);
 
-	/*                                         */
+	/* disable the irqs enabled while charging */
 	pm8058_chg_disable_irq(AUTO_CHGFAIL_IRQ);
 	pm8058_chg_disable_irq(CHGHOT_IRQ);
 	pm8058_chg_disable_irq(AUTO_CHGDONE_IRQ);
@@ -1482,9 +1482,9 @@ static int set_disable_status_param(const char *val, struct kernel_param *kp)
 
 	if (pm8058_chg.inited && pm8058_chg.disabled) {
 		/*
-                                               
-                                                         
-   */
+		 * stop_charging is called during usb suspend
+		 * act as the usb is removed by disabling auto and enum
+		 */
 		pm_chg_enum_done_enable(0);
 		pm_chg_auto_disable(1);
 		pm8058_stop_charging(NULL);
@@ -1781,9 +1781,9 @@ static int pm8058_is_battery_id_valid(void)
 	pr_debug("%s: batt_id_mv is %d\n", __func__, batt_id_mv);
 
 	/*
-                                 
-                                     
-  */
+	 * The readings are not in range
+	 * assume battery is present for now
+	 */
 	return 1;
 
 	if (batt_id_mv > 0
@@ -1794,7 +1794,7 @@ static int pm8058_is_battery_id_valid(void)
 	return 0;
 }
 
-/*                       */
+/* returns voltage in mV */
 static int pm8058_get_battery_mvolts(void)
 {
 	int vbatt_mv;
@@ -1804,9 +1804,9 @@ static int pm8058_get_battery_mvolts(void)
 	if (vbatt_mv > 0)
 		return vbatt_mv;
 	/*
-                                     
-                                       
-  */
+	 * return 0 to tell the upper layers
+	 * we couldnt read the battery voltage
+	 */
 	return 0;
 }
 
@@ -1822,7 +1822,7 @@ static int msm_battery_gauge_alarm_notify(struct notifier_block *nb,
 		dev_err(pm8058_chg.dev,
 			"%s: spurious interrupt\n", __func__);
 		break;
-	/*                                       */
+	/* expected case - trip of low threshold */
 	case 1:
 		rc = pm8xxx_batt_alarm_disable(
 				PM8XXX_BATT_ALARM_UPPER_COMPARATOR);
@@ -1849,7 +1849,7 @@ static int msm_battery_gauge_alarm_notify(struct notifier_block *nb,
 static int pm8058_monitor_for_recharging(void)
 {
 	int rc;
-	/*                       */
+	/* enable low comparator */
 	rc = pm8xxx_batt_alarm_disable(PM8XXX_BATT_ALARM_UPPER_COMPARATOR);
 	if (!rc)
 		return pm8xxx_batt_alarm_enable(
@@ -1933,7 +1933,7 @@ static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&pm8058_chg.chg_done_check_work, chg_done_check_work);
 	INIT_DELAYED_WORK(&pm8058_chg.charging_check_work, charging_check_work);
 
-	/*                                        */
+	/* determine what state the charger is in */
 	pm8058_chg_determine_initial_state();
 
 	pm8058_chg_enable_irq(BATTTEMP_IRQ);
@@ -1949,9 +1949,9 @@ static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 	}
 
 	/*
-                                                                  
-                                                 
-  */
+	 * The batt-alarm driver requires sane values for both min / max,
+	 * regardless of whether they're both activated.
+	 */
 	rc = pm8xxx_batt_alarm_threshold_set(
 			PM8XXX_BATT_ALARM_LOWER_COMPARATOR, resume_mv);
 	if (!rc)
@@ -1969,7 +1969,7 @@ static int __devinit pm8058_charger_probe(struct platform_device *pdev)
 		goto free_irq;
 	}
 
-	/*                    */
+	/* PWM enabled at 2Hz */
 	rc = pm8xxx_batt_alarm_pwm_rate_set(1, 7, 4);
 	if (rc) {
 		pr_err("%s: unable to set batt alarm pwm rate\n", __func__);

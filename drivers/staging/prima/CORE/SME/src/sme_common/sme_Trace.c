@@ -33,7 +33,7 @@
   Qualcomm Atheros Confidential and Proprietary.
 
   ========================================================================*/
-#include "aniGlobal.h" //                  
+#include "aniGlobal.h" //for tpAniSirGlobal
 #include "smsDebug.h"
 #include "macTrace.h"
 #include "sme_Trace.h"

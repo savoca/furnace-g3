@@ -1,6 +1,6 @@
 /*
-                
-  
+ *  felica_rfs.h
+ *
  */
 
 #ifndef __FELICA_UART_H__
@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 /*
-                            
+ *  INCLUDE FILES FOR MODULE
  */
 
 #include <linux/list.h>
@@ -19,7 +19,7 @@ extern "C" {
 #include "felica_common.h"
 
 /*
-          
+ *  DEFINE
  */
 int felica_uart_open(void);
 int felica_uart_close(void);
@@ -31,4 +31,4 @@ int felica_uart_ioctrl(int *count);
 }
 #endif
 
-#endif //                  
+#endif // __FELICA_UART_H__

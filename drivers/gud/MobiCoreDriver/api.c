@@ -24,12 +24,12 @@ int mobicore_map_vmem(struct mc_instance *instance, void *addr,
 EXPORT_SYMBOL(mobicore_map_vmem);
 
 /*
-                                              
-                  
-                
-  
-                        
-  
+ * Unmap a virtual memory buffer from mobicore
+ * @param instance
+ * @param handle
+ *
+ * @return 0 if no error
+ *
  */
 int mobicore_unmap_vmem(struct mc_instance *instance, uint32_t handle)
 {
@@ -38,12 +38,12 @@ int mobicore_unmap_vmem(struct mc_instance *instance, uint32_t handle)
 EXPORT_SYMBOL(mobicore_unmap_vmem);
 
 /*
-                                                         
-                  
-                                      
-  
-                        
-  
+ * Free a WSM buffer allocated with mobicore_allocate_wsm
+ * @param instance
+ * @param handle		handle of the buffer
+ *
+ * @return 0 if no error
+ *
  */
 int mobicore_free_wsm(struct mc_instance *instance, uint32_t handle)
 {
@@ -53,21 +53,21 @@ EXPORT_SYMBOL(mobicore_free_wsm);
 
 
 /*
-                                  
-  
-                            
-                                         
-                                                        
-                                                                 
-  
-                                      
+ * Allocate WSM for given instance
+ *
+ * @param instance		instance
+ * @param requested_size		size of the WSM
+ * @param handle		pointer where the handle will be saved
+ * @param virt_kernel_addr	pointer for the kernel virtual address
+ *
+ * @return error code or 0 for success
  */
 int mobicore_allocate_wsm(struct mc_instance *instance,
 	unsigned long requested_size, uint32_t *handle, void **virt_kernel_addr)
 {
 	struct mc_buffer *buffer = NULL;
 
-	/*                                 */
+	/* Setup the WSM buffer structure! */
 	if (mc_get_buffer(instance, &buffer, requested_size))
 		return -EFAULT;
 
@@ -78,9 +78,9 @@ int mobicore_allocate_wsm(struct mc_instance *instance,
 EXPORT_SYMBOL(mobicore_allocate_wsm);
 
 /*
-                                                
-  
-                                                          
+ * Initialize a new mobicore API instance object
+ *
+ * @return Instance or NULL if no allocation was possible.
  */
 struct mc_instance *mobicore_open(void)
 {
@@ -93,9 +93,9 @@ struct mc_instance *mobicore_open(void)
 EXPORT_SYMBOL(mobicore_open);
 
 /*
-                                                                   
-                           
-                              
+ * Release a mobicore instance object and all objects related to it
+ * @param instance instance
+ * @return 0 if Ok or -E ERROR
  */
 int mobicore_release(struct mc_instance *instance)
 {
@@ -104,9 +104,9 @@ int mobicore_release(struct mc_instance *instance)
 EXPORT_SYMBOL(mobicore_release);
 
 /*
-                             
-  
-                                                              
+ * Test if mobicore can sleep
+ *
+ * @return true if mobicore can sleep, false if it can't sleep
  */
 bool mobicore_sleep_ready(void)
 {

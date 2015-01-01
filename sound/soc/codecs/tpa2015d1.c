@@ -40,12 +40,12 @@ void tpa2015d1_ext_spk_power_amp_enable(u32 on)
 
 	if (on) {
 		gpio_direction_output(ext_spk_amp_gpio, on);
-		/*                                              */
+		/*time takes enable the external power amplifier*/
 		usleep_range(EXT_CLASS_D_EN,
 				EXT_CLASS_D_EN + EXT_CLASS_D_DELTA);
 	} else {
 		gpio_direction_output(ext_spk_amp_gpio, on);
-		/*                                               */
+		/*time takes disable the external power amplifier*/
 		usleep_range(EXT_CLASS_D_DIS,
 				EXT_CLASS_D_DIS + EXT_CLASS_D_DELTA);
 	}

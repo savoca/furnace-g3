@@ -29,7 +29,7 @@
 #include <linux/pci.h>
 
 /*
-                                                 
+ * Enable the PCI device and request the regions.
  */
 static inline int comedi_pci_enable(struct pci_dev *pdev, const char *res_name)
 {
@@ -47,9 +47,9 @@ static inline int comedi_pci_enable(struct pci_dev *pdev, const char *res_name)
 }
 
 /*
-                                                  
-  
-                                                                               
+ * Release the regions and disable the PCI device.
+ *
+ * This must be matched with a previous successful call to comedi_pci_enable().
  */
 static inline void comedi_pci_disable(struct pci_dev *pdev)
 {

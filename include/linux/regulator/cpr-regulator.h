@@ -18,13 +18,13 @@
 
 #define CPR_REGULATOR_DRIVER_NAME	"qcom,cpr-regulator"
 
-/* 
-                                                          
-                                                
-                                                
-                                              
-                                                         
-  
+/**
+ * enum cpr_fuse_corner_enum - CPR fuse corner enum values
+ * %CPR_FUSE_CORNER_SVS:		Lowest voltage for APC
+ * %CPR_FUSE_CORNER_NORMAL:		Normal mode voltage
+ * %CPR_FUSE_CORNER_TURBO:		Turbo mode voltage
+ * %CPR_FUSE_CORNER_SUPER_TURBO:	Super Turbo mode voltage
+ *
  */
 enum cpr_fuse_corner_enum {
 	CPR_FUSE_CORNER_SVS = 1,
@@ -33,23 +33,23 @@ enum cpr_fuse_corner_enum {
 	CPR_FUSE_CORNER_MAX,
 };
 
-/* 
-                                                
-                                         
-                                                
-                                               
-                                               
-                                               
-                                               
-                                                 
-                                                
-                                               
-                                                
-                                                   
-                                                  
-  
-                                                          
-                                        
+/**
+ * enum cpr_corner_enum - CPR corner enum values
+ * %CPR_CORNER_1:		Lowest voltage for APC
+ * %CPR_CORNER_2:		Second lowest voltage for APC
+ * %CPR_CORNER_3:		Third lowest voltage for APC
+ * %CPR_CORNER_4:		Forth lowest voltage for APC
+ * %CPR_CORNER_5:		Fifth lowest voltage for APC
+ * %CPR_CORNER_6:		Sixth lowest voltage for APC
+ * %CPR_CORNER_7:		Seventh lowest voltage for APC
+ * %CPR_CORNER_8:		Eighth lowest voltage for APC
+ * %CPR_CORNER_9:		Ninth lowest voltage for APC
+ * %CPR_CORNER_10:		Tenth lowest voltage for APC
+ * %CPR_CORNER_11:		Eleventh lowest voltage for APC
+ * %CPR_CORNER_12:		Twelfth lowest voltage for APC
+ *
+ * These should be used in regulator_set_voltage() for CPR
+ * regulator as if they had units of uV.
  */
 enum cpr_corner_enum {
 	CPR_CORNER_1 = 1,
@@ -66,13 +66,13 @@ enum cpr_corner_enum {
 	CPR_CORNER_12,
 };
 
-/* 
-                                                                
-                                           
-                                                                       
-                                        
-                                         
-                                                                
+/**
+ * enum vdd_mx_vmin_method - Method to determine vmin for vdd-mx
+ * %VDD_MX_VMIN_APC:			Equal to APC voltage
+ * %VDD_MX_VMIN_APC_CORNER_CEILING:	Equal to PVS corner ceiling voltage
+ * %VDD_MX_VMIN_APC_SLOW_CORNER_CEILING:
+ *					Equal to slow speed corner ceiling
+ * %VDD_MX_VMIN_MX_VMAX:		Equal to specified vdd-mx-vmax voltage
  */
 enum vdd_mx_vmin_method {
 	VDD_MX_VMIN_APC,
@@ -92,6 +92,6 @@ static inline int __init cpr_regulator_init(void)
 	return -ENODEV;
 }
 
-#endif /*                          */
+#endif /* CONFIG_MSM_CPR_REGULATOR */
 
-#endif /*                               */
+#endif /* __REGULATOR_CPR_REGULATOR_H__ */

@@ -16,7 +16,7 @@
 #include <net/icmp.h>
 #include <net/netns/hash.h>
 
-/*                                     */
+/* PING_HTABLE_SIZE must be power of 2 */
 #define PING_HTABLE_SIZE 	64
 #define PING_HTABLE_MASK 	(PING_HTABLE_SIZE-1)
 
@@ -24,12 +24,12 @@
 	hlist_nulls_for_each_entry(__sk, node, list, sk_nulls_node)
 
 /*
-                                                         
-                                                                
+ * gid_t is either uint or ushort.  We want to pass it to
+ * proc_dointvec_minmax(), so it must not be larger than MAX_INT
  */
 #define GID_T_MAX (((gid_t)~0U) >> 1)
 
-/*                                                                          */
+/* Compatibility glue so we can support IPv6 when it's compiled as a module */
 struct pingv6_ops {
 	int (*ipv6_recv_error)(struct sock *sk, struct msghdr *msg, int len);
 	int (*datagram_recv_ctl)(struct sock *sk, struct msghdr *msg,
@@ -96,4 +96,4 @@ void __init ping_init(void);
 int  __init pingv6_init(void);
 void pingv6_exit(void);
 
-#endif /*         */
+#endif /* _PING_H */

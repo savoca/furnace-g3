@@ -105,7 +105,7 @@ static int prox_i2c_read(struct synaptics_ts_data *ts, unsigned short addr, unsi
 	unsigned char page_new = 0;
 	bool page_changed;
 
-/*           */
+/* page read */
 	retval = touch_i2c_read(ts->client, PAGE_SELECT_REG, sizeof(page_old), &page_old);
 
 	if (retval < 0) {
@@ -115,7 +115,7 @@ static int prox_i2c_read(struct synaptics_ts_data *ts, unsigned short addr, unsi
 
 	page_new = (addr >> 8);
 
-/*                       */
+/* page compare & change */
 	if (page_old == page_new)
 		page_changed = false;
 	else
@@ -130,7 +130,7 @@ static int prox_i2c_read(struct synaptics_ts_data *ts, unsigned short addr, unsi
 		page_changed = true;
 	}
 
-/*               */
+/* read register */
 	retval = touch_i2c_read(ts->client, (unsigned char)(addr & ~(MASK_8BIT << 8)), length, data);
 
 	if (retval < 0) {
@@ -138,7 +138,7 @@ static int prox_i2c_read(struct synaptics_ts_data *ts, unsigned short addr, unsi
 		return retval;
 	}
 
-/*              */
+/* page restore */
 	if (page_changed) {
 		retval = touch_i2c_write_byte(ts->client, PAGE_SELECT_REG, page_old);
 
@@ -158,7 +158,7 @@ static int prox_i2c_write(struct synaptics_ts_data *ts, unsigned short addr, uns
 	unsigned char page_new = 0;
 	bool page_changed;
 
-/*           */
+/* page read */
 	retval = touch_i2c_read(ts->client, PAGE_SELECT_REG, sizeof(page_old), &page_old);
 
 	if (retval < 0) {
@@ -168,7 +168,7 @@ static int prox_i2c_write(struct synaptics_ts_data *ts, unsigned short addr, uns
 
 	page_new = (addr >> 8);
 
-/*                       */
+/* page compare & change */
 	if (page_old == page_new)
 		page_changed = false;
 	else
@@ -183,7 +183,7 @@ static int prox_i2c_write(struct synaptics_ts_data *ts, unsigned short addr, uns
 		page_changed = true;
 	}
 
-/*                */
+/* write register */
 	retval = touch_i2c_write(ts->client, (unsigned char)(addr & ~(MASK_8BIT << 8)), length, data);
 
 	if (retval < 0) {
@@ -191,7 +191,7 @@ static int prox_i2c_write(struct synaptics_ts_data *ts, unsigned short addr, uns
 		return retval;
 	}
 
-/*              */
+/* page restore */
 	if (page_changed) {
 		retval = touch_i2c_write_byte(ts->client, PAGE_SELECT_REG, page_old);
 
@@ -213,7 +213,7 @@ static int prox_reg_init(void)
 	struct synaptics_ts_f12_query_8 query_8;
 	struct synaptics_ts_data *ts = prox->ts_data;
 
-/*                              */
+/* hover_finger_en_addr setting */
 	retval = prox_i2c_read(ts, (prox->query_base_addr + 5), query_5.data, sizeof(query_5.data));
 
 	if (retval < 0) {
@@ -234,7 +234,7 @@ static int prox_reg_init(void)
 
 	printk("[Touch Proximity] %s: prox->hover_finger_en_addr=0x%04X\n", __func__, prox->hover_finger_en_addr);
 
-/*                                */
+/* hover_finger_data_addr setting */
 	retval = prox_i2c_read(ts, (prox->query_base_addr + 8), query_8.data, sizeof(query_8.data));
 
 	if (retval < 0) {
@@ -363,39 +363,39 @@ f12_found:
 static int prox_set_hover_finger_en(void)
 {
 /*
-            
-                                    
-                                              
+	int retval;
+	unsigned char object_report_enable;
+	struct synaptics_ts_data *ts = prox->ts_data;
 
-                                                                                                             
+	retval = prox_i2c_read(ts, prox->hover_finger_en_addr, &object_report_enable, sizeof(object_report_enable));
 
-                  
-                                                                                                
-                
-  
+	if (retval < 0) {
+		printk("[Touch Proximity] %s: Failed to read from object_report_enable register\n", __func__);
+		return retval;
+	}
 
-                                                                                                                
+	printk("[Touch Proximity] %s: (Before writing) object_report_enable=0x%02X\n", __func__, object_report_enable);
 
-                           
-                                             
-     
-                                              
+	if (prox->hover_finger_en)
+		object_report_enable |= HOVERING_FINGER_EN;
+	else
+		object_report_enable &= ~HOVERING_FINGER_EN;
 
-                                                                                                              
+	retval = prox_i2c_write(ts, prox->hover_finger_en_addr, &object_report_enable, sizeof(object_report_enable));
 
-                  
-                                                                                               
-                
-  
+	if (retval < 0) {
+		printk("[Touch Proximity] %s: Failed to write to object_report_enable register\n", __func__);
+		return retval;
+	}
 
-                                                                                                             
+	retval = prox_i2c_read(ts, prox->hover_finger_en_addr, &object_report_enable, sizeof(object_report_enable));
 
-                  
-                                                                                                
-                
-  
+	if (retval < 0) {
+		printk("[Touch Proximity] %s: Failed to read from object_report_enable register\n", __func__);
+		return retval;
+	}
 
-                                                                                                               
+	printk("[Touch Proximity] %s: (After writing) object_report_enable=0x%02X\n", __func__, object_report_enable);
 */
 	return 0;
 }

@@ -11,7 +11,7 @@
  *
  */
 /*
-                                    
+ * Touchpad driver for QSD platform.
  */
 
 struct msm_touchpad_platform_data {

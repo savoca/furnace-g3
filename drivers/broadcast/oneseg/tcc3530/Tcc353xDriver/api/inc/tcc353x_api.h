@@ -1,13 +1,13 @@
+/*--------------------------------------------------------------------------*/
+/*    FileName    : Tcc353x_api.h                                           */
+/*    Description : API Function                                            */
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*   TCC Version : 1.0.0                                                    */
 /*   Copyright (c) Telechips, Inc.                                          */
+/*   ALL RIGHTS RESERVED                                                    */
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #ifndef __TCC353X_API_H__
 #define __TCC353X_API_H__
@@ -42,10 +42,10 @@ extern "C" {
 #define ISDB_TMCC_RETRY        	(1)
 
 /*
-                              
-                            
-                                
-                              
+full seg :	invalid min : 80 ms
+1 seg :		invalid min : 90 ms
+tmm13 seg :	invalid min : 110 ms
+tmm1 seg :	invalid min : 90 ms
 */
 
 typedef enum {

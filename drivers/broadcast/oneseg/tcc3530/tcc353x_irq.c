@@ -11,8 +11,8 @@
 #include <linux/time.h>
 #include <linux/ktime.h>
 
-/*                      */
-/*                          */
+/*#define INT_TIME_CHECK*/
+/*#define USE_TCC_WORK_QUEUE*/
 I32U Tcc353xInterruptProcess(void);
 void Tcc353xInterruptGetStream(I32U _fifoSize);
 
@@ -40,7 +40,7 @@ static void TcbdInterruptWork(struct work_struct *_param)
 	ktime_t st, et, delta_t;
 	long delta;
 #endif
-	/*                                                                                    */
+	/*struct _TcbdIrqData_t * irqData = container_of(_param, struct _TcbdIrqData_t, work);*/
 	
 #ifdef INT_TIME_CHECK
 	st = ktime_get();
@@ -54,7 +54,7 @@ static void TcbdInterruptWork(struct work_struct *_param)
 	}
 	
 	fifoSize = Tcc353xInterruptProcess();
-	/*                              */
+	/*enable_irq(irqData->tcbd_irq);*/
 
 	if(fifoSize)
 		Tcc353xInterruptGetStream(fifoSize);
@@ -71,10 +71,10 @@ static void TcbdInterruptWork(struct work_struct *_param)
 static irqreturn_t TcbdIrqHandler(int _irq, void *_param)
 {
 	TcbdIrqData_t *irqData = (TcbdIrqData_t *)_param;
-	/*                                      */
+	/*disable_irq_nosync(irqData->tcbd_irq);*/
 
 	if (TcbdIrqData.isIrqEnable)
-		//                                               
+		//queue_work(irqData->workQueue, &irqData->work);
 		TcbdInterruptWork(&irqData->work);
 
 	return IRQ_HANDLED;

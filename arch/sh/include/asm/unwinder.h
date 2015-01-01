@@ -23,9 +23,9 @@ extern void stack_reader_dump(struct task_struct *, struct pt_regs *,
 			      void *);
 
 /*
-                                                                     
-                                         
+ * Used by fault handling code to signal to the unwinder code that it
+ * should switch to a different unwinder.
  */
 extern int unwinder_faulted;
 
-#endif /*                   */
+#endif /* _LINUX_UNWINDER_H */

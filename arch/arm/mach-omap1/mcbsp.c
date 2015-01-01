@@ -39,9 +39,9 @@ static struct platform_device **omap_mcbsp_devices;
 static void omap1_mcbsp_request(unsigned int id)
 {
 	/*
-                                             
-                               
-  */
+	 * On 1510, 1610 and 1710, McBSP1 and McBSP3
+	 * are DSP public peripherals.
+	 */
 	if (id == 0 || id == 2) {
 		if (dsp_use++ == 0) {
 			api_clk = clk_get(NULL, "api_ck");
@@ -51,9 +51,9 @@ static void omap1_mcbsp_request(unsigned int id)
 				clk_enable(dsp_clk);
 
 				/*
-                                    
-                                              
-     */
+				 * DSP external peripheral reset
+				 * FIXME: This should be moved to dsp code
+				 */
 				__raw_writew(__raw_readw(DSP_RSTCT2) | DPS_RSTCT2_PER_EN |
 						DSP_RSTCT2_WD_PER_EN, DSP_RSTCT2);
 			}

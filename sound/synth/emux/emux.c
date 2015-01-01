@@ -32,7 +32,7 @@ MODULE_DESCRIPTION("Routines for control of EMU WaveTable chip");
 MODULE_LICENSE("GPL");
 
 /*
-                                                             
+ * create a new hardware dependent device for Emu8000/Emu10k1
  */
 int snd_emux_new(struct snd_emux **remu)
 {
@@ -106,7 +106,7 @@ int snd_emux_register(struct snd_emux *emu, struct snd_card *card, int index, ch
 	if (emu->voices == NULL)
 		return -ENOMEM;
 
-	/*                       */
+	/* create soundfont list */
 	memset(&sf_cb, 0, sizeof(sf_cb));
 	sf_cb.private_data = emu;
 	if (emu->ops.sample_new)
@@ -176,7 +176,7 @@ EXPORT_SYMBOL(snd_emux_free);
 
 
 /*
-             
+ *  INIT part
  */
 
 static int __init alsa_emux_init(void)

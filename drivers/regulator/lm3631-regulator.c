@@ -348,22 +348,22 @@ static struct of_regulator_match lm3631_regulator_matches[] = {
 	{ .name = "vneg",   .driver_data = (void *)LM3631_LDO_NEG,  },
 };
 
-/* 
-                                                                              
-                                   
-                                              
-                                           
-                                                 
-  
-                                                                        
-                                                                       
-                                                                     
-                                                                              
-                                                                           
-                                                                            
-            
-  
-                                                                           
+/**
+ * of_regulator_match - extract multiple regulator init data from device tree.
+ * @dev: device requesting the data
+ * @node: parent device node of the regulators
+ * @matches: match table for the regulators
+ * @num_matches: number of entries in match table
+ *
+ * This function uses a match table specified by the regulator driver to
+ * parse regulator init data from the device tree. @node is expected to
+ * contain a set of child nodes, each providing the init data for one
+ * regulator. The data parsed from a child node will be matched to a regulator
+ * based on either the deprecated property regulator-compatible if present,
+ * or otherwise the child node's name. Note that the match table is modified
+ * in place.
+ *
+ * Returns the number of matches found or a negative error code on failure.
  */
 static int of_regulator_match(struct device *dev, struct device_node *node,
 			      struct of_regulator_match *matches,

@@ -52,7 +52,7 @@ struct mon_private {
 };
 
 /*
-                   
+ * helper functions
  */
 
 static int monwrite_diag(struct monwrite_hdr *myhdr, char *buffer, int fcn)
@@ -168,14 +168,14 @@ static int monwrite_new_data(struct mon_private *monpriv)
 		monpriv->current_buf = NULL;
 		break;
 	default:
-		/*                                                     */
+		/* monhdr->mon_function is checked in monwrite_new_hdr */
 		BUG();
 	}
 	return rc;
 }
 
 /*
-                  
+ * file operations
  */
 
 static int monwrite_open(struct inode *inode, struct file *filp)
@@ -284,7 +284,7 @@ static struct miscdevice mon_dev = {
 };
 
 /*
-                 
+ * suspend/resume
  */
 
 static int monwriter_freeze(struct device *dev)
@@ -342,7 +342,7 @@ static struct platform_driver monwriter_pdrv = {
 static struct platform_device *monwriter_pdev;
 
 /*
-                   
+ * module init/exit
  */
 
 static int __init mon_init(void)
@@ -364,9 +364,9 @@ static int __init mon_init(void)
 	}
 
 	/*
-                                                                       
-                                                       
-  */
+	 * misc_register() has to be the last action in module_init(), because
+	 * file operations will be available right after this.
+	 */
 	rc = misc_register(&mon_dev);
 	if (rc)
 		goto out_device;

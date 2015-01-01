@@ -18,17 +18,17 @@
  */
 #line 5
 
-/* 
-        
-  
-                            
+/**
+ * @file
+ *
+ * @brief Pvtcp common code.
  */
 
 #include "pvtcp.h"
 
 
 /*
-                   
+ * Operation table.
  */
 
 CommOperationFunc pvtcpOperations[] = {
@@ -49,7 +49,7 @@ CommOperationFunc pvtcpOperations[] = {
 
 
 /*
-                        
+ * Implementation block.
  */
 
 CommImpl pvtcpImpl = {
@@ -64,15 +64,15 @@ CommImpl pvtcpImpl = {
    .closeNtfData = &pvtcpImpl,
    .ntfCenterID = {
       {
-         .d32[0] = 2U,    /*                                */
-         .d32[1] = 10000 /*                                                   */
+         .d32[0] = 2U,    /* x86 host context (vmci, only). */
+         .d32[1] = 10000 /* Default, not yet reserved, resource (vmci, only). */
       }
    }
 };
 
 
 /*
-                 
+ * Version array.
  */
 
 const char *pvtcpVersions[] = {
@@ -85,17 +85,17 @@ const unsigned int pvtcpVersionsSize =
 
 
 /*
-                                                                             
-                                                                           
-                                                                        
-                                          
+ * Client (pv) channel to offload side. We choose to define it here, although
+ * it's only applicable to the pv implementation. The reason is that we can
+ * share a common close notification function which does the right thing
+ * depending on the channel configuration.
  */
 
 CommChannel pvtcpClientChannel;
 
 
 /*
-                             
+ * Built-in state interfaces.
  */
 
 static PvtcpIfConf ifUnbound = {
@@ -114,12 +114,12 @@ static PvtcpIfConf ifLoopbackInet4 = {
 const PvtcpIfConf *pvtcpIfLoopbackInet4 = &ifLoopbackInet4;
 
 
-/*           */
+/* Functions */
 
-/* 
-                                                                
-                                      
-                                            
+/**
+ *  @brief Checks if the IF configuration has reasonable values.
+ *  @param conf configuration to check
+ *  @return zero if successful, -1 otherwise
  */
 
 static int
@@ -134,16 +134,16 @@ IfCheck(const PvtcpIfConf *conf)
       return -1;
    }
 
-   /*                                                         */
+   /** @todo Need more checks for IP/netmask format validity. */
    return 0;
 }
 
 
-/* 
-                                                                         
-                            
-                           
-                                            
+/**
+ *  @brief Checks if the IF has reasonable values, but restricts types to
+ *      AF_INET and AF_INET6
+ *  @param conf IF to check
+ *  @return zero if successful, -1 otherwise
  */
 
 static int
@@ -158,14 +158,14 @@ IfRestrictedCheck(const PvtcpIfConf *conf)
 }
 
 
-/* 
-                                                                             
-                                                                         
-                                                                        
-                                     
-                                   
-                                          
-                                                  
+/**
+ *  @brief Finds a netif given a state and a configuration. The configuration
+ *      must have already been checked. This function doesn't lock, so it
+ *      should not be called when the state, or the netif for the passed
+ *      configuration may be deleted.
+ *  @param state state to look for.
+ *  @param conf configuration to look for.
+ *  @return netif matching configuration, or NULL.
  */
 
 PvtcpIf *
@@ -206,14 +206,14 @@ PvtcpStateFindIf(PvtcpState *state,
 }
 
 
-/* 
-                                                                           
-                                                                         
-                                     
-                                                         
-                                             
-                                         
-                                   
+/**
+ *  @brief Creates and initializes a new netif for a given channel and with
+ *      the specified configuration. Death row and unbound netifs may not
+ *      be added using this function.
+ *  @param[in,out] channel channel to make a new netif in
+ *  @param conf configuration to set netif to
+ *  @return 0 if successful, -1 otherwise
+ *  @sideeffect May allocate memory
  */
 
 int
@@ -229,7 +229,7 @@ PvtcpStateAddIf(CommChannel channel,
    }
 
    if (CommSvc_Lock(channel)) {
-      return rc; /*                       */
+      return rc; /* channel isn't active. */
    }
 
    state = CommSvc_GetState(channel);
@@ -238,7 +238,7 @@ PvtcpStateAddIf(CommChannel channel,
    }
 
    if (PvtcpStateFindIf(state, conf)) {
-      goto out; /*                     */
+      goto out; /* Already configured. */
    }
 
    netif = CommOS_Kmalloc(sizeof(*netif));
@@ -259,10 +259,10 @@ out:
 }
 
 
-/* 
-                                                              
-                                                            
-                              
+/**
+ * @brief Removes all sockets associated with the given netif.
+ * @param[in,out] netif interface to remove the socket from.
+ * @sideeffect Closes sockets.
  */
 
 static void
@@ -279,10 +279,10 @@ IfReleaseSockets(PvtcpIf *netif)
    }
 }
 
-/* 
-                                               
-                                            
-                                   
+/**
+ *  @brief Deallocates the given net interface.
+ *  @param[in,out] netif netif to deallocate
+ *  @sideeffect Deallocates memory.
  */
 
 static void
@@ -295,14 +295,14 @@ IfFree(PvtcpIf *netif)
 }
 
 
-/* 
-                                                                        
-                                                                  
-                                                                            
-                                                 
-                                       
-                                                    
-                                                  
+/**
+ *  @brief Closes all sockets associated with, and deallocates the netif
+ *      in the given channel and with the specified configuration.
+ *      Death row and unbound netifs may not be removed using this function.
+ *  @param[in,out] channel channel to remove from
+ *  @param conf configuration specified
+ *  @return zero if successful, error code otherwise
+ *  @sideeffect Closes sockets, deallocates memory
  */
 
 void
@@ -317,7 +317,7 @@ PvtcpStateRemoveIf(CommChannel channel,
    }
 
    if (CommSvc_Lock(channel)) {
-      return; /*                       */
+      return; /* channel isn't active. */
    }
 
    state = CommSvc_GetState(channel);
@@ -337,15 +337,15 @@ PvtcpStateRemoveIf(CommChannel channel,
 }
 
 
-/* 
-                                                                            
-                                                       
-                                                                      
-                                                
-                                            
-                                       
-                                     
-                                            
+/**
+ *  @brief Adds a socket to an existing netif. If the socket is already on a
+ *      different netif, it is removed from that netif.
+ *      It locks the must-be-active channel. We use that lock to guard
+ *      against concurrent removal of the netif.
+ *  @param[in,out] channel channel to add to
+ *  @param conf specified configuration
+ *  @param[in,out] sock socket to add
+ *  @return zero if successful, -1 otherwise
  */
 
 int
@@ -362,7 +362,7 @@ PvtcpStateAddSocket(CommChannel channel,
    }
 
    if (CommSvc_Lock(channel)) {
-      return rc; /*                       */
+      return rc; /* channel isn't active. */
    }
 
    state = CommSvc_GetState(channel);
@@ -386,13 +386,13 @@ out:
 }
 
 
-/* 
-                                           
-                                                                      
-                                                
-                                                 
-                                        
-                                            
+/**
+ *  @brief Removes a socket from its netif.
+ *      It locks the must-be-active channel. We use that lock to guard
+ *      against concurrent removal of the netif.
+ *  @param[in,out] channel channel to remove from
+ *  @param[in,out] sock socket to remove
+ *  @return zero if successful, -1 otherwise
  */
 
 int
@@ -405,7 +405,7 @@ PvtcpStateRemoveSocket(CommChannel channel,
    }
 
    if (CommSvc_Lock(channel)) {
-      return -1; /*                       */
+      return -1; /* channel isn't active. */
    }
 
    CommOS_ListDel(&sock->ifLink);
@@ -414,12 +414,12 @@ PvtcpStateRemoveSocket(CommChannel channel,
 }
 
 
-/* 
-                                                                         
-                                                         
-                                                
-                                                    
-                                
+/**
+ *  @brief State constructor called when a channel is created. The netifs
+ *      'death row' and 'unbound' are always initialized.
+ *  @param[in,out] channel channel to initialize
+ *  @return pointer to a new state structure or NULL
+ *  @sideeffect Allocates memory
  */
 
 void *
@@ -432,18 +432,18 @@ PvtcpStateAlloc(CommChannel channel)
       state->channel = channel;
       INIT_LIST_HEAD(&state->ifList);
 
-      /*                                   */
-      INIT_LIST_HEAD(&state->ifDeathRow.stateLink); /*            */
+      /* Initialize always-present netifs. */
+      INIT_LIST_HEAD(&state->ifDeathRow.stateLink); /* Irrelevant */
       INIT_LIST_HEAD(&state->ifDeathRow.sockList);
       state->ifDeathRow.state = state;
       state->ifDeathRow.conf.family = PVTCP_PF_DEATH_ROW;
 
-      INIT_LIST_HEAD(&state->ifUnbound.stateLink); /*            */
+      INIT_LIST_HEAD(&state->ifUnbound.stateLink); /* Irrelevant */
       INIT_LIST_HEAD(&state->ifUnbound.sockList);
       state->ifUnbound.state = state;
       state->ifUnbound.conf.family = PVTCP_PF_UNBOUND;
 
-      INIT_LIST_HEAD(&state->ifLoopbackInet4.stateLink); /*            */
+      INIT_LIST_HEAD(&state->ifLoopbackInet4.stateLink); /* Irrelevant */
       INIT_LIST_HEAD(&state->ifLoopbackInet4.sockList);
       state->ifLoopbackInet4.state = state;
       state->ifLoopbackInet4.conf.family = PVTCP_PF_LOOPBACK_INET4;
@@ -461,11 +461,11 @@ PvtcpStateAlloc(CommChannel channel)
 }
 
 
-/* 
-                                                            
-                                                    
-                                         
-                                                                         
+/**
+ *  @brief State destructor called when a channel is closed.
+ *      The caller (Comm) guarantees proper locking.
+ *  @param arg pointer to state structure
+ *  @sideeffect Destroys all netifs and their sockets, deallocates memory
  */
 
 void
@@ -488,10 +488,10 @@ PvtcpStateFree(void *arg)
 }
 
 
-/* 
-                                      
-                                          
-                                              
+/**
+ *  @brief Checks transport arguments.
+ *  @param transpArgs transport arguments.
+ *  @return zero if successful, < 0 otherwise.
  */
 
 int
@@ -508,7 +508,7 @@ PvtcpCheckArgs(CommTranspInitArgs *transpArgs)
 
    while (versionIndex--) {
       if (transpArgs->type == CommTransp_GetType(pvtcpVersions[versionIndex])) {
-         /*                                                                 */
+         /* If a match, overwrite the hash with the actual version (index). */
 
          transpArgs->type = versionIndex;
          rc = 0;
@@ -520,11 +520,11 @@ PvtcpCheckArgs(CommTranspInitArgs *transpArgs)
 }
 
 
-/* 
-                                           
-                                                           
-                                                            
-                                              
+/**
+ *  @brief Called after a channel is freed.
+ *  @param ntfData callback data from implementation block.
+ *  @param transpArgs transport arguments of closed channel.
+ *  @param inBH whether called in bottom half.
  */
 
 void
@@ -538,8 +538,8 @@ PvtcpCloseNtf(void *ntfData,
    CommOS_Log(("%s: Channel was reset!\n", __func__));
 
    /*
-                                                                      
-                                          
+    * If the impl. block owner is NULL, we're pv client: we attempt to
+    * reopen the channel in a few seconds.
     */
 
    if (impl && !impl->owner && !inBH) {
@@ -554,11 +554,11 @@ PvtcpCloseNtf(void *ntfData,
 }
 
 
-/* 
-                                                     
-                            
-                                                              
-                                         
+/**
+ * @brief Initializes the Pvtcp socket common fields.
+ * @param pvsk pvtcp socket.
+ * @param channel Comm channel this socket is associated with.
+ * @return 0 if successful, -1 otherwise.
  */
 
 int
@@ -571,7 +571,7 @@ PvtcpSockInit(PvtcpSock *pvsk,
    if (pvsk && channel) {
       state = CommSvc_GetState(channel);
       if (state) {
-         /*                           */
+         /* Must _not_ zero out pvsk! */
          CommOS_MutexInit(&pvsk->inLock);
          CommOS_MutexInit(&pvsk->outLock);
          CommOS_SpinlockInit(&pvsk->stateLock);

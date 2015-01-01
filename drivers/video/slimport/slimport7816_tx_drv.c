@@ -34,14 +34,14 @@ static unchar sp_tx_test_bw;
 static bool sp_tx_test_lt;
 static bool sp_tx_test_edid;
 
-/*                                     */
+/* static unsigned char ext_int_index; */
 static unsigned char g_changed_bandwidth;
 static unsigned char g_hdmi_dvi_status;
 
 static unsigned char g_need_clean_status;
 
-/*                               */
-/*                                          */
+/* HDCP switch for external block*/
+/* external_block_en = 1: enable, 0: disable*/
 extern int external_block_en;
 extern int hdcp_disable;
 
@@ -51,7 +51,7 @@ unsigned char g_edid_checksum;
 unchar edid_blocks[256];
 static unsigned char g_read_edid_flag;
 #ifdef CO3_DEUBG_MSG
-unsigned char bedid_print;/*                               */
+unsigned char bedid_print;/* print EDID  xjh mod1 20130926 */
 #endif
 #endif
 
@@ -63,7 +63,7 @@ static struct AudiInfoframe sp_tx_audioinfoframe;
 enum SP_TX_System_State sp_tx_system_state;
 enum RX_CBL_TYPE sp_tx_rx_type;
 
-enum CHARGING_STATUS downstream_charging_status; /*                      */
+enum CHARGING_STATUS downstream_charging_status; /* xjh add for charging */
 enum AUDIO_OUTPUT_STATUS sp_tx_ao_state;
 enum VIDEO_OUTPUT_STATUS sp_tx_vo_state;
 enum SINK_CONNECTION_STATUS sp_tx_sc_state;
@@ -179,7 +179,7 @@ static void hardware_power_ctl(unchar enable);
 	msleep(500); \
 	} while (0)
 
-/*                                                                               */
+/* =====================================================================	======= */
 
 #define wait_aux_op_finish(err_flag) \
 	do { \
@@ -282,7 +282,7 @@ void hardware_power_ctl(unchar enable)
 }
 
 
-/*                                                                              */
+/* ====================================================================	======= */
 void print_sys_state(unchar ss)
 {
 	switch (ss) {
@@ -326,7 +326,7 @@ void print_sys_state(unchar ss)
 	}
 }
 
-/*      */
+/* DPCD */
 void sp_tx_rst_aux(void)
 {
 	sp_tx_aux_polling_disable();
@@ -357,8 +357,8 @@ unchar sp_tx_aux_dpcdread_bytes(unchar addrh, unchar addrm,
 {
 	unchar c, c1, i;
 	unchar bOK;
-	sp_write_reg(TX_P0, BUF_DATA_COUNT, 0x80); /*             */
-	/*                    */
+	sp_write_reg(TX_P0, BUF_DATA_COUNT, 0x80); /*clear buffer */
+	/* command and length */
 	c = ((cCount - 1) << 4) | 0x09;
 	sp_write_reg(TX_P0, AUX_CTRL, c);
 	write_dpcd_addr(addrh, addrm, addrl);
@@ -367,10 +367,10 @@ unchar sp_tx_aux_dpcdread_bytes(unchar addrh, unchar addrm,
 	bOK = sp_tx_wait_aux_finished();
 	if (bOK == AUX_ERR) {
 		pr_err("%s %s : aux read failed\n", LOG_TAG, __func__);
-		/*                       */
+		/* add by span 20130217. */
 		sp_read_reg(TX_P2, SP_TX_INT_STATUS1, &c);
 		sp_read_reg(TX_P0, TX_DEBUG1, &c1);
-		/*                                                     */
+		/* if polling is enabled, wait polling error interrupt */
 		if (c1&POLLING_EN) {
 			if (c & POLLING_ERR)
 				sp_tx_rst_aux();
@@ -409,7 +409,7 @@ unchar sp_tx_aux_dpcdwrite_bytes(unchar addrh, unchar addrm, unchar addrl, uncha
 
 unchar sp_tx_aux_dpcdwrite_byte(unchar addrh, unchar addrm, unchar addrl, unchar data1)
 {
-	sp_write_reg(TX_P0, AUX_CTRL, 0x08); /*                */
+	sp_write_reg(TX_P0, AUX_CTRL, 0x08); /*one byte write. */
 	write_dpcd_addr(addrh, addrm, addrl);
 	sp_write_reg(TX_P0, BUF_DATA_0, data1);
 	sp_write_reg_or(TX_P0, AUX_CTRL2, AUX_OP_EN);
@@ -417,7 +417,7 @@ unchar sp_tx_aux_dpcdwrite_byte(unchar addrh, unchar addrm, unchar addrl, unchar
 }
 
 
-/*                            */
+/* ========initialized system */
 void slimport_block_power_ctrl(enum SP_TX_POWER_BLOCK sp_tx_pd_block, unchar power)
 {
 	if (power == SP_POWER_ON)
@@ -433,16 +433,16 @@ void vbus_power_ctrl(unsigned char ON)
 	if (ON == 0) {
 		hdmi_rx_set_hpd(0);
 		hdmi_rx_set_termination(0);
-		/*                              */
+		/* sp_tx_aux_polling_disable(); */
 		sp_write_reg_and(TX_P2, TX_PLL_FILTER, ~V33_SWITCH_ON);
 		sp_write_reg_or(TX_P2, TX_PLL_FILTER5,  P5V_PROTECT_PD | SHORT_PROTECT_PD);
-		sp_write_reg_and(TX_P2, GPIO_1_CONTROL, ~GPIO_1_DATA);  /*         */
+		sp_write_reg_and(TX_P2, GPIO_1_CONTROL, ~GPIO_1_DATA);  /* xjh add */
 		pr_info("%s %s : 3.3V output disabled\n", LOG_TAG, __func__);
 	} else {
-		sp_write_reg_or(TX_P2, GPIO_1_CONTROL, GPIO_1_PULL_UP | GPIO_1_OEN | GPIO_1_DATA);   /*                                */
+		sp_write_reg_or(TX_P2, GPIO_1_CONTROL, GPIO_1_PULL_UP | GPIO_1_OEN | GPIO_1_DATA);   /* xjh mod 20130929 gpio1 control */
 		for (i = 0; i < 5; i++) {
 			sp_write_reg_and(TX_P2, TX_PLL_FILTER5, (~P5V_PROTECT_PD & ~SHORT_PROTECT_PD));
-			/*                                                         */
+			/* sp_write_reg_and(TX_P2, TX_PLL_FILTER, ~V33_SWITCH_ON); */
 			sp_write_reg_or(TX_P2, TX_PLL_FILTER, V33_SWITCH_ON);
 			if (!((unchar)__i2c_read_byte(TX_P2, TX_PLL_FILTER5) & 0xc0)) {
 				pr_info("%s %s : 3.3V output enabled\n", LOG_TAG, __func__);
@@ -474,7 +474,7 @@ void sp_tx_clean_state_machine(void)
 	sp_tx_vo_state = VO_WAIT_VIDEO_STABLE;
 	sp_tx_ao_state = AO_INIT;
 }
-enum CHARGING_STATUS downstream_charging_status_get(void)  /*                      */
+enum CHARGING_STATUS downstream_charging_status_get(void)  /* xjh add for charging */
 {
 	return downstream_charging_status;
 }
@@ -543,18 +543,18 @@ void sp_tx_variable_init(void)
 	sp_tx_test_bw = 0;
 	sp_tx_test_edid = 0;
 
-	downstream_charging_status = NO_CHARGING_CAPABLE; /*                      */
+	downstream_charging_status = NO_CHARGING_CAPABLE; /* xjh add for charging */
 
 }
 static void hdmi_rx_tmds_phy_initialization(void)
 {
-	/*                                                  
-                                                  
-                                                  
-                                                  
-                                                   
-                                                   
-                                                    */
+	/* sp_write_reg(RX_P0,HDMI_RX_TMDS_CTRL_REG2, 0x00);
+	sp_write_reg(RX_P0,HDMI_RX_TMDS_CTRL_REG4, 0x28);
+	sp_write_reg(RX_P0,HDMI_RX_TMDS_CTRL_REG5, 0xe3);
+	sp_write_reg(RX_P0,HDMI_RX_TMDS_CTRL_REG7, 0x70);
+	sp_write_reg(RX_P0,HDMI_RX_TMDS_CTRL_REG19, 0x00);
+	sp_write_reg(RX_P0,HDMI_RX_TMDS_CTRL_REG21, 0x04);
+	sp_write_reg(RX_P0,HDMI_RX_TMDS_CTRL_REG22, 0x38); */
 
 }
 
@@ -565,30 +565,30 @@ void hdmi_rx_initialization(void)
 	sp_write_reg(RX_P0, RX_MUTE_CTRL, AUD_MUTE | VID_MUTE);
 	sp_write_reg_or(RX_P0, RX_CHIP_CTRL,
 		MAN_HDMI5V_DET | PLLLOCK_CKDT_EN | DIGITAL_CKDT_EN);
-	/*                                              */
+	/* sp_write_reg_or(RX_P0, RX_AEC_CTRL, AVC_OE); */
 
 	sp_write_reg_or(RX_P0, RX_SRST, HDCP_MAN_RST | SW_MAN_RST |
 		TMDS_RST | VIDEO_RST);
 	sp_write_reg_and(RX_P0, RX_SRST, (~HDCP_MAN_RST) & (~SW_MAN_RST) &
 		(~TMDS_RST) & (~VIDEO_RST));
 
-	sp_write_reg_or(RX_P0, RX_AEC_EN0, AEC_EN06 | AEC_EN05); /*                                  */
+	sp_write_reg_or(RX_P0, RX_AEC_EN0, AEC_EN06 | AEC_EN05); /* Sync detect change , GP set mute */
 	sp_write_reg_or(RX_P0, RX_AEC_EN2, AEC_EN21);
 	sp_write_reg_or(RX_P0, RX_AEC_CTRL, AVC_EN | AAC_OE | AAC_EN);
 
 	sp_write_reg_and(RX_P0, RX_SYS_PWDN1, ~PWDN_CTRL);
 
 
-	/*                       */
+	/* default value is 0x00 */
 	/*
-                                                  
-                                                  
-                                                  
-                                                  
-                                                  
-                                                  
-                                                  
- */
+	sp_write_reg(RX_P0, HDMI_RX_INT_MASK1_REG, 0x00);
+	sp_write_reg(RX_P0, HDMI_RX_INT_MASK2_REG, 0x00);
+	sp_write_reg(RX_P0, HDMI_RX_INT_MASK3_REG, 0x00);
+	sp_write_reg(RX_P0, HDMI_RX_INT_MASK4_REG, 0x00);
+	sp_write_reg(RX_P0, HDMI_RX_INT_MASK5_REG, 0x00);
+	sp_write_reg(RX_P0, HDMI_RX_INT_MASK6_REG, 0x00);
+	sp_write_reg(RX_P0, HDMI_RX_INT_MASK7_REG, 0x00);
+	*/
 	sp_write_reg_or(RX_P0, RX_VID_DATA_RNG, R2Y_INPUT_LIMIT);
 	sp_write_reg(RX_P0, RX_CEC_CTRL, CEC_RST);
 	sp_write_reg(RX_P0, RX_CEC_SPEED, CEC_SPEED_27M);
@@ -596,7 +596,7 @@ void hdmi_rx_initialization(void)
 	sp_write_reg(RX_P0, 0x65, 0xc4);
 	sp_write_reg(RX_P0, 0x66, 0x18);
 
-	/*                                              */
+	/* sp_write_reg(RX_P0, RX_CEC_CTRL, CEC_RX_EN); */
 	hdmi_rx_tmds_phy_initialization();
 	hdmi_rx_set_hpd(0);
 	hdmi_rx_set_termination(0);
@@ -652,14 +652,14 @@ void xtal_clk_sel(void)
 	sp_write_reg(TX_P0, I2C_GEN_10US_TIMER1, (unchar)(((uint)XTAL_CLK_M10 & 0xFF00) >> 8));
 	sp_write_reg(TX_P0, 0xBF, (unchar)(((uint)XTAL_CLK - 1)));
 
-	/*                                        */
+	/* CEC function need to change the value. */
 	sp_write_reg_and_or(RX_P0, 0x49, 0x07, (unchar)(((((uint)XTAL_CLK) >> 1) - 2) << 3));
-	/*                                            */
+	/* sp_write_reg(RX_P0, 0x49, 0x5b);//cec test */
 }
 
 void sp_tx_initialization(void)
 {
-	sp_write_reg(TX_P0, AUX_CTRL2, 0x30);  /*                                       */
+	sp_write_reg(TX_P0, AUX_CTRL2, 0x30);  /* xjh add set terminal reistor to 50ohm */
 
 	#ifndef HDCP_AUTO_EN
 	sp_write_reg_and(TX_P0, TX_HDCP_CTRL, (~AUTO_EN) & (~AUTO_START));
@@ -673,40 +673,40 @@ void sp_tx_initialization(void)
 	sp_write_reg(TX_P0, HDCP_AUTO_TIMER, HDCP_AUTO_TIMER_VAL);
 	sp_write_reg_or(TX_P0, TX_HDCP_CTRL, LINK_POLLING);
 
-	/*                                      */
+	/* sp_write_reg_or(TX_P0, 0x65 , 0x30); */
 
 	sp_write_reg_or(TX_P0, TX_LINK_DEBUG , M_VID_DEBUG);
 	sp_write_reg_or(TX_P0, TX_DEBUG1, FORCE_HPD);
-	/*                              */
+	/* sp_tx_aux_polling_disable(); */
 	/*
-                                                       
-                                        
-                                           
-  */
-	sp_write_reg_or(TX_P2, TX_ANALOG_DEBUG2, POWERON_TIME_1P5MS);/*                       */
+	sp_write_reg_or(TX_P2, TX_PLL_FILTER, AUX_TERM_50OHM);
+	sp_write_reg_and(TX_P2, TX_PLL_FILTER5,
+		(~P5V_PROTECT_PD) & (~SHORT_PROTECT_PD));
+		*/
+	sp_write_reg_or(TX_P2, TX_ANALOG_DEBUG2, POWERON_TIME_1P5MS);/* ..................... */
 	/*
-                                      
-                             
-  */
-	/*                                            */
+	sp_write_reg_or(TX_P0, TX_HDCP_CTRL0,
+	BKSV_SRM_PASS |KSVLIST_VLD);
+		*/
+	/* sp_write_reg(TX_P2, TX_ANALOG_CTRL, 0xC5); */
 
 	xtal_clk_sel();
 	sp_write_reg(TX_P0, 0xE2, 0x8C);
 
 	sp_write_reg_or(TX_P0, TX_DP_POLLING, AUTO_POLLING_DISABLE);
-	/*                                                         
-                                 */
+	/*Short the link intergrity check timer to speed up bstatus
+	polling for HDCP CTS item 1A-07 */
 	sp_write_reg(TX_P0, SP_TX_LINK_CHK_TIMER, 0x1d);
 	sp_write_reg_or(TX_P0, TX_MISC, EQ_TRAINING_LOOP);
 	/*
-                                                
-                                                
-                                                
-                                                
- */
+	sp_write_reg(TX_P2, SP_COMMON_INT_MASK1, 0X00);
+	sp_write_reg(TX_P2, SP_COMMON_INT_MASK2, 0X00);
+	sp_write_reg(TX_P2, SP_COMMON_INT_MASK3, 0X00);
+	sp_write_reg(TX_P2, SP_COMMON_INT_MASK4, 0X00);
+	*/
 	sp_write_reg(TX_P2, SP_INT_MASK, 0X90);
 	sp_write_reg(TX_P2, SP_TX_INT_CTRL_REG, 0X01);
-	/*                                             */
+	/*disable HDCP mismatch function for VGA dongle*/
 	sp_write_reg(TX_P0, SP_TX_LT_SET_REG, 0);
 	sp_tx_link_phy_initialization();
 	gen_M_clk_with_downspeading();
@@ -718,9 +718,9 @@ void sp_tx_initialization(void)
 void slimport_chip_initial(void)
 {
 	sp_tx_variable_init();
-	/*                     */
+	/* vbus_power_ctrl(0); */
 	hardware_power_ctl(0);
-	/*                                        */
+	/* sp_tx_set_sys_state(STATE_CABLE_PLUG); */
 }
 
 bool slimport_chip_detect(void)
@@ -745,17 +745,17 @@ bool slimport_chip_detect(void)
 	return 1;
 }
 
-/*                    */
+/* ========cable plug */
 unchar is_cable_detected(void)
 {
 	return slimport_is_connected();
 	/*
-                       
-             
-                          
-  
-          
- */
+	if(cable_detected()) {
+		mdelay(50);
+		return cable_detected();
+	}
+	return 0;
+	*/
 }
 
 void slimport_waitting_cable_plug_process(void)
@@ -770,7 +770,7 @@ void slimport_waitting_cable_plug_process(void)
 		hardware_power_ctl(0);
 	}
 }
-/*                         */
+/* ========sink connection */
 void eeprom_reload(void)
 {
 	unchar sByteBuf[5];
@@ -809,7 +809,7 @@ static unchar sp_tx_get_cable_type(CABLE_TYPE_STATUS det_cable_type_state)
 
 	ds_port_preset = 0;
 	cur_cable_type = DWN_STRM_IS_NULL;
-	downstream_charging_status = NO_CHARGING_CAPABLE;  /*                      */
+	downstream_charging_status = NO_CHARGING_CAPABLE;  /* xjh add for charging */
 
 	aux_status = sp_tx_aux_dpcdread_bytes(0x00, 0x00, 0x05, 1, &ds_port_preset);
 	pr_info("%s %s : DPCD 0x005: %x \n", LOG_TAG, __func__, (int)ds_port_preset);
@@ -851,8 +851,8 @@ static unchar sp_tx_get_cable_type(CABLE_TYPE_STATUS det_cable_type_state)
 				pr_info("%s %s : Downstream is VGA dongle.\n", LOG_TAG, __func__);
 			} else {
 				cur_cable_type = DWN_STRM_IS_ANALOG;
-				/*          */
-				if ((data_buf[0] == 0x00) && (data_buf[1] == 0x22)    /*                      */
+				/* for 7732 */
+				if ((data_buf[0] == 0x00) && (data_buf[1] == 0x22)    /* xjh add for charging */
 				    && (data_buf[2] == 0xb9) && (data_buf[3] == 0x73)
 				    && (data_buf[4] == 0x69) && (data_buf[5] == 0x76)
 				    && (data_buf[6] == 0x61)) {
@@ -869,11 +869,11 @@ static unchar sp_tx_get_cable_type(CABLE_TYPE_STATUS det_cable_type_state)
 				    && (data_buf[2] == 0x00) && (data_buf[3] == 0x00)
 				    && (data_buf[4] == 0x00) && (data_buf[5] == 0x00)
 				    && (data_buf[6] == 0x00)) {
-					sp_tx_aux_dpcdread_bytes(0x00, 0x05, 0x23, 1, data_buf); /*                      */
+					sp_tx_aux_dpcdread_bytes(0x00, 0x05, 0x23, 1, data_buf); /* xjh add for charging */
 					if ((data_buf[0]&0x7f) >= 0x15) {
 						downstream_charging_status = NO_FAST_CHARGING;
 					}
-					/*                                 */
+					/* sp_tx_send_message(MSG_OCM_EN); */
 					cur_cable_type = DWN_STRM_IS_HDMI_7730;
 					pr_info("%s %s : Downstream is HDMI dongle.\n", LOG_TAG, __func__);
 
@@ -899,14 +899,14 @@ static unchar sp_tx_get_cable_type(CABLE_TYPE_STATUS det_cable_type_state)
 unchar sp_tx_get_hdmi_connection(void)
 {
 	unchar c;
-	/*              */ /*                           */
+	/* msleep(200); */ /* why delay here? 20130217? */
 
 	if (AUX_OK != sp_tx_aux_dpcdread_bytes(0x00, 0x05, 0x18, 1, &c)) {
 		return 0;
 	}
 
 	if ((c & 0x41) == 0x41) {
-		/*                                                   */ /*                                  */
+		/* sp_tx_aux_dpcdwrite_byte(0x00, 0x05, 0xf3, 0x70); */ /* removed by span, no use 20130217 */
 		return 1;
 	} else
 		return 0;
@@ -978,7 +978,7 @@ void slimport_sink_connection(void)
 			}
 			break;
 		}
-		/*                                               */
+		/* dongle has fast charging detection capability */
 		if (downstream_charging_status != NO_CHARGING_CAPABLE) {
 			downstream_charging_status_set();
 		}
@@ -993,7 +993,7 @@ void slimport_sink_connection(void)
 		break;
 	}
 }
-/*                                                      */
+/******************start EDID process********************/
 void sp_tx_enable_video_input(unchar enable)
 {
 	unchar c;
@@ -1030,12 +1030,12 @@ void sp_tx_send_message(enum SP_TX_SEND_MSG message)
 		break;
 
 	case MSG_CLEAR_IRQ:
-		/*                                                           */
+		/* pr_info("%s %s : clear irq start!\n", LOG_TAG, __func__); */
 		sp_tx_aux_dpcdread_bytes(0x00, 0x04, 0x10, 1, &c);
-		/*                                                            */
+		/* pr_info("%s %s : clear irq middle!\n", LOG_TAG, __func__); */
 		c |= 0x01;
 		sp_tx_aux_dpcdwrite_byte(0x00, 0x04, 0x10, c);
-		/*                                                         */
+		/* pr_info("%s %s : clear irq end!\n", LOG_TAG, __func__); */
 		break;
 	}
 
@@ -1047,7 +1047,7 @@ static unchar get_edid_detail(unchar *data_buf)
 	uint	pixclock_edid;
 
 	pixclock_edid = ((((uint)data_buf[1] << 8)) | ((uint)data_buf[0] & 0xFF));
-	/*                                                                                                    */
+	/* pr_info("%s %s : =============pixclock  via EDID : %d\n", LOG_TAG, __func__, (uint)pixclock_edid); */
 	if (pixclock_edid <= 5300)
 		return LINK_1P62G;
 	else if ((5300 < pixclock_edid) && (pixclock_edid <= 8900))
@@ -1105,7 +1105,7 @@ unchar sp_tx_get_edid_block(void)
 
 	if (c > 3)
 		c = 1;
-		/*                   */
+		/* g_edid_break = 1; */
 	return c;
 }
 void edid_read(unchar offset, unchar *pblock_buf)
@@ -1113,26 +1113,26 @@ void edid_read(unchar offset, unchar *pblock_buf)
 	unchar  data_cnt, cnt;
 	unchar c;
 	sp_tx_aux_wr(offset);
-	sp_tx_aux_rd(0xf5); /*                                                 */
+	sp_tx_aux_rd(0xf5); /* set I2C read com 0x05 mot = 1 and read 16 bytes */
 	data_cnt = 0;
 	cnt = 0;
 
 	while ((data_cnt) < 16) {
 		sp_read_reg(TX_P0, BUF_DATA_COUNT, &c);
 
-		/*              
-                                                                          */
+		/* if(c != 0x10)
+			pr_info("%s %s : edid read: len : %x \n", LOG_TAG, __func__, (uint)c); */
 
 		if ((c & 0x1f) != 0) {
 			data_cnt = data_cnt + c;
 			do {
 				sp_read_reg(TX_P0, BUF_DATA_0 + c - 1, &(pblock_buf[c - 1]));
-				/*                                                                                           */
+				/* pr_info("%s %s : index: %x, data: %x ", LOG_TAG, __func__, (uint)c, (uint)pblock_buf[c]); */
 				if (c == 1)
 					break;
 			} while (c--);
 		} else {
-			/*                                                                 */
+			/* pr_info("%s %s : edid read : length: 0 \n", LOG_TAG, __func__); */
 			if (cnt++ <= 2) {
 				sp_tx_rst_aux();
 				c = 0x05 | ((0x0f - data_cnt) << 4);
@@ -1143,7 +1143,7 @@ void edid_read(unchar offset, unchar *pblock_buf)
 			}
 		}
 	}
-	/*                                  */
+	/* issue a stop every 16 bytes read */
 	sp_write_reg(TX_P0, AUX_CTRL, 0x01);
 	sp_write_reg_or(TX_P0, AUX_CTRL2, ADDR_ONLY_BIT | AUX_OP_EN);
 	wait_aux_op_finish(&g_edid_break);
@@ -1175,7 +1175,7 @@ static void segments_edid_read(unchar segment, unchar offset)
 
 	sp_write_reg(TX_P0, BUF_DATA_0, segment);
 
-	/*                                */
+	/* set I2C write com 0x04 mot = 1 */
 	sp_write_reg(TX_P0, AUX_CTRL, 0x04);
 
 	sp_write_reg_and_or(TX_P0, AUX_CTRL2, ~ADDR_ONLY_BIT, AUX_OP_EN);
@@ -1189,7 +1189,7 @@ static void segments_edid_read(unchar segment, unchar offset)
 			sp_tx_rst_aux();
 			cnt = 0;
 			g_edid_break = 1;
-			return; /*          */
+			return; /* bReturn; */
 		}
 		sp_read_reg(TX_P0, AUX_CTRL2, &c);
 
@@ -1225,7 +1225,7 @@ static void segments_edid_read(unchar segment, unchar offset)
 	sp_read_reg(TX_P0, AUX_CTRL2, &c);
 	while (c & AUX_OP_EN)
 		sp_read_reg(TX_P0, AUX_CTRL2, &c);
-/*                        */
+/*	sp_tx_addronly_set(0); */
 
 
 }
@@ -1240,7 +1240,7 @@ static bool edid_checksum_result(unchar *pBuf)
 	g_edid_checksum = checksum - pBuf[0x7f];
 	g_edid_checksum = ~g_edid_checksum + 1;
 
-/*                                                                                            */
+/*	pr_info("%s %s : ====g_edid_checksum  ==%x \n", LOG_TAG, __func__, (uint)g_edid_checksum); */
 
 	return checksum == 0 ? 1 : 0;
 }
@@ -1321,12 +1321,12 @@ bool sp_tx_edid_read(unchar *pedid_blocks_buf)
 	} while(blocks_num >= count);
 
 	sp_tx_rst_aux();
-	/*                 */
+	/* check edid data */
 	if (g_read_edid_flag == 0) {
 		check_edid_data(pedid_blocks_buf);
 		g_read_edid_flag = 1;
 	}
-	 /*              */
+	 /* test edid << */
 	sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x18, 1, &c);
 	if (c & 0x04) {
 		pr_info("%s %s : check sum = %.2x\n", LOG_TAG, __func__,  (uint)g_edid_checksum);
@@ -1338,7 +1338,7 @@ bool sp_tx_edid_read(unchar *pedid_blocks_buf)
 		pr_info("%s %s : Test EDID done\n", LOG_TAG, __func__);
 
 	}
-	 /*               */
+	 /* test edid  >> */
 
 	return 0;
 }
@@ -1348,7 +1348,7 @@ static bool check_with_pre_edid(unchar *org_buf)
 	unchar temp_buf[16];
 	bool return_flag;
 	return_flag = 0;
-	/*                                  */
+	/* check checksum and blocks number */
 	g_edid_break = 0;
 	sp_tx_edid_read_initial();
 	sp_write_reg(TX_P0, AUX_CTRL, 0x04);
@@ -1363,7 +1363,7 @@ static bool check_with_pre_edid(unchar *org_buf)
 		for (i = 0; i < 16; i++) {
 			if (org_buf[0x70 + i] != temp_buf[i]) {
 				pr_info("%s %s : different checksum and blocks num\n", LOG_TAG, __func__);
-				return_flag = 1;  /*                   */
+				return_flag = 1;  /* need re-read edid */
 				break;
 			}
 		}
@@ -1373,7 +1373,7 @@ static bool check_with_pre_edid(unchar *org_buf)
 	if (return_flag)
 		goto return_point;
 
-	/*                        */
+	/* check edid information */
 	edid_read(0x08, temp_buf);
 	if (g_edid_break == 0) {
 		for (i = 0; i < 16; i++) {
@@ -1412,7 +1412,7 @@ void slimport_edid_process(void)
 	}
 
 
-	/*                                      */
+	/*Release the HPD after the OTP loaddown*/
 	i = 10;
 	do {
 		if ((__i2c_read_byte(TX_P0, HDCP_KEY_STATUS) & 0x01))
@@ -1432,7 +1432,7 @@ void slimport_edid_process(void)
 	if (temp_value <= temp_value1)
 		temp_value1 = temp_value;
 	pr_info("%s %s : set link bw in edid %x \n", LOG_TAG, __func__, (uint)temp_value1);
-	/*                                 */
+	/* sp_tx_set_link_bw(temp_value1); */
 	g_changed_bandwidth = temp_value1;
 	sp_tx_send_message(
 		(g_hdmi_dvi_status == HDMI_MODE) ? MSG_INPUT_HDMI : MSG_INPUT_DVI);
@@ -1440,8 +1440,8 @@ void slimport_edid_process(void)
 	goto_next_system_state();
 }
 #endif
-/*                                                    */
-/*                                                               */
+/******************End EDID process********************/
+/******************start Link training process********************/
 
 static void sp_tx_lvttl_bit_mapping(void)
 {
@@ -1482,11 +1482,11 @@ static void sp_tx_lvttl_bit_mapping(void)
 
 	}
 	sp_write_reg_and_or(TX_P2, SP_TX_VID_CTRL2_REG, 0x8c, (colorspace & 0x60) >> 5 | c);
-	/*              */
+	/* mdelay(500); */
 	sp_write_reg_and_or(TX_P2, BIT_CTRL_SPECIFIC, 0x00, ENABLE_BIT_CTRL | vid_bit << 1);
 
 	if (sp_tx_test_edid) {
-		/*                                        */
+		/* set color depth to 18-bit for link cts */
 		sp_read_reg(TX_P2, SP_TX_VID_CTRL2_REG, &c);
 		c = (c & 0x8f);
 		sp_write_reg(TX_P2, SP_TX_VID_CTRL2_REG, c);
@@ -1586,7 +1586,7 @@ void sp_tx_spread_enable(unchar benable)
 }
 void sp_tx_config_ssc(enum SP_SSC_DEP sscdep)
 {
-	sp_write_reg(TX_P0, SP_TX_DOWN_SPREADING_CTRL1, 0x0); /*                */
+	sp_write_reg(TX_P0, SP_TX_DOWN_SPREADING_CTRL1, 0x0); /* clear register */
 	sp_write_reg(TX_P0, SP_TX_DOWN_SPREADING_CTRL1, sscdep);
 	sp_tx_spread_enable(1);
 }
@@ -1656,7 +1656,7 @@ void slimport_link_training(void)
 		sp_tx_LT_state++;
 	case LT_WAIT_PLL_LOCK:
 		if (!sp_tx_get_pll_lock_status()) {
-			/*                                                */
+			/* pll reset when plll not lock. by span 20130217 */
 			sp_read_reg(TX_P0, SP_TX_PLL_CTRL_REG, &temp_value);
 			temp_value |= PLL_RST;
 			sp_write_reg(TX_P0, SP_TX_PLL_CTRL_REG, temp_value);
@@ -1681,7 +1681,7 @@ void slimport_link_training(void)
 			g_changed_bandwidth = sp_tx_test_bw;
 			sp_write_reg_and(TX_P2, SP_TX_VID_CTRL2_REG, 0x8f);
 		}
-		sp_tx_config_ssc(SSC_DEP_5000PPM);  /*         */
+		sp_tx_config_ssc(SSC_DEP_5000PPM);  /* xjh mod */
 		sp_tx_set_link_bw(g_changed_bandwidth);
 		sp_tx_enhancemode_set();
 		sp_tx_aux_dpcdread_bytes(0x00, 0x06, 0x00, 0x01, &temp_value);
@@ -1691,9 +1691,9 @@ void slimport_link_training(void)
 		sp_write_reg(TX_P2, SP_INT_MASK, temp_value | 0X20);
 		sp_write_reg(TX_P0, LT_CTRL, SP_TX_LT_EN);
 		sp_tx_LT_state = LT_WAITTING_FINISH;
-		/*                    */
+		/* There is no break; */
 	case LT_WAITTING_FINISH:
-		/*                                                   */
+		/*here : waitting interrupt to change training state.*/
 		break;
 	case LT_ERROR:
 		redo_cur_system_state();
@@ -1701,15 +1701,15 @@ void slimport_link_training(void)
 		break;
 	case LT_FINISH:
 		sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x02, 1, &temp_value);
-		if ((temp_value&0x07) == 0x07) {/*                                      */
-			/*                                                                 
-                                                                 */
+		if ((temp_value&0x07) == 0x07) {/* by span 20130217. for one lane case. */
+			/* if there is link error, adjust pre-emphsis to check error again.
+			If there is no error,keep the setting, otherwise use 400mv0db */
 			if (!sp_tx_test_lt) {
 				if (sp_tx_link_err_check()) {
 					sp_read_reg(TX_P0, SP_TX_LT_SET_REG, &temp_value);
 					if (!(temp_value & MAX_PRE_REACH)) {
-						sp_write_reg(TX_P0, SP_TX_LT_SET_REG, (temp_value + 0x08));/*                        */
-						/*                                                       */
+						sp_write_reg(TX_P0, SP_TX_LT_SET_REG, (temp_value + 0x08));/* increase one pre-level */
+						/* if error still exist, return to the link traing value */
 						if (sp_tx_link_err_check())
 							sp_write_reg(TX_P0, SP_TX_LT_SET_REG, temp_value);
 					}
@@ -1739,8 +1739,8 @@ void slimport_link_training(void)
 	}
 
 }
-/*                                                             */
-/*                                                              */
+/******************End Link training process********************/
+/******************Start Output video process********************/
 void sp_tx_set_colorspace(void)
 {
 	unchar color_space;
@@ -1771,16 +1771,16 @@ void sp_tx_set_colorspace(void)
 		switch (sp_tx_rx_type) {
 		case DWN_STRM_IS_VGA_9832:
 		case DWN_STRM_IS_ANALOG:
-		case DWN_STRM_IS_DIGITAL: /*                              */
+		case DWN_STRM_IS_DIGITAL: /* add DP case by span 20130217 */
 			sp_read_reg(TX_P2, SP_TX_VID_CTRL2_REG, &color_space);
-			if ((color_space & 0x03) == 0x01) {/*          */
+			if ((color_space & 0x03) == 0x01) {/* YCBCR422 */
 				sp_read_reg(TX_P2, SP_TX_VID_CTRL5_REG, &c);
 				c |= RANGE_Y2R;
 				c |= CSPACE_Y2R;
 				sp_write_reg(TX_P2, SP_TX_VID_CTRL5_REG, c);
 
 				sp_read_reg(RX_P1, (HDMI_RX_AVI_DATA00_REG + 3), &c);
-				/*                                         */
+				/* vic for BT709. add VIC by span 20130217 */
 				if ((c  == 0x04) || (c == 0x05) || (c == 0x10) ||
 					(c == 0x13) || (c == 0x14) || (c == 0x1F) ||
 					(c == 0x20) || (c == 0x21) || (c == 0x22) ||
@@ -1801,7 +1801,7 @@ void sp_tx_set_colorspace(void)
 				c |= VIDEO_PROCESS_EN;
 				c |= UP_SAMPLE;
 				sp_write_reg(TX_P2, SP_TX_VID_CTRL6_REG, c);
-			} else if ((color_space & 0x03) == 0x02) {/*          */
+			} else if ((color_space & 0x03) == 0x02) {/* YCBCR444 */
 				sp_read_reg(TX_P2, SP_TX_VID_CTRL5_REG, &c);
 				c |= RANGE_Y2R;
 				c |= CSPACE_Y2R;
@@ -1861,11 +1861,11 @@ void sp_tx_avi_setup(void)
 		switch (sp_tx_rx_type) {
 		case DWN_STRM_IS_VGA_9832:
 		case DWN_STRM_IS_ANALOG:
-		case DWN_STRM_IS_DIGITAL:/*                   */
+		case DWN_STRM_IS_DIGITAL:/* by  span 20130217 */
 			sp_tx_packet_avi.AVI_data[0] &= ~0x60;
 			break;
 		case DWN_STRM_IS_HDMI_7730:
-		/*                           */
+		/* case DWN_STRM_IS_DIGITAL: */
 			break;
 		default:
 			break;
@@ -2042,9 +2042,9 @@ void slimport_config_video_output(void)
 	switch (sp_tx_vo_state) {
 	default:
 	case VO_WAIT_VIDEO_STABLE:
-		//                   
+		//HDMI RX video judge
 		sp_read_reg(RX_P0,HDMI_RX_SYS_STATUS_REG, &temp_value);
-		if ((temp_value & (TMDS_DE_DET | TMDS_CLOCK_DET)) == 0x03) {  //                  
+		if ((temp_value & (TMDS_DE_DET | TMDS_CLOCK_DET)) == 0x03) {  //input video stable
 			sp_tx_enable_video_input(0);
 			sp_tx_avi_setup();
 			sp_tx_config_packets(AVI_PACKETS);
@@ -2096,19 +2096,19 @@ void slimport_config_video_output(void)
 		}
 			SP_BREAK(VO_WAIT_TX_VIDEO_STABLE, sp_tx_vo_state);
 	/*
-                       
-                                     
-                                                   
-                                                       
-                         
-                                                       
-                         
-                                                       
-                                                         
-       
-                                
-                                             
- */
+	case VO_WAIT_PLL_LOCK:
+		if (!sp_tx_get_pll_lock_status()) {
+			//pll reset when plll not lock. by span 20130217
+			sp_read_reg(TX_P0, SP_TX_PLL_CTRL_REG, &temp_value);
+			temp_value |= PLL_RST;
+			sp_write_reg(TX_P0, SP_TX_PLL_CTRL_REG, temp_value);
+			temp_value &=~PLL_RST;
+			sp_write_reg(TX_P0, SP_TX_PLL_CTRL_REG, temp_value);
+			pr_info("%s %s : PLL not lock!\n", LOG_TAG, __func__);
+		}else
+			sp_tx_vo_state = VO_CHECK_BW;
+		SP_BREAK(VO_WAIT_PLL_LOCK, sp_tx_vo_state);
+	*/
 	case VO_CHECK_VIDEO_INFO:
 		temp_value = __i2c_read_byte(RX_P0, HDMI_STATUS) & HDMI_MODE;
 		if (!sp_tx_bw_lc_sel(sp_tx_pclk_calc())
@@ -2134,7 +2134,7 @@ void slimport_config_video_output(void)
 		if (temp_value & HDMI_MODE) {
 			sp_tx_send_message(MSG_INPUT_HDMI);
 			pr_info("%s %s : HDMI mode: Video is stable.\n", LOG_TAG, __func__);
-			/*                                           */
+			/* hdmi_rx_set_sys_state(HDMI_AUDIO_CONFIG); */
 		} else {
 			pr_info("%s %s : DVI mode: Video is stable.\n", LOG_TAG, __func__);
 			sp_tx_send_message(MSG_INPUT_DVI);
@@ -2150,8 +2150,8 @@ void slimport_config_video_output(void)
 	}
 
 }
-/*                                                            */
-/*                                                      */
+/******************End Output video process********************/
+/******************Start HDCP process********************/
 #ifndef HDCP_AUTO_EN
 static void sp_tx_hdcp_encryption_disable(void)
 {
@@ -2187,7 +2187,7 @@ static void sp_tx_hw_hdcp_enable(void)
 	sp_write_reg(TX_P0, SP_TX_WAIT_R0_TIME, 0xb0);
 	sp_write_reg(TX_P0, SP_TX_WAIT_KSVR_TIME, 0xc8);
 
-	/*                                                 */
+	/* sp_write_reg(TX_P2, SP_COMMON_INT_MASK2, 0xfc); */
 	pr_info("%s %s : Hardware HDCP is enabled.\n", LOG_TAG, __func__);
 
 }
@@ -2204,7 +2204,7 @@ static bool sp_tx_get_ds_video_status(void)
 }
 void slimport_hdcp_process(void)
 {
-	//         
+	//unchar c;
 	static unchar ds_vid_stb_cntr = 0, HDCP_fail_count = 0;
 
 	switch (HDCP_state) {
@@ -2223,9 +2223,9 @@ void slimport_hdcp_process(void)
 		SP_BREAK(HDCP_CAPABLE_CHECK, HDCP_state);
 
 	case HDCP_WAITTING_VID_STB:
-		/*                                       */
+		/*In case ANX7730 can not get ready video*/
 		if (sp_tx_rx_type == DWN_STRM_IS_HDMI_7730) {
-			/*                                                                                       */
+			/* pr_info("%s %s : video stb : count%.2x \n", LOG_TAG, __func__,(WORD)ds_vid_stb_cntr); */
 			if (!sp_tx_get_ds_video_status()) {
 				if (ds_vid_stb_cntr >= 50) {
 					vbus_power_ctrl(0);
@@ -2236,7 +2236,7 @@ void slimport_hdcp_process(void)
 					mdelay(10);
 				}
 				#ifdef SLIMPORT_DRV_DEBUG
-				pr_info("%s %s : downstream video not stable\n", LOG_TAG, __func__); /*           */
+				pr_info("%s %s : downstream video not stable\n", LOG_TAG, __func__); /* for debug */
 				#endif
 			} else {
 				ds_vid_stb_cntr = 0;
@@ -2248,14 +2248,14 @@ void slimport_hdcp_process(void)
 		SP_BREAK(HDCP_WAITTING_VID_STB, HDCP_state);
 	case HDCP_HW_ENABLE:
 		sp_tx_video_mute(1);
-		/*                            */
+		/* sp_tx_clean_hdcp_status(); */
 		slimport_block_power_ctrl(SP_TX_PWR_HDCP, SP_POWER_ON);
 		sp_write_reg(TX_P2, SP_COMMON_INT_MASK2, 0x01);
-		/*                     
-                                 
-                                */
+		/* sp_tx_video_mute(0);
+		   sp_tx_aux_polling_disable();
+		   sp_tx_clean_hdcp_status(); */
 		mdelay(50);
-		/*                                   */
+		/* disable auto polling during hdcp. */
 		sp_tx_hw_hdcp_enable();
 		HDCP_state = HDCP_WAITTING_FINISH;
 	case HDCP_WAITTING_FINISH:
@@ -2264,8 +2264,8 @@ void slimport_hdcp_process(void)
 		sp_tx_hdcp_encryption_enable();
 		hdmi_rx_mute_video(0);
 		sp_tx_video_mute(0);
-		/*                                 */
-		/*                             */
+		/* enable auto polling after hdcp. */
+		/* sp_tx_aux_polling_enable(); */
 		goto_next_system_state();
 		HDCP_state = HDCP_CAPABLE_CHECK;
 		pr_info("%s %s : @@@@@@@hdcp_auth_pass@@@@@@\n", LOG_TAG, __func__);
@@ -2287,18 +2287,18 @@ void slimport_hdcp_process(void)
 		pr_info("%s %s : Sink is not capable HDCP\n", LOG_TAG, __func__);
 		slimport_block_power_ctrl(SP_TX_PWR_HDCP, SP_POWER_DOWN);
 		sp_tx_video_mute(0);
-		/*                             */
+		/* sp_tx_aux_polling_enable(); */
 		goto_next_system_state();
 		HDCP_state = HDCP_CAPABLE_CHECK;
 		break;
 	}
 }
-/*                                                          */
+/******************add for HDCP cap check********************/
 void sp_tx_get_ddc_hdcp_BCAP(unchar *bcap)
 {
 	unchar c;
 
-	sp_write_reg(TX_P0, AUX_ADDR_7_0, 0X3A);/*                   */
+	sp_write_reg(TX_P0, AUX_ADDR_7_0, 0X3A);/* 0X74 FOR HDCP DDC */
 	sp_write_reg(TX_P0, AUX_ADDR_15_8, 0);
 	sp_read_reg(TX_P0, AUX_ADDR_19_16, &c);
 	c &= 0xf0;
@@ -2309,10 +2309,10 @@ void sp_tx_get_ddc_hdcp_BCAP(unchar *bcap)
 	sp_read_reg(TX_P0, BUF_DATA_0, &c);
 
 
-	sp_tx_aux_wr(0x40); /*            */
+	sp_tx_aux_wr(0x40); /* 0X40: bcap */
 	sp_tx_aux_rd(0x01);
 	sp_read_reg(TX_P0, BUF_DATA_0, bcap);
-	/*                                                                       */
+	/* pr_info("%s %s :HDCP BCAP = %.2x\n", LOG_TAG, __func__, (uint)*bcap); */
 
 }
 
@@ -2320,7 +2320,7 @@ void sp_tx_get_ddc_hdcp_BKSV(unchar *bksv)
 {
 	unchar c;
 
-	sp_write_reg(TX_P0, AUX_ADDR_7_0, 0X3A); /*                   */
+	sp_write_reg(TX_P0, AUX_ADDR_7_0, 0X3A); /* 0X74 FOR HDCP DDC */
 	sp_write_reg(TX_P0, AUX_ADDR_15_8, 0);
 	sp_read_reg(TX_P0, AUX_ADDR_19_16, &c);
 	c &= 0xf0;
@@ -2331,10 +2331,10 @@ void sp_tx_get_ddc_hdcp_BKSV(unchar *bksv)
 	sp_read_reg(TX_P0, BUF_DATA_0, &c);
 
 
-	sp_tx_aux_wr(0x00); /*            */
+	sp_tx_aux_wr(0x00); /* 0X00: bksv */
 	sp_tx_aux_rd(0x01);
 	sp_read_reg(TX_P0, BUF_DATA_0, bksv);
-	/*                                                                        */
+	/* pr_info("%s %s :HDCP BKSV0 = %.2x\n", LOG_TAG, __func__, (uint)*bksv); */
 
 }
 
@@ -2346,15 +2346,15 @@ unchar slimport_hdcp_cap_check(void)
 
 	if((sp_tx_rx_type == DWN_STRM_IS_VGA_9832)
 		|| (sp_tx_rx_type == DWN_STRM_IS_ANALOG)) {
-		g_hdcp_cap=0;	/*                  */
+		g_hdcp_cap=0;	/* not capable HDCP */
 	} else if (sp_tx_rx_type == DWN_STRM_IS_DIGITAL) {
 		if(AUX_OK == sp_tx_aux_dpcdread_bytes(0x06, 0x80, 0x28, 1, &c)) {
 			if (!(c & 0x01)) {
 				pr_info("%s %s : Sink is not capable HDCP\n",  LOG_TAG, __func__);
-				g_hdcp_cap=0; /*                  */
+				g_hdcp_cap=0; /* not capable HDCP */
 			}
 			else
-				g_hdcp_cap=1;  /*              */
+				g_hdcp_cap=1;  /* capable HDCP */
 		}
 		else
 			pr_info("%s %s : HDCP CAPABLE: read AUX err! \n", LOG_TAG, __func__);
@@ -2373,8 +2373,8 @@ unchar slimport_hdcp_cap_check(void)
 	return g_hdcp_cap;
 }
 #endif
-/*                                                    */
-/*                                                       */
+/******************End HDCP process********************/
+/******************Start Audio process********************/
 static void sp_tx_audioinfoframe_setup(void)
 {
 	int i;
@@ -2396,7 +2396,7 @@ static void info_ANX7730_AUIF_changed(void)
 	unchar temp, count;
 	unchar pBuf[3] = {0x01, 0xd1, 0x02};
 	msleep(20);
-	if (sp_tx_rx_type == DWN_STRM_IS_HDMI_7730) {/*                        */
+	if (sp_tx_rx_type == DWN_STRM_IS_HDMI_7730) {/* assuming it is anx7730 */
 		sp_tx_aux_dpcdread_bytes(0x00, 0x05, 0x23, 1, &temp);
 		if (temp < 0x94) {
 			count = 3;
@@ -2417,16 +2417,16 @@ static void sp_tx_enable_audio_output(unchar benable)
 	sp_read_reg(TX_P0, SP_TX_AUD_CTRL, &c);
 	if (benable) {
 
-		if (c & AUD_EN) {/*                                        */
+		if (c & AUD_EN) {/* if it has been enabled, disable first. */
 			c &= ~AUD_EN;
 			sp_write_reg(TX_P0, SP_TX_AUD_CTRL, c);
 		}
 		sp_tx_audioinfoframe_setup();
 		sp_tx_config_packets(AUDIF_PACKETS);
 
-		/*                    */
+		/* for audio multi-ch */
 		info_ANX7730_AUIF_changed();
-		/*                    */
+		/* end audio multi-ch */
 		c |= AUD_EN;
 		sp_write_reg(TX_P0, SP_TX_AUD_CTRL, c);
 
@@ -2521,19 +2521,19 @@ static void sp_tx_config_audio(void)
 		sp_write_reg(TX_P2, SP_TX_AUD_CH_NUM_REG5, c);
 	}
 
-	/*                                                            */
+	/* transfer audio chaneel status from HDMI Rx to Slinmport Tx */
 	for (i = 0; i < 5; i++) {
 		sp_read_reg(RX_P0, (HDMI_RX_AUD_IN_CH_STATUS1_REG + i), &c);
 		sp_write_reg(TX_P2, (SP_TX_AUD_CH_STATUS_REG1 + i), c);
 	}
 
-	/*              */
+	/* enable audio */
 	sp_tx_enable_audio_output(1);
 	/*
-                                             
-           
-                                             
- */
+	sp_read_reg(TX_P2, SP_COMMON_INT_MASK1, &c);
+	c |= 0x04;
+	sp_write_reg(TX_P2, SP_COMMON_INT_MASK1, c);
+	*/
 
 }
 
@@ -2566,7 +2566,7 @@ void slimport_config_audio_output(void)
 	}
 
 }
-/*                                                     */
+/******************End Audio process********************/
 void slimport_initialization(void)
 {
 	#ifdef ENABLE_READ_EDID
@@ -2574,9 +2574,9 @@ void slimport_initialization(void)
 	#endif
 	slimport_block_power_ctrl(SP_TX_PWR_REG, SP_POWER_ON);
 	slimport_block_power_ctrl(SP_TX_PWR_TOTAL, SP_POWER_ON);
-	/*              */
+	/*Driver Version*/
 	sp_write_reg(TX_P1, FW_VER_REG, FW_VERSION);
-	/*           */
+	/*disable OCM*/
 	sp_write_reg_and(TX_P1, OCM_REG3, OCM_RST);
 	vbus_power_ctrl(1);
 	hdmi_rx_initialization();
@@ -2593,7 +2593,7 @@ void slimport_cable_monitor(void)
 		&& sp_tx_LT_state != LT_WAITTING_FINISH) {
 		if (sp_tx_cur_states() > STATE_SINK_CONNECTION) {
 			cur_cable_type = sp_tx_get_cable_type(GETTED_CABLE_TYPE);
-			if (cur_cable_type != sp_tx_rx_type) {/*               */
+			if (cur_cable_type != sp_tx_rx_type) {/* cable changed */
 				reg_hardware_reset();
 			}
 		}
@@ -2653,14 +2653,14 @@ void slimport_state_process (void)
 		slimport_config_audio_output();
 		SP_BREAK(STATE_AUDIO_OUTPUT, sp_tx_system_state);
 	case STATE_PLAY_BACK:
-		/*                              */
+		/* slimport_playback_process(); */
 		SP_BREAK(STATE_PLAY_BACK, sp_tx_system_state);
 	default:
 		break;
 	}
 
 }
-/*                                                     */
+/******************Start INT process********************/
 void sp_tx_int_rec(void)
 {
 	sp_read_reg(TX_P2, SP_COMMON_INT_STATUS1, &COMMON_INT1);
@@ -2681,8 +2681,8 @@ void sp_tx_int_rec(void)
 }
 void hdmi_rx_int_rec(void)
 {
-/*                                                                                   
-           */
+/*	 if((hdmi_system_state < HDMI_CLOCK_DET)||(sp_tx_system_state <STATE_CONFIG_HDMI))
+ *	 return;*/
 	 sp_read_reg(RX_P0, HDMI_RX_INT_STATUS1_REG , &HDMI_RX_INT1);
 	 sp_write_reg(RX_P0, HDMI_RX_INT_STATUS1_REG , HDMI_RX_INT1);
 	 sp_read_reg(RX_P0, HDMI_RX_INT_STATUS2_REG , &HDMI_RX_INT2);
@@ -2703,14 +2703,14 @@ void slimport_int_rec(void)
 	sp_tx_int_rec();
 	hdmi_rx_int_rec();
 	/*
-                     
-                                
-                            
-  
- */
+	if(!sp_tx_pd_mode ){
+	       sp_tx_int_irq_handler();
+		hdmi_rx_int_irq_handler();
+	}
+	*/
 }
-/*                                                   */
-/*                                                      */
+/******************End INT process********************/
+/******************Start task process********************/
 
 static void sp_tx_pll_changed_int_handler(void)
 {
@@ -2735,7 +2735,7 @@ static unchar link_down_check(void)
 	pr_info("%s %s : link_down_check\n", LOG_TAG, __func__);
 	if ((sp_tx_system_state > STATE_LINK_TRAINING)) {
 		if (!(__i2c_read_byte(TX_P0, DPCD_204) & 0x01)
-			|| ((__i2c_read_byte(TX_P0, DPCD_202) & (0x01 | 0x04)))  != 0x05) { /*                            */
+			|| ((__i2c_read_byte(TX_P0, DPCD_202) & (0x01 | 0x04)))  != 0x05) { /* xjh modify for link CTS 22 */
 			if (sp_tx_get_downstream_connection()) {
 				sp_tx_set_sys_state(STATE_LINK_TRAINING);
 				pr_info("%s %s : INT:re-LT request!\n", LOG_TAG, __func__);
@@ -2761,46 +2761,46 @@ static void sp_tx_phy_auto_test(void)
 	unchar bytebuf[16];
 	unchar link_bw;
 
-	/*                         */
+	/*DPCD 0x219 TEST_LINK_RATE*/
 	sp_tx_aux_dpcdread_bytes(0x0, 0x02, 0x19, 1, bytebuf);
 	pr_info("%s %s : DPCD:0x00219 = %.2x\n", LOG_TAG, __func__, (uint)bytebuf[0]);
 	switch (bytebuf[0]) {
 	case 0x06:
 		sp_write_reg(TX_P0, SP_TX_LINK_BW_SET_REG, 0x06);
-		//                                                          
+		//pr_info("%s %s : test BW= 1.62Gbps\n", LOG_TAG, __func__);
 		break;
 	case 0x0a:
 		sp_write_reg(TX_P0, SP_TX_LINK_BW_SET_REG, 0x0a);
-		//                                                         
+		//pr_info("%s %s : test BW= 2.7Gbps\n", LOG_TAG, __func__);
 		break;
 	case 0x14:
 		sp_write_reg(TX_P0, SP_TX_LINK_BW_SET_REG, 0x14);
-		//                                                         
+		//pr_info("%s %s : test BW= 5.4Gbps\n", LOG_TAG, __func__);
 		break;
 	case 0x19:
 		sp_write_reg(TX_P0, SP_TX_LINK_BW_SET_REG, 0x19);
-		//                                                          
+		//pr_info("%s %s : test BW= 6.75Gbps\n", LOG_TAG, __func__);
 		break;
 	}
 
-	/*                           */
+	/*DPCD 0x248 PHY_TEST_PATTERN*/
 	sp_tx_aux_dpcdread_bytes(0x0, 0x02, 0x48, 1, bytebuf);
 	pr_info("%s %s : DPCD:0x00248 = %.2x\n", LOG_TAG, __func__, (uint)bytebuf[0]);
 	switch (bytebuf[0]) {
 	case 0:
-		//                                                                 
+		//pr_info("%s %s : No test pattern selected\n", LOG_TAG, __func__);
 		break;
 	case 1:
 		sp_write_reg(TX_P0, SP_TX_TRAINING_PTN_SET_REG, 0x04);
-		//                                                      
+		//pr_info("%s %s : D10.2 Pattern\n", LOG_TAG, __func__);
 		break;
 	case 2:
 		sp_write_reg(TX_P0, SP_TX_TRAINING_PTN_SET_REG, 0x08);
-		//                                                                       
+		//pr_info("%s %s : Symbol Error Measurement Count\n", LOG_TAG, __func__);
 		break;
 	case 3:
 		sp_write_reg(TX_P0, SP_TX_TRAINING_PTN_SET_REG, 0x0c);
-		//                                                      
+		//pr_info("%s %s : PRBS7 Pattern\n", LOG_TAG, __func__);
 		break;
 	case 4:
 		sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x50, 0xa, bytebuf);
@@ -2815,13 +2815,13 @@ static void sp_tx_phy_auto_test(void)
 		sp_write_reg(TX_P1, 0x88, bytebuf[8]);
 		sp_write_reg(TX_P1, 0x89, bytebuf[9]);
 		sp_write_reg(TX_P0, SP_TX_TRAINING_PTN_SET_REG, 0x30);
-		//                                                                         
+		//pr_info("%s %s : 80bit custom pattern transmitted\n", LOG_TAG, __func__);
 		break;
 	case 5:
 		sp_write_reg(TX_P0, 0xA9, 0x00);
 		sp_write_reg(TX_P0, 0xAA, 0x01);
 		sp_write_reg(TX_P0, SP_TX_TRAINING_PTN_SET_REG, 0x14);
-		//                                                                    
+		//pr_info("%s %s : HBR2 Compliance Eye Pattern\n", LOG_TAG, __func__);
 		break;
 	}
 
@@ -2830,7 +2830,7 @@ static void sp_tx_phy_auto_test(void)
 	switch (bytebuf[0] & 0x01) {
 	case 0:
 		sp_tx_spread_enable(0);
-		//                                                
+		//pr_info("%s %s : SSC OFF\n", LOG_TAG, __func__);
 		break;
 	case 1:
 		sp_read_reg(TX_P0, SP_TX_LINK_BW_SET_REG, &c1);
@@ -2852,11 +2852,11 @@ static void sp_tx_phy_auto_test(void)
 			break;
 		}
 		sp_tx_config_ssc(SSC_DEP_5000PPM);
-		//                                               
+		//pr_info("%s %s : SSC ON\n", LOG_TAG, __func__);
 		break;
 	}
 
-	/*                                     */
+	/*get swing and emphasis adjust request*/
 	sp_read_reg(TX_P0, 0xA3, &b_sw);
 
 	sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x06, 1, bytebuf);
@@ -2865,46 +2865,46 @@ static void sp_tx_phy_auto_test(void)
 	switch (c1) {
 	case 0x00:
 		sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x00);
-		//                                                               
+		//pr_info("%s %s : lane0,Swing0, emp 0db.\n", LOG_TAG, __func__);
 		break;
 	case 0x01:
 		sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x01);
-		//                                                               
+		//pr_info("%s %s : lane0,Swing1, emp 0db.\n", LOG_TAG, __func__);
 		break;
 	case 0x02:
 		sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x02);
-		//                                                               
+		//pr_info("%s %s : lane0,Swing2, emp 0db.\n", LOG_TAG, __func__);
 		break;
 	case 0x03:
 		sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x03);
-		//                                                               
+		//pr_info("%s %s : lane0,Swing3, emp 0db.\n", LOG_TAG, __func__);
 		break;
 	case 0x04:
 		sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x08);
-		//                                                                 
+		//pr_info("%s %s : lane0,Swing0, emp 3.5db.\n", LOG_TAG, __func__);
 		break;
 	case 0x05:
 		sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x09);
-		//                                                                 
+		//pr_info("%s %s : lane0,Swing1, emp 3.5db.\n", LOG_TAG, __func__);
 		break;
 	case 0x06:
 		sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x0a);
-		//                                                                 
+		//pr_info("%s %s : lane0,Swing2, emp 3.5db.\n", LOG_TAG, __func__);
 		break;
 	case 0x08:
-		//                                                 
+		//sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x0b);
 		sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x10);
-		//                                                               
+		//pr_info("%s %s : lane0,Swing0, emp 6db.\n", LOG_TAG, __func__);
 		break;
 	case 0x09:
-		//                                                 
+		//sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x10);
 		sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x11);
-		//                                                               
+		//pr_info("%s %s : lane0,Swing1, emp 6db.\n", LOG_TAG, __func__);
 		break;
 	case 0x0c:
-		//                                                 
+		//sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x11);
 		sp_write_reg(TX_P0, 0xA3, (b_sw & ~0x1b) | 0x18);
-		//                                                                 
+		//pr_info("%s %s : lane0,Swing0, emp 9.5db.\n", LOG_TAG, __func__);
 		break;
 	default:
 		break;
@@ -2914,8 +2914,8 @@ static void sp_tx_phy_auto_test(void)
 static void sp_tx_sink_irq_int_handler(void)
 {
 	unchar c, c1;
-	unchar IRQ_Vector; /*                           */
-	unchar Int_vector[2]; /*                  */
+	unchar IRQ_Vector; /* Int_vector1, Int_vector2; */
+	unchar Int_vector[2]; /* by span 20130217 */
 	unchar test_vector;
 	unchar temp, need_return;
 	need_return = 0;
@@ -2926,7 +2926,7 @@ static void sp_tx_sink_irq_int_handler(void)
 	else
 		return;
 
-	/*          */
+	/* HDCP IRQ */
 	if (IRQ_Vector & CP_IRQ) {
 		#ifndef HDCP_AUTO_EN
 		if (HDCP_state > HDCP_WAITTING_FINISH
@@ -2945,10 +2945,10 @@ static void sp_tx_sink_irq_int_handler(void)
 
 	}
 
-	/*              */
+	/* specific int */
 	if (IRQ_Vector & SINK_SPECIFIC_IRQ) {
 
-		/*                                               */
+		/* dongle has fast charging detection capability */
 		if (downstream_charging_status != NO_CHARGING_CAPABLE) {
 			downstream_charging_status_set();
 		}
@@ -2965,7 +2965,7 @@ static void sp_tx_sink_irq_int_handler(void)
 				default:
 					break;
 				case 0x01:
-					if ((Int_vector[0] & 0x01) == 0x01) { /*                                    */
+					if ((Int_vector[0] & 0x01) == 0x01) { /* downstream HPD changed from 0 to 1 */
 						sp_tx_aux_dpcdread_bytes(0x00, 0x05, 0x18, 1, &c);
 						if (c & 0x01)
 							pr_info("%s %s : Downstream HDMI is pluged!\n", LOG_TAG, __func__);
@@ -3003,7 +3003,7 @@ static void sp_tx_sink_irq_int_handler(void)
 							sp_tx_clean_hdcp_status();
 						}
 						#else
-							/*                            */
+							/* sp_tx_clean_hdcp_status(); */
 							pr_info("%s %s : Re-authentication due to downstream HDCP failure!\n", LOG_TAG, __func__);
 
 						#endif
@@ -3015,7 +3015,7 @@ static void sp_tx_sink_irq_int_handler(void)
 					pr_info("%s %s :  Downstream HDCP link integrity check fail!\n", LOG_TAG, __func__);
 					#ifndef HDCP_AUTO_EN
 					system_state_change_with_case(STATE_HDCP_AUTH);
-					/*                                                     */
+					/* msleep(2000);//20130217 by span for samsung monitor */
 					sp_tx_clean_hdcp_status();
 					#endif
 					pr_info("%s %s : IRQ:____________HDCP Sync lost!\n", LOG_TAG, __func__);
@@ -3041,7 +3041,7 @@ static void sp_tx_sink_irq_int_handler(void)
 					pr_info("%s %s : Downstream HDMI termination is detected!\n", LOG_TAG, __func__);
 			}
 		} else if (sp_tx_rx_type != DWN_STRM_IS_HDMI_7730) {
-			/*                                                    */
+			/* sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x00, 1, &c); */
 			c = __i2c_read_byte(TX_P0, DPCD_200);
 			if (!(c & 0x01)) {
 				if (sp_tx_system_state > STATE_SINK_CONNECTION) {
@@ -3059,11 +3059,11 @@ static void sp_tx_sink_irq_int_handler(void)
 		}
 	}
 
-	/*                    */
+	/* AUTOMATED TEST IRQ */
 	if (IRQ_Vector & TEST_IRQ) {
 		sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x18, 1, &test_vector);
 
-		if (test_vector & 0x01) {/*                    */
+		if (test_vector & 0x01) {/* test link training */
 			sp_tx_test_lt = 1;
 
 			sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x19, 1, &c);
@@ -3074,7 +3074,7 @@ static void sp_tx_sink_irq_int_handler(void)
 			c = c | TEST_ACK;
 			sp_tx_aux_dpcdwrite_bytes(0x00, 0x02, 0x60, 1, &c);
 
-			//                                                      
+			//pr_info("%s %s : Set TEST_ACK!\n", LOG_TAG, __func__);
 			sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x60, 1, &c);
 			pr_info("%s %s : set TEST_ACK = %.2x!\n", LOG_TAG, __func__, (uint)c);
 			if (sp_tx_system_state >= STATE_LINK_TRAINING)
@@ -3082,27 +3082,27 @@ static void sp_tx_sink_irq_int_handler(void)
 			pr_info("%s %s : IRQ:test-LT request!\n", LOG_TAG, __func__);
 		}
 
-		if (test_vector & 0x04) { /*           */
+		if (test_vector & 0x04) { /* test edid */
 			if (sp_tx_system_state >= STATE_PARSE_EDID)
 				sp_tx_set_sys_state(STATE_PARSE_EDID);
 			sp_tx_test_edid = 1;
 			pr_info("%s %s : Test EDID Requested!\n", LOG_TAG, __func__);
 		}
 
-		if (test_vector & 0x08) { /*                  */
+		if (test_vector & 0x08) { /* phy test pattern */
 			sp_tx_phy_auto_test();
 
 			sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x60, 1, &c);
 			c = c | 0x01;
-		//                                                   
+		//	sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x60, 1, &c);
 			sp_tx_aux_dpcdwrite_bytes(0x00, 0x02, 0x60, 1, &c);
 			/*
-                                                     
-                            
-                 
-                                                      
-                                                      
-    */
+			sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x60, 1, &c);
+			while ((c & 0x03) == 0) {
+				c = c | 0x01;
+				sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x60, 1, &c);
+				sp_tx_aux_dpcdread_bytes(0x00, 0x02, 0x60, 1, &c);
+			}*/
 		}
 	}
 
@@ -3139,7 +3139,7 @@ static void sp_tx_auth_done_int_handler(void)
 		sp_read_reg(TX_P0, SP_TX_HDCP_STATUS, bytebuf);
 		if (bytebuf[0] & SP_TX_HDCP_AUTH_PASS) {
 			sp_tx_aux_dpcdread_bytes(0x06, 0x80, 0x2A, 2, bytebuf);
-			/*                                                             */
+			/* max cascade exceeded or max devs exceed, disable encryption */
 			if ((bytebuf[1] & 0x08) || (bytebuf[0]&0x80)) {
 				pr_info("%s %s : max cascade/devs exceeded!\n", LOG_TAG, __func__);
 				sp_tx_hdcp_encryption_disable();
@@ -3161,15 +3161,15 @@ static void sp_tx_auth_done_int_handler(void)
 }
 static void sp_tx_polling_err_int_handler(void)
 {
-/*              */
+/*	unchar temp; */
 
-	//                                                 
-	//        
+	//if ((sp_tx_system_state < STATE_SINK_CONNECTION))
+	//	return;
 	pr_info("%s %s : sp_tx_polling_err_int_handler \n", LOG_TAG, __func__);
 #ifdef CONFIG_SLIMPORT_DYNAMIC_HPD
 	slimport_set_hdmi_hpd(0);
 #endif
-	/*                                                                      */
+	/* if (AUX_ERR == sp_tx_aux_dpcdread_bytes(0x00, 0x00, 0x00, 1, &temp)) */
 		system_power_ctrl(0);
 }
 static void sp_tx_lt_done_int_handler(void)
@@ -3222,20 +3222,20 @@ static void hdmi_rx_hdmi_dvi_int(void)
 	}
 }
 /*
-                                    
- 
-                         
+static void hdmi_rx_avmute_int(void)
+{
+	unchar avmute_status, c;
 
-                                
-                         
-                                 
-                                                                           
-                        
-                        
-                                   
-                                      
-  
- 
+	sp_read_reg(RX_P0, HDMI_STATUS,
+		       &avmute_status);
+	if (avmute_status & MUTE_STAT) {
+		pr_info("%s %s : HDMI_RX AV mute packet received.\n", LOG_TAG, __func__);
+		hdmi_rx_mute_video(1);
+		hdmi_rx_mute_audio(1);
+		c = avmute_status & (~MUTE_STAT);
+		sp_write_reg(RX_P0, HDMI_STATUS, c);
+	}
+}
 */
 static void hdmi_rx_new_avi_int(void)
 {
@@ -3256,19 +3256,19 @@ static void hdmi_rx_new_vsi_int(void)
 		sp_read_reg(RX_P1, HDMI_RX_MPEG_DATA03_REG, &hdmi_video_format);
 		if ((vsi_header == 0x81) && ((hdmi_video_format & 0xe0) == 0x40)) {
 			pr_info("%s %s : 3D VSI packet is detected. Config VSC packet\n", LOG_TAG, __func__);
-			sp_tx_vsi_setup(); /*                                                */
+			sp_tx_vsi_setup(); /* use mpeg packet as mail box to send vsi packet */
 			sp_tx_config_packets(VSI_PACKETS);
 
 
 			sp_read_reg(RX_P1, HDMI_RX_MPEG_DATA05_REG, &v3d_structure);
 			switch (v3d_structure&0xf0) {
-			case 0x00: /*               */
+			case 0x00: /* frame packing */
 				v3d_structure = 0x02;
 				break;
-			case 0x20: /*                  */
+			case 0x20: /* Line alternative */
 				v3d_structure = 0x03;
 				break;
-			case 0x30: /*                    */
+			case 0x30: /* Side-by-side(full) */
 				v3d_structure = 0x04;
 				break;
 			default:
@@ -3327,7 +3327,7 @@ static void hdmi_rx_cts_rcv_int(void)
 	else if (sp_tx_ao_state == AO_AUDIO_RCV_INT)
 		sp_tx_ao_state = AO_RCV_INT_FINISH;
 
-	/*                                                                 */
+	/* pr_info("%s %s : *hdmi_rx_cts_rcv_int. \n", LOG_TAG, __func__); */
 	return;
 }
 static void hdmi_rx_audio_rcv_int(void)
@@ -3336,7 +3336,7 @@ static void hdmi_rx_audio_rcv_int(void)
 		sp_tx_ao_state = AO_AUDIO_RCV_INT;
 	else if (sp_tx_ao_state == AO_CTS_RCV_INT)
 		sp_tx_ao_state = AO_RCV_INT_FINISH;
-	/*                                                                 */
+	/* pr_info("%s %s : *hdmi_rx_audio_rcv_int\n", LOG_TAG, __func__); */
 
 	return;
 }
@@ -3358,26 +3358,26 @@ static void hdmi_rx_hdcp_error_int(void)
 static void hdmi_rx_new_gcp_int(void)
 {
 	unchar c;
-       /*                                                                              */
+       /* pr_info("%s %s : *HDMI_RX Interrupt: New GCP Packet.\n", LOG_TAG, __func__); */
 	sp_read_reg(RX_P1, HDMI_RX_GENERAL_CTRL, &c);
 	if (c&SET_AVMUTE) {
 			hdmi_rx_mute_video(1);
 			hdmi_rx_mute_audio(1);
 
 	} else if (c&CLEAR_AVMUTE) {
-		/*                  */
-		/*                        */
-		/*                                          */
+		/* by span 20130217 */
+		/* if ((g_video_muted) && */
+		/* 	(hdmi_system_state >HDMI_VIDEO_CONFIG)) */
 			hdmi_rx_mute_video(0);
-		/*                        */
-		/*                                          */
+		/* if ((g_audio_muted) && */
+		/* 	(hdmi_system_state >HDMI_AUDIO_CONFIG)) */
 			hdmi_rx_mute_audio(0);
 	}
 }
 void system_isr_handler(void)
 {
-	/*                                           */
-		/*                                                                           */
+	/* if (sp_tx_system_state < STATE_PLAY_BACK) */
+		/* pr_info("%s %s : ========= system_isr ========== \n", LOG_TAG, __func__); */
 
 	if (COMMON_INT1 & PLL_LOCK_CHG)
 		sp_tx_pll_changed_int_handler();
@@ -3415,12 +3415,12 @@ void system_isr_handler(void)
 		if (HDMI_RX_INT1 & HDMI_DVI)
 			hdmi_rx_hdmi_dvi_int();
 		/*
-                              
-                        
-  */
+		if (HDMI_RX_INT1 & SET_MUTE)
+			hdmi_rx_avmute_int();
+		*/
 
 		if (HDMI_RX_INT7 & NEW_VS) {
-			/*             */
+			/* if (V3D_EN) */
 			hdmi_rx_new_vsi_int();
 		}
 
@@ -3428,8 +3428,8 @@ void system_isr_handler(void)
 			hdmi_rx_no_vsi_int();
 
 #ifdef CEC_ENABLE
-		/*                                   */
-		/*                        */
+		/* if ( HDMI_RX_INT7 & CEC_RX_READY) */
+		/*	hdmi_rx_cec_rcv_int(); */
 #endif
 
 		if ((HDMI_RX_INT6 & NEW_AUD) || (HDMI_RX_INT3 & AUD_MODE_CHANGE))
@@ -3580,7 +3580,7 @@ void sp_tx_show_infomation(void)
 		pr_info("12 BPC\n");
 
 
-	if (sp_tx_rx_type == DWN_STRM_IS_HDMI_7730) { /*                        */
+	if (sp_tx_rx_type == DWN_STRM_IS_HDMI_7730) { /* assuming it is anx7730 */
 		sp_tx_aux_dpcdread_bytes(0x00, 0x05, 0x23, 1, &c);
 		pr_info("%s %s : ANX7730 BC current FW Ver %.2x \n", LOG_TAG, __func__, (uint)(c & 0x7f));
 	}
@@ -3710,19 +3710,19 @@ void clean_system_status(void)
 
 		g_need_clean_status = 0;
 		/*
-                                                      
-                                                
-                          
-         
-                          
-                        
-    
-                               
-                                
-                                                             
-                                                             
-   
-  */
+		if (sp_tx_system_state_bak >= STATE_LINK_TRAINING) {
+			if (sp_tx_system_state >= STATE_AUDIO_OUTPUT)
+				hdmi_rx_mute_audio(1);
+			else {
+				hdmi_rx_mute_video(1);
+				sp_tx_video_mute(1);
+			}
+			sp_tx_enable_video_input(0);
+			sp_tx_enable_audio_output(0);
+			slimport_block_power_ctrl(SP_TX_PWR_VIDEO, SP_POWER_DOWN);
+			slimport_block_power_ctrl(SP_TX_PWR_AUDIO, SP_POWER_DOWN);
+		}
+		*/
 		if (sp_tx_system_state_bak >= STATE_HDCP_AUTH
 			&& sp_tx_system_state <= STATE_HDCP_AUTH) {
 			if (__i2c_read_byte(TX_P0, TX_HDCP_CTRL0) & 0xFC)
@@ -3742,14 +3742,14 @@ void clean_system_status(void)
 }
 void slimport_tasks_handler(void)
 {
-	/*     */
+	/* isr */
 	if (sp_tx_system_state > STATE_WAITTING_CABLE_PLUG)
 		system_isr_handler();
 	hdcp_external_ctrl_flag_monitor();
 	clean_system_status();
 	slimport_cable_monitor();
 }
-/*                                                     */
+/******************End task  process********************/
 
 void slimport_main_process(void)
 {
@@ -3760,9 +3760,9 @@ void slimport_main_process(void)
 
 
 
-/*                                                                   */
-/*                                   */
-/*                                                                   */
+/* ***************************************************************** */
+/* Functions for slimport_rx anx7730 */
+/* ***************************************************************** */
 
 #define SOURCE_AUX_OK 1
 #define SOURCE_AUX_ERR 0

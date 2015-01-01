@@ -26,7 +26,7 @@
 #include <sound/timer.h>
 
 /*
-                   
+ *  Timer functions
  */
 
 void snd_pcm_timer_resolution_change(struct snd_pcm_substream *substream)
@@ -97,7 +97,7 @@ static struct snd_timer_hardware snd_pcm_timer =
 };
 
 /*
-                  
+ *  Init functions
  */
 
 static void snd_pcm_timer_free(struct snd_timer *timer)

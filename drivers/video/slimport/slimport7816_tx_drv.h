@@ -44,7 +44,7 @@
 #define _bit7_(val)  ((bit)(val & _BIT7))
 
 #ifdef SP_REGISTER_SET_TEST
-/*                   */
+/* For Slimport test */
 extern unchar val_SP_TX_LT_CTRL_REG0 ;
 extern unchar val_SP_TX_LT_CTRL_REG10 ;
 extern unchar val_SP_TX_LT_CTRL_REG11 ;
@@ -174,7 +174,7 @@ enum HDCP_STATUS {
 enum VIDEO_OUTPUT_STATUS {
 	VO_WAIT_VIDEO_STABLE,
 	VO_WAIT_TX_VIDEO_STABLE,
-	/*                   */
+	/* VO_WAIT_PLL_LOCK, */
 	VO_CHECK_VIDEO_INFO,
 	VO_FINISH,
 	VO_STATE_NUM
@@ -238,7 +238,7 @@ enum xtal_enum {
 	XTAL_CLK_NUM
 };
 
-/*                      */
+/* xjh add SSC settings */
 enum SP_SSC_DEP {
 	SSC_DEP_DISABLE = 0x0,
 	SSC_DEP_500PPM,
@@ -310,9 +310,9 @@ unchar slimport_hdcp_cap_check(void);
 void slimport_set_hdmi_hpd(int on);
 #endif
 
-/*                                                                   */
-/*                                            */
-/*                                                                   */
+/* ***************************************************************** */
+/* Functions protoype for slimport_rx anx7730 */
+/* ***************************************************************** */
 bool source_aux_read_7730dpcd(long addr, unchar cCount, unchar *pBuf);
 bool source_aux_write_7730dpcd(long addr, unchar cCount, unchar *pBuf);
 bool i2c_master_read_reg(unchar Sink_device_sel, unchar offset, unchar *Buf);

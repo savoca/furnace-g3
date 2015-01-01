@@ -13,8 +13,8 @@
  */
 
 /*
-                                                 
-                                                              
+ * 2010/04/08 Adam Bennett <abennett72@gmail.com>
+ *   Copied dynapro.c and edited for Hampshire 4-byte protocol
  */
 
 #include <linux/errno.h>
@@ -32,7 +32,7 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
 
 /*
-                               
+ * Definitions & global arrays.
  */
 
 #define HAMPSHIRE_FORMAT_TOUCH_BIT 0x40
@@ -49,7 +49,7 @@ MODULE_LICENSE("GPL");
 #define HAMPSHIRE_GET_TOUCHED(data) (HAMPSHIRE_FORMAT_TOUCH_BIT & data[0])
 
 /*
-                        
+ * Per-touchscreen data.
  */
 
 struct hampshire {
@@ -104,9 +104,9 @@ static void hampshire_disconnect(struct serio *serio)
 }
 
 /*
-                                                                        
-                                                                        
-                                                                   
+ * hampshire_connect() is the routine that is called when someone adds a
+ * new serio device that supports hampshire protocol and registers it as
+ * an input device. This is usually accomplished using inputattach.
  */
 
 static int hampshire_connect(struct serio *serio, struct serio_driver *drv)
@@ -161,7 +161,7 @@ static int hampshire_connect(struct serio *serio, struct serio_driver *drv)
 }
 
 /*
-                              
+ * The serio driver structure.
  */
 
 static struct serio_device_id hampshire_serio_ids[] = {
@@ -188,7 +188,7 @@ static struct serio_driver hampshire_drv = {
 };
 
 /*
-                                                       
+ * The functions for inserting/removing us as a module.
  */
 
 static int __init hampshire_init(void)

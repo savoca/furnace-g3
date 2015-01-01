@@ -158,9 +158,9 @@ void sp_tx_enable_video_input(unchar enable);
 void sp_tx_disable_slimport_hdcp(void);
 
 
-/*                                                                   */
-/*                                   */
-/*                                                                   */
+/* ***************************************************************** */
+/* Functions protoype for HDMI Input */
+/* ***************************************************************** */
 
 void sp_tx_config_hdmi_input(void);
 void hdmi_rx_set_hpd(unchar enable);
@@ -168,9 +168,9 @@ void hdmi_rx_initialization(void);
 void hdmi_rx_int_irq_handler(void);
 void hdmi_rx_set_termination(unchar enable);
 
-/*                                                                   */
-/*                                            */
-/*                                                                   */
+/* ***************************************************************** */
+/* Functions protoype for slimport_rx anx7730 */
+/* ***************************************************************** */
 bool source_aux_read_7730dpcd(long addr, unchar cCount, unchar *pBuf);
 bool source_aux_write_7730dpcd(long addr, unchar cCount, unchar *pBuf);
 bool i2c_master_read_reg(unchar Sink_device_sel, unchar offset, unchar *Buf);

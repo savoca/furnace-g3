@@ -27,10 +27,10 @@
 #include <linux/interrupt.h>
 #include <linux/i2c.h>
 
-/*            */
+/* for Regmap */
 #include <linux/regmap.h>
 
-/*                 */
+/* for Device Tree */
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -64,7 +64,7 @@
 extern bool i2c_suspended;
 #endif
 
-/*                     */
+/* define register map */
 #define CHGINT					0x0F
 #define CHGINT_MSK				0x01
 #define CHGINT_AICL				BIT(7)
@@ -107,9 +107,9 @@ extern bool i2c_suspended;
 #define PROTCMD					0x0A
 #define PROTCMD_CHGPROT				BITS(3, 2)
 
-/*                                                                              
-                
-                                                                              */
+/*******************************************************************************
+ * Useful Macros
+ ******************************************************************************/
 
 #undef	__CONST_FFS
 #define __CONST_FFS(_x) \
@@ -154,9 +154,9 @@ extern bool i2c_suspended;
 #define BITS_MATCH(_word, _bit) \
 		(((_word) & (_bit)) == (_bit))
 
-/*                                                                              
-          
-                                                                              */
+/*******************************************************************************
+ * Chip IO
+ ******************************************************************************/
 
 struct max8971_io {
 	struct regmap *regmap;
@@ -187,7 +187,7 @@ static inline int max8971_masked_read(struct max8971_io *io,
 	int rc;
 
 	if (unlikely(!mask)) {
-		/*                  */
+		/* no actual access */
 		*val = 0;
 		rc	 = 0;
 		goto out;
@@ -208,7 +208,7 @@ static inline int max8971_masked_write(struct max8971_io *io,
 	int rc;
 
 	if (unlikely(!mask)) {
-		/*                  */
+		/* no actual access */
 		rc = 0;
 		goto out;
 	}
@@ -235,7 +235,7 @@ static __always_inline int max8971_bulk_write(struct max8971_io *io,
 		(unsigned int)addr, src, (size_t)len);
 }
 
-/*                                                                          */
+/*** Simplifying bitwise configurations for individual subdevices drivers ***/
 #ifndef MAX8971_REG_ADDR_INVALID
 #define MAX8971_REG_ADDR_INVALID	0x00
 #endif
@@ -287,9 +287,9 @@ static __always_inline int max8971_write_bitdesc(struct max8971_io *io,
 		max8971_masked_write(_io, _reg, _reg##_##_bit,\
 			(u8)FFS(_reg##_##_bit), _val)
 
-/*                                                                              
-                  
-                                                                              */
+/*******************************************************************************
+ * Debugging Stuff
+ ******************************************************************************/
 
 #undef	log_fmt
 #define log_fmt(format) \
@@ -316,9 +316,9 @@ static __always_inline int max8971_write_bitdesc(struct max8971_io *io,
 			printk(KERN_DEFAULT log_fmt(format), ##__VA_ARGS__);\
 		}
 
-/*                                                                              
-                 
-                                                                              */
+/*******************************************************************************
+ * Driver Context
+ ******************************************************************************/
 
 struct max8971 {
 	struct mutex				lock;
@@ -549,7 +549,7 @@ static __always_inline int max8971_unlock(struct max8971 *me)
 			goto out;
 		}
 	} while (0);
-#endif /*                     */
+#endif /* VERIFICATION_UNLOCK */
 
 out:
 	return rc;
@@ -822,14 +822,14 @@ static int max8971_init_dev(struct max8971 *me)
 	u8 val;
 
 	val	= 0;
-/*                    */
-/*                      */
-/*                      */
+/*	val |= CHGINT_AICL;*/
+/*	val |= CHGINT_TOPOFF;*/
+/*	val |= CHGINT_DC_OVP;*/
 	val |= CHGINT_DC_UVP;
-/*                   */
-/*                   */
-/*                   */
-/*                     */
+/*	val |= CHGINT_CHG;*/
+/*	val |= CHGINT_BAT;*/
+/*	val |= CHGINT_THM;*/
+/*	val |= CHGINT_PWRUP;*/
 
 	rc = max8971_write(&me->io, CHGINT_MSK, ~val);
 	if (unlikely(IS_ERR_VALUE(rc))) {
@@ -852,14 +852,14 @@ static int max8971_init_dev(struct max8971 *me)
 #endif
 
 #ifndef CONFIG_CHARGER_MAX8971_FORCE_SINGLE_CHARGING
-	/*              */
+	/*dual charging */
 #else
-	/*                 */
+	/* charger disable */
 	rc = max8971_set_enable(me, 0);
 	if (unlikely(IS_ERR_VALUE(rc)))
 		goto out;
 
-	/*                */
+	/* charger enable */
 #if 0
 	rc = max8971_set_enable(me, me->dev_enabled);
 	if (unlikely(IS_ERR_VALUE(rc)))
@@ -867,13 +867,13 @@ static int max8971_init_dev(struct max8971 *me)
 #endif
 #endif
 
-	/*                */
+	/* charge current */
 	rc = max8971_set_charge_current(me, me->current_limit_volatile,
 		me->charge_current_volatile);
 	if (unlikely(IS_ERR_VALUE(rc)))
 		goto out;
 
-	/*              */
+	/* topoff timer */
 	val = pdata->topoff_timer <	0 ? 0x00 :
 			pdata->topoff_timer < 70 ?
 			DIV_ROUND_UP(pdata->topoff_timer, 10) : 0x07;
@@ -881,7 +881,7 @@ static int max8971_init_dev(struct max8971 *me)
 	if (unlikely(IS_ERR_VALUE(rc)))
 		goto out;
 
-	/*                */
+	/* topoff current */
 	val = pdata->topoff_current <	50000 ? 0x00 :
 			pdata->topoff_current < 200000 ?
 			DIV_ROUND_UP(pdata->topoff_current - 50000, 50000) :
@@ -890,13 +890,13 @@ static int max8971_init_dev(struct max8971 *me)
 	if (unlikely(IS_ERR_VALUE(rc)))
 		goto out;
 
-	/*                          */
+	/* charge restart threshold */
 	val = (pdata->charge_restart_threshold < 150000);
 	rc = max8971_write_config(me, CHGRSTRT, val);
 	if (unlikely(IS_ERR_VALUE(rc)))
 		goto out;
 
-	/*                            */
+	/* charge termination voltage */
 	val = pdata->charge_termination_voltage < 4100000 ? 0x01 :
 			pdata->charge_termination_voltage < 4150000 ? 0x03 :
 			pdata->charge_termination_voltage < 4200000 ? 0x00 :
@@ -907,13 +907,13 @@ static int max8971_init_dev(struct max8971 *me)
 	#if defined(CONFIG_CHARGER_FACTORY_MODE)
 	 max8971_write_config(me,	FCHGT, 0);
 	#endif
-	/*                    */
+	/* thermistor control */
 	val = (pdata->enable_thermistor == false);
 	rc = max8971_write_config(me, THM_CNFG, val);
 	if (unlikely(IS_ERR_VALUE(rc)))
 		goto out;
 
-	/*              */
+	/* AICL control */
 
 	val = (pdata->enable_aicl == false);
 	rc = max8971_write_config(me, DCMON_DIS, val);
@@ -938,7 +938,7 @@ static struct max8971_status_map max8971_status_map[] = {
 			.status = POWER_SUPPLY_STATUS_##_status,\
 			.charge_type = POWER_SUPPLY_CHARGE_TYPE_##_charge_type,\
 		}
-	/*                          */
+	/* health	status	charge_type*/
 	STATUS_MAP(DEAD_BATTERY,	DEAD,		NOT_CHARGING,	NONE),
 	STATUS_MAP(PRECHARGE,	UNKNOWN,	CHARGING,	TRICKLE),
 	STATUS_MAP(FASTCHARGE_CC,	UNKNOWN,	CHARGING,	FAST),
@@ -947,9 +947,9 @@ static struct max8971_status_map max8971_status_map[] = {
 	STATUS_MAP(DONE,		UNKNOWN,	FULL,		NONE),
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
 	STATUS_MAP(TIMER_FAULT,	SAFETY_TIMER_EXPIRE,	NOT_CHARGING,	NONE),
-#else /*                        */
+#else /* LINUX_VERSION_CODE ... */
 	STATUS_MAP(TIMER_FAULT,		UNKNOWN,	NOT_CHARGING,	NONE),
-#endif /*                        */
+#endif /* LINUX_VERSION_CODE ... */
 	STATUS_MAP(TEMP_SUSPEND,	UNKNOWN,	NOT_CHARGING,	NONE),
 	STATUS_MAP(OFF,			UNKNOWN,	NOT_CHARGING,	NONE),
 	STATUS_MAP(THM_LOOP,		UNKNOWN,	CHARGING,	NONE),
@@ -1002,7 +1002,7 @@ static int max8971_update(struct max8971 *me)
 
 	me->present = (dcuvp == DC_UVP_VALID);
 	if (unlikely(!me->present)) {
-		/*                    */
+		/* no charger present */
 		me->health		= POWER_SUPPLY_HEALTH_UNKNOWN;
 		me->status		= POWER_SUPPLY_STATUS_DISCHARGING;
 		me->charge_type = POWER_SUPPLY_CHARGE_TYPE_UNKNOWN;
@@ -1023,7 +1023,7 @@ static int max8971_update(struct max8971 *me)
 	if (likely(me->health != POWER_SUPPLY_HEALTH_UNKNOWN))
 		goto out;
 
-	/*                             */
+	/* override health by THM_DTLS */
 	switch (thm) {
 	case THM_DTLS_LOW_TEMP_SUSPEND:
 		me->health = POWER_SUPPLY_HEALTH_COLD;
@@ -1112,7 +1112,7 @@ static void max8971_irq_work(struct max8971 *me)
 	if (unlikely(!irq_current))
 		goto done;
 
-	/*                   */
+	/* just check DC_UVP */
 	if (irq_current & CHGINT_DC_UVP) {
 		present_input = max8971_present_input(me);
 		log_info("<IRQ_WORK> present_input=%d\n", present_input);
@@ -1126,7 +1126,7 @@ static void max8971_irq_work(struct max8971 *me)
 			max8971_exit_dev(me);
 		}
 
-		/*                    */
+		/* notify psy changed */
 		max8971_psy_changed(me);
 
 		log_dbg("DC input %s\n", present_input ?
@@ -1167,7 +1167,7 @@ static void max8971_check_suspended_worker(struct work_struct *work)
 		schedule_delayed_work(&chip->check_suspended_work, msecs_to_jiffies(50));
 	}
 }
-#endif /*                      */
+#endif /*I2C_SUSPEND_WORKAROUND*/
 static irqreturn_t max8971_isr(int irq, void *data)
 {
 	struct max8971 *me = data;
@@ -1216,7 +1216,7 @@ static int max8971_get_property(struct power_supply *psy,
 
 #ifndef POWER_SUPPLY_PROP_CHARGING_ENABLED_REPLACED
 	case POWER_SUPPLY_PROP_ONLINE:
-#endif /*                                              */
+#endif /* !POWER_SUPPLY_PROP_CHARGING_ENABLED_REPLACED */
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		val->intval = me->dev_enabled;
 		break;
@@ -1277,7 +1277,7 @@ static int max8971_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 #endif
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		/*                      */
+		/* apply charge current */
 		rc = max8971_set_charge_current(me, me->current_limit_volatile,
 			me->charge_current_volatile);
 		rc = max8971_set_enable(me, val->intval);
@@ -1379,11 +1379,11 @@ static enum power_supply_property max8971_psy_props[] = {
 #if !defined(CONFIG_LGE_PM)
 #ifndef POWER_SUPPLY_PROP_CHARGING_ENABLED_REPLACED
 	POWER_SUPPLY_PROP_ONLINE,
-#endif /*                                              */
+#endif /* !POWER_SUPPLY_PROP_CHARGING_ENABLED_REPLACED */
 #endif
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
-	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,	 /*                  */
-	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, /*                     */
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,	 /* charging current */
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, /* input current limit */
 	POWER_SUPPLY_PROP_SAFTETY_CHARGER_TIMER,
 };
 
@@ -1425,7 +1425,7 @@ static void *max8971_get_platdata(struct max8971 *me)
 		gpio_direction_input(gpio);
 		log_dbg("INTGPIO %u assigned\n", gpio);
 
-		/*                    */
+		/* override pdata irq */
 		pdata->irq = gpio_to_irq(gpio);
 	}
 
@@ -1505,10 +1505,10 @@ static void *max8971_get_platdata(struct max8971 *me)
 
 out:
 	return pdata;
-#else /*           */
+#else /* CONFIG_OF */
 	return dev_get_platdata(me->dev) ?
 		dev_get_platdata(me->dev) : ERR_PTR(-EINVAL);
-#endif /*           */
+#endif /* CONFIG_OF */
 }
 
 static __always_inline
@@ -1540,10 +1540,10 @@ void max8971_destroy(struct max8971 *me)
 #ifdef CONFIG_OF
 	if (likely(me->pdata))
 		devm_kfree(dev, me->pdata);
-#endif /*           */
+#endif /* CONFIG_OF */
 
 	mutex_destroy(&me->lock);
-/*                                  */
+/*	spin_lock_destroy(&me->irq_lock);*/
 
 	devm_kfree(dev, me);
 }
@@ -1554,7 +1554,7 @@ static struct of_device_id max8971_of_ids[] = {
 	{ },
 };
 MODULE_DEVICE_TABLE(of, max8971_of_ids);
-#endif /*           */
+#endif /* CONFIG_OF */
 
 static const struct i2c_device_id max8971_i2c_ids[] = {
 	{ MAX8971_NAME, 0 },
@@ -1615,7 +1615,7 @@ static __devinit int max8971_probe(struct i2c_client *client,
 		goto abort;
 	}
 
-	/*                 */
+	/* disable all IRQ */
 	max8971_write(&me->io, CHGINT_MSK, 0xFF);
 
 	me->dev_enabled				 =
@@ -1671,7 +1671,7 @@ static __devinit int max8971_probe(struct i2c_client *client,
 
 	log_info("driver "DRIVER_VERSION" installed\n");
 
-	/*                    */
+	/* enable IRQ we want */
 	max8971_write(&me->io, CHGINT_MSK, (u8)~CHGINT_DC_UVP);
 #ifdef WORKQUEUE_USE_ISR
 	schedule_delayed_work(&me->irq_work, IRQ_WORK_DELAY);
@@ -1759,11 +1759,11 @@ static ssize_t at_chg_status_store(struct device *dev,
 {
 	struct max8971 *me = dev_get_drvdata(dev);
 	if (strncmp(buf, "0", 1) == 0) {
-		/*               */
+		/* stop charging */
 		pr_info("[Diag] stop charging start\n");
 		max8971_set_enable(me, 0);
 	} else if (strncmp(buf, "1", 1) == 0) {
-		/*                */
+		/* start charging */
 		pr_info("[Diag] start charging start\n");
 		max8971_set_enable(me, 1);
 	}
@@ -1803,7 +1803,7 @@ static ssize_t at_pmic_reset_show(struct device *dev,
 	int r = 0;
 	bool pm_reset = true;
 
-	msleep(3000); /*                                       */
+	msleep(3000); /* for waiting return values of testmode */
 
 	machine_restart(NULL);
 
@@ -1953,7 +1953,7 @@ static struct i2c_driver max8971_i2c_driver = {
 
 #ifdef CONFIG_OF
 	.driver.of_match_table	= max8971_of_ids,
-#endif /*           */
+#endif /* CONFIG_OF */
 	.id_table			= max8971_i2c_ids,
 	.probe				= max8971_probe,
 	.remove				= __devexit_p(max8971_remove),

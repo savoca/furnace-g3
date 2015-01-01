@@ -63,9 +63,9 @@
 static DEFINE_SPINLOCK(sbwd_lock);
 
 /*
-                                         
-  
-                                                
+ * set the initial count value of a timer
+ *
+ * wdog is the iomem address of the cfg register
  */
 void sbwdog_set(char __iomem *wdog, unsigned long t)
 {
@@ -76,10 +76,10 @@ void sbwdog_set(char __iomem *wdog, unsigned long t)
 }
 
 /*
-                                                                    
-                 
-  
-                                                
+ * cause the timer to [re]load it's initial count and start counting
+ * all over again
+ *
+ * wdog is the iomem address of the cfg register
  */
 void sbwdog_pet(char __iomem *wdog)
 {
@@ -88,10 +88,10 @@ void sbwdog_pet(char __iomem *wdog)
 	spin_unlock(&sbwd_lock);
 }
 
-static unsigned long sbwdog_gate; /*                             */
+static unsigned long sbwdog_gate; /* keeps it to one thread only */
 static char __iomem *kern_dog = (char __iomem *)(IO_BASE + (A_SCD_WDOG_CFG_0));
 static char __iomem *user_dog = (char __iomem *)(IO_BASE + (A_SCD_WDOG_CFG_1));
-static unsigned long timeout = 0x7fffffUL;	/*                        */
+static unsigned long timeout = 0x7fffffUL;	/* useconds: 8.3ish secs. */
 static int expect_close;
 
 static const struct watchdog_info ident = {
@@ -101,7 +101,7 @@ static const struct watchdog_info ident = {
 };
 
 /*
-                                             
+ * Allow only a single thread to walk the dog
  */
 static int sbwdog_open(struct inode *inode, struct file *file)
 {
@@ -111,8 +111,8 @@ static int sbwdog_open(struct inode *inode, struct file *file)
 	__module_get(THIS_MODULE);
 
 	/*
-                      
-  */
+	 * Activate the timer
+	 */
 	sbwdog_set(user_dog, timeout);
 	__raw_writeb(1, user_dog);
 
@@ -120,7 +120,7 @@ static int sbwdog_open(struct inode *inode, struct file *file)
 }
 
 /*
-                                  
+ * Put the dog back in the kennel.
  */
 static int sbwdog_release(struct inode *inode, struct file *file)
 {
@@ -139,7 +139,7 @@ static int sbwdog_release(struct inode *inode, struct file *file)
 }
 
 /*
-                  
+ * 42 - the answer
  */
 static ssize_t sbwdog_write(struct file *file, const char __user *data,
 			size_t len, loff_t *ppos)
@@ -148,8 +148,8 @@ static ssize_t sbwdog_write(struct file *file, const char __user *data,
 
 	if (len) {
 		/*
-                      
-   */
+		 * restart the timer
+		 */
 		expect_close = 0;
 
 		for (i = 0; i != len; i++) {
@@ -205,9 +205,9 @@ static long sbwdog_ioctl(struct file *file, unsigned int cmd,
 
 	case WDIOC_GETTIMEOUT:
 		/*
-                                                        
-                                            
-   */
+		 * get the remaining count from the ... count register
+		 * which is 1*8 before the config register
+		 */
 		ret = put_user(__raw_readq(user_dog - 8) / 1000000, p);
 		break;
 	}
@@ -215,15 +215,15 @@ static long sbwdog_ioctl(struct file *file, unsigned int cmd,
 }
 
 /*
-                           
+ *	Notifier for system down
  */
 static int sbwdog_notify_sys(struct notifier_block *this, unsigned long code,
 								void *erf)
 {
 	if (code == SYS_DOWN || code == SYS_HALT) {
 		/*
-                
-   */
+		 * sit and sit
+		 */
 		__raw_writeb(0, user_dog);
 		__raw_writeb(0, kern_dog);
 	}
@@ -251,12 +251,12 @@ static struct notifier_block sbwdog_notifier = {
 };
 
 /*
-                    
-  
-                                                                        
-                                                                        
-                                                                       
-                          
+ * interrupt handler
+ *
+ * doesn't do a whole lot for user, but oh so cleverly written so kernel
+ * code can use it to re-up the watchdog, thereby saving the kernel from
+ * having to create and maintain a timer, just to tickle another timer,
+ * which is just so wrong.
  */
 irqreturn_t sbwdog_interrupt(int irq, void *addr)
 {
@@ -268,8 +268,8 @@ irqreturn_t sbwdog_interrupt(int irq, void *addr)
 	wd_init = __raw_readq(wd_cfg_reg - 8) & 0x7fffff;
 
 	/*
-                                                           
-  */
+	 * if it's the second watchdog timer, it's for those users
+	 */
 	if (wd_cfg_reg == user_dog)
 		pr_crit("%s in danger of initiating system reset "
 			"in %ld.%01ld seconds\n",
@@ -288,8 +288,8 @@ static int __init sbwdog_init(void)
 	int ret;
 
 	/*
-                              
-  */
+	 * register a reboot notifier
+	 */
 	ret = register_reboot_notifier(&sbwdog_notifier);
 	if (ret) {
 		pr_err("%s: cannot register reboot notifier (err=%d)\n",
@@ -298,8 +298,8 @@ static int __init sbwdog_init(void)
 	}
 
 	/*
-                     
-  */
+	 * get the resources
+	 */
 
 	ret = request_irq(1, sbwdog_interrupt, IRQF_SHARED,
 		ident.identity, (void *)user_dog);
@@ -344,19 +344,19 @@ MODULE_LICENSE("GPL");
 MODULE_ALIAS_MISCDEV(WATCHDOG_MINOR);
 
 /*
-                                                                      
-                                                    
+ * example code that can be put in a platform code area to utilize the
+ * first watchdog timer for the kernels own purpose.
 
-                            
- 
-         
+void platform_wd_setup(void)
+{
+	int ret;
 
-                                                    
-                                               
-           
-                                                                     
-  
- 
+	ret = request_irq(1, sbwdog_interrupt, IRQF_SHARED,
+		"Kernel Watchdog", IOADDR(A_SCD_WDOG_CFG_0));
+	if (ret) {
+		pr_crit("Watchdog IRQ zero(0) failed to be requested - %d\n", ret);
+	}
+}
 
 
  */

@@ -1,17 +1,17 @@
 /*
-           
-  
-           
-                                                    
-                                            
-                                      
-  
-           
-                                                          
-                                         
-                                            
-  
-             
+ *  ebt_ip6
+ *
+ *	Authors:
+ *	Manohar Castelino <manohar.r.castelino@intel.com>
+ *	Kuo-Lang Tseng <kuo-lang.tseng@intel.com>
+ *	Jan Engelhardt <jengelh@medozas.de>
+ *
+ * Summary:
+ * This is just a modification of the IPv4 code written by
+ * Bart De Schuymer <bdschuym@pandora.be>
+ * with the changes required to support IPv6
+ *
+ *  Jan, 2008
  */
 #include <linux/ipv6.h>
 #include <net/ipv6.h>
@@ -67,7 +67,7 @@ ebt_ip6_mt(const struct sk_buff *skb, struct xt_action_param *par)
 					EBT_IP6_SPORT | EBT_IP6_ICMP6)))
 			return true;
 
-		/*                                                       */
+		/* min icmpv6 headersize is 4, so sizeof(_pkthdr) is ok. */
 		pptr = skb_header_pointer(skb, offset_ph, sizeof(_pkthdr),
 					  &_pkthdr);
 		if (pptr == NULL)

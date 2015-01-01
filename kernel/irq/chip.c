@@ -20,10 +20,10 @@
 
 #include "internals.h"
 
-/* 
-                                             
-                   
-                                                   
+/**
+ *	irq_set_chip - set the irq chip for an irq
+ *	@irq:	irq number
+ *	@chip:	pointer to irq chip description structure
  */
 int irq_set_chip(unsigned int irq, struct irq_chip *chip)
 {
@@ -39,19 +39,19 @@ int irq_set_chip(unsigned int irq, struct irq_chip *chip)
 	desc->irq_data.chip = chip;
 	irq_put_desc_unlock(desc, flags);
 	/*
-                                                  
-                                                         
-                                              
-  */
+	 * For !CONFIG_SPARSE_IRQ make the irq show up in
+	 * allocated_irqs. For the CONFIG_SPARSE_IRQ case, it is
+	 * already marked, and this call is harmless.
+	 */
 	irq_reserve_irq(irq);
 	return 0;
 }
 EXPORT_SYMBOL(irq_set_chip);
 
-/* 
-                                                     
-                   
-                                                                 
+/**
+ *	irq_set_type - set the irq trigger type for an irq
+ *	@irq:	irq number
+ *	@type:	IRQ_TYPE_{LEVEL,EDGE}_* value - see include/linux/irq.h
  */
 int irq_set_irq_type(unsigned int irq, unsigned int type)
 {
@@ -69,12 +69,12 @@ int irq_set_irq_type(unsigned int irq, unsigned int type)
 }
 EXPORT_SYMBOL(irq_set_irq_type);
 
-/* 
-                                                         
-                         
-                                            
-  
-                                                  
+/**
+ *	irq_set_handler_data - set irq handler data for an irq
+ *	@irq:	Interrupt number
+ *	@data:	Pointer to interrupt specific data
+ *
+ *	Set the hardware irq controller data for an irq
  */
 int irq_set_handler_data(unsigned int irq, void *data)
 {
@@ -89,12 +89,12 @@ int irq_set_handler_data(unsigned int irq, void *data)
 }
 EXPORT_SYMBOL(irq_set_handler_data);
 
-/* 
-                                                        
-                         
-                                         
-  
-                                          
+/**
+ *	irq_set_msi_desc - set MSI descriptor data for an irq
+ *	@irq:	Interrupt number
+ *	@entry:	Pointer to MSI descriptor data
+ *
+ *	Set the MSI descriptor entry for an irq
  */
 int irq_set_msi_desc(unsigned int irq, struct msi_desc *entry)
 {
@@ -110,12 +110,12 @@ int irq_set_msi_desc(unsigned int irq, struct msi_desc *entry)
 	return 0;
 }
 
-/* 
-                                                   
-                         
-                                       
-  
-                                            
+/**
+ *	irq_set_chip_data - set irq chip data for an irq
+ *	@irq:	Interrupt number
+ *	@data:	Pointer to chip specific data
+ *
+ *	Set the hardware irq chip data for an irq
  */
 int irq_set_chip_data(unsigned int irq, void *data)
 {
@@ -255,12 +255,12 @@ void unmask_irq(struct irq_desc *desc)
 }
 
 /*
-                                                            
-                             
-  
-                                                               
-                                                             
-                   
+ *	handle_nested_irq - Handle a nested irq from a irq thread
+ *	@irq:	the interrupt number
+ *
+ *	Handle interrupts which are nested into a threaded interrupt
+ *	handler. The handler function is called inside the calling
+ *	threads context.
  */
 void handle_nested_irq(unsigned int irq)
 {
@@ -308,17 +308,17 @@ static bool irq_check_poll(struct irq_desc *desc)
 	return irq_wait_for_poll(desc);
 }
 
-/* 
-                                                        
-                             
-                                                          
-  
-                                                                    
-                                                                     
-                
-  
-                                                                  
-                              
+/**
+ *	handle_simple_irq - Simple and software-decoded IRQs.
+ *	@irq:	the interrupt number
+ *	@desc:	the interrupt description structure for this irq
+ *
+ *	Simple interrupts are either sent from a demultiplexing interrupt
+ *	handler or come from hardware, where no interrupt hardware control
+ *	is necessary.
+ *
+ *	Note: The caller is expected to handle the ack, clear, mask and
+ *	unmask issues if necessary.
  */
 void
 handle_simple_irq(unsigned int irq, struct irq_desc *desc)
@@ -343,32 +343,32 @@ out_unlock:
 EXPORT_SYMBOL_GPL(handle_simple_irq);
 
 /*
-                                                                      
-                                       
+ * Called unconditionally from handle_level_irq() and only for oneshot
+ * interrupts from handle_fasteoi_irq()
  */
 static void cond_unmask_irq(struct irq_desc *desc)
 {
 	/*
-                                             
-                                                  
-                                                            
-                                                         
-                  
-  */
+	 * We need to unmask in the following cases:
+	 * - Standard level irq (IRQF_ONESHOT is not set)
+	 * - Oneshot irq which did not wake the thread (caused by a
+	 *   spurious interrupt or a primary handler handling it
+	 *   completely).
+	 */
 	if (!irqd_irq_disabled(&desc->irq_data) &&
 	    irqd_irq_masked(&desc->irq_data) && !desc->threads_oneshot)
 		unmask_irq(desc);
 }
 
-/* 
-                                            
-                             
-                                                          
-  
-                                                                    
-                                                                      
-                                                                      
-                                      
+/**
+ *	handle_level_irq - Level type irq handler
+ *	@irq:	the interrupt number
+ *	@desc:	the interrupt description structure for this irq
+ *
+ *	Level type interrupts are active as long as the hardware line has
+ *	the active level. This may require to mask the interrupt and unmask
+ *	it after the associated handler has acknowledged the device, so the
+ *	interrupt line is back to inactive.
  */
 void
 handle_level_irq(unsigned int irq, struct irq_desc *desc)
@@ -384,9 +384,9 @@ handle_level_irq(unsigned int irq, struct irq_desc *desc)
 	kstat_incr_irqs_this_cpu(irq, desc);
 
 	/*
-                                          
-                                      
-  */
+	 * If its disabled or no action available
+	 * keep it masked and get out of here
+	 */
 	if (unlikely(!desc->action || irqd_irq_disabled(&desc->irq_data)))
 		goto out_unlock;
 
@@ -409,15 +409,15 @@ static inline void preflow_handler(struct irq_desc *desc)
 static inline void preflow_handler(struct irq_desc *desc) { }
 #endif
 
-/* 
-                                                               
-                             
-                                                          
-  
-                                                                
-                                                                  
-                                                                
-                                      
+/**
+ *	handle_fasteoi_irq - irq handler for transparent controllers
+ *	@irq:	the interrupt number
+ *	@desc:	the interrupt description structure for this irq
+ *
+ *	Only a single callback will be issued to the chip: an ->eoi()
+ *	call when the interrupt has been serviced. This enables support
+ *	for modern forms of interrupt handlers, which handle the flow
+ *	details in hardware, transparently.
  */
 void
 handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
@@ -432,9 +432,9 @@ handle_fasteoi_irq(unsigned int irq, struct irq_desc *desc)
 	kstat_incr_irqs_this_cpu(irq, desc);
 
 	/*
-                                          
-                                     
-  */
+	 * If its disabled or no action available
+	 * then mask it and get out of here:
+	 */
 	if (unlikely(!desc->action || irqd_irq_disabled(&desc->irq_data))) {
 		if (!irq_settings_is_level(desc))
 			desc->istate |= IRQS_PENDING;
@@ -462,21 +462,21 @@ out:
 	goto out_unlock;
 }
 
-/* 
-                                          
-                             
-                                                          
-  
-                                                                    
-                                                                     
-                                                                    
-                                                                    
-                                                                 
-                                                                      
-                                                                      
-                                                                    
-                                                                      
-                
+/**
+ *	handle_edge_irq - edge type IRQ handler
+ *	@irq:	the interrupt number
+ *	@desc:	the interrupt description structure for this irq
+ *
+ *	Interrupt occures on the falling and/or rising edge of a hardware
+ *	signal. The occurrence is latched into the irq controller hardware
+ *	and must be acked in order to be reenabled. After the ack another
+ *	interrupt can happen on the same source even before the first one
+ *	is handled by the associated event handler. If this happens it
+ *	might be necessary to disable (mask) the interrupt depending on the
+ *	controller hardware. This requires to reenable the interrupt inside
+ *	of the loop which handles the interrupts which have arrived while
+ *	the handler was running. If all pending interrupts are handled, the
+ *	loop is left.
  */
 void
 handle_edge_irq(unsigned int irq, struct irq_desc *desc)
@@ -485,10 +485,10 @@ handle_edge_irq(unsigned int irq, struct irq_desc *desc)
 
 	desc->istate &= ~(IRQS_REPLAY | IRQS_WAITING);
 	/*
-                                                         
-                                                         
-                                    
-  */
+	 * If we're currently running this IRQ, or its disabled,
+	 * we shouldn't process the IRQ. Mark it pending, handle
+	 * the necessary masking and go out
+	 */
 	if (unlikely(irqd_irq_disabled(&desc->irq_data) ||
 		     irqd_irq_inprogress(&desc->irq_data) || !desc->action)) {
 		if (!irq_check_poll(desc)) {
@@ -499,7 +499,7 @@ handle_edge_irq(unsigned int irq, struct irq_desc *desc)
 	}
 	kstat_incr_irqs_this_cpu(irq, desc);
 
-	/*                        */
+	/* Start handling the irq */
 	desc->irq_data.chip->irq_ack(&desc->irq_data);
 
 	do {
@@ -509,10 +509,10 @@ handle_edge_irq(unsigned int irq, struct irq_desc *desc)
 		}
 
 		/*
-                                                    
-                                       
-                                                    
-   */
+		 * When another irq arrived while we were handling
+		 * one, we could have masked the irq.
+		 * Renable it, if it was not disabled in meantime.
+		 */
 		if (unlikely(desc->istate & IRQS_PENDING)) {
 			if (!irqd_irq_disabled(&desc->irq_data) &&
 			    irqd_irq_masked(&desc->irq_data))
@@ -530,13 +530,13 @@ out_unlock:
 EXPORT_SYMBOL(handle_edge_irq);
 
 #ifdef CONFIG_IRQ_EDGE_EOI_HANDLER
-/* 
-                                                  
-                             
-                                                          
-  
-                                                                  
-                     
+/**
+ *	handle_edge_eoi_irq - edge eoi type IRQ handler
+ *	@irq:	the interrupt number
+ *	@desc:	the interrupt description structure for this irq
+ *
+ * Similar as the above handle_edge_irq, but using eoi and w/o the
+ * mask/unmask logic.
  */
 void handle_edge_eoi_irq(unsigned int irq, struct irq_desc *desc)
 {
@@ -546,10 +546,10 @@ void handle_edge_eoi_irq(unsigned int irq, struct irq_desc *desc)
 
 	desc->istate &= ~(IRQS_REPLAY | IRQS_WAITING);
 	/*
-                                                         
-                                                         
-                                    
-  */
+	 * If we're currently running this IRQ, or its disabled,
+	 * we shouldn't process the IRQ. Mark it pending, handle
+	 * the necessary masking and go out
+	 */
 	if (unlikely(irqd_irq_disabled(&desc->irq_data) ||
 		     irqd_irq_inprogress(&desc->irq_data) || !desc->action)) {
 		if (!irq_check_poll(desc)) {
@@ -574,12 +574,12 @@ out_eoi:
 }
 #endif
 
-/* 
-                                                
-                             
-                                                          
-  
-                                                                  
+/**
+ *	handle_percpu_irq - Per CPU local irq handler
+ *	@irq:	the interrupt number
+ *	@desc:	the interrupt description structure for this irq
+ *
+ *	Per CPU interrupts on SMP machines without locking requirements
  */
 void
 handle_percpu_irq(unsigned int irq, struct irq_desc *desc)
@@ -597,17 +597,17 @@ handle_percpu_irq(unsigned int irq, struct irq_desc *desc)
 		chip->irq_eoi(&desc->irq_data);
 }
 
-/* 
-                                                                           
-                             
-                                                          
-  
-                                                                           
-                                                           
-  
-                                                               
-                                                                  
-         
+/**
+ * handle_percpu_devid_irq - Per CPU local irq handler with per cpu dev ids
+ * @irq:	the interrupt number
+ * @desc:	the interrupt description structure for this irq
+ *
+ * Per CPU interrupts on SMP machines without locking requirements. Same as
+ * handle_percpu_irq() above but with the following extras:
+ *
+ * action->percpu_dev_id is a pointer to percpu variables which
+ * contain the real device id for the cpu on which this handler is
+ * called
  */
 void handle_percpu_devid_irq(unsigned int irq, struct irq_desc *desc)
 {
@@ -646,7 +646,7 @@ __irq_set_handler(unsigned int irq, irq_flow_handler_t handle, int is_chained,
 			goto out;
 	}
 
-	/*            */
+	/* Uninstall? */
 	if (handle == handle_bad_irq) {
 		if (desc->irq_data.chip != &no_irq_chip)
 			mask_ack_irq(desc);
@@ -701,11 +701,11 @@ void irq_modify_status(unsigned int irq, unsigned long clr, unsigned long set)
 }
 EXPORT_SYMBOL_GPL(irq_modify_status);
 
-/* 
-                                                        
-  
-                                                                
-            
+/**
+ *	irq_cpu_online - Invoke all irq_cpu_online functions.
+ *
+ *	Iterate through all irqs and invoke the chip.irq_cpu_online()
+ *	for each.
  */
 void irq_cpu_online(void)
 {
@@ -731,11 +731,11 @@ void irq_cpu_online(void)
 	}
 }
 
-/* 
-                                                          
-  
-                                                                 
-            
+/**
+ *	irq_cpu_offline - Invoke all irq_cpu_offline functions.
+ *
+ *	Iterate through all irqs and invoke the chip.irq_cpu_offline()
+ *	for each.
  */
 void irq_cpu_offline(void)
 {

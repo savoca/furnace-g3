@@ -31,7 +31,7 @@ static DEFINE_SPINLOCK(clockfw_lock);
 static struct clk_functions *arch_clock;
 
 /*
-                                                          
+ * Standard clock functions defined in include/linux/clk.h
  */
 
 int clk_enable(struct clk *clk)
@@ -95,7 +95,7 @@ unsigned long clk_get_rate(struct clk *clk)
 EXPORT_SYMBOL(clk_get_rate);
 
 /*
-                                                          
+ * Optional clock functions defined in include/linux/clk.h
  */
 
 long clk_round_rate(struct clk *clk, unsigned long rate)
@@ -169,14 +169,14 @@ struct clk *clk_get_parent(struct clk *clk)
 EXPORT_SYMBOL(clk_get_parent);
 
 /*
-                                                               
+ * OMAP specific clock functions shared between omap1 and omap2
  */
 
 int __initdata mpurate;
 
 /*
-                                                    
-                                                      
+ * By default we use the rate set by the bootloader.
+ * You can override this with mpurate= cmdline option.
  */
 static int __init omap_clk_setup(char *str)
 {
@@ -192,15 +192,15 @@ static int __init omap_clk_setup(char *str)
 }
 __setup("mpurate=", omap_clk_setup);
 
-/*                                                                 */
+/* Used for clocks that always have same value as the parent clock */
 unsigned long followparent_recalc(struct clk *clk)
 {
 	return clk->parent->rate;
 }
 
 /*
-                                                                
-                         
+ * Used for clocks that have the same value as the parent clock,
+ * divided by some factor
  */
 unsigned long omap_fixed_divisor_recalc(struct clk *clk)
 {
@@ -216,11 +216,11 @@ void clk_reparent(struct clk *child, struct clk *parent)
 		list_add(&child->sibling, &parent->children);
 	child->parent = parent;
 
-	/*                                                  
-                         */
+	/* now do the debugfs renaming to reattach the child
+	   to the proper parent */
 }
 
-/*                            */
+/* Propagate rate to children */
 void propagate_rate(struct clk *tclk)
 {
 	struct clk *clkp;
@@ -234,12 +234,12 @@ void propagate_rate(struct clk *tclk)
 
 static LIST_HEAD(root_clks);
 
-/* 
-                                                                      
-  
-                                                                     
-                                                                       
-                  
+/**
+ * recalculate_root_clocks - recalculate and propagate all root clocks
+ *
+ * Recalculates all root clocks (clocks with no parent), which if the
+ * clock's .recalc is set correctly, should also propagate their rates.
+ * Called at init.
  */
 void recalculate_root_clocks(void)
 {
@@ -252,12 +252,12 @@ void recalculate_root_clocks(void)
 	}
 }
 
-/* 
-                                                                        
-                                   
-  
-                                                                           
-                             
+/**
+ * clk_preinit - initialize any fields in the struct clk before clk init
+ * @clk: struct clk * to initialize
+ *
+ * Initialize any struct clk fields needed before normal clk initialization
+ * can run.  No return value.
  */
 void clk_preinit(struct clk *clk)
 {
@@ -270,8 +270,8 @@ int clk_register(struct clk *clk)
 		return -EINVAL;
 
 	/*
-                                      
-  */
+	 * trap out already registered clocks
+	 */
 	if (clk->node.next || clk->node.prev)
 		return 0;
 
@@ -312,13 +312,13 @@ void clk_enable_init_clocks(void)
 	}
 }
 
-/* 
-                                                            
-                                          
-  
-                                                                  
-                                                                   
-                       
+/**
+ * omap_clk_get_by_name - locate OMAP struct clk by its name
+ * @name: name of the struct clk to locate
+ *
+ * Locate an OMAP struct clk by its name.  Assumes that struct clk
+ * names are unique.  Returns NULL if not found or a pointer to the
+ * struct clk if found.
  */
 struct clk *omap_clk_get_by_name(const char *name)
 {
@@ -372,7 +372,7 @@ int omap_clk_disable_autoidle_all(void)
 }
 
 /*
-                    
+ * Low level helpers
  */
 static int clkll_enable_null(struct clk *clk)
 {
@@ -389,9 +389,9 @@ const struct clkops clkops_null = {
 };
 
 /*
-              
-  
-                                                                       
+ * Dummy clock
+ *
+ * Used for clock aliases that are needed on some OMAPs, but not others
  */
 struct clk dummy_ck = {
 	.name	= "dummy",
@@ -399,12 +399,12 @@ struct clk dummy_ck = {
 };
 
 /*
-  
+ *
  */
 
 #ifdef CONFIG_OMAP_RESET_CLOCKS
 /*
-                                                      
+ * Disable any unused clocks left on by the bootloader
  */
 static int __init clk_disable_unused(void)
 {
@@ -448,7 +448,7 @@ int __init clk_init(struct clk_functions * custom_clocks)
 
 #if defined(CONFIG_PM_DEBUG) && defined(CONFIG_DEBUG_FS)
 /*
-                                                               
+ *	debugfs support to trace clock tree hierarchy and attributes
  */
 
 #include <linux/debugfs.h>
@@ -566,4 +566,4 @@ err_out:
 }
 late_initcall(clk_debugfs_init);
 
-#endif /*                                                      */
+#endif /* defined(CONFIG_PM_DEBUG) && defined(CONFIG_DEBUG_FS) */

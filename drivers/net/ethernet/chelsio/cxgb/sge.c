@@ -61,7 +61,7 @@
 #include "regs.h"
 #include "espi.h"
 
-/*                            */
+/* This belongs in if_ether.h */
 #define ETH_P_CPL5 0xf
 
 #define SGE_CMDQ_N		2
@@ -79,8 +79,8 @@
 #define SGE_RESPQ_REPLENISH_THRES (SGE_RESPQ_E_N / 4)
 
 /*
-                                                                          
-                                                                    
+ * Period of the TX buffer reclaim timer.  This timer does not need to run
+ * frequently as TX buffers are usually reclaimed by new TX packets.
  */
 #define TX_RECLAIM_PERIOD (HZ / 4)
 
@@ -94,7 +94,7 @@
 #define V_CMD_EOP(v)    ((v) << 3)
 
 /*
-                                                                      
+ * Command queue, receive buffer list, and response queue descriptors.
  */
 #if defined(__BIG_ENDIAN_BITFIELD)
 struct cmdQ_e {
@@ -159,7 +159,7 @@ struct respQ_e {
 #endif
 
 /*
-                                                    
+ * SW Context Command and Freelist Queue Descriptors
  */
 struct cmdQ_ce {
 	struct sk_buff *skb;
@@ -174,100 +174,100 @@ struct freelQ_ce {
 };
 
 /*
-                                          
+ * SW command, freelist and response rings
  */
 struct cmdQ {
-	unsigned long   status;         /*                     */
-	unsigned int    in_use;         /*                                 */
-	unsigned int	size;	        /*                  */
-	unsigned int    processed;      /*                                   */
-	unsigned int    cleaned;        /*                                   */
-	unsigned int    stop_thres;     /*                               */
-	u16		pidx;           /*                     */
-	u16		cidx;           /*                     */
-	u8		genbit;         /*                                 */
-	u8              sop;            /*                                */
-	struct cmdQ_e  *entries;        /*                         */
-	struct cmdQ_ce *centries;       /*                                 */
-	dma_addr_t	dma_addr;       /*                                  */
-	spinlock_t	lock;           /*                                */
+	unsigned long   status;         /* HW DMA fetch status */
+	unsigned int    in_use;         /* # of in-use command descriptors */
+	unsigned int	size;	        /* # of descriptors */
+	unsigned int    processed;      /* total # of descs HW has processed */
+	unsigned int    cleaned;        /* total # of descs SW has reclaimed */
+	unsigned int    stop_thres;     /* SW TX queue suspend threshold */
+	u16		pidx;           /* producer index (SW) */
+	u16		cidx;           /* consumer index (HW) */
+	u8		genbit;         /* current generation (=valid) bit */
+	u8              sop;            /* is next entry start of packet? */
+	struct cmdQ_e  *entries;        /* HW command descriptor Q */
+	struct cmdQ_ce *centries;       /* SW command context descriptor Q */
+	dma_addr_t	dma_addr;       /* DMA addr HW command descriptor Q */
+	spinlock_t	lock;           /* Lock to protect cmdQ enqueuing */
 };
 
 struct freelQ {
-	unsigned int	credits;        /*                           */
-	unsigned int	size;	        /*                    */
-	u16		pidx;           /*                     */
-	u16		cidx;           /*                     */
-	u16		rx_buffer_size; /*                               */
-	u16             dma_offset;     /*                                */
-	u16             recycleq_idx;   /*                      */
-	u8		genbit;	        /*                                 */
-	struct freelQ_e	*entries;       /*                          */
-	struct freelQ_ce *centries;     /*                                  */
-	dma_addr_t	dma_addr;       /*                                   */
+	unsigned int	credits;        /* # of available RX buffers */
+	unsigned int	size;	        /* free list capacity */
+	u16		pidx;           /* producer index (SW) */
+	u16		cidx;           /* consumer index (HW) */
+	u16		rx_buffer_size; /* Buffer size on this free list */
+	u16             dma_offset;     /* DMA offset to align IP headers */
+	u16             recycleq_idx;   /* skb recycle q to use */
+	u8		genbit;	        /* current generation (=valid) bit */
+	struct freelQ_e	*entries;       /* HW freelist descriptor Q */
+	struct freelQ_ce *centries;     /* SW freelist context descriptor Q */
+	dma_addr_t	dma_addr;       /* DMA addr HW freelist descriptor Q */
 };
 
 struct respQ {
-	unsigned int	credits;        /*                               */
-	unsigned int	size;	        /*                             */
-	u16		cidx;	        /*                     */
-	u8		genbit;	        /*                                */
-	struct respQ_e *entries;        /*                          */
-	dma_addr_t	dma_addr;       /*                                   */
+	unsigned int	credits;        /* credits to be returned to SGE */
+	unsigned int	size;	        /* # of response Q descriptors */
+	u16		cidx;	        /* consumer index (SW) */
+	u8		genbit;	        /* current generation(=valid) bit */
+	struct respQ_e *entries;        /* HW response descriptor Q */
+	dma_addr_t	dma_addr;       /* DMA addr HW response descriptor Q */
 };
 
-/*                           */
+/* Bit flags for cmdQ.status */
 enum {
-	CMDQ_STAT_RUNNING = 1,          /*                         */
-	CMDQ_STAT_LAST_PKT_DB = 2       /*                               */
+	CMDQ_STAT_RUNNING = 1,          /* fetch engine is running */
+	CMDQ_STAT_LAST_PKT_DB = 2       /* last packet rung the doorbell */
 };
 
-/*                      */
+/* T204 TX SW scheduler */
 
-/*                  */
+/* Per T204 TX port */
 struct sched_port {
-	unsigned int	avail;		/*                        */
-	unsigned int	drain_bits_per_1024ns; /*            */
-	unsigned int	speed;		/*                  */
-	unsigned int	mtu;		/*          */
-	struct sk_buff_head skbq;	/*              */
+	unsigned int	avail;		/* available bits - quota */
+	unsigned int	drain_bits_per_1024ns; /* drain rate */
+	unsigned int	speed;		/* drain rate, mbps */
+	unsigned int	mtu;		/* mtu size */
+	struct sk_buff_head skbq;	/* pending skbs */
 };
 
-/*                 */
+/* Per T204 device */
 struct sched {
-	ktime_t         last_updated;   /*                                */
-	unsigned int	max_avail;	/*                                 */
-	unsigned int	port;		/*                                */
-	unsigned int	num;		/*                             */
+	ktime_t         last_updated;   /* last time quotas were computed */
+	unsigned int	max_avail;	/* max bits to be sent to any port */
+	unsigned int	port;		/* port index (round robin ports) */
+	unsigned int	num;		/* num skbs in per port queues */
 	struct sched_port p[MAX_NPORTS];
-	struct tasklet_struct sched_tsk;/*                               */
+	struct tasklet_struct sched_tsk;/* tasklet used to run scheduler */
 };
 static void restart_sched(unsigned long);
 
 
 /*
-                          
-  
-                                                                              
-                                                                          
-                                                                           
-              
+ * Main SGE data structure
+ *
+ * Interrupts are handled by a single CPU and it is likely that on a MP system
+ * the application is migrated to another CPU. In that scenario, we try to
+ * separate the RX(in irq context) and TX state in order to decrease memory
+ * contention.
  */
 struct sge {
-	struct adapter *adapter;	/*                     */
-	struct net_device *netdev;      /*                       */
-	struct freelQ	freelQ[SGE_FREELQ_N]; /*                   */
-	struct respQ	respQ;		/*            */
-	unsigned long   stopped_tx_queues; /*                               */
-	unsigned int	rx_pkt_pad;     /*                           */
-	unsigned int	jumbo_fl;       /*                        */
-	unsigned int	intrtimer_nres;	/*                             */
-	unsigned int    fixed_intrtimer;/*                              */
-	struct timer_list tx_reclaim_timer; /*                     */
+	struct adapter *adapter;	/* adapter backpointer */
+	struct net_device *netdev;      /* netdevice backpointer */
+	struct freelQ	freelQ[SGE_FREELQ_N]; /* buffer free lists */
+	struct respQ	respQ;		/* response Q */
+	unsigned long   stopped_tx_queues; /* bitmap of suspended Tx queues */
+	unsigned int	rx_pkt_pad;     /* RX padding for L2 packets */
+	unsigned int	jumbo_fl;       /* jumbo freelist Q index */
+	unsigned int	intrtimer_nres;	/* no-resource interrupt timer */
+	unsigned int    fixed_intrtimer;/* non-adaptive interrupt timer */
+	struct timer_list tx_reclaim_timer; /* reclaims TX buffers */
 	struct timer_list espibug_timer;
 	unsigned long	espibug_timeout;
 	struct sk_buff	*espibug_skb[MAX_NPORTS];
-	u32		sge_control;	/*                                 */
+	u32		sge_control;	/* shadow value of sge control reg */
 	struct sge_intr_counts stats;
 	struct sge_port_stats __percpu *port_stats[MAX_NPORTS];
 	struct sched	*tx_sched;
@@ -279,7 +279,7 @@ static const u8 ch_mac_addr[ETH_ALEN] = {
 };
 
 /*
-                                          
+ * stop tasklet and free all pending skb's
  */
 static void tx_sched_stop(struct sge *sge)
 {
@@ -293,8 +293,8 @@ static void tx_sched_stop(struct sge *sge)
 }
 
 /*
-                                                                           
-                                                             
+ * t1_sched_update_parms() is called when the MTU or link speed changes. It
+ * re-computes scheduler parameters to scope with the change.
  */
 unsigned int t1_sched_update_parms(struct sge *sge, unsigned int port,
 				   unsigned int mtu, unsigned int speed)
@@ -339,8 +339,8 @@ unsigned int t1_sched_update_parms(struct sge *sge, unsigned int port,
 #if 0
 
 /*
-                                                                       
-                                    
+ * t1_sched_max_avail_bytes() tells the scheduler the maximum amount of
+ * data that can be pushed per port.
  */
 void t1_sched_set_max_avail_bytes(struct sge *sge, unsigned int val)
 {
@@ -353,8 +353,8 @@ void t1_sched_set_max_avail_bytes(struct sge *sge, unsigned int val)
 }
 
 /*
-                                                                            
-               
+ * t1_sched_set_drain_bits_per_us() tells the scheduler at which rate a port
+ * is draining.
  */
 void t1_sched_set_drain_bits_per_us(struct sge *sge, unsigned int port,
 					 unsigned int val)
@@ -365,11 +365,11 @@ void t1_sched_set_drain_bits_per_us(struct sge *sge, unsigned int port,
 	t1_sched_update_parms(sge, port, 0, 0);
 }
 
-#endif  /*     */
+#endif  /*  0  */
 
 
 /*
-                                                    
+ * get_clock() implements a ns clock (see ktime_get)
  */
 static inline ktime_t get_clock(void)
 {
@@ -380,7 +380,7 @@ static inline ktime_t get_clock(void)
 }
 
 /*
-                                                                     
+ * tx_sched_init() allocates resources and does basic initialization.
  */
 static int tx_sched_init(struct sge *sge)
 {
@@ -404,9 +404,9 @@ static int tx_sched_init(struct sge *sge)
 }
 
 /*
-                                                                            
-                                                                             
-         
+ * sched_update_avail() computes the delta since the last time it was called
+ * and updates the per port quota (number of bits that can be sent to the any
+ * port).
  */
 static inline int sched_update_avail(struct sge *sge)
 {
@@ -435,12 +435,12 @@ static inline int sched_update_avail(struct sge *sge)
 }
 
 /*
-                                                                       
-                                                                 
-                                                                          
-                         
-                                                                    
-                                                                
+ * sched_skb() is called from two different places. In the tx path, any
+ * packet generating load on an output port will call sched_skb()
+ * (skb != NULL). In addition, sched_skb() is called from the irq/soft irq
+ * context (skb == NULL).
+ * The scheduler only returns a skb (which will then be sent) if the
+ * length of the skb is <= the current quota of the output port.
  */
 static struct sk_buff *sched_skb(struct sge *sge, struct sk_buff *skb,
 				unsigned int credits)
@@ -487,9 +487,9 @@ again:
 		goto again;
 
 out:
-	/*                                                                   
-          
-  */
+	/* If there are more pending skbs, we use the hardware to schedule us
+	 * again.
+	 */
 	if (s->num && !skb) {
 		struct cmdQ *q = &sge->cmdQ[0];
 		clear_bit(CMDQ_STAT_LAST_PKT_DB, &q->status);
@@ -504,7 +504,7 @@ out:
 }
 
 /*
-                                                                     
+ * PIO to indicate that memory mapped Q contains valid descriptor(s).
  */
 static inline void doorbell_pio(struct adapter *adapter, u32 val)
 {
@@ -513,8 +513,8 @@ static inline void doorbell_pio(struct adapter *adapter, u32 val)
 }
 
 /*
-                                                                         
-                                                      
+ * Frees all RX buffers on the freelist Q. The caller must make sure that
+ * the SGE is turned off before calling this function.
  */
 static void free_freelQ_buffers(struct pci_dev *pdev, struct freelQ *q)
 {
@@ -534,7 +534,7 @@ static void free_freelQ_buffers(struct pci_dev *pdev, struct freelQ *q)
 }
 
 /*
-                                                  
+ * Free RX free list and response queue resources.
  */
 static void free_rx_resources(struct sge *sge)
 {
@@ -563,8 +563,8 @@ static void free_rx_resources(struct sge *sge)
 }
 
 /*
-                                                                              
-                  
+ * Allocates basic RX resources, consisting of memory mapped freelist Qs and a
+ * response queue.
  */
 static int alloc_rx_resources(struct sge *sge, struct sge_params *p)
 {
@@ -589,12 +589,12 @@ static int alloc_rx_resources(struct sge *sge, struct sge_params *p)
 	}
 
 	/*
-                                                                        
-                                                                  
-                                       
-   
-                                          
-  */
+	 * Calculate the buffer sizes for the two free lists.  FL0 accommodates
+	 * regular sized Ethernet frames, FL1 is sized not to exceed 16K,
+	 * including all the sk_buff overhead.
+	 *
+	 * Note: For T2 FL0 and FL1 are reversed.
+	 */
 	sge->freelQ[!sge->jumbo_fl].rx_buffer_size = SGE_RX_SM_BUF_SIZE +
 		sizeof(struct cpl_rx_data) +
 		sge->freelQ[!sge->jumbo_fl].dma_offset;
@@ -605,9 +605,9 @@ static int alloc_rx_resources(struct sge *sge, struct sge_params *p)
 	sge->freelQ[sge->jumbo_fl].rx_buffer_size = size;
 
 	/*
-                                                                        
-                   
-  */
+	 * Setup which skb recycle Q should be used when recycling buffers from
+	 * each free list.
+	 */
 	sge->freelQ[!sge->jumbo_fl].recycleq_idx = 0;
 	sge->freelQ[sge->jumbo_fl].recycleq_idx = 1;
 
@@ -627,7 +627,7 @@ err_no_mem:
 }
 
 /*
-                                                                        
+ * Reclaims n TX descriptors and frees the buffers associated with them.
  */
 static void free_cmdQ_buffers(struct sge *sge, struct cmdQ *q, unsigned int n)
 {
@@ -659,9 +659,9 @@ static void free_cmdQ_buffers(struct sge *sge, struct cmdQ *q, unsigned int n)
 }
 
 /*
-                     
-  
-                                                               
+ * Free TX resources.
+ *
+ * Assumes that SGE is stopped and all interrupts are disabled.
  */
 static void free_tx_resources(struct sge *sge)
 {
@@ -685,7 +685,7 @@ static void free_tx_resources(struct sge *sge)
 }
 
 /*
-                                                                        
+ * Allocates basic TX resources, consisting of memory mapped command Qs.
  */
 static int alloc_tx_resources(struct sge *sge, struct sge_params *p)
 {
@@ -715,12 +715,12 @@ static int alloc_tx_resources(struct sge *sge, struct sge_params *p)
 	}
 
 	/*
-                                                                     
-                                                                       
-                                                                    
-                                                                    
-                               
-  */
+	 * CommandQ 0 handles Ethernet and TOE packets, while queue 1 is TOE
+	 * only.  For queue 0 set the stop threshold so we can handle one more
+	 * packet from each port, plus reserve an additional 24 entries for
+	 * Ethernet packets only.  Queue 1 never suspends nor do we reserve
+	 * space for Ethernet packets.
+	 */
 	sge->cmdQ[0].stop_thres = sge->adapter->params.nports *
 		(MAX_SKB_FRAGS + 1);
 	return 0;
@@ -740,7 +740,7 @@ static inline void setup_ring_params(struct adapter *adapter, u64 addr,
 }
 
 /*
-                                    
+ * Enable/disable VLAN acceleration.
  */
 void t1_vlan_mode(struct adapter *adapter, netdev_features_t features)
 {
@@ -752,13 +752,13 @@ void t1_vlan_mode(struct adapter *adapter, netdev_features_t features)
 		sge->sge_control &= ~F_VLAN_XTRACT;
 	if (adapter->open_device_map) {
 		writel(sge->sge_control, adapter->regs + A_SG_CONTROL);
-		readl(adapter->regs + A_SG_CONTROL);   /*       */
+		readl(adapter->regs + A_SG_CONTROL);   /* flush */
 	}
 }
 
 /*
-                                                                              
-                                                 
+ * Programs the various SGE registers. However, the engine is not yet enabled,
+ * but sge->sge_control is setup and ready to go.
  */
 static void configure_sge(struct sge *sge, struct sge_params *p)
 {
@@ -776,7 +776,7 @@ static void configure_sge(struct sge *sge, struct sge_params *p)
 			  sge->freelQ[1].size, A_SG_FL1BASELWR,
 			  A_SG_FL1BASEUPR, A_SG_FL1SIZE);
 
-	/*                                  */
+	/* The threshold comparison uses <. */
 	writel(SGE_RX_SM_BUF_SIZE + 1, ap->regs + A_SG_FLTHRESHOLD);
 
 	setup_ring_params(ap, sge->respQ.dma_addr, sge->respQ.size,
@@ -792,14 +792,14 @@ static void configure_sge(struct sge *sge, struct sge_params *p)
 	sge->sge_control |= F_ENABLE_BIG_ENDIAN;
 #endif
 
-	/*                              */
+	/* Initialize no-resource timer */
 	sge->intrtimer_nres = SGE_INTRTIMER_NRES * core_ticks_per_usec(ap);
 
 	t1_sge_set_coalesce_params(sge, p);
 }
 
 /*
-                                                              
+ * Return the payload capacity of the jumbo free-list buffers.
  */
 static inline unsigned int jumbo_payload_capacity(const struct sge *sge)
 {
@@ -809,7 +809,7 @@ static inline unsigned int jumbo_payload_capacity(const struct sge *sge)
 }
 
 /*
-                                                               
+ * Frees all SGE related resources and the sge structure itself
  */
 void t1_sge_destroy(struct sge *sge)
 {
@@ -825,16 +825,16 @@ void t1_sge_destroy(struct sge *sge)
 }
 
 /*
-                                                                              
-                                                     
-  
-                                                                             
-                                                                             
-                                                                               
-  
-                                                                              
-                                                                        
-           
+ * Allocates new RX buffers on the freelist Q (and tracks them on the freelist
+ * context Q) until the Q is full or alloc_skb fails.
+ *
+ * It is possible that the generation bits already match, indicating that the
+ * buffer is already valid and nothing needs to be done. This happens when we
+ * copied a received buffer into a new sk_buff during the interrupt processing.
+ *
+ * If the SGE doesn't automatically align packets properly (!sge->rx_pkt_pad),
+ * we specify a RX_OFFSET in order to make sure that the IP header is 4B
+ * aligned.
  */
 static void refill_free_list(struct sge *sge, struct freelQ *q)
 {
@@ -878,9 +878,9 @@ static void refill_free_list(struct sge *sge, struct freelQ *q)
 }
 
 /*
-                                                                             
-                                                                             
-                             
+ * Calls refill_free_list for both free lists. If we cannot fill at least 1/4
+ * of both rings, we go into 'few interrupt mode' in order to give the system
+ * time to free up resources.
  */
 static void freelQs_empty(struct sge *sge)
 {
@@ -896,14 +896,14 @@ static void freelQs_empty(struct sge *sge)
 		irq_reg |= F_FL_EXHAUSTED;
 		irqholdoff_reg = sge->fixed_intrtimer;
 	} else {
-		/*                                             */
+		/* Clear the F_FL_EXHAUSTED interrupts for now */
 		irq_reg &= ~F_FL_EXHAUSTED;
 		irqholdoff_reg = sge->intrtimer_nres;
 	}
 	writel(irqholdoff_reg, adapter->regs + A_SG_INTRTIMER);
 	writel(irq_reg, adapter->regs + A_SG_INT_ENABLE);
 
-	/*                                                            */
+	/* We reenable the Qs to force a freelist GTS interrupt later */
 	doorbell_pio(adapter, F_FL0_ENABLE | F_FL1_ENABLE);
 }
 
@@ -913,7 +913,7 @@ static void freelQs_empty(struct sge *sge)
 			F_FL_EXHAUSTED | F_PACKET_TOO_BIG | F_PACKET_MISMATCH)
 
 /*
-                         
+ * Disable SGE Interrupts
  */
 void t1_sge_intr_disable(struct sge *sge)
 {
@@ -924,7 +924,7 @@ void t1_sge_intr_disable(struct sge *sge)
 }
 
 /*
-                         
+ * Enable SGE interrupts.
  */
 void t1_sge_intr_enable(struct sge *sge)
 {
@@ -938,7 +938,7 @@ void t1_sge_intr_enable(struct sge *sge)
 }
 
 /*
-                        
+ * Clear SGE interrupts.
  */
 void t1_sge_intr_clear(struct sge *sge)
 {
@@ -947,7 +947,7 @@ void t1_sge_intr_clear(struct sge *sge)
 }
 
 /*
-                                
+ * SGE 'Error' interrupt handler
  */
 int t1_sge_intr_error_handler(struct sge *sge)
 {
@@ -1006,13 +1006,13 @@ void t1_sge_get_port_stats(const struct sge *sge, int port,
 	}
 }
 
-/* 
-                                              
-                     
-                                   
-  
-                                                                       
-                                       
+/**
+ *	recycle_fl_buf - recycle a free list buffer
+ *	@fl: the free list
+ *	@idx: index of buffer to recycle
+ *
+ *	Recycles the specified buffer on the given free list by adding it at
+ *	the next available slot on the list.
  */
 static void recycle_fl_buf(struct freelQ *fl, int idx)
 {
@@ -1037,19 +1037,19 @@ static int copybreak __read_mostly = 256;
 module_param(copybreak, int, 0);
 MODULE_PARM_DESC(copybreak, "Receive copy threshold");
 
-/* 
-                                                     
-                                                 
-                                            
-                                                            
-  
-                                                                 
-                                                                  
-                                                                      
-                                                                    
-                                                                       
-                                                                        
-                                                 
+/**
+ *	get_packet - return the next ingress packet buffer
+ *	@pdev: the PCI device that received the packet
+ *	@fl: the SGE free list holding the packet
+ *	@len: the actual packet length, excluding any SGE padding
+ *
+ *	Get the next packet from a free list and complete setup of the
+ *	sk_buff.  If the packet is small we make a copy and recycle the
+ *	original buffer, otherwise we use the original buffer itself.  If a
+ *	positive drop threshold is supplied packets are dropped and their
+ *	buffers recycled if (a) the number of remaining buffers is under the
+ *	threshold and the packet is too big to copy, or (b) the packet should
+ *	be copied but there is no memory for the copy.
  */
 static inline struct sk_buff *get_packet(struct pci_dev *pdev,
 					 struct freelQ *fl, unsigned int len)
@@ -1062,7 +1062,7 @@ static inline struct sk_buff *get_packet(struct pci_dev *pdev,
 		if (!skb)
 			goto use_orig_buf;
 
-		skb_reserve(skb, 2);	/*                 */
+		skb_reserve(skb, 2);	/* align IP header */
 		skb_put(skb, len);
 		pci_dma_sync_single_for_cpu(pdev,
 					    dma_unmap_addr(ce, dma_addr),
@@ -1092,14 +1092,14 @@ use_orig_buf:
 	return skb;
 }
 
-/* 
-                                                           
-                        
-                                              
-  
-                                                                     
-                                                                    
-                       
+/**
+ *	unexpected_offload - handle an unexpected offload packet
+ *	@adapter: the adapter
+ *	@fl: the free list that received the packet
+ *
+ *	Called when we receive an unexpected offload packet (e.g., the TOE
+ *	function is disabled or the card is a NIC).  Prints a message and
+ *	recycles the buffer.
  */
 static void unexpected_offload(struct adapter *adapter, struct freelQ *fl)
 {
@@ -1114,14 +1114,14 @@ static void unexpected_offload(struct adapter *adapter, struct freelQ *fl)
 }
 
 /*
-                                                             
-                                                                         
-                                                                          
-                                                                       
-                                     
-  
-                                                                          
-                                              
+ * T1/T2 SGE limits the maximum DMA size per TX descriptor to
+ * SGE_TX_DESC_MAX_PLEN (16KB). If the PAGE_SIZE is larger than 16KB, the
+ * stack might send more than SGE_TX_DESC_MAX_PLEN in a contiguous manner.
+ * Note that the *_large_page_tx_descs stuff will be optimized out when
+ * PAGE_SIZE <= SGE_TX_DESC_MAX_PLEN.
+ *
+ * compute_large_page_descs() computes how many additional descriptors are
+ * required to break down the stack's request.
  */
 static inline unsigned int compute_large_page_tx_descs(struct sk_buff *skb)
 {
@@ -1147,10 +1147,10 @@ static inline unsigned int compute_large_page_tx_descs(struct sk_buff *skb)
 }
 
 /*
-                      
-  
-                                                                       
-                              
+ * Write a cmdQ entry.
+ *
+ * Since this function writes the 'flags' field, it must not be used to
+ * write the first cmdQ entry.
  */
 static inline void write_tx_desc(struct cmdQ_e *e, dma_addr_t mapping,
 				 unsigned int len, unsigned int gen,
@@ -1165,10 +1165,10 @@ static inline void write_tx_desc(struct cmdQ_e *e, dma_addr_t mapping,
 }
 
 /*
-                                     
-  
-                                                                      
-                                     
+ * See comment for previous function.
+ *
+ * write_tx_descs_large_page() writes additional SGE tx descriptors if
+ * *desc_len exceeds HW's capability.
  */
 static inline unsigned int write_large_page_tx_descs(unsigned int pidx,
 						     struct cmdQ_e **e,
@@ -1208,8 +1208,8 @@ static inline unsigned int write_large_page_tx_descs(unsigned int pidx,
 }
 
 /*
-                                                                      
-                                             
+ * Write the command descriptors to transmit the given skb starting at
+ * descriptor pidx with the given generation.
  */
 static inline void write_tx_descs(struct adapter *adapter, struct sk_buff *skb,
 				  unsigned int pidx, unsigned int gen,
@@ -1298,7 +1298,7 @@ static inline void write_tx_descs(struct adapter *adapter, struct sk_buff *skb,
 }
 
 /*
-                                 
+ * Clean up completed Tx buffers.
  */
 static inline void reclaim_completed_tx(struct sge *sge, struct cmdQ *q)
 {
@@ -1313,8 +1313,8 @@ static inline void reclaim_completed_tx(struct sge *sge, struct cmdQ *q)
 }
 
 /*
-                                                    
-                                 
+ * Called from tasklet. Checks the scheduler for any
+ * pending skbs that can be sent.
  */
 static void restart_sched(unsigned long arg)
 {
@@ -1356,13 +1356,13 @@ static void restart_sched(unsigned long arg)
 	spin_unlock(&q->lock);
 }
 
-/* 
-                                              
-                          
-                                                     
-                          
-  
-                                                                  
+/**
+ *	sge_rx - process an ingress ethernet packet
+ *	@sge: the sge structure
+ *	@fl: the free list that contains the packet buffer
+ *	@len: the packet length
+ *
+ *	Process an ingress ethernet pakcet and deliver it to the stack.
  */
 static void sge_rx(struct sge *sge, struct freelQ *fl, unsigned int len)
 {
@@ -1405,8 +1405,8 @@ static void sge_rx(struct sge *sge, struct freelQ *fl, unsigned int len)
 }
 
 /*
-                                                                        
-                                                                           
+ * Returns true if a command queue has enough available descriptors that
+ * we can resume Tx operation after temporarily disabling its packet queue.
  */
 static inline int enough_free_Tx_descs(const struct cmdQ *q)
 {
@@ -1416,8 +1416,8 @@ static inline int enough_free_Tx_descs(const struct cmdQ *q)
 }
 
 /*
-                                                                              
-                                                                             
+ * Called when sufficient space has become available in the SGE command queues
+ * after the Tx packet schedulers have been suspended to restart the Tx path.
  */
 static void restart_tx_queues(struct sge *sge)
 {
@@ -1439,8 +1439,8 @@ static void restart_tx_queues(struct sge *sge)
 }
 
 /*
-                                                                           
-               
+ * update_tx_info is called from the interrupt handler/NAPI to return cmdQ0
+ * information.
  */
 static unsigned int update_tx_info(struct adapter *adapter,
 					  unsigned int flags,
@@ -1475,8 +1475,8 @@ static unsigned int update_tx_info(struct adapter *adapter,
 }
 
 /*
-                                                                           
-                                                                    
+ * Process SGE responses, up to the supplied budget.  Returns the number of
+ * responses processed.  A negative budget is effectively unlimited.
  */
 static int process_responses(struct adapter *adapter, int budget)
 {
@@ -1493,10 +1493,10 @@ static int process_responses(struct adapter *adapter, int budget)
 		cmdq_processed[0] += e->Cmdq0CreditReturn;
 		cmdq_processed[1] += e->Cmdq1CreditReturn;
 
-		/*                                                   
-                                                             
-                                                       
-   */
+		/* We batch updates to the TX side to avoid cacheline
+		 * ping-pong of TX state information on MP where the sender
+		 * might run on a different CPU than this function...
+		 */
 		if (unlikely((flags & F_CMDQ0_ENABLE) || cmdq_processed[0] > 64)) {
 			flags = update_tx_info(adapter, flags, cmdq_processed[0]);
 			cmdq_processed[0] = 0;
@@ -1519,9 +1519,9 @@ static int process_responses(struct adapter *adapter, int budget)
 			++done;
 
 			/*
-                                                   
-                                                 
-    */
+			 * Note: this depends on each packet consuming a
+			 * single free-list buffer; cf. the BUG above.
+			 */
 			if (++fl->cidx == fl->size)
 				fl->cidx = 0;
 			prefetch(fl->centries[fl->cidx].skb);
@@ -1561,12 +1561,12 @@ static inline int responses_pending(const struct adapter *adapter)
 }
 
 /*
-                                                                         
-                                                                               
-                                                                         
-                                                                           
-                                                                          
-                                                          
+ * A simpler version of process_responses() that handles only pure (i.e.,
+ * non data-carrying) responses.  Such respones are too light-weight to justify
+ * calling a softirq when using NAPI, so we handle them specially in hard
+ * interrupt context.  The function is called with a pointer to a response,
+ * which the caller must ensure is a valid pure response.  Returns 1 if it
+ * encounters a valid data-carrying response, 0 otherwise.
  */
 static int process_pure_responses(struct adapter *adapter)
 {
@@ -1609,9 +1609,9 @@ static int process_pure_responses(struct adapter *adapter)
 }
 
 /*
-                                                                               
-                                                                             
-                                             
+ * Handler for new data events when using NAPI.  This does not need any locking
+ * or protection from interrupts as data interrupts are off at this point and
+ * other adapter interrupts do not interfere.
  */
 int t1_poll(struct napi_struct *napi, int budget)
 {
@@ -1639,9 +1639,9 @@ irqreturn_t t1_interrupt(int irq, void *data)
 			if (process_pure_responses(adapter))
 				__napi_schedule(&adapter->napi);
 			else {
-				/*                         */
+				/* no data, no NAPI needed */
 				writel(sge->respQ.cidx, adapter->regs + A_SG_SLEEPING);
-				/*                    */
+				/* undo schedule_prep */
 				napi_enable(&adapter->napi);
 			}
 		}
@@ -1659,17 +1659,17 @@ irqreturn_t t1_interrupt(int irq, void *data)
 }
 
 /*
-                                                                     
-  
-                                                                        
-                                                                           
-                                                                          
-                                                                             
-                                                                           
-                                                                         
-                               
-  
-                                    
+ * Enqueues the sk_buff onto the cmdQ[qid] and has hardware fetch it.
+ *
+ * The code figures out how many entries the sk_buff will require in the
+ * cmdQ and updates the cmdQ data structure with the state once the enqueue
+ * has complete. Then, it doesn't access the global structure anymore, but
+ * uses the corresponding fields on the stack. In conjunction with a spinlock
+ * around that code, we can make the function reentrant without holding the
+ * lock when we actually enqueue (which might be expensive, especially on
+ * architectures with IO MMUs).
+ *
+ * This runs with softirqs disabled.
  */
 static int t1_sge_tx(struct sk_buff *skb, struct adapter *adapter,
 		     unsigned int qid, struct net_device *dev)
@@ -1688,7 +1688,7 @@ static int t1_sge_tx(struct sk_buff *skb, struct adapter *adapter,
 	count = 1 + skb_shinfo(skb)->nr_frags;
 	count += compute_large_page_tx_descs(skb);
 
-	/*                 */
+	/* Ethernet packet */
 	if (unlikely(credits < count)) {
 		if (!netif_queue_stopped(dev)) {
 			netif_stop_queue(dev);
@@ -1707,15 +1707,15 @@ static int t1_sge_tx(struct sk_buff *skb, struct adapter *adapter,
 		sge->stats.cmdQ_full[2]++;
 	}
 
-	/*                                                                
-                          
-  */
+	/* T204 cmdQ0 skbs that are destined for a certain port have to go
+	 * through the scheduler.
+	 */
 	if (sge->tx_sched && !qid && skb->dev) {
 use_sched:
 		use_sched_skb = 1;
-		/*                                                          
-                       
-   */
+		/* Note that the scheduler might return a different skb than
+		 * the one passed in.
+		 */
 		skb = sched_skb(sge, skb, credits);
 		if (!skb) {
 			spin_unlock(&q->lock);
@@ -1739,12 +1739,12 @@ use_sched:
 	write_tx_descs(adapter, skb, pidx, genbit, q);
 
 	/*
-                                                                   
-                                                                   
-                                                                  
-                                                                    
-                                 
-  */
+	 * We always ring the doorbell for cmdQ1.  For cmdQ0, we only ring
+	 * the doorbell if the Q is asleep. There is a natural race, where
+	 * the hardware is going to sleep just after we checked, however,
+	 * then the interrupt handler will detect the outstanding TX packet
+	 * and ring the doorbell for us.
+	 */
 	if (qid)
 		doorbell_pio(adapter, F_CMDQ1_ENABLE);
 	else {
@@ -1768,10 +1768,10 @@ use_sched:
 #define MK_ETH_TYPE_MSS(type, mss) (((mss) & 0x3FFF) | ((type) << 14))
 
 /*
-                                                        
-                                                     
-  
-                                                                         
+ *	eth_hdr_len - return the length of an Ethernet header
+ *	@data: pointer to the start of the Ethernet header
+ *
+ *	Returns the length of an Ethernet header, including optional VLAN tag.
  */
 static inline int eth_hdr_len(const void *data)
 {
@@ -1781,7 +1781,7 @@ static inline int eth_hdr_len(const void *data)
 }
 
 /*
-                                                                 
+ * Adds the CPL header to the sk_buff and passes it to t1_sge_tx.
  */
 netdev_tx_t t1_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
@@ -1796,9 +1796,9 @@ netdev_tx_t t1_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		goto send;
 
 	/*
-                                                
-                                                                     
-  */
+	 * We are using a non-standard hard_header_len.
+	 * Allocate more header room in the rare cases it is not big enough.
+	 */
 	if (unlikely(skb_headroom(skb) < dev->hard_header_len - ETH_HLEN)) {
 		skb = skb_realloc_headroom(skb, sizeof(struct cpl_tx_pkt_lso));
 		++st->tx_need_hdrroom;
@@ -1827,11 +1827,11 @@ netdev_tx_t t1_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		cpl = (struct cpl_tx_pkt *)hdr;
 	} else {
 		/*
-                                                               
-                                                            
-                                                                 
-                           
-   */
+		 * Packets shorter than ETH_HLEN can break the MAC, drop them
+		 * early.  Also, we may get oversized packets because some
+		 * parts of the kernel don't handle our unusual hard_header_len
+		 * right, drop those too.
+		 */
 		if (unlikely(skb->len < ETH_HLEN ||
 			     skb->len > dev->mtu + eth_hdr_len(skb->data))) {
 			pr_debug("%s: packet size %d hdr %d mtu%d\n", dev->name,
@@ -1849,26 +1849,26 @@ netdev_tx_t t1_start_xmit(struct sk_buff *skb, struct net_device *dev)
 			}
 		}
 
-		/*                                                          
-                                          
-   */
+		/* Hmmm, assuming to catch the gratious arp... and we'll use
+		 * it to flush out stuck espi packets...
+		 */
 		if ((unlikely(!adapter->sge->espibug_skb[dev->if_port]))) {
 			if (skb->protocol == htons(ETH_P_ARP) &&
 			    arp_hdr(skb)->ar_op == htons(ARPOP_REQUEST)) {
 				adapter->sge->espibug_skb[dev->if_port] = skb;
-				/*                                     
-                                             
-                           
-     */
+				/* We want to re-use this skb later. We
+				 * simply bump the reference count and it
+				 * will not be freed...
+				 */
 				skb = skb_get(skb);
 			}
 		}
 
 		cpl = (struct cpl_tx_pkt *)__skb_push(skb, sizeof(*cpl));
 		cpl->opcode = CPL_TX_PKT;
-		cpl->ip_csum_dis = 1;    /*                       */
+		cpl->ip_csum_dis = 1;    /* SW calculates IP csum */
 		cpl->l4_csum_dis = skb->ip_summed == CHECKSUM_PARTIAL ? 0 : 1;
-		/*                                                        */
+		/* the length field isn't used so don't bother setting it */
 
 		st->tx_cso += (skb->ip_summed == CHECKSUM_PARTIAL);
 	}
@@ -1884,9 +1884,9 @@ netdev_tx_t t1_start_xmit(struct sk_buff *skb, struct net_device *dev)
 send:
 	ret = t1_sge_tx(skb, adapter, 0, dev);
 
-	/*                                                                  
-                                        
-  */
+	/* If transmit busy, and we reallocated skb's due to headroom limit,
+	 * then silently discard to avoid leak.
+	 */
 	if (unlikely(ret != NETDEV_TX_OK && skb != orig_skb)) {
 		dev_kfree_skb_any(skb);
 		ret = NETDEV_TX_OK;
@@ -1895,7 +1895,7 @@ send:
 }
 
 /*
-                                                                          
+ * Callback for the Tx buffer reclaim timer.  Runs with softirqs disabled.
  */
 static void sge_tx_reclaim_cb(unsigned long data)
 {
@@ -1909,7 +1909,7 @@ static void sge_tx_reclaim_cb(unsigned long data)
 			continue;
 
 		reclaim_completed_tx(sge, q);
-		if (i == 0 && q->in_use) {    /*                       */
+		if (i == 0 && q->in_use) {    /* flush pending credits */
 			writel(F_CMDQ0_ENABLE, sge->adapter->regs + A_SG_DOORBELL);
 		}
 		spin_unlock(&q->lock);
@@ -1918,7 +1918,7 @@ static void sge_tx_reclaim_cb(unsigned long data)
 }
 
 /*
-                                                                
+ * Propagate changes of the SGE coalescing parameters to the HW.
  */
 int t1_sge_set_coalesce_params(struct sge *sge, struct sge_params *p)
 {
@@ -1929,8 +1929,8 @@ int t1_sge_set_coalesce_params(struct sge *sge, struct sge_params *p)
 }
 
 /*
-                                                                      
-                                   
+ * Allocates both RX and TX resources and configures the SGE. However,
+ * the hardware is not enabled yet.
  */
 int t1_sge_configure(struct sge *sge, struct sge_params *p)
 {
@@ -1943,23 +1943,23 @@ int t1_sge_configure(struct sge *sge, struct sge_params *p)
 	configure_sge(sge, p);
 
 	/*
-                                                               
-                                                                 
-                                                                  
-                                      
-  */
+	 * Now that we have sized the free lists calculate the payload
+	 * capacity of the large buffers.  Other parts of the driver use
+	 * this to set the max offload coalescing size so that RX packets
+	 * do not overflow our large buffers.
+	 */
 	p->large_buf_capacity = jumbo_payload_capacity(sge);
 	return 0;
 }
 
 /*
-                           
+ * Disables the DMA engine.
  */
 void t1_sge_stop(struct sge *sge)
 {
 	int i;
 	writel(0, sge->adapter->regs + A_SG_CONTROL);
-	readl(sge->adapter->regs + A_SG_CONTROL); /*       */
+	readl(sge->adapter->regs + A_SG_CONTROL); /* flush */
 
 	if (is_T2(sge->adapter))
 		del_timer_sync(&sge->espibug_timer);
@@ -1973,7 +1973,7 @@ void t1_sge_stop(struct sge *sge)
 }
 
 /*
-                          
+ * Enables the DMA engine.
  */
 void t1_sge_start(struct sge *sge)
 {
@@ -1982,7 +1982,7 @@ void t1_sge_start(struct sge *sge)
 
 	writel(sge->sge_control, sge->adapter->regs + A_SG_CONTROL);
 	doorbell_pio(sge->adapter, F_FL0_ENABLE | F_FL1_ENABLE);
-	readl(sge->adapter->regs + A_SG_CONTROL); /*       */
+	readl(sge->adapter->regs + A_SG_CONTROL); /* flush */
 
 	mod_timer(&sge->tx_reclaim_timer, jiffies + TX_RECLAIM_PERIOD);
 
@@ -1991,7 +1991,7 @@ void t1_sge_start(struct sge *sge)
 }
 
 /*
-                                                             
+ * Callback for the T2 ESPI 'stuck packet feature' workaorund
  */
 static void espibug_workaround_t204(unsigned long data)
 {
@@ -2026,9 +2026,9 @@ static void espibug_workaround_t204(unsigned long data)
 				skb->cb[0] = 0xff;
 			}
 
-			/*                                             
-                                         
-    */
+			/* bump the reference count to avoid freeing of
+			 * the skb once the DMA has completed.
+			 */
 			skb = skb_get(skb);
 			t1_sge_tx(skb, adapter, 0, adapter->port[i].dev);
 		}
@@ -2058,9 +2058,9 @@ static void espibug_workaround(unsigned long data)
 	                        skb->cb[0] = 0xff;
 	                }
 
-	                /*                                                 
-                                                   
-                  */
+	                /* bump the reference count to avoid freeing of the
+	                 * skb once the DMA has completed.
+	                 */
 	                skb = skb_get(skb);
 	                t1_sge_tx(skb, adapter, 0, adapter->port[0].dev);
 	        }
@@ -2069,7 +2069,7 @@ static void espibug_workaround(unsigned long data)
 }
 
 /*
-                                                                        
+ * Creates a t1_sge structure and returns suggested resource parameters.
  */
 struct sge * __devinit t1_sge_create(struct adapter *adapter,
 				     struct sge_params *p)
@@ -2106,7 +2106,7 @@ struct sge * __devinit t1_sge_create(struct adapter *adapter,
 		sge->espibug_timer.data = (unsigned long)sge->adapter;
 
 		sge->espibug_timeout = 1;
-		/*                      */
+		/* for T204, every 10ms */
 		if (adapter->params.nports > 1)
 			sge->espibug_timeout = HZ/100;
 	}

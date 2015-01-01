@@ -1,5 +1,5 @@
 /*
-                                                                    
+ * Handle interrupts from the SRM, assuming no additional weirdness.
  */
 
 #include <linux/init.h>
@@ -11,9 +11,9 @@
 
 
 /*
-                                                                      
-                                                                   
-                                                                        
+ * Is the palcode SMP safe? In other words: can we call cserve_ena/dis
+ * at the same time in multiple CPUs? To be safe I added a spinlock
+ * but it can be removed trivially if the palcode is robust against smp.
  */
 DEFINE_SPINLOCK(srm_irq_lock);
 
@@ -33,7 +33,7 @@ srm_disable_irq(struct irq_data *d)
 	spin_unlock(&srm_irq_lock);
 }
 
-/*                                                                    */
+/* Handle interrupts from the SRM, assuming no additional weirdness.  */
 static struct irq_chip srm_irq_type = {
 	.name		= "SRM",
 	.irq_unmask	= srm_enable_irq,

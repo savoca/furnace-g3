@@ -52,7 +52,7 @@
 #define info(format, arg...) printk(KERN_INFO "%s: " format "\n", MY_NAME , ## arg)
 #define warn(format, arg...) printk(KERN_WARNING "%s: " format "\n", MY_NAME , ## arg)
 
-/*                 */
+/* local variables */
 static DECLARE_RWSEM(list_rwsem);
 static LIST_HEAD(slot_list);
 static int slots;
@@ -123,7 +123,7 @@ disable_slot(struct hotplug_slot *hotplug_slot)
 
 	down_write(&list_rwsem);
 
-	/*                    */
+	/* Unconfigure device */
 	dbg("%s - unconfiguring slot %s", __func__, slot_name(slot));
 	if ((retval = cpci_unconfigure_slot(slot))) {
 		err("%s - could not unconfigure slot %s",
@@ -132,7 +132,7 @@ disable_slot(struct hotplug_slot *hotplug_slot)
 	}
 	dbg("%s - finished unconfiguring slot %s", __func__, slot_name(slot));
 
-	/*                           */
+	/* Clear EXT (by setting it) */
 	if (cpci_clear_ext(slot)) {
 		err("%s - could not clear EXT for slot %s",
 		    __func__, slot_name(slot));
@@ -232,9 +232,9 @@ cpci_hp_register_bus(struct pci_bus *bus, u8 first, u8 last)
 		return -ENODEV;
 
 	/*
-                                                            
-                                   
-  */
+	 * Create a structure for each slot, and register that slot
+	 * with the pci_hotplug subsystem.
+	 */
 	for (i = first; i <= last; ++i) {
 		slot = kzalloc(sizeof (struct slot), GFP_KERNEL);
 		if (!slot)
@@ -262,9 +262,9 @@ cpci_hp_register_bus(struct pci_bus *bus, u8 first, u8 last)
 		hotplug_slot->ops = &cpci_hotplug_slot_ops;
 
 		/*
-                                                       
-                 
-   */
+		 * Initialize the slot info structure with some known
+		 * good values.
+		 */
 		dbg("initializing slot %s", name);
 		info->power_status = cpci_get_power_status(slot);
 		info->attention_status = cpci_get_attention_status(slot);
@@ -277,7 +277,7 @@ cpci_hp_register_bus(struct pci_bus *bus, u8 first, u8 last)
 		}
 		dbg("slot registered with name: %s", slot_name(slot));
 
-		/*                               */
+		/* Add slot to our internal list */
 		down_write(&list_rwsem);
 		list_add(&slot->slot_list, &slot_list);
 		slots++;
@@ -324,31 +324,31 @@ cpci_hp_unregister_bus(struct pci_bus *bus)
 	return status;
 }
 
-/*                                              */
+/* This is the interrupt mode interrupt handler */
 static irqreturn_t
 cpci_hp_intr(int irq, void *data)
 {
 	dbg("entered cpci_hp_intr");
 
-	/*                                      */
+	/* Check to see if it was our interrupt */
 	if ((controller->irq_flags & IRQF_SHARED) &&
 	    !controller->ops->check_irq(controller->dev_id)) {
 		dbg("exited cpci_hp_intr, not our interrupt");
 		return IRQ_NONE;
 	}
 
-	/*                        */
+	/* Disable ENUM interrupt */
 	controller->ops->disable_irq();
 
-	/*                                        */
+	/* Trigger processing by the event thread */
 	wake_up_process(cpci_thread);
 	return IRQ_HANDLED;
 }
 
 /*
-                                                   
-                                                    
-                                         
+ * According to PICMG 2.1 R2.0, section 6.3.2, upon
+ * initialization, the system driver shall clear the
+ * INS bits of the cold-inserted devices.
  */
 static int
 init_slots(int clear_ins)
@@ -400,9 +400,9 @@ check_slots(void)
 		dbg("%s - looking at slot %s", __func__, slot_name(slot));
 		if (cpci_check_and_clear_ins(slot)) {
 			/*
-                                                    
-                    
-    */
+			 * Some broken hardware (e.g. PLX 9054AB) asserts
+			 * ENUM# twice...
+			 */
 			if (slot->dev) {
 				warn("slot %s already inserted",
 				     slot_name(slot));
@@ -410,15 +410,15 @@ check_slots(void)
 				continue;
 			}
 
-			/*                   */
+			/* Process insertion */
 			dbg("%s - slot %s inserted", __func__, slot_name(slot));
 
-			/*            */
+			/* GSM, debug */
 			hs_csr = cpci_get_hs_csr(slot);
 			dbg("%s - slot %s HS_CSR (1) = %04x",
 			    __func__, slot_name(slot), hs_csr);
 
-			/*                  */
+			/* Configure device */
 			dbg("%s - configuring slot %s",
 			    __func__, slot_name(slot));
 			if (cpci_configure_slot(slot)) {
@@ -429,7 +429,7 @@ check_slots(void)
 			dbg("%s - finished configuring slot %s",
 			    __func__, slot_name(slot));
 
-			/*            */
+			/* GSM, debug */
 			hs_csr = cpci_get_hs_csr(slot);
 			dbg("%s - slot %s HS_CSR (2) = %04x",
 			    __func__, slot_name(slot), hs_csr);
@@ -442,18 +442,18 @@ check_slots(void)
 
 			cpci_led_off(slot);
 
-			/*            */
+			/* GSM, debug */
 			hs_csr = cpci_get_hs_csr(slot);
 			dbg("%s - slot %s HS_CSR (3) = %04x",
 			    __func__, slot_name(slot), hs_csr);
 
 			inserted++;
 		} else if (cpci_check_ext(slot)) {
-			/*                            */
+			/* Process extraction request */
 			dbg("%s - slot %s extracted",
 			    __func__, slot_name(slot));
 
-			/*            */
+			/* GSM, debug */
 			hs_csr = cpci_get_hs_csr(slot);
 			dbg("%s - slot %s HS_CSR = %04x",
 			    __func__, slot_name(slot), hs_csr);
@@ -470,9 +470,9 @@ check_slots(void)
 			hs_csr = cpci_get_hs_csr(slot);
 			if (hs_csr == 0xffff) {
 				/*
-                                                        
-                                               
-     */
+				 * Hmmm, we're likely hosed at this point, should we
+				 * bother trying to tell the driver or not?
+				 */
 				err("card in slot %s was improperly removed",
 				    slot_name(slot));
 				if (update_adapter_status(slot->hotplug_slot, 0))
@@ -494,7 +494,7 @@ check_slots(void)
 	return 0;
 }
 
-/*                                               */
+/* This is the interrupt mode worker thread body */
 static int
 event_thread(void *data)
 {
@@ -510,7 +510,7 @@ event_thread(void *data)
 		do {
 			rc = check_slots();
 			if (rc > 0) {
-				/*                                              */
+				/* Give userspace a chance to handle extraction */
 				msleep(500);
 			} else if (rc < 0) {
 				dbg("%s - error checking slots", __func__);
@@ -521,7 +521,7 @@ event_thread(void *data)
 		if (kthread_should_stop())
 			break;
 
-		/*                           */
+		/* Re-enable ENUM# interrupt */
 		dbg("%s - re-enabling irq", __func__);
 		controller->ops->enable_irq();
 	}
@@ -529,7 +529,7 @@ event_thread(void *data)
 	return 0;
 }
 
-/*                                             */
+/* This is the polling mode worker thread body */
 static int
 poll_thread(void *data)
 {
@@ -542,7 +542,7 @@ poll_thread(void *data)
 			do {
 				rc = check_slots();
 				if (rc > 0) {
-					/*                                              */
+					/* Give userspace a chance to handle extraction */
 					msleep(500);
 				} else if (rc < 0) {
 					dbg("%s - error checking slots", __func__);
@@ -616,9 +616,9 @@ cleanup_slots(void)
 	struct slot *tmp;
 
 	/*
-                                                               
-                                                 
-  */
+	 * Unregister all of our slots with the pci_hotplug subsystem,
+	 * and free up all memory that we had allocated.
+	 */
 	down_write(&list_rwsem);
 	if (!slots)
 		goto cleanup_null;
@@ -677,7 +677,7 @@ cpci_hp_start(void)
 	dbg("%s - thread started", __func__);
 
 	if (controller->irq) {
-		/*                                 */
+		/* Start enum interrupt processing */
 		dbg("%s - enabling irq", __func__);
 		controller->ops->enable_irq();
 	}
@@ -691,7 +691,7 @@ cpci_hp_stop(void)
 	if (!controller)
 		return -ENODEV;
 	if (controller->irq) {
-		/*                                */
+		/* Stop enum interrupt processing */
 		dbg("%s - disabling irq", __func__);
 		controller->ops->disable_irq();
 	}
@@ -710,8 +710,8 @@ void __exit
 cpci_hotplug_exit(void)
 {
 	/*
-                        
-  */
+	 * Clean everything up.
+	 */
 	cpci_hp_stop();
 	cpci_hp_unregister_controller(controller);
 }

@@ -28,7 +28,7 @@
 #define   EXI_CSR_CLKMASK       (0x7<<4)
 #define     EXI_CSR_CLK_32MHZ   (EXI_CLK_32MHZ<<4)
 #define   EXI_CSR_CSMASK        (0x7<<7)
-#define     EXI_CSR_CS_0        (0x1<<7)  /*                 */
+#define     EXI_CSR_CS_0        (0x1<<7)  /* Chip Select 001 */
 
 #define EXI_CR                  0x0c
 #define   EXI_CR_TSTART         (1<<0)
@@ -45,7 +45,7 @@
 static void __iomem *ug_io_base;
 
 /*
-                                                                               
+ * Performs one input/output transaction between the exi host and the usbgecko.
  */
 static u32 ug_io_transaction(u32 in)
 {
@@ -54,11 +54,11 @@ static u32 ug_io_transaction(u32 in)
 	u32 __iomem *cr_reg = ug_io_base + EXI_CR;
 	u32 csr, data, cr;
 
-	/*        */
+	/* select */
 	csr = EXI_CSR_CLK_32MHZ | EXI_CSR_CS_0;
 	out_be32(csr_reg, csr);
 
-	/*            */
+	/* read/write */
 	data = in;
 	out_be32(data_reg, data);
 	cr = EXI_CR_TLEN(2) | EXI_CR_READ_WRITE | EXI_CR_TSTART;
@@ -67,17 +67,17 @@ static u32 ug_io_transaction(u32 in)
 	while (in_be32(cr_reg) & EXI_CR_TSTART)
 		barrier();
 
-	/*          */
+	/* deselect */
 	out_be32(csr_reg, 0);
 
-	/*        */
+	/* result */
 	data = in_be32(data_reg);
 
 	return data;
 }
 
 /*
-                                                
+ * Returns true if an usbgecko adapter is found.
  */
 static int ug_is_adapter_present(void)
 {
@@ -88,7 +88,7 @@ static int ug_is_adapter_present(void)
 }
 
 /*
-                                                         
+ * Returns true if the TX fifo is ready for transmission.
  */
 static int ug_is_txfifo_ready(void)
 {
@@ -96,8 +96,8 @@ static int ug_is_txfifo_ready(void)
 }
 
 /*
-                                 
-                                                       
+ * Tries to transmit a character.
+ * If the TX fifo is not ready the result is undefined.
  */
 static void ug_raw_putc(char ch)
 {
@@ -105,8 +105,8 @@ static void ug_raw_putc(char ch)
 }
 
 /*
-                         
-                                                                           
+ * Transmits a character.
+ * It silently fails if the TX fifo is not ready after a number of retries.
  */
 static void ug_putc(char ch)
 {
@@ -125,7 +125,7 @@ static void ug_putc(char ch)
 }
 
 /*
-                                                         
+ * Returns true if the RX fifo is ready for transmission.
  */
 static int ug_is_rxfifo_ready(void)
 {
@@ -133,8 +133,8 @@ static int ug_is_rxfifo_ready(void)
 }
 
 /*
-                                
-                                                         
+ * Tries to receive a character.
+ * If a character is unavailable the function returns -1.
  */
 static int ug_raw_getc(void)
 {
@@ -146,8 +146,8 @@ static int ug_raw_getc(void)
 }
 
 /*
-                        
-                                                                  
+ * Receives a character.
+ * It fails if the RX fifo is not ready after a number of retries.
  */
 static int ug_getc(void)
 {
@@ -162,12 +162,12 @@ static int ug_getc(void)
 }
 
 /*
-                  
-  
+ * udbg functions.
+ *
  */
 
 /*
-                         
+ * Transmits a character.
  */
 void ug_udbg_putc(char ch)
 {
@@ -175,7 +175,7 @@ void ug_udbg_putc(char ch)
 }
 
 /*
-                                                              
+ * Receives a character. Waits until a character is available.
  */
 static int ug_udbg_getc(void)
 {
@@ -187,7 +187,7 @@ static int ug_udbg_getc(void)
 }
 
 /*
-                                                                     
+ * Receives a character. If a character is not available, returns -1.
  */
 static int ug_udbg_getc_poll(void)
 {
@@ -197,7 +197,7 @@ static int ug_udbg_getc_poll(void)
 }
 
 /*
-                                                                            
+ * Retrieves and prepares the virtual address needed to access the hardware.
  */
 static void __iomem *ug_udbg_setup_exi_io_base(struct device_node *np)
 {
@@ -215,13 +215,13 @@ static void __iomem *ug_udbg_setup_exi_io_base(struct device_node *np)
 }
 
 /*
-                                                                     
+ * Checks if a USB Gecko adapter is inserted in any memory card slot.
  */
 static void __iomem *ug_udbg_probe(void __iomem *exi_io_base)
 {
 	int i;
 
-	/*                                              */
+	/* look for a usbgecko on memcard slots A and B */
 	for (i = 0; i < 2; i++) {
 		ug_io_base = exi_io_base + 0x14 * i;
 		if (ug_is_adapter_present())
@@ -234,7 +234,7 @@ static void __iomem *ug_udbg_probe(void __iomem *exi_io_base)
 }
 
 /*
-                                         
+ * USB Gecko udbg support initialization.
  */
 void __init ug_udbg_init(void)
 {
@@ -286,7 +286,7 @@ static phys_addr_t __init ug_early_grab_io_addr(void)
 }
 
 /*
-                                                         
+ * USB Gecko early debug support initialization for udbg.
  */
 void __init udbg_init_usbgecko(void)
 {
@@ -294,35 +294,35 @@ void __init udbg_init_usbgecko(void)
 	void __iomem *exi_io_base;
 
 	/*
-                                                              
-                        
-   
-                                                                
-                                                     
-                                   
-  */
+	 * At this point we have a BAT already setup that enables I/O
+	 * to the EXI hardware.
+	 *
+	 * The BAT uses a virtual address range reserved at the fixmap.
+	 * This must match the virtual address configured in
+	 * head_32.S:setup_usbgecko_bat().
+	 */
 	early_debug_area = (void __iomem *)__fix_to_virt(FIX_EARLY_DEBUG_BASE);
 	exi_io_base = early_debug_area + 0x00006800;
 
-	/*                           */
+	/* try to detect a USB Gecko */
 	if (!ug_udbg_probe(exi_io_base))
 		return;
 
-	/*                                       */
+	/* we found a USB Gecko, load udbg hooks */
 	udbg_putc = ug_udbg_putc;
 	udbg_getc = ug_udbg_getc;
 	udbg_getc_poll = ug_udbg_getc_poll;
 
 	/*
-                                            
-                                                             
-                       
-                                                                  
-                           
-  */
+	 * Prepare again the same BAT for MMU_init.
+	 * This allows udbg I/O to continue working after the MMU is
+	 * turned on for real.
+	 * It is safe to continue using the same virtual address as it is
+	 * a reserved fixmap area.
+	 */
 	setbat(1, (unsigned long)early_debug_area,
 	       ug_early_grab_io_addr(), 128*1024, PAGE_KERNEL_NCG);
 }
 
-#endif /*                                 */
+#endif /* CONFIG_PPC_EARLY_DEBUG_USBGECKO */
 

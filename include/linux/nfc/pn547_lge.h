@@ -48,10 +48,10 @@
 #define PN547_DRV_NAME	"pn547"
 
 /*
-                                
-                              
-                             
-                                                                      
+ * pn547 power control via ioctl
+ * pn547_SET_PWR(0): power off
+ * pn547_SET_PWR(1): power on
+ * pn547_SET_PWR(2): reset and power on with firmware download enabled
  */
 #define pn547_SET_PWR	_IOW(PN547_MAGIC, 0x01, unsigned int)
 

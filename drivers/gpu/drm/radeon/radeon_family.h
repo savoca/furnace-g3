@@ -26,14 +26,14 @@
  *          Jerome Glisse
  */
 
-/*                                                                  
-                                                                   
-                              
+/* this file defines the CHIP_  and family flags used in the pciids,
+ * its is common between kms and non-kms because duplicating it and
+ * changing one place is fail.
  */
 #ifndef RADEON_FAMILY_H
 #define RADEON_FAMILY_H
 /*
-                       
+ * Radeon chip families
  */
 enum radeon_family {
 	CHIP_R100 = 0,
@@ -95,7 +95,7 @@ enum radeon_family {
 };
 
 /*
-             
+ * Chip flags
  */
 enum radeon_chip_flags {
 	RADEON_FAMILY_MASK = 0x0000ffffUL,

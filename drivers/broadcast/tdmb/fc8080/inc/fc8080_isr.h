@@ -45,5 +45,5 @@ extern void fc8080_isr(HANDLE handle);
 }
 #endif
 
-#endif /*                */
+#endif /* __FC8080_ISR__ */
 

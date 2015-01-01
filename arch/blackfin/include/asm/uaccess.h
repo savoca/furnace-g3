@@ -10,7 +10,7 @@
 #define __BLACKFIN_UACCESS_H
 
 /*
-                                     
+ * User space memory access functions
  */
 #include <linux/sched.h>
 #include <linux/mm.h>
@@ -37,24 +37,24 @@ static inline void set_fs(mm_segment_t fs)
 static inline int is_in_rom(unsigned long addr)
 {
 	/*
-                                                           
-                                                            
-                                                          
-                                                             
-                                                             
-                 
-  */
+	 * What we are really trying to do is determine if addr is
+	 * in an allocated kernel memory region. If not then assume
+	 * we cannot free it or otherwise de-allocate it. Ideally
+	 * we could restrict this to really being in a ROM or flash,
+	 * but that would need to be done on a board by board basis,
+	 * not globally.
+	 */
 	if ((addr < _ramstart) || (addr >= _ramend))
 		return (1);
 
-	/*                          */
+	/* Default case, not in ROM */
 	return (0);
 }
 
 /*
-                                                                       
-                                                                         
-                                               
+ * The fs value determines whether argument validity checking should be
+ * performed or not.  If get_fs() == USER_DS, checking is performed, with
+ * get_fs() == KERNEL_DS, checking is bypassed.
  */
 
 #ifndef CONFIG_ACCESS_CHECK
@@ -64,16 +64,16 @@ extern int _access_ok(unsigned long addr, unsigned long size);
 #endif
 
 /*
-                                                                       
-                                                                        
-                                                                      
-                                                                        
-              
-  
-                                                                     
-                                                                       
-                                                                      
-                               
+ * The exception table consists of pairs of addresses: the first is the
+ * address of an instruction that is allowed to fault, and the second is
+ * the address at which the program should continue.  No registers are
+ * modified, so it is entirely up to the continuation code to figure out
+ * what to do.
+ *
+ * All the routines below use bits of fixup code that are out of line
+ * with the main instruction path.  This means when everything is well,
+ * we don't even have to jump over them.  Further, they do not intrude
+ * on our cache or tlb entries.
  */
 
 struct exception_table_entry {
@@ -81,8 +81,8 @@ struct exception_table_entry {
 };
 
 /*
-                                                                         
-                                                             
+ * These are the main single-value transfer routines.  They automatically
+ * use the right size if we just have the right pointer type.
  */
 
 #define put_user(x,p)						\
@@ -131,16 +131,16 @@ static inline int bad_user_access_length(void)
                            bad_user_access_length(), (-EFAULT))
 
 /*
-                                                                   
-                                                                 
-                   
+ * Tell gcc we read from memory instead of writing: this is because
+ * we do not write to any memory gcc knows about, so there are no
+ * aliasing issues.
  */
 
 #define __ptr(x) ((unsigned long *)(x))
 
 #define __put_user_asm(x,p,bhw)				\
 	__asm__ (#bhw"[%1] = %0;\n\t"			\
-		 : /*            */			\
+		 : /* no outputs */			\
 		 :"d" (x),"a" (__ptr(p)) : "memory")
 
 #define get_user(x, ptr)					\
@@ -212,7 +212,7 @@ copy_to_user(void __user *to, const void *from, unsigned long n)
 }
 
 /*
-                                                
+ * Copy a null terminated string from userspace.
  */
 
 static inline long __must_check
@@ -227,15 +227,15 @@ strncpy_from_user(char *dst, const char *src, long count)
 }
 
 /*
-                                          
-                               
-                                  
-  
-                                                         
-  
-                                                                
-                           
-                                                             
+ * Get the size of a string in user space.
+ *   src: The string to measure
+ *     n: The maximum valid length
+ *
+ * Get the size of a NUL-terminated string in user space.
+ *
+ * Returns the size of the string INCLUDING the terminating NUL.
+ * On exception, returns 0.
+ * If the string is too long, returns a value greater than n.
  */
 static inline long __must_check strnlen_user(const char *src, long n)
 {
@@ -252,7 +252,7 @@ static inline long __must_check strlen_user(const char *src)
 }
 
 /*
-                 
+ * Zero Userspace
  */
 
 static inline unsigned long __must_check
@@ -266,12 +266,12 @@ __clear_user(void *to, unsigned long n)
 
 #define clear_user(to, n) __clear_user(to, n)
 
-/*                                      
-                                                        
-                                               
-                                                
-                                                                       
-                                                           
+/* How to interpret these return values:
+ *	CORE:      can be accessed by core load or dma memcpy
+ *	CORE_ONLY: can only be accessed by core load
+ *	DMA:       can only be accessed by dma memcpy
+ *	IDMA:      can only be accessed by interprocessor dma memcpy (BF561)
+ *	ITEST:     can be accessed by isram memcpy or dma memcpy
  */
 enum {
 	BFIN_MEM_ACCESS_CORE = 0,
@@ -280,12 +280,12 @@ enum {
 	BFIN_MEM_ACCESS_IDMA,
 	BFIN_MEM_ACCESS_ITEST,
 };
-/* 
-                                                                  
-                                
-                                  
-                                                                    
+/**
+ *	bfin_mem_access_type() - what kind of memory access is required
+ *	@addr:   the address to check
+ *	@size:   number of bytes needed
+ *	@return: <0 is error, >=0 is BFIN_MEM_ACCESS_xxx enum (see above)
  */
 int bfin_mem_access_type(unsigned long addr, unsigned long size);
 
-#endif				/*                     */
+#endif				/* _BLACKFIN_UACCESS_H */

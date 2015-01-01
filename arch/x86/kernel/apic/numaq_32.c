@@ -51,9 +51,9 @@
 int found_numaq;
 
 /*
-                                                                           
-                                                                        
-                  
+ * Have to match translation table entries to main table entries by counter
+ * hence the mpc_record variable .... can't see a less disgusting way of
+ * doing this ....
  */
 struct mpc_trans {
 	unsigned char			mpc_type;
@@ -87,10 +87,10 @@ static inline void numaq_register_node(int node, struct sys_cfg_data *scd)
 }
 
 /*
-                           
-  
-                                                                    
-                                                                          
+ * Function: smp_dump_qct()
+ *
+ * Description: gets memory layout from the quad config table.  This
+ * function also updates numa_nodes_parsed with the nodes (quads) present.
  */
 static void __init smp_dump_qct(void)
 {
@@ -126,7 +126,7 @@ static inline int generate_logical_apicid(int quad, int phys_apicid)
 	return (quad << 4) + (phys_apicid ? phys_apicid << 1 : 1);
 }
 
-/*                   */
+/* x86_quirks member */
 static int mpc_apic_id(struct mpc_cpu *m)
 {
 	int quad = translation_table[mpc_record]->trans_quad;
@@ -141,7 +141,7 @@ static int mpc_apic_id(struct mpc_cpu *m)
 	return logical_apicid;
 }
 
-/*                   */
+/* x86_quirks member */
 static void mpc_oem_bus_info(struct mpc_bus *m, char *name)
 {
 	int quad = translation_table[mpc_record]->trans_quad;
@@ -153,7 +153,7 @@ static void mpc_oem_bus_info(struct mpc_bus *m, char *name)
 	printk(KERN_INFO "Bus #%d is %s (node %d)\n", m->busid, name, quad);
 }
 
-/*                   */
+/* x86_quirks member */
 static void mpc_oem_pci_bus(struct mpc_bus *m)
 {
 	int quad = translation_table[mpc_record]->trans_quad;
@@ -163,9 +163,9 @@ static void mpc_oem_pci_bus(struct mpc_bus *m)
 }
 
 /*
-                            
-                    
-                                  
+ * Called from mpparse code.
+ * mode = 0: prescan
+ * mode = 1: one mpc entry scanned
  */
 static void numaq_mpc_record(unsigned int mode)
 {
@@ -185,7 +185,7 @@ static void __init MP_translation_info(struct mpc_trans *m)
 	if (mpc_record >= MAX_MPC_ENTRY)
 		printk(KERN_ERR "MAX_MPC_ENTRY exceeded!\n");
 	else
-		translation_table[mpc_record] = m; /*                      */
+		translation_table[mpc_record] = m; /* stash this for later */
 
 	if (m->trans_quad < MAX_NUMNODES && !node_online(m->trans_quad))
 		node_set_online(m->trans_quad);
@@ -202,12 +202,12 @@ static int __init mpf_checksum(unsigned char *mp, int len)
 }
 
 /*
-                                
+ * Read/parse the MPC oem tables
  */
 static void __init smp_read_mpc_oem(struct mpc_table *mpc)
 {
 	struct mpc_oemtable *oemtable = (void *)(long)mpc->oemptr;
-	int count = sizeof(*oemtable);	/*                 */
+	int count = sizeof(*oemtable);	/* the header size */
 	unsigned char *oemptr = ((unsigned char *)oemtable) + count;
 
 	mpc_record = 0;
@@ -251,8 +251,8 @@ static void __init smp_read_mpc_oem(struct mpc_table *mpc)
 static __init void early_check_numaq(void)
 {
 	/*
-                                    
-  */
+	 * get boot-time SMP configuration:
+	 */
 	if (smp_found_config)
 		early_get_smp_config();
 
@@ -304,8 +304,8 @@ static inline void numaq_send_IPI_all(int vector)
 #define NUMAQ_TRAMPOLINE_PHYS_HIGH	(0xa)
 
 /*
-                                                               
-                                                                 
+ * Because we use NMIs rather than the INIT-STARTUP sequence to
+ * bootstrap the CPUs, the APIC may be in a weird state. Kick it:
  */
 static inline void numaq_smp_callin_clear_local_apic(void)
 {
@@ -334,7 +334,7 @@ static inline int numaq_apic_id_registered(void)
 
 static inline void numaq_init_apic_ldr(void)
 {
-	/*                                 */
+	/* Already done in NUMA-Q firmware */
 }
 
 static inline void numaq_setup_apic_routing(void)
@@ -345,8 +345,8 @@ static inline void numaq_setup_apic_routing(void)
 }
 
 /*
-                                                             
-                                                        
+ * Skip adding the timer int on secondary nodes, which causes
+ * a small but painful rift in the time-space continuum.
  */
 static inline int numaq_multi_timer_check(int apic, int irq)
 {
@@ -355,14 +355,14 @@ static inline int numaq_multi_timer_check(int apic, int irq)
 
 static inline void numaq_ioapic_phys_id_map(physid_mask_t *phys_map, physid_mask_t *retmap)
 {
-	/*                                                */
+	/* We don't have a good way to do this yet - hack */
 	return physids_promote(0xFUL, retmap);
 }
 
 /*
-                                                                  
-                                                                    
-                                  
+ * Supporting over 60 cpus on NUMA-Q requires a locality-dependent
+ * cpu to APIC ID relation to properly interact with the intelligent
+ * mode of the cluster controller.
  */
 static inline int numaq_cpu_present_to_apicid(int mps_cpu)
 {
@@ -394,7 +394,7 @@ static void numaq_apicid_to_cpu_present(int logical_apicid, physid_mask_t *retma
 	physid_set_mask_of_physid(cpu + 4*node, retmap);
 }
 
-/*                                                               */
+/* Where the IO area was mapped on multiquad, always 0 otherwise */
 void *xquad_portio;
 
 static inline int numaq_check_phys_apicid_present(int phys_apicid)
@@ -403,8 +403,8 @@ static inline int numaq_check_phys_apicid_present(int phys_apicid)
 }
 
 /*
-                                                                        
-                                                     
+ * We use physical apicids here, not logical, so just return the default
+ * physical broadcast to stop people from breaking us
  */
 static unsigned int numaq_cpu_mask_to_apicid(const struct cpumask *cpumask)
 {
@@ -418,7 +418,7 @@ numaq_cpu_mask_to_apicid_and(const struct cpumask *cpumask,
 	return 0x0F;
 }
 
-/*                                                                        */
+/* No NUMA-Q box has a HT CPU, but it can't hurt to use the default code. */
 static inline int numaq_phys_pkg_id(int cpuid_apic, int index_msb)
 {
 	return cpuid_apic >> index_msb;
@@ -437,20 +437,20 @@ numaq_mps_oem_check(struct mpc_table *mpc, char *oem, char *productid)
 
 static int probe_numaq(void)
 {
-	/*                                      */
+	/* already know from get_memcfg_numaq() */
 	return found_numaq;
 }
 
 static void numaq_vector_allocation_domain(int cpu, struct cpumask *retmask)
 {
-	/*                                                         
-                                                            
-                                     
-   
-                                                            
-                                                             
-                                                            
-  */
+	/* Careful. Some cpus do not strictly honor the set of cpus
+	 * specified in the interrupt destination when using lowest
+	 * priority interrupt delivery mode.
+	 *
+	 * In particular there was a hyperthreading cpu observed to
+	 * deliver interrupts to the wrong hyperthread when only one
+	 * hyperthread was specified in the interrupt desitination.
+	 */
 	cpumask_clear(retmask);
 	cpumask_bits(retmask)[0] = APIC_ALL_CPUS;
 }
@@ -472,7 +472,7 @@ static void numaq_setup_portio_remap(void)
 		(u_long) xquad_portio, (u_long) num_quads*XQUAD_PORTIO_QUAD);
 }
 
-/*                                                     */
+/* Use __refdata to keep false positive warning calm.  */
 static struct apic __refdata apic_numaq = {
 
 	.name				= "NUMAQ",
@@ -482,7 +482,7 @@ static struct apic __refdata apic_numaq = {
 	.apic_id_registered		= numaq_apic_id_registered,
 
 	.irq_delivery_mode		= dest_LowestPrio,
-	/*                                  */
+	/* physical delivery on LOCAL quad: */
 	.irq_dest_mode			= 0,
 
 	.target_cpus			= numaq_target_cpus,
@@ -522,7 +522,7 @@ static struct apic __refdata apic_numaq = {
 	.trampoline_phys_low		= NUMAQ_TRAMPOLINE_PHYS_LOW,
 	.trampoline_phys_high		= NUMAQ_TRAMPOLINE_PHYS_HIGH,
 
-	/*                                                                */
+	/* We don't do anything here because we use NMI's to boot instead */
 	.wait_for_init_deassert		= NULL,
 
 	.smp_callin_clear_local_apic	= numaq_smp_callin_clear_local_apic,

@@ -48,7 +48,7 @@ static struct pci_channel dreamcast_pci_controller = {
 };
 
 /*
-               
+ * gapspci init
  */
 
 static int __init gapspci_init(void)
@@ -57,11 +57,11 @@ static int __init gapspci_init(void)
 	int i;
 
 	/*
-                                                        
-                                                       
-   
-                                                    
-  */
+	 * FIXME: All of this wants documenting to some degree,
+	 * even some basic register definitions would be nice.
+	 *
+	 * I haven't seen anything this ugly since.. maple.
+	 */
 
 	for (i=0; i<16; i++)
 		idbuf[i] = inb(GAPSPCI_REGS+i);
@@ -86,7 +86,7 @@ static int __init gapspci_init(void)
 	outl(1, GAPSPCI_REGS+0x14);
 	outl(1, GAPSPCI_REGS+0x34);
 
-	/*                           */
+	/* Setting Broadband Adapter */
 	outw(0xf900, GAPSPCI_BBA_CONFIG+0x06);
 	outl(0x00000000, GAPSPCI_BBA_CONFIG+0x30);
 	outb(0x00, GAPSPCI_BBA_CONFIG+0x3c);

@@ -21,10 +21,10 @@ const char *crush_bucket_alg_name(int alg)
 	}
 }
 
-/* 
-                                                                       
-                     
-                           
+/**
+ * crush_get_bucket_item_weight - Get weight of an item in given bucket
+ * @b: bucket pointer
+ * @p: item index in bucket
  */
 int crush_get_bucket_item_weight(struct crush_bucket *b, int p)
 {
@@ -46,9 +46,9 @@ int crush_get_bucket_item_weight(struct crush_bucket *b, int p)
 	return 0;
 }
 
-/* 
-                                                                         
-                          
+/**
+ * crush_calc_parents - Calculate parent vectors for the given crush map.
+ * @map: crush_map pointer
  */
 void crush_calc_parents(struct crush_map *map)
 {
@@ -118,15 +118,15 @@ void crush_destroy_bucket(struct crush_bucket *b)
 	}
 }
 
-/* 
-                                      
-                          
+/**
+ * crush_destroy - Destroy a crush_map
+ * @map: crush_map pointer
  */
 void crush_destroy(struct crush_map *map)
 {
 	int b;
 
-	/*         */
+	/* buckets */
 	if (map->buckets) {
 		for (b = 0; b < map->max_buckets; b++) {
 			if (map->buckets[b] == NULL)
@@ -136,7 +136,7 @@ void crush_destroy(struct crush_map *map)
 		kfree(map->buckets);
 	}
 
-	/*       */
+	/* rules */
 	if (map->rules) {
 		for (b = 0; b < map->max_rules; b++)
 			kfree(map->rules[b]);

@@ -44,7 +44,7 @@
  * from this source.  -- Jeff Garzik <jgarzik@pobox.com>, 01/Nov/99 
  */
 
-/*                                                                                                         */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nv/riva_hw.h,v 1.21 2002/10/14 18:22:46 mvojkovi Exp $ */
 #ifndef __RIVA_HW_H__
 #define __RIVA_HW_H__
 #define RIVA_SW_VERSION 0x00010003
@@ -64,14 +64,14 @@ typedef int Bool;
 #endif
 
 /*
-                                          
+ * Typedefs to force certain sized values.
  */
 typedef unsigned char  U008;
 typedef unsigned short U016;
 typedef unsigned int   U032;
 
 /*
-                    
+ * HW access macros.
  */
 #include <asm/io.h>
 
@@ -86,7 +86,7 @@ typedef unsigned int   U032;
 #define VGA_RD08(p,i)   (readb((void __iomem *)(p) + (i)))
 
 /*
-                                  
+ * Define different architectures.
  */
 #define NV_ARCH_03  0x03
 #define NV_ARCH_04  0x04
@@ -95,14 +95,14 @@ typedef unsigned int   U032;
 #define NV_ARCH_30  0x30
 #define NV_ARCH_40  0x40
 
-/*                                                                           
-                                                                             
-                                                                             
-                                                                             
-                                                                           */
+/***************************************************************************\
+*                                                                           *
+*                             FIFO registers.                               *
+*                                                                           *
+\***************************************************************************/
 
 /*
-                                        
+ * Raster OPeration. Windows style ROP3.
  */
 typedef volatile struct
 {
@@ -117,7 +117,7 @@ typedef volatile struct
     U032 Rop3;
 } RivaRop;
 /*
-                          
+ * 8X8 Monochrome pattern.
  */
 typedef volatile struct
 {
@@ -136,7 +136,7 @@ typedef volatile struct
     U032 Monochrome[2];
 } RivaPattern;
 /*
-                          
+ * Scissor clip rectangle.
  */
 typedef volatile struct
 {
@@ -152,7 +152,7 @@ typedef volatile struct
     U032 WidthHeight;
 } RivaClip;
 /*
-                       
+ * 2D filled rectangle.
  */
 typedef volatile struct
 {
@@ -170,7 +170,7 @@ typedef volatile struct
     U032 WidthHeight;
 } RivaRectangle;
 /*
-                        
+ * 2D screen-screen BLT.
  */
 typedef volatile struct
 {
@@ -187,7 +187,7 @@ typedef volatile struct
     U032 WidthHeight;
 } RivaScreenBlt;
 /*
-                
+ * 2D pixel BLT.
  */
 typedef volatile struct
 {
@@ -206,7 +206,7 @@ typedef volatile struct
     U032 Pixels;
 } RivaPixmap;
 /*
-                                                                        
+ * Filled rectangle combined with monochrome expand.  Useful for glyphs.
  */
 typedef volatile struct
 {
@@ -272,7 +272,7 @@ typedef volatile struct
     U032 MonochromeData01E;
 } RivaBitmap;
 /*
-                                    
+ * 3D textured, Z buffered triangle.
  */
 typedef volatile struct
 {
@@ -288,7 +288,7 @@ typedef volatile struct
     U032 TextureFormat;
     U032 TextureFilter;
     U032 FogColor;
-/*                             */
+/* This is a problem on LynxOS */
 #ifdef Control
 #undef Control
 #endif
@@ -319,7 +319,7 @@ typedef volatile struct
     U032 TextureFormat;
     U032 TextureFilter;
     U032 Blend;
-/*                             */
+/* This is a problem on LynxOS */
 #ifdef Control
 #undef Control
 #endif
@@ -340,7 +340,7 @@ typedef volatile struct
     U032 DrawTriangle3D;
 } RivaTexturedTriangle05;
 /*
-           
+ * 2D line.
  */
 typedef volatile struct
 {
@@ -352,30 +352,30 @@ typedef volatile struct
     U016 Nop[1];
 #endif
     U032 reserved01[0x0BC];
-    U032 Color;             /*                                     */
+    U032 Color;             /* source color               0304-0307*/
     U032 Reserved02[0x03e];
-    struct {                /*                                           */
-        U032 point0;        /*                                        */
-        U032 point1;        /*                                        */
-    } Lin[16];              /*                                           */
-    struct {                /*                                           */
-        U032 point0X;       /*                                           */
-        U032 point0Y;       /*                                           */
-        U032 point1X;       /*                                           */
-        U032 point1Y;       /*                                           */
-    } Lin32[8];             /*                                           */
-    U032 PolyLin[32];       /*                                        */
-    struct {                /*                                           */
-        U032 x;             /*                                           */
-        U032 y;             /*                                           */
-    } PolyLin32[16];        /*                                           */
-    struct {                /*                                           */
-        U032 color;         /*                                        */
-        U032 point;         /*                                        */
-    } ColorPolyLin[16];     /*                                           */
+    struct {                /* start aliased methods in array   0400-    */
+        U032 point0;        /* y_x S16_S16 in pixels            0-   3*/
+        U032 point1;        /* y_x S16_S16 in pixels            4-   7*/
+    } Lin[16];              /* end of aliased methods in array      -047f*/
+    struct {                /* start aliased methods in array   0480-    */
+        U032 point0X;       /* in pixels, 0 at left                0-   3*/
+        U032 point0Y;       /* in pixels, 0 at top                 4-   7*/
+        U032 point1X;       /* in pixels, 0 at left                8-   b*/
+        U032 point1Y;       /* in pixels, 0 at top                 c-   f*/
+    } Lin32[8];             /* end of aliased methods in array      -04ff*/
+    U032 PolyLin[32];       /* y_x S16_S16 in pixels         0500-057f*/
+    struct {                /* start aliased methods in array   0580-    */
+        U032 x;             /* in pixels, 0 at left                0-   3*/
+        U032 y;             /* in pixels, 0 at top                 4-   7*/
+    } PolyLin32[16];        /* end of aliased methods in array      -05ff*/
+    struct {                /* start aliased methods in array   0600-    */
+        U032 color;         /* source color                     0-   3*/
+        U032 point;         /* y_x S16_S16 in pixels            4-   7*/
+    } ColorPolyLin[16];     /* end of aliased methods in array      -067f*/
 } RivaLine;
 /*
-                 
+ * 2D/3D surfaces
  */
 typedef volatile struct
 {
@@ -404,11 +404,11 @@ typedef volatile struct
     U032 ZBufferOffset;
 } RivaSurface3D;
     
-/*                                                                           
-                                                                             
-                                                                             
-                                                                             
-                                                                           */
+/***************************************************************************\
+*                                                                           *
+*                        Virtualized RIVA H/W interface.                    *
+*                                                                           *
+\***************************************************************************/
 
 #define FP_ENABLE  1
 #define FP_DITHER  2
@@ -416,12 +416,12 @@ typedef volatile struct
 struct _riva_hw_inst;
 struct _riva_hw_state;
 /*
-                                                                 
+ * Virtialized chip interface. Makes RIVA 128 and TNT look alike.
  */
 typedef struct _riva_hw_inst
 {
     /*
-                              
+     * Chip specific settings.
      */
     U032 Architecture;
     U032 Version;
@@ -439,7 +439,7 @@ typedef struct _riva_hw_inst
     U032 flatPanel;
     Bool twoHeads;
     /*
-                          
+     * Non-FIFO registers.
      */
     volatile U032 __iomem *PCRTC0;
     volatile U032 __iomem *PCRTC;
@@ -460,7 +460,7 @@ typedef struct _riva_hw_inst
     volatile U008 __iomem *PDIO;
     volatile U032 __iomem *PRAMDAC;
     /*
-                             
+     * Common chip functions.
      */
     int  (*Busy)(struct _riva_hw_inst *);
     void (*LoadStateExt)(struct _riva_hw_inst *,struct _riva_hw_state *);
@@ -471,11 +471,11 @@ typedef struct _riva_hw_inst
     int  (*ShowHideCursor)(struct _riva_hw_inst *,int);
     void (*LockUnlock)(struct _riva_hw_inst *, int);
     /*
-                                      
+     * Current extended mode settings.
      */
     struct _riva_hw_state *CurrentState;
     /*
-                      
+     * FIFO registers.
      */
     RivaRop                 __iomem *Rop;
     RivaPattern             __iomem *Patt;
@@ -488,7 +488,7 @@ typedef struct _riva_hw_inst
     RivaTexturedTriangle05  __iomem *Tri05;
 } RIVA_HW_INST;
 /*
-                                   
+ * Extended mode state information.
  */
 typedef struct _riva_hw_state
 {
@@ -529,7 +529,7 @@ typedef struct _riva_hw_state
 } RIVA_HW_STATE;
 
 /*
-                      
+ * function prototypes
  */
 
 extern int CalcStateExt
@@ -544,11 +544,11 @@ extern int CalcStateExt
 );
 
 /*
-                     
+ * External routines.
  */
 int RivaGetConfig(RIVA_HW_INST *, unsigned int);
 /*
-                                                                      
+ * FIFO Free Count. Should attempt to yield processor if RIVA is busy.
  */
 
 #define RIVA_FIFO_FREE(hwinst,hwptr,cnt)                            \
@@ -559,5 +559,5 @@ int RivaGetConfig(RIVA_HW_INST *, unsigned int);
     }								    \
     (hwinst).FifoFreeCount -= (cnt);                                \
 }
-#endif /*               */
+#endif /* __RIVA_HW_H__ */
 

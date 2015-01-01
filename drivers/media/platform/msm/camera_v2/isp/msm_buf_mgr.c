@@ -34,7 +34,7 @@
 #include "msm.h"
 #include "msm_buf_mgr.h"
 
-/*                          */
+/*#define CONFIG_MSM_ISP_DBG*/
 #undef CDBG
 #ifdef CONFIG_MSM_ISP_DBG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
@@ -348,7 +348,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 		list_for_each_entry(temp_buf_info, &bufq->head, list) {
 			if (temp_buf_info->state ==
 					MSM_ISP_BUFFER_STATE_QUEUED) {
-				/*               */
+				/* found one buf */
 				list_del_init(&temp_buf_info->list);
 				*buf_info = temp_buf_info;
 				break;

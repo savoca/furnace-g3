@@ -18,16 +18,16 @@
 #include "um_malloc.h"
 
 /*
-                                                                     
-            
+ * Protected by sigio_lock(), also used by sigio_cleanup, which is an
+ * exitcall.
  */
 static int write_sigio_pid = -1;
 static unsigned long write_sigio_stack;
 
 /*
-                                                                       
-                                                                            
-                                                          
+ * These arrays are initialized before the sigio thread is started, and
+ * the descriptors closed after it is killed.  So, it can't see them change.
+ * On the UML side, they are changed under the sigio_lock.
  */
 #define SIGIO_FDS_INIT {-1, -1}
 
@@ -41,8 +41,8 @@ struct pollfds {
 };
 
 /*
-                                                                           
-                        
+ * Protected by sigio_lock().  Used by the sigio thread, but the UML thread
+ * synchronizes with it.
  */
 static struct pollfds current_poll;
 static struct pollfds next_poll;
@@ -123,8 +123,8 @@ static int need_poll(struct pollfds *polls, int n)
 }
 
 /*
-                                                                         
-                    
+ * Must be called with sigio_lock held, because it's needed by the marked
+ * critical section.
  */
 static void update_thread(void)
 {
@@ -150,7 +150,7 @@ static void update_thread(void)
 	set_signals(flags);
 	return;
  fail:
-	/*                        */
+	/* Critical section start */
 	if (write_sigio_pid != -1) {
 		os_kill_process(write_sigio_pid, 1);
 		free_stack(write_sigio_stack, 0);
@@ -160,7 +160,7 @@ static void update_thread(void)
 	close(sigio_private[1]);
 	close(write_sigio_fds[0]);
 	close(write_sigio_fds[1]);
-	/*                      */
+	/* Critical section end */
 	set_signals(flags);
 }
 
@@ -205,10 +205,10 @@ int ignore_sigio_fd(int fd)
 	int err = 0, i, n = 0;
 
 	/*
-                                                       
-                                                               
-                                                    
-  */
+	 * This is called from exitcalls elsewhere in UML - if
+	 * sigio_cleanup has already run, then update_thread will hang
+	 * or fail because the thread is no longer running.
+	 */
 	if (write_sigio_pid == -1)
 		return -EIO;
 
@@ -261,7 +261,7 @@ static void write_sigio_workaround(void)
 	int l_sigio_private[2];
 	int l_write_sigio_pid;
 
-	/*                                                                 */
+	/* We call this *tons* of times - and most ones we must just fail. */
 	sigio_lock();
 	l_write_sigio_pid = write_sigio_pid;
 	sigio_unlock();
@@ -289,9 +289,9 @@ static void write_sigio_workaround(void)
 	sigio_lock();
 
 	/*
-                                                                       
-                                                 
-  */
+	 * Did we race? Don't try to optimize this, please, it's not so likely
+	 * to happen, and no more than once at the boot.
+	 */
 	if (write_sigio_pid != -1)
 		goto out_free;
 
@@ -358,7 +358,7 @@ out:
 	sigio_unlock();
 }
 
-/*                           */
+/* Changed during early boot */
 static int pty_output_sigio;
 static int pty_close_sigio;
 
@@ -385,7 +385,7 @@ static void sigio_cleanup(void)
 
 __uml_exitcall(sigio_cleanup);
 
-/*                                                   */
+/* Used as a flag during SIGIO testing early in boot */
 static int got_sigio;
 
 static void __init handler(int sig)
@@ -448,7 +448,7 @@ static void __init check_one_sigio(void (*proc)(int, int))
 		return;
 	}
 
-	/*                                                  */
+	/* Not now, but complain so we now where we failed. */
 	err = raw(master);
 	if (err < 0) {
 		printk(UM_KERN_ERR "check_one_sigio : raw failed, errno = %d\n",
@@ -539,7 +539,7 @@ static void __init check_sigio(void)
 	check_one_sigio(tty_close);
 }
 
-/*                                                     */
+/* Here because it only does the SIGIO testing for now */
 void __init os_check_bugs(void)
 {
 	check_sigio();

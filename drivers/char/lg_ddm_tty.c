@@ -45,7 +45,7 @@
 #define DDM_TTY_MODULE_NAME		"DDM_TTY"
 #define MAX_DDM_TTY_DRV		2
 
-//                     
+//#define DDM_TTY_DEBUG
 
 struct lge_ddm_tty_info {
 	smd_channel_t *ch;
@@ -80,7 +80,7 @@ static struct lge_ddm_config lge_ddm_configs[] = {
 	{0, "DATA11", NULL, SMD_APPS_MODEM},
 };
 
-#define MAX_CH_NAME_LEN 20 /*                           */
+#define MAX_CH_NAME_LEN 20 /* includes null char at end */
 
 static DEFINE_MUTEX(lge_ddm_tty_lock);
 
@@ -129,11 +129,11 @@ static void lge_ddm_tty_notify(void *priv, unsigned event)
 			break;
 		}
 		spin_unlock_irqrestore(&info->reset_lock, flags);
-		/*                                                      
-                                                           
-                                                          
-               
-   */
+		/* There may be clients (tty framework) that are blocked
+		 * waiting for space to write data, so if a possible read
+		 * interrupt came in wake anyone waiting and disable the
+		 * interrupts
+		 */
 		if (smd_write_avail(info->ch)) {
 			smd_disable_read_intr(info->ch);
 			if (info->tty)
@@ -158,12 +158,12 @@ static void lge_ddm_tty_notify(void *priv, unsigned event)
 		info->is_open = 0;
 		wake_up_interruptible(&info->ch_opened_wait_queue);
 		spin_unlock_irqrestore(&info->reset_lock, flags);
-		/*                                 */
+		/* schedule task to send TTY_BREAK */
 		tasklet_hi_schedule(&info->tty_tsklt);
 		break;
 
 	case SMD_EVENT_REOPEN_READY:
-		/*                                  */
+		/* smd channel is closed completely */
 		spin_lock_irqsave(&info->reset_lock, flags);
 		info->in_reset = 1;
 		info->in_reset_updated = 1;
@@ -185,17 +185,17 @@ static int lge_ddm_tty_write(struct tty_struct *tty, const unsigned char *buf,
 	struct lge_ddm_tty_info *info = tty->driver_data;
 	int avail, result = 0;
 
-	/*                                             
-                                               
-                          
- */
+	/* if we're writing to a packet channel we will
+	** never be able to write more data than there
+	** is currently space for
+	*/
 	if (lge_ddm_tty_is_in_reset(info))
 		return -ENETRESET;
 
 	avail = smd_write_avail(info->ch);
-	/*                                                                     
-                                              
-  */
+	/* if no space, we'll have to setup a notification later to wake up the
+	 * tty framework when space becomes avaliable
+	 */
 	if (!avail) {
 		smd_enable_read_intr(info->ch);
 		return 0;
@@ -226,7 +226,7 @@ static void lge_ddm_tty_read(unsigned long param)
 
 	for (;;) {
 		if (lge_ddm_tty_is_in_reset(info)) {
-			/*                                    */
+			/* signal TTY clients using TTY_BREAK */
 			tty_insert_flip_char(tty, 0x00, TTY_BREAK);
 			tty_flip_buffer_push(tty);
 			break;
@@ -250,10 +250,10 @@ static void lge_ddm_tty_read(unsigned long param)
 		}
 
 		if (smd_read(info->ch, ptr, avail) != avail) {
-			/*                                               
-                                                    
-                 
-   */
+			/* shouldn't be possible since we're in interrupt
+			** context here and nobody else could 'steal' our
+			** characters.
+			*/
 			printk(KERN_ERR "OOPS - lge_ddm_tty_buffer mismatch?!");
 		}
 
@@ -267,7 +267,7 @@ static void lge_ddm_tty_read(unsigned long param)
 
 	}
 
-	/*                                      */
+	/* XXX only when writable and necessary */
 	tty_wakeup(tty);
 
 	return;
@@ -301,9 +301,9 @@ static int lge_ddm_tty_open(struct tty_struct *tty, struct file *file)
 			}
 
 			/*
-                                                   
-                                
-    */
+			 * Wait for a channel to be allocated so we know
+			 * the modem is ready enough.
+			 */
 			if (lge_ddm_tty_modem_wait) {
 				res = wait_for_completion_interruptible_timeout(
 					&info->ch_allocated,
@@ -326,7 +326,7 @@ static int lge_ddm_tty_open(struct tty_struct *tty, struct file *file)
 				res = 0;
 			}
 
-			/*                                       */
+			/* wait for open ready status in seconds */
 			pr_info("%s: checking modem status\n", __func__);
 			res = wait_event_interruptible_timeout(
 					info->ch_opened_wait_queue,
@@ -389,7 +389,7 @@ static int lge_ddm_tty_open(struct tty_struct *tty, struct file *file)
 
 	}
 
-	/*                    */
+	/* support max = 64KB */
 	set_bit(TTY_NO_WRITE_SPLIT, &(info->tty)->flags);
 
 #ifdef DDM_TTY_DEBUG
@@ -441,13 +441,13 @@ static void lge_ddm_tty_close(struct tty_struct *tty, struct file *file)
 			pr_info("%s: waiting to close smd %s completely\n",
 					__func__, lge_ddm_tty[n].smd->port_name);
 
-			/*                                         */
+			/* wait for reopen ready status in seconds */
 			res = wait_event_interruptible_timeout(
 				info->ch_opened_wait_queue,
 				!info->is_open, (lge_ds_modem_wait * HZ));
 
 			if (res == 0) {
-				/*                                   */
+				/* just in case, remain result value */
 				res = -ETIMEDOUT;
 				pr_err("%s: timeout to wait for %s smd_close.\
 						next smd_open may fail....%d\n",
@@ -551,14 +551,14 @@ static int __init lge_ddm_tty_init(void)
 	lge_ddm_tty_driver->driver_name = "lge_ddm_tty_driver";
 	lge_ddm_tty_driver->major = 0;
 	lge_ddm_tty_driver->minor_start = 0;
-	/*                                        */
+	/* uses dynamically assigned dev_t values */
 	lge_ddm_tty_driver->type = TTY_DRIVER_TYPE_SERIAL;
 	lge_ddm_tty_driver->subtype = SERIAL_TYPE_NORMAL;
 	lge_ddm_tty_driver->flags = TTY_DRIVER_REAL_RAW
 		| TTY_DRIVER_DYNAMIC_DEV
 		| TTY_DRIVER_RESET_TERMIOS;
 
-	/*                             */
+	/* initializing the tty driver */
 	lge_ddm_tty_driver->init_termios = tty_std_termios;
 	lge_ddm_tty_driver->init_termios.c_iflag = IGNBRK | IGNPAR;
 	lge_ddm_tty_driver->init_termios.c_oflag = 0;
@@ -609,7 +609,7 @@ static int __init lge_ddm_tty_init(void)
 	return 0;
 
 out:
-	/*                             */
+	/* unregister platform devices */
 	for (n = 0; n < ARRAY_SIZE(lge_ddm_configs); ++n) {
 		idx = lge_ddm_configs[n].tty_dev_index;
 

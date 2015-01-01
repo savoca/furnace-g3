@@ -54,7 +54,7 @@
 #endif
 
 /*
-                                         
+ * sys32_execve() executes a new program.
  */
 
 asmlinkage int sys32_execve(struct pt_regs *regs)
@@ -191,8 +191,8 @@ asmlinkage int sys32_sendfile64(int out_fd, int in_fd, compat_loff_t __user *off
 }
 
 
-/*                                                                      
-                                                     
+/* lseek() needs a wrapper because 'offset' can be negative, but the top
+ * half of the argument has been zeroed by syscall.S.
  */
 
 asmlinkage int sys32_lseek(unsigned int fd, int offset, unsigned int origin)
@@ -205,9 +205,9 @@ asmlinkage long sys32_semctl(int semid, int semnum, int cmd, union semun arg)
         union semun u;
 	
         if (cmd == SETVAL) {
-                /*                                                        
-                                                                     
-                                                      
+                /* Ugh.  arg is a union of int,ptr,ptr,ptr, so is 8 bytes.
+                 * The int should be in the first 4, but our argument
+                 * frobbing has left it in the last 4.
                  */
                 u.val = *((int *)&arg + 1);
                 return sys_semctl (semid, semnum, cmd, u);

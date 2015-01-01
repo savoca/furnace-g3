@@ -23,4 +23,4 @@ struct tpa2015d1_platform_data {
 
 void tpa2015d1_ext_spk_power_amp_enable(u32 on);
 extern bool tpa_enabled;
-#endif /*                 */
+#endif /* __TPA2015D1_H__ */

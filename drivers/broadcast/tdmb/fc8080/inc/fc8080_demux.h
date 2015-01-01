@@ -41,4 +41,4 @@ fci_u32 fc8080_get_multi_data(ts_data_type type, fci_u8 ch, fci_u8* buf, fci_u8*
 }
 #endif
 
-#endif //                   
+#endif // __FC8050_DEMUX_H__

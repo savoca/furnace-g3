@@ -22,15 +22,15 @@ MODULE_AUTHOR("Ville Syrjala <syrjala@sci.fi>");
 MODULE_LICENSE("GPL");
 
 /*
-                                             
-  
-                                                                                      
-                                                                  
-                                                                                  
-                                                                                     
-                                                                                        
-                                                                                         
-                              
+ * ATI Remote Wonder II Channel Configuration
+ *
+ * The remote control can by assigned one of sixteen "channels" in order to facilitate
+ * the use of multiple remote controls within range of each other.
+ * A remote's "channel" may be altered by pressing and holding the "PC" button for
+ * approximately 3 seconds, after which the button will slowly flash the count of the
+ * currently configured "channel", using the numeric keypad enter a number between 1 and
+ * 16 and then press the "PC" button again, the button will slowly flash the count of the
+ * newly configured "channel".
  */
 
 enum {
@@ -111,7 +111,7 @@ module_param(mode_mask, mode_mask, 0644);
 MODULE_PARM_DESC(mode_mask, "Bitmask of modes to accept <4:PC><3:AUX4><2:AUX3><1:AUX2><0:AUX1>");
 
 static struct usb_device_id ati_remote2_id_table[] = {
-	{ USB_DEVICE(0x0471, 0x0602) },	/*                      */
+	{ USB_DEVICE(0x0471, 0x0602) },	/* ATI Remote Wonder II */
 	{ }
 };
 MODULE_DEVICE_TABLE(usb, ati_remote2_id_table);
@@ -160,7 +160,7 @@ static const struct {
 	{ 0x37, KEY_RECORD },
 	{ 0x38, KEY_DVD },
 	{ 0x39, KEY_TV },
-	{ 0x3f, KEY_PROG1 }, /*                  */
+	{ 0x3f, KEY_PROG1 }, /* AUX1-AUX4 and PC */
 	{ 0x54, KEY_MENU },
 	{ 0x58, KEY_UP },
 	{ 0x59, KEY_DOWN },
@@ -200,7 +200,7 @@ struct ati_remote2 {
 	char name[64];
 	char phys[64];
 
-	/*                                                              */
+	/* Each mode (AUX1-AUX4 and PC) can have an independent keymap. */
 	u16 keycode[ATI_REMOTE2_MODES][ARRAY_SIZE(ati_remote2_key_table)];
 
 	unsigned int flags;
@@ -372,12 +372,12 @@ static void ati_remote2_input_key(struct ati_remote2 *ar2)
 	hw_code = data[2];
 	if (hw_code == 0x3f) {
 		/*
-                                                             
-                                                            
-                                                              
-                                                             
-                                   
-   */
+		 * For some incomprehensible reason the mouse pad generates
+		 * events which look identical to the events from the last
+		 * pressed mode key. Naturally we don't want to generate key
+		 * events for the mouse pad so we filter out any subsequent
+		 * events from the same mode key.
+		 */
 		if (ar2->mode == mode)
 			return;
 
@@ -397,14 +397,14 @@ static void ati_remote2_input_key(struct ati_remote2 *ar2)
 	}
 
 	switch (data[1]) {
-	case 0:	/*         */
+	case 0:	/* release */
 		break;
-	case 1:	/*       */
+	case 1:	/* press */
 		ar2->jiffies = jiffies + msecs_to_jiffies(idev->rep[REP_DELAY]);
 		break;
-	case 2:	/*        */
+	case 2:	/* repeat */
 
-		/*                              */
+		/* No repeat for mouse buttons. */
 		if (ar2->keycode[mode][index] == BTN_LEFT ||
 		    ar2->keycode[mode][index] == BTN_RIGHT)
 			return;
@@ -594,7 +594,7 @@ static int ati_remote2_input_init(struct ati_remote2 *ar2)
 		}
 	}
 
-	/*                                              */
+	/* AUX1-AUX4 and PC generate the same scancode. */
 	index = ati_remote2_lookup(0x3f);
 	ar2->keycode[ATI_REMOTE2_AUX1][index] = KEY_PROG1;
 	ar2->keycode[ATI_REMOTE2_AUX2][index] = KEY_PROG2;
@@ -672,13 +672,13 @@ static int ati_remote2_setup(struct ati_remote2 *ar2, unsigned int ch_mask)
 	int r, i, channel;
 
 	/*
-                                                                 
-                                                          
-                                                             
-                                                             
-        
-                                                              
-  */
+	 * Configure receiver to only accept input from remote "channel"
+	 *  channel == 0  -> Accept input from any remote channel
+	 *  channel == 1  -> Only accept input from remote channel 1
+	 *  channel == 2  -> Only accept input from remote channel 2
+	 *  ...
+	 *  channel == 16 -> Only accept input from remote channel 16
+	 */
 
 	channel = 0;
 	for (i = 0; i < 16; i++) {

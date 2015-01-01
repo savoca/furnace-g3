@@ -10,7 +10,7 @@
  */
 
 /*
-         
+ * Names.
  */
 
 #define I8042_KBD_PHYS_DESC "onboard/serio0"
@@ -18,7 +18,7 @@
 #define I8042_MUX_PHYS_DESC "onboard/serio%d"
 
 /*
-        
+ * IRQs.
  */
 static int i8042_kbd_irq;
 static int i8042_aux_irq;
@@ -51,7 +51,7 @@ static inline void i8042_write_command(int val)
 }
 static inline int i8042_platform_init(void)
 {
-	/*                      */
+	/* RM200 is strange ... */
 	if (sni_brd_type == SNI_BRD_RM200) {
 		kbd_iobase = ioremap(0x16000000, 4);
 		i8042_kbd_irq = 33;
@@ -72,4 +72,4 @@ static inline void i8042_platform_exit(void)
 
 }
 
-#endif /*                */
+#endif /* _I8042_SNIRM_H */

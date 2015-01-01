@@ -99,7 +99,7 @@ static void __internal_irq_unmask_64(unsigned int irq) __maybe_unused;
 static inline void bcm63xx_init_irq(void)
 {
 }
-#else /*                         */
+#else /* ! BCMCPU_RUNTIME_DETECT */
 
 static u32 irq_stat_addr, irq_mask_addr;
 static void (*dispatch_internal)(void);
@@ -170,7 +170,7 @@ static void bcm63xx_init_irq(void)
 		internal_irq_unmask = __internal_irq_unmask_64;
 	}
 }
-#endif /*                         */
+#endif /* ! BCMCPU_RUNTIME_DETECT */
 
 static inline u32 get_ext_irq_perf_reg(int irq)
 {
@@ -189,10 +189,10 @@ static inline void handle_internal(int intbit)
 }
 
 /*
-                                                                    
-                                                                     
-                                                                 
-            
+ * dispatch internal devices IRQ (uart, enet, watchdog, ...). do not
+ * prioritize any interrupt relatively to another. the static counter
+ * will resume the loop where it ended the last time we left this
+ * function.
  */
 static void __dispatch_internal(void)
 {
@@ -264,8 +264,8 @@ asmlinkage void plat_irq_dispatch(void)
 }
 
 /*
-                                                              
-            
+ * internal IRQs operations: only mask/unmask on PERF irq mask
+ * register.
  */
 static void __internal_irq_mask_32(unsigned int irq)
 {
@@ -314,8 +314,8 @@ static void bcm63xx_internal_irq_unmask(struct irq_data *d)
 }
 
 /*
-                                                                   
-                        
+ * external IRQs operations: mask/unmask and clear on PERF external
+ * irq control register.
  */
 static void bcm63xx_external_irq_mask(struct irq_data *d)
 {

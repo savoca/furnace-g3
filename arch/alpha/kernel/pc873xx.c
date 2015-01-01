@@ -35,7 +35,7 @@ static void __init pc873xx_write(unsigned int base, int reg, unsigned char data)
 	local_irq_save(flags);
 	outb(reg, base);
 	outb(data, base + 1);
-	outb(data, base + 1);		/*                       */
+	outb(data, base + 1);		/* Must be written twice */
 	local_irq_restore(flags);
 }
 

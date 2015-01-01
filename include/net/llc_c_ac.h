@@ -11,10 +11,10 @@
  *
  * See the GNU General Public License for more details.
  */
-/*                                               */
+/* Connection component state transition actions */
 /*
-                                      
-                                       
+ * Connection state transition actions
+ * (Fb = F bit; Pb = P bit; Xb = X bit)
  */
 #define LLC_CONN_AC_CLR_REMOTE_BUSY			 1
 #define LLC_CONN_AC_CONN_IND				 2
@@ -199,4 +199,4 @@ extern void llc_conn_ack_tmr_cb(unsigned long timeout_data);
 extern void llc_conn_rej_tmr_cb(unsigned long timeout_data);
 
 extern void llc_conn_set_p_flag(struct sock *sk, u8 value);
-#endif /*            */
+#endif /* LLC_C_AC_H */

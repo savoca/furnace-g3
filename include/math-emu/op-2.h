@@ -68,7 +68,7 @@
       }									\
   } while (0)
 
-/*                               */
+/* Right shift with sticky-lsb.  */
 #define _FP_FRAC_SRS_2(X,N,sz)						\
   do {									\
     if ((N) < _FP_W_TYPE_SIZE)						\
@@ -110,7 +110,7 @@
     }				\
   } while(0)
 
-/*            */
+/* Predicates */
 #define _FP_FRAC_NEGP_2(X)	((_FP_WS_TYPE)X##_f1 < 0)
 #define _FP_FRAC_ZEROP_2(X)	((X##_f1 | X##_f0) == 0)
 #define _FP_FRAC_OVERP_2(fs,X)	(_FP_FRAC_HIGH_##fs(X) & _FP_OVERFLOW_##fs)
@@ -126,7 +126,7 @@
 #define _FP_MAXFRAC_2		(~(_FP_WS_TYPE)0), (~(_FP_WS_TYPE)0)
 
 /*
-             
+ * Internals 
  */
 
 #define __FP_FRAC_SET_2(X,I1,I0)	(X##_f0 = I0, X##_f1 = I1)
@@ -178,8 +178,8 @@
 #endif
 
 /*
-                                                                
-                      
+ * Unpack the raw bits of a native fp value.  Do not classify or
+ * normalize the data.
  */
 
 #define _FP_UNPACK_RAW_2(fs, X, val)			\
@@ -205,7 +205,7 @@
 
 
 /*
-                                            
+ * Repack the raw bits of a native fp value.
  */
 
 #define _FP_PACK_RAW_2(fs, val, X)			\
@@ -233,10 +233,10 @@
 
 
 /*
-                             
+ * Multiplication algorithms:
  */
 
-/*                                                                   */
+/* Given a 1W * 1W => 2W primitive, do the extended multiplication.  */
 
 #define _FP_MUL_MEAT_2_wide(wfracbits, R, X, Y, doit)			\
   do {									\
@@ -256,17 +256,17 @@
 		    _FP_FRAC_WORD_4(_z,3),_FP_FRAC_WORD_4(_z,2),	\
 		    _FP_FRAC_WORD_4(_z,1));				\
 									\
-    /*                                                             
-                                                                    
-                              */					\
+    /* Normalize since we know where the msb of the multiplicands	\
+       were (bit B), we know that the msb of the of the product is	\
+       at either 2B or 2B-1.  */					\
     _FP_FRAC_SRS_4(_z, wfracbits-1, 2*wfracbits);			\
     R##_f0 = _FP_FRAC_WORD_4(_z,0);					\
     R##_f1 = _FP_FRAC_WORD_4(_z,1);					\
   } while (0)
 
-/*                                                                 
-                                                                      
-                                                                  */
+/* Given a 1W * 1W => 2W primitive, do the extended multiplication.
+   Do only 3 multiplications instead of four. This one is for machines
+   where multiplication is much more expensive than subtraction.  */
 
 #define _FP_MUL_MEAT_2_wide_3mul(wfracbits, R, X, Y, doit)		\
   do {									\
@@ -300,9 +300,9 @@
 		    _c_f1, _c_f0,					\
 		    _FP_FRAC_WORD_4(_z,3), _FP_FRAC_WORD_4(_z,2));	\
 									\
-    /*                                                             
-                                                                    
-                              */					\
+    /* Normalize since we know where the msb of the multiplicands	\
+       were (bit B), we know that the msb of the of the product is	\
+       at either 2B or 2B-1.  */					\
     _FP_FRAC_SRS_4(_z, wfracbits-1, 2*wfracbits);			\
     R##_f0 = _FP_FRAC_WORD_4(_z,0);					\
     R##_f1 = _FP_FRAC_WORD_4(_z,1);					\
@@ -317,37 +317,37 @@
 									\
     mpn_mul_n(_z_f, _x, _y, 2);						\
 									\
-    /*                                                             
-                                                                    
-                              */					\
+    /* Normalize since we know where the msb of the multiplicands	\
+       were (bit B), we know that the msb of the of the product is	\
+       at either 2B or 2B-1.  */					\
     _FP_FRAC_SRS_4(_z, wfracbits-1, 2*wfracbits);			\
     R##_f0 = _z_f[0];							\
     R##_f1 = _z_f[1];							\
   } while (0)
 
-/*                                                                 
-                                                          
-                                                                   
-                                                              
-                              
-                                                                    
-                                                                            
-                                                            */
+/* Do at most 120x120=240 bits multiplication using double floating
+   point multiplication.  This is useful if floating point
+   multiplication has much bigger throughput than integer multiply.
+   It is supposed to work for _FP_W_TYPE_SIZE 64 and wfracbits
+   between 106 and 120 only.  
+   Caller guarantees that X and Y has (1LLL << (wfracbits - 1)) set.
+   SETFETZ is a macro which will disable all FPU exceptions and set rounding
+   towards zero,  RESETFE should optionally reset it back.  */
 
 #define _FP_MUL_MEAT_2_120_240_double(wfracbits, R, X, Y, setfetz, resetfe)	\
   do {										\
     static const double _const[] = {						\
-      /*       */ 5.9604644775390625e-08,					\
-      /*       */ 3.5527136788005009e-15,					\
-      /*       */ 2.1175823681357508e-22,					\
-      /*       */ 1.2621774483536189e-29,					\
-      /*      */ 2.68435456e+08,						\
-      /*     */ 1.600000e+01,							\
-      /*       */ 9.5367431640625e-07,						\
-      /*       */ 5.6843418860808015e-14,					\
-      /*       */ 3.3881317890172014e-21,					\
-      /*       */ 2.0194839173657902e-28,					\
-      /*        */ 1.2037062152420224e-35};					\
+      /* 2^-24 */ 5.9604644775390625e-08,					\
+      /* 2^-48 */ 3.5527136788005009e-15,					\
+      /* 2^-72 */ 2.1175823681357508e-22,					\
+      /* 2^-96 */ 1.2621774483536189e-29,					\
+      /* 2^28 */ 2.68435456e+08,						\
+      /* 2^4 */ 1.600000e+01,							\
+      /* 2^-20 */ 9.5367431640625e-07,						\
+      /* 2^-44 */ 5.6843418860808015e-14,					\
+      /* 2^-68 */ 3.3881317890172014e-21,					\
+      /* 2^-92 */ 2.0194839173657902e-28,					\
+      /* 2^-116 */ 1.2037062152420224e-35};					\
     double _a240, _b240, _c240, _d240, _e240, _f240, 				\
 	   _g240, _h240, _i240, _j240, _k240;					\
     union { double d; UDItype i; } _l240, _m240, _n240, _o240,			\
@@ -422,7 +422,7 @@
   } while (0)
 
 /*
-                       
+ * Division algorithms:
  */
 
 #define _FP_DIV_MEAT_2_udiv(fs, R, X, Y)				\
@@ -442,8 +442,8 @@
 	_n_f0 = 0;							\
       }									\
 									\
-    /*                                                         
-                        */						\
+    /* Normalize, i.e. make the most significant bit of the 		\
+       denominator set. */						\
     _FP_FRAC_SLL_2(Y, _FP_WFRACXBITS_##fs);				\
 									\
     udiv_qrnnd(R##_f1, _r_f1, _n_f2, _n_f1, Y##_f1);			\
@@ -463,13 +463,13 @@
 									\
     if (_r_f1 == Y##_f1)						\
       {									\
-	/*                                                
-                                              
-                                                           
-                                                          
-                                                           
-                                                           
-                                       */			\
+	/* This is a special case, not an optimization			\
+	   (_r/Y##_f1 would not fit into UWtype).			\
+	   As _r is guaranteed to be < Y,  R##_f0 can be either		\
+	   (UWtype)-1 or (UWtype)-2.  But as we know what kind		\
+	   of bits it is (sticky, guard, round),  we don't care.	\
+	   We also don't care what the reminder is,  because the	\
+	   guard bit will be set anyway.  -jj */			\
 	R##_f0 = -1;							\
       }									\
     else								\
@@ -521,9 +521,9 @@
 
 
 /*
-                          
-                                                         
-                                                             
+ * Square root algorithms:
+ * We have just one right now, maybe Newton approximation
+ * should be added for those machines where division is fast.
  */
  
 #define _FP_SQRT_MEAT_2(R, S, T, X, q)			\
@@ -567,8 +567,8 @@
 
 
 /*
-                                                                
-                                        
+ * Assembly/disassembly for converting to/from integral types.  
+ * No shifting or overflow handled here.
  */
 
 #define _FP_FRAC_ASSEMBLE_2(r, X, rsize)	\
@@ -590,7 +590,7 @@
   } while (0)
 
 /*
-                                       
+ * Convert FP values between word sizes
  */
 
 #define _FP_FRAC_CONV_1_2(dfs, sfs, D, S)				\

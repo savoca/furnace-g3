@@ -128,4 +128,4 @@ enum {
 };
 
 void smeTraceInit(tpAniSirGlobal pMac);
-#endif //               
+#endif //__SME_TRACE_H__

@@ -48,7 +48,7 @@ void __init corenet_ds_pic_init(void)
 }
 
 /*
-                         
+ * Setup the architecture
  */
 void __init corenet_ds_setup_arch(void)
 {
@@ -99,7 +99,7 @@ static const struct of_device_id of_device_ids[] __devinitconst = {
 	{
 		.compatible	= "fsl,qoriq-pcie-v2.2",
 	},
-	/*                                                    */
+	/* The following two are for the Freescale hypervisor */
 	{
 		.name		= "hypervisor",
 	},

@@ -22,8 +22,8 @@ struct aa_profile;
 struct path;
 
 /*
-                                                                           
-                          
+ * We use MAY_EXEC, MAY_WRITE, MAY_READ, MAY_APPEND and the following flags
+ * for profile permissions
  */
 #define AA_MAY_CREATE                  0x0010
 #define AA_MAY_DELETE                  0x0020
@@ -36,10 +36,10 @@ struct path;
 #define AA_EXEC_MMAP                   0x0800
 
 #define AA_MAY_LINK			0x1000
-#define AA_LINK_SUBSET			AA_MAY_LOCK	/*          */
-#define AA_MAY_ONEXEC			0x40000000	/*                    */
+#define AA_LINK_SUBSET			AA_MAY_LOCK	/* overlaid */
+#define AA_MAY_ONEXEC			0x40000000	/* exec allows onexec */
 #define AA_MAY_CHANGE_PROFILE		0x80000000
-#define AA_MAY_CHANGEHAT		0x80000000	/*                    */
+#define AA_MAY_CHANGEHAT		0x80000000	/* ctrl auditing only */
 
 #define AA_AUDIT_FILE_MASK	(MAY_READ | MAY_WRITE | MAY_EXEC | MAY_APPEND |\
 				 AA_MAY_CREATE | AA_MAY_DELETE |	\
@@ -48,41 +48,41 @@ struct path;
 				 AA_EXEC_MMAP | AA_MAY_LINK)
 
 /*
-                                    
-                                                                           
-                                                                            
-                                                             
+ * The xindex is broken into 3 parts
+ * - index - an index into either the exec name table or the variable table
+ * - exec type - which determines how the executable name and index are used
+ * - flags - which modify how the destination name is applied
  */
 #define AA_X_INDEX_MASK		0x03ff
 
 #define AA_X_TYPE_MASK		0x0c00
 #define AA_X_TYPE_SHIFT		10
 #define AA_X_NONE		0x0000
-#define AA_X_NAME		0x0400	/*                        */
-#define AA_X_TABLE		0x0800	/*                           */
+#define AA_X_NAME		0x0400	/* use executable name px */
+#define AA_X_TABLE		0x0800	/* use a specified name ->n# */
 
 #define AA_X_UNSAFE		0x1000
-#define AA_X_CHILD		0x2000	/*                                   */
+#define AA_X_CHILD		0x2000	/* make >AA_X_NONE apply to children */
 #define AA_X_INHERIT		0x4000
 #define AA_X_UNCONFINED		0x8000
 
-/*                                                          */
+/* AA_SECURE_X_NEEDED - is passed in the bprm->unsafe field */
 #define AA_SECURE_X_NEEDED	0x8000
 
-/*                                                   */
+/* need to make conditional which ones are being set */
 struct path_cond {
 	uid_t uid;
 	umode_t mode;
 };
 
-/*                                    
-                                               
-                                                            
-                                                          
-                                                                  
-                                                             
-  
-                                                           
+/* struct file_perms - file permission
+ * @allow: mask of permissions that are allowed
+ * @audit: mask of permissions to force an audit message for
+ * @quiet: mask of permissions to quiet audit messages for
+ * @kill: mask of permissions that when matched will kill the task
+ * @xindex: exec transition index if @allow contains MAY_EXEC
+ *
+ * The @audit and @queit mask should be mutually exclusive.
  */
 struct file_perms {
 	u32 allow;
@@ -96,8 +96,8 @@ extern struct file_perms nullperms;
 
 #define COMBINED_PERM_MASK(X) ((X).allow | (X).audit | (X).quiet | (X).kill)
 
-/*                                                          
-                                   
+/* FIXME: split perms from dfa and match this to description
+ *        also add delegation info.
  */
 static inline u16 dfa_map_xindex(u16 mask)
 {
@@ -126,7 +126,7 @@ static inline u16 dfa_map_xindex(u16 mask)
 }
 
 /*
-                                               
+ * map old dfa inline permissions to new format
  */
 #define dfa_user_allow(dfa, state) (((ACCEPT_TABLE(dfa)[state]) & 0x7f) | \
 				    ((ACCEPT_TABLE(dfa)[state]) & 0x80000000))
@@ -148,23 +148,23 @@ int aa_audit_file(struct aa_profile *profile, struct file_perms *perms,
 		  gfp_t gfp, int op, u32 request, const char *name,
 		  const char *target, uid_t ouid, const char *info, int error);
 
-/* 
-                                                                   
-                                                         
-                                                                             
-                                                              
-  
-                                                                          
-                                                                     
-                                                                      
-                                     
+/**
+ * struct aa_file_rules - components used for file rule permissions
+ * @dfa: dfa to match path names and conditionals against
+ * @perms: permission table indexed by the matched state accept entry of @dfa
+ * @trans: transition table for indexed by named x transitions
+ *
+ * File permission are determined by matching a path against @dfa and then
+ * then using the value of the accept entry for the matching state as
+ * an index into @perms.  If a named exec transition is required it is
+ * looked up in the transition table.
  */
 struct aa_file_rules {
 	unsigned int start;
 	struct aa_dfa *dfa;
-	/*                     */
+	/* struct perms perms; */
 	struct aa_domain trans;
-	/*                          */
+	/* TODO: add delegate table */
 };
 
 unsigned int aa_str_perms(struct aa_dfa *dfa, unsigned int start,
@@ -188,14 +188,14 @@ static inline void aa_free_file_rules(struct aa_file_rules *rules)
 
 #define ACC_FMODE(x) (("\000\004\002\006"[(x)&O_ACCMODE]) | (((x) << 1) & 0x40))
 
-/*              */
+/* from namei.c */
 #define MAP_OPEN_FLAGS(x) ((((x) + 1) & O_ACCMODE) ? (x) + 1 : (x))
 
-/* 
-                                                             
-                                                        
-  
-                                                
+/**
+ * aa_map_file_perms - map file flags to AppArmor permissions
+ * @file: open file to map flags to AppArmor permissions
+ *
+ * Returns: apparmor permission set for the file
  */
 static inline u32 aa_map_file_to_perms(struct file *file)
 {
@@ -204,7 +204,7 @@ static inline u32 aa_map_file_to_perms(struct file *file)
 
 	if ((flags & O_APPEND) && (perms & MAY_WRITE))
 		perms = (perms & ~MAY_WRITE) | MAY_APPEND;
-	/*                                */
+	/* trunc implies write permission */
 	if (flags & O_TRUNC)
 		perms |= MAY_WRITE;
 	if (flags & O_CREAT)
@@ -213,4 +213,4 @@ static inline u32 aa_map_file_to_perms(struct file *file)
 	return perms;
 }
 
-#endif /*             */
+#endif /* __AA_FILE_H */

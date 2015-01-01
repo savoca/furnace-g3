@@ -18,8 +18,8 @@
 #define GPIO_MMBI_ELNA_EN		8
 #define GPIO_LNA_PON			11
 
-/*                                 */
-/*                                         */
+/*#define _DISPLAY_MONITOR_DBG_LOG_*/
+/*#define _USE_ONSEG_SIGINFO_MODIFIED_MODE_*/
 #define _USE_MONITORING_TIME_GAP_
 #define _USE_SEND_GOOD_SIGNAL_INFO_CHANGING_
 
@@ -97,7 +97,7 @@ static TcpalTime_t Time_channel_tune = 0;
 static int Need_send_good_signal = 0;
 #endif
 
-/*                           */
+/* Body of Internel function */
 int	broadcast_drv_start(void)
 {
 	int rc;
@@ -138,12 +138,12 @@ int	broadcast_drv_if_power_off(void)
 
 static void Tcc353xWrapperSafeClose (void)
 {
-	/*                          */
+	/* close driver & power ctrl*/
 	OnAir = 0;
 	currentSelectedChannel = -1;
 	currentBroadCast = TMM_13SEG;
 
-	/*                   */
+	/* lna control - off */
 	Tcc353xApiSetGpioControl(0, 0, GPIO_LNA_PON, 0);
 	Tcc353xApiSetGpioControl(0, 0, GPIO_MMBI_ELNA_EN, 0);
 	
@@ -169,11 +169,11 @@ int	broadcast_drv_if_open(void)
 	Tcc353xI2cOpen(0);
 	ret = Tcc353xApiOpen(0, &Tcc353xOptionSingle, sizeof(Tcc353xOption_t));
 	if (ret != TCC353X_RETURN_SUCCESS) {
-		/*                        */
+		/* driver re-open routine */
 		TcpalPrintErr((I08S *) "[1seg] TCC3530 Re-init (close & open)...\n");
 		Tcc353xWrapperSafeClose ();
 
-		/*                            */
+		/* re-open driver & power ctrl*/
 		broadcast_drv_if_power_on();
 		Tcc353xI2cOpen(0);
 		ret = Tcc353xApiOpen(0, &Tcc353xOptionSingle, sizeof(Tcc353xOption_t));
@@ -236,7 +236,7 @@ int	broadcast_drv_if_close(void)
 int	broadcast_drv_if_set_channel(struct broadcast_dmb_set_ch_info *udata)
 {	
 	Tcc353xTuneOptions tuneOption;
-	signed long frequency = 214714; /*   */
+	signed long frequency = 214714; /*tmm*/
 	int ret;
 	int needLockCheck = 0;
 
@@ -250,7 +250,7 @@ int	broadcast_drv_if_set_channel(struct broadcast_dmb_set_ch_info *udata)
 
 	TcpalMemset (&tuneOption, 0x00, sizeof(tuneOption));
 
-	/*              */
+	/* uhf 1segment */
 	currentSelectedChannel = udata->channel;
 
 	if(udata->segment == 13) {
@@ -273,14 +273,14 @@ int	broadcast_drv_if_set_channel(struct broadcast_dmb_set_ch_info *udata)
 	}
 	frequency = frequencyTable[udata->channel-13];
 
-	/*                         */
-	/*                                                  */
+	/* lna control - high gain */
+	/* high gain : PON 1, EN 0   low gain : PON 0, EN 1 */
 	Tcc353xApiSetGpioControl(0, 0, GPIO_LNA_PON, 1);
 	Tcc353xApiSetGpioControl(0, 0, GPIO_MMBI_ELNA_EN, 0);
 
-	if(needLockCheck && udata->mode == 1)	/*                             */
+	if(needLockCheck && udata->mode == 1)	/* Scan mode & need lock check */
 		ret = Tcc353xApiChannelSearch(0, frequency, &tuneOption);
-	else				/*             */
+	else				/* normal mode */
 		ret = Tcc353xApiChannelSelect(0, frequency, &tuneOption);
 
 #if defined (_USE_SEND_GOOD_SIGNAL_INFO_CHANGING_)
@@ -304,8 +304,8 @@ int	broadcast_drv_if_resync(void)
 {
 	int rc;
 	/*
-                        
- */
+	TCC3530 use auto-resync
+	*/
 	rc = OK;
 	return rc;
 }
@@ -376,7 +376,7 @@ static int Tcc353xWrapperGetLayerInfo(int layer, Tcc353xStatus_t *st)
 	ret |= (cr << 10);
 	temp = intLen * 3 + mode;
 	if(temp>23)
-		outIntLen = 62; /*          */
+		outIntLen = 62; /*set others*/
 	else
 		outIntLen = InterleavingLen[temp];
 	ret |= ((outIntLen & 0x3F)<<4);
@@ -500,10 +500,10 @@ static void broadcast_drv_if_get_oneseg_sig_info(Tcc353xStatus_t *pst, struct br
 
 #if defined (_USE_ONSEG_SIGINFO_MODIFIED_MODE_)
 	/*
-                 
-         
-          
- */
+	Num : Modulation
+	Exp : CR
+	mode : GI
+	*/
 	if((pst->opstat.syncStatus>>8&0x0F)<0x0C) {
 		pInfo->sig_info.info.oneseg_info.Num = 0xFF;
 		pInfo->sig_info.info.oneseg_info.Exp = 0xFF;
@@ -513,13 +513,13 @@ static void broadcast_drv_if_get_oneseg_sig_info(Tcc353xStatus_t *pst, struct br
 		pInfo->sig_info.info.oneseg_info.Exp = (pst->opstat.ACr & 0x07);
 
 		if(pst->opstat.gi==0)
-			pInfo->sig_info.info.oneseg_info.mode = 3; /*          */
+			pInfo->sig_info.info.oneseg_info.mode = 3; /* GI - 1/4 */
 		else if(pst->opstat.gi==1)
-			pInfo->sig_info.info.oneseg_info.mode = 2; /*          */
+			pInfo->sig_info.info.oneseg_info.mode = 2; /* GI - 1/8 */
 		else if(pst->opstat.gi==2)
-			pInfo->sig_info.info.oneseg_info.mode = 1; /*           */
+			pInfo->sig_info.info.oneseg_info.mode = 1; /* GI - 1/16 */
 		else
-			pInfo->sig_info.info.oneseg_info.mode = 0; /*           */
+			pInfo->sig_info.info.oneseg_info.mode = 0; /* GI - 1/32 */
 
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		TcpalPrintStatus((I08S *)"[1seg][monitor] Modulation [%s] CR[%s] GI[%s]\n",
@@ -532,7 +532,7 @@ static void broadcast_drv_if_get_oneseg_sig_info(Tcc353xStatus_t *pst, struct br
 	pInfo->sig_info.info.oneseg_info.Num = 0;
 	pInfo->sig_info.info.oneseg_info.Exp = 0;
 	pInfo->sig_info.info.oneseg_info.mode = 0;
-#endif /*                                   */
+#endif /* _USE_ONSEG_SIGINFO_MODIFIED_MODE_ */
 
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 	TcpalPrintStatus((I08S *)"[1seg][monitor] lock[%d] Antenna[%d] cn[%d] ber[%d] per[%d] rssi[%d] errTSP[%d/%d]\n", 
@@ -570,8 +570,8 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 
 	if(timeGap > _MON_TIME_INTERVAL_) {
 		/*
-                                                                     
-  */
+		TcpalPrintStatus((I08S *)"[TCC353X] Monitoring Function Access\n");
+		*/
 		CurrentMonitoringTime = tempTime;
 		ret =Tcc353xMonitoringApiGetStatus(0, 0, &SignalInfo);
 		if(ret != TCC353X_RETURN_SUCCESS) {
@@ -601,7 +601,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 			TcpalPrintStatus((I08S *)"[1seg][monitor] send current signal info [timeout]\n");
 		} else {
 			if (!st.status.isdbLock.TMCC){
-				/*               */
+				/* unlock status */
 				Need_send_good_signal = 0;
 				TcpalPrintStatus((I08S *)"[1seg][monitor] send current signal info [tmcc unlock]\n");
 			} else if(st.opstat.ARsCnt>0 && timeGap >_GOOD_SIGNAL_INTERVAL_MIN_) {
@@ -610,10 +610,10 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 			} else {
 				TcpalPrintStatus((I08S *)"[1seg][monitor] Force good ber,per value [pktcnt(%d)]\n",st.opstat.ARsCnt);
 
-				/*                                    */
-			    	st.opstat.ARsCnt = 1;	/*                                                   */
-			    	st.opstat.BRsCnt = 1;	/*                                                   */
-			    	st.opstat.CRsCnt = 1;	/*                                                   */
+				/* set good ber, per for full-segment */
+			    	st.opstat.ARsCnt = 1;	/* indication of modified value & avoid max ber, per */
+			    	st.opstat.BRsCnt = 1;	/* indication of modified value & avoid max ber, per */
+			    	st.opstat.CRsCnt = 1;	/* indication of modified value & avoid max ber, per */
 			    	st.opstat.ARsErrorCnt = 0;
 			    	st.opstat.BRsErrorCnt = 0;
 			    	st.opstat.CRsErrorCnt = 0;
@@ -621,7 +621,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 			    	st.opstat.BRsOverCnt = 0;
 			    	st.opstat.CRsOverCnt = 0;
 
-				/*                                   */
+				/* set good ber, per for one-segment */
 				st.status.viterbiber[0].currentValue = 0;
 				st.status.viterbiber[1].currentValue = 0;
 				st.status.viterbiber[2].currentValue = 0;
@@ -987,7 +987,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 				Tcc353xWrapperGetReceiveStat(&st);
 		TcpalPrintStatus((I08S *)"[mmbi][monitor]  rcv status[%d]\n",
 				pInfo->sig_info.info.mmb_info.receive_status);
-		/*                   */
+		/* for debugging log */
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		{
 			if(pInfo->sig_info.info.mmb_info.receive_status==0xFF) {
@@ -1013,7 +1013,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 			Tcc353xWrapperGetScanStat(&st);
 		TcpalPrintStatus((I08S *)"[mmbi][monitor]  scan status[%d]\n",
 				pInfo->sig_info.info.mmb_info.scan_status);
-		/*                   */
+		/* for debugging log */
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		{
 			char *cScanStat[8] = {"Scan Fail","Scan decision...","Channel Exist","No channel","reserved","reserved","reserved","reserved"};
@@ -1028,7 +1028,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 			Tcc353xWrapperGetSysInfo(&st);
 		TcpalPrintStatus((I08S *)"[mmbi][monitor]  sys info[%d]\n",
 				pInfo->sig_info.info.mmb_info.sysinfo);
-		/*                   */
+		/* for debugging log */
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		{
 			if(pInfo->sig_info.info.mmb_info.sysinfo==0xFF) {
@@ -1047,7 +1047,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 			Tcc353xWrapperGetTmccInfo(&st);
 		TcpalPrintStatus((I08S *)"[mmbi][monitor]  tmcc info[%d]\n",
 				pInfo->sig_info.info.mmb_info.tmccinfo);
-		/*                   */
+		/* for debugging log */
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		{
 			if(pInfo->sig_info.info.mmb_info.tmccinfo==0xFF) {
@@ -1089,8 +1089,8 @@ int	broadcast_drv_if_get_ch_info(struct broadcast_dmb_ch_info *ch_info)
 	}
 
 	/*
-                
- */
+	Unused function
+	*/
 	rc = OK;
 	return rc;
 }
@@ -1222,12 +1222,12 @@ int	broadcast_drv_if_get_mode (unsigned short *mode)
 	return rc;
 }
 /*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 
-/*                                                      
-                                                        
-                               */
+/* optional part when we include driver code to build-on
+it's just used when we make device driver to module(.ko)
+so it doesn't work in build-on */
 MODULE_DESCRIPTION("TCC3530 ISDB-Tmm device driver");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("TCC");

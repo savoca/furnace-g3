@@ -16,25 +16,25 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*                                              */
+/*  ----------------------------------- Host OS */
 #include <dspbridge/host_os.h>
 
-/*                                           */
+/*  ----------------------------------- This */
 #include <dspbridge/pwr.h>
 
-/*                                                       */
+/*  ----------------------------------- Resource Manager */
 #include <dspbridge/devdefs.h>
 #include <dspbridge/drv.h>
 
-/*                                                       */
+/*  ----------------------------------- Platform Manager */
 #include <dspbridge/dev.h>
 
-/*                                                  */
+/*  ----------------------------------- Link Driver */
 #include <dspbridge/dspioctl.h>
 
 /*
-                                   
-                                               
+ *  ======== pwr_sleep_dsp ========
+ *    Send command to DSP to enter sleep state.
  */
 int pwr_sleep_dsp(const u32 sleep_code, const u32 timeout)
 {
@@ -76,8 +76,8 @@ int pwr_sleep_dsp(const u32 sleep_code, const u32 timeout)
 }
 
 /*
-                                  
-                                                
+ *  ======== pwr_wake_dsp ========
+ *    Send command to DSP to wake it from sleep.
  */
 int pwr_wake_dsp(const u32 timeout)
 {
@@ -107,8 +107,8 @@ int pwr_wake_dsp(const u32 timeout)
 }
 
 /*
-                                     
-                                            
+ *  ======== pwr_pm_pre_scale========
+ *    Sends pre-notification message to DSP.
  */
 int pwr_pm_pre_scale(u16 voltage_domain, u32 level)
 {
@@ -141,8 +141,8 @@ int pwr_pm_pre_scale(u16 voltage_domain, u32 level)
 }
 
 /*
-                                      
-                                             
+ *  ======== pwr_pm_post_scale========
+ *    Sends post-notification message to DSP.
  */
 int pwr_pm_post_scale(u16 voltage_domain, u32 level)
 {

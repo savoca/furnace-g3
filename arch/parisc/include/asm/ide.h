@@ -5,7 +5,7 @@
  */
 
 /*
-                                                                 
+ *  This file contains the PARISC architecture specific IDE code.
  */
 
 #ifndef __ASM_PARISC_IDE_H
@@ -13,7 +13,7 @@
 
 #ifdef __KERNEL__
 
-/*                                           */
+/* Generic I/O and MEMIO string operations.  */
 
 #define __ide_insw	insw
 #define __ide_insl	insl
@@ -52,6 +52,6 @@ static __inline__ void __ide_mm_outsl(void __iomem *port, void *addr, u32 count)
 	}
 }
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*                    */
+#endif /* __ASM_PARISC_IDE_H */

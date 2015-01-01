@@ -16,16 +16,16 @@
 #define __HDS_MAX1462X_H__
 
 struct max1462x_platform_data {
-	const char *switch_name;  /*                    */
-	const char *keypad_name;  /*                    */
-	/*                                           */
+	const char *switch_name;  /* switch device name */
+	const char *keypad_name;  /* keypad device name */
+	/* key code for hook, volume up, volume down */
 	unsigned int key_code;
 
 	unsigned int gpio_mic_en;
 	unsigned int gpio_key;
 	unsigned int gpio_detect;
 
-	/*                                                      */
+	/* callback function which is initialized while probing */
 	void (*gpio_set_value_func)(unsigned gpio, int value);
 	int (*gpio_get_value_func)(unsigned gpio);
 
@@ -34,4 +34,4 @@ struct max1462x_platform_data {
 
 struct qpnp_vadc_chip *switch_vadc = NULL;
 
-#endif /*                    */
+#endif /* __HDS_MAX1462X_H__ */

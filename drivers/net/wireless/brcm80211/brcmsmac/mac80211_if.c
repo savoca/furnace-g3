@@ -35,9 +35,9 @@
 #include "mac80211_if.h"
 #include "main.h"
 
-#define N_TX_QUEUES	4 /*                                           */
+#define N_TX_QUEUES	4 /* #tx queues on mac80211<->driver interface */
 
-/*                  */
+/* Flags we support */
 #define MAC_FILTERS (FIF_PROMISC_IN_BSS | \
 	FIF_ALLMULTI | \
 	FIF_FCSFAIL | \
@@ -89,7 +89,7 @@ MODULE_SUPPORTED_DEVICE("Broadcom 802.11n WLAN cards");
 MODULE_LICENSE("Dual BSD/GPL");
 
 
-/*                          */
+/* recognized BCMA Core IDs */
 static struct bcma_device_id brcms_coreid_table[] = {
 	BCMA_CORE(BCMA_MANUF_BCM, BCMA_CORE_80211, 23, BCMA_ANY_CLASS),
 	BCMA_CORE(BCMA_MANUF_BCM, BCMA_CORE_80211, 24, BCMA_ANY_CLASS),
@@ -100,7 +100,7 @@ MODULE_DEVICE_TABLE(bcma, brcms_coreid_table);
 #ifdef DEBUG
 static int msglevel = 0xdeadbeef;
 module_param(msglevel, int, 0);
-#endif				/*       */
+#endif				/* DEBUG */
 
 static struct ieee80211_channel brcms_2ghz_chantable[] = {
 	CHAN2GHZ(1, 2412, IEEE80211_CHAN_NO_HT40MINUS),
@@ -126,12 +126,12 @@ static struct ieee80211_channel brcms_2ghz_chantable[] = {
 };
 
 static struct ieee80211_channel brcms_5ghz_nphy_chantable[] = {
-	/*        */
+	/* UNII-1 */
 	CHAN5GHZ(36, IEEE80211_CHAN_NO_HT40MINUS),
 	CHAN5GHZ(40, IEEE80211_CHAN_NO_HT40PLUS),
 	CHAN5GHZ(44, IEEE80211_CHAN_NO_HT40MINUS),
 	CHAN5GHZ(48, IEEE80211_CHAN_NO_HT40PLUS),
-	/*        */
+	/* UNII-2 */
 	CHAN5GHZ(52,
 		 IEEE80211_CHAN_RADAR | IEEE80211_CHAN_NO_IBSS |
 		 IEEE80211_CHAN_PASSIVE_SCAN | IEEE80211_CHAN_NO_HT40MINUS),
@@ -144,7 +144,7 @@ static struct ieee80211_channel brcms_5ghz_nphy_chantable[] = {
 	CHAN5GHZ(64,
 		 IEEE80211_CHAN_RADAR | IEEE80211_CHAN_NO_IBSS |
 		 IEEE80211_CHAN_PASSIVE_SCAN | IEEE80211_CHAN_NO_HT40PLUS),
-	/*     */
+	/* MID */
 	CHAN5GHZ(100,
 		 IEEE80211_CHAN_RADAR | IEEE80211_CHAN_NO_IBSS |
 		 IEEE80211_CHAN_PASSIVE_SCAN | IEEE80211_CHAN_NO_HT40MINUS),
@@ -179,7 +179,7 @@ static struct ieee80211_channel brcms_5ghz_nphy_chantable[] = {
 		 IEEE80211_CHAN_RADAR | IEEE80211_CHAN_NO_IBSS |
 		 IEEE80211_CHAN_PASSIVE_SCAN | IEEE80211_CHAN_NO_HT40PLUS |
 		 IEEE80211_CHAN_NO_HT40MINUS),
-	/*        */
+	/* UNII-3 */
 	CHAN5GHZ(149, IEEE80211_CHAN_NO_HT40MINUS),
 	CHAN5GHZ(153, IEEE80211_CHAN_NO_HT40PLUS),
 	CHAN5GHZ(157, IEEE80211_CHAN_NO_HT40MINUS),
@@ -188,8 +188,8 @@ static struct ieee80211_channel brcms_5ghz_nphy_chantable[] = {
 };
 
 /*
-                                                         
-                                                          
+ * The rate table is used for both 2.4G and 5G rates. The
+ * latter being a subset as it does not support CCK rates.
  */
 static struct ieee80211_rate legacy_ratetable[] = {
 	RATE(10, 0),
@@ -213,14 +213,14 @@ static const struct ieee80211_supported_band brcms_band_2GHz_nphy_template = {
 	.bitrates = legacy_ratetable,
 	.n_bitrates = ARRAY_SIZE(legacy_ratetable),
 	.ht_cap = {
-		   /*                                */
+		   /* from include/linux/ieee80211.h */
 		   .cap = IEEE80211_HT_CAP_GRN_FLD |
 			  IEEE80211_HT_CAP_SGI_20 | IEEE80211_HT_CAP_SGI_40,
 		   .ht_supported = true,
 		   .ampdu_factor = IEEE80211_HT_MAX_AMPDU_64K,
 		   .ampdu_density = AMPDU_DEF_MPDU_DENSITY,
 		   .mcs = {
-			   /*                      */
+			   /* placeholders for now */
 			   .rx_mask = {0xff, 0xff, 0, 0, 0, 0, 0, 0, 0, 0},
 			   .rx_highest = cpu_to_le16(500),
 			   .tx_params = IEEE80211_HT_MCS_TX_DEFINED}
@@ -241,14 +241,14 @@ static const struct ieee80211_supported_band brcms_band_5GHz_nphy_template = {
 		   .ampdu_factor = IEEE80211_HT_MAX_AMPDU_64K,
 		   .ampdu_density = AMPDU_DEF_MPDU_DENSITY,
 		   .mcs = {
-			   /*                      */
+			   /* placeholders for now */
 			   .rx_mask = {0xff, 0xff, 0, 0, 0, 0, 0, 0, 0, 0},
 			   .rx_highest = cpu_to_le16(500),
 			   .tx_params = IEEE80211_HT_MCS_TX_DEFINED}
 		   }
 };
 
-/*                                              */
+/* flags the given rate in rateset as requested */
 static void brcms_set_basic_rate(struct brcm_rateset *rs, u16 rate, bool is_br)
 {
 	u32 i;
@@ -294,7 +294,7 @@ static int brcms_ops_start(struct ieee80211_hw *hw)
 		wiphy_rfkill_stop_polling(wl->pub->ieee_hw->wiphy);
 
 	spin_lock_bh(&wl->lock);
-	/*                                                                 */
+	/* avoid acknowledging frames before a non-monitor device is added */
 	wl->mute_tx = true;
 
 	if (!wl->pub->up)
@@ -329,7 +329,7 @@ static void brcms_ops_stop(struct ieee80211_hw *hw)
 		return;
 	}
 
-	/*                          */
+	/* put driver in down state */
 	spin_lock_bh(&wl->lock);
 	brcms_down(wl);
 	spin_unlock_bh(&wl->lock);
@@ -340,7 +340,7 @@ brcms_ops_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct brcms_info *wl = hw->priv;
 
-	/*                  */
+	/* Just STA for now */
 	if (vif->type != NL80211_IFTYPE_STATION) {
 		wiphy_err(hw->wiphy, "%s: Attempt to add type %d, only"
 			  " STA for now\n", __func__, vif->type);
@@ -420,9 +420,9 @@ brcms_ops_bss_info_changed(struct ieee80211_hw *hw,
 	struct wiphy *wiphy = hw->wiphy;
 
 	if (changed & BSS_CHANGED_ASSOC) {
-		/*                                                      
-                                      
-   */
+		/* association status changed (associated/disassociated)
+		 * also implies a change in the AID.
+		 */
 		wiphy_err(wiphy, "%s: %s: %sassociated\n", KBUILD_MODNAME,
 			  __func__, info->assoc ? "" : "dis");
 		spin_lock_bh(&wl->lock);
@@ -432,7 +432,7 @@ brcms_ops_bss_info_changed(struct ieee80211_hw *hw,
 	if (changed & BSS_CHANGED_ERP_SLOT) {
 		s8 val;
 
-		/*                     */
+		/* slot timing changed */
 		if (info->use_short_slot)
 			val = 1;
 		else
@@ -443,7 +443,7 @@ brcms_ops_bss_info_changed(struct ieee80211_hw *hw,
 	}
 
 	if (changed & BSS_CHANGED_HT) {
-		/*                            */
+		/* 802.11n parameters changed */
 		u16 mode = info->ht_operation_mode;
 
 		spin_lock_bh(&wl->lock);
@@ -462,7 +462,7 @@ brcms_ops_bss_info_changed(struct ieee80211_hw *hw,
 		struct brcm_rateset rs;
 		int error;
 
-		/*                            */
+		/* retrieve the current rates */
 		spin_lock_bh(&wl->lock);
 		brcms_c_get_current_rateset(wl->wlc, &rs);
 		spin_unlock_bh(&wl->lock);
@@ -470,15 +470,15 @@ brcms_ops_bss_info_changed(struct ieee80211_hw *hw,
 		br_mask = info->basic_rates;
 		bi = hw->wiphy->bands[brcms_c_get_curband(wl->wlc)];
 		for (i = 0; i < bi->n_bitrates; i++) {
-			/*                                */
+			/* convert to internal rate value */
 			rate = (bi->bitrates[i].bitrate << 1) / 10;
 
-			/*                           */
+			/* set/clear basic rate flag */
 			brcms_set_basic_rate(&rs, rate, br_mask & 1);
 			br_mask >>= 1;
 		}
 
-		/*                     */
+		/* update the rate set */
 		spin_lock_bh(&wl->lock);
 		error = brcms_c_set_rateset(wl->wlc, &rs);
 		spin_unlock_bh(&wl->lock);
@@ -487,42 +487,42 @@ brcms_ops_bss_info_changed(struct ieee80211_hw *hw,
 				  error);
 	}
 	if (changed & BSS_CHANGED_BEACON_INT) {
-		/*                         */
+		/* Beacon interval changed */
 		spin_lock_bh(&wl->lock);
 		brcms_c_set_beacon_period(wl->wlc, info->beacon_int);
 		spin_unlock_bh(&wl->lock);
 	}
 	if (changed & BSS_CHANGED_BSSID) {
-		/*                                                            */
+		/* BSSID changed, for whatever reason (IBSS and managed mode) */
 		spin_lock_bh(&wl->lock);
 		brcms_c_set_addrmatch(wl->wlc, RCM_BSSID_OFFSET, info->bssid);
 		spin_unlock_bh(&wl->lock);
 	}
 	if (changed & BSS_CHANGED_BEACON)
-		/*                                                            */
+		/* Beacon data changed, retrieve new beacon (beaconing modes) */
 		wiphy_err(wiphy, "%s: beacon changed\n", __func__);
 
 	if (changed & BSS_CHANGED_BEACON_ENABLED) {
-		/*                                                        */
+		/* Beaconing should be enabled/disabled (beaconing modes) */
 		wiphy_err(wiphy, "%s: Beacon enabled: %s\n", __func__,
 			  info->enable_beacon ? "true" : "false");
 	}
 
 	if (changed & BSS_CHANGED_CQM) {
-		/*                                           */
+		/* Connection quality monitor config changed */
 		wiphy_err(wiphy, "%s: cqm change: threshold %d, hys %d "
 			  " (implement)\n", __func__, info->cqm_rssi_thold,
 			  info->cqm_rssi_hyst);
 	}
 
 	if (changed & BSS_CHANGED_IBSS) {
-		/*                          */
+		/* IBSS join status changed */
 		wiphy_err(wiphy, "%s: IBSS joined: %s (implement)\n", __func__,
 			  info->ibss_joined ? "true" : "false");
 	}
 
 	if (changed & BSS_CHANGED_ARP_FILTER) {
-		/*                                                   */
+		/* Hardware ARP filter address list or state changed */
 		wiphy_err(wiphy, "%s: arp filtering: enabled %s, count %d"
 			  " (implement)\n", __func__, info->arp_filter_enabled ?
 			  "true" : "false", info->arp_addr_cnt);
@@ -530,9 +530,9 @@ brcms_ops_bss_info_changed(struct ieee80211_hw *hw,
 
 	if (changed & BSS_CHANGED_QOS) {
 		/*
-                                                   
-                                                         
-   */
+		 * QoS for this association was enabled/disabled.
+		 * Note that it is only ever disabled for station mode.
+		 */
 		wiphy_err(wiphy, "%s: qos enabled: %s (implement)\n", __func__,
 			  info->qos ? "true" : "false");
 	}
@@ -616,9 +616,9 @@ brcms_ops_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	wl->pub->global_ampdu->max_pdu = 16;
 
 	/*
-                                                        
-                                   
-  */
+	 * minstrel_ht initiates addBA on our behalf by calling
+	 * ieee80211_start_tx_ba_session()
+	 */
 	return 0;
 }
 
@@ -660,17 +660,17 @@ brcms_ops_ampdu_action(struct ieee80211_hw *hw,
 		break;
 	case IEEE80211_AMPDU_TX_OPERATIONAL:
 		/*
-                                                                
-                                                            
-                                                              
-                
-   */
+		 * BA window size from ADDBA response ('buf_size') defines how
+		 * many outstanding MPDUs are allowed for the BA stream by
+		 * recipient and traffic class. 'ampdu_factor' gives maximum
+		 * AMPDU size.
+		 */
 		spin_lock_bh(&wl->lock);
 		brcms_c_ampdu_tx_operational(wl->wlc, tid, buf_size,
 			(1 << (IEEE80211_HT_MAX_AMPDU_FACTOR +
 			 sta->ht_cap.ampdu_factor)) - 1);
 		spin_unlock_bh(&wl->lock);
-		/*                   */
+		/* Power save wakeup */
 		break;
 	default:
 		wiphy_err(wl->wiphy, "%s: Invalid command, ignoring\n",
@@ -698,7 +698,7 @@ static void brcms_ops_flush(struct ieee80211_hw *hw, bool drop)
 
 	no_printk("%s: drop = %s\n", __func__, drop ? "true" : "false");
 
-	/*                                                  */
+	/* wait for packet queue and dma fifos to run empty */
 	spin_lock_bh(&wl->lock);
 	brcms_c_wait_for_tx_completion(wl->wlc, drop);
 	spin_unlock_bh(&wl->lock);
@@ -723,7 +723,7 @@ static const struct ieee80211_ops brcms_ops = {
 };
 
 /*
-                                                                          
+ * is called in brcms_bcma_probe() context, therefore no locking required.
  */
 static int brcms_set_hint(struct brcms_info *wl, char *abbrev)
 {
@@ -738,7 +738,7 @@ void brcms_dpc(unsigned long data)
 
 	spin_lock_bh(&wl->lock);
 
-	/*                                                */
+	/* call the common second level interrupt handler */
 	if (wl->pub->up) {
 		if (wl->resched) {
 			unsigned long flags;
@@ -751,15 +751,15 @@ void brcms_dpc(unsigned long data)
 		wl->resched = brcms_c_dpc(wl->wlc, true);
 	}
 
-	/*                                         */
+	/* brcms_c_dpc() may bring the driver down */
 	if (!wl->pub->up)
 		goto done;
 
-	/*                 */
+	/* re-schedule dpc */
 	if (wl->resched)
 		tasklet_schedule(&wl->tasklet);
 	else
-		/*                      */
+		/* re-enable interrupts */
 		brcms_intrson(wl);
 
  done:
@@ -767,8 +767,8 @@ void brcms_dpc(unsigned long data)
 }
 
 /*
-                                                                            
-                          
+ * Precondition: Since this function is called in brcms_pci_probe() context,
+ * no locking is required.
  */
 static int brcms_request_fw(struct brcms_info *wl, struct pci_dev *pdev)
 {
@@ -805,8 +805,8 @@ static int brcms_request_fw(struct brcms_info *wl, struct pci_dev *pdev)
 }
 
 /*
-                                                                            
-                          
+ * Precondition: Since this function is called in brcms_pci_probe() context,
+ * no locking is required.
  */
 static void brcms_release_fw(struct brcms_info *wl)
 {
@@ -817,45 +817,45 @@ static void brcms_release_fw(struct brcms_info *wl)
 	}
 }
 
-/* 
-                                                   
-  
-                                                                  
-                       
-  
-                                                       
-  
+/**
+ * This function frees the WL per-device resources.
+ *
+ * This function frees resources owned by the WL device pointed to
+ * by the wl parameter.
+ *
+ * precondition: can both be called locked and unlocked
+ *
  */
 static void brcms_free(struct brcms_info *wl)
 {
 	struct brcms_timer *t, *next;
 
-	/*                 */
+	/* free ucode data */
 	if (wl->fw.fw_cnt)
 		brcms_ucode_data_free(&wl->ucode);
 	if (wl->irq)
 		free_irq(wl->irq, wl);
 
-	/*          */
+	/* kill dpc */
 	tasklet_kill(&wl->tasklet);
 
 	if (wl->pub)
 		brcms_c_module_unregister(wl->pub, "linux", wl);
 
-	/*                       */
+	/* free common resources */
 	if (wl->wlc) {
 		brcms_c_detach(wl->wlc);
 		wl->wlc = NULL;
 		wl->pub = NULL;
 	}
 
-	/*                                                              */
+	/* virtual interface deletion is deferred so we cannot spinwait */
 
-	/*                                            */
+	/* wait for all pending callbacks to complete */
 	while (atomic_read(&wl->callbacks) > 0)
 		schedule();
 
-	/*             */
+	/* free timers */
 	for (t = wl->timers; t; t = next) {
 		next = t->next;
 #ifdef DEBUG
@@ -866,8 +866,8 @@ static void brcms_free(struct brcms_info *wl)
 }
 
 /*
-                                                                           
-                                               
+* called from both kernel as from this kernel module (error flow on attach)
+* precondition: perimeter lock is not acquired.
 */
 static void brcms_remove(struct bcma_device *pdev)
 {
@@ -895,14 +895,14 @@ static irqreturn_t brcms_isr(int irq, void *dev_id)
 
 	spin_lock(&wl->isr_lock);
 
-	/*                                           */
+	/* call common first level interrupt handler */
 	ours = brcms_c_isr(wl->wlc, &wantdpc);
 	if (ours) {
-		/*                  */
+		/* if more to do... */
 		if (wantdpc) {
 
-			/*                                                */
-			/*              */
+			/* ...and call the second level interrupt handler */
+			/* schedule dpc */
 			tasklet_schedule(&wl->tasklet);
 		}
 	}
@@ -913,7 +913,7 @@ static irqreturn_t brcms_isr(int irq, void *dev_id)
 }
 
 /*
-                                                                         
+ * is called in brcms_pci_probe() context, therefore no locking required.
  */
 static int ieee_hw_rate_init(struct ieee80211_hw *hw)
 {
@@ -931,7 +931,7 @@ static int ieee_hw_rate_init(struct ieee80211_hw *hw)
 		band = &wlc->bandstate[BAND_2G_INDEX]->band;
 		*band = brcms_band_2GHz_nphy_template;
 		if (phy_type == PHY_TYPE_LCN) {
-			/*               */
+			/* Single stream */
 			band->ht_cap.mcs.rx_mask[1] = 0;
 			band->ht_cap.mcs.rx_highest = cpu_to_le16(72);
 		}
@@ -940,7 +940,7 @@ static int ieee_hw_rate_init(struct ieee80211_hw *hw)
 		return -EPERM;
 	}
 
-	/*                                                           */
+	/* Assume all bands use the same phy.  True for 11n devices. */
 	if (wl->pub->_nbands > 1) {
 		has_5g++;
 		if (phy_type == PHY_TYPE_N || phy_type == PHY_TYPE_LCN) {
@@ -955,20 +955,20 @@ static int ieee_hw_rate_init(struct ieee80211_hw *hw)
 }
 
 /*
-                                                                         
+ * is called in brcms_pci_probe() context, therefore no locking required.
  */
 static int ieee_hw_init(struct ieee80211_hw *hw)
 {
 	hw->flags = IEEE80211_HW_SIGNAL_DBM
-	    /*                                                  */
+	    /* | IEEE80211_HW_CONNECTION_MONITOR  What is this? */
 	    | IEEE80211_HW_REPORTS_TX_ACK_STATUS
 	    | IEEE80211_HW_AMPDU_AGGREGATION;
 
 	hw->extra_tx_headroom = brcms_c_get_header_len();
 	hw->queues = N_TX_QUEUES;
-	hw->max_rates = 2;	/*                                  */
+	hw->max_rates = 2;	/* Primary rate and 1 fallback rate */
 
-	/*                                                    */
+	/* channel change time is dependent on chip and band  */
 	hw->channel_change_time = 7 * 1000;
 	hw->wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION);
 
@@ -978,19 +978,19 @@ static int ieee_hw_init(struct ieee80211_hw *hw)
 	return ieee_hw_rate_init(hw);
 }
 
-/* 
-                           
-  
-                                                                      
-                                                                            
-  
-                                                                         
-                                                                       
-                                                                     
-                
-  
-  
-                                                                          
+/**
+ * attach to the WL device.
+ *
+ * Attach to the WL device identified by vendor and device parameters.
+ * regs is a host accessible memory address pointing to WL device registers.
+ *
+ * brcms_attach is not defined as static because in the case where no bus
+ * is defined, wl_attach will never be called, and thus, gcc will issue
+ * a warning that this function is defined but not used if we declare
+ * it as static.
+ *
+ *
+ * is called in brcms_bcma_probe() context, therefore no locking required.
  */
 static struct brcms_info *brcms_attach(struct bcma_device *pdev)
 {
@@ -1005,7 +1005,7 @@ static struct brcms_info *brcms_attach(struct bcma_device *pdev)
 	if (unit < 0)
 		return NULL;
 
-	/*                       */
+	/* allocate private info */
 	hw = bcma_get_drvdata(pdev);
 	if (hw != NULL)
 		wl = hw->priv;
@@ -1015,13 +1015,13 @@ static struct brcms_info *brcms_attach(struct bcma_device *pdev)
 
 	atomic_set(&wl->callbacks, 0);
 
-	/*                               */
+	/* setup the bottom half handler */
 	tasklet_init(&wl->tasklet, brcms_dpc, (unsigned long) wl);
 
 	spin_lock_init(&wl->lock);
 	spin_lock_init(&wl->isr_lock);
 
-	/*               */
+	/* prepare ucode */
 	if (brcms_request_fw(wl, pdev->bus->host_pci) < 0) {
 		wiphy_err(wl->wiphy, "%s: Failed to find firmware usually in "
 			  "%s\n", KBUILD_MODNAME, "/lib/firmware/brcm");
@@ -1030,7 +1030,7 @@ static struct brcms_info *brcms_attach(struct bcma_device *pdev)
 		return NULL;
 	}
 
-	/*                                 */
+	/* common load-time initialization */
 	wl->wlc = brcms_c_attach((void *)wl, pdev, unit, false, &err);
 	brcms_release_fw(wl);
 	if (!wl->wlc) {
@@ -1042,7 +1042,7 @@ static struct brcms_info *brcms_attach(struct bcma_device *pdev)
 
 	wl->pub->ieee_hw = hw;
 
-	/*                                */
+	/* register our interrupt handler */
 	if (request_irq(pdev->bus->host_pci->irq, brcms_isr,
 			IRQF_SHARED, KBUILD_MODNAME, wl)) {
 		wiphy_err(wl->wiphy, "wl%d: request_irq() failed\n", unit);
@@ -1050,7 +1050,7 @@ static struct brcms_info *brcms_attach(struct bcma_device *pdev)
 	}
 	wl->irq = pdev->bus->host_pci->irq;
 
-	/*                 */
+	/* register module */
 	brcms_c_module_register(wl->pub, "linux", wl, NULL);
 
 	if (ieee_hw_init(hw)) {
@@ -1087,13 +1087,13 @@ fail:
 
 
 
-/* 
-                                                                 
-  
-                                                                          
-                                              
-  
-                                                                
+/**
+ * determines if a device is a WL device, and if so, attaches it.
+ *
+ * This function determines if a device pointed to by pdev is a WL device,
+ * and if so, performs a brcms_attach() on it.
+ *
+ * Perimeter lock is initialized in the course of this function.
  */
 static int __devinit brcms_bcma_probe(struct bcma_device *pdev)
 {
@@ -1141,7 +1141,7 @@ static int brcms_suspend(struct bcma_device *pdev)
 		return -ENODEV;
 	}
 
-	/*                                                */
+	/* only need to flag hw is down for proper resume */
 	spin_lock_bh(&wl->lock);
 	wl->pub->hw_up = false;
 	spin_unlock_bh(&wl->lock);
@@ -1166,12 +1166,12 @@ static struct bcma_driver brcms_bcma_driver = {
 	.id_table = brcms_coreid_table,
 };
 
-/* 
-                                                        
-  
-                                                            
-                                                                   
-                                        
+/**
+ * This is the main entry point for the brcmsmac driver.
+ *
+ * This function is scheduled upon module initialization and
+ * does the driver registration, which result in brcms_bcma_probe()
+ * call resulting in the driver bringup.
  */
 static void brcms_driver_init(struct work_struct *work)
 {
@@ -1196,12 +1196,12 @@ static int __init brcms_module_init(void)
 	return 0;
 }
 
-/* 
-                                                             
-  
-                                                                            
-          
-  
+/**
+ * This function unloads the brcmsmac driver from the system.
+ *
+ * This function unconditionally unloads the brcmsmac driver module from the
+ * system.
+ *
  */
 static void __exit brcms_module_exit(void)
 {
@@ -1213,7 +1213,7 @@ module_init(brcms_module_init);
 module_exit(brcms_module_exit);
 
 /*
-                                                 
+ * precondition: perimeter lock has been acquired
  */
 void brcms_txflowcontrol(struct brcms_info *wl, struct brcms_if *wlif,
 			 bool state, int prio)
@@ -1222,7 +1222,7 @@ void brcms_txflowcontrol(struct brcms_info *wl, struct brcms_if *wlif,
 }
 
 /*
-                                                 
+ * precondition: perimeter lock has been acquired
  */
 void brcms_init(struct brcms_info *wl)
 {
@@ -1232,14 +1232,14 @@ void brcms_init(struct brcms_info *wl)
 }
 
 /*
-                                                 
+ * precondition: perimeter lock has been acquired
  */
 uint brcms_reset(struct brcms_info *wl)
 {
 	BCMMSG(wl->pub->ieee_hw->wiphy, "wl%d\n", wl->pub->unit);
 	brcms_c_reset(wl->wlc);
 
-	/*                             */
+	/* dpc will not be rescheduled */
 	wl->resched = false;
 
 	return 0;
@@ -1254,8 +1254,8 @@ void brcms_fatal_error(struct brcms_info *wl)
 }
 
 /*
-                                                              
-                                     
+ * These are interrupt on/off entry points. Disable interrupts
+ * during interrupt state transition.
  */
 void brcms_intrson(struct brcms_info *wl)
 {
@@ -1287,7 +1287,7 @@ void brcms_intrsrestore(struct brcms_info *wl, u32 macintmask)
 }
 
 /*
-                                                 
+ * precondition: perimeter lock has been acquired
  */
 int brcms_up(struct brcms_info *wl)
 {
@@ -1302,29 +1302,29 @@ int brcms_up(struct brcms_info *wl)
 }
 
 /*
-                                                 
+ * precondition: perimeter lock has been acquired
  */
 void brcms_down(struct brcms_info *wl)
 {
 	uint callbacks, ret_val = 0;
 
-	/*                           */
+	/* call common down function */
 	ret_val = brcms_c_down(wl->wlc);
 	callbacks = atomic_read(&wl->callbacks) - ret_val;
 
-	/*                                     */
+	/* wait for down callbacks to complete */
 	spin_unlock_bh(&wl->lock);
 
-	/*                                                                      
-                                                              
-  */
+	/* For HIGH_only driver, it's important to actually schedule other work,
+	 * not just spin wait since everything runs at schedule level
+	 */
 	SPINWAIT((atomic_read(&wl->callbacks) > callbacks), 100 * 1000);
 
 	spin_lock_bh(&wl->lock);
 }
 
 /*
-                                              
+* precondition: perimeter lock is not acquired
  */
 static void _brcms_timer(struct work_struct *work)
 {
@@ -1352,10 +1352,10 @@ static void _brcms_timer(struct work_struct *work)
 }
 
 /*
-                                                              
-                      
-  
-                                                 
+ * Adds a timer to the list. Caller supplies a timer function.
+ * Is called from wlc.
+ *
+ * precondition: perimeter lock has been acquired
  */
 struct brcms_timer *brcms_init_timer(struct brcms_info *wl,
 				     void (*fn) (void *arg),
@@ -1384,10 +1384,10 @@ struct brcms_timer *brcms_init_timer(struct brcms_info *wl,
 }
 
 /*
-                                                                  
-                                             
-  
-                                                 
+ * adds only the kernel timer since it's going to be more accurate
+ * as well as it's easier to make it periodic
+ *
+ * precondition: perimeter lock has been acquired
  */
 void brcms_add_timer(struct brcms_timer *t, uint ms, int periodic)
 {
@@ -1408,9 +1408,9 @@ void brcms_add_timer(struct brcms_timer *t, uint ms, int periodic)
 }
 
 /*
-                                                                    
-  
-                                                 
+ * return true if timer successfully deleted, false if still pending
+ *
+ * precondition: perimeter lock has been acquired
  */
 bool brcms_del_timer(struct brcms_timer *t)
 {
@@ -1426,14 +1426,14 @@ bool brcms_del_timer(struct brcms_timer *t)
 }
 
 /*
-                                                 
+ * precondition: perimeter lock has been acquired
  */
 void brcms_free_timer(struct brcms_timer *t)
 {
 	struct brcms_info *wl = t->wl;
 	struct brcms_timer *tmp;
 
-	/*                                       */
+	/* delete the timer in case it is active */
 	brcms_del_timer(t);
 
 	if (wl->timers == t) {
@@ -1462,7 +1462,7 @@ void brcms_free_timer(struct brcms_timer *t)
 }
 
 /*
-                                                 
+ * precondition: perimeter lock has been acquired
  */
 int brcms_ucode_init_buf(struct brcms_info *wl, void **pbuf, u32 idx)
 {
@@ -1493,8 +1493,8 @@ fail:
 }
 
 /*
-                                                                             
-                          
+ * Precondition: Since this function is called in brcms_bcma_probe() context,
+ * no locking is required.
  */
 int brcms_ucode_init_uint(struct brcms_info *wl, size_t *n_bytes, u32 idx)
 {
@@ -1523,7 +1523,7 @@ int brcms_ucode_init_uint(struct brcms_info *wl, size_t *n_bytes, u32 idx)
 }
 
 /*
-                                                       
+ * precondition: can both be called locked and unlocked
  */
 void brcms_ucode_free_buf(void *p)
 {
@@ -1531,10 +1531,10 @@ void brcms_ucode_free_buf(void *p)
 }
 
 /*
-                                                                
-  
-                                                                             
-                          
+ * checks validity of all firmware images loaded from user space
+ *
+ * Precondition: Since this function is called in brcms_bcma_probe() context,
+ * no locking is required.
  */
 int brcms_check_firmwares(struct brcms_info *wl)
 {
@@ -1563,7 +1563,7 @@ int brcms_check_firmwares(struct brcms_info *wl)
 				  "%zu\n", __func__, fw->size);
 			rc = -EBADF;
 		} else {
-			/*                                                */
+			/* check if ucode section overruns firmware image */
 			ucode_hdr = (struct firmware_hdr *)fw_hdr->data;
 			for (entry = 0; entry < wl->fw.hdr_num_entries[i] &&
 			     !rc; entry++, ucode_hdr++) {
@@ -1587,7 +1587,7 @@ int brcms_check_firmwares(struct brcms_info *wl)
 }
 
 /*
-                                                 
+ * precondition: perimeter lock has been acquired
  */
 bool brcms_rfkill_set_hw_state(struct brcms_info *wl)
 {
@@ -1602,7 +1602,7 @@ bool brcms_rfkill_set_hw_state(struct brcms_info *wl)
 }
 
 /*
-                                                 
+ * precondition: perimeter lock has been acquired
  */
 void brcms_msleep(struct brcms_info *wl, uint ms)
 {

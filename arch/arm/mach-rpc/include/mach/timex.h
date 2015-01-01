@@ -11,7 +11,7 @@
  */
 
 /*
-                                          
+ * On the RiscPC, the clock ticks at 2MHz.
  */
 #define CLOCK_TICK_RATE		2000000
 

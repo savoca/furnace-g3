@@ -16,7 +16,7 @@
  */
 
 /*
-                          
+ *  bfa_fcs.c BFA FCS main
  */
 
 #include "bfad_drv.h"
@@ -27,7 +27,7 @@
 BFA_TRC_FILE(FCS, FCS);
 
 /*
-                  
+ * FCS sub-modules
  */
 struct bfa_fcs_mod_s {
 	void		(*attach) (struct bfa_fcs_s *fcs);
@@ -45,7 +45,7 @@ static struct bfa_fcs_mod_s fcs_modules[] = {
 };
 
 /*
-                       
+ *  fcs_api BFA FCS API
  */
 
 static void
@@ -60,11 +60,11 @@ bfa_fcs_exit_comp(void *fcs_cbarg)
 
 
 /*
-                       
+ *  fcs_api BFA FCS API
  */
 
 /*
-                                                                                
+ * fcs attach -- called once to initialize data structures at driver attach time
  */
 void
 bfa_fcs_attach(struct bfa_fcs_s *fcs, struct bfa_s *bfa, struct bfad_s *bfad,
@@ -88,7 +88,7 @@ bfa_fcs_attach(struct bfa_fcs_s *fcs, struct bfa_s *bfa, struct bfad_s *bfad,
 }
 
 /*
-                                                                       
+ * fcs initialization, called once after bfa initialization is complete
  */
 void
 bfa_fcs_init(struct bfa_fcs_s *fcs)
@@ -104,8 +104,8 @@ bfa_fcs_init(struct bfa_fcs_s *fcs)
 }
 
 /*
-                                                                   
-                                                            
+ * FCS update cfg - reset the pwwn/nwwn of fabric base logical port
+ * with values learned during bfa_init firmware GETATTR REQ.
  */
 void
 bfa_fcs_update_cfg(struct bfa_fcs_s *fcs)
@@ -119,7 +119,7 @@ bfa_fcs_update_cfg(struct bfa_fcs_s *fcs)
 }
 
 /*
-                               
+ * fcs pbc vport initialization
  */
 void
 bfa_fcs_pbc_vport_init(struct bfa_fcs_s *fcs)
@@ -127,7 +127,7 @@ bfa_fcs_pbc_vport_init(struct bfa_fcs_s *fcs)
 	int i, npbc_vports;
 	struct bfi_pbc_vport_s pbc_vports[BFI_PBC_MAX_VPORTS];
 
-	/*                       */
+	/* Initialize pbc vports */
 	if (!fcs->min_cfg) {
 		npbc_vports =
 			bfa_iocfc_get_pbc_vports(fcs->bfa, pbc_vports);
@@ -137,13 +137,13 @@ bfa_fcs_pbc_vport_init(struct bfa_fcs_s *fcs)
 }
 
 /*
-        
-                                      
-  
-                               
-                                        
-  
-              
+ *	brief
+ *		FCS driver details initialization.
+ *
+ *	param[in]		fcs		FCS instance
+ *	param[in]		driver_info	Driver Details
+ *
+ *	return None
  */
 void
 bfa_fcs_driver_info_init(struct bfa_fcs_s *fcs,
@@ -156,11 +156,11 @@ bfa_fcs_driver_info_init(struct bfa_fcs_s *fcs,
 }
 
 /*
-        
-                                  
-  
-                                
-              
+ *	brief
+ *		FCS instance cleanup and exit.
+ *
+ *	param[in]		fcs			FCS instance
+ *	return None
  */
 void
 bfa_fcs_exit(struct bfa_fcs_s *fcs)
@@ -186,11 +186,11 @@ bfa_fcs_exit(struct bfa_fcs_s *fcs)
 
 
 /*
-                                
+ * Fabric module implementation.
  */
 
-#define BFA_FCS_FABRIC_RETRY_DELAY	(2000)	/*              */
-#define BFA_FCS_FABRIC_CLEANUP_DELAY	(10000)	/*              */
+#define BFA_FCS_FABRIC_RETRY_DELAY	(2000)	/* Milliseconds */
+#define BFA_FCS_FABRIC_CLEANUP_DELAY	(10000)	/* Milliseconds */
 
 #define bfa_fcs_fabric_set_opertype(__fabric) do {			\
 	if (bfa_fcport_get_topology((__fabric)->fcs->bfa)		\
@@ -204,7 +204,7 @@ bfa_fcs_exit(struct bfa_fcs_s *fcs)
 } while (0)
 
 /*
-                       
+ * forward declarations
  */
 static void bfa_fcs_fabric_init(struct bfa_fcs_fabric_s *fabric);
 static void bfa_fcs_fabric_login(struct bfa_fcs_fabric_s *fabric);
@@ -251,7 +251,7 @@ static void	bfa_fcs_fabric_sm_isolated(struct bfa_fcs_fabric_s *fabric,
 static void	bfa_fcs_fabric_sm_deleting(struct bfa_fcs_fabric_s *fabric,
 					   enum bfa_fcs_fabric_event event);
 /*
-                                            
+ *   Beginning state before fabric creation.
  */
 static void
 bfa_fcs_fabric_sm_uninit(struct bfa_fcs_fabric_s *fabric,
@@ -277,7 +277,7 @@ bfa_fcs_fabric_sm_uninit(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                            
+ *   Beginning state before fabric creation.
  */
 static void
 bfa_fcs_fabric_sm_created(struct bfa_fcs_fabric_s *fabric,
@@ -310,8 +310,8 @@ bfa_fcs_fabric_sm_created(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                                                     
-                                    
+ *   Link is down, awaiting LINK UP event from port. This is also the
+ *   first state at fabric creation.
  */
 static void
 bfa_fcs_fabric_sm_linkdown(struct bfa_fcs_fabric_s *fabric,
@@ -340,7 +340,7 @@ bfa_fcs_fabric_sm_linkdown(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                                
+ *   FLOGI is in progress, awaiting FLOGI reply.
  */
 static void
 bfa_fcs_fabric_sm_flogi(struct bfa_fcs_fabric_s *fabric,
@@ -435,7 +435,7 @@ bfa_fcs_fabric_sm_flogi_retry(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                                                    
+ *   Authentication is in progress, awaiting authentication results.
  */
 static void
 bfa_fcs_fabric_sm_auth(struct bfa_fcs_fabric_s *fabric,
@@ -475,7 +475,7 @@ bfa_fcs_fabric_sm_auth(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                          
+ *   Authentication failed
  */
 void
 bfa_fcs_fabric_sm_auth_failed(struct bfa_fcs_fabric_s *fabric,
@@ -501,7 +501,7 @@ bfa_fcs_fabric_sm_auth_failed(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                              
+ *   Port is in loopback mode.
  */
 void
 bfa_fcs_fabric_sm_loopback(struct bfa_fcs_fabric_s *fabric,
@@ -527,7 +527,7 @@ bfa_fcs_fabric_sm_loopback(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                                                           
+ *   There is no attached fabric - private loop or NPort-to-NPort topology.
  */
 static void
 bfa_fcs_fabric_sm_nofabric(struct bfa_fcs_fabric_s *fabric,
@@ -564,7 +564,7 @@ bfa_fcs_fabric_sm_nofabric(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                               
+ *   Fabric is online - normal operating state.
  */
 void
 bfa_fcs_fabric_sm_online(struct bfa_fcs_fabric_s *fabric,
@@ -599,7 +599,7 @@ bfa_fcs_fabric_sm_online(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                          
+ *   Exchanging virtual fabric parameters.
  */
 static void
 bfa_fcs_fabric_sm_evfp(struct bfa_fcs_fabric_s *fabric,
@@ -623,7 +623,7 @@ bfa_fcs_fabric_sm_evfp(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                                       
+ *   EVFP exchange complete and VFT tagging is enabled.
  */
 static void
 bfa_fcs_fabric_sm_evfp_done(struct bfa_fcs_fabric_s *fabric,
@@ -634,7 +634,7 @@ bfa_fcs_fabric_sm_evfp_done(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                                                          
+ *   Port is isolated after EVFP exchange due to VF_ID mismatch (N and F).
  */
 static void
 bfa_fcs_fabric_sm_isolated(struct bfa_fcs_fabric_s *fabric,
@@ -655,7 +655,7 @@ bfa_fcs_fabric_sm_isolated(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                                                
+ *   Fabric is being deleted, awaiting vport delete completions.
  */
 static void
 bfa_fcs_fabric_sm_deleting(struct bfa_fcs_fabric_s *fabric,
@@ -685,7 +685,7 @@ bfa_fcs_fabric_sm_deleting(struct bfa_fcs_fabric_s *fabric,
 
 
 /*
-                                               
+ *  fcs_fabric_private fabric private functions
  */
 
 static void
@@ -699,7 +699,7 @@ bfa_fcs_fabric_init(struct bfa_fcs_fabric_s *fabric)
 }
 
 /*
-                                             
+ * Port Symbolic Name Creation for base port.
  */
 void
 bfa_fcs_fabric_psymb_init(struct bfa_fcs_fabric_s *fabric)
@@ -710,19 +710,19 @@ bfa_fcs_fabric_psymb_init(struct bfa_fcs_fabric_s *fabric)
 
 	bfa_ioc_get_adapter_model(&fabric->fcs->bfa->ioc, model);
 
-	/*                   */
+	/* Model name/number */
 	strncpy((char *)&port_cfg->sym_name, model,
 		BFA_FCS_PORT_SYMBNAME_MODEL_SZ);
 	strncat((char *)&port_cfg->sym_name, BFA_FCS_PORT_SYMBNAME_SEPARATOR,
 		sizeof(BFA_FCS_PORT_SYMBNAME_SEPARATOR));
 
-	/*                */
+	/* Driver Version */
 	strncat((char *)&port_cfg->sym_name, (char *)driver_info->version,
 		BFA_FCS_PORT_SYMBNAME_VERSION_SZ);
 	strncat((char *)&port_cfg->sym_name, BFA_FCS_PORT_SYMBNAME_SEPARATOR,
 		sizeof(BFA_FCS_PORT_SYMBNAME_SEPARATOR));
 
-	/*                   */
+	/* Host machine name */
 	strncat((char *)&port_cfg->sym_name,
 		(char *)driver_info->host_machine_name,
 		BFA_FCS_PORT_SYMBNAME_MACHINENAME_SZ);
@@ -730,10 +730,10 @@ bfa_fcs_fabric_psymb_init(struct bfa_fcs_fabric_s *fabric)
 		sizeof(BFA_FCS_PORT_SYMBNAME_SEPARATOR));
 
 	/*
-                  
-                                                                     
-                                                                         
-  */
+	 * Host OS Info :
+	 * If OS Patch Info is not there, do not truncate any bytes from the
+	 * OS name string and instead copy the entire OS info string (64 bytes).
+	 */
 	if (driver_info->host_os_patch[0] == '\0') {
 		strncat((char *)&port_cfg->sym_name,
 			(char *)driver_info->host_os_name,
@@ -749,18 +749,18 @@ bfa_fcs_fabric_psymb_init(struct bfa_fcs_fabric_s *fabric)
 			BFA_FCS_PORT_SYMBNAME_SEPARATOR,
 			sizeof(BFA_FCS_PORT_SYMBNAME_SEPARATOR));
 
-		/*                           */
+		/* Append host OS Patch Info */
 		strncat((char *)&port_cfg->sym_name,
 			(char *)driver_info->host_os_patch,
 			BFA_FCS_PORT_SYMBNAME_OSPATCH_SZ);
 	}
 
-	/*                */
+	/* null terminate */
 	port_cfg->sym_name.symname[BFA_SYMNAME_MAXLEN - 1] = 0;
 }
 
 /*
-                                    
+ * bfa lps login completion callback
  */
 void
 bfa_cb_lps_flogi_comp(void *bfad, void *uarg, bfa_status_t status)
@@ -776,7 +776,7 @@ bfa_cb_lps_flogi_comp(void *bfad, void *uarg, bfa_status_t status)
 		break;
 
 	case BFA_STATUS_INVALID_MAC:
-		/*              */
+		/* Only for CNA */
 		fabric->stats.flogi_acc_err++;
 		bfa_sm_send_event(fabric, BFA_FCS_FABRIC_SM_RETRY_OP);
 
@@ -821,8 +821,8 @@ bfa_cb_lps_flogi_comp(void *bfad, void *uarg, bfa_status_t status)
 		fabric->fabric_name =  fabric->lps->pr_nwwn;
 
 	/*
-                                             
-  */
+	 * Check port type. It should be 1 = F-port.
+	 */
 	if (fabric->lps->fport) {
 		fabric->bport.pid = fabric->lps->lp_pid;
 		fabric->is_npiv = fabric->lps->npiv_en;
@@ -830,8 +830,8 @@ bfa_cb_lps_flogi_comp(void *bfad, void *uarg, bfa_status_t status)
 		bfa_sm_send_event(fabric, BFA_FCS_FABRIC_SM_CONT_OP);
 	} else {
 		/*
-                                  
-   */
+		 * Nport-2-Nport direct attached
+		 */
 		fabric->bport.port_topo.pn2n.rem_port_wwn =
 			fabric->lps->pr_pwwn;
 		fabric->fab_type = BFA_FCS_FABRIC_N2N;
@@ -843,7 +843,7 @@ bfa_cb_lps_flogi_comp(void *bfad, void *uarg, bfa_status_t status)
 	bfa_trc(fabric->fcs, fabric->is_auth);
 }
 /*
-                            
+ *		Allocate and send FLOGI.
  */
 static void
 bfa_fcs_fabric_login(struct bfa_fcs_fabric_s *fabric)
@@ -877,8 +877,8 @@ bfa_fcs_fabric_notify_online(struct bfa_fcs_fabric_s *fabric)
 	fabric->stats.fabric_onlines++;
 
 	/*
-                                                      
-  */
+	 * notify online event to base and then virtual ports
+	 */
 	bfa_fcs_lport_online(&fabric->bport);
 
 	list_for_each_safe(qe, qen, &fabric->vport_q) {
@@ -897,8 +897,8 @@ bfa_fcs_fabric_notify_offline(struct bfa_fcs_fabric_s *fabric)
 	fabric->stats.fabric_offlines++;
 
 	/*
-                                                            
-  */
+	 * notify offline event first to vports and then base port.
+	 */
 	list_for_each_safe(qe, qen, &fabric->vport_q) {
 		vport = (struct bfa_fcs_vport_s *) qe;
 		bfa_fcs_vport_offline(vport);
@@ -919,7 +919,7 @@ bfa_fcs_fabric_delay(void *cbarg)
 }
 
 /*
-                                  
+ * Computes operating BB_SCN value
  */
 static u8
 bfa_fcs_fabric_oper_bbscn(struct bfa_fcs_fabric_s *fabric)
@@ -930,13 +930,13 @@ bfa_fcs_fabric_oper_bbscn(struct bfa_fcs_fabric_s *fabric)
 	if (!(fcport->cfg.bb_scn_state && pr_bbscn))
 		return 0;
 
-	/*                                          */
+	/* return max of local/remote bb_scn values */
 	return ((pr_bbscn > BFA_FCS_PORT_DEF_BB_SCN) ?
 		pr_bbscn : BFA_FCS_PORT_DEF_BB_SCN);
 }
 
 /*
-                                  
+ * Check if BB_SCN can be enabled.
  */
 static bfa_boolean_t
 bfa_fcs_fabric_is_bbscn_enabled(struct bfa_fcs_fabric_s *fabric)
@@ -953,7 +953,7 @@ bfa_fcs_fabric_is_bbscn_enabled(struct bfa_fcs_fabric_s *fabric)
 }
 
 /*
-                                                           
+ * Delete all vports and wait for vport delete completions.
  */
 static void
 bfa_fcs_fabric_delete(struct bfa_fcs_fabric_s *fabric)
@@ -979,11 +979,11 @@ bfa_fcs_fabric_delete_comp(void *cbarg)
 }
 
 /*
-                                             
+ *  fcs_fabric_public fabric public functions
  */
 
 /*
-                              
+ * Attach time initialization.
  */
 void
 bfa_fcs_fabric_attach(struct bfa_fcs_s *fcs)
@@ -994,8 +994,8 @@ bfa_fcs_fabric_attach(struct bfa_fcs_s *fcs)
 	memset(fabric, 0, sizeof(struct bfa_fcs_fabric_s));
 
 	/*
-                           
-  */
+	 * Initialize base fabric.
+	 */
 	fabric->fcs = fcs;
 	INIT_LIST_HEAD(&fabric->vport_q);
 	INIT_LIST_HEAD(&fabric->vf_q);
@@ -1003,11 +1003,11 @@ bfa_fcs_fabric_attach(struct bfa_fcs_s *fcs)
 	WARN_ON(!fabric->lps);
 
 	/*
-                                                                   
-                                                    
-  */
+	 * Initialize fabric delete completion handler. Fabric deletion is
+	 * complete when the last vport delete is complete.
+	 */
 	bfa_wc_init(&fabric->wc, bfa_fcs_fabric_delete_comp, fabric);
-	bfa_wc_up(&fabric->wc); /*                   */
+	bfa_wc_up(&fabric->wc); /* For the base port */
 
 	bfa_sm_set_state(fabric, bfa_fcs_fabric_sm_uninit);
 	bfa_fcs_lport_attach(&fabric->bport, fabric->fcs, FC_VF_ID_NULL, NULL);
@@ -1021,7 +1021,7 @@ bfa_fcs_fabric_modinit(struct bfa_fcs_s *fcs)
 }
 
 /*
-                   
+ *   Module cleanup
  */
 void
 bfa_fcs_fabric_modexit(struct bfa_fcs_s *fcs)
@@ -1031,15 +1031,15 @@ bfa_fcs_fabric_modexit(struct bfa_fcs_s *fcs)
 	bfa_trc(fcs, 0);
 
 	/*
-                        
-  */
+	 * Cleanup base fabric.
+	 */
 	fabric = &fcs->fabric;
 	bfa_lps_delete(fabric->lps);
 	bfa_sm_send_event(fabric, BFA_FCS_FABRIC_SM_DELETE);
 }
 
 /*
-                                                 
+ * Fabric module start -- kick starts FCS actions
  */
 void
 bfa_fcs_fabric_modstart(struct bfa_fcs_s *fcs)
@@ -1053,7 +1053,7 @@ bfa_fcs_fabric_modstart(struct bfa_fcs_s *fcs)
 
 
 /*
-                                                        
+ *   Link up notification from BFA physical port module.
  */
 void
 bfa_fcs_fabric_link_up(struct bfa_fcs_fabric_s *fabric)
@@ -1063,7 +1063,7 @@ bfa_fcs_fabric_link_up(struct bfa_fcs_fabric_s *fabric)
 }
 
 /*
-                                                          
+ *   Link down notification from BFA physical port module.
  */
 void
 bfa_fcs_fabric_link_down(struct bfa_fcs_fabric_s *fabric)
@@ -1074,23 +1074,23 @@ bfa_fcs_fabric_link_down(struct bfa_fcs_fabric_s *fabric)
 }
 
 /*
-                                                  
-  
-                                                                             
-                                                                  
-  
-                                                                         
-                                            
-  
-                                   
+ *   A child vport is being created in the fabric.
+ *
+ *   Call from vport module at vport creation. A list of base port and vports
+ *   belonging to a fabric is maintained to propagate link events.
+ *
+ *   param[in] fabric - Fabric instance. This can be a base fabric or vf.
+ *   param[in] vport  - Vport being created.
+ *
+ *   @return None (always succeeds)
  */
 void
 bfa_fcs_fabric_addvport(struct bfa_fcs_fabric_s *fabric,
 			struct bfa_fcs_vport_s *vport)
 {
 	/*
-                                   
-  */
+	 * - add vport to fabric's vport_q
+	 */
 	bfa_trc(fabric->fcs, fabric->vf_id);
 
 	list_add_tail(&vport->qe, &fabric->vport_q);
@@ -1099,9 +1099,9 @@ bfa_fcs_fabric_addvport(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                                
-  
-                            
+ *   A child vport is being deleted from fabric.
+ *
+ *   Vport is being deleted.
  */
 void
 bfa_fcs_fabric_delvport(struct bfa_fcs_fabric_s *fabric,
@@ -1114,7 +1114,7 @@ bfa_fcs_fabric_delvport(struct bfa_fcs_fabric_s *fabric,
 
 
 /*
-                                                    
+ * Lookup for a vport within a fabric given its pwwn
  */
 struct bfa_fcs_vport_s *
 bfa_fcs_fabric_vport_lookup(struct bfa_fcs_fabric_s *fabric, wwn_t pwwn)
@@ -1133,14 +1133,14 @@ bfa_fcs_fabric_vport_lookup(struct bfa_fcs_fabric_s *fabric, wwn_t pwwn)
 
 
 /*
-                                   
-  
-                                                                      
-                                                                        
-                                              
-                                                                   
-                                                                    
-                         
+ *  Get OUI of the attached switch.
+ *
+ *  Note : Use of this function should be avoided as much as possible.
+ *         This function should be used only if there is any requirement
+*          to check for FOS version below 6.3.
+ *         To check if the attached fabric is a brocade fabric, use
+ *         bfa_lps_is_brcd_fabric() which works for FOS versions 6.3
+ *         or above only.
  */
 
 u16
@@ -1158,7 +1158,7 @@ bfa_fcs_fabric_get_switch_oui(struct bfa_fcs_fabric_s *fabric)
 	return oui;
 }
 /*
-                                       
+ *		Unsolicited frame receive handling.
  */
 void
 bfa_fcs_fabric_uf_recv(struct bfa_fcs_fabric_s *fabric, struct fchs_s *fchs,
@@ -1174,10 +1174,10 @@ bfa_fcs_fabric_uf_recv(struct bfa_fcs_fabric_s *fabric, struct fchs_s *fchs,
 	bfa_trc(fabric->fcs, pid);
 
 	/*
-                                                                  
-                                                                 
-                                                                     
-  */
+	 * Look for our own FLOGI frames being looped back. This means an
+	 * external loopback cable is in place. Our own FLOGI frames are
+	 * sometimes looped back when switch port gets temporarily bypassed.
+	 */
 	if ((pid == bfa_ntoh3b(FC_FABRIC_PORT)) &&
 	    (els_cmd->els_code == FC_ELS_FLOGI) &&
 	    (flogi->port_name == bfa_fcs_lport_get_pwwn(&fabric->bport))) {
@@ -1186,8 +1186,8 @@ bfa_fcs_fabric_uf_recv(struct bfa_fcs_fabric_s *fabric, struct fchs_s *fchs,
 	}
 
 	/*
-                                                           
-  */
+	 * FLOGI/EVFP exchanges should be consumed by base fabric.
+	 */
 	if (fchs->d_id == bfa_hton3b(FC_FABRIC_PORT)) {
 		bfa_trc(fabric->fcs, pid);
 		bfa_fcs_fabric_process_uf(fabric, fchs, len);
@@ -1196,8 +1196,8 @@ bfa_fcs_fabric_uf_recv(struct bfa_fcs_fabric_s *fabric, struct fchs_s *fchs,
 
 	if (fabric->bport.pid == pid) {
 		/*
-                                                       
-   */
+		 * All authentication frames should be routed to auth
+		 */
 		bfa_trc(fabric->fcs, els_cmd->els_code);
 		if (els_cmd->els_code == FC_ELS_AUTH) {
 			bfa_trc(fabric->fcs, els_cmd->els_code);
@@ -1210,8 +1210,8 @@ bfa_fcs_fabric_uf_recv(struct bfa_fcs_fabric_s *fabric, struct fchs_s *fchs,
 	}
 
 	/*
-                                     
-  */
+	 * look for a matching local port ID
+	 */
 	list_for_each(qe, &fabric->vport_q) {
 		vport = (struct bfa_fcs_vport_s *) qe;
 		if (vport->lport.pid == pid) {
@@ -1224,7 +1224,7 @@ bfa_fcs_fabric_uf_recv(struct bfa_fcs_fabric_s *fabric, struct fchs_s *fchs,
 }
 
 /*
-                                                 
+ *		Unsolicited frames to be processed by fabric.
  */
 static void
 bfa_fcs_fabric_process_uf(struct bfa_fcs_fabric_s *fabric, struct fchs_s *fchs,
@@ -1241,14 +1241,14 @@ bfa_fcs_fabric_process_uf(struct bfa_fcs_fabric_s *fabric, struct fchs_s *fchs,
 
 	default:
 		/*
-                              
-   */
+		 * need to generate a LS_RJT
+		 */
 		break;
 	}
 }
 
 /*
-                         
+ *	Process	incoming FLOGI
  */
 static void
 bfa_fcs_fabric_process_flogi(struct bfa_fcs_fabric_s *fabric,
@@ -1261,12 +1261,12 @@ bfa_fcs_fabric_process_flogi(struct bfa_fcs_fabric_s *fabric,
 
 	fabric->stats.flogi_rcvd++;
 	/*
-                                             
-  */
+	 * Check port type. It should be 0 = n-port.
+	 */
 	if (flogi->csp.port_type) {
 		/*
-                                     
-   */
+		 * @todo: may need to send a LS_RJT
+		 */
 		bfa_trc(fabric->fcs, flogi->port_name);
 		fabric->stats.flogi_rejected++;
 		return;
@@ -1278,8 +1278,8 @@ bfa_fcs_fabric_process_flogi(struct bfa_fcs_fabric_s *fabric,
 	bport->port_topo.pn2n.reply_oxid = fchs->ox_id;
 
 	/*
-                    
-  */
+	 * Send a Flogi Acc
+	 */
 	bfa_fcs_fabric_send_flogi_acc(fabric);
 	bfa_sm_send_event(fabric, BFA_FCS_FABRIC_SM_NO_FABRIC);
 }
@@ -1296,8 +1296,8 @@ bfa_fcs_fabric_send_flogi_acc(struct bfa_fcs_fabric_s *fabric)
 
 	fcxp = bfa_fcs_fcxp_alloc(fabric->fcs);
 	/*
-                                                             
-  */
+	 * Do not expect this failure -- expect remote node to retry
+	 */
 	if (!fcxp)
 		return;
 
@@ -1316,7 +1316,7 @@ bfa_fcs_fabric_send_flogi_acc(struct bfa_fcs_fabric_s *fabric)
 }
 
 /*
-                                   
+ *   Flogi Acc completion callback.
  */
 static void
 bfa_fcs_fabric_flogiacc_comp(void *fcsarg, struct bfa_fcxp_s *fcxp, void *cbarg,
@@ -1330,7 +1330,7 @@ bfa_fcs_fabric_flogiacc_comp(void *fcsarg, struct bfa_fcxp_s *fcxp, void *cbarg,
 
 
 /*
-                        
+ * Send AEN notification
  */
 static void
 bfa_fcs_fabric_aen_post(struct bfa_fcs_lport_s *port,
@@ -1346,17 +1346,17 @@ bfa_fcs_fabric_aen_post(struct bfa_fcs_lport_s *port,
 	aen_entry->aen_data.port.pwwn = bfa_fcs_lport_get_pwwn(port);
 	aen_entry->aen_data.port.fwwn = bfa_fcs_lport_get_fabric_name(port);
 
-	/*                           */
+	/* Send the AEN notification */
 	bfad_im_post_vendor_event(aen_entry, bfad, ++port->fcs->fcs_aen_seq,
 				  BFA_AEN_CAT_PORT, event);
 }
 
 /*
-  
-                             
-                                     
-  
-                 
+ *
+ * @param[in] fabric - fabric
+ * @param[in] wwn_t - new fabric name
+ *
+ * @return - none
  */
 void
 bfa_fcs_fabric_set_fabric_name(struct bfa_fcs_fabric_s *fabric,
@@ -1370,9 +1370,9 @@ bfa_fcs_fabric_set_fabric_name(struct bfa_fcs_fabric_s *fabric,
 
 	if (fabric->fabric_name == 0) {
 		/*
-                                                           
-                                                            
-   */
+		 * With BRCD switches, we don't get Fabric Name in FLOGI.
+		 * Don't generate a fabric name change event in this case.
+		 */
 		fabric->fabric_name = fabric_name;
 	} else {
 		fabric->fabric_name = fabric_name;
@@ -1388,12 +1388,12 @@ bfa_fcs_fabric_set_fabric_name(struct bfa_fcs_fabric_s *fabric,
 }
 
 /*
-                                              
-  
-                          
-  
-         
-                                                                   
+ *	Returns FCS vf structure for a given vf_id.
+ *
+ *	param[in]	vf_id - VF_ID
+ *
+ *	return
+ *	If lookup succeeds, retuns fcs vf object, otherwise returns NULL
  */
 bfa_fcs_vf_t   *
 bfa_fcs_vf_lookup(struct bfa_fcs_s *fcs, u16 vf_id)
@@ -1406,13 +1406,13 @@ bfa_fcs_vf_lookup(struct bfa_fcs_s *fcs, u16 vf_id)
 }
 
 /*
-                                                                  
-  
-                                                        
-                                                   
-                                                
-                                 
-                                                     
+ *	Return the list of local logical ports present in the given VF.
+ *
+ *	@param[in]	vf	vf for which logical ports are returned
+ *	@param[out]	lpwwn	returned logical port wwn list
+ *	@param[in,out]	nlports in:size of lpwwn list;
+ *				out:total elements present,
+ *				actual elements returned is limited by the size
  */
 void
 bfa_fcs_vf_get_ports(bfa_fcs_vf_t *vf, wwn_t lpwwn[], int *nlports)
@@ -1445,7 +1445,7 @@ bfa_fcs_vf_get_ports(bfa_fcs_vf_t *vf, wwn_t lpwwn[], int *nlports)
 }
 
 /*
-                                 
+ * BFA FCS PPORT ( physical port)
  */
 static void
 bfa_fcs_port_event_handler(void *cbarg, enum bfa_port_linkstate event)
@@ -1475,16 +1475,16 @@ bfa_fcs_port_attach(struct bfa_fcs_s *fcs)
 }
 
 /*
-                                   
+ * BFA FCS UF ( Unsolicited Frames)
  */
 
 /*
-                                                       
-  
-                                                      
-                                               
-  
-               
+ *		BFA callback for unsolicited frame receive handler.
+ *
+ * @param[in]		cbarg		callback arg for receive handler
+ * @param[in]		uf		unsolicited frame descriptor
+ *
+ * @return None
  */
 static void
 bfa_fcs_uf_recv(void *cbarg, struct bfa_uf_s *uf)
@@ -1496,8 +1496,8 @@ bfa_fcs_uf_recv(void *cbarg, struct bfa_uf_s *uf)
 	struct bfa_fcs_fabric_s *fabric;
 
 	/*
-                        
-  */
+	 * check for VFT header
+	 */
 	if (fchs->routing == FC_RTG_EXT_HDR &&
 	    fchs->cat_info == FC_CAT_VFT_HDR) {
 		bfa_stats(fcs, uf.tagged);
@@ -1508,8 +1508,8 @@ bfa_fcs_uf_recv(void *cbarg, struct bfa_uf_s *uf)
 			fabric = bfa_fcs_vf_lookup(fcs, (u16) vft->vf_id);
 
 		/*
-                                  
-   */
+		 * drop frame if vfid is unknown
+		 */
 		if (!fabric) {
 			WARN_ON(1);
 			bfa_stats(fcs, uf.vfid_unknown);
@@ -1518,8 +1518,8 @@ bfa_fcs_uf_recv(void *cbarg, struct bfa_uf_s *uf)
 		}
 
 		/*
-                    
-   */
+		 * skip vft header
+		 */
 		fchs = (struct fchs_s *) (vft + 1);
 		len -= sizeof(struct fc_vft_s);
 

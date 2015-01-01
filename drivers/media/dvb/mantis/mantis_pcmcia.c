@@ -32,12 +32,12 @@
 #include "dvb_net.h"
 
 #include "mantis_common.h"
-#include "mantis_link.h" /*                                       */
+#include "mantis_link.h" /* temporary due to physical layer stuff */
 #include "mantis_reg.h"
 
 /*
-                                                           
-                                       
+ * If Slot state is already PLUG_IN event and we are called
+ * again, definitely it is jitter alone
  */
 void mantis_event_cam_plugin(struct mantis_ca *ca)
 {
@@ -60,8 +60,8 @@ void mantis_event_cam_plugin(struct mantis_ca *ca)
 }
 
 /*
-                                                           
-                                       
+ * If Slot state is already UN_PLUG event and we are called
+ * again, definitely it is jitter alone
  */
 void mantis_event_cam_unplug(struct mantis_ca *ca)
 {

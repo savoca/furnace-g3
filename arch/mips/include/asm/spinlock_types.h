@@ -11,9 +11,9 @@
 
 typedef union {
 	/*
-                             
-                        
-  */
+	 * bits  0..15 : serving_now
+	 * bits 16..31 : ticket
+	 */
 	u32 lock;
 	struct {
 #ifdef __BIG_ENDIAN

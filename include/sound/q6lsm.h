@@ -25,8 +25,8 @@ typedef void (*lsm_app_cb)(uint32_t opcode, uint32_t token,
 struct lsm_sound_model {
 	dma_addr_t      phys;
 	void		*data;
-	uint32_t	size; /*                */
-	uint32_t	actual_size; /*                                    */
+	uint32_t	size; /* size of buffer */
+	uint32_t	actual_size; /* actual number of bytes read by DSP */
 	struct ion_handle *handle;
 	struct ion_client *client;
 	uint32_t	mem_map_handle;
@@ -73,7 +73,7 @@ struct lsm_param_op_mode {
 struct lsm_param_connect_to_port {
 	struct lsm_param_payload_common common;
 	uint32_t	minor_version;
-	/*                                              */
+	/* AFE port id that receives voice wake up data */
 	uint16_t	port_id;
 	uint16_t	reserved;
 } __packed;
@@ -81,7 +81,7 @@ struct lsm_param_connect_to_port {
 struct lsm_param_kw_detect_sensitivity {
 	struct lsm_param_payload_common common;
 	uint32_t	minor_version;
-	/*                                                          */
+	/* scale factor to change the keyword confidence thresholds */
 	uint16_t	keyword_sensitivity;
 	uint16_t	reserved;
 } __packed;
@@ -89,7 +89,7 @@ struct lsm_param_kw_detect_sensitivity {
 struct lsm_param_user_detect_sensitivity {
 	struct lsm_param_payload_common common;
 	uint32_t	minor_version;
-	/*                                                       */
+	/* scale factor to change the user confidence thresholds */
 	uint16_t	user_sensitivity;
 	uint16_t	reserved;
 } __packed;
@@ -132,4 +132,4 @@ int q6lsm_register_sound_model(struct lsm_client *client,
 			       u16 minuser, bool detectfailure);
 int q6lsm_deregister_sound_model(struct lsm_client *client);
 
-#endif /*             */
+#endif /* __Q6LSM_H__ */

@@ -19,35 +19,35 @@
 #define _IXP2000_REGS_H_
 
 /*
-                            
-  
-                   
-                                  
-                                  
-                                 
-                                           
-                                           
-                                             
-                            
-                                 
-                                 
-                               
-                            
+ * IXP2000 linux memory map:
+ *
+ * virt		phys		size
+ * fb000000	db000000	16M		PCI CFG1
+ * fc000000	da000000	16M		PCI CFG0
+ * fd000000	d8000000	16M		PCI I/O
+ * fe[0-7]00000			8M		per-platform mappings
+ * fe900000	80000000	1M		SRAM #0 (first MB)
+ * fea00000	cb400000	1M		SCRATCH ring get/put
+ * feb00000	c8000000	1M		MSF
+ * fec00000	df000000	1M		PCI CSRs
+ * fed00000	de000000	1M		PCI CREG
+ * fee00000	d6000000	1M		INTCTL
+ * fef00000	c0000000	1M		CAP
  */
 
 /* 
-                      
-  
-                                                                    
-                                                                 
-                                                               
-            
-  
-                                   
-  
-                                                                      
-                                                                     
-                                              
+ * Static I/O regions.
+ *
+ * Most of the registers are clumped in 4K regions spread throughout
+ * the 0xc0000000 -> 0xc0100000 address range, but we just map in
+ * the whole range using a single 1 MB section instead of small
+ * 4K pages.
+ *
+ * CAP stands for CSR Access Proxy.
+ *
+ * If you change the virtual address of this mapping, please propagate
+ * the change to arch/arm/kernel/debug.S, which hardcodes the virtual
+ * address of the UART located in this region.
  */
 
 #define	IXP2000_CAP_PHYS_BASE		0xc0000000
@@ -55,7 +55,7 @@
 #define	IXP2000_CAP_SIZE		0x00100000
 
 /*
-                                              
+ * Addresses for specific on-chip peripherals.
  */
 #define	IXP2000_SLOWPORT_CSR_VIRT_BASE	0xfef80000
 #define	IXP2000_GLOBAL_REG_VIRT_BASE	0xfef04000
@@ -66,10 +66,10 @@
 #define	IXP2000_GPIO_VIRT_BASE		0xfef10000
 
 /*
-                                                                      
-                                                                
-                                                              
-              
+ * Devices outside of the 0xc0000000 -> 0xc0100000 range.  The virtual
+ * addresses of the INTCTL and PCI_CSR mappings are hardcoded in
+ * entry-macro.S, so if you ever change these please propagate
+ * the change.
  */
 #define IXP2000_INTCTL_PHYS_BASE	0xd6000000
 #define	IXP2000_INTCTL_VIRT_BASE	0xfee00000
@@ -108,30 +108,30 @@
 #define IXP2000_PCI_CFG1_SIZE		0x01000000
 
 /* 
-         
+ * Timers
  */
 #define	IXP2000_TIMER_REG(x)		((volatile unsigned long*)(IXP2000_TIMER_VIRT_BASE | (x)))
-/*               */
+/* Timer control */
 #define	IXP2000_T1_CTL			IXP2000_TIMER_REG(0x00)
 #define	IXP2000_T2_CTL			IXP2000_TIMER_REG(0x04)
 #define	IXP2000_T3_CTL			IXP2000_TIMER_REG(0x08)
 #define	IXP2000_T4_CTL			IXP2000_TIMER_REG(0x0c)
-/*                     */
+/* Store initial value */
 #define	IXP2000_T1_CLD			IXP2000_TIMER_REG(0x10)
 #define	IXP2000_T2_CLD			IXP2000_TIMER_REG(0x14)
 #define	IXP2000_T3_CLD			IXP2000_TIMER_REG(0x18)
 #define	IXP2000_T4_CLD			IXP2000_TIMER_REG(0x1c)
-/*                    */
+/* Read current value */
 #define	IXP2000_T1_CSR			IXP2000_TIMER_REG(0x20)
 #define	IXP2000_T2_CSR			IXP2000_TIMER_REG(0x24)
 #define	IXP2000_T3_CSR			IXP2000_TIMER_REG(0x28)
 #define	IXP2000_T4_CSR			IXP2000_TIMER_REG(0x2c)
-/*                                  */
+/* Clear associated timer interrupt */
 #define	IXP2000_T1_CLR			IXP2000_TIMER_REG(0x30)
 #define	IXP2000_T2_CLR			IXP2000_TIMER_REG(0x34)
 #define	IXP2000_T3_CLR			IXP2000_TIMER_REG(0x38)
 #define	IXP2000_T4_CLR			IXP2000_TIMER_REG(0x3c)
-/*                              */
+/* Timer watchdog enable for T4 */
 #define	IXP2000_TWDE			IXP2000_TIMER_REG(0x40)
 
 #define	WDT_ENABLE			0x00000001
@@ -140,7 +140,7 @@
 #define	IRQ_MASK_TIMER1         	(1 << 4)
 
 /*
-                                 
+ * Interrupt controller registers
  */
 #define IXP2000_INTCTL_REG(x)		(volatile unsigned long*)(IXP2000_INTCTL_VIRT_BASE | (x))
 #define IXP2000_IRQ_STATUS		IXP2000_INTCTL_REG(0x08)
@@ -186,13 +186,13 @@
 #define IXP2000_IRQ_THD_ENABLE_CLEAR_B_3	IXP2000_INTCTL_REG(0x20c)
 
 /*
-                                                        
-                                              
+ * Mask of valid IRQs in the 32-bit IRQ register. We use
+ * this to mark certain IRQs as being invalid.
  */
 #define	IXP2000_VALID_IRQ_MASK	0x0f0fffff
 
 /*
-                                       
+ * PCI config register access from core
  */
 #define IXP2000_PCI_CREG(x)		(volatile unsigned long*)(IXP2000_PCI_CREG_VIRT_BASE | (x))
 #define IXP2000_PCI_CMDSTAT 		IXP2000_PCI_CREG(0x04)
@@ -201,17 +201,17 @@
 #define IXP2000_PCI_SDRAM_BAR		IXP2000_PCI_CREG(0x18)
 
 /*
-           
+ * PCI CSRs
  */
 #define IXP2000_PCI_CSR(x)		(volatile unsigned long*)(IXP2000_PCI_CSR_VIRT_BASE | (x))
 
 /*
-                          
+ * PCI outbound interrupts
  */
 #define IXP2000_PCI_OUT_INT_STATUS	IXP2000_PCI_CSR(0x30)
 #define IXP2000_PCI_OUT_INT_MASK	IXP2000_PCI_CSR(0x34)
 /*
-                     
+ * PCI communications
  */
 #define IXP2000_PCI_MAILBOX0		IXP2000_PCI_CSR(0x50)
 #define IXP2000_PCI_MAILBOX1		IXP2000_PCI_CSR(0x54)
@@ -223,7 +223,7 @@
 #define IXP2000_PCI_DOORBELL_SETUP	IXP2000_PCI_CSR(0x74)
 
 /*
-              
+ * DMA engines
  */
 #define IXP2000_PCI_CH1_BYTE_CNT	IXP2000_PCI_CSR(0x80)
 #define IXP2000_PCI_CH1_ADDR		IXP2000_PCI_CSR(0x84)
@@ -245,12 +245,12 @@
 #define IXP2000_PCI_CH3_ME_PARAM	IXP2000_PCI_CSR(0xD4)
 #define IXP2000_DMA_INF_MODE		IXP2000_PCI_CSR(0xE0)
 /*
-                      
+ * Size masks for BARs
  */
 #define IXP2000_PCI_SRAM_BASE_ADDR_MASK	IXP2000_PCI_CSR(0xFC)
 #define IXP2000_PCI_DRAM_BASE_ADDR_MASK	IXP2000_PCI_CSR(0x100)
 /*
-                              
+ * Control and uEngine related
  */
 #define IXP2000_PCI_CONTROL		IXP2000_PCI_CSR(0x13C)
 #define IXP2000_PCI_ADDR_EXT		IXP2000_PCI_CSR(0x140)
@@ -259,21 +259,21 @@
 #define IXP2000_PCI_ERR_STATUS		IXP2000_PCI_CSR(0x150)
 #define IXP2000_PCI_ERR_ENABLE		IXP2000_PCI_CSR(0x154)
 /*
-                                
+ * Inbound PCI interrupt control
  */
 #define IXP2000_PCI_XSCALE_INT_STATUS	IXP2000_PCI_CSR(0x158)
 #define IXP2000_PCI_XSCALE_INT_ENABLE	IXP2000_PCI_CSR(0x15C)
 
-#define IXP2000_PCICNTL_PNR		(1<<17)	/*                                  */
-#define IXP2000_PCICNTL_PCF		(1<<28)	/*                          */
-#define IXP2000_XSCALE_INT		(1<<1)	/*                              */
+#define IXP2000_PCICNTL_PNR		(1<<17)	/* PCI not Reset bit of PCI_CONTROL */
+#define IXP2000_PCICNTL_PCF		(1<<28)	/* PCI Central function bit */
+#define IXP2000_XSCALE_INT		(1<<1)	/* Interrupt from XScale to PCI */
 
-/*                                                         */
-#define PCI_CONTROL_BE_DEO		(1 << 22)	/*                            */
-#define PCI_CONTROL_BE_DEI		(1 << 21)	/*                            */
-#define PCI_CONTROL_BE_BEO		(1 << 20)	/*                            */
-#define PCI_CONTROL_BE_BEI		(1 << 19)	/*                            */
-#define PCI_CONTROL_IEE			(1 << 17)	/*                              */
+/* These are from the IRQ register in the PCI ISR register */
+#define PCI_CONTROL_BE_DEO		(1 << 22)	/* Big Endian Data Enable Out */
+#define PCI_CONTROL_BE_DEI		(1 << 21)	/* Big Endian Data Enable In  */
+#define PCI_CONTROL_BE_BEO		(1 << 20)	/* Big Endian Byte Enable Out */
+#define PCI_CONTROL_BE_BEI		(1 << 19)	/* Big Endian Byte Enable In  */
+#define PCI_CONTROL_IEE			(1 << 17)	/* I/O cycle Endian swap Enable */
 
 #define IXP2000_PCI_RST_REL		(1 << 2)
 #define CFG_RST_DIR			(*IXP2000_PCI_CONTROL & IXP2000_PCICNTL_PCF)
@@ -281,11 +281,11 @@
 #define CFG_BOOT_PROM			(1 << 1)
 
 /*
-                
-  
-                                                                         
-                                                                        
-               
+ * SlowPort CSRs
+ *
+ * The slowport is used to access things like flash, SONET framer control
+ * ports, slave microprocessors, CPLDs, and others of chip memory mapped
+ * peripherals.
  */
 #define	SLOWPORT_CSR(x)		(volatile unsigned long*)(IXP2000_SLOWPORT_CSR_VIRT_BASE | (x))
 
@@ -302,8 +302,8 @@
 #define	IXP2000_SLOWPORT_FIN		SLOWPORT_CSR(0x28)
 
 /*
-                
-                                                                    
+ * CCR values.  
+ * The CCR configures the clock division for the slowport interface.
  */
 #define	SLOWPORT_CCR_DIV_1		0x00
 #define	SLOWPORT_CCR_DIV_2		0x01
@@ -323,7 +323,7 @@
 #define	SLOWPORT_CCR_DIV_30		0x0f
 
 /*
-                                                        
+ * PCR values.  PCR configure the mode of the interface.
  */
 #define	SLOWPORT_MODE_FLASH		0x00
 #define	SLOWPORT_MODE_LUCENT		0x01
@@ -332,7 +332,7 @@
 #define	SLOWPORT_MODE_MOTOROLA_UP	0x04
 
 /*
-                                                    
+ * ADC values.  Defines data and address bus widths.
  */
 #define	SLOWPORT_ADDR_WIDTH_8		0x00
 #define	SLOWPORT_ADDR_WIDTH_16		0x01
@@ -344,7 +344,7 @@
 #define	SLOWPORT_DATA_WIDTH_32		0x30
 
 /*
-                                                                    
+ * Masks and shifts for various fields in the WTC and RTC registers.
  */
 #define	SLOWPORT_WRTC_MASK_HD		0x0003
 #define	SLOWPORT_WRTC_MASK_PW		0x003c
@@ -356,7 +356,7 @@
 
 
 /*
-                                   
+ * GPIO registers & GPIO interface.
  */
 #define IXP2000_GPIO_REG(x)		((volatile unsigned long*)(IXP2000_GPIO_VIRT_BASE+(x)))
 #define IXP2000_GPIO_PLR		IXP2000_GPIO_REG(0x00)
@@ -378,7 +378,7 @@
 #define IXP2000_GPIO_INST		IXP2000_GPIO_REG(0x40)
 
 /*
-                                                         
+ * "Global" registers...whatever that's supposed to mean.
  */
 #define GLOBAL_REG_BASE			(IXP2000_GLOBAL_REG_VIRT_BASE + 0x0a00)
 #define GLOBAL_REG(x)			(volatile unsigned long*)(GLOBAL_REG_BASE | (x))
@@ -406,9 +406,9 @@
 
 
 /*
-                                                                      
-                                                                      
-                                             
+ * MSF registers.  The IXP2400 and IXP2800 have somewhat different MSF
+ * units, but the registers that differ between the two don't overlap,
+ * so we can have one register list for both.
  */
 #define IXP2000_MSF_REG(x)			((volatile unsigned long*)(IXP2000_MSF_VIRT_BASE + (x)))
 #define IXP2000_MSF_RX_CONTROL			IXP2000_MSF_REG(0x0000)
@@ -448,4 +448,4 @@
 #define IXP2000_MSF_RX_PORT_CALENDAR_STATUS	IXP2000_MSF_REG(0x1400)
 
 
-#endif				/*             */
+#endif				/* _IXP2000_H_ */

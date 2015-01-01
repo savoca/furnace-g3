@@ -20,7 +20,7 @@
 #define __ASM_OPENRISC_PAGE_H
 
 
-/*                                     */
+/* PAGE_SHIFT determines the page size */
 
 #define PAGE_SHIFT      13
 #ifdef __ASSEMBLY__
@@ -33,8 +33,8 @@
 #define PAGE_OFFSET	0xc0000000
 #define KERNELBASE	PAGE_OFFSET
 
-/*                                                                     
-                   
+/* This is not necessarily the right place for this, but it's needed by
+ * drivers/of/fdt.c
  */
 #include <asm/setup.h>
 
@@ -50,7 +50,7 @@
 #define copy_user_page(to, from, vaddr, pg)     copy_page(to, from)
 
 /*
-                                                  
+ * These are used to make use of C type-checking..
  */
 typedef struct {
 	unsigned long pte;
@@ -71,7 +71,7 @@ typedef struct page *pgtable_t;
 #define __pgd(x)	((pgd_t) { (x) })
 #define __pgprot(x)	((pgprot_t) { (x) })
 
-#endif /*               */
+#endif /* !__ASSEMBLY__ */
 
 
 #ifndef __ASSEMBLY__
@@ -93,7 +93,7 @@ typedef struct page *pgtable_t;
 
 #define virt_addr_valid(kaddr)	(pfn_valid(virt_to_pfn(kaddr)))
 
-#endif /*              */
+#endif /* __ASSEMBLY__ */
 
 
 #define VM_DATA_DEFAULT_FLAGS	(VM_READ | VM_WRITE | VM_EXEC | \
@@ -103,4 +103,4 @@ typedef struct page *pgtable_t;
 #include <asm-generic/memory_model.h>
 #include <asm-generic/getorder.h>
 
-#endif /*                       */
+#endif /* __ASM_OPENRISC_PAGE_H */

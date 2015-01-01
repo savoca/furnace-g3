@@ -18,7 +18,7 @@
 #define __NEC_VR41XX_IRQ_H
 
 /*
-                             
+ * CPU core Interrupt Numbers
  */
 #define MIPS_CPU_IRQ_BASE	0
 #define MIPS_CPU_IRQ(x)		(MIPS_CPU_IRQ_BASE + (x))
@@ -32,7 +32,7 @@
 #define TIMER_IRQ		MIPS_CPU_IRQ(7)
 
 /*
-                           
+ * SYINT1 Interrupt Numbers
  */
 #define SYSINT1_IRQ_BASE	8
 #define SYSINT1_IRQ(x)		(SYSINT1_IRQ_BASE + (x))
@@ -40,7 +40,7 @@
 #define POWER_IRQ		SYSINT1_IRQ(1)
 #define RTCLONG1_IRQ		SYSINT1_IRQ(2)
 #define ELAPSEDTIME_IRQ		SYSINT1_IRQ(3)
-/*     */
+/* RFU */
 #define PIU_IRQ			SYSINT1_IRQ(5)
 #define AIU_IRQ			SYSINT1_IRQ(6)
 #define KIU_IRQ			SYSINT1_IRQ(7)
@@ -53,7 +53,7 @@
 #define SYSINT1_IRQ_LAST	DOZEPIU_IRQ
 
 /*
-                            
+ * SYSINT2 Interrupt Numbers
  */
 #define SYSINT2_IRQ_BASE	24
 #define SYSINT2_IRQ(x)		(SYSINT2_IRQ_BASE + (x))
@@ -62,7 +62,7 @@
 #define HSP_IRQ			SYSINT2_IRQ(2)
 #define TCLOCK_IRQ		SYSINT2_IRQ(3)
 #define FIR_IRQ			SYSINT2_IRQ(4)
-#define CEU_IRQ			SYSINT2_IRQ(4)	/*                        */
+#define CEU_IRQ			SYSINT2_IRQ(4)	/* same number as FIR_IRQ */
 #define DSIU_IRQ		SYSINT2_IRQ(5)
 #define PCI_IRQ			SYSINT2_IRQ(6)
 #define SCU_IRQ			SYSINT2_IRQ(7)
@@ -72,14 +72,14 @@
 #define SYSINT2_IRQ_LAST	ETHERNET_IRQ
 
 /*
-                        
+ * GIU Interrupt Numbers
  */
 #define GIU_IRQ_BASE		40
-#define GIU_IRQ(x)		(GIU_IRQ_BASE + (x))	/*           */
+#define GIU_IRQ(x)		(GIU_IRQ_BASE + (x))	/* IRQ 40-71 */
 #define GIU_IRQ_LAST		GIU_IRQ(31)
 
 /*
-                            
+ * VRC4173 Interrupt Numbers
  */
 #define VRC4173_IRQ_BASE	72
 #define VRC4173_IRQ(x)		(VRC4173_IRQ_BASE + (x))
@@ -94,8 +94,8 @@
 #define VRC4173_GIU_IRQ		VRC4173_IRQ(8)
 #define VRC4173_AC97_IRQ	VRC4173_IRQ(9)
 #define VRC4173_AC97INT1_IRQ	VRC4173_IRQ(10)
-/*     */
+/* RFU */
 #define VRC4173_DOZEPIU_IRQ	VRC4173_IRQ(13)
 #define VRC4173_IRQ_LAST	VRC4173_DOZEPIU_IRQ
 
-#endif /*                    */
+#endif /* __NEC_VR41XX_IRQ_H */

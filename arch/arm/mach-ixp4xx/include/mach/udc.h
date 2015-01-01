@@ -1,6 +1,6 @@
 /*
-                                          
-  
+ * arch/arm/mach-ixp4xx/include/mach/udc.h
+ *
  */
 #include <asm/mach/udc_pxa2xx.h>
 

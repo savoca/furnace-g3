@@ -17,12 +17,12 @@
 #define FPGA_REGS_SIZE		0x490
 
 /*
-                                                                  
-                                                                 
-  
-                                                                       
-                                                                    
-             
+ * The FPGA can be mapped in any of the generally available areas,
+ * so we attempt to scan for it using the fixed SRSTR read magic.
+ *
+ * Once the FPGA is located, the rest of the mapping data for the other
+ * components can be determined dynamically from its section mapping
+ * registers.
  */
 static void __iomem *sdk7786_fpga_probe(void)
 {
@@ -30,19 +30,19 @@ static void __iomem *sdk7786_fpga_probe(void)
 	void __iomem *base;
 
 	/*
-                                                                 
-                                                                
-                
-  */
+	 * Iterate over all of the areas where the FPGA could be mapped.
+	 * The possible range is anywhere from area 0 through 6, area 7
+	 * is reserved.
+	 */
 	for (area = PA_AREA0; area < PA_AREA7; area += SZ_64M) {
 		base = ioremap_nocache(area + FPGA_REGS_OFFSET, FPGA_REGS_SIZE);
 		if (!base) {
-			/*                                        */
+			/* Failed to remap this area, move along. */
 			continue;
 		}
 
 		if (ioread16(base + SRSTR) == SRSTR_MAGIC)
-			return base;	/*           */
+			return base;	/* Found it! */
 
 		iounmap(base);
 	}

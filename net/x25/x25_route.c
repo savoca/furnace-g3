@@ -26,7 +26,7 @@ LIST_HEAD(x25_route_list);
 DEFINE_RWLOCK(x25_route_list_lock);
 
 /*
-                   
+ *	Add a new route.
  */
 static int x25_add_route(struct x25_address *address, unsigned int sigdigits,
 			 struct net_device *dev)
@@ -64,12 +64,12 @@ out:
 	return rc;
 }
 
-/* 
-                                                        
-                        
-  
-                                                     
-                                        
+/**
+ * __x25_remove_route - remove route from x25_route_list
+ * @rt - route to remove
+ *
+ * Remove route from x25_route_list. If it was there.
+ * Caller must hold x25_route_list_lock.
  */
 static void __x25_remove_route(struct x25_route *rt)
 {
@@ -104,7 +104,7 @@ static int x25_del_route(struct x25_address *address, unsigned int sigdigits,
 }
 
 /*
-                                                
+ *	A device has been removed, remove its routes.
  */
 void x25_route_device_down(struct net_device *dev)
 {
@@ -121,12 +121,12 @@ void x25_route_device_down(struct net_device *dev)
 	}
 	write_unlock_bh(&x25_route_list_lock);
 
-	/*                               */
+	/* Remove any related forwarding */
 	x25_clear_forward_by_dev(dev);
 }
 
 /*
-                                                                      
+ *	Check that the device given is a valid X.25 interface that is "up".
  */
 struct net_device *x25_dev_get(char *devname)
 {
@@ -145,11 +145,11 @@ struct net_device *x25_dev_get(char *devname)
 	return dev;
 }
 
-/* 
-                                                       
-                                       
-  
-                                       
+/**
+ * 	x25_get_route -	Find a route given an X.25 address.
+ * 	@addr - address to find a route for
+ *
+ * 	Find a route given an X.25 address.
  */
 struct x25_route *x25_get_route(struct x25_address *addr)
 {
@@ -177,7 +177,7 @@ struct x25_route *x25_get_route(struct x25_address *addr)
 }
 
 /*
-                                                        
+ *	Handle the ioctls that control the routing functions.
  */
 int x25_route_ioctl(unsigned int cmd, void __user *arg)
 {
@@ -210,7 +210,7 @@ out:
 }
 
 /*
-                                                              
+ *	Release all memory associated with X.25 routing structures.
  */
 void __exit x25_route_free(void)
 {

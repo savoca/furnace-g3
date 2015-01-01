@@ -35,21 +35,21 @@ struct omap_iommu {
 	struct iommu_domain *domain;
 
 	unsigned int	refcount;
-	spinlock_t	iommu_lock;	/*                              */
+	spinlock_t	iommu_lock;	/* global for this whole object */
 
 	/*
-                                                              
-                                         
-  */
+	 * We don't change iopgd for a situation like pgd for a task,
+	 * but share it globally for each iommu.
+	 */
 	u32		*iopgd;
-	spinlock_t	page_table_lock; /*               */
+	spinlock_t	page_table_lock; /* protect iopgd */
 
 	int		nr_tlb_entries;
 
 	struct list_head	mmap;
-	struct mutex		mmap_lock; /*              */
+	struct mutex		mmap_lock; /* protect mmap */
 
-	void *ctx; /*                                     */
+	void *ctx; /* iommu context: registres saved area */
 	u32 da_start;
 	u32 da_end;
 };
@@ -76,7 +76,7 @@ struct iotlb_lock {
 	short vict;
 };
 
-/*                                 */
+/* architecture specific functions */
 struct iommu_functions {
 	unsigned long	version;
 
@@ -111,24 +111,24 @@ struct iommu_platform_data {
 	u32 da_end;
 };
 
-/* 
-                                                   
-                                  
-                                         
-  
-                                                                       
-                                                                        
-                                                                  
-                                          
+/**
+ * struct iommu_arch_data - omap iommu private data
+ * @name: name of the iommu device
+ * @iommu_dev: handle of the iommu device
+ *
+ * This is an omap iommu private data object, which binds an iommu user
+ * to its iommu device. This object should be placed at the iommu user's
+ * dev_archdata so generic IOMMU API can be used without having to
+ * utilize omap-specific plumbing anymore.
  */
 struct omap_iommu_arch_data {
 	const char *name;
 	struct omap_iommu *iommu_dev;
 };
 
-/* 
-                                                                          
-                            
+/**
+ * dev_to_omap_iommu() - retrieves an omap iommu object from a user device
+ * @dev: iommu client device
  */
 static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 {
@@ -137,7 +137,7 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 	return arch_data->iommu_dev;
 }
 
-/*              */
+/* IOMMU errors */
 #define OMAP_IOMMU_ERR_TLB_MISS		(1 << 0)
 #define OMAP_IOMMU_ERR_TRANS_FAULT	(1 << 1)
 #define OMAP_IOMMU_ERR_EMU_MISS		(1 << 2)
@@ -151,7 +151,7 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 #endif
 
 /*
-                                                    
+ * utilities for super page(16MB, 1MB, 64KB and 4KB)
  */
 
 #define iopgsz_max(bytes)			\
@@ -175,7 +175,7 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 #define iopgsz_ok(bytes) (bytes_to_iopgsz(bytes) >= 0)
 
 /*
-                   
+ * global functions
  */
 extern u32 omap_iommu_arch_version(void);
 
@@ -203,4 +203,4 @@ omap_iommu_dump_ctx(struct omap_iommu *obj, char *buf, ssize_t len);
 extern size_t
 omap_dump_tlb_entries(struct omap_iommu *obj, char *buf, ssize_t len);
 
-#endif /*                */
+#endif /* __MACH_IOMMU_H */

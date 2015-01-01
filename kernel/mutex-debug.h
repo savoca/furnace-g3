@@ -11,7 +11,7 @@
  */
 
 /*
-                                                 
+ * This must be called with lock->wait_lock held.
  */
 extern void debug_mutex_lock_common(struct mutex *lock,
 				    struct mutex_waiter *waiter);

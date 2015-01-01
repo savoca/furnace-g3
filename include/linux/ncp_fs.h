@@ -17,7 +17,7 @@
 #include <linux/ncp_no.h>
 
 /*
-                 
+ * ioctl commands
  */
 
 struct ncp_ioctl_request {
@@ -30,9 +30,9 @@ struct ncp_fs_info {
 	int version;
 	struct sockaddr_ipx addr;
 	__kernel_uid_t mounted_uid;
-	int connection;		/*                                          */
-	int buffer_size;	/*                                  
-                                     */
+	int connection;		/* Connection number the server assigned us */
+	int buffer_size;	/* The negotiated buffer size, to be
+				   used for read/write requests! */
 
 	int volume_number;
 	__le32 directory_id;
@@ -87,16 +87,16 @@ struct ncp_objectname_ioctl
 #define NCP_AUTH_NDS	0x32
 	int		auth_type;
 	size_t		object_name_len;
-	void __user *	object_name;	/*                                           */
+	void __user *	object_name;	/* a userspace data, in most cases user name */
 };
 
 struct ncp_privatedata_ioctl
 {
 	size_t		len;
-	void __user *	data;		/*               */
+	void __user *	data;		/* ~1000 for NDS */
 };
 
-/*                       */
+/* NLS charsets by ioctl */
 #define NCP_IOCSNAME_LEN 20
 struct ncp_nls_ioctl
 {
@@ -136,11 +136,11 @@ struct ncp_nls_ioctl
 #define NCP_IOC_SETDENTRYTTL		_IOR('n', 12, __u32)
 
 /*
-                                                          
+ * The packet size to allocate. One page should be enough.
  */
 #define NCP_PACKET_SIZE 4070
 
 #define NCP_MAXPATHLEN 255
 #define NCP_MAXNAMELEN 14
 
-#endif				/*                 */
+#endif				/* _LINUX_NCP_FS_H */

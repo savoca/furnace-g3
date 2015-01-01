@@ -1,5 +1,5 @@
 /*
-                                    
+ * Definitions for IDT RC323434 CPU.
  */
 
 #ifndef _ASM_RC32434_RC32434_H_
@@ -10,10 +10,10 @@
 
 #define IDT_CLOCK_MULT		2
 
-/*                    */
+/* cpu pipeline flush */
 static inline void rc32434_sync(void)
 {
 	__asm__ volatile ("sync");
 }
 
-#endif  /*                         */
+#endif  /* _ASM_RC32434_RC32434_H_ */

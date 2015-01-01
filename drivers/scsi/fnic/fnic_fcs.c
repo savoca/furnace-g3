@@ -59,11 +59,11 @@ void fnic_handle_link(struct work_struct *work)
 
 	if (old_link_status == fnic->link_status) {
 		if (!fnic->link_status)
-			/*              */
+			/* DOWN -> DOWN */
 			spin_unlock_irqrestore(&fnic->fnic_lock, flags);
 		else {
 			if (old_link_down_cnt != fnic->link_down_cnt) {
-				/*                  */
+				/* UP -> DOWN -> UP */
 				fnic->lport->host_stats.link_failure_count++;
 				spin_unlock_irqrestore(&fnic->fnic_lock, flags);
 				FNIC_FCS_DBG(KERN_DEBUG, fnic->lport->host,
@@ -73,16 +73,16 @@ void fnic_handle_link(struct work_struct *work)
 					     "link up\n");
 				fcoe_ctlr_link_up(&fnic->ctlr);
 			} else
-				/*          */
+				/* UP -> UP */
 				spin_unlock_irqrestore(&fnic->fnic_lock, flags);
 		}
 	} else if (fnic->link_status) {
-		/*            */
+		/* DOWN -> UP */
 		spin_unlock_irqrestore(&fnic->fnic_lock, flags);
 		FNIC_FCS_DBG(KERN_DEBUG, fnic->lport->host, "link up\n");
 		fcoe_ctlr_link_up(&fnic->ctlr);
 	} else {
-		/*            */
+		/* UP -> DOWN */
 		fnic->lport->host_stats.link_failure_count++;
 		spin_unlock_irqrestore(&fnic->fnic_lock, flags);
 		FNIC_FCS_DBG(KERN_DEBUG, fnic->lport->host, "link down\n");
@@ -92,7 +92,7 @@ void fnic_handle_link(struct work_struct *work)
 }
 
 /*
-                                                       
+ * This function passes incoming fabric frames to libFC
  */
 void fnic_handle_frame(struct work_struct *work)
 {
@@ -113,9 +113,9 @@ void fnic_handle_frame(struct work_struct *work)
 		fp = (struct fc_frame *)skb;
 
 		/*
-                                                                
-                                                              
-   */
+		 * If we're in a transitional state, just re-queue and return.
+		 * The queue will be serviced when we get to a stable state.
+		 */
 		if (fnic->state != FNIC_IN_FC_MODE &&
 		    fnic->state != FNIC_IN_ETH_MODE) {
 			skb_queue_head(&fnic->frame_queue, skb);
@@ -128,10 +128,10 @@ void fnic_handle_frame(struct work_struct *work)
 	}
 }
 
-/* 
-                                                                
-                        
-                        
+/**
+ * fnic_import_rq_eth_pkt() - handle received FCoE or FIP frame.
+ * @fnic:	fnic instance.
+ * @skb:	Ethernet Frame.
  */
 static inline int fnic_import_rq_eth_pkt(struct fnic *fnic, struct sk_buff *skb)
 {
@@ -141,8 +141,8 @@ static inline int fnic_import_rq_eth_pkt(struct fnic *fnic, struct sk_buff *skb)
 	struct fcoe_crc_eof *ft;
 
 	/*
-                                       
-  */
+	 * Undo VLAN encapsulation if present.
+	 */
 	eh = (struct ethhdr *)skb->data;
 	if (eh->h_proto == htons(ETH_P_8021Q)) {
 		memmove((u8 *)eh + VLAN_HLEN, eh, ETH_ALEN * 2);
@@ -152,7 +152,7 @@ static inline int fnic_import_rq_eth_pkt(struct fnic *fnic, struct sk_buff *skb)
 	if (eh->h_proto == htons(ETH_P_FIP)) {
 		skb_pull(skb, sizeof(*eh));
 		fcoe_ctlr_recv(&fnic->ctlr, skb);
-		return 1;		/*                                 */
+		return 1;		/* let caller know packet was used */
 	}
 	if (eh->h_proto != htons(ETH_P_FCOE))
 		goto drop;
@@ -178,12 +178,12 @@ drop:
 	return -1;
 }
 
-/* 
-                                                               
-                        
-                                         
-  
-                                  
+/**
+ * fnic_update_mac_locked() - set data MAC address and filters.
+ * @fnic:	fnic instance.
+ * @new:	newly-assigned FCoE MAC address.
+ *
+ * Called with the fnic lock held.
  */
 void fnic_update_mac_locked(struct fnic *fnic, u8 *new)
 {
@@ -202,10 +202,10 @@ void fnic_update_mac_locked(struct fnic *fnic, u8 *new)
 		vnic_dev_add_addr(fnic->vdev, new);
 }
 
-/* 
-                                                        
-                      
-                                         
+/**
+ * fnic_update_mac() - set data MAC address and filters.
+ * @lport:	local port.
+ * @new:	newly-assigned FCoE MAC address.
  */
 void fnic_update_mac(struct fc_lport *lport, u8 *new)
 {
@@ -216,19 +216,19 @@ void fnic_update_mac(struct fc_lport *lport, u8 *new)
 	spin_unlock_irq(&fnic->fnic_lock);
 }
 
-/* 
-                                                               
-                      
-                            
-                                                            
-  
-                                                                
-                                                                        
-                     
-  
-                                                        
-  
-                                                         
+/**
+ * fnic_set_port_id() - set the port_ID after successful FLOGI.
+ * @lport:	local port.
+ * @port_id:	assigned FC_ID.
+ * @fp:		received frame containing the FLOGI accept or NULL.
+ *
+ * This is called from libfc when a new FC_ID has been assigned.
+ * This causes us to reset the firmware to FC_MODE and setup the new MAC
+ * address and FC_ID.
+ *
+ * It is also called with FC_ID 0 when we're logged off.
+ *
+ * If the FC_ID is due to point-to-point, fp may be NULL.
  */
 void fnic_set_port_id(struct fc_lport *lport, u32 port_id, struct fc_frame *fp)
 {
@@ -240,9 +240,9 @@ void fnic_set_port_id(struct fc_lport *lport, u32 port_id, struct fc_frame *fp)
 		     port_id, fp);
 
 	/*
-                                                                
-                                    
-  */
+	 * If we're clearing the FC_ID, change to use the ctl_src_addr.
+	 * Set ethernet mode to send FLOGI.
+	 */
 	if (!port_id) {
 		fnic_update_mac(lport, fnic->ctlr.ctl_src_addr);
 		fnic_set_eth_mode(fnic);
@@ -252,13 +252,13 @@ void fnic_set_port_id(struct fc_lport *lport, u32 port_id, struct fc_frame *fp)
 	if (fp) {
 		mac = fr_cb(fp)->granted_mac;
 		if (is_zero_ether_addr(mac)) {
-			/*                                                  */
+			/* non-FIP - FLOGI already accepted - ignore return */
 			fcoe_ctlr_recv_flogi(&fnic->ctlr, lport, fp);
 		}
 		fnic_update_mac(lport, mac);
 	}
 
-	/*                                               */
+	/* Change state to reflect transition to FC mode */
 	spin_lock_irq(&fnic->fnic_lock);
 	if (fnic->state == FNIC_IN_ETH_MODE || fnic->state == FNIC_IN_FC_MODE)
 		fnic->state = FNIC_IN_ETH_TRANS_FC_MODE;
@@ -273,9 +273,9 @@ void fnic_set_port_id(struct fc_lport *lport, u32 port_id, struct fc_frame *fp)
 	spin_unlock_irq(&fnic->fnic_lock);
 
 	/*
-                                                          
-                                                               
-  */
+	 * Send FLOGI registration to firmware to set up FC mode.
+	 * The new address will be set up when registration completes.
+	 */
 	ret = fnic_flogi_reg_handler(fnic, port_id);
 
 	if (ret < 0) {
@@ -352,7 +352,7 @@ static void fnic_rq_cmpl_frame_recv(struct vnic_rq *rq, struct cq_desc
 			return;
 
 	} else {
-		/*              */
+		/* wrong CQ type*/
 		shost_printk(KERN_ERR, fnic->lport->host,
 			     "fnic rq_cmpl wrong cq type x%x\n", type);
 		goto drop;
@@ -421,9 +421,9 @@ int fnic_rq_cmpl_handler(struct fnic *fnic, int rq_work_to_do)
 }
 
 /*
-                                                                    
-                                                                        
-                                                       
+ * This function is called once at init time to allocate and fill RQ
+ * buffers. Subsequently, it is called in the interrupt context after RQ
+ * buffer processing to replenish the buffers in the RQ
  */
 int fnic_alloc_rq_frame(struct vnic_rq *rq)
 {
@@ -460,10 +460,10 @@ void fnic_free_rq_buf(struct vnic_rq *rq, struct vnic_rq_buf *buf)
 	buf->os_buf = NULL;
 }
 
-/* 
-                                         
-                            
-                                                         
+/**
+ * fnic_eth_send() - Send Ethernet frame.
+ * @fip:	fcoe_ctlr instance.
+ * @skb:	Ethernet Frame, FIP, without VLAN encapsulation.
  */
 void fnic_eth_send(struct fcoe_ctlr *fip, struct sk_buff *skb)
 {
@@ -500,7 +500,7 @@ void fnic_eth_send(struct fcoe_ctlr *fip, struct sk_buff *skb)
 }
 
 /*
-                 
+ * Send FC frame.
  */
 static int fnic_send_frame(struct fnic *fnic, struct fc_frame *fp)
 {
@@ -574,8 +574,8 @@ fnic_send_frame_end:
 }
 
 /*
-            
-                              
+ * fnic_send
+ * Routine to send a raw frame
  */
 int fnic_send(struct fc_lport *lp, struct fc_frame *fp)
 {
@@ -588,9 +588,9 @@ int fnic_send(struct fc_lport *lp, struct fc_frame *fp)
 	}
 
 	/*
-                                           
-                                                                        
-  */
+	 * Queue frame if in a transitional state.
+	 * This occurs while registering the Port_ID / MAC address after FLOGI.
+	 */
 	spin_lock_irqsave(&fnic->fnic_lock, flags);
 	if (fnic->state != FNIC_IN_FC_MODE && fnic->state != FNIC_IN_ETH_MODE) {
 		skb_queue_tail(&fnic->tx_queue, fp_skb(fp));
@@ -602,15 +602,15 @@ int fnic_send(struct fc_lport *lp, struct fc_frame *fp)
 	return fnic_send_frame(fnic, fp);
 }
 
-/* 
-                                        
-                     
-  
-                                                                  
-                                                                         
-                                                                      
-  
-                                 
+/**
+ * fnic_flush_tx() - send queued frames.
+ * @fnic: fnic device
+ *
+ * Send frames that were waiting to go out in FC or Ethernet mode.
+ * Whenever changing modes we purge queued frames, so these frames should
+ * be queued for the stable mode that we're in, either FC or Ethernet.
+ *
+ * Called without fnic_lock held.
  */
 void fnic_flush_tx(struct fnic *fnic)
 {
@@ -623,11 +623,11 @@ void fnic_flush_tx(struct fnic *fnic)
 	}
 }
 
-/* 
-                                                     
-                     
-  
-                                 
+/**
+ * fnic_set_eth_mode() - put fnic into ethernet mode.
+ * @fnic: fnic device
+ *
+ * Called without fnic lock held.
  */
 static void fnic_set_eth_mode(struct fnic *fnic)
 {

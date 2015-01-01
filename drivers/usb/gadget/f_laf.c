@@ -60,7 +60,7 @@
 
 #define LAF_BULK_BUFFER_SIZE           (0x4000)
 
-/*                                   */
+/* number of tx requests to allocate */
 #define TX_REQ_MAX 4
 #define LAF_RX_REQ_MAX 4
 
@@ -114,9 +114,9 @@ static struct usb_ss_ep_comp_descriptor laf_superspeed_in_comp_desc = {
 	.bLength =		sizeof laf_superspeed_in_comp_desc,
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
-	/*                                                    */
-	/*                  */
-	/*                    */
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
 };
 
 static struct usb_endpoint_descriptor laf_superspeed_out_desc = {
@@ -131,9 +131,9 @@ static struct usb_ss_ep_comp_descriptor laf_superspeed_out_comp_desc = {
 	.bLength =		sizeof laf_superspeed_out_comp_desc,
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
-	/*                                                    */
-	/*                  */
-	/*                    */
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
 };
 
 
@@ -199,7 +199,7 @@ static struct usb_descriptor_header *ss_laf_descs[] = {
 static void laf_ready_callback(void);
 static void laf_closed_callback(void);
 
-/*                                                                  */
+/* temporary variable used between laf_open() and laf_gadget_bind() */
 static struct laf_dev *_laf_dev;
 
 static inline struct laf_dev *func_to_laf(struct usb_function *f)
@@ -215,7 +215,7 @@ static struct usb_request *laf_request_new(struct usb_ep *ep, int buffer_size)
 		return NULL;
 
 	pr_info("%s\n", __func__);
-	/*                                       */
+	/* now allocate buffers for the requests */
 	req->buf = kmalloc(buffer_size, GFP_KERNEL);
 	if (!req->buf) {
 		usb_ep_free_request(ep, req);
@@ -252,7 +252,7 @@ static inline void laf_unlock(atomic_t *excl)
 		atomic_inc(excl);
 }
 
-/*                                     */
+/* add a request to the tail of a list */
 void laf_req_put(struct laf_dev *dev, struct list_head *head,
 		struct usb_request *req)
 {
@@ -263,7 +263,7 @@ void laf_req_put(struct laf_dev *dev, struct list_head *head,
 	spin_unlock_irqrestore(&dev->lock, flags);
 }
 
-/*                                          */
+/* remove a request from the head of a list */
 struct usb_request *laf_req_get(struct laf_dev *dev, struct list_head *head)
 {
 	unsigned long flags;
@@ -321,7 +321,7 @@ static int laf_create_bulk_endpoints(struct laf_dev *dev,
 		return -ENODEV;
 	}
 	DBG(cdev, "usb_ep_autoconfig for ep_in got %s\n", ep->name);
-	ep->driver_data = dev;		/*                    */
+	ep->driver_data = dev;		/* claim the endpoint */
 	dev->ep_in = ep;
 
 	ep = usb_ep_autoconfig(cdev->gadget, out_desc);
@@ -330,10 +330,10 @@ static int laf_create_bulk_endpoints(struct laf_dev *dev,
 		return -ENODEV;
 	}
 	DBG(cdev, "usb_ep_autoconfig for laf ep_out got %s\n", ep->name);
-	ep->driver_data = dev;		/*                    */
+	ep->driver_data = dev;		/* claim the endpoint */
 	dev->ep_out = ep;
 
-	/*                                         */
+	/* now allocate requests for our endpoints */
 	for (i = 0; i < LAF_RX_REQ_MAX; i++) {
 		req = laf_request_new(dev->ep_out, LAF_BULK_BUFFER_SIZE);
 		if (!req)
@@ -376,7 +376,7 @@ static ssize_t laf_read(struct file *fp, char __user *buf,
 	if (unlikely(laf_lock(&dev->read_excl)))
 		return -EBUSY;
 
-    /*                                  */
+    /* we will block until we're online */
     while (unlikely(!(atomic_read(&dev->online)) || unlikely(atomic_read(&dev->error)))) {
 		pr_debug("laf_read: waiting for online state\n");
 		ret = wait_event_interruptible(dev->read_wq,
@@ -393,7 +393,7 @@ static ssize_t laf_read(struct file *fp, char __user *buf,
 	}
 
 requeue_req:
-	/*                 */
+	/* queue a request */
 	req = dev->rx_req[0];
 	req->length = count;
 	dev->rx_done = 0;
@@ -407,7 +407,7 @@ requeue_req:
 		pr_debug("rx %p queue\n", req);
 	}
 
-	/*                                */
+	/* wait for a request to complete */
 	ret = wait_event_interruptible(dev->read_wq, dev->rx_done);
 	if (unlikely(ret < 0)) {
 		if (ret != -ERESTARTSYS)
@@ -417,7 +417,7 @@ requeue_req:
 		goto done;
 	}
 	if (likely(!atomic_read(&dev->error))) {
-		/*                                                        */
+		/* If we got a 0-len packet, throw it back and try again. */
 		if (unlikely(req->actual == 0))
 			goto requeue_req;
 
@@ -458,7 +458,7 @@ static ssize_t laf_write(struct file *fp, const char __user *buf,
 			break;
 		}
 
-		/*                               */
+		/* get an idle tx request to use */
 		req = 0;
 		ret = wait_event_interruptible(dev->write_wq,
 			((req = laf_req_get(dev, &dev->tx_idle)) ||
@@ -491,7 +491,7 @@ static ssize_t laf_write(struct file *fp, const char __user *buf,
 			buf += xfer;
 			count -= xfer;
 
-			/*                                                    */
+			/* zero this so we don't try to free it on error exit */
 			req = 0;
 		}
 	}
@@ -515,7 +515,7 @@ static int laf_open(struct inode *ip, struct file *fp)
 
 	fp->private_data = _laf_dev;
 
-	/*                       */
+	/* clear the error latch */
 	atomic_set(&_laf_dev->error, 0);
 
 	if (_laf_dev->close_notified) {
@@ -533,12 +533,12 @@ static int laf_release(struct inode *ip, struct file *fp)
 	pr_info("laf_release\n");
 
 	/*
-                                                           
-                                                        
-                                                                 
-                                                            
-                                                           
-  */
+	 * LAF daemon closes the device file after I/O error.  The
+	 * I/O error happen when Rx requests are flushed during
+	 * cable disconnect or bus reset in configured state.  Disabling
+	 * USB configuration and pull-up during these scenarios are
+	 * undesired.  We want to force bus reset only for certain
+	 */
 	if (_laf_dev->notify_close) {
 		laf_closed_callback();
 		_laf_dev->close_notified = true;
@@ -549,7 +549,7 @@ static int laf_release(struct inode *ip, struct file *fp)
 	return 0;
 }
 
-/*                                                 */
+/* file operations for LAF device /dev/android_laf */
 static const struct file_operations laf_fops = {
 	.owner = THIS_MODULE,
 	.read = laf_read,
@@ -579,7 +579,7 @@ laf_function_bind(struct usb_configuration *c, struct usb_function *f)
 	DBG(cdev, "laf_function_bind dev: %p\n", dev);
 	printk(KERN_INFO "laf_function_bind .........\n");
 
-	/*                          */
+	/* allocate interface ID(s) */
 	id = usb_interface_id(c, f);
 	if (id < 0)
 		return id;
@@ -587,20 +587,20 @@ laf_function_bind(struct usb_configuration *c, struct usb_function *f)
 
 	DBG(cdev, "laf_function_bind bInterfaceNumber: %d\n", id);
 
-	/*                    */
+	/* allocate endpoints */
 	ret = laf_create_bulk_endpoints(dev, &laf_fullspeed_in_desc,
 			&laf_fullspeed_out_desc);
 	if (ret)
 		return ret;
 
-	/*                             */
+	/* support high speed hardware */
 	if (gadget_is_dualspeed(c->cdev->gadget)) {
 		laf_highspeed_in_desc.bEndpointAddress =
 			laf_fullspeed_in_desc.bEndpointAddress;
 		laf_highspeed_out_desc.bEndpointAddress =
 			laf_fullspeed_out_desc.bEndpointAddress;
 	}
-	/*                              */
+	/* support super speed hardware */
 	if (gadget_is_superspeed(c->cdev->gadget)) {
 		laf_superspeed_in_desc.bEndpointAddress =
 			laf_fullspeed_in_desc.bEndpointAddress;
@@ -674,7 +674,7 @@ static int laf_function_set_alt(struct usb_function *f,
 	}
 	atomic_set(&dev->online, 1);
 
-	/*                                                    */
+	/* readers may be blocked waiting for us to go online */
 	wake_up(&dev->read_wq);
 	return 0;
 }
@@ -685,17 +685,17 @@ static void laf_function_disable(struct usb_function *f)
 
 	pr_info("%s \n", __func__);
 	/*
-                                                 
-                                                   
-                                                          
-  */
+	 * Bus reset happened or cable disconnected.  No
+	 * need to disable the configuration now.  We will
+	 * set noify_close to true when device file is re-opened.
+	 */
 	dev->notify_close = false;
 	atomic_set(&dev->online, 0);
 	atomic_set(&dev->error, 1);
 	usb_ep_disable(dev->ep_in);
 	usb_ep_disable(dev->ep_out);
 
-	/*                                                    */
+	/* readers may be blocked waiting for us to go online */
 	wake_up(&dev->read_wq);
 
 }
@@ -717,7 +717,7 @@ static int laf_bind_config(struct usb_configuration *c)
 	dev->function.set_alt = laf_function_set_alt;
 	dev->function.disable = laf_function_disable;
 
-	/*                                                         */
+	/*dev->function.bInterfaceNumber =  usb_interface_id(c, f);*/
 
 	return usb_add_function(c, &dev->function);
 }
@@ -740,7 +740,7 @@ static int laf_setup(void)
 	atomic_set(&dev->read_excl, 0);
 	atomic_set(&dev->write_excl, 0);
 
-	/*                                                  */
+	/* config is disabled by default if laf is present. */
 	dev->close_notified = true;
 
 	INIT_LIST_HEAD(&dev->tx_idle);

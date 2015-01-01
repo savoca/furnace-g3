@@ -31,11 +31,11 @@
 static int __fimc_md_set_camclk(struct fimc_md *fmd,
 				struct fimc_sensor_info *s_info,
 				bool on);
-/* 
-                                                                              
-                                              
-  
-                                
+/**
+ * fimc_pipeline_prepare - update pipeline information with subdevice pointers
+ * @fimc: fimc device terminating the pipeline
+ *
+ * Caller holds the graph mutex.
  */
 void fimc_pipeline_prepare(struct fimc_dev *fimc, struct media_entity *me)
 {
@@ -56,13 +56,13 @@ void fimc_pipeline_prepare(struct fimc_dev *fimc, struct media_entity *me)
 	}
 }
 
-/* 
-                                                             
-                                           
-                                         
-  
-                                                                     
-                                                                 
+/**
+ * __subdev_set_power - change power state of a single subdev
+ * @sd: subdevice to change power state for
+ * @on: 1 to enable power or 0 to disable
+ *
+ * Return result of s_power subdev operation or -ENXIO if sd argument
+ * is NULL. Return 0 if the subdevice does not implement s_power.
  */
 static int __subdev_set_power(struct v4l2_subdev *sd, int on)
 {
@@ -82,12 +82,12 @@ static int __subdev_set_power(struct v4l2_subdev *sd, int on)
 	return ret != -ENOIOCTLCMD ? ret : 0;
 }
 
-/* 
-                                                                     
-                                              
-                                                
-  
-                                               
+/**
+ * fimc_pipeline_s_power - change power state of all pipeline subdevs
+ * @fimc: fimc device terminating the pipeline
+ * @state: 1 to enable power or 0 for power down
+ *
+ * Need to be called with the graph mutex held.
  */
 int fimc_pipeline_s_power(struct fimc_dev *fimc, int state)
 {
@@ -111,13 +111,13 @@ int fimc_pipeline_s_power(struct fimc_dev *fimc, int state)
 	return ret == -ENXIO ? 0 : ret;
 }
 
-/* 
-                                                                             
-                                                                            
-                                             
-                                                   
-  
-                                                          
+/**
+ * __fimc_pipeline_initialize - update the pipeline information, enable power
+ *                              of all pipeline subdevs and the sensor clock
+ * @me: media entity to start graph walk with
+ * @prep: true to acquire sensor (and csis) subdevs
+ *
+ * This function must be called with the graph mutex held.
  */
 static int __fimc_pipeline_initialize(struct fimc_dev *fimc,
 				      struct media_entity *me, bool prep)
@@ -146,13 +146,13 @@ int fimc_pipeline_initialize(struct fimc_dev *fimc, struct media_entity *me,
 	return ret;
 }
 
-/* 
-                                                                         
-                                              
-  
-                                                                         
-                
-                                    
+/**
+ * __fimc_pipeline_shutdown - disable the sensor clock and pipeline power
+ * @fimc: fimc device terminating the pipeline
+ *
+ * Disable power of all subdevs in the pipeline and turn off the external
+ * sensor clock.
+ * Called with the graph mutex held.
  */
 int __fimc_pipeline_shutdown(struct fimc_dev *fimc)
 {
@@ -177,10 +177,10 @@ int fimc_pipeline_shutdown(struct fimc_dev *fimc)
 	return ret;
 }
 
-/* 
-                                                               
-                                              
-                                            
+/**
+ * fimc_pipeline_s_stream - invoke s_stream on pipeline subdevs
+ * @fimc: fimc device terminating the pipeline
+ * @on: passed as the s_stream call argument
  */
 int fimc_pipeline_s_stream(struct fimc_dev *fimc, int on)
 {
@@ -202,7 +202,7 @@ int fimc_pipeline_s_stream(struct fimc_dev *fimc, int on)
 }
 
 /*
-                                    
+ * Sensor subdevice helper functions
  */
 static struct v4l2_subdev *fimc_md_register_sensor(struct fimc_md *fmd,
 				   struct fimc_sensor_info *s_info)
@@ -252,9 +252,9 @@ static int fimc_md_register_sensor_entities(struct fimc_md *fmd)
 	int num_clients, ret, i;
 
 	/*
-                                                        
-                                                  
-  */
+	 * Runtime resume one of the FIMC entities to make sure
+	 * the sclk_cam clocks are not globally disabled.
+	 */
 	for (i = 0; !fd && i < ARRAY_SIZE(fmd->fimc); i++)
 		if (fmd->fimc[i])
 			fd = fmd->fimc[i];
@@ -284,7 +284,7 @@ static int fimc_md_register_sensor_entities(struct fimc_md *fmd)
 }
 
 /*
-                                                    
+ * MIPI CSIS and FIMC platform devices registration.
  */
 static int fimc_register_callback(struct device *dev, void *p)
 {
@@ -331,8 +331,8 @@ static int csis_register_callback(struct device *dev, void *p)
 	return ret;
 }
 
-/* 
-                                                                             
+/**
+ * fimc_md_register_platform_entities - register FIMC and CSIS media entities
  */
 static int fimc_md_register_platform_entities(struct fimc_md *fmd)
 {
@@ -408,13 +408,13 @@ static int fimc_md_register_video_nodes(struct fimc_md *fmd)
 	return ret;
 }
 
-/* 
-                                                                  
-                          
-                                                                       
-                                                                     
-                                    
-                                                                      
+/**
+ * __fimc_md_create_fimc_links - create links to all FIMC entities
+ * @fmd: fimc media device
+ * @source: the source entity to create links to all fimc entities from
+ * @sensor: sensor subdev linked to FIMC[fimc_id] entity, may be null
+ * @pad: the source entity pad index
+ * @fimc_id: index of the fimc device for which link should be enabled
  */
 static int __fimc_md_create_fimc_links(struct fimc_md *fmd,
 				       struct media_entity *source,
@@ -430,9 +430,9 @@ static int __fimc_md_create_fimc_links(struct fimc_md *fmd,
 		if (!fmd->fimc[i])
 			break;
 		/*
-                                                          
-                                                           
-   */
+		 * Some FIMC variants are not fitted with camera capture
+		 * interface. Skip creating a link from sensor for those.
+		 */
 		if (sensor->grp_id == SENSOR_GROUP_ID &&
 		    !fmd->fimc[i]->variant->has_cam_if)
 			continue;
@@ -444,7 +444,7 @@ static int __fimc_md_create_fimc_links(struct fimc_md *fmd,
 		if (ret)
 			return ret;
 
-		/*                                   */
+		/* Notify FIMC capture subdev entity */
 		ret = media_entity_call(sink, link_setup, &sink->pads[0],
 					&source->pads[pad], flags);
 		if (ret)
@@ -466,17 +466,17 @@ static int __fimc_md_create_fimc_links(struct fimc_md *fmd,
 	return 0;
 }
 
-/* 
-                                                                          
-  
-                                                                            
-                                                                            
-                                                                         
-                                                                          
-                                                                       
-                                                                        
-                                                                  
-                     
+/**
+ * fimc_md_create_links - create default links between registered entities
+ *
+ * Parallel interface sensor entities are connected directly to FIMC capture
+ * entities. The sensors using MIPI CSIS bus are connected through immutable
+ * link with CSI receiver entity specified by mux_id. Any registered CSIS
+ * entity has a link to each registered FIMC capture entity. Enabled links
+ * are created by default between each subsequent registered sensor and
+ * subsequent FIMC capture entity. The number of default active links is
+ * determined by the number of available sensors or FIMC entities,
+ * whichever is less.
  */
 static int fimc_md_create_links(struct fimc_md *fmd)
 {
@@ -542,7 +542,7 @@ static int fimc_md_create_links(struct fimc_md *fmd)
 		ret = __fimc_md_create_fimc_links(fmd, source, sensor, pad,
 						  fimc_id++);
 	}
-	/*                                                                  */
+	/* Create immutable links between each FIMC's subdev and video node */
 	flags = MEDIA_LNK_FL_IMMUTABLE | MEDIA_LNK_FL_ENABLED;
 	for (i = 0; i < FIMC_MAX_DEVS; i++) {
 		if (!fmd->fimc[i])
@@ -559,7 +559,7 @@ static int fimc_md_create_links(struct fimc_md *fmd)
 }
 
 /*
-                                          
+ * The peripheral sensor clock management.
  */
 static int fimc_md_get_clocks(struct fimc_md *fmd)
 {
@@ -638,19 +638,19 @@ static int __fimc_md_set_camclk(struct fimc_md *fmd,
 	return ret;
 }
 
-/* 
-                                                     
-                                                     
-                                             
-  
-                                                                       
-                                                                        
-                                                                       
-                                                                 
-                                                            
-                                                                       
-                                                                
-                                                                    
+/**
+ * fimc_md_set_camclk - peripheral sensor clock setup
+ * @sd: sensor subdev to configure sclk_cam clock for
+ * @on: 1 to enable or 0 to disable the clock
+ *
+ * There are 2 separate clock outputs available in the SoC for external
+ * image processors. These clocks are shared between all registered FIMC
+ * devices to which sensors can be attached, either directly or through
+ * the MIPI CSI receiver. The clock is allowed here to be used by
+ * multiple sensors concurrently if they use same frequency.
+ * The per sensor subdev clk_on attribute helps to synchronize accesses
+ * to the sclk_cam clocks from the video and media device nodes.
+ * This function should only be called when the graph mutex is held.
  */
 int fimc_md_set_camclk(struct v4l2_subdev *sd, bool on)
 {
@@ -684,10 +684,10 @@ static int fimc_md_link_notify(struct media_pad *source,
 		return ret;
 	}
 	/*
-                                                                  
-                                                              
-                                                                 
-  */
+	 * Link activation. Enable power of pipeline elements only if the
+	 * pipeline is already in use, i.e. its video node is opened.
+	 * Recreate the controls destroyed during the link deactivation.
+	 */
 	mutex_lock(&fimc->lock);
 	if (fimc->vid_cap.refcnt > 0) {
 		ret = __fimc_pipeline_initialize(fimc, source->entity, true);
@@ -734,12 +734,12 @@ static ssize_t fimc_md_sysfs_store(struct device *dev,
 	return count;
 }
 /*
-                                                                          
-                                    
-                                                                        
-                       
-                                                                          
-                                    
+ * This device attribute is to select video pipeline configuration method.
+ * There are following valid values:
+ *  vid-dev - for V4L2 video node API only, subdevice will be configured
+ *  by the host driver.
+ *  sub-dev - for media controller API, subdevs must be configured in user
+ *  space before starting streaming.
  */
 static DEVICE_ATTR(subdev_conf_mode, S_IWUSR | S_IRUGO,
 		   fimc_md_sysfs_show, fimc_md_sysfs_store);

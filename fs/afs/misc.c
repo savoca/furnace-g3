@@ -17,7 +17,7 @@
 #include "afs_fs.h"
 
 /*
-                                                    
+ * convert an AFS abort code to a Linux error number
  */
 int afs_abort_to_error(u32 abort_code)
 {

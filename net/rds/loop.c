@@ -41,21 +41,21 @@ static DEFINE_SPINLOCK(loop_conns_lock);
 static LIST_HEAD(loop_conns);
 
 /*
-                                                                       
-                                     
-  
-                                                                       
-                                                                         
-                                                                           
-  
-                                                                        
-                                                               
+ * This 'loopback' transport is a special case for flows that originate
+ * and terminate on the same machine.
+ *
+ * Connection build-up notices if the destination address is thought of
+ * as a local address by a transport.  At that time it decides to use the
+ * loopback transport instead of the bound transport of the sending socket.
+ *
+ * The loopback transport's sending path just hands the sent rds_message
+ * straight to the receiving path via an embedded rds_incoming.
  */
 
 /*
-                                                                        
-                                                                         
-                                                                        
+ * Usually a message transits both the sender and receiver's conns as it
+ * flows to the receiver.  In the loopback case, though, the receive path
+ * is handed the sending conn so the sense of the addresses is reversed.
  */
 static int rds_loop_xmit(struct rds_connection *conn, struct rds_message *rm,
 			 unsigned int hdr_off, unsigned int sg,
@@ -65,7 +65,7 @@ static int rds_loop_xmit(struct rds_connection *conn, struct rds_message *rm,
 	int ret = sizeof(struct rds_header) +
 			be32_to_cpu(rm->m_inc.i_hdr.h_len);
 
-	/*                                      */
+	/* Do not send cong updates to loopback */
 	if (rm->m_inc.i_hdr.h_flags & RDS_FLAG_CONG_BITMAP) {
 		rds_cong_map_updated(conn->c_fcong, ~(u64) 0);
 		ret = min_t(int, ret, sgp->length - conn->c_xmit_data_off);
@@ -75,7 +75,7 @@ static int rds_loop_xmit(struct rds_connection *conn, struct rds_message *rm,
 	BUG_ON(hdr_off || sg || off);
 
 	rds_inc_init(&rm->m_inc, conn, conn->c_laddr);
-	/*                                                          */
+	/* For the embedded inc. Matching put is in loop_inc_free() */
 	rds_message_addref(rm);
 
 	rds_recv_incoming(conn, conn->c_laddr, conn->c_faddr, &rm->m_inc,
@@ -90,8 +90,8 @@ out:
 }
 
 /*
-                                                               
-                                                         
+ * See rds_loop_xmit(). Since our inc is embedded in the rm, we
+ * make sure the rm lives at least until the inc is done.
  */
 static void rds_loop_inc_free(struct rds_incoming *inc)
 {
@@ -99,7 +99,7 @@ static void rds_loop_inc_free(struct rds_incoming *inc)
         rds_message_put(rm);
 }
 
-/*                                                          */
+/* we need to at least give the thread something to succeed */
 static int rds_loop_recv(struct rds_connection *conn)
 {
 	return 0;
@@ -111,10 +111,10 @@ struct rds_loop_connection {
 };
 
 /*
-                                                                      
-                                                                    
-                                                              
-                                                              
+ * Even the loopback transport needs to keep track of its connections,
+ * so it can call rds_conn_destroy() on them on exit. N.B. there are
+ * 1+ loopback addresses (127.*.*.*) so it's not a bug to have
+ * multiple loopback conns allocated, although rather useless.
  */
 static int rds_loop_conn_alloc(struct rds_connection *conn, gfp_t gfp)
 {
@@ -163,7 +163,7 @@ void rds_loop_exit(void)
 	struct rds_loop_connection *lc, *_lc;
 	LIST_HEAD(tmp_list);
 
-	/*                                          */
+	/* avoid calling conn_destroy with irqs off */
 	spin_lock_irq(&loop_conns_lock);
 	list_splice(&loop_conns, &tmp_list);
 	INIT_LIST_HEAD(&loop_conns);
@@ -176,10 +176,10 @@ void rds_loop_exit(void)
 }
 
 /*
-                                                                  
-                                                                          
-                                                                    
-                      
+ * This is missing .xmit_* because loop doesn't go through generic
+ * rds_send_xmit() and doesn't call rds_recv_incoming().  .listen_stop and
+ * .laddr_check are missing because transport.c doesn't iterate over
+ * rds_loop_transport.
  */
 struct rds_transport rds_loop_transport = {
 	.xmit			= rds_loop_xmit,

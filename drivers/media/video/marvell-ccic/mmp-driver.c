@@ -48,9 +48,9 @@ static inline struct mmp_camera *mcam_to_cam(struct mcam_camera *mcam)
 }
 
 /*
-                                                                     
-                                                                 
-                                                
+ * A silly little infrastructure so we can keep track of our devices.
+ * Chances are that we will never have more than one of them, but
+ * the Armada 610 *does* have two controllers...
  */
 
 static LIST_HEAD(mmpcam_devices);
@@ -71,9 +71,9 @@ static void mmpcam_remove_device(struct mmp_camera *cam)
 }
 
 /*
-                                                               
-                                                              
-                          
+ * Platform dev remove passes us a platform_device, and there's
+ * no handy unused drvdata to stash a backpointer in.  So just
+ * dig it out of our list.
  */
 static struct mmp_camera *mmpcam_find_device(struct platform_device *pdev)
 {
@@ -94,17 +94,17 @@ static struct mmp_camera *mmpcam_find_device(struct platform_device *pdev)
 
 
 /*
-                                                         
-                  
-  
-                                                
+ * Power-related registers; this almost certainly belongs
+ * somewhere else.
+ *
+ * ARMADA 610 register manual, sec 7.2.1, p1842.
  */
 #define CPU_SUBSYS_PMU_BASE	0xd4282800
-#define REG_CCIC_DCGCR		0x28	/*                              */
-#define REG_CCIC_CRCR		0x50	/*                         */
+#define REG_CCIC_DCGCR		0x28	/* CCIC dyn clock gate ctrl reg */
+#define REG_CCIC_CRCR		0x50	/* CCIC clk reset ctrl reg	*/
 
 /*
-                 
+ * Power control.
  */
 static void mmpcam_power_up_ctlr(struct mmp_camera *cam)
 {
@@ -118,20 +118,20 @@ static void mmpcam_power_up(struct mcam_camera *mcam)
 	struct mmp_camera *cam = mcam_to_cam(mcam);
 	struct mmp_camera_platform_data *pdata;
 /*
-                                              
+ * Turn on power and clocks to the controller.
  */
 	mmpcam_power_up_ctlr(cam);
 /*
-                               
+ * Provide power to the sensor.
  */
 	mcam_reg_write(mcam, REG_CLKCTRL, 0x60000002);
 	pdata = cam->pdev->dev.platform_data;
 	gpio_set_value(pdata->sensor_power_gpio, 1);
 	mdelay(5);
 	mcam_reg_clear_bit(mcam, REG_CTRL1, 0x10000000);
-	gpio_set_value(pdata->sensor_reset_gpio, 0); /*                     */
+	gpio_set_value(pdata->sensor_reset_gpio, 0); /* reset is active low */
 	mdelay(5);
-	gpio_set_value(pdata->sensor_reset_gpio, 1); /*                     */
+	gpio_set_value(pdata->sensor_reset_gpio, 1); /* reset is active low */
 	mdelay(5);
 }
 
@@ -140,12 +140,12 @@ static void mmpcam_power_down(struct mcam_camera *mcam)
 	struct mmp_camera *cam = mcam_to_cam(mcam);
 	struct mmp_camera_platform_data *pdata;
 /*
-                                      
+ * Turn off clocks and set reset lines
  */
 	iowrite32(0, cam->power_regs + REG_CCIC_DCGCR);
 	iowrite32(0, cam->power_regs + REG_CCIC_CRCR);
 /*
-                        
+ * Shut down the sensor.
  */
 	pdata = cam->pdev->dev.platform_data;
 	gpio_set_value(pdata->sensor_power_gpio, 0);
@@ -189,8 +189,8 @@ static int mmpcam_probe(struct platform_device *pdev)
 	mcam->buffer_mode = B_DMA_sg;
 	spin_lock_init(&mcam->dev_lock);
 	/*
-                       
-  */
+	 * Get our I/O memory.
+	 */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
 		dev_err(&pdev->dev, "no iomem resource!\n");
@@ -204,9 +204,9 @@ static int mmpcam_probe(struct platform_device *pdev)
 		goto out_free;
 	}
 	/*
-                                                              
-                                                    
-  */
+	 * Power/clock memory is elsewhere; get it too.  Perhaps this
+	 * should really be managed outside of this driver?
+	 */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res == NULL) {
 		dev_err(&pdev->dev, "no power resource!\n");
@@ -220,9 +220,9 @@ static int mmpcam_probe(struct platform_device *pdev)
 		goto out_unmap1;
 	}
 	/*
-                                                            
-                                          
-  */
+	 * Find the i2c adapter.  This assumes, of course, that the
+	 * i2c bus is already up and functioning.
+	 */
 	pdata = pdev->dev.platform_data;
 	mcam->i2c_adapter = platform_get_drvdata(pdata->i2c_device);
 	if (mcam->i2c_adapter == NULL) {
@@ -231,8 +231,8 @@ static int mmpcam_probe(struct platform_device *pdev)
 		goto out_unmap2;
 	}
 	/*
-                     
-  */
+	 * Sensor GPIO pins.
+	 */
 	ret = gpio_request(pdata->sensor_power_gpio, "cam-power");
 	if (ret) {
 		dev_err(&pdev->dev, "Can't get sensor power gpio %d",
@@ -248,16 +248,16 @@ static int mmpcam_probe(struct platform_device *pdev)
 	}
 	gpio_direction_output(pdata->sensor_reset_gpio, 0);
 	/*
-                                                    
-  */
+	 * Power the device up and hand it off to the core.
+	 */
 	mmpcam_power_up(mcam);
 	ret = mccic_register(mcam);
 	if (ret)
 		goto out_gpio2;
 	/*
-                                                         
-                 
-  */
+	 * Finally, set up our IRQ now that the core is ready to
+	 * deal with it.
+	 */
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (res == NULL) {
 		ret = -ENODEV;
@@ -316,7 +316,7 @@ static int mmpcam_platform_remove(struct platform_device *pdev)
 }
 
 /*
-                          
+ * Suspend/resume support.
  */
 #ifdef CONFIG_PM
 
@@ -335,10 +335,10 @@ static int mmpcam_resume(struct platform_device *pdev)
 	struct mmp_camera *cam = mmpcam_find_device(pdev);
 
 	/*
-                                                           
-                                                             
-                             
-  */
+	 * Power up unconditionally just in case the core tries to
+	 * touch a register even if nothing was active before; trust
+	 * me, it's better this way.
+	 */
 	mmpcam_power_up_ctlr(cam);
 	return mccic_resume(&cam->mcam);
 }
@@ -370,8 +370,8 @@ static void __exit mmpcam_exit_module(void)
 {
 	platform_driver_unregister(&mmpcam_driver);
 	/*
-                                                             
-  */
+	 * platform_driver_unregister() should have emptied the list
+	 */
 	if (!list_empty(&mmpcam_devices))
 		printk(KERN_ERR "mmp_camera leaving devices behind\n");
 }

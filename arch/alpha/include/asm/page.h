@@ -4,7 +4,7 @@
 #include <linux/const.h>
 #include <asm/pal.h>
 
-/*                                     */
+/* PAGE_SHIFT determines the page size */
 #define PAGE_SHIFT	13
 #define PAGE_SIZE	(_AC(1,UL) << PAGE_SHIFT)
 #define PAGE_MASK	(~(PAGE_SIZE-1))
@@ -25,7 +25,7 @@ extern void copy_page(void * _to, void * _from);
 
 #ifdef STRICT_MM_TYPECHECKS
 /*
-                                                  
+ * These are used to make use of C type-checking..
  */
 typedef struct { unsigned long pte; } pte_t;
 typedef struct { unsigned long pmd; } pmd_t;
@@ -44,7 +44,7 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 
 #else
 /*
-                                                
+ * .. while these make it easier on the compiler
  */
 typedef unsigned long pte_t;
 typedef unsigned long pmd_t;
@@ -60,7 +60,7 @@ typedef unsigned long pgprot_t;
 #define __pgd(x)	(x)
 #define __pgprot(x)	(x)
 
-#endif /*                      */
+#endif /* STRICT_MM_TYPECHECKS */
 
 typedef struct page *pgtable_t;
 
@@ -78,7 +78,7 @@ typedef struct page *pgtable_t;
 #define PAGE_OFFSET		0xfffffc0000000000
 #endif
 
-#endif /*               */
+#endif /* !__ASSEMBLY__ */
 
 #define __pa(x)			((unsigned long) (x) - PAGE_OFFSET)
 #define __va(x)			((void *)((unsigned long) (x) + PAGE_OFFSET))
@@ -87,7 +87,7 @@ typedef struct page *pgtable_t;
 
 #define pfn_valid(pfn)		((pfn) < max_mapnr)
 #define virt_addr_valid(kaddr)	pfn_valid(__pa(kaddr) >> PAGE_SHIFT)
-#endif /*                     */
+#endif /* CONFIG_DISCONTIGMEM */
 
 #define VM_DATA_DEFAULT_FLAGS		(VM_READ | VM_WRITE | VM_EXEC | \
 					 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
@@ -95,4 +95,4 @@ typedef struct page *pgtable_t;
 #include <asm-generic/memory_model.h>
 #include <asm-generic/getorder.h>
 
-#endif /*               */
+#endif /* _ALPHA_PAGE_H */

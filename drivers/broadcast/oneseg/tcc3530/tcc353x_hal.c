@@ -12,27 +12,27 @@
 #endif
 
 #ifdef _MODEL_F9J_
-#include "../../../../arch/arm/mach-msm/lge/f9j/board-f9j.h"	/*                         */
+#include "../../../../arch/arm/mach-msm/lge/f9j/board-f9j.h"	/* PM8921_GPIO_PM_TO_SYS() */
 #endif
 
 #ifndef _MODEL_F9J_
-#define ISDB_EN			85 	/*         */
+#define ISDB_EN			85 	/* GPIO 85 */
 #endif
-#define ISDB_INT_N		77 	/*         */
-#define ISDB_RESET_N  		1 	/*        */
+#define ISDB_INT_N		77 	/* GPIO 77 */
+#define ISDB_RESET_N  		1 	/* GPIO 1 */
 
 #ifdef INCLUDE_LGE_SRC_EAR_ANT_SEL
-#define ONESEG_EAR_ANT_SEL_P	PM8921_GPIO_PM_TO_SYS(11)	/*                             */
+#define ONESEG_EAR_ANT_SEL_P	PM8921_GPIO_PM_TO_SYS(11)	/* Internel/Ear antenna switch */
 #endif
 
 #ifdef _MODEL_F9J_
-static struct regulator *reg_s4;	//        
+static struct regulator *reg_s4;	//vdd 1.8V
 static int pm8921_s4_mode = -1;
 
-static struct regulator *reg_l10;	//        
+static struct regulator *reg_l10;	//vdd 2.8V
 static int pm8921_l10_mode = -1;
 
-static struct regulator *reg_l29;	//    
+static struct regulator *reg_l29;	//1.8v
 static int pm8921_l29_mode = -1;
 
 static int power_set_for_pm8921_s4(unsigned char onoff)
@@ -206,30 +206,30 @@ void TchalInit(void)
 	gpio_request(ISDB_INT_N, "ISDB_INT");
 
 #ifdef INCLUDE_LGE_SRC_EAR_ANT_SEL
-	/*                                                                 */
-	gpio_set_value_cansleep(ONESEG_EAR_ANT_SEL_P, 0); /*                    */
+	/* Internel antenna:OFF, Ear antenna: ON, GPIO11:LOW (Saving power)*/
+	gpio_set_value_cansleep(ONESEG_EAR_ANT_SEL_P, 0); /* PMIC Extended GPIO */
 #endif
 
-	gpio_direction_output(ISDB_RESET_N, false); 	/*            */
+	gpio_direction_output(ISDB_RESET_N, false); 	/* output low */
 	#ifdef _MODEL_F9J_
 	power_set_for_pm8921_s4(0);
 	power_set_for_pm8921_l10(0);
 	power_set_for_pm8921_l29(0);
 	#else
-	gpio_direction_output(ISDB_EN, false); 		/*            */
+	gpio_direction_output(ISDB_EN, false); 		/* output low */
 	#endif
-	gpio_direction_input(ISDB_INT_N); 		/*       */
+	gpio_direction_input(ISDB_INT_N); 		/* input */
 
 	TcpalPrintStatus((I08S *)"[%s:%d]\n", __func__, __LINE__);
 }
 
 void TchalResetDevice(void)
 {
-	gpio_set_value(ISDB_RESET_N, 1);		/*                   */
+	gpio_set_value(ISDB_RESET_N, 1);		/* high ISDB_RESET_N */
 	TcpalmSleep(5);
-	gpio_set_value(ISDB_RESET_N, 0);		/*                  */
+	gpio_set_value(ISDB_RESET_N, 0);		/* low ISDB_RESET_N */
 	TcpalmSleep(5);
-	gpio_set_value(ISDB_RESET_N, 1);		/*                   */
+	gpio_set_value(ISDB_RESET_N, 1);		/* high ISDB_RESET_N */
 	TcpalmSleep(5);
 
 	TcpalPrintStatus((I08S *)"[%s:%d]\n", __func__, __LINE__);
@@ -239,20 +239,20 @@ void TchalPowerOnDevice(void)
 {
 
 #ifdef INCLUDE_LGE_SRC_EAR_ANT_SEL
-	/*                                                                                     */
-	gpio_set_value_cansleep(ONESEG_EAR_ANT_SEL_P, 1); /*                    */
+	/* Internel antenna:ON, Ear antenna: OFF, GPIO11: HIGH (Default: Use Internel Antenna )*/
+	gpio_set_value_cansleep(ONESEG_EAR_ANT_SEL_P, 1); /* PMIC Extended GPIO */
 #endif
 	#ifndef _MODEL_F9J_
-	gpio_direction_output(ISDB_EN, false); 		/*            */
+	gpio_direction_output(ISDB_EN, false); 		/* output low */
 	#endif
-	gpio_direction_output(ISDB_RESET_N, false); 	/*            */
+	gpio_direction_output(ISDB_RESET_N, false); 	/* output low */
 
 	#ifdef _MODEL_F9J_
 	power_set_for_pm8921_s4(1);
 	power_set_for_pm8921_l10(1);
 	power_set_for_pm8921_l29(1);
 	#else
-	gpio_set_value(ISDB_EN, 1);			/*              */
+	gpio_set_value(ISDB_EN, 1);			/* high ISDB_EN */
 	#endif
 	TcpalmSleep(10);
 	TchalResetDevice();
@@ -263,19 +263,19 @@ void TchalPowerOnDevice(void)
 
 void TchalPowerDownDevice(void)
 {
-	gpio_set_value(ISDB_RESET_N, 0);		/*                  */
+	gpio_set_value(ISDB_RESET_N, 0);		/* low ISDB_RESET_N */
 	TcpalmSleep(5);
 	#ifdef _MODEL_F9J_
 	power_set_for_pm8921_s4(0);
 	power_set_for_pm8921_l10(0);
 	power_set_for_pm8921_l29(0);
 	#else
-	gpio_set_value(ISDB_EN, 0);			/*             */
+	gpio_set_value(ISDB_EN, 0);			/* low ISDB_EN */
 	#endif
 
 #ifdef INCLUDE_LGE_SRC_EAR_ANT_SEL
-	/*                                                                 */
-	gpio_set_value_cansleep(ONESEG_EAR_ANT_SEL_P, 0); /*                    */
+	/* Internel antenna:OFF, Ear antenna: ON, GPIO11:LOW (Saving power)*/
+	gpio_set_value_cansleep(ONESEG_EAR_ANT_SEL_P, 0); /* PMIC Extended GPIO */
 #endif
 
 	TcpalPrintStatus((I08S *)"[%s:%d]\n", __func__, __LINE__);
@@ -283,6 +283,6 @@ void TchalPowerDownDevice(void)
 
 void TchalIrqSetup(void)
 {
-	gpio_direction_input(ISDB_INT_N);		/*            */
+	gpio_direction_input(ISDB_INT_N);		/* input mode */
 }
 

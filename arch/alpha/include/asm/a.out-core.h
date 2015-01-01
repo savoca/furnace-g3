@@ -17,11 +17,11 @@
 #include <linux/user.h>
 
 /*
-                                                     
+ * Fill in the user structure for an ECOFF core dump.
  */
 static inline void aout_dump_thread(struct pt_regs *pt, struct user *dump)
 {
-	/*                                           */
+	/* switch stack follows right below pt_regs: */
 	struct switch_stack * sw = ((struct switch_stack *) pt) - 1;
 
 	dump->magic = CMAGIC;
@@ -36,10 +36,10 @@ static inline void aout_dump_thread(struct pt_regs *pt, struct user *dump)
 			 + PAGE_SIZE-1) >> PAGE_SHIFT;
 
 	/*
-                                                     
-                                                            
-            
-  */
+	 * We store the registers in an order/format that is
+	 * compatible with DEC Unix/OSF/1 as this makes life easier
+	 * for gdb.
+	 */
 	dump->regs[EF_V0]  = pt->r0;
 	dump->regs[EF_T0]  = pt->r1;
 	dump->regs[EF_T1]  = pt->r2;
@@ -76,5 +76,5 @@ static inline void aout_dump_thread(struct pt_regs *pt, struct user *dump)
 	memcpy((char *)dump->regs + EF_SIZE, sw->fp, 32 * 8);
 }
 
-#endif /*            */
-#endif /*                   */
+#endif /* __KERNEL__ */
+#endif /* _ASM_A_OUT_CORE_H */

@@ -109,11 +109,11 @@ static ssize_t driver_stats_read(struct file *file, char __user *buf,
 }
 
 /*
-                                                                       
-                                                                       
-                                                                  
-                                                                      
-                                                                            
+ * driver stats field names, one line per stat, single string.  Used by
+ * programs like ipathstats to print the stats in a way which works for
+ * different versions of drivers, without changing program source.
+ * if qlogic_ib_stats changes, this needs to change.  Names need to be
+ * 12 chars or less (w/o newline), for proper display by ipathstats utility.
  */
 static const char qib_statnames[] =
 	"KernIntr\n"
@@ -132,7 +132,7 @@ static ssize_t driver_names_read(struct file *file, char __user *buf,
 				 size_t count, loff_t *ppos)
 {
 	return simple_read_from_buffer(buf, count, ppos, qib_statnames,
-		sizeof qib_statnames - 1); /*         */
+		sizeof qib_statnames - 1); /* no null */
 }
 
 static const struct file_operations driver_ops[] = {
@@ -140,7 +140,7 @@ static const struct file_operations driver_ops[] = {
 	{ .read = driver_names_read, .llseek = generic_file_llseek, },
 };
 
-/*                              */
+/* read the per-device counters */
 static ssize_t dev_counters_read(struct file *file, char __user *buf,
 				 size_t count, loff_t *ppos)
 {
@@ -152,7 +152,7 @@ static ssize_t dev_counters_read(struct file *file, char __user *buf,
 	return simple_read_from_buffer(buf, count, ppos, counters, avail);
 }
 
-/*                              */
+/* read the per-device counters */
 static ssize_t dev_names_read(struct file *file, char __user *buf,
 			      size_t count, loff_t *ppos)
 {
@@ -170,11 +170,11 @@ static const struct file_operations cntr_ops[] = {
 };
 
 /*
-                                                                     
-                                                                   
+ * Could use file->f_dentry->d_inode->i_ino to figure out which file,
+ * instead of separate routine for each, but for now, this works...
  */
 
-/*                                              */
+/* read the per-port names (same for each port) */
 static ssize_t portnames_read(struct file *file, char __user *buf,
 			      size_t count, loff_t *ppos)
 {
@@ -186,7 +186,7 @@ static ssize_t portnames_read(struct file *file, char __user *buf,
 	return simple_read_from_buffer(buf, count, ppos, names, avail);
 }
 
-/*                                                */
+/* read the per-port counters for port 1 (pidx 0) */
 static ssize_t portcntrs_1_read(struct file *file, char __user *buf,
 				size_t count, loff_t *ppos)
 {
@@ -198,7 +198,7 @@ static ssize_t portcntrs_1_read(struct file *file, char __user *buf,
 	return simple_read_from_buffer(buf, count, ppos, counters, avail);
 }
 
-/*                                                */
+/* read the per-port counters for port 2 (pidx 1) */
 static ssize_t portcntrs_2_read(struct file *file, char __user *buf,
 				size_t count, loff_t *ppos)
 {
@@ -217,7 +217,7 @@ static const struct file_operations portcntr_ops[] = {
 };
 
 /*
-                                                  
+ * read the per-port QSFP data for port 1 (pidx 0)
  */
 static ssize_t qsfp_1_read(struct file *file, char __user *buf,
 			   size_t count, loff_t *ppos)
@@ -238,7 +238,7 @@ static ssize_t qsfp_1_read(struct file *file, char __user *buf,
 }
 
 /*
-                                                  
+ * read the per-port QSFP data for port 2 (pidx 1)
  */
 static ssize_t qsfp_2_read(struct file *file, char __user *buf,
 			   size_t count, loff_t *ppos)
@@ -377,7 +377,7 @@ static int add_cntr_files(struct super_block *sb, struct qib_devdata *dd)
 	char unit[10];
 	int ret, i;
 
-	/*                               */
+	/* create the per-unit directory */
 	snprintf(unit, sizeof unit, "%u", dd->unit);
 	ret = create_file(unit, S_IFDIR|S_IRUGO|S_IXUGO, sb->s_root, &dir,
 			  &simple_dir_operations, dd);
@@ -386,7 +386,7 @@ static int add_cntr_files(struct super_block *sb, struct qib_devdata *dd)
 		goto bail;
 	}
 
-	/*                                       */
+	/* create the files in the new directory */
 	ret = create_file("counters", S_IFREG|S_IRUGO, dir, &tmp,
 			  &cntr_ops[0], dd);
 	if (ret) {
@@ -412,7 +412,7 @@ static int add_cntr_files(struct super_block *sb, struct qib_devdata *dd)
 		char fname[24];
 
 		sprintf(fname, "port%dcounters", i);
-		/*                                       */
+		/* create the files in the new directory */
 		ret = create_file(fname, S_IFREG|S_IRUGO, dir, &tmp,
 				  &portcntr_ops[i], dd);
 		if (ret) {
@@ -466,9 +466,9 @@ static int remove_file(struct dentry *parent, char *name)
 	ret = 0;
 bail:
 	/*
-                                                               
-                               
-  */
+	 * We don't expect clients to care about the return value, but
+	 * it's there if they need it.
+	 */
 	return ret;
 }
 
@@ -514,9 +514,9 @@ bail:
 }
 
 /*
-                                                                          
-                                                                      
-                                                           
+ * This fills everything in when the fs is mounted, to handle umount/mount
+ * after device init.  The direct add_cntr_files() call handles adding
+ * them from the init code, when the fs is already mounted.
  */
 static int qibfs_fill_super(struct super_block *sb, void *data, int silent)
 {
@@ -573,13 +573,13 @@ int qibfs_add(struct qib_devdata *dd)
 	int ret;
 
 	/*
-                                                           
-                                                            
-                                                             
-                                                               
-                                                        
-                                                                
-  */
+	 * On first unit initialized, qib_super will not yet exist
+	 * because nobody has yet tried to mount the filesystem, so
+	 * we can't consider that to be an error; if an error occurs
+	 * during the mount, that will get a complaint, so this is OK.
+	 * add_cntr_files() for all units is done at mount from
+	 * qibfs_fill_super(), so one way or another, everything works.
+	 */
 	if (qib_super == NULL)
 		ret = 0;
 	else

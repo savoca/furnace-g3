@@ -41,7 +41,7 @@ struct impd1_module {
 };
 
 static const struct icst_params impd1_vco_params = {
-	.ref		= 24000000,	/*        */
+	.ref		= 24000000,	/* 24 MHz */
 	.vco_max	= ICST525_VCO_MAX_3V,
 	.vco_min	= ICST525_VCO_MIN,
 	.vd_min		= 12,
@@ -90,7 +90,7 @@ void impd1_tweak_control(struct device *dev, u32 mask, u32 val)
 EXPORT_SYMBOL(impd1_tweak_control);
 
 /*
-               
+ * CLCD support
  */
 #define PANEL		PROSPECTOR
 
@@ -187,7 +187,7 @@ static struct clcd_panel prospector = {
 #elif PANEL == LTM10C209
 #define PANELTYPE	ltm10c209
 /*
-            
+ * Untested.
  */
 static struct clcd_panel ltm10c209 = {
 	.mode		= {
@@ -218,7 +218,7 @@ static struct clcd_panel ltm10c209 = {
 #endif
 
 /*
-                                                          
+ * Disable all display connectors on the interface module.
  */
 static void impd1fb_clcd_disable(struct clcd_fb *fb)
 {
@@ -226,7 +226,7 @@ static void impd1fb_clcd_disable(struct clcd_fb *fb)
 }
 
 /*
-                                                         
+ * Enable the relevant connector on the interface module.
  */
 static void impd1fb_clcd_enable(struct clcd_fb *fb)
 {

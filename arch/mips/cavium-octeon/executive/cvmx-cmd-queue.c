@@ -26,8 +26,8 @@
  ***********************license end**************************************/
 
 /*
-                                                         
-                           
+ * Support functions for managing command queues used for
+ * various hardware blocks.
  */
 
 #include <linux/kernel.h>
@@ -42,16 +42,16 @@
 #include <asm/octeon/cvmx-pexp-defs.h>
 #include <asm/octeon/cvmx-pko-defs.h>
 
-/* 
-                                                                
-                                             
+/**
+ * This application uses this pointer to access the global queue
+ * state. It points to a bootmem named block.
  */
 __cvmx_cmd_queue_all_state_t *__cvmx_cmd_queue_state_ptr;
 
-/* 
-                                             
-  
-                                                   
+/**
+ * Initialize the Global queue state pointer.
+ *
+ * Returns CVMX_CMD_QUEUE_SUCCESS or a failure code
  */
 static cvmx_cmd_queue_result_t __cvmx_cmd_queue_init_state_ptr(void)
 {
@@ -96,17 +96,17 @@ static cvmx_cmd_queue_result_t __cvmx_cmd_queue_init_state_ptr(void)
 	return CVMX_CMD_QUEUE_SUCCESS;
 }
 
-/* 
-                                                                
-                                                                
-                     
-  
-                                                    
-                                                               
-                                                            
-                                                          
-  
-                                                   
+/**
+ * Initialize a command queue for use. The initial FPA buffer is
+ * allocated and the hardware unit is configured to point to the
+ * new command queue.
+ *
+ * @queue_id:  Hardware command queue to initialize.
+ * @max_depth: Maximum outstanding commands that can be queued.
+ * @fpa_pool:  FPA pool the command queues should come from.
+ * @pool_size: Size of each buffer in the FPA pool (bytes)
+ *
+ * Returns CVMX_CMD_QUEUE_SUCCESS or a failure code
  */
 cvmx_cmd_queue_result_t cvmx_cmd_queue_initialize(cvmx_cmd_queue_id_t queue_id,
 						  int max_depth, int fpa_pool,
@@ -122,9 +122,9 @@ cvmx_cmd_queue_result_t cvmx_cmd_queue_initialize(cvmx_cmd_queue_id_t queue_id,
 		return CVMX_CMD_QUEUE_INVALID_PARAM;
 
 	/*
-                                                            
-                    
-  */
+	 * We artificially limit max_depth to 1<<20 words. It is an
+	 * arbitrary limit.
+	 */
 	if (CVMX_CMD_QUEUE_ENABLE_MAX_DEPTH) {
 		if ((max_depth < 0) || (max_depth > 1 << 20))
 			return CVMX_CMD_QUEUE_INVALID_PARAM;
@@ -136,7 +136,7 @@ cvmx_cmd_queue_result_t cvmx_cmd_queue_initialize(cvmx_cmd_queue_id_t queue_id,
 	if ((pool_size < 128) || (pool_size > 65536))
 		return CVMX_CMD_QUEUE_INVALID_PARAM;
 
-	/*                                                       */
+	/* See if someone else has already initialized the queue */
 	if (qstate->base_ptr_div128) {
 		if (max_depth != (int)qstate->max_depth) {
 			cvmx_dprintf("ERROR: cvmx_cmd_queue_initialize: "
@@ -184,9 +184,9 @@ cvmx_cmd_queue_result_t cvmx_cmd_queue_initialize(cvmx_cmd_queue_id_t queue_id,
 		qstate->pool_size_m1 = (pool_size >> 3) - 1;
 		qstate->base_ptr_div128 = cvmx_ptr_to_phys(buffer) / 128;
 		/*
-                                                       
-                     
-   */
+		 * We zeroed the now serving field so we need to also
+		 * zero the ticket.
+		 */
 		__cvmx_cmd_queue_state_ptr->
 		    ticket[__cvmx_cmd_queue_get_index(queue_id)] = 0;
 		CVMX_SYNCWS;
@@ -194,14 +194,14 @@ cvmx_cmd_queue_result_t cvmx_cmd_queue_initialize(cvmx_cmd_queue_id_t queue_id,
 	}
 }
 
-/* 
-                                                               
-                                                              
-                      
-  
-                               
-  
-                                                   
+/**
+ * Shutdown a queue a free it's command buffers to the FPA. The
+ * hardware connected to the queue must be stopped before this
+ * function is called.
+ *
+ * @queue_id: Queue to shutdown
+ *
+ * Returns CVMX_CMD_QUEUE_SUCCESS or a failure code
  */
 cvmx_cmd_queue_result_t cvmx_cmd_queue_shutdown(cvmx_cmd_queue_id_t queue_id)
 {
@@ -230,13 +230,13 @@ cvmx_cmd_queue_result_t cvmx_cmd_queue_shutdown(cvmx_cmd_queue_id_t queue_id)
 	return CVMX_CMD_QUEUE_SUCCESS;
 }
 
-/* 
-                                                                
-                                                           
-  
-                                             
-  
-                                         
+/**
+ * Return the number of command words pending in the queue. This
+ * function may be relatively slow for some hardware units.
+ *
+ * @queue_id: Hardware command queue to query
+ *
+ * Returns Number of outstanding commands
  */
 int cvmx_cmd_queue_length(cvmx_cmd_queue_id_t queue_id)
 {
@@ -246,17 +246,17 @@ int cvmx_cmd_queue_length(cvmx_cmd_queue_id_t queue_id)
 	}
 
 	/*
-                                                             
-                                             
-  */
+	 * The cast is here so gcc with check that all values in the
+	 * cvmx_cmd_queue_id_t enumeration are here.
+	 */
 	switch ((cvmx_cmd_queue_id_t) (queue_id & 0xff0000)) {
 	case CVMX_CMD_QUEUE_PKO_BASE:
 		/*
-                               
-                                                     
-                                                    
-                          
-   */
+		 * FIXME: Need atomic lock on
+		 * CVMX_PKO_REG_READ_IDX. Right now we are normally
+		 * called with the queue lock, so that is a SLIGHT
+		 * amount of protection.
+		 */
 		cvmx_write_csr(CVMX_PKO_REG_READ_IDX, queue_id & 0xffff);
 		if (OCTEON_IS_MODEL(OCTEON_CN3XXX)) {
 			union cvmx_pko_mem_debug9 debug9;
@@ -270,7 +270,7 @@ int cvmx_cmd_queue_length(cvmx_cmd_queue_id_t queue_id)
 	case CVMX_CMD_QUEUE_ZIP:
 	case CVMX_CMD_QUEUE_DFA:
 	case CVMX_CMD_QUEUE_RAID:
-		/*                                */
+		/* FIXME: Implement other lengths */
 		return 0;
 	case CVMX_CMD_QUEUE_DMA_BASE:
 		{
@@ -286,15 +286,15 @@ int cvmx_cmd_queue_length(cvmx_cmd_queue_id_t queue_id)
 	return CVMX_CMD_QUEUE_INVALID_PARAM;
 }
 
-/* 
-                                                                  
-                                                                   
-                                                                     
-                     
-  
-                                    
-  
-                                            
+/**
+ * Return the command buffer to be written to. The purpose of this
+ * function is to allow CVMX routine access t othe low level buffer
+ * for initial hardware setup. User applications should not call this
+ * function directly.
+ *
+ * @queue_id: Command queue to query
+ *
+ * Returns Command buffer or NULL on failure
  */
 void *cvmx_cmd_queue_buffer(cvmx_cmd_queue_id_t queue_id)
 {

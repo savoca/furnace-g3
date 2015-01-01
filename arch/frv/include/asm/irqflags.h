@@ -13,22 +13,22 @@
 #define _ASM_IRQFLAGS_H
 
 /*
-                              
-                                                                    
-                                                 
-                                              
-                            
-                    
-                                     
-                                  
-                                                                      
-                          
-                    
-                           
+ * interrupt flag manipulation
+ * - use virtual interrupt management since touching the PSR is slow
+ *   - ICC2.Z: T if interrupts virtually disabled
+ *   - ICC2.C: F if interrupts really disabled
+ * - if Z==1 upon interrupt:
+ *   - C is set to 0
+ *   - interrupts are really disabled
+ *   - entry.S returns immediately
+ * - uses TIHI (TRAP if Z==0 && C==0) #2 to really reenable interrupts
+ *   - if taken, the trap:
+ *     - sets ICC2.C
+ *     - enables interrupts
  */
 static inline void arch_local_irq_disable(void)
 {
-	/*                                         */
+	/* set Z flag, but don't change the C flag */
 	asm volatile("	andcc	gr0,gr0,gr0,icc2	\n"
 		     :
 		     :
@@ -38,7 +38,7 @@ static inline void arch_local_irq_disable(void)
 
 static inline void arch_local_irq_enable(void)
 {
-	/*                                       */
+	/* clear Z flag and then test the C flag */
 	asm volatile("  oricc	gr0,#1,gr0,icc2		\n"
 		     "	tihi	icc2,gr0,#2		\n"
 		     :
@@ -56,10 +56,10 @@ static inline unsigned long arch_local_save_flags(void)
 		     :
 		     : "memory");
 
-	/*                       */
+	/* shift ICC2.Z to bit 0 */
 	flags >>= 26;
 
-	/*                                                  */
+	/* make flags 1 if interrupts disabled, 0 otherwise */
 	return flags & 1UL;
 
 }
@@ -73,10 +73,10 @@ static inline unsigned long arch_local_irq_save(void)
 
 static inline void arch_local_irq_restore(unsigned long flags)
 {
-	/*                                                            
-                                                   */
+	/* load the Z flag by turning 1 if disabled into 0 if disabled
+	 * and thus setting the Z flag but not the C flag */
 	asm volatile("  xoricc	%0,#1,gr0,icc2		\n"
-		     /*                          */
+		     /* then trap if Z=0 and C=0 */
 		     "	tihi	icc2,gr0,#2		\n"
 		     :
 		     : "r"(flags)
@@ -96,7 +96,7 @@ static inline bool arch_irqs_disabled(void)
 }
 
 /*
-                                   
+ * real interrupt flag manipulation
  */
 #define __arch_local_irq_disable()			\
 do {							\
@@ -155,4 +155,4 @@ do {							\
 #define __arch_irqs_disabled()			\
 	((__get_PSR() & PSR_PIL) >= PSR_PIL_14)
 
-#endif /*                 */
+#endif /* _ASM_IRQFLAGS_H */

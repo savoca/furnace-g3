@@ -12,7 +12,7 @@
 #define __ASM_ARCH_IRQS_H
 
 /*
-                                   
+ * MV78xx0 Low Interrupt Controller
  */
 #define IRQ_MV78XX0_ERR		0
 #define IRQ_MV78XX0_SPI		1
@@ -44,7 +44,7 @@
 #define IRQ_MV78XX0_TDMI	27
 
 /*
-                                    
+ * MV78xx0 High Interrupt Controller
  */
 #define IRQ_MV78XX0_PCIE_00	32
 #define IRQ_MV78XX0_PCIE_01	33
@@ -78,12 +78,12 @@
 #define IRQ_MV78XX0_DB_OUT	61
 
 /*
-                                     
+ * MV78xx0 Error Interrupt Controller
  */
 #define IRQ_MV78XX0_GE_ERR	70
 
 /*
-                               
+ * MV78XX0 General Purpose Pins
  */
 #define IRQ_MV78XX0_GPIO_START	96
 #define NR_GPIO_IRQS		32

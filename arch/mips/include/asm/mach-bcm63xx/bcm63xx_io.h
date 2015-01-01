@@ -4,9 +4,9 @@
 #include "bcm63xx_cpu.h"
 
 /*
-                                             
-  
-                                         
+ * Physical memory map, RAM is mapped at 0x0.
+ *
+ * Note that size MUST be a power of two.
  */
 #define BCM_PCMCIA_COMMON_BASE_PA	(0x20000000)
 #define BCM_PCMCIA_COMMON_SIZE		(16 * 1024 * 1024)
@@ -42,7 +42,7 @@
 
 
 /*
-                                                
+ * Internal registers are accessed through KSEG3
  */
 #define BCM_REGS_VA(x)	((void __iomem *)(x))
 
@@ -56,7 +56,7 @@
 #define bcm_writeq(v, a) (*(volatile u64 *) BCM_REGS_VA((a)) = (v))
 
 /*
-                                                    
+ * IO helpers to access register set for current CPU
  */
 #define bcm_rset_readb(s, o)	bcm_readb(bcm63xx_regset_address(s) + (o))
 #define bcm_rset_readw(s, o)	bcm_readw(bcm63xx_regset_address(s) + (o))
@@ -69,7 +69,7 @@
 					bcm63xx_regset_address(s) + (o))
 
 /*
-                                            
+ * helpers for frequently used register sets
  */
 #define bcm_perf_readl(o)	bcm_rset_readl(RSET_PERF, (o))
 #define bcm_perf_writel(v, o)	bcm_rset_writel(RSET_PERF, (v), (o))
@@ -92,4 +92,4 @@
 #define bcm_ddr_readl(o)	bcm_rset_readl(RSET_DDR, (o))
 #define bcm_ddr_writel(v, o)	bcm_rset_writel(RSET_DDR, (v), (o))
 
-#endif /*                 */
+#endif /* ! BCM63XX_IO_H_ */

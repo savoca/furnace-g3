@@ -57,7 +57,7 @@ void __diag_sdio_send_req(void)
 				if (((!driver->usb_connected) && (driver->
 					logging_mode == USB_MODE)) || (driver->
 					logging_mode == NO_LOGGING_MODE)) {
-					/*                       */
+					/* Drop the diag payload */
 					driver->in_busy_sdio = 0;
 					return;
 				}
@@ -98,7 +98,7 @@ static void diag_close_sdio_work_fn(struct work_struct *work)
 	if (sdio_close(driver->sdio_ch))
 		pr_err("diag: could not close SDIO channel\n");
 	else
-		driver->sdio_ch = NULL; /*                             */
+		driver->sdio_ch = NULL; /* channel successfully closed */
 }
 
 int diagfwd_connect_sdio(void)
@@ -122,9 +122,9 @@ int diagfwd_connect_sdio(void)
 		pr_info("diag: SDIO channel already open\n");
 	}
 
-	/*                                   */
+	/* Poll USB channel to check for data*/
 	queue_work(driver->diag_sdio_wq, &(driver->diag_read_mdm_work));
-	/*                                    */
+	/* Poll SDIO channel to check for data*/
 	queue_work(driver->diag_sdio_wq, &(driver->diag_read_sdio_work));
 	return 0;
 }
@@ -194,7 +194,7 @@ static int diag_sdio_probe(struct platform_device *pdev)
 static int diag_sdio_remove(struct platform_device *pdev)
 {
 	pr_debug("\n diag: sdio remove called");
-	/*                                                    */
+	/* Disable SDIO channel to prevent further read/write */
 	driver->sdio_ch = NULL;
 	return 0;
 }

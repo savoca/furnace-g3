@@ -10,46 +10,46 @@
 #ifndef	__TUNERBB_DRV_FC8080_H__
 #define	__TUNERBB_DRV_FC8080_H__
 /*
-                      
+** Include Header File
 */
 
 #include "../../broadcast_tdmb_typedef.h"
 #include "../../broadcast_tdmb_drv_ifdef.h"
 
-/*                                                            
-                      
-                                                             */
+/*============================================================
+**    1.   DEFINITIONS
+*============================================================*/
 
 #define TDMB_UPLOAD_MODE_SPI
 
 #if defined(TDMB_UPLOAD_MODE_TSIF)
-//                        
+//#define STREAM_TS_UPLOAD
 #elif defined(TDMB_UPLOAD_MODE_EBI)
-//                                    
+//#define STREAM_SLAVE_PARALLEL_UPLOAD
 #elif defined(TDMB_UPLOAD_MODE_SPI)
 #define STREAM_SPI_UPLOAD
 #endif
 
-	//                                   
-	//                                     
-	//                                  
-	//                         
+	//#define STREAM_MASTER_SERIAL_UPLOAD
+	//#define STREAM_MASTER_PARALLEL_UPLOAD
+	//#define STREAM_SLAVE_SERIAL_UPLOAD
+	//#define STREAM_SPI_UPLOAD
 
 #if defined(STREAM_TS_UPLOAD)
 #define TSIF_EN_ACTIVE_HIGH
 #endif
 
 #if defined(STREAM_SLAVE_PARALLEL_UPLOAD)
-#define	DMB_IRQ_TYPE 	       				GPIO_INT_36  /*           */
-#define 	DMB_RESET_TYPE					GPIO_INT_39  /*              */
-#define	DMB_EN_TYPE					GPIO_INT_41  /*        */
-#define	DMB_CS_TYPE					GPIO_INT_36  /*         */
+#define	DMB_IRQ_TYPE 	       				GPIO_INT_36  /* DMB_IRQ_N */
+#define 	DMB_RESET_TYPE					GPIO_INT_39  /* DMB_RESET_N  */
+#define	DMB_EN_TYPE					GPIO_INT_41  /* DMB_EN */
+#define	DMB_CS_TYPE					GPIO_INT_36  /*DMB_CS_N */
 #define 	TDMB_RFBB_BASE_ADDR		 	EBI2_GP3_BASE
-#define	DMB_PATTER_EN					GPIO_INT_86 /*                                       */
-#define 	DMB_EAR_ANT_EN 					GPIO_INT_87 /*                                     */
+#define	DMB_PATTER_EN					GPIO_INT_86 /* PATTERN_TDMB_ANT_EN  = GPIO_OUT(86,4) */
+#define 	DMB_EAR_ANT_EN 					GPIO_INT_87 /* EAR_TDMB_ANT_EN		  = GPIO_OUT(87,4) */
 #endif
 
-#define	TDMB_RFBB_DEV_ADDR                    0x80   /*                             */
+#define	TDMB_RFBB_DEV_ADDR                    0x80   /*1000 0000 (7bit addr +r/w_n) */
 #define	TDMB_RFBB_RW_RETRY                    3
 
 typedef enum
@@ -71,21 +71,21 @@ typedef struct
 } TDMB_BB_HEADER_TYPE;
 
 
-/*                                                            
-                             
-                                                             */
+/*============================================================
+**    2.   External Variables
+*============================================================*/
 
-/*                                                            
-                             
-                                                             */
+/*============================================================
+**    3.   External Functions
+*============================================================*/
 
-/*                                                            
-                                   
-                                                             */
+/*============================================================
+**    4.   Local constant variables
+*============================================================*/
 
-/*                                                            
-                        
-                                                             */
+/*============================================================
+**    5.   Local Typedef
+*============================================================*/
 typedef enum	fc8080_service_type
 {
 	FC8080_DAB = 1,
@@ -97,17 +97,17 @@ typedef enum	fc8080_service_type
 	FC8080_SERVICE_MAX
 } fc8080_service_type;
 
-/*                                                            
-                           
-                                                             */
+/*============================================================
+**    6.   Global Variables
+*============================================================*/
 
-/*                                                            
-                           
-                                                             */
+/*============================================================
+**    7.   Static Variables
+*============================================================*/
 
-/*                                                            
-                          
-                                                             */
+/*============================================================
+**    8.Function Prototype
+*============================================================*/
 
 extern	int8 tunerbb_drv_fc8080_power_on(void);
 extern	int8 tunerbb_drv_fc8080_power_off(void);
@@ -130,5 +130,5 @@ extern	int8 tunerbb_drv_fc8080_check_tii(uint8 * pmain_tii,uint8 * psub_tii);
 extern	int8 tunerbb_drv_fc8080_reset_ch(void);
 extern void tunerbb_drv_fc8080_set_userstop(int mode);
 extern int tunerbb_drv_fc8080_is_on(void);
-#endif	/*                          */
+#endif	/* __TUNERBB_DRV_FC8080_H__ */
 

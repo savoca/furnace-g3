@@ -16,8 +16,8 @@ extern FILE *perf_pmu_in;
 static LIST_HEAD(pmus);
 
 /*
-                                                         
-                                              
+ * Parse & process all the sysfs attributes located under
+ * the directory specified in 'dir' parameter.
  */
 static int pmu_format_parse(char *dir, struct list_head *head)
 {
@@ -54,9 +54,9 @@ static int pmu_format_parse(char *dir, struct list_head *head)
 }
 
 /*
-                                                                     
-              
-                                                                        
+ * Reading/parsing the default pmu format definition, which should be
+ * located at:
+ * /sys/bus/event_source/devices/<dev>/format as sysfs group attributes.
  */
 static int pmu_format(char *name, struct list_head *format)
 {
@@ -81,9 +81,9 @@ static int pmu_format(char *name, struct list_head *format)
 }
 
 /*
-                                                              
-              
-                                                               
+ * Reading/parsing the default pmu type value, which should be
+ * located at:
+ * /sys/bus/event_source/devices/<dev>/type as sysfs attribute.
  */
 static int pmu_type(char *name, __u32 *type)
 {
@@ -121,10 +121,10 @@ static struct perf_pmu *pmu_lookup(char *name)
 	__u32 type;
 
 	/*
-                                                    
-                                                      
-        
-  */
+	 * The pmu data we store & need consists of the pmu
+	 * type value and format definitions. Load both right
+	 * now.
+	 */
 	if (pmu_format(name, &format))
 		return NULL;
 
@@ -158,10 +158,10 @@ struct perf_pmu *perf_pmu__find(char *name)
 	struct perf_pmu *pmu;
 
 	/*
-                                            
-                                               
-                               
-  */
+	 * Once PMU is loaded it stays in the list,
+	 * so we keep us from multiple reading/parsing
+	 * the pmu format definitions.
+	 */
 	pmu = pmu_find(name);
 	if (pmu)
 		return pmu;
@@ -182,10 +182,10 @@ pmu_find_format(struct list_head *formats, char *name)
 }
 
 /*
-                                                                  
-                                          
-  
-                                  
+ * Returns value based on the format definition (format parameter)
+ * and unformated value (value parameter).
+ *
+ * TODO maybe optimize a little ;)
  */
 static __u64 pmu_format_value(unsigned long *format, __u64 value)
 {
@@ -207,8 +207,8 @@ static __u64 pmu_format_value(unsigned long *format, __u64 value)
 }
 
 /*
-                                                    
-                                    
+ * Setup one of config[12] attr members based on the
+ * user input data - temr parameter.
  */
 static int pmu_config_term(struct list_head *formats,
 			   struct perf_event_attr *attr,
@@ -218,10 +218,10 @@ static int pmu_config_term(struct list_head *formats,
 	__u64 *vp;
 
 	/*
-                                                   
-                                                    
-                        
-  */
+	 * Support only for hardcoded and numnerial terms.
+	 * Hardcoded terms should be already in, so nothing
+	 * to be done for them.
+	 */
 	if (parse_events__is_hardcoded_term(term))
 		return 0;
 
@@ -263,9 +263,9 @@ static int pmu_config(struct list_head *formats, struct perf_event_attr *attr,
 }
 
 /*
-                                                    
-                                                
-                                                         
+ * Configures event's 'attr' parameter based on the:
+ * 1) users input - specified in terms parameter
+ * 2) pmu format definitions - specified by pmu parameter
  */
 int perf_pmu__config(struct perf_pmu *pmu, struct perf_event_attr *attr,
 		     struct list_head *head_terms)
@@ -303,7 +303,7 @@ void perf_pmu__set_format(unsigned long *bits, long from, long to)
 		set_bit(b, bits);
 }
 
-/*                               */
+/* Simulated format definitions. */
 static struct test_format {
 	const char *name;
 	const char *value;
@@ -321,7 +321,7 @@ static struct test_format {
 
 #define TEST_FORMATS_CNT (sizeof(test_formats) / sizeof(struct test_format))
 
-/*                        */
+/* Simulated users input. */
 static struct parse_events__term test_terms[] = {
 	{
 		.config  = (char *) "krava01",
@@ -372,8 +372,8 @@ static struct parse_events__term test_terms[] = {
 #define TERMS_CNT (sizeof(test_terms) / sizeof(struct parse_events__term))
 
 /*
-                                                    
-                                                 
+ * Prepare format directory data, exported by kernel
+ * at /sys/bus/event_source/devices/<dev>/format.
  */
 static char *test_format_dir_get(void)
 {
@@ -404,7 +404,7 @@ static char *test_format_dir_get(void)
 	return dir;
 }
 
-/*                           */
+/* Cleanup format directory. */
 static int test_format_dir_put(char *dir)
 {
 	char buf[PATH_MAX];

@@ -40,9 +40,9 @@
 
 #define PREFIX "DMAR: "
 
-/*                                                   
-                                                  
-                                                     
+/* No locks are needed as DMA remapping hardware unit
+ * list is constructed at boot time and hotplug of
+ * these units are not supported by the architecture.
  */
 LIST_HEAD(dmar_drhd_units);
 
@@ -52,9 +52,9 @@ static acpi_size dmar_tbl_size;
 static void __init dmar_register_drhd_unit(struct dmar_drhd_unit *drhd)
 {
 	/*
-                                                                 
-                 
-  */
+	 * add INCLUDE_ALL at the tail, so scan the list will find it at
+	 * the very end.
+	 */
 	if (drhd->include_all)
 		list_add_tail(&drhd->list, &dmar_drhd_units);
 	else
@@ -78,9 +78,9 @@ static int __init dmar_parse_one_dev_scope(struct acpi_dmar_device_scope *scope,
 		if (pdev)
 			pci_dev_put(pdev);
 		/*
-                                                           
-              
-   */
+		 * Some BIOSes list non-exist devices in DMAR table, just
+		 * ignore it
+		 */
 		if (!bus) {
 			printk(KERN_WARNING
 			PREFIX "Device scope bus [%d] not found\n",
@@ -165,10 +165,10 @@ int __init dmar_parse_dev_scope(void *start, void *end, int *cnt,
 	return 0;
 }
 
-/* 
-                                                                             
-                                                                     
-                          
+/**
+ * dmar_parse_one_drhd - parses exactly one DMA remapping hardware definition
+ * structure which uniquely represent one DMA remapping hardware unit
+ * present in the platform
  */
 static int __init
 dmar_parse_one_drhd(struct acpi_dmar_header *header)
@@ -185,7 +185,7 @@ dmar_parse_one_drhd(struct acpi_dmar_header *header)
 	dmaru->hdr = header;
 	dmaru->reg_base_addr = drhd->address;
 	dmaru->segment = drhd->segment;
-	dmaru->include_all = drhd->flags & 0x1; /*                   */
+	dmaru->include_all = drhd->flags & 0x1; /* BIT0: INCLUDE_ALL */
 
 	ret = alloc_iommu(dmaru);
 	if (ret) {
@@ -285,14 +285,14 @@ dmar_table_print_dmar_entry(struct acpi_dmar_header *header)
 	}
 }
 
-/* 
-                                                                          
+/**
+ * dmar_table_detect - checks to see if the platform supports DMAR devices
  */
 static int __init dmar_table_detect(void)
 {
 	acpi_status status = AE_OK;
 
-	/*                                                          */
+	/* if we could find DMAR table, then there are DMAR devices */
 	status = acpi_get_table_with_size(ACPI_SIG_DMAR, 0,
 				(struct acpi_table_header **)&dmar_tbl,
 				&dmar_tbl_size);
@@ -305,8 +305,8 @@ static int __init dmar_table_detect(void)
 	return (ACPI_SUCCESS(status) ? 1 : 0);
 }
 
-/* 
-                                                    
+/**
+ * parse_dmar_table - parses the DMA reporting table
  */
 static int __init
 parse_dmar_table(void)
@@ -316,15 +316,15 @@ parse_dmar_table(void)
 	int ret = 0;
 
 	/*
-                                                              
-              
-  */
+	 * Do it again, earlier dmar_tbl mapping could be mapped with
+	 * fixed map.
+	 */
 	dmar_table_detect();
 
 	/*
-                                                                   
-                                                                    
-  */
+	 * ACPI tables may not be DMA protected by tboot, so use DMAR copy
+	 * SINIT saved in SinitMleData in TXT heap (which is DMA protected)
+	 */
 	dmar_tbl = tboot_get_dmar_table(dmar_tbl);
 
 	dmar = (struct acpi_table_dmar *)dmar_tbl;
@@ -342,7 +342,7 @@ parse_dmar_table(void)
 	entry_header = (struct acpi_dmar_header *)(dmar + 1);
 	while (((unsigned long)entry_header) <
 			(((unsigned long)dmar) + dmar_tbl->length)) {
-		/*                                          */
+		/* Avoid looping forever on bad ACPI tables */
 		if (entry_header->length == 0) {
 			printk(KERN_WARNING PREFIX
 				"Invalid 0-length structure\n");
@@ -371,7 +371,7 @@ parse_dmar_table(void)
 			printk(KERN_WARNING PREFIX
 				"Unknown DMAR structure type %d\n",
 				entry_header->type);
-			ret = 0; /*                           */
+			ret = 0; /* for forward compatibility */
 			break;
 		}
 		if (ret)
@@ -392,7 +392,7 @@ static int dmar_pci_device_match(struct pci_dev *devices[], int cnt,
 			if (dev == devices[index])
 				return 1;
 
-		/*                  */
+		/* Check our parent */
 		dev = dev->bus->self;
 	}
 
@@ -503,7 +503,7 @@ int __init check_zero_address(void)
 
 	while (((unsigned long)entry_header) <
 			(((unsigned long)dmar) + dmar_tbl->length)) {
-		/*                                          */
+		/* Avoid looping forever on bad ACPI tables */
 		if (entry_header->length == 0) {
 			printk(KERN_WARNING PREFIX
 				"Invalid 0-length structure\n");
@@ -562,7 +562,7 @@ int __init detect_intel_iommu(void)
 
 		if (ret && !no_iommu && !iommu_detected && !dmar_disabled) {
 			iommu_detected = 1;
-			/*                               */
+			/* Make sure ACS will be enabled */
 			pci_request_acs();
 		}
 
@@ -631,7 +631,7 @@ int alloc_iommu(struct dmar_drhd_unit *drhd)
 
 	iommu->node = -1;
 
-	/*                                           */
+	/* the registers might be more than one page */
 	map_size = max_t(int, ecap_max_iotlb_offset(iommu->ecap),
 		cap_max_fault_reg_offset(iommu->cap));
 	map_size = VTD_PAGE_ALIGN(map_size);
@@ -677,7 +677,7 @@ void free_iommu(struct intel_iommu *iommu)
 }
 
 /*
-                                                                       
+ * Reclaim all the submitted descriptors which have completed its work.
  */
 static inline void reclaim_free_desc(struct q_inval *qi)
 {
@@ -702,10 +702,10 @@ static int qi_check_fault(struct intel_iommu *iommu, int index)
 	fault = readl(iommu->reg + DMAR_FSTS_REG);
 
 	/*
-                                                                
-                                                                
-               
-  */
+	 * If IQE happens, the head points to the descriptor associated
+	 * with the error. No new descriptors are fetched until the IQE
+	 * is cleared.
+	 */
 	if (fault & DMA_FSTS_IQE) {
 		head = readl(iommu->reg + DMAR_IQH_REG);
 		if ((head >> DMAR_IQ_SHIFT) == index) {
@@ -723,9 +723,9 @@ static int qi_check_fault(struct intel_iommu *iommu, int index)
 	}
 
 	/*
-                                                               
-                                                            
-  */
+	 * If ITE happens, all pending wait_desc commands are aborted.
+	 * No new descriptors are fetched until the ITE is cleared.
+	 */
 	if (fault & DMA_FSTS_ITE) {
 		head = readl(iommu->reg + DMAR_IQH_REG);
 		head = ((head >> DMAR_IQ_SHIFT) - 1 + QI_LENGTH) % QI_LENGTH;
@@ -752,8 +752,8 @@ static int qi_check_fault(struct intel_iommu *iommu, int index)
 }
 
 /*
-                                                             
-                                             
+ * Submit the queued invalidation descriptor to the remapping
+ * hardware unit and wait for its completion.
  */
 int qi_submit_sync(struct qi_desc *desc, struct intel_iommu *iommu)
 {
@@ -798,19 +798,19 @@ restart:
 	qi->free_cnt -= 2;
 
 	/*
-                                                          
-                    
-  */
+	 * update the HW tail register indicating the presence of
+	 * new descriptors.
+	 */
 	writel(qi->free_head << DMAR_IQ_SHIFT, iommu->reg + DMAR_IQT_REG);
 
 	while (qi->desc_status[wait_index] != QI_DONE) {
 		/*
-                                                                
-                                                                  
-                                                             
-                                                                 
-                                 
-   */
+		 * We will leave the interrupts disabled, to prevent interrupt
+		 * context to queue another cmd while a cmd is already submitted
+		 * and waiting for completion on this cpu. This is to avoid
+		 * a deadlock where the interrupt context can wait indefinitely
+		 * for free slots in the queue.
+		 */
 		rc = qi_check_fault(iommu, index);
 		if (rc)
 			break;
@@ -832,7 +832,7 @@ restart:
 }
 
 /*
-                                          
+ * Flush the global interrupt entry cache.
  */
 void qi_global_iec(struct intel_iommu *iommu)
 {
@@ -841,7 +841,7 @@ void qi_global_iec(struct intel_iommu *iommu)
 	desc.low = QI_IEC_TYPE;
 	desc.high = 0;
 
-	/*                   */
+	/* should never fail */
 	qi_submit_sync(&desc, iommu);
 }
 
@@ -901,7 +901,7 @@ void qi_flush_dev_iotlb(struct intel_iommu *iommu, u16 sid, u16 qdep,
 }
 
 /*
-                                         
+ * Disable Queued Invalidation interface.
  */
 void dmar_disable_qi(struct intel_iommu *iommu)
 {
@@ -919,8 +919,8 @@ void dmar_disable_qi(struct intel_iommu *iommu)
 		goto end;
 
 	/*
-                                                                      
-  */
+	 * Give a chance to HW to complete the pending invalidation requests.
+	 */
 	while ((readl(iommu->reg + DMAR_IQT_REG) !=
 		readl(iommu->reg + DMAR_IQH_REG)) &&
 		(DMAR_OPERATION_TIMEOUT > (get_cycles() - start_time)))
@@ -936,7 +936,7 @@ end:
 }
 
 /*
-                              
+ * Enable queued invalidation.
  */
 static void __dmar_enable_qi(struct intel_iommu *iommu)
 {
@@ -949,7 +949,7 @@ static void __dmar_enable_qi(struct intel_iommu *iommu)
 
 	raw_spin_lock_irqsave(&iommu->register_lock, flags);
 
-	/*                            */
+	/* write zero to the tail reg */
 	writel(0, iommu->reg + DMAR_IQT_REG);
 
 	dmar_writeq(iommu->reg + DMAR_IQA_REG, virt_to_phys(qi->desc));
@@ -957,16 +957,16 @@ static void __dmar_enable_qi(struct intel_iommu *iommu)
 	iommu->gcmd |= DMA_GCMD_QIE;
 	writel(iommu->gcmd, iommu->reg + DMAR_GCMD_REG);
 
-	/*                                */
+	/* Make sure hardware complete it */
 	IOMMU_WAIT_OP(iommu, DMAR_GSTS_REG, readl, (sts & DMA_GSTS_QIES), sts);
 
 	raw_spin_unlock_irqrestore(&iommu->register_lock, flags);
 }
 
 /*
-                                                                  
-                                                                  
-                                     
+ * Enable Queued Invalidation interface. This is a must to support
+ * interrupt-remapping. Also used by DMA-remapping, which replaces
+ * register based IOTLB invalidation.
  */
 int dmar_enable_qi(struct intel_iommu *iommu)
 {
@@ -977,8 +977,8 @@ int dmar_enable_qi(struct intel_iommu *iommu)
 		return -ENOENT;
 
 	/*
-                                                     
-  */
+	 * queued invalidation is already setup and enabled.
+	 */
 	if (iommu->qi)
 		return 0;
 
@@ -1016,7 +1016,7 @@ int dmar_enable_qi(struct intel_iommu *iommu)
 	return 0;
 }
 
-/*                                                    */
+/* iommu interrupt handling. Most stuff are MSI-like. */
 
 enum faulttype {
 	DMA_REMAP,
@@ -1074,10 +1074,10 @@ void dmar_msi_unmask(struct irq_data *data)
 	struct intel_iommu *iommu = irq_data_get_irq_handler_data(data);
 	unsigned long flag;
 
-	/*           */
+	/* unmask it */
 	raw_spin_lock_irqsave(&iommu->register_lock, flag);
 	writel(0, iommu->reg + DMAR_FECTL_REG);
-	/*                                          */
+	/* Read a reg to force flush the post write */
 	readl(iommu->reg + DMAR_FECTL_REG);
 	raw_spin_unlock_irqrestore(&iommu->register_lock, flag);
 }
@@ -1087,10 +1087,10 @@ void dmar_msi_mask(struct irq_data *data)
 	unsigned long flag;
 	struct intel_iommu *iommu = irq_data_get_irq_handler_data(data);
 
-	/*         */
+	/* mask it */
 	raw_spin_lock_irqsave(&iommu->register_lock, flag);
 	writel(DMA_FECTL_IM, iommu->reg + DMAR_FECTL_REG);
-	/*                                          */
+	/* Read a reg to force flush the post write */
 	readl(iommu->reg + DMAR_FECTL_REG);
 	raw_spin_unlock_irqrestore(&iommu->register_lock, flag);
 }
@@ -1159,7 +1159,7 @@ irqreturn_t dmar_fault(int irq, void *dev_id)
 		printk(KERN_ERR "DRHD: handling fault status reg %x\n",
 		       fault_status);
 
-	/*                                          */
+	/* TBD: ignore advanced fault log currently */
 	if (!(fault_status & DMA_FSTS_PPF))
 		goto clear_rest;
 
@@ -1172,7 +1172,7 @@ irqreturn_t dmar_fault(int irq, void *dev_id)
 		int type;
 		u32 data;
 
-		/*                 */
+		/* highest 32 bits */
 		data = readl(iommu->reg + reg +
 				fault_index * PRIMARY_FAULT_REG_LEN + 12);
 		if (!(data & DMA_FRCD_F))
@@ -1188,7 +1188,7 @@ irqreturn_t dmar_fault(int irq, void *dev_id)
 		guest_addr = dmar_readq(iommu->reg + reg +
 				fault_index * PRIMARY_FAULT_REG_LEN);
 		guest_addr = dma_frcd_page_addr(guest_addr);
-		/*                 */
+		/* clear the fault */
 		writel(DMA_FRCD_F, iommu->reg + reg +
 			fault_index * PRIMARY_FAULT_REG_LEN + 12);
 
@@ -1203,7 +1203,7 @@ irqreturn_t dmar_fault(int irq, void *dev_id)
 		raw_spin_lock_irqsave(&iommu->register_lock, flag);
 	}
 clear_rest:
-	/*                            */
+	/* clear all the other faults */
 	fault_status = readl(iommu->reg + DMAR_FSTS_REG);
 	writel(fault_status, iommu->reg + DMAR_FSTS_REG);
 
@@ -1216,8 +1216,8 @@ int dmar_set_interrupt(struct intel_iommu *iommu)
 	int irq, ret;
 
 	/*
-                                                        
-  */
+	 * Check if the fault interrupt is already initialized.
+	 */
 	if (iommu->irq)
 		return 0;
 
@@ -1249,8 +1249,8 @@ int __init enable_drhd_fault_handling(void)
 	struct dmar_drhd_unit *drhd;
 
 	/*
-                                   
-  */
+	 * Enable fault control interrupt.
+	 */
 	for_each_drhd_unit(drhd) {
 		int ret;
 		struct intel_iommu *iommu = drhd->iommu;
@@ -1264,8 +1264,8 @@ int __init enable_drhd_fault_handling(void)
 		}
 
 		/*
-                               
-   */
+		 * Clear any previous faults.
+		 */
 		dmar_fault(iommu->irq, iommu);
 	}
 
@@ -1273,7 +1273,7 @@ int __init enable_drhd_fault_handling(void)
 }
 
 /*
-                                           
+ * Re-enable Queued Invalidation interface.
  */
 int dmar_reenable_qi(struct intel_iommu *iommu)
 {
@@ -1284,21 +1284,21 @@ int dmar_reenable_qi(struct intel_iommu *iommu)
 		return -ENOENT;
 
 	/*
-                                      
-  */
+	 * First disable queued invalidation.
+	 */
 	dmar_disable_qi(iommu);
 	/*
-                                                                    
-                                                            
-                 
-  */
+	 * Then enable queued invalidation again. Since there is no pending
+	 * invalidation requests now, it's safe to re-enable queued
+	 * invalidation.
+	 */
 	__dmar_enable_qi(iommu);
 
 	return 0;
 }
 
 /*
-                                                               
+ * Check interrupt remapping support in DMAR table description.
  */
 int __init dmar_ir_support(void)
 {

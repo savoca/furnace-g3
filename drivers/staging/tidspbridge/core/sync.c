@@ -16,21 +16,21 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/*                                              */
+/*  ----------------------------------- Host OS */
 #include <dspbridge/host_os.h>
 
-/*                                           */
+/*  ----------------------------------- This */
 #include <dspbridge/sync.h>
 #include <dspbridge/ntfy.h>
 
 DEFINE_SPINLOCK(sync_lock);
 
-/* 
-                                                       
-                            
-  
-                                                              
-                                                            
+/**
+ * sync_set_event() - set or signal and specified event
+ * @event:	Event to be set..
+ *
+ * set the @event, if there is an thread waiting for the event
+ * it will be waken up, this function only wakes one thread.
  */
 
 void sync_set_event(struct sync_object *event)
@@ -42,18 +42,18 @@ void sync_set_event(struct sync_object *event)
 	spin_unlock_bh(&sync_lock);
 }
 
-/* 
-                                                                        
-                                             
-                                           
-                                              
-                                    
-  
-                                                                         
-                                                             
-                                                                     
-                                                           
-                                                  
+/**
+ * sync_wait_on_multiple_events() - waits for multiple events to be set.
+ * @events:	Array of events to wait for them.
+ * @count:	number of elements of the array.
+ * @timeout	timeout on waiting for the evetns.
+ * @pu_index	index of the event set.
+ *
+ * This functios will wait until any of the array element is set or until
+ * timeout. In case of success the function will return 0 and
+ * @pu_index will store the index of the array element set or in case
+ * of timeout the function will return -ETIME or in case of
+ * interrupting by a signal it will return -EPERM.
  */
 
 int sync_wait_on_multiple_events(struct sync_object **events,
@@ -103,12 +103,12 @@ func_end:
 	return status;
 }
 
-/* 
-                                                            
-                                                  
-                                
-                              
-  
+/**
+ * dsp_notifier_event() - callback function to nofity events
+ * @this:		pointer to itself struct notifier_block
+ * @event:	event to be notified.
+ * @data:		Currently not used.
+ *
  */
 int dsp_notifier_event(struct notifier_block *this, unsigned long event,
 							void *data)

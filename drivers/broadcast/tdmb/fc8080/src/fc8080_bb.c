@@ -32,7 +32,7 @@
 #define POWER_SAVE_MODE
 #undef FEATURE_DEBUG_LOG
 
-#define LOCK_TIME_TICK  5	/*     */
+#define LOCK_TIME_TICK  5	/* 5ms */
 #define SLOCK_MAX_TIME  200
 #define FLOCK_MAX_TIME  300
 #define DLOCK_MAX_TIME  500
@@ -45,7 +45,7 @@ static fci_s32 fc8080_set_xtal(HANDLE handle)
 	bbm_byte_write(handle, BBM_EZ_CONST, 0x80);
 	bbm_byte_write(handle, BBM_CLK_MODE, 0x02);
 
-	/*                    */
+	/* filter coefficient */
 	bbm_byte_write(handle, BBM_COEF00, 0x02);
 	bbm_byte_write(handle, BBM_COEF01, 0x0f);
 	bbm_byte_write(handle, BBM_COEF02, 0x0d);
@@ -63,13 +63,13 @@ static fci_s32 fc8080_set_xtal(HANDLE handle)
 	bbm_byte_write(handle, BBM_COEF0E, 0x4f);
 	bbm_byte_write(handle, BBM_COEF0F, 0x6b);
 #elif (FC8080_FREQ_XTAL == 16384)
-	/*            */
+	/* clock mode */
 	bbm_long_write(handle, BBM_NCO_OFFSET, 0x04000000);
 	bbm_byte_write(handle, BBM_NCO_INV, 0x80);
 	bbm_byte_write(handle, BBM_EZ_CONST, 0x80);
 	bbm_byte_write(handle, BBM_CLK_MODE, 0x00);
 
-	/*                    */
+	/* filter coefficient */
 	bbm_byte_write(handle, BBM_COEF00, 0x02);
 	bbm_byte_write(handle, BBM_COEF01, 0x0f);
 	bbm_byte_write(handle, BBM_COEF02, 0x0d);
@@ -92,7 +92,7 @@ static fci_s32 fc8080_set_xtal(HANDLE handle)
 	bbm_byte_write(handle, BBM_EZ_CONST, 0x6d);
 	bbm_byte_write(handle, BBM_CLK_MODE, 0x00);
 
-	/*                    */
+	/* filter coefficient */
 	bbm_byte_write(handle, BBM_COEF00, 0x0e);
 	bbm_byte_write(handle, BBM_COEF01, 0x00);
 	bbm_byte_write(handle, BBM_COEF02, 0x03);
@@ -115,7 +115,7 @@ static fci_s32 fc8080_set_xtal(HANDLE handle)
 	bbm_byte_write(handle, BBM_EZ_CONST, 0x57);
 	bbm_byte_write(handle, BBM_CLK_MODE, 0x00);
 
-	/*                    */
+	/* filter coefficient */
 	bbm_byte_write(handle, BBM_COEF00, 0x02);
 	bbm_byte_write(handle, BBM_COEF01, 0x02);
 	bbm_byte_write(handle, BBM_COEF02, 0x00);
@@ -138,7 +138,7 @@ static fci_s32 fc8080_set_xtal(HANDLE handle)
 	bbm_byte_write(handle, BBM_EZ_CONST, 0x79);
 	bbm_byte_write(handle, BBM_CLK_MODE, 0x02);
 
-	/*                    */
+	/* filter coefficient */
 	bbm_byte_write(handle, BBM_COEF00, 0x0f);
 	bbm_byte_write(handle, BBM_COEF01, 0x0d);
 	bbm_byte_write(handle, BBM_COEF02, 0x0f);
@@ -161,7 +161,7 @@ static fci_s32 fc8080_set_xtal(HANDLE handle)
 	bbm_byte_write(handle, BBM_EZ_CONST, 0x75);
 	bbm_byte_write(handle, BBM_CLK_MODE, 0x02);
 
-	/*                    */
+	/* filter coefficient */
 	bbm_byte_write(handle, BBM_COEF00, 0x0e);
 	bbm_byte_write(handle, BBM_COEF01, 0x0e);
 	bbm_byte_write(handle, BBM_COEF02, 0x01);
@@ -184,7 +184,7 @@ static fci_s32 fc8080_set_xtal(HANDLE handle)
 	bbm_byte_write(handle, BBM_EZ_CONST, 0x74);
 	bbm_byte_write(handle, BBM_CLK_MODE, 0x02);
 
-	/*                    */
+	/* filter coefficient */
 	bbm_byte_write(handle, BBM_COEF00, 0x0e);
 	bbm_byte_write(handle, BBM_COEF01, 0x0e);
 	bbm_byte_write(handle, BBM_COEF02, 0x01);
@@ -207,7 +207,7 @@ static fci_s32 fc8080_set_xtal(HANDLE handle)
 	bbm_byte_write(handle, BBM_EZ_CONST, 0x62);
 	bbm_byte_write(handle, BBM_CLK_MODE, 0x02);
 
-	/*                    */
+	/* filter coefficient */
 	bbm_byte_write(handle, BBM_COEF00, 0x0e);
 	bbm_byte_write(handle, BBM_COEF01, 0x0e);
 	bbm_byte_write(handle, BBM_COEF02, 0x01);
@@ -230,7 +230,7 @@ static fci_s32 fc8080_set_xtal(HANDLE handle)
 	bbm_byte_write(handle, BBM_EZ_CONST, 0x6d);
 	bbm_byte_write(handle, BBM_CLK_MODE, 0x01);
 
-	/*                    */
+	/* filter coefficient */
 	bbm_byte_write(handle, BBM_COEF00, 0x0e);
 	bbm_byte_write(handle, BBM_COEF01, 0x00);
 	bbm_byte_write(handle, BBM_COEF02, 0x03);
@@ -264,9 +264,9 @@ fci_s32 fc8080_probe(HANDLE handle)
 {
 	fci_u16 ver;
 	bbm_word_read(handle, BBM_CHIP_ID, &ver);
-//                        
+//#ifdef FEATURE_DEBUG_LOG
 	printk("fc8080_probe 0x%x\n", ver);
-//      
+//#endif
 
 	return (ver == 0x8080) ? BBM_OK : BBM_NOK;
 }
@@ -281,7 +281,7 @@ fci_s32 fc8080_init(HANDLE handle)
 	bbm_write(handle, BBM_RF_XTAL_EN, 0x0f);
 	bbm_write(handle, BBM_ADC_OPMODE, 0x67);
 
-	/*                                           */
+	/*bbm_write(handle, BBM_FIC_CFG_CRC16, 0x03);*/
 	bbm_word_write(handle, BBM_OFDM_DET_MAX_THRESHOLD, 0x0a00);
 	bbm_write(handle, BBM_FTOFFSET_RANGE, 0x20);
 	bbm_write(handle, BBM_AGC530_EN, 0x53);

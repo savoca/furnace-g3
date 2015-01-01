@@ -63,7 +63,7 @@ struct msm_ois_ctrl_t {
 };
 
 
-//                     
+//#define MSM_OIS_DEBUG
 #undef CDBG
 #ifdef MSM_OIS_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)

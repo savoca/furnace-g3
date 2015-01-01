@@ -18,7 +18,7 @@
 #include <linux/proc_fs.h>
 
 /*
-                                  
+ * General list handling functions
  */
 
 static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
@@ -35,7 +35,7 @@ static int __hw_addr_add_ex(struct netdev_hw_addr_list *list,
 		if (!memcmp(ha->addr, addr, addr_len) &&
 		    ha->type == addr_type) {
 			if (global) {
-				/*                                         */
+				/* check if addr is already used as global */
 				if (ha->global_use)
 					return 0;
 				else
@@ -204,34 +204,34 @@ void __hw_addr_init(struct netdev_hw_addr_list *list)
 EXPORT_SYMBOL(__hw_addr_init);
 
 /*
-                                      
+ * Device addresses handling functions
  */
 
-/* 
-                                             
-               
-  
-                                                  
-  
-                                       
+/**
+ *	dev_addr_flush - Flush device address list
+ *	@dev: device
+ *
+ *	Flush device address list and reset ->dev_addr.
+ *
+ *	The caller must hold the rtnl_mutex.
  */
 void dev_addr_flush(struct net_device *dev)
 {
-	/*                              */
+	/* rtnl_mutex must be held here */
 
 	__hw_addr_flush(&dev->dev_addrs);
 	dev->dev_addr = NULL;
 }
 EXPORT_SYMBOL(dev_addr_flush);
 
-/* 
-                                           
-               
-  
-                                                         
-                      
-  
-                                       
+/**
+ *	dev_addr_init - Init device address list
+ *	@dev: device
+ *
+ *	Init device address list and create the first element,
+ *	used by ->dev_addr.
+ *
+ *	The caller must hold the rtnl_mutex.
  */
 int dev_addr_init(struct net_device *dev)
 {
@@ -239,7 +239,7 @@ int dev_addr_init(struct net_device *dev)
 	struct netdev_hw_addr *ha;
 	int err;
 
-	/*                              */
+	/* rtnl_mutex must be held here */
 
 	__hw_addr_init(&dev->dev_addrs);
 	memset(addr, 0, sizeof(addr));
@@ -247,9 +247,9 @@ int dev_addr_init(struct net_device *dev)
 			    NETDEV_HW_ADDR_T_LAN);
 	if (!err) {
 		/*
-                                                             
-                                               
-   */
+		 * Get the first (previously created) address from the list
+		 * and set dev_addr pointer to this location.
+		 */
 		ha = list_first_entry(&dev->dev_addrs.list,
 				      struct netdev_hw_addr, list);
 		dev->dev_addr = ha->addr;
@@ -258,16 +258,16 @@ int dev_addr_init(struct net_device *dev)
 }
 EXPORT_SYMBOL(dev_addr_init);
 
-/* 
-                                      
-               
-                        
-                           
-  
-                                                                        
-                     
-  
-                                       
+/**
+ *	dev_addr_add - Add a device address
+ *	@dev: device
+ *	@addr: address to add
+ *	@addr_type: address type
+ *
+ *	Add a device address to the device or increase the reference count if
+ *	it already exists.
+ *
+ *	The caller must hold the rtnl_mutex.
  */
 int dev_addr_add(struct net_device *dev, unsigned char *addr,
 		 unsigned char addr_type)
@@ -283,16 +283,16 @@ int dev_addr_add(struct net_device *dev, unsigned char *addr,
 }
 EXPORT_SYMBOL(dev_addr_add);
 
-/* 
-                                           
-               
-                           
-                           
-  
-                                                                      
-                                        
-  
-                                       
+/**
+ *	dev_addr_del - Release a device address.
+ *	@dev: device
+ *	@addr: address to delete
+ *	@addr_type: address type
+ *
+ *	Release reference to a device address and remove it from the device
+ *	if the reference count drops to zero.
+ *
+ *	The caller must hold the rtnl_mutex.
  */
 int dev_addr_del(struct net_device *dev, unsigned char *addr,
 		 unsigned char addr_type)
@@ -303,9 +303,9 @@ int dev_addr_del(struct net_device *dev, unsigned char *addr,
 	ASSERT_RTNL();
 
 	/*
-                                                             
-                                 
-  */
+	 * We can not remove the first address from the list because
+	 * dev->dev_addr points to that.
+	 */
 	ha = list_first_entry(&dev->dev_addrs.list,
 			      struct netdev_hw_addr, list);
 	if (ha->addr == dev->dev_addr && ha->refcount == 1)
@@ -319,15 +319,15 @@ int dev_addr_del(struct net_device *dev, unsigned char *addr,
 }
 EXPORT_SYMBOL(dev_addr_del);
 
-/* 
-                                                                   
-                                                   
-                                                       
-                                                                     
-  
-                                                     
-   
-                                       
+/**
+ *	dev_addr_add_multiple - Add device addresses from another device
+ *	@to_dev: device to which addresses will be added
+ *	@from_dev: device from which addresses will be added
+ *	@addr_type: address type - 0 means type will be used from from_dev
+ *
+ *	Add device addresses of the one device to another.
+ **
+ *	The caller must hold the rtnl_mutex.
  */
 int dev_addr_add_multiple(struct net_device *to_dev,
 			  struct net_device *from_dev,
@@ -347,15 +347,15 @@ int dev_addr_add_multiple(struct net_device *to_dev,
 }
 EXPORT_SYMBOL(dev_addr_add_multiple);
 
-/* 
-                                                                    
-                                                      
-                                                          
-                                                                     
-  
-                                                                          
-  
-                                       
+/**
+ *	dev_addr_del_multiple - Delete device addresses by another device
+ *	@to_dev: device where the addresses will be deleted
+ *	@from_dev: device supplying the addresses to be deleted
+ *	@addr_type: address type - 0 means type will be used from from_dev
+ *
+ *	Deletes addresses in to device by the list of addresses in from device.
+ *
+ *	The caller must hold the rtnl_mutex.
  */
 int dev_addr_del_multiple(struct net_device *to_dev,
 			  struct net_device *from_dev,
@@ -373,16 +373,16 @@ int dev_addr_del_multiple(struct net_device *to_dev,
 EXPORT_SYMBOL(dev_addr_del_multiple);
 
 /*
-                                  
+ * Unicast list handling functions
  */
 
-/* 
-                                               
-               
-                        
-  
-                                                            
-                                            
+/**
+ *	dev_uc_add - Add a secondary unicast address
+ *	@dev: device
+ *	@addr: address to add
+ *
+ *	Add a secondary unicast address to the device or increase
+ *	the reference count if it already exists.
  */
 int dev_uc_add(struct net_device *dev, unsigned char *addr)
 {
@@ -398,13 +398,13 @@ int dev_uc_add(struct net_device *dev, unsigned char *addr)
 }
 EXPORT_SYMBOL(dev_uc_add);
 
-/* 
-                                                  
-               
-                           
-  
-                                                                 
-                                                        
+/**
+ *	dev_uc_del - Release secondary unicast address.
+ *	@dev: device
+ *	@addr: address to delete
+ *
+ *	Release reference to a secondary unicast address and remove it
+ *	from the device if the reference count drops to zero.
  */
 int dev_uc_del(struct net_device *dev, unsigned char *addr)
 {
@@ -420,17 +420,17 @@ int dev_uc_del(struct net_device *dev, unsigned char *addr)
 }
 EXPORT_SYMBOL(dev_uc_del);
 
-/* 
-                                                                    
-                          
-                       
-  
-                                                                  
-                                                               
-                                
-  
-                                                                   
-                                        
+/**
+ *	dev_uc_sync - Synchronize device's unicast list to another device
+ *	@to: destination device
+ *	@from: source device
+ *
+ *	Add newly added addresses to the destination device and release
+ *	addresses that have no users left. The source device must be
+ *	locked by netif_addr_lock_bh.
+ *
+ *	This function is intended to be called from the dev->set_rx_mode
+ *	function of layered software devices.
  */
 int dev_uc_sync(struct net_device *to, struct net_device *from)
 {
@@ -448,14 +448,14 @@ int dev_uc_sync(struct net_device *to, struct net_device *from)
 }
 EXPORT_SYMBOL(dev_uc_sync);
 
-/* 
-                                                                            
-                          
-                       
-  
-                                                                    
-                                                                 
-                                                  
+/**
+ *	dev_uc_unsync - Remove synchronized addresses from the destination device
+ *	@to: destination device
+ *	@from: source device
+ *
+ *	Remove all addresses that were added to the destination device by
+ *	dev_uc_sync(). This function is intended to be called from the
+ *	dev->stop function of layered software devices.
  */
 void dev_uc_unsync(struct net_device *to, struct net_device *from)
 {
@@ -471,11 +471,11 @@ void dev_uc_unsync(struct net_device *to, struct net_device *from)
 }
 EXPORT_SYMBOL(dev_uc_unsync);
 
-/* 
-                                         
-               
-  
-                           
+/**
+ *	dev_uc_flush - Flush unicast addresses
+ *	@dev: device
+ *
+ *	Flush unicast addresses.
  */
 void dev_uc_flush(struct net_device *dev)
 {
@@ -485,11 +485,11 @@ void dev_uc_flush(struct net_device *dev)
 }
 EXPORT_SYMBOL(dev_uc_flush);
 
-/* 
-                                           
-               
-  
-                             
+/**
+ *	dev_uc_flush - Init unicast address list
+ *	@dev: device
+ *
+ *	Init unicast address list.
  */
 void dev_uc_init(struct net_device *dev)
 {
@@ -498,7 +498,7 @@ void dev_uc_init(struct net_device *dev)
 EXPORT_SYMBOL(dev_uc_init);
 
 /*
-                                    
+ * Multicast list handling functions
  */
 
 static int __dev_mc_add(struct net_device *dev, unsigned char *addr,
@@ -514,13 +514,13 @@ static int __dev_mc_add(struct net_device *dev, unsigned char *addr,
 	netif_addr_unlock_bh(dev);
 	return err;
 }
-/* 
-                                       
-               
-                        
-  
-                                                    
-                                            
+/**
+ *	dev_mc_add - Add a multicast address
+ *	@dev: device
+ *	@addr: address to add
+ *
+ *	Add a multicast address to the device or increase
+ *	the reference count if it already exists.
  */
 int dev_mc_add(struct net_device *dev, unsigned char *addr)
 {
@@ -528,12 +528,12 @@ int dev_mc_add(struct net_device *dev, unsigned char *addr)
 }
 EXPORT_SYMBOL(dev_mc_add);
 
-/* 
-                                                     
-               
-                        
-  
-                                                
+/**
+ *	dev_mc_add_global - Add a global multicast address
+ *	@dev: device
+ *	@addr: address to add
+ *
+ *	Add a global multicast address to the device.
  */
 int dev_mc_add_global(struct net_device *dev, unsigned char *addr)
 {
@@ -555,13 +555,13 @@ static int __dev_mc_del(struct net_device *dev, unsigned char *addr,
 	return err;
 }
 
-/* 
-                                           
-               
-                           
-  
-                                                         
-                                                        
+/**
+ *	dev_mc_del - Delete a multicast address.
+ *	@dev: device
+ *	@addr: address to delete
+ *
+ *	Release reference to a multicast address and remove it
+ *	from the device if the reference count drops to zero.
  */
 int dev_mc_del(struct net_device *dev, unsigned char *addr)
 {
@@ -569,13 +569,13 @@ int dev_mc_del(struct net_device *dev, unsigned char *addr)
 }
 EXPORT_SYMBOL(dev_mc_del);
 
-/* 
-                                                         
-               
-                           
-  
-                                                         
-                                                        
+/**
+ *	dev_mc_del_global - Delete a global multicast address.
+ *	@dev: device
+ *	@addr: address to delete
+ *
+ *	Release reference to a multicast address and remove it
+ *	from the device if the reference count drops to zero.
  */
 int dev_mc_del_global(struct net_device *dev, unsigned char *addr)
 {
@@ -583,17 +583,17 @@ int dev_mc_del_global(struct net_device *dev, unsigned char *addr)
 }
 EXPORT_SYMBOL(dev_mc_del_global);
 
-/* 
-                                                                    
-                          
-                       
-  
-                                                                  
-                                                               
-                                
-  
-                                                                  
-                                        
+/**
+ *	dev_mc_sync - Synchronize device's unicast list to another device
+ *	@to: destination device
+ *	@from: source device
+ *
+ *	Add newly added addresses to the destination device and release
+ *	addresses that have no users left. The source device must be
+ *	locked by netif_addr_lock_bh.
+ *
+ *	This function is intended to be called from the ndo_set_rx_mode
+ *	function of layered software devices.
  */
 int dev_mc_sync(struct net_device *to, struct net_device *from)
 {
@@ -611,14 +611,14 @@ int dev_mc_sync(struct net_device *to, struct net_device *from)
 }
 EXPORT_SYMBOL(dev_mc_sync);
 
-/* 
-                                                                            
-                          
-                       
-  
-                                                                    
-                                                                 
-                                                  
+/**
+ *	dev_mc_unsync - Remove synchronized addresses from the destination device
+ *	@to: destination device
+ *	@from: source device
+ *
+ *	Remove all addresses that were added to the destination device by
+ *	dev_mc_sync(). This function is intended to be called from the
+ *	dev->stop function of layered software devices.
  */
 void dev_mc_unsync(struct net_device *to, struct net_device *from)
 {
@@ -634,11 +634,11 @@ void dev_mc_unsync(struct net_device *to, struct net_device *from)
 }
 EXPORT_SYMBOL(dev_mc_unsync);
 
-/* 
-                                           
-               
-  
-                             
+/**
+ *	dev_mc_flush - Flush multicast addresses
+ *	@dev: device
+ *
+ *	Flush multicast addresses.
  */
 void dev_mc_flush(struct net_device *dev)
 {
@@ -648,11 +648,11 @@ void dev_mc_flush(struct net_device *dev)
 }
 EXPORT_SYMBOL(dev_mc_flush);
 
-/* 
-                                             
-               
-  
-                               
+/**
+ *	dev_mc_flush - Init multicast address list
+ *	@dev: device
+ *
+ *	Init multicast address list.
  */
 void dev_mc_init(struct net_device *dev)
 {

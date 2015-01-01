@@ -34,9 +34,9 @@
 #include "internal.h"
 
 /*
-                                                        
-                                                           
-                               
+ * We defer making "oops" entries appear in pstore - see
+ * whether the system is actually still running well enough
+ * to let someone see the entry
  */
 #define	PSTORE_INTERVAL	(60 * HZ)
 
@@ -49,15 +49,15 @@ static void pstore_dowork(struct work_struct *);
 static DECLARE_WORK(pstore_work, pstore_dowork);
 
 /*
-                                            
-                             
+ * pstore_lock just protects "psinfo" during
+ * calls to pstore_register()
  */
 static DEFINE_SPINLOCK(pstore_lock);
 static struct pstore_info *psinfo;
 
 static char *backend;
 
-/*                                         */
+/* How much of the console log to snapshot */
 static unsigned long kmsg_bytes = 10240;
 
 void pstore_set_kmsg_bytes(int bytes)
@@ -65,7 +65,7 @@ void pstore_set_kmsg_bytes(int bytes)
 	kmsg_bytes = bytes;
 }
 
-/*                                                        */
+/* Tag each group of saved records with a sequence number */
 static int	oopscount;
 
 static const char *get_reason_str(enum kmsg_dump_reason reason)
@@ -89,9 +89,9 @@ static const char *get_reason_str(enum kmsg_dump_reason reason)
 }
 
 /*
-                                                         
-                                                          
-                                        
+ * callback from kmsg_dump. (s2,l2) has the most recently
+ * written bytes, older bytes are in (s1,l1). Save as much
+ * as we can from the end of the buffer.
  */
 static void pstore_dump(struct kmsg_dumper *dumper,
 	    enum kmsg_dump_reason reason,
@@ -157,13 +157,13 @@ static struct kmsg_dumper pstore_dumper = {
 };
 
 /*
-                                                             
-                                                           
-                                                               
-                                                            
-                   
-  
-                                                                     
+ * platform specific persistent storage driver registers with
+ * us here. If pstore is already mounted, call the platform
+ * read function right away to populate the file system. If not
+ * then the pstore mount code will call us later to fill out
+ * the file system.
+ *
+ * Register with kmsg_dump to save last part of console log on panic.
  */
 int pstore_register(struct pstore_info *psi)
 {
@@ -202,10 +202,10 @@ int pstore_register(struct pstore_info *psi)
 EXPORT_SYMBOL_GPL(pstore_register);
 
 /*
-                                                         
-                                                            
-                                                               
-                 
+ * Read all the records from the persistent store. Create
+ * files in our filesystem.  Don't warn about -EEXIST errors
+ * when we are re-scanning the backing store looking to add new
+ * error records.
  */
 void pstore_get_records(int quiet)
 {

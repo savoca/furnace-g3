@@ -18,11 +18,11 @@
  */
 #line 5
 
-/* 
-        
-  
-                                                                               
-        
+/**
+ * @file
+ *
+ * @brief fatal error handlers.  They all post fatal errors regardless of build
+ * type.
  */
 
 #ifndef _FATALERROR_H
@@ -46,13 +46,13 @@ extern "C" {
 #endif
 
 enum FECode {
-	FECodeMisc,    /*                                 */
-	FECodeOOM,     /*                             */
-	FECodeAssert,  /*                          */
-	FECodeNR,      /*                               */
-	FECodeNI,      /*                                   */
-	FECodeNT,      /*                              */
-	FECodeCF       /*                                */
+	FECodeMisc,    /**< generic FATAL() call of sorts */
+	FECodeOOM,     /**< FATAL_OOM() call of sorts */
+	FECodeAssert,  /**< ASSERT() call of sorts */
+	FECodeNR,      /**< NOT_REACHED() call of sorts */
+	FECodeNI,      /**< NOT_IMPLEMENTED() call of sorts */
+	FECodeNT,      /**< NOT_TESTED() call of sorts */
+	FECodeCF       /**< COMPILE_FAIL() call of sorts */
 };
 typedef enum FECode FECode;
 

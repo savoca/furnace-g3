@@ -31,7 +31,7 @@
 #ifndef __MGA_DRV_H__
 #define __MGA_DRV_H__
 
-/*                       
+/* General customization:
  */
 
 #define DRIVER_AUTHOR		"Gareth Hughes, VA Linux Systems Inc."
@@ -87,40 +87,40 @@ typedef struct drm_mga_private {
 	int chipset;
 	int usec_timeout;
 
-	/* 
-                                                                  
-                                                                     
-                            
-  */
+	/**
+	 * If set, the new DMA initialization sequence was used.  This is
+	 * primarilly used to select how the driver should uninitialized its
+	 * internal DMA structures.
+	 */
 	int used_new_dma_init;
 
-	/* 
-                                                                 
-                                                                      
-  */
+	/**
+	 * If AGP memory is used for DMA buffers, this will be the value
+	 * \c MGA_PAGPXFER.  Otherwise, it will be zero (for a PCI transfer).
+	 */
 	u32 dma_access;
 
-	/* 
-                                                                 
-                                                              
-              
-  */
+	/**
+	 * If AGP memory is used for DMA buffers, this will be the value
+	 * \c MGA_WAGP_ENABLE.  Otherwise, it will be zero (for a PCI
+	 * transfer).
+	 */
 	u32 wagp_enable;
 
-	/* 
-                                 
-   
-                               
-  */
-	/*   */
-	resource_size_t mmio_base;	   /*                                */
-	resource_size_t mmio_size;	   /*                            */
-	/*   */
+	/**
+	 * \name MMIO region parameters.
+	 *
+	 * \sa drm_mga_private_t::mmio
+	 */
+	/*@{ */
+	resource_size_t mmio_base;	   /**< Bus address of base of MMIO. */
+	resource_size_t mmio_size;	   /**< Size of the MMIO region. */
+	/*@} */
 
 	u32 clear_cmd;
 	u32 maccess;
 
-	atomic_t vbl_received;          /*                               */
+	atomic_t vbl_received;          /**< Number of vblanks received. */
 	wait_queue_head_t fence_queue;
 	atomic_t last_fence_retired;
 	u32 next_fence_to_post;
@@ -152,7 +152,7 @@ typedef struct drm_mga_private {
 extern struct drm_ioctl_desc mga_ioctls[];
 extern int mga_max_ioctl;
 
-				/*           */
+				/* mga_dma.c */
 extern int mga_dma_bootstrap(struct drm_device *dev, void *data,
 			     struct drm_file *file_priv);
 extern int mga_dma_init(struct drm_device *dev, void *data,
@@ -176,11 +176,11 @@ extern void mga_do_dma_wrap_end(drm_mga_private_t *dev_priv);
 
 extern int mga_freelist_put(struct drm_device *dev, struct drm_buf *buf);
 
-				/*            */
+				/* mga_warp.c */
 extern int mga_warp_install_microcode(drm_mga_private_t *dev_priv);
 extern int mga_warp_init(drm_mga_private_t *dev_priv);
 
-				/*           */
+				/* mga_irq.c */
 extern int mga_enable_vblank(struct drm_device *dev, int crtc);
 extern void mga_disable_vblank(struct drm_device *dev, int crtc);
 extern u32 mga_get_vblank_counter(struct drm_device *dev, int crtc);
@@ -210,8 +210,8 @@ extern long mga_compat_ioctl(struct file *filp, unsigned int cmd,
 #define DMAREG1(r)	(u8)(((r - DWGREG1) >> 2) | 0x80)
 #define DMAREG(r)	(ISREG0(r) ? DMAREG0(r) : DMAREG1(r))
 
-/*                                                                 
-                    
+/* ================================================================
+ * Helper macross...
  */
 
 #define MGA_EMIT_STATE(dev_priv, dirty)					\
@@ -250,8 +250,8 @@ do {									\
 	}								\
 } while (0)
 
-/*                                                                 
-                             
+/* ================================================================
+ * Primary DMA command stream
  */
 
 #define MGA_VERBOSE	0
@@ -306,7 +306,7 @@ do {									\
 	}								\
 } while (0)
 
-/*                                                                  
+/* Never use this, always use DMA_BLOCK(...) for primary DMA output.
  */
 #define DMA_WRITE(offset, val)						\
 do {									\
@@ -329,7 +329,7 @@ do {									\
 	write += DMA_BLOCK_SIZE;					\
 } while (0)
 
-/*                                                  
+/* Buffer aging via primary DMA stream head pointer.
  */
 
 #define SET_AGE(age, h, w)						\
@@ -363,12 +363,12 @@ do {									\
 
 #define MGA_DMA_DEBUG			0
 
-/*                                    
+/* A reduced set of the mga registers.
  */
 #define MGA_CRTC_INDEX			0x1fd4
 #define MGA_CRTC_DATA			0x1fd5
 
-/*        */
+/* CRTC11 */
 #define MGA_VINTCLR			(1 << 4)
 #define MGA_VINTEN			(1 << 5)
 
@@ -544,17 +544,17 @@ do {									\
 
 #define MGA_ZORG			0x1c0c
 
-/*                                            
+/* This finishes the current batch of commands
  */
 #define MGA_EXEC			0x0100
 
-/*                                  
+/* AGP PLL encoding (for G200 only).
  */
 #define MGA_AGP_PLL			0x1e4c
 #	define MGA_AGP2XPLL_DISABLE		(0 << 0)
 #	define MGA_AGP2XPLL_ENABLE		(1 << 0)
 
-/*               
+/* Warp registers
  */
 #define MGA_WR0				0x2d00
 #define MGA_WR1				0x2d04
@@ -621,7 +621,7 @@ do {									\
 #define MGA_WR62			0x2df8
 #define MGA_WR63			0x2dfc
 #	define MGA_G400_WR_MAGIC		(1 << 6)
-#	define MGA_G400_WR56_MAGIC		0x46480000	/*          */
+#	define MGA_G400_WR56_MAGIC		0x46480000	/* 12800.0f */
 
 #define MGA_ILOAD_ALIGN		64
 #define MGA_ILOAD_MASK		(MGA_ILOAD_ALIGN - 1)
@@ -655,7 +655,7 @@ do {									\
 				 MGA_BLTMOD_BFCOL |			\
 				 MGA_CLIPDIS)
 
-/*                  
+/* Simple idle test.
  */
 static __inline__ int mga_is_idle(drm_mga_private_t *dev_priv)
 {

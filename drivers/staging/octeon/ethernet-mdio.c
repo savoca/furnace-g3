@@ -94,13 +94,13 @@ const struct ethtool_ops cvm_oct_ethtool_ops = {
 	.get_link = ethtool_op_get_link,
 };
 
-/* 
-                                                
-                            
-                       
-                       
-  
-                          
+/**
+ * cvm_oct_ioctl - IOCTL support for PHY control
+ * @dev:    Device to change
+ * @rq:     the request
+ * @cmd:    the command
+ *
+ * Returns Zero on success
  */
 int cvm_oct_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
@@ -151,12 +151,12 @@ static void cvm_oct_adjust_link(struct net_device *dev)
 }
 
 
-/* 
-                                           
-  
-                           
-  
-                                               
+/**
+ * cvm_oct_phy_setup_device - setup the PHY
+ *
+ * @dev:    Device to setup
+ *
+ * Returns Zero on success, negative on failure
  */
 int cvm_oct_phy_setup_device(struct net_device *dev)
 {

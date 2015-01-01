@@ -241,23 +241,23 @@ void lm3630_backlight_on(int level)
 		pr_err("%s with level %d\n", __func__, level);
 		lm3630_hw_reset();
 
-		/*                                               */
+		/*  OVP(24V),OCP(1.0A) , Boost Frequency(500khz) */
 		lm3630_write_reg(main_lm3630_dev->client, 0x02, 0x30);
 
 		if (lm3630_pwm_enable) {
-			/*                                           */
+			/* eble Feedback , disable  PWM for BANK A,B */
 			lm3630_write_reg(main_lm3630_dev->client, 0x01, 0x09);
 		} else {
-			/*                                           */
+			/* eble Feedback , disable  PWM for BANK A,B */
 			lm3630_write_reg(main_lm3630_dev->client, 0x01, 0x08);
 		}
 
-		/*                                       */
-		/*                                       */
-		/*                               */
+		/* Brightness Code Setting Max on Bank A */
+		/* Full-Scale Current (20.2mA) of BANK A */
+		/* 20.2mA : 0x13 , 23.4mA : 0x17 */
 		lm3630_write_reg(main_lm3630_dev->client, 0x05, 0x16);
 
-		/*                                                          */
+		/* Enable LED A to Exponential, LED2 is connected to BANK_A */
 		lm3630_write_reg(main_lm3630_dev->client, 0x00, 0x15);
 	}
 	mdelay(1);
@@ -656,8 +656,8 @@ static int lm3630_probe(struct i2c_client *i2c_dev,
 #endif
 
 #if defined(CONFIG_MACH_LGE)
-/*                                    
-                                     */
+/*	if (!lge_get_cont_splash_enabled())
+		lm3630_lcd_backlight_set_level(0); */
 #endif
 
 	pr_err("[LCD][DEBUG] %s: i2c probe done\n", __func__);

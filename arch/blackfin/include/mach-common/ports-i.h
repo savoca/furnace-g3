@@ -1,5 +1,5 @@
 /*
-               
+ * Port I Masks
  */
 
 #ifndef __BFIN_PERIPHERAL_PORT_I__

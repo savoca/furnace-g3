@@ -60,7 +60,7 @@ static void snd_trident_clear_voices(struct snd_trident * trident,
 static int snd_trident_free(struct snd_trident *trident);
 
 /*
-                       
+ *  common I/O routines
  */
 
 
@@ -88,7 +88,7 @@ static void snd_trident_print_voice_regs(struct snd_trident *trident, int voice)
 		printk(KERN_DEBUG "ESO: 0x%x\n", val >> 16);
 		printk(KERN_DEBUG "Delta: 0x%x\n", val & 0xffff);
 		val = inl(TRID_REG(trident, CH_DX_FMC_RVOL_CVOL));
-	} else {		//                     
+	} else {		// TRIDENT_DEVICE_ID_NX
 		val = inl(TRID_REG(trident, CH_NX_DELTA_CSO));
 		tmp = (val >> 24) & 0xff;
 		printk(KERN_DEBUG "CSO: 0x%x\n", val & 0x00ffffff);
@@ -106,18 +106,18 @@ static void snd_trident_print_voice_regs(struct snd_trident *trident, int voice)
 }
 #endif
 
-/*                                                                           
-                                                                                   
+/*---------------------------------------------------------------------------
+   unsigned short snd_trident_codec_read(struct snd_ac97 *ac97, unsigned short reg)
   
-                                                                         
-                             
+   Description: This routine will do all of the reading from the external
+                CODEC (AC97).
   
-                                           
-                                                          
+   Parameters:  ac97 - ac97 codec structure
+                reg - CODEC register index, from AC97 Hal.
  
-                                                
+   returns:     16 bit value read from the AC97.
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 static unsigned short snd_trident_codec_read(struct snd_ac97 *ac97, unsigned short reg)
 {
 	unsigned int data = 0, treg;
@@ -165,20 +165,20 @@ static unsigned short snd_trident_codec_read(struct snd_ac97 *ac97, unsigned sho
 	return ((unsigned short) (data >> 16));
 }
 
-/*                                                                           
-                                                                          
-                        
+/*---------------------------------------------------------------------------
+   void snd_trident_codec_write(struct snd_ac97 *ac97, unsigned short reg,
+   unsigned short wdata)
   
-                                                                       
-                             
+   Description: This routine will do all of the writing to the external
+                CODEC (AC97).
   
-                                          
-                                                      
-                                                                     
+   Parameters:	ac97 - ac97 codec structure
+   	        reg - CODEC register index, from AC97 Hal.
+                data  - Lower 16 bits are the data to write to CODEC.
   
-                                                       
+   returns:     TRUE if everything went ok, else FALSE.
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 static void snd_trident_codec_write(struct snd_ac97 *ac97, unsigned short reg,
 				    unsigned short wdata)
 {
@@ -193,7 +193,7 @@ static void snd_trident_codec_write(struct snd_ac97 *ac97, unsigned short reg,
 	if (trident->device == TRIDENT_DEVICE_ID_DX) {
 		address = DX_ACR0_AC97_W;
 
-		/*                                  */
+		/* read AC-97 write register status */
 		do {
 			if ((inw(TRID_REG(trident, address)) & DX_AC97_BUSY_WRITE) == 0)
 				break;
@@ -203,7 +203,7 @@ static void snd_trident_codec_write(struct snd_ac97 *ac97, unsigned short reg,
 	} else if (trident->device == TRIDENT_DEVICE_ID_NX) {
 		address = NX_ACR1_AC97_W;
 
-		/*                                  */
+		/* read AC-97 write register status */
 		do {
 			if ((inw(TRID_REG(trident, address)) & NX_AC97_BUSY_WRITE) == 0)
 				break;
@@ -213,7 +213,7 @@ static void snd_trident_codec_write(struct snd_ac97 *ac97, unsigned short reg,
 	} else if (trident->device == TRIDENT_DEVICE_ID_SI7018) {
 		address = SI_AC97_WRITE;
 
-		/*                                  */
+		/* read AC-97 write register status */
 		do {
 			if ((inw(TRID_REG(trident, address)) & (SI_AC97_BUSY_WRITE)) == 0)
 				break;
@@ -223,8 +223,8 @@ static void snd_trident_codec_write(struct snd_ac97 *ac97, unsigned short reg,
 		if (ac97->num == 1)
 			data |= SI_AC97_SECONDARY;
 	} else {
-		address = 0;	/*                */
-		count = 0;	/*        */
+		address = 0;	/* keep GCC happy */
+		count = 0;	/* return */
 	}
 
 	if (count == 0) {
@@ -235,17 +235,17 @@ static void snd_trident_codec_write(struct snd_ac97 *ac97, unsigned short reg,
 	spin_unlock_irqrestore(&trident->reg_lock, flags);
 }
 
-/*                                                                           
-                                                           
+/*---------------------------------------------------------------------------
+   void snd_trident_enable_eso(struct snd_trident *trident)
   
-                                                                
-                                                                
-                                    
-                                                       
+   Description: This routine will enable end of loop interrupts.
+                End of loop interrupts will occur when a running
+                channel reaches ESO.
+                Also enables middle of loop interrupts.
   
-                                                                    
+   Parameters:  trident - pointer to target device class for 4DWave.
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static void snd_trident_enable_eso(struct snd_trident * trident)
 {
@@ -259,20 +259,20 @@ static void snd_trident_enable_eso(struct snd_trident * trident)
 	outl(val, TRID_REG(trident, T4D_LFO_GC_CIR));
 }
 
-/*                                                                           
-                                                            
+/*---------------------------------------------------------------------------
+   void snd_trident_disable_eso(struct snd_trident *trident)
   
-                                                                 
-                                                                
-                                    
-                                                        
+   Description: This routine will disable end of loop interrupts.
+                End of loop interrupts will occur when a running
+                channel reaches ESO.
+                Also disables middle of loop interrupts.
   
-                
-                                                                    
+   Parameters:  
+                trident - pointer to target device class for 4DWave.
   
-                                                       
+   returns:     TRUE if everything went ok, else FALSE.
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static void snd_trident_disable_eso(struct snd_trident * trident)
 {
@@ -284,19 +284,19 @@ static void snd_trident_disable_eso(struct snd_trident * trident)
 	outl(tmp, TRID_REG(trident, T4D_LFO_GC_CIR));
 }
 
-/*                                                                           
-                                                                                 
+/*---------------------------------------------------------------------------
+   void snd_trident_start_voice(struct snd_trident * trident, unsigned int voice)
 
-                                                      
-                                                                           
-                                                 
+    Description: Start a voice, any channel 0 thru 63.
+                 This routine automatically handles the fact that there are
+                 more than 32 channels available.
 
-                                               
-                                                                     
+    Parameters : voice - Voice number 0 thru n.
+                 trident - pointer to target device class for 4DWave.
 
-                       
+    Return Value: None.
 
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 void snd_trident_start_voice(struct snd_trident * trident, unsigned int voice)
 {
@@ -308,19 +308,19 @@ void snd_trident_start_voice(struct snd_trident * trident, unsigned int voice)
 
 EXPORT_SYMBOL(snd_trident_start_voice);
 
-/*                                                                           
-                                                                                
+/*---------------------------------------------------------------------------
+   void snd_trident_stop_voice(struct snd_trident * trident, unsigned int voice)
 
-                                                     
-                                                                           
-                                                 
+    Description: Stop a voice, any channel 0 thru 63.
+                 This routine automatically handles the fact that there are
+                 more than 32 channels available.
 
-                                               
-                                                                     
+    Parameters : voice - Voice number 0 thru n.
+                 trident - pointer to target device class for 4DWave.
 
-                       
+    Return Value: None.
 
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 void snd_trident_stop_voice(struct snd_trident * trident, unsigned int voice)
 {
@@ -332,16 +332,16 @@ void snd_trident_stop_voice(struct snd_trident * trident, unsigned int voice)
 
 EXPORT_SYMBOL(snd_trident_stop_voice);
 
-/*                                                                           
-                                                                     
+/*---------------------------------------------------------------------------
+    int snd_trident_allocate_pcm_channel(struct snd_trident *trident)
   
-                                                             
+    Description: Allocate hardware channel in Bank B (32-63).
   
-                                                                      
+    Parameters :  trident - pointer to target device class for 4DWave.
   
-                                                                             
+    Return Value: hardware channel - 32-63 or -1 when no channel is available
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_allocate_pcm_channel(struct snd_trident * trident)
 {
@@ -359,17 +359,17 @@ static int snd_trident_allocate_pcm_channel(struct snd_trident * trident)
 	return -1;
 }
 
-/*                                                                           
-                                                  
+/*---------------------------------------------------------------------------
+    void snd_trident_free_pcm_channel(int channel)
   
-                                                        
+    Description: Free hardware channel in Bank B (32-63)
   
-                                                                      
-                                                 
+    Parameters :  trident - pointer to target device class for 4DWave.
+	          channel - hardware channel number 0-63
   
-                      
+    Return Value: none
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static void snd_trident_free_pcm_channel(struct snd_trident *trident, int channel)
 {
@@ -382,16 +382,16 @@ static void snd_trident_free_pcm_channel(struct snd_trident *trident, int channe
 	}
 }
 
-/*                                                                           
-                                                         
+/*---------------------------------------------------------------------------
+    unsigned int snd_trident_allocate_synth_channel(void)
   
-                                                            
+    Description: Allocate hardware channel in Bank A (0-31).
   
-                                                                      
+    Parameters :  trident - pointer to target device class for 4DWave.
   
-                                                                            
+    Return Value: hardware channel - 0-31 or -1 when no channel is available
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_allocate_synth_channel(struct snd_trident * trident)
 {
@@ -407,17 +407,17 @@ static int snd_trident_allocate_synth_channel(struct snd_trident * trident)
 	return -1;
 }
 
-/*                                                                           
-                                                      
+/*---------------------------------------------------------------------------
+    void snd_trident_free_synth_channel( int channel )
   
-                                                        
+    Description: Free hardware channel in Bank B (0-31).
   
-                                                                      
-                                                 
+    Parameters :  trident - pointer to target device class for 4DWave.
+	          channel - hardware channel number 0-63
   
-                      
+    Return Value: none
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static void snd_trident_free_synth_channel(struct snd_trident *trident, int channel)
 {
@@ -430,17 +430,17 @@ static void snd_trident_free_synth_channel(struct snd_trident *trident, int chan
 	}
 }
 
-/*                                                                           
-                               
+/*---------------------------------------------------------------------------
+   snd_trident_write_voice_regs
   
-                                                                           
-                                      
+   Description: This routine will complete and write the 5 hardware channel
+                registers to hardware.
   
-                                                                    
-                                                   
-                                    
+   Parameters:  trident - pointer to target device class for 4DWave.
+                voice - synthesizer voice structure
+                Each register field.
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 void snd_trident_write_voice_regs(struct snd_trident * trident,
 				  struct snd_trident_voice * voice)
@@ -513,17 +513,17 @@ void snd_trident_write_voice_regs(struct snd_trident * trident,
 
 EXPORT_SYMBOL(snd_trident_write_voice_regs);
 
-/*                                                                           
-                            
+/*---------------------------------------------------------------------------
+   snd_trident_write_cso_reg
   
-                                                          
-                                     
+   Description: This routine will write the new CSO offset
+                register to hardware.
   
-                                                                    
-                                                   
-                                   
+   Parameters:  trident - pointer to target device class for 4DWave.
+                voice - synthesizer voice structure
+                CSO - new CSO value
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static void snd_trident_write_cso_reg(struct snd_trident * trident,
 				      struct snd_trident_voice * voice,
@@ -539,17 +539,17 @@ static void snd_trident_write_cso_reg(struct snd_trident * trident,
 	}
 }
 
-/*                                                                           
-                            
+/*---------------------------------------------------------------------------
+   snd_trident_write_eso_reg
   
-                                                          
-                                     
+   Description: This routine will write the new ESO offset
+                register to hardware.
   
-                                                                    
-                                                   
-                                   
+   Parameters:  trident - pointer to target device class for 4DWave.
+                voice - synthesizer voice structure
+                ESO - new ESO value
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static void snd_trident_write_eso_reg(struct snd_trident * trident,
 				      struct snd_trident_voice * voice,
@@ -565,17 +565,17 @@ static void snd_trident_write_eso_reg(struct snd_trident * trident,
 	}
 }
 
-/*                                                                           
-                            
+/*---------------------------------------------------------------------------
+   snd_trident_write_vol_reg
   
-                                                            
-                                     
+   Description: This routine will write the new voice volume
+                register to hardware.
   
-                                                                    
-                                                   
-                                      
+   Parameters:  trident - pointer to target device class for 4DWave.
+                voice - synthesizer voice structure
+                Vol - new voice volume
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static void snd_trident_write_vol_reg(struct snd_trident * trident,
 				      struct snd_trident_voice * voice,
@@ -589,24 +589,24 @@ static void snd_trident_write_vol_reg(struct snd_trident * trident,
 		outb(voice->Vol >> 2, TRID_REG(trident, CH_GVSEL_PAN_VOL_CTRL_EC + 2));
 		break;
 	case TRIDENT_DEVICE_ID_SI7018:
-		/*                                                       */
+		/* printk(KERN_DEBUG "voice->Vol = 0x%x\n", voice->Vol); */
 		outw((voice->CTRL << 12) | voice->Vol,
 		     TRID_REG(trident, CH_GVSEL_PAN_VOL_CTRL_EC));
 		break;
 	}
 }
 
-/*                                                                           
-                            
+/*---------------------------------------------------------------------------
+   snd_trident_write_pan_reg
   
-                                                         
-                                     
+   Description: This routine will write the new voice pan
+                register to hardware.
   
-                                                                    
-                                                   
-                                   
+   Parameters:  trident - pointer to target device class for 4DWave.
+                voice - synthesizer voice structure
+                Pan - new pan value
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static void snd_trident_write_pan_reg(struct snd_trident * trident,
 				      struct snd_trident_voice * voice,
@@ -618,17 +618,17 @@ static void snd_trident_write_pan_reg(struct snd_trident * trident,
 	     TRID_REG(trident, CH_GVSEL_PAN_VOL_CTRL_EC + 3));
 }
 
-/*                                                                           
-                             
+/*---------------------------------------------------------------------------
+   snd_trident_write_rvol_reg
   
-                                                             
-                                     
+   Description: This routine will write the new reverb volume
+                register to hardware.
   
-                                                                    
-                                                   
-                                        
+   Parameters:  trident - pointer to target device class for 4DWave.
+                voice - synthesizer voice structure
+                RVol - new reverb volume
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static void snd_trident_write_rvol_reg(struct snd_trident * trident,
 				       struct snd_trident_voice * voice,
@@ -642,17 +642,17 @@ static void snd_trident_write_rvol_reg(struct snd_trident * trident,
 		      CH_NX_ALPHA_FMS_FMC_RVOL_CVOL : CH_DX_FMC_RVOL_CVOL));
 }
 
-/*                                                                           
-                             
+/*---------------------------------------------------------------------------
+   snd_trident_write_cvol_reg
   
-                                                             
-                                     
+   Description: This routine will write the new chorus volume
+                register to hardware.
   
-                                                                    
-                                                   
-                                        
+   Parameters:  trident - pointer to target device class for 4DWave.
+                voice - synthesizer voice structure
+                CVol - new chorus volume
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static void snd_trident_write_cvol_reg(struct snd_trident * trident,
 				       struct snd_trident_voice * voice,
@@ -666,25 +666,25 @@ static void snd_trident_write_cvol_reg(struct snd_trident * trident,
 		      CH_NX_ALPHA_FMS_FMC_RVOL_CVOL : CH_DX_FMC_RVOL_CVOL));
 }
 
-/*                                                                           
-                           
+/*---------------------------------------------------------------------------
+   snd_trident_convert_rate
 
-                                                                         
+   Description: This routine converts rate in HZ to hardware delta value.
   
-                                                                    
-                                                      
+   Parameters:  trident - pointer to target device class for 4DWave.
+                rate - Real or Virtual channel number.
   
-                            
+   Returns:     Delta value.
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 static unsigned int snd_trident_convert_rate(unsigned int rate)
 {
 	unsigned int delta;
 
-	//                                                                
-	//                                                               
-	//                                                                  
-	//                           
+	// We special case 44100 and 8000 since rounding with the equation
+	// does not give us an accurate enough value. For 11025 and 22050
+	// the equation gives us the best answer. All other frequencies will
+	// also use the equation. JDW
 	if (rate == 44100)
 		delta = 0xeb3;
 	else if (rate == 8000)
@@ -696,25 +696,25 @@ static unsigned int snd_trident_convert_rate(unsigned int rate)
 	return delta;
 }
 
-/*                                                                           
-                               
+/*---------------------------------------------------------------------------
+   snd_trident_convert_adc_rate
 
-                                                                         
+   Description: This routine converts rate in HZ to hardware delta value.
   
-                                                                    
-                                                      
+   Parameters:  trident - pointer to target device class for 4DWave.
+                rate - Real or Virtual channel number.
   
-                            
+   Returns:     Delta value.
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 static unsigned int snd_trident_convert_adc_rate(unsigned int rate)
 {
 	unsigned int delta;
 
-	//                                                                
-	//                                                               
-	//                                                                  
-	//                           
+	// We special case 44100 and 8000 since rounding with the equation
+	// does not give us an accurate enough value. For 11025 and 22050
+	// the equation gives us the best answer. All other frequencies will
+	// also use the equation. JDW
 	if (rate == 44100)
 		delta = 0x116a;
 	else if (rate == 8000)
@@ -726,17 +726,17 @@ static unsigned int snd_trident_convert_adc_rate(unsigned int rate)
 	return delta;
 }
 
-/*                                                                           
-                                 
+/*---------------------------------------------------------------------------
+   snd_trident_spurious_threshold
 
-                                                                       
+   Description: This routine converts rate in HZ to spurious threshold.
   
-                                                                    
-                                                      
+   Parameters:  trident - pointer to target device class for 4DWave.
+                rate - Real or Virtual channel number.
   
-                            
+   Returns:     Delta value.
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 static unsigned int snd_trident_spurious_threshold(unsigned int rate,
 						   unsigned int period_size)
 {
@@ -748,73 +748,73 @@ static unsigned int snd_trident_spurious_threshold(unsigned int rate,
 	return res;
 }
 
-/*                                                                           
-                           
+/*---------------------------------------------------------------------------
+   snd_trident_control_mode
 
-                                                                      
+   Description: This routine returns a control mode for a PCM channel.
   
-                                                                    
-                                          
+   Parameters:  trident - pointer to target device class for 4DWave.
+                substream  - PCM substream
   
-                              
+   Returns:     Control value.
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 static unsigned int snd_trident_control_mode(struct snd_pcm_substream *substream)
 {
 	unsigned int CTRL;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 
-	/*              
-                                                          
-  */
+	/* set ctrl mode
+	   CTRL default: 8-bit (unsigned) mono, loop mode enabled
+	 */
 	CTRL = 0x00000001;
 	if (snd_pcm_format_width(runtime->format) == 16)
-		CTRL |= 0x00000008;	//            
+		CTRL |= 0x00000008;	// 16-bit data
 	if (snd_pcm_format_signed(runtime->format))
-		CTRL |= 0x00000002;	//            
+		CTRL |= 0x00000002;	// signed data
 	if (runtime->channels > 1)
-		CTRL |= 0x00000004;	//            
+		CTRL |= 0x00000004;	// stereo data
 	return CTRL;
 }
 
 /*
-            
+ *  PCM part
  */
 
-/*                                                                           
-                    
+/*---------------------------------------------------------------------------
+   snd_trident_ioctl
   
-                                                                           
+   Description: Device I/O control handler for playback/capture parameters.
   
-                                                 
-                                                       
-                                                         
+   Parameters:   substream  - PCM substream class
+                cmd     - what ioctl message to process
+                arg     - additional message infoarg     
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_ioctl(struct snd_pcm_substream *substream,
 			     unsigned int cmd,
 			     void *arg)
 {
-	/*                                                         
-                                                                    
-                     */
+	/* FIXME: it seems that with small periods the behaviour of
+	          trident hardware is unpredictable and interrupt generator
+	          is broken */
 	return snd_pcm_lib_ioctl(substream, cmd, arg);
 }
 
-/*                                                                           
-                               
+/*---------------------------------------------------------------------------
+   snd_trident_allocate_pcm_mem
   
-                                                            
+   Description: Allocate PCM ring buffer for given substream
   
-                                                
-                                  
+   Parameters:  substream  - PCM substream class
+		hw_params  - hardware parameters
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_allocate_pcm_mem(struct snd_pcm_substream *substream,
 					struct snd_pcm_hw_params *hw_params)
@@ -827,7 +827,7 @@ static int snd_trident_allocate_pcm_mem(struct snd_pcm_substream *substream,
 	if ((err = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(hw_params))) < 0)
 		return err;
 	if (trident->tlb.entries) {
-		if (err > 0) { /*        */
+		if (err > 0) { /* change */
 			if (voice->memblk)
 				snd_trident_free_pages(trident, voice->memblk);
 			voice->memblk = snd_trident_alloc_pages(trident, substream);
@@ -838,17 +838,17 @@ static int snd_trident_allocate_pcm_mem(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-/*                                                                           
-                              
+/*---------------------------------------------------------------------------
+   snd_trident_allocate_evoice
   
-                                                           
+   Description: Allocate extra voice as interrupt generator
   
-                                                
-                                  
+   Parameters:  substream  - PCM substream class
+		hw_params  - hardware parameters
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_allocate_evoice(struct snd_pcm_substream *substream,
 				       struct snd_pcm_hw_params *hw_params)
@@ -858,7 +858,7 @@ static int snd_trident_allocate_evoice(struct snd_pcm_substream *substream,
 	struct snd_trident_voice *voice = runtime->private_data;
 	struct snd_trident_voice *evoice = voice->extra;
 
-	/*                  */
+	/* voice management */
 
 	if (params_buffer_size(hw_params) / 2 != params_period_size(hw_params)) {
 		if (evoice == NULL) {
@@ -878,17 +878,17 @@ static int snd_trident_allocate_evoice(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-/*                                                                           
-                        
+/*---------------------------------------------------------------------------
+   snd_trident_hw_params
   
-                                                                    
+   Description: Set the hardware parameters for the playback device.
   
-                                                
-                                  
+   Parameters:  substream  - PCM substream class
+		hw_params  - hardware parameters
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_hw_params(struct snd_pcm_substream *substream,
 				 struct snd_pcm_hw_params *hw_params)
@@ -901,16 +901,16 @@ static int snd_trident_hw_params(struct snd_pcm_substream *substream,
 	return err;
 }
 
-/*                                                                           
-                               
+/*---------------------------------------------------------------------------
+   snd_trident_playback_hw_free
   
-                                                                       
+   Description: Release the hardware resources for the playback device.
   
-                                                
+   Parameters:  substream  - PCM substream class
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_hw_free(struct snd_pcm_substream *substream)
 {
@@ -933,16 +933,16 @@ static int snd_trident_hw_free(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-/*                                                                           
-                               
+/*---------------------------------------------------------------------------
+   snd_trident_playback_prepare
   
-                                                     
+   Description: Prepare playback device for playback.
   
-                                                
+   Parameters:  substream  - PCM substream class
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_playback_prepare(struct snd_pcm_substream *substream)
 {
@@ -954,18 +954,18 @@ static int snd_trident_playback_prepare(struct snd_pcm_substream *substream)
 
 	spin_lock_irq(&trident->reg_lock);	
 
-	/*                        */
+	/* set delta (rate) value */
 	voice->Delta = snd_trident_convert_rate(runtime->rate);
 	voice->spurious_threshold = snd_trident_spurious_threshold(runtime->rate, runtime->period_size);
 
-	/*                        */
+	/* set Loop Begin Address */
 	if (voice->memblk)
 		voice->LBA = voice->memblk->offset;
 	else
 		voice->LBA = runtime->dma_addr;
  
 	voice->CSO = 0;
-	voice->ESO = runtime->buffer_size - 1;	/*            */
+	voice->ESO = runtime->buffer_size - 1;	/* in samples */
 	voice->CTRL = snd_trident_control_mode(substream);
 	voice->FMC = 3;
 	voice->GVSel = 1;
@@ -991,16 +991,16 @@ static int snd_trident_playback_prepare(struct snd_pcm_substream *substream)
 		evoice->spurious_threshold = voice->spurious_threshold;
 		evoice->LBA = voice->LBA;
 		evoice->CSO = 0;
-		evoice->ESO = (runtime->period_size * 2) + 4 - 1; /*            */
+		evoice->ESO = (runtime->period_size * 2) + 4 - 1; /* in samples */
 		evoice->CTRL = voice->CTRL;
 		evoice->FMC = 3;
 		evoice->GVSel = trident->device == TRIDENT_DEVICE_ID_SI7018 ? 0 : 1;
 		evoice->EC = 0;
 		evoice->Alpha = 0;
 		evoice->FMS = 0;
-		evoice->Vol = 0x3ff;			/*      */
-		evoice->RVol = evoice->CVol = 0x7f;	/*      */
-		evoice->Pan = 0x7f;			/*      */
+		evoice->Vol = 0x3ff;			/* mute */
+		evoice->RVol = evoice->CVol = 0x7f;	/* mute */
+		evoice->Pan = 0x7f;			/* mute */
 #if 0
 		evoice->Attribute = (1<<(30-16))|(2<<(26-16))|
 				    (0<<(24-16))|(0x1f<<(19-16));
@@ -1018,17 +1018,17 @@ static int snd_trident_playback_prepare(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-/*                                                                           
-                                
+/*---------------------------------------------------------------------------
+   snd_trident_capture_hw_params
   
-                                                                   
+   Description: Set the hardware parameters for the capture device.
   
-                                                
-                                  
+   Parameters:  substream  - PCM substream class
+		hw_params  - hardware parameters
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_capture_hw_params(struct snd_pcm_substream *substream,
 					 struct snd_pcm_hw_params *hw_params)
@@ -1036,16 +1036,16 @@ static int snd_trident_capture_hw_params(struct snd_pcm_substream *substream,
 	return snd_trident_allocate_pcm_mem(substream, hw_params);
 }
 
-/*                                                                           
-                              
+/*---------------------------------------------------------------------------
+   snd_trident_capture_prepare
   
-                                                    
+   Description: Prepare capture device for playback.
   
-                                                
+   Parameters:  substream  - PCM substream class
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_capture_prepare(struct snd_pcm_substream *substream)
 {
@@ -1056,29 +1056,29 @@ static int snd_trident_capture_prepare(struct snd_pcm_substream *substream)
 
 	spin_lock_irq(&trident->reg_lock);
 
-	//                                            
+	// Initialize the channel and set channel Mode
 	outb(0, TRID_REG(trident, LEGACY_DMAR15));
 
-	//                                        
+	// Set DMA channel operation mode register
 	outb(0x54, TRID_REG(trident, LEGACY_DMAR11));
 
-	//                                                                      
+	// Set channel buffer Address, DMAR0 expects contiguous PCI memory area	
 	voice->LBA = runtime->dma_addr;
 	outl(voice->LBA, TRID_REG(trident, LEGACY_DMAR0));
 	if (voice->memblk)
 		voice->LBA = voice->memblk->offset;
 
-	//        
+	// set ESO
 	ESO_bytes = snd_pcm_lib_buffer_bytes(substream) - 1;
 	outb((ESO_bytes & 0x00ff0000) >> 16, TRID_REG(trident, LEGACY_DMAR6));
 	outw((ESO_bytes & 0x0000ffff), TRID_REG(trident, LEGACY_DMAR4));
 	ESO_bytes++;
 
-	//                                     
+	// Set channel sample rate, 4.12 format
 	val = (((unsigned int) 48000L << 12) + (runtime->rate/2)) / runtime->rate;
 	outw(val, TRID_REG(trident, T4D_SBDELTA_DELTA_R));
 
-	//                                 
+	// Set channel interrupt blk length
 	if (snd_pcm_format_width(runtime->format) == 16) {
 		val = (unsigned short) ((ESO_bytes >> 1) - 1);
 	} else {
@@ -1087,9 +1087,9 @@ static int snd_trident_capture_prepare(struct snd_pcm_substream *substream)
 
 	outl((val << 16) | val, TRID_REG(trident, T4D_SBBL_SBCL));
 
-	//                                                    
-	//                            
-	trident->bDMAStart = 0x19;	//           
+	// Right now, set format and start to run captureing, 
+	// continuous run loop enable.
+	trident->bDMAStart = 0x19;	// 0001 1001b
 
 	if (snd_pcm_format_width(runtime->format) == 16)
 		trident->bDMAStart |= 0x80;
@@ -1098,7 +1098,7 @@ static int snd_trident_capture_prepare(struct snd_pcm_substream *substream)
 	if (runtime->channels > 1)
 		trident->bDMAStart |= 0x40;
 
-	//                             
+	// Prepare capture intr channel
 
 	voice->Delta = snd_trident_convert_rate(runtime->rate);
 	voice->spurious_threshold = snd_trident_spurious_threshold(runtime->rate, runtime->period_size);
@@ -1106,7 +1106,7 @@ static int snd_trident_capture_prepare(struct snd_pcm_substream *substream)
 	voice->isync_mark = runtime->period_size;
 	voice->isync_max = runtime->buffer_size;
 
-	//                     
+	// Set voice parameters
 	voice->CSO = 0;
 	voice->ESO = voice->isync_ESO = (runtime->period_size * 2) + 6 - 1;
 	voice->CTRL = snd_trident_control_mode(substream);
@@ -1114,8 +1114,8 @@ static int snd_trident_capture_prepare(struct snd_pcm_substream *substream)
 	voice->RVol = 0x7f;
 	voice->CVol = 0x7f;
 	voice->GVSel = 1;
-	voice->Pan = 0x7f;		/*      */
-	voice->Vol = 0x3ff;		/*      */
+	voice->Pan = 0x7f;		/* mute */
+	voice->Vol = 0x3ff;		/* mute */
 	voice->EC = 0;
 	voice->Alpha = 0;
 	voice->FMS = 0;
@@ -1127,17 +1127,17 @@ static int snd_trident_capture_prepare(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-/*                                                                           
-                                       
+/*---------------------------------------------------------------------------
+   snd_trident_si7018_capture_hw_params
   
-                                                                   
+   Description: Set the hardware parameters for the capture device.
   
-                                                
-                                  
+   Parameters:  substream  - PCM substream class
+		hw_params  - hardware parameters
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_si7018_capture_hw_params(struct snd_pcm_substream *substream,
 						struct snd_pcm_hw_params *hw_params)
@@ -1150,16 +1150,16 @@ static int snd_trident_si7018_capture_hw_params(struct snd_pcm_substream *substr
 	return snd_trident_allocate_evoice(substream, hw_params);
 }
 
-/*                                                                           
-                                     
+/*---------------------------------------------------------------------------
+   snd_trident_si7018_capture_hw_free
   
-                                                                      
+   Description: Release the hardware resources for the capture device.
   
-                                                
+   Parameters:  substream  - PCM substream class
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_si7018_capture_hw_free(struct snd_pcm_substream *substream)
 {
@@ -1176,16 +1176,16 @@ static int snd_trident_si7018_capture_hw_free(struct snd_pcm_substream *substrea
 	return 0;
 }
 
-/*                                                                           
-                                     
+/*---------------------------------------------------------------------------
+   snd_trident_si7018_capture_prepare
   
-                                                    
+   Description: Prepare capture device for playback.
   
-                                                
+   Parameters:  substream  - PCM substream class
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_si7018_capture_prepare(struct snd_pcm_substream *substream)
 {
@@ -1200,9 +1200,9 @@ static int snd_trident_si7018_capture_prepare(struct snd_pcm_substream *substrea
 	voice->Delta = snd_trident_convert_adc_rate(runtime->rate);
 	voice->spurious_threshold = snd_trident_spurious_threshold(runtime->rate, runtime->period_size);
 
-	//                     
+	// Set voice parameters
 	voice->CSO = 0;
-	voice->ESO = runtime->buffer_size - 1;		/*            */
+	voice->ESO = runtime->buffer_size - 1;		/* in samples */
 	voice->CTRL = snd_trident_control_mode(substream);
 	voice->FMC = 0;
 	voice->RVol = 0;
@@ -1226,16 +1226,16 @@ static int snd_trident_si7018_capture_prepare(struct snd_pcm_substream *substrea
 		evoice->spurious_threshold = voice->spurious_threshold;
 		evoice->LBA = voice->LBA;
 		evoice->CSO = 0;
-		evoice->ESO = (runtime->period_size * 2) + 20 - 1; /*                                 */
+		evoice->ESO = (runtime->period_size * 2) + 20 - 1; /* in samples, 20 means correction */
 		evoice->CTRL = voice->CTRL;
 		evoice->FMC = 3;
 		evoice->GVSel = 0;
 		evoice->EC = 0;
 		evoice->Alpha = 0;
 		evoice->FMS = 0;
-		evoice->Vol = 0x3ff;			/*      */
-		evoice->RVol = evoice->CVol = 0x7f;	/*      */
-		evoice->Pan = 0x7f;			/*      */
+		evoice->Vol = 0x3ff;			/* mute */
+		evoice->RVol = evoice->CVol = 0x7f;	/* mute */
+		evoice->Pan = 0x7f;			/* mute */
 		evoice->Attribute = 0;
 		snd_trident_write_voice_regs(trident, evoice);
 		evoice->isync2 = 1;
@@ -1247,16 +1247,16 @@ static int snd_trident_si7018_capture_prepare(struct snd_pcm_substream *substrea
 	return 0;
 }
 
-/*                                                                           
-                               
+/*---------------------------------------------------------------------------
+   snd_trident_foldback_prepare
   
-                                                             
+   Description: Prepare foldback capture device for playback.
   
-                                                
+   Parameters:  substream  - PCM substream class
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_foldback_prepare(struct snd_pcm_substream *substream)
 {
@@ -1267,16 +1267,16 @@ static int snd_trident_foldback_prepare(struct snd_pcm_substream *substream)
 
 	spin_lock_irq(&trident->reg_lock);
 
-	/*                            */
+	/* Set channel buffer Address */
 	if (voice->memblk)
 		voice->LBA = voice->memblk->offset;
 	else
 		voice->LBA = runtime->dma_addr;
 
-	/*                            */
-	voice->ESO = runtime->buffer_size - 1;	/*            */
+	/* set target ESO for channel */
+	voice->ESO = runtime->buffer_size - 1;	/* in samples */
 
-	/*                 */
+	/* set sample rate */
 	voice->Delta = 0x1000;
 	voice->spurious_threshold = snd_trident_spurious_threshold(48000, runtime->period_size);
 
@@ -1286,14 +1286,14 @@ static int snd_trident_foldback_prepare(struct snd_pcm_substream *substream)
 	voice->RVol = 0x7f;
 	voice->CVol = 0x7f;
 	voice->GVSel = 1;
-	voice->Pan = 0x7f;	/*      */
-	voice->Vol = 0x3ff;	/*      */
+	voice->Pan = 0x7f;	/* mute */
+	voice->Vol = 0x3ff;	/* mute */
 	voice->EC = 0;
 	voice->Alpha = 0;
 	voice->FMS = 0;
 	voice->Attribute = 0;
 
-	/*                        */
+	/* set up capture channel */
 	outb(((voice->number & 0x3f) | 0x80), TRID_REG(trident, T4D_RCI + voice->foldback_chan));
 
 	snd_trident_write_voice_regs(trident, voice);
@@ -1303,16 +1303,16 @@ static int snd_trident_foldback_prepare(struct snd_pcm_substream *substream)
 		evoice->spurious_threshold = voice->spurious_threshold;
 		evoice->LBA = voice->LBA;
 		evoice->CSO = 0;
-		evoice->ESO = (runtime->period_size * 2) + 4 - 1; /*            */
+		evoice->ESO = (runtime->period_size * 2) + 4 - 1; /* in samples */
 		evoice->CTRL = voice->CTRL;
 		evoice->FMC = 3;
 		evoice->GVSel = trident->device == TRIDENT_DEVICE_ID_SI7018 ? 0 : 1;
 		evoice->EC = 0;
 		evoice->Alpha = 0;
 		evoice->FMS = 0;
-		evoice->Vol = 0x3ff;			/*      */
-		evoice->RVol = evoice->CVol = 0x7f;	/*      */
-		evoice->Pan = 0x7f;			/*      */
+		evoice->Vol = 0x3ff;			/* mute */
+		evoice->RVol = evoice->CVol = 0x7f;	/* mute */
+		evoice->Pan = 0x7f;			/* mute */
 		evoice->Attribute = 0;
 		snd_trident_write_voice_regs(trident, evoice);
 		evoice->isync2 = 1;
@@ -1324,17 +1324,17 @@ static int snd_trident_foldback_prepare(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-/*                                                                           
-                              
+/*---------------------------------------------------------------------------
+   snd_trident_spdif_hw_params
   
-                                                                 
+   Description: Set the hardware parameters for the spdif device.
   
-                                                
-                                  
+   Parameters:  substream  - PCM substream class
+		hw_params  - hardware parameters
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_spdif_hw_params(struct snd_pcm_substream *substream,
 				       struct snd_pcm_hw_params *hw_params)
@@ -1353,7 +1353,7 @@ static int snd_trident_spdif_hw_params(struct snd_pcm_substream *substream,
 			return err;
 	}
 
-	/*                       */
+	/* prepare SPDIF channel */
 	spin_lock_irq(&trident->reg_lock);
 	old_bits = trident->spdif_pcm_bits;
 	if (old_bits & IEC958_AES0_PROFESSIONAL)
@@ -1361,21 +1361,21 @@ static int snd_trident_spdif_hw_params(struct snd_pcm_substream *substream,
 	else
 		trident->spdif_pcm_bits &= ~(IEC958_AES3_CON_FS << 24);
 	if (params_rate(hw_params) >= 48000) {
-		trident->spdif_pcm_ctrl = 0x3c;	//         
+		trident->spdif_pcm_ctrl = 0x3c;	// 48000 Hz
 		trident->spdif_pcm_bits |=
 			trident->spdif_bits & IEC958_AES0_PROFESSIONAL ?
 				IEC958_AES0_PRO_FS_48000 :
 				(IEC958_AES3_CON_FS_48000 << 24);
 	}
 	else if (params_rate(hw_params) >= 44100) {
-		trident->spdif_pcm_ctrl = 0x3e;	//         
+		trident->spdif_pcm_ctrl = 0x3e;	// 44100 Hz
 		trident->spdif_pcm_bits |=
 			trident->spdif_bits & IEC958_AES0_PROFESSIONAL ?
 				IEC958_AES0_PRO_FS_44100 :
 				(IEC958_AES3_CON_FS_44100 << 24);
 	}
 	else {
-		trident->spdif_pcm_ctrl = 0x3d;	//         
+		trident->spdif_pcm_ctrl = 0x3d;	// 32000 Hz
 		trident->spdif_pcm_bits |=
 			trident->spdif_bits & IEC958_AES0_PROFESSIONAL ?
 				IEC958_AES0_PRO_FS_32000 :
@@ -1390,16 +1390,16 @@ static int snd_trident_spdif_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-/*                                                                           
-                            
+/*---------------------------------------------------------------------------
+   snd_trident_spdif_prepare
   
-                                                  
+   Description: Prepare SPDIF device for playback.
   
-                                                
+   Parameters:  substream  - PCM substream class
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_spdif_prepare(struct snd_pcm_substream *substream)
 {
@@ -1415,11 +1415,11 @@ static int snd_trident_spdif_prepare(struct snd_pcm_substream *substream)
 
 	if (trident->device != TRIDENT_DEVICE_ID_SI7018) {
 
-		/*                        */
+		/* set delta (rate) value */
 		voice->Delta = snd_trident_convert_rate(runtime->rate);
 		voice->spurious_threshold = snd_trident_spurious_threshold(runtime->rate, runtime->period_size);
 
-		/*                       */
+		/* set Loop Back Address */
 		LBAO = runtime->dma_addr;
 		if (voice->memblk)
 			voice->LBA = voice->memblk->offset;
@@ -1431,11 +1431,11 @@ static int snd_trident_spdif_prepare(struct snd_pcm_substream *substream)
 		voice->isync_mark = runtime->period_size;
 		voice->isync_max = runtime->buffer_size;
 
-		/*                            */
+		/* set target ESO for channel */
 		RESO = runtime->buffer_size - 1;
 		voice->ESO = voice->isync_ESO = (runtime->period_size * 2) + 6 - 1;
 
-		/*               */
+		/* set ctrl mode */
 		voice->CTRL = snd_trident_control_mode(substream);
 
 		voice->FMC = 3;
@@ -1450,7 +1450,7 @@ static int snd_trident_spdif_prepare(struct snd_pcm_substream *substream)
 		voice->FMS = 0;
 		voice->Attribute = 0;
 
-		/*                               */
+		/* prepare surrogate IRQ channel */
 		snd_trident_write_voice_regs(trident, voice);
 
 		outw((RESO & 0xffff), TRID_REG(trident, NX_SPESO));
@@ -1459,24 +1459,24 @@ static int snd_trident_spdif_prepare(struct snd_pcm_substream *substream)
 		outw((voice->CSO & 0xffff), TRID_REG(trident, NX_SPCTRL_SPCSO));
 		outb((voice->CSO >> 16), TRID_REG(trident, NX_SPCTRL_SPCSO + 2));
 
-		/*                   */
+		/* set SPDIF setting */
 		outb(trident->spdif_pcm_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
 		outl(trident->spdif_pcm_bits, TRID_REG(trident, NX_SPCSTATUS));
 
-	} else {	/*     */
+	} else {	/* SiS */
 	
-		/*                        */
+		/* set delta (rate) value */
 		voice->Delta = 0x800;
 		voice->spurious_threshold = snd_trident_spurious_threshold(48000, runtime->period_size);
 
-		/*                        */
+		/* set Loop Begin Address */
 		if (voice->memblk)
 			voice->LBA = voice->memblk->offset;
 		else
 			voice->LBA = runtime->dma_addr;
 
 		voice->CSO = 0;
-		voice->ESO = runtime->buffer_size - 1;	/*            */
+		voice->ESO = runtime->buffer_size - 1;	/* in samples */
 		voice->CTRL = snd_trident_control_mode(substream);
 		voice->FMC = 3;
 		voice->GVSel = 1;
@@ -1497,16 +1497,16 @@ static int snd_trident_spdif_prepare(struct snd_pcm_substream *substream)
 			evoice->spurious_threshold = voice->spurious_threshold;
 			evoice->LBA = voice->LBA;
 			evoice->CSO = 0;
-			evoice->ESO = (runtime->period_size * 2) + 4 - 1; /*            */
+			evoice->ESO = (runtime->period_size * 2) + 4 - 1; /* in samples */
 			evoice->CTRL = voice->CTRL;
 			evoice->FMC = 3;
 			evoice->GVSel = trident->device == TRIDENT_DEVICE_ID_SI7018 ? 0 : 1;
 			evoice->EC = 0;
 			evoice->Alpha = 0;
 			evoice->FMS = 0;
-			evoice->Vol = 0x3ff;			/*      */
-			evoice->RVol = evoice->CVol = 0x7f;	/*      */
-			evoice->Pan = 0x7f;			/*      */
+			evoice->Vol = 0x3ff;			/* mute */
+			evoice->RVol = evoice->CVol = 0x7f;	/* mute */
+			evoice->Pan = 0x7f;			/* mute */
 			evoice->Attribute = 0;
 			snd_trident_write_voice_regs(trident, evoice);
 			evoice->isync2 = 1;
@@ -1528,17 +1528,17 @@ static int snd_trident_spdif_prepare(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-/*                                                                           
-                      
+/*---------------------------------------------------------------------------
+   snd_trident_trigger
   
-                                  
+   Description: Start/stop devices
   
-                                                
-                                     
+   Parameters:  substream  - PCM substream class
+   		cmd	- trigger command (STOP, GO)
   
-                            
+   Returns:     Error status
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_trigger(struct snd_pcm_substream *substream,
 			       int cmd)
@@ -1628,16 +1628,16 @@ static int snd_trident_trigger(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-/*                                                                           
-                               
+/*---------------------------------------------------------------------------
+   snd_trident_playback_pointer
   
-                                                         
+   Description: This routine return the playback position
                 
-                                               
+   Parameters:	substream  - PCM substream class
 
-                                  
+   Returns:     position of buffer
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static snd_pcm_uframes_t snd_trident_playback_pointer(struct snd_pcm_substream *substream)
 {
@@ -1655,7 +1655,7 @@ static snd_pcm_uframes_t snd_trident_playback_pointer(struct snd_pcm_substream *
 
 	if (trident->device != TRIDENT_DEVICE_ID_NX) {
 		cso = inw(TRID_REG(trident, CH_DX_CSO_ALPHA_FMS + 2));
-	} else {		//             
+	} else {		// ID_4DWAVE_NX
 		cso = (unsigned int) inl(TRID_REG(trident, CH_NX_DELTA_CSO)) & 0x00ffffff;
 	}
 
@@ -1667,16 +1667,16 @@ static snd_pcm_uframes_t snd_trident_playback_pointer(struct snd_pcm_substream *
 	return cso;
 }
 
-/*                                                                           
-                              
+/*---------------------------------------------------------------------------
+   snd_trident_capture_pointer
   
-                                                        
+   Description: This routine return the capture position
                 
-                                           
+   Parameters:   pcm1    - PCM device class
 
-                                  
+   Returns:     position of buffer
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static snd_pcm_uframes_t snd_trident_capture_pointer(struct snd_pcm_substream *substream)
 {
@@ -1697,16 +1697,16 @@ static snd_pcm_uframes_t snd_trident_capture_pointer(struct snd_pcm_substream *s
 	return result;
 }
 
-/*                                                                           
-                            
+/*---------------------------------------------------------------------------
+   snd_trident_spdif_pointer
   
-                                                               
+   Description: This routine return the SPDIF playback position
                 
-                                               
+   Parameters:	substream  - PCM substream class
 
-                                  
+   Returns:     position of buffer
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static snd_pcm_uframes_t snd_trident_spdif_pointer(struct snd_pcm_substream *substream)
 {
@@ -1724,7 +1724,7 @@ static snd_pcm_uframes_t snd_trident_spdif_pointer(struct snd_pcm_substream *sub
 }
 
 /*
-                                       
+ *  Playback support device description
  */
 
 static struct snd_pcm_hardware snd_trident_playback =
@@ -1732,7 +1732,7 @@ static struct snd_pcm_hardware snd_trident_playback =
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_BLOCK_TRANSFER |
 				 SNDRV_PCM_INFO_MMAP_VALID | SNDRV_PCM_INFO_SYNC_START |
-				 SNDRV_PCM_INFO_PAUSE /*                         */),
+				 SNDRV_PCM_INFO_PAUSE /* | SNDRV_PCM_INFO_RESUME */),
 	.formats =		(SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S16_LE |
 				 SNDRV_PCM_FMTBIT_S8 | SNDRV_PCM_FMTBIT_U16_LE),
 	.rates =		SNDRV_PCM_RATE_CONTINUOUS | SNDRV_PCM_RATE_8000_48000,
@@ -1749,7 +1749,7 @@ static struct snd_pcm_hardware snd_trident_playback =
 };
 
 /*
-                                      
+ *  Capture support device description
  */
 
 static struct snd_pcm_hardware snd_trident_capture =
@@ -1757,7 +1757,7 @@ static struct snd_pcm_hardware snd_trident_capture =
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_BLOCK_TRANSFER |
 				 SNDRV_PCM_INFO_MMAP_VALID | SNDRV_PCM_INFO_SYNC_START |
-				 SNDRV_PCM_INFO_PAUSE /*                         */),
+				 SNDRV_PCM_INFO_PAUSE /* | SNDRV_PCM_INFO_RESUME */),
 	.formats =		(SNDRV_PCM_FMTBIT_U8 | SNDRV_PCM_FMTBIT_S16_LE |
 				 SNDRV_PCM_FMTBIT_S8 | SNDRV_PCM_FMTBIT_U16_LE),
 	.rates =		SNDRV_PCM_RATE_CONTINUOUS | SNDRV_PCM_RATE_8000_48000,
@@ -1774,7 +1774,7 @@ static struct snd_pcm_hardware snd_trident_capture =
 };
 
 /*
-                                               
+ *  Foldback capture support device description
  */
 
 static struct snd_pcm_hardware snd_trident_foldback =
@@ -1782,7 +1782,7 @@ static struct snd_pcm_hardware snd_trident_foldback =
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_BLOCK_TRANSFER |
 				 SNDRV_PCM_INFO_MMAP_VALID | SNDRV_PCM_INFO_SYNC_START |
-				 SNDRV_PCM_INFO_PAUSE /*                         */),
+				 SNDRV_PCM_INFO_PAUSE /* | SNDRV_PCM_INFO_RESUME */),
 	.formats =		SNDRV_PCM_FMTBIT_S16_LE,
 	.rates =		SNDRV_PCM_RATE_48000,
 	.rate_min =		48000,
@@ -1798,7 +1798,7 @@ static struct snd_pcm_hardware snd_trident_foldback =
 };
 
 /*
-                                             
+ *  SPDIF playback support device description
  */
 
 static struct snd_pcm_hardware snd_trident_spdif =
@@ -1806,7 +1806,7 @@ static struct snd_pcm_hardware snd_trident_spdif =
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_BLOCK_TRANSFER |
 				 SNDRV_PCM_INFO_MMAP_VALID | SNDRV_PCM_INFO_SYNC_START |
-				 SNDRV_PCM_INFO_PAUSE /*                         */),
+				 SNDRV_PCM_INFO_PAUSE /* | SNDRV_PCM_INFO_RESUME */),
 	.formats =		SNDRV_PCM_FMTBIT_S16_LE,
 	.rates =		(SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
 				 SNDRV_PCM_RATE_48000),
@@ -1827,7 +1827,7 @@ static struct snd_pcm_hardware snd_trident_spdif_7018 =
 	.info =			(SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 				 SNDRV_PCM_INFO_BLOCK_TRANSFER |
 				 SNDRV_PCM_INFO_MMAP_VALID | SNDRV_PCM_INFO_SYNC_START |
-				 SNDRV_PCM_INFO_PAUSE /*                         */),
+				 SNDRV_PCM_INFO_PAUSE /* | SNDRV_PCM_INFO_RESUME */),
 	.formats =		SNDRV_PCM_FMTBIT_S16_LE,
 	.rates =		SNDRV_PCM_RATE_48000,
 	.rate_min =		48000,
@@ -1872,15 +1872,15 @@ static int snd_trident_playback_open(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-/*                                                                           
-                             
+/*---------------------------------------------------------------------------
+   snd_trident_playback_close
   
-                                                                            
-                                                            
+   Description: This routine will close the 4DWave playback device. For now 
+                we will simply free the dma transfer buffer.
                 
-                                               
+   Parameters:	substream  - PCM substream class
 
-                                                                             */
+  ---------------------------------------------------------------------------*/
 static int snd_trident_playback_close(struct snd_pcm_substream *substream)
 {
 	struct snd_trident *trident = snd_pcm_substream_chip(substream);
@@ -1891,16 +1891,16 @@ static int snd_trident_playback_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-/*                                                                           
-                         
+/*---------------------------------------------------------------------------
+   snd_trident_spdif_open
   
-                                                               
+   Description: This routine will open the 4DWave SPDIF device.
 
-                                               
+   Parameters:	substream  - PCM substream class
 
-                                                 
+   Returns:     status  - success or failure flag
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_spdif_open(struct snd_pcm_substream *substream)
 {
@@ -1934,14 +1934,14 @@ static int snd_trident_spdif_open(struct snd_pcm_substream *substream)
 }
 
 
-/*                                                                           
-                          
+/*---------------------------------------------------------------------------
+   snd_trident_spdif_close
   
-                                                                
+   Description: This routine will close the 4DWave SPDIF device.
                 
-                                               
+   Parameters:	substream  - PCM substream class
 
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_spdif_close(struct snd_pcm_substream *substream)
 {
@@ -1949,7 +1949,7 @@ static int snd_trident_spdif_close(struct snd_pcm_substream *substream)
 	unsigned int temp;
 
 	spin_lock_irq(&trident->reg_lock);
-	//                              
+	// restore default SPDIF setting
 	if (trident->device != TRIDENT_DEVICE_ID_SI7018) {
 		outb(trident->spdif_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
 		outl(trident->spdif_bits, TRID_REG(trident, NX_SPCSTATUS));
@@ -1970,16 +1970,16 @@ static int snd_trident_spdif_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-/*                                                                           
-                           
+/*---------------------------------------------------------------------------
+   snd_trident_capture_open
   
-                                                                 
+   Description: This routine will open the 4DWave capture device.
 
-                                               
+   Parameters:	substream  - PCM substream class
 
-                                                 
+   Returns:     status  - success or failure flag
 
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_capture_open(struct snd_pcm_substream *substream)
 {
@@ -2000,30 +2000,30 @@ static int snd_trident_capture_open(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-/*                                                                           
-                            
+/*---------------------------------------------------------------------------
+   snd_trident_capture_close
   
-                                                                           
-                                                            
+   Description: This routine will close the 4DWave capture device. For now 
+                we will simply free the dma transfer buffer.
                 
-                                               
+   Parameters:	substream  - PCM substream class
 
-                                                                             */
+  ---------------------------------------------------------------------------*/
 static int snd_trident_capture_close(struct snd_pcm_substream *substream)
 {
 	return 0;
 }
 
-/*                                                                           
-                            
+/*---------------------------------------------------------------------------
+   snd_trident_foldback_open
   
-                                                                          
+   Description: This routine will open the 4DWave foldback capture device.
 
-                                               
+   Parameters:	substream  - PCM substream class
 
-                                                 
+   Returns:     status  - success or failure flag
 
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_foldback_open(struct snd_pcm_substream *substream)
 {
@@ -2043,15 +2043,15 @@ static int snd_trident_foldback_open(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-/*                                                                           
-                             
+/*---------------------------------------------------------------------------
+   snd_trident_foldback_close
   
-                                                                            
-                                                      
+   Description: This routine will close the 4DWave foldback capture device. 
+		For now we will simply free the dma transfer buffer.
                 
-                                               
+   Parameters:	substream  - PCM substream class
 
-                                                                             */
+  ---------------------------------------------------------------------------*/
 static int snd_trident_foldback_close(struct snd_pcm_substream *substream)
 {
 	struct snd_trident *trident = snd_pcm_substream_chip(substream);
@@ -2059,16 +2059,16 @@ static int snd_trident_foldback_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	voice = runtime->private_data;
 	
-	/*                      */
+	/* stop capture channel */
 	spin_lock_irq(&trident->reg_lock);
 	outb(0x00, TRID_REG(trident, T4D_RCI + voice->foldback_chan));
 	spin_unlock_irq(&trident->reg_lock);
 	return 0;
 }
 
-/*                                                                           
-                 
-                                                                             */
+/*---------------------------------------------------------------------------
+   PCM operations
+  ---------------------------------------------------------------------------*/
 
 static struct snd_pcm_ops snd_trident_playback_ops = {
 	.open =		snd_trident_playback_open,
@@ -2160,16 +2160,16 @@ static struct snd_pcm_ops snd_trident_spdif_7018_ops = {
 	.pointer =	snd_trident_playback_pointer,
 };
 
-/*                                                                           
-                  
+/*---------------------------------------------------------------------------
+   snd_trident_pcm
   
-                                                                         
+   Description: This routine registers the 4DWave device for PCM support.
                 
-                                                                    
+   Parameters:  trident - pointer to target device class for 4DWave.
 
-                    
+   Returns:     None
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 int __devinit snd_trident_pcm(struct snd_trident * trident,
 			      int device, struct snd_pcm ** rpcm)
@@ -2218,16 +2218,16 @@ int __devinit snd_trident_pcm(struct snd_trident * trident,
 	return 0;
 }
 
-/*                                                                           
-                           
+/*---------------------------------------------------------------------------
+   snd_trident_foldback_pcm
   
-                                                                                  
+   Description: This routine registers the 4DWave device for foldback PCM support.
                 
-                                                                    
+   Parameters:  trident - pointer to target device class for 4DWave.
 
-                    
+   Returns:     None
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 int __devinit snd_trident_foldback_pcm(struct snd_trident * trident,
 				       int device, struct snd_pcm ** rpcm)
@@ -2275,16 +2275,16 @@ int __devinit snd_trident_foldback_pcm(struct snd_trident * trident,
 	return 0;
 }
 
-/*                                                                           
-                    
+/*---------------------------------------------------------------------------
+   snd_trident_spdif
   
-                                                                              
+   Description: This routine registers the 4DWave-NX device for SPDIF support.
                 
-                                                                       
+   Parameters:  trident - pointer to target device class for 4DWave-NX.
 
-                    
+   Returns:     None
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 int __devinit snd_trident_spdif_pcm(struct snd_trident * trident,
 				    int device, struct snd_pcm ** rpcm)
@@ -2315,15 +2315,15 @@ int __devinit snd_trident_spdif_pcm(struct snd_trident * trident,
 }
 
 /*
-              
+ *  Mixer part
  */
 
 
-/*                                                                           
-                             
+/*---------------------------------------------------------------------------
+    snd_trident_spdif_control
 
-                                                          
-                                                                             */
+    Description: enable/disable S/PDIF out from ac97 mixer
+  ---------------------------------------------------------------------------*/
 
 #define snd_trident_spdif_control_info	snd_ctl_boolean_mono_info
 
@@ -2349,7 +2349,7 @@ static int snd_trident_spdif_control_put(struct snd_kcontrol *kcontrol,
 
 	val = ucontrol->value.integer.value[0] ? (unsigned char) kcontrol->private_value : 0x00;
 	spin_lock_irq(&trident->reg_lock);
-	/*                                                   */
+	/* S/PDIF C Channel bits 0-31 : 48khz, SCMS disabled */
 	change = trident->spdif_ctrl != val;
 	trident->spdif_ctrl = val;
 	if (trident->device != TRIDENT_DEVICE_ID_SI7018) {
@@ -2381,11 +2381,11 @@ static struct snd_kcontrol_new snd_trident_spdif_control __devinitdata =
 	.private_value = 0x28,
 };
 
-/*                                                                           
-                             
+/*---------------------------------------------------------------------------
+    snd_trident_spdif_default
 
-                                                    
-                                                                             */
+    Description: put/get the S/PDIF default settings
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_spdif_default_info(struct snd_kcontrol *kcontrol,
 					  struct snd_ctl_elem_info *uinfo)
@@ -2443,11 +2443,11 @@ static struct snd_kcontrol_new snd_trident_spdif_default __devinitdata =
 	.put =		snd_trident_spdif_default_put
 };
 
-/*                                                                           
-                          
+/*---------------------------------------------------------------------------
+    snd_trident_spdif_mask
 
-                                        
-                                                                             */
+    Description: put/get the S/PDIF mask
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_spdif_mask_info(struct snd_kcontrol *kcontrol,
 				       struct snd_ctl_elem_info *uinfo)
@@ -2476,11 +2476,11 @@ static struct snd_kcontrol_new snd_trident_spdif_mask __devinitdata =
 	.get =		snd_trident_spdif_mask_get,
 };
 
-/*                                                                           
-                            
+/*---------------------------------------------------------------------------
+    snd_trident_spdif_stream
 
-                                                   
-                                                                             */
+    Description: put/get the S/PDIF stream settings
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_spdif_stream_info(struct snd_kcontrol *kcontrol,
 					 struct snd_ctl_elem_info *uinfo)
@@ -2539,11 +2539,11 @@ static struct snd_kcontrol_new snd_trident_spdif_stream __devinitdata =
 	.put =		snd_trident_spdif_stream_put
 };
 
-/*                                                                           
-                            
+/*---------------------------------------------------------------------------
+    snd_trident_ac97_control
 
-                                                  
-                                                                             */
+    Description: enable/disable rear path for ac97
+  ---------------------------------------------------------------------------*/
 
 #define snd_trident_ac97_control_info	snd_ctl_boolean_mono_info
 
@@ -2589,11 +2589,11 @@ static struct snd_kcontrol_new snd_trident_ac97_rear_control __devinitdata =
 	.private_value = 4,
 };
 
-/*                                                                           
-                           
+/*---------------------------------------------------------------------------
+    snd_trident_vol_control
 
-                                            
-                                                                             */
+    Description: wave & music volume control
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_vol_control_info(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_info *uinfo)
@@ -2659,11 +2659,11 @@ static struct snd_kcontrol_new snd_trident_vol_wave_control __devinitdata =
 	.tlv = { .p = db_scale_gvol },
 };
 
-/*                                                                           
-                               
+/*---------------------------------------------------------------------------
+    snd_trident_pcm_vol_control
 
-                                         
-                                                                             */
+    Description: PCM front volume control
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_pcm_vol_control_info(struct snd_kcontrol *kcontrol,
 					    struct snd_ctl_elem_info *uinfo)
@@ -2724,14 +2724,14 @@ static struct snd_kcontrol_new snd_trident_pcm_vol_control __devinitdata =
 	.info =		snd_trident_pcm_vol_control_info,
 	.get =		snd_trident_pcm_vol_control_get,
 	.put =		snd_trident_pcm_vol_control_put,
-	/*                   */
+	/* FIXME: no tlv yet */
 };
 
-/*                                                                           
-                               
+/*---------------------------------------------------------------------------
+    snd_trident_pcm_pan_control
 
-                                      
-                                                                             */
+    Description: PCM front pan control
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_pcm_pan_control_info(struct snd_kcontrol *kcontrol,
 					    struct snd_ctl_elem_info *uinfo)
@@ -2790,11 +2790,11 @@ static struct snd_kcontrol_new snd_trident_pcm_pan_control __devinitdata =
 	.put =		snd_trident_pcm_pan_control_put,
 };
 
-/*                                                                           
-                                
+/*---------------------------------------------------------------------------
+    snd_trident_pcm_rvol_control
 
-                                          
-                                                                             */
+    Description: PCM reverb volume control
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_pcm_rvol_control_info(struct snd_kcontrol *kcontrol,
 					     struct snd_ctl_elem_info *uinfo)
@@ -2848,11 +2848,11 @@ static struct snd_kcontrol_new snd_trident_pcm_rvol_control __devinitdata =
 	.tlv = { .p = db_scale_crvol },
 };
 
-/*                                                                           
-                                
+/*---------------------------------------------------------------------------
+    snd_trident_pcm_cvol_control
 
-                                          
-                                                                             */
+    Description: PCM chorus volume control
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_pcm_cvol_control_info(struct snd_kcontrol *kcontrol,
 					     struct snd_ctl_elem_info *uinfo)
@@ -2961,16 +2961,16 @@ static int snd_trident_pcm_mixer_free(struct snd_trident *trident, struct snd_tr
 	return 0;
 }
 
-/*                                                                           
-                    
+/*---------------------------------------------------------------------------
+   snd_trident_mixer
   
-                                                                           
+   Description: This routine registers the 4DWave device for mixer support.
                 
-                                                                    
+   Parameters:  trident - pointer to target device class for 4DWave.
 
-                    
+   Returns:     None
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int __devinit snd_trident_mixer(struct snd_trident * trident, int pcm_spdif_device)
 {
@@ -3007,14 +3007,14 @@ static int __devinit snd_trident_mixer(struct snd_trident * trident, int pcm_spd
 		goto __out;
 	}
 	
-	/*                  */
+	/* secondary codec? */
 	if (trident->device == TRIDENT_DEVICE_ID_SI7018 &&
 	    (inl(TRID_REG(trident, SI_SERIAL_INTF_CTRL)) & SI_AC97_PRIMARY_READY) != 0) {
 		_ac97.num = 1;
 		err = snd_ac97_mixer(trident->ac97_bus, &_ac97, &trident->ac97_sec);
 		if (err < 0)
 			snd_printk(KERN_ERR "SI7018: the secondary codec - invalid access\n");
-#if 0	//                                 
+#if 0	// only for my testing purpose --jk
 		{
 			struct snd_ac97 *mc97;
 			err = snd_ac97_modem(trident->card, &_ac97, &mc97);
@@ -3130,7 +3130,7 @@ static int __devinit snd_trident_mixer(struct snd_trident * trident, int pcm_spd
 }
 
 /*
-                     
+ * gameport interface
  */
 
 #if defined(CONFIG_GAMEPORT) || (defined(MODULE) && defined(CONFIG_GAMEPORT_MODULE))
@@ -3227,10 +3227,10 @@ static inline void snd_trident_free_gameport(struct snd_trident *chip)
 #else
 int __devinit snd_trident_create_gameport(struct snd_trident *chip) { return -ENOSYS; }
 static inline void snd_trident_free_gameport(struct snd_trident *chip) { }
-#endif /*                 */
+#endif /* CONFIG_GAMEPORT */
 
 /*
-                   
+ * delay for 1 tick
  */
 static inline void do_delay(struct snd_trident *chip)
 {
@@ -3238,7 +3238,7 @@ static inline void do_delay(struct snd_trident *chip)
 }
 
 /*
-                     
+ *  SiS reset routine
  */
 
 static int snd_trident_sis_reset(struct snd_trident *trident)
@@ -3247,23 +3247,23 @@ static int snd_trident_sis_reset(struct snd_trident *trident)
 	unsigned int i;
 	int r;
 
-	r = trident->in_suspend ? 0 : 2;	/*                  */
+	r = trident->in_suspend ? 0 : 2;	/* count of retries */
       __si7018_retry:
-	pci_write_config_byte(trident->pci, 0x46, 0x04);	/*                */
+	pci_write_config_byte(trident->pci, 0x46, 0x04);	/* SOFTWARE RESET */
 	udelay(100);
 	pci_write_config_byte(trident->pci, 0x46, 0x00);
 	udelay(100);
-	/*                             */
+	/* disable AC97 GPIO interrupt */
 	outb(0x00, TRID_REG(trident, SI_AC97_GPIO));
-	/*                                               */
+	/* initialize serial interface, force cold reset */
 	i = PCMOUT|SURROUT|CENTEROUT|LFEOUT|SECONDARY_ID|COLD_RESET;
 	outl(i, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
 	udelay(1000);
-	/*                   */
+	/* remove cold reset */
 	i &= ~COLD_RESET;
 	outl(i, TRID_REG(trident, SI_SERIAL_INTF_CTRL));
 	udelay(2000);
-	/*                                */
+	/* wait, until the codec is ready */
 	end_time = (jiffies + (HZ * 3) / 4) + 1;
 	do {
 		if ((inl(TRID_REG(trident, SI_SERIAL_INTF_CTRL)) & SI_AC97_PRIMARY_READY) != 0)
@@ -3279,19 +3279,19 @@ static int snd_trident_sis_reset(struct snd_trident *trident)
 		goto __si7018_retry;
 	}
       __si7018_ok:
-	/*                           */
+	/* wait for the second codec */
 	do {
 		if ((inl(TRID_REG(trident, SI_SERIAL_INTF_CTRL)) & SI_AC97_SECONDARY_READY) != 0)
 			break;
 		do_delay(trident);
 	} while (time_after_eq(end_time, jiffies));
-	/*                        */
+	/* enable 64 channel mode */
 	outl(BANK_B_EN, TRID_REG(trident, T4D_LFO_GC_CIR));
 	return 0;
 }
 
 /*  
-                   
+ *  /proc interface
  */
 
 static void snd_trident_proc_read(struct snd_info_entry *entry, 
@@ -3346,24 +3346,24 @@ static int snd_trident_dev_free(struct snd_device *device)
 	return snd_trident_free(trident);
 }
 
-/*                                                                           
-                        
+/*---------------------------------------------------------------------------
+   snd_trident_tlb_alloc
   
-                                                                
-                                                
+   Description: Allocate and set up the TLB page table on 4D NX.
+		Each entry has 4 bytes (physical PCI address).
                 
-                                                                    
+   Parameters:  trident - pointer to target device class for 4DWave.
 
-                                        
+   Returns:     0 or negative error code
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int __devinit snd_trident_tlb_alloc(struct snd_trident *trident)
 {
 	int i;
 
-	/*                                                     
-                                                  */
+	/* TLB array must be aligned to 16kB !!! so we allocate
+	   32kB region and correct offset when necessary */
 
 	if (snd_dma_alloc_pages(SNDRV_DMA_TYPE_DEV, snd_dma_pci_data(trident->pci),
 				2 * SNDRV_TRIDENT_MAX_PAGES * 4, &trident->tlb.buffer) < 0) {
@@ -3372,13 +3372,13 @@ static int __devinit snd_trident_tlb_alloc(struct snd_trident *trident)
 	}
 	trident->tlb.entries = (unsigned int*)ALIGN((unsigned long)trident->tlb.buffer.area, SNDRV_TRIDENT_MAX_PAGES * 4);
 	trident->tlb.entries_dmaaddr = ALIGN(trident->tlb.buffer.addr, SNDRV_TRIDENT_MAX_PAGES * 4);
-	/*                                                    */
+	/* allocate shadow TLB page table (virtual addresses) */
 	trident->tlb.shadow_entries = vmalloc(SNDRV_TRIDENT_MAX_PAGES*sizeof(unsigned long));
 	if (trident->tlb.shadow_entries == NULL) {
 		snd_printk(KERN_ERR "trident: unable to allocate shadow TLB entries\n");
 		return -ENOMEM;
 	}
-	/*                                                           */
+	/* allocate and setup silent page and initialise TLB entries */
 	if (snd_dma_alloc_pages(SNDRV_DMA_TYPE_DEV, snd_dma_pci_data(trident->pci),
 				SNDRV_TRIDENT_PAGE_SIZE, &trident->tlb.silent_page) < 0) {
 		snd_printk(KERN_ERR "trident: unable to allocate silent page\n");
@@ -3390,7 +3390,7 @@ static int __devinit snd_trident_tlb_alloc(struct snd_trident *trident)
 		trident->tlb.shadow_entries[i] = (unsigned long)trident->tlb.silent_page.area;
 	}
 
-	/*                                                                 */
+	/* use emu memory block manager code to manage tlb page allocation */
 	trident->tlb.memhdr = snd_util_memhdr_new(SNDRV_TRIDENT_PAGE_SIZE * SNDRV_TRIDENT_MAX_PAGES);
 	if (trident->tlb.memhdr == NULL)
 		return -ENOMEM;
@@ -3400,7 +3400,7 @@ static int __devinit snd_trident_tlb_alloc(struct snd_trident *trident)
 }
 
 /*
-                        
+ * initialize 4D DX chip
  */
 
 static void snd_trident_stop_all_voices(struct snd_trident *trident)
@@ -3416,23 +3416,23 @@ static int snd_trident_4d_dx_init(struct snd_trident *trident)
 	struct pci_dev *pci = trident->pci;
 	unsigned long end_time;
 
-	/*                                                                */
-	pci_write_config_dword(pci, 0x40, 0);	/*      */
-	pci_write_config_byte(pci, 0x44, 0);	/*       */
-	pci_write_config_byte(pci, 0x45, 0);	/*            */
-	pci_write_config_byte(pci, 0x46, 4); /*       */
+	/* reset the legacy configuration and whole audio/wavetable block */
+	pci_write_config_dword(pci, 0x40, 0);	/* DDMA */
+	pci_write_config_byte(pci, 0x44, 0);	/* ports */
+	pci_write_config_byte(pci, 0x45, 0);	/* Legacy DMA */
+	pci_write_config_byte(pci, 0x46, 4); /* reset */
 	udelay(100);
-	pci_write_config_byte(pci, 0x46, 0); /*               */
+	pci_write_config_byte(pci, 0x46, 0); /* release reset */
 	udelay(100);
 	
-	/*                               */
+	/* warm reset of the AC'97 codec */
 	outl(0x00000001, TRID_REG(trident, DX_ACR2_AC97_COM_STAT));
 	udelay(100);
 	outl(0x00000000, TRID_REG(trident, DX_ACR2_AC97_COM_STAT));
-	/*                                                          */
+	/* DAC on, disable SB IRQ and try to force ADC valid signal */
 	trident->ac97_ctrl = 0x0000004a;
 	outl(trident->ac97_ctrl, TRID_REG(trident, DX_ACR2_AC97_COM_STAT));
-	/*                                */
+	/* wait, until the codec is ready */
 	end_time = (jiffies + (HZ * 3) / 4) + 1;
 	do {
 		if ((inl(TRID_REG(trident, DX_ACR2_AC97_COM_STAT)) & 0x0010) != 0)
@@ -3449,28 +3449,28 @@ static int snd_trident_4d_dx_init(struct snd_trident *trident)
 }
 
 /*
-                        
+ * initialize 4D NX chip
  */
 static int snd_trident_4d_nx_init(struct snd_trident *trident)
 {
 	struct pci_dev *pci = trident->pci;
 	unsigned long end_time;
 
-	/*                                                                */
-	pci_write_config_dword(pci, 0x40, 0);	/*      */
-	pci_write_config_byte(pci, 0x44, 0);	/*       */
-	pci_write_config_byte(pci, 0x45, 0);	/*            */
+	/* reset the legacy configuration and whole audio/wavetable block */
+	pci_write_config_dword(pci, 0x40, 0);	/* DDMA */
+	pci_write_config_byte(pci, 0x44, 0);	/* ports */
+	pci_write_config_byte(pci, 0x45, 0);	/* Legacy DMA */
 
-	pci_write_config_byte(pci, 0x46, 1); /*       */
+	pci_write_config_byte(pci, 0x46, 1); /* reset */
 	udelay(100);
-	pci_write_config_byte(pci, 0x46, 0); /*               */
+	pci_write_config_byte(pci, 0x46, 0); /* release reset */
 	udelay(100);
 
-	/*                               */
+	/* warm reset of the AC'97 codec */
 	outl(0x00000001, TRID_REG(trident, NX_ACR0_AC97_COM_STAT));
 	udelay(100);
 	outl(0x00000000, TRID_REG(trident, NX_ACR0_AC97_COM_STAT));
-	/*                                */
+	/* wait, until the codec is ready */
 	end_time = (jiffies + (HZ * 3) / 4) + 1;
 	do {
 		if ((inl(TRID_REG(trident, NX_ACR0_AC97_COM_STAT)) & 0x0008) != 0)
@@ -3481,24 +3481,24 @@ static int snd_trident_4d_nx_init(struct snd_trident *trident)
 	return -EIO;
 
  __nx_ok:
-	/*        */
+	/* DAC on */
 	trident->ac97_ctrl = 0x00000002;
 	outl(trident->ac97_ctrl, TRID_REG(trident, NX_ACR0_AC97_COM_STAT));
-	/*                */
+	/* disable SB IRQ */
 	outl(NX_SB_IRQ_DISABLE, TRID_REG(trident, T4D_MISCINT));
 
 	snd_trident_stop_all_voices(trident);
 
 	if (trident->tlb.entries != NULL) {
 		unsigned int i;
-		/*                                   */
+		/* enable virtual addressing via TLB */
 		i = trident->tlb.entries_dmaaddr;
 		i |= 0x00000001;
 		outl(i, TRID_REG(trident, NX_TLBC));
 	} else {
 		outl(0, TRID_REG(trident, NX_TLBC));
 	}
-	/*                   */
+	/* initialize S/PDIF */
 	outl(trident->spdif_bits, TRID_REG(trident, NX_SPCSTATUS));
 	outb(trident->spdif_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
 
@@ -3506,7 +3506,7 @@ static int snd_trident_4d_nx_init(struct snd_trident *trident)
 }
 
 /*
-                          
+ * initialize sis7018 chip
  */
 static int snd_trident_sis_init(struct snd_trident *trident)
 {
@@ -3517,27 +3517,27 @@ static int snd_trident_sis_init(struct snd_trident *trident)
 
 	snd_trident_stop_all_voices(trident);
 
-	/*                   */
+	/* initialize S/PDIF */
 	outl(trident->spdif_bits, TRID_REG(trident, SI_SPDIF_CS));
 
 	return 0;
 }
 
-/*                                                                           
-                     
+/*---------------------------------------------------------------------------
+   snd_trident_create
   
-                                                                      
-                                                                           
+   Description: This routine will create the device specific class for
+                the 4DWave card. It will also perform basic initialization.
                 
-                                            
-                                                          
-                                             
-                                            
-                                                  
+   Parameters:  card  - which card to create
+                pci   - interface to PCI bus resource info
+                dma1ptr - playback dma buffer
+                dma2ptr - capture dma buffer
+                irqptr  -  interrupt resource info
 
-                                                
+   Returns:     4DWave device class private data
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 int __devinit snd_trident_create(struct snd_card *card,
 		       struct pci_dev *pci,
@@ -3556,10 +3556,10 @@ int __devinit snd_trident_create(struct snd_card *card,
 
 	*rtrident = NULL;
 
-	/*                   */
+	/* enable PCI device */
 	if ((err = pci_enable_device(pci)) < 0)
 		return err;
-	/*                                                        */
+	/* check, if we can restrict PCI DMA transfers to 30 bits */
 	if (pci_set_dma_mask(pci, DMA_BIT_MASK(30)) < 0 ||
 	    pci_set_consistent_dma_mask(pci, DMA_BIT_MASK(30)) < 0) {
 		snd_printk(KERN_ERR "architecture does not support 30bit PCI busmaster DMA\n");
@@ -3606,7 +3606,7 @@ int __devinit snd_trident_create(struct snd_card *card,
 	}
 	trident->irq = pci->irq;
 
-	/*                                       */
+	/* allocate 16k-aligned TLB for NX cards */
 	trident->tlb.entries = NULL;
 	trident->tlb.buffer.area = NULL;
 	if (trident->device == TRIDENT_DEVICE_ID_NX) {
@@ -3618,7 +3618,7 @@ int __devinit snd_trident_create(struct snd_card *card,
 
 	trident->spdif_bits = trident->spdif_pcm_bits = SNDRV_PCM_DEFAULT_CON_SPDIF;
 
-	/*                 */
+	/* initialize chip */
 	switch (trident->device) {
 	case TRIDENT_DEVICE_ID_DX:
 		err = snd_trident_4d_dx_init(trident);
@@ -3646,13 +3646,13 @@ int __devinit snd_trident_create(struct snd_card *card,
 	if ((err = snd_trident_mixer(trident, pcm_spdif_device)) < 0)
 		return err;
 	
-	/*                         */
+	/* initialise synth voices */
 	for (i = 0; i < 64; i++) {
 		voice = &trident->synth.voices[i];
 		voice->number = i;
 		voice->trident = trident;
 	}
-	/*                              */
+	/* initialize pcm mixer entries */
 	for (i = 0; i < 32; i++) {
 		tmix = &trident->pcm_mixer[i];
 		tmix->vol = T4D_DEFAULT_PCM_VOL;
@@ -3669,23 +3669,23 @@ int __devinit snd_trident_create(struct snd_card *card,
 	return 0;
 }
 
-/*                                                                           
-                   
+/*---------------------------------------------------------------------------
+   snd_trident_free
   
-                                                                    
-                                 
+   Description: This routine will free the device specific class for
+                the 4DWave card. 
                 
-                                                                       
+   Parameters:  trident  - device specific private data for 4DWave card
 
-                     
+   Returns:     None.
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static int snd_trident_free(struct snd_trident *trident)
 {
 	snd_trident_free_gameport(trident);
 	snd_trident_disable_eso(trident);
-	//                   
+	// Disable S/PDIF out
 	if (trident->device == TRIDENT_DEVICE_ID_NX)
 		outb(0x00, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
 	else if (trident->device == TRIDENT_DEVICE_ID_SI7018) {
@@ -3708,23 +3708,23 @@ static int snd_trident_free(struct snd_trident *trident)
 	return 0;
 }
 
-/*                                                                           
-                        
+/*---------------------------------------------------------------------------
+   snd_trident_interrupt
   
-                                             
+   Description: ISR for Trident 4DWave device
                 
-                                                                       
+   Parameters:  trident  - device specific private data for 4DWave card
 
-                                                                          
-                                                                      
-                                                                    
-                                                                       
-                                                                     
-                                                 
+   Problems:    It seems that Trident chips generates interrupts more than
+                one time in special cases. The spurious interrupts are
+                detected via sample timer (T4D_STIMER) and computing
+                corresponding delta value. The limits are detected with
+                the method try & fail so it is possible that it won't
+                work on all computers. [jaroslav]
 
-                     
+   Returns:     None.
   
-                                                                             */
+  ---------------------------------------------------------------------------*/
 
 static irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 {
@@ -3737,13 +3737,13 @@ static irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 	if ((audio_int & (ADDRESS_IRQ|MPU401_IRQ)) == 0)
 		return IRQ_NONE;
 	if (audio_int & ADDRESS_IRQ) {
-		//                                      
+		// get interrupt status for all channels
 		spin_lock(&trident->reg_lock);
 		stimer = inl(TRID_REG(trident, T4D_STIMER)) & 0x00ffffff;
 		chn_int = inl(TRID_REG(trident, T4D_AINT_A));
 		if (chn_int == 0)
 			goto __skip1;
-		outl(chn_int, TRID_REG(trident, T4D_AINT_A));	/*     */
+		outl(chn_int, TRID_REG(trident, T4D_AINT_A));	/* ack */
 	      __skip1:
 		chn_int = inl(TRID_REG(trident, T4D_AINT_B));
 		if (chn_int == 0)
@@ -3761,7 +3761,7 @@ static irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 			if (delta < 0)
 				delta = -delta;
 			if ((unsigned int)delta < voice->spurious_threshold) {
-				/*                         */
+				/* do some statistics here */
 				trident->spurious_irq_count++;
 				if (trident->spurious_irq_max_delta < (unsigned int)delta)
 					trident->spurious_irq_max_delta = delta;
@@ -3783,14 +3783,14 @@ static irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 						tmp = voice->isync_ESO - 7;
 					else
 						tmp = voice->isync_ESO + 2;
-					/*                                           */
+					/* update ESO for IRQ voice to preserve sync */
 					snd_trident_stop_voice(trident, voice->number);
 					snd_trident_write_eso_reg(trident, voice, tmp);
 					snd_trident_start_voice(trident, voice->number);
 				}
 			} else if (voice->isync2) {
 				voice->isync2 = 0;
-				/*                                                                  */
+				/* write original ESO and update CSO for IRQ voice to preserve sync */
 				snd_trident_stop_voice(trident, voice->number);
 				snd_trident_write_cso_reg(trident, voice, voice->isync_mark);
 				snd_trident_write_eso_reg(trident, voice, voice->ESO);
@@ -3798,7 +3798,7 @@ static irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 			}
 #if 0
 			if (voice->extra) {
-				/*                                             */
+				/* update CSO for extra voice to preserve sync */
 				snd_trident_stop_voice(trident, voice->extra->number);
 				snd_trident_write_cso_reg(trident, voice->extra, 0);
 				snd_trident_start_voice(trident, voice->extra->number);
@@ -3808,7 +3808,7 @@ static irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 			snd_pcm_period_elapsed(voice->substream);
 			spin_lock(&trident->reg_lock);
 		}
-		outl(chn_int, TRID_REG(trident, T4D_AINT_B));	/*     */
+		outl(chn_int, TRID_REG(trident, T4D_AINT_B));	/* ack */
 	      __skip2:
 		spin_unlock(&trident->reg_lock);
 	}
@@ -3819,7 +3819,7 @@ static irqreturn_t snd_trident_interrupt(int irq, void *dev_id)
 			inb(TRID_REG(trident, T4D_MPUR0));
 		}
 	}
-	//                                                                                              
+	// outl((ST_TARGET_REACHED | MIXER_OVERFLOW | MIXER_UNDERFLOW), TRID_REG(trident, T4D_MISCINT));
 	return IRQ_HANDLED;
 }
 
@@ -3970,7 +3970,7 @@ int snd_trident_resume(struct pci_dev *pci)
 	snd_ac97_resume(trident->ac97);
 	snd_ac97_resume(trident->ac97_sec);
 
-	/*                        */
+	/* restore some registers */
 	outl(trident->musicvol_wavevol, TRID_REG(trident, T4D_MUSICVOL_WAVEVOL));
 
 	snd_trident_enable_eso(trident);
@@ -3979,4 +3979,4 @@ int snd_trident_resume(struct pci_dev *pci)
 	trident->in_suspend = 0;
 	return 0;
 }
-#endif /*           */
+#endif /* CONFIG_PM */

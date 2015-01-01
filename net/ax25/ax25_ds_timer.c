@@ -32,11 +32,11 @@
 static void ax25_ds_timeout(unsigned long);
 
 /*
-                                              
-                                                               
-                                                                       
-                                                                
-                      
+ *	Add DAMA slave timeout timer to timer list.
+ *	Unlike the connection based timers the timeout function gets
+ *	triggered every second. Please note that NET_AX25_DAMA_SLAVE_TIMEOUT
+ *	(aka /proc/sys/net/ax25/{dev}/dama_slave_timeout) is still in
+ *	1/10th of a second.
  */
 
 void ax25_ds_setup_timer(ax25_dev *ax25_dev)
@@ -53,7 +53,7 @@ void ax25_ds_del_timer(ax25_dev *ax25_dev)
 
 void ax25_ds_set_timer(ax25_dev *ax25_dev)
 {
-	if (ax25_dev == NULL)		/*          */
+	if (ax25_dev == NULL)		/* paranoia */
 		return;
 
 	ax25_dev->dama.slave_timeout =
@@ -62,8 +62,8 @@ void ax25_ds_set_timer(ax25_dev *ax25_dev)
 }
 
 /*
-                     
-                                                                           
+ *	DAMA Slave Timeout
+ *	Silently discard all (slave) connections in case our master forgot us...
  */
 
 static void ax25_ds_timeout(unsigned long arg)
@@ -73,7 +73,7 @@ static void ax25_ds_timeout(unsigned long arg)
 	struct hlist_node *node;
 
 	if (ax25_dev == NULL || !ax25_dev->dama.slave)
-		return;			/*        */
+		return;			/* Yikes! */
 
 	if (!ax25_dev->dama.slave_timeout || --ax25_dev->dama.slave_timeout) {
 		ax25_ds_set_timer(ax25_dev);
@@ -103,8 +103,8 @@ void ax25_ds_heartbeat_expiry(ax25_cb *ax25)
 	switch (ax25->state) {
 
 	case AX25_STATE_0:
-		/*                                                         
-                                                           */
+		/* Magic here: If we listen() and a new link dies before it
+		   is accepted() it isn't 'dead' so doesn't get removed. */
 		if (!sk || sock_flag(sk, SOCK_DESTROY) ||
 		    (sk->sk_state == TCP_LISTEN &&
 		     sock_flag(sk, SOCK_DEAD))) {
@@ -121,8 +121,8 @@ void ax25_ds_heartbeat_expiry(ax25_cb *ax25)
 
 	case AX25_STATE_3:
 		/*
-                                           
-   */
+		 * Check the state of the receive buffer.
+		 */
 		if (sk != NULL) {
 			if (atomic_read(&sk->sk_rmem_alloc) <
 			    (sk->sk_rcvbuf >> 1) &&
@@ -141,9 +141,9 @@ void ax25_ds_heartbeat_expiry(ax25_cb *ax25)
 	ax25_start_heartbeat(ax25);
 }
 
-/*                                                        
-                                                         
-                 
+/* dl1bke 960114: T3 works much like the IDLE timeout, but
+ *                gets reloaded with every frame for this
+ *		  connection.
  */
 void ax25_ds_t3timer_expiry(ax25_cb *ax25)
 {
@@ -152,9 +152,9 @@ void ax25_ds_t3timer_expiry(ax25_cb *ax25)
 	ax25_disconnect(ax25, ETIMEDOUT);
 }
 
-/*                                                       
-                                                
-               
+/* dl1bke 960228: close the connection when IDLE expires.
+ *		  unlike T3 this timer gets reloaded only on
+ *		  I frames.
  */
 void ax25_ds_idletimer_expiry(ax25_cb *ax25)
 {
@@ -180,13 +180,13 @@ void ax25_ds_idletimer_expiry(ax25_cb *ax25)
 	}
 }
 
-/*                                                                     
-                                                                    
-                                                                    
-                                           
-  
-                                                                   
-                                          
+/* dl1bke 960114: The DAMA protocol requires to send data and SABM/DISC
+ *                within the poll of any connected channel. Remember
+ *                that we are not allowed to send anything unless we
+ *                get polled by the Master.
+ *
+ *                Thus we'll have to do parts of our T1 handling in
+ *                ax25_enquiry_response().
  */
 void ax25_ds_t1_timeout(ax25_cb *ax25)
 {

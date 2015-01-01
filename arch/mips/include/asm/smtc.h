@@ -2,14 +2,14 @@
 #define _ASM_SMTC_MT_H
 
 /*
-                                                     
+ * Definitions for SMTC multitasking on MIPS MT cores
  */
 
 #include <asm/mips_mt.h>
 #include <asm/smtc_ipi.h>
 
 /*
-                                      
+ * System-wide SMTC status information
  */
 
 extern unsigned int smtc_status;
@@ -18,7 +18,7 @@ extern unsigned int smtc_status;
 #define SMTC_MTC_ACTIVE	0x00000002
 
 /*
-                                  
+ * TLB/ASID Management information
  */
 
 #define MAX_SMTC_TLBS 2
@@ -50,23 +50,23 @@ extern void smtc_init_secondary(void);
 
 
 /*
-                                                       
-                                                      
-                                                     
-                                                     
-                                        
+ * Sharing the TLB between multiple VPEs means that the
+ * "random" index selection function is not allowed to
+ * select the current value of the Index register. To
+ * avoid additional TLB pressure, the Index registers
+ * are "parked" with an non-Valid value.
  */
 
 #define PARKED_INDEX	((unsigned int)0x80000000)
 
 /*
-                                                          
-                                                             
-                                                         
-                   
+ * Define low-level interrupt mask for IPIs, if necessary.
+ * By default, use SW interrupt 1, which requires no external
+ * hardware support, but which works only for single-core
+ * MIPS MT systems.
  */
 #ifndef MIPS_CPU_IPI_IRQ
 #define MIPS_CPU_IPI_IRQ 1
 #endif
 
-#endif /*                 */
+#endif /*  _ASM_SMTC_MT_H */

@@ -31,21 +31,21 @@
 
 
 /*
-                                                                   
-                                                                     
-  
-                                                                
-                                                                         
-                                  
+ * Global state maintained for transaction that is being processed.
+ * Note that only one transaction can be active at any point in time.
+ *
+ * This state is set when we receive a request from the host; we
+ * cleanup this state when the transaction is completed - when we respond
+ * to the host with the key value.
  */
 
 static struct {
-	bool active; /*                                    */
-	int recv_len; /*                           */
-	struct hv_kvp_msg  *kvp_msg; /*                 */
-	struct vmbus_channel *recv_channel; /*                        */
-	u64 recv_req_id; /*             */
-	void *kvp_context; /*                          */
+	bool active; /* transaction status - active or not */
+	int recv_len; /* number of bytes received. */
+	struct hv_kvp_msg  *kvp_msg; /* current message */
+	struct vmbus_channel *recv_channel; /* chn we got the request */
+	u64 recv_req_id; /* request ID. */
+	void *kvp_context; /* for the channel callback */
 } kvp_transaction;
 
 static void kvp_send_key(struct work_struct *dummy);
@@ -63,8 +63,8 @@ static struct cb_id kvp_id = { CN_KVP_IDX, CN_KVP_VAL };
 static const char kvp_name[] = "kvp_kernel_module";
 static u8 *recv_buffer;
 /*
-                                                            
-                                                             
+ * Register the kernel component with the user-level daemon.
+ * As part of this registration, pass the LIC version number.
  */
 
 static void
@@ -94,14 +94,14 @@ static void
 kvp_work_func(struct work_struct *dummy)
 {
 	/*
-                                                                  
-                                    
-  */
+	 * If the timer fires, the user-mode component has not responded;
+	 * process the pending transaction.
+	 */
 	kvp_respond_to_host("Unknown key", "Guest timed out", TIMEOUT_FIRED);
 }
 
 /*
-                                                 
+ * Callback when data is received from user mode.
  */
 
 static void
@@ -122,9 +122,9 @@ kvp_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
 	default:
 		data = &message->body.kvp_enum_data;
 		/*
-                                                         
-                                                
-   */
+		 * Complete the transaction by forwarding the key value
+		 * to the host. But first, cancel the timeout.
+		 */
 		if (cancel_delayed_work_sync(&kvp_work))
 			kvp_respond_to_host(data->data.key,
 					 data->data.value,
@@ -156,23 +156,23 @@ kvp_send_key(struct work_struct *dummy)
 	in_msg = kvp_transaction.kvp_msg;
 
 	/*
-                                                           
-                                         
-                                                              
-                                                            
-                                                                
-                                                                
-                                                                  
-                                                
-  */
+	 * The key/value strings sent from the host are encoded in
+	 * in utf16; convert it to utf8 strings.
+	 * The host assures us that the utf16 strings will not exceed
+	 * the max lengths specified. We will however, reserve room
+	 * for the string terminating character - in the utf16s_utf8s()
+	 * function we limit the size of the buffer where the converted
+	 * string is placed to HV_KVP_EXCHANGE_MAX_*_SIZE -1 to gaurantee
+	 * that the strings can be properly terminated!
+	 */
 
 	switch (message->kvp_hdr.operation) {
 	case KVP_OP_SET:
 		switch (in_msg->body.kvp_set.data.value_type) {
 		case REG_SZ:
 			/*
-                                             
-    */
+			 * The value is a string - utf16 encoding.
+			 */
 			message->body.kvp_set.data.value_size =
 				utf16s_to_utf8s(
 				(wchar_t *)in_msg->body.kvp_set.data.value,
@@ -184,9 +184,9 @@ kvp_send_key(struct work_struct *dummy)
 
 		case REG_U32:
 			/*
-                                   
-                                    
-    */
+			 * The value is a 32 bit scalar.
+			 * We save this as a utf8 string.
+			 */
 			val32 = in_msg->body.kvp_set.data.value_u32;
 			message->body.kvp_set.data.value_size =
 				sprintf(message->body.kvp_set.data.value,
@@ -195,9 +195,9 @@ kvp_send_key(struct work_struct *dummy)
 
 		case REG_U64:
 			/*
-                                   
-                                    
-    */
+			 * The value is a 64 bit scalar.
+			 * We save this as a utf8 string.
+			 */
 			val64 = in_msg->body.kvp_set.data.value_u64;
 			message->body.kvp_set.data.value_size =
 				sprintf(message->body.kvp_set.data.value,
@@ -239,7 +239,7 @@ kvp_send_key(struct work_struct *dummy)
 }
 
 /*
-                                    
+ * Send a response back to the host.
  */
 
 static void
@@ -256,20 +256,20 @@ kvp_respond_to_host(char *key, char *value, int error)
 	u64	req_id;
 
 	/*
-                                                   
-  */
+	 * If a transaction is not active; log and return.
+	 */
 
 	if (!kvp_transaction.active) {
 		/*
-                             
-   */
+		 * This is a spurious call!
+		 */
 		pr_warn("KVP: Transaction not active\n");
 		return;
 	}
 	/*
-                                                                   
-                                                 
-  */
+	 * Copy the global state for completing the transaction. Note that
+	 * only one transaction can be active at a time.
+	 */
 
 	buf_len = kvp_transaction.recv_len;
 	channel = kvp_transaction.recv_channel;
@@ -282,21 +282,21 @@ kvp_respond_to_host(char *key, char *value, int error)
 
 	if (channel->onchannel_callback == NULL)
 		/*
-                                                   
-                     
-   */
+		 * We have raced with util driver being unloaded;
+		 * silently return.
+		 */
 		return;
 
 
 	/*
-                                                                   
-                 
-  */
+	 * If the error parameter is set, terminate the host's enumeration
+	 * on this pool.
+	 */
 	if (error) {
 		/*
-                                              
-                                                
-   */
+		 * Something failed or the we have timedout;
+		 * terminate the current  host-side iteration.
+		 */
 		icmsghdrp->status = HV_S_CONT;
 		goto response_done;
 	}
@@ -324,30 +324,30 @@ kvp_respond_to_host(char *key, char *value, int error)
 	key_name = key;
 
 	/*
-                                                             
-                                                                 
-                                                             
-                           
-  */
+	 * The windows host expects the key/value pair to be encoded
+	 * in utf16. Ensure that the key/value size reported to the host
+	 * will be less than or equal to the MAX size (including the
+	 * terminating character).
+	 */
 	keylen = utf8s_to_utf16s(key_name, strlen(key_name), UTF16_HOST_ENDIAN,
 				(wchar_t *) kvp_data->key,
 				(HV_KVP_EXCHANGE_MAX_KEY_SIZE / 2) - 2);
-	kvp_data->key_size = 2*(keylen + 1); /*                */
+	kvp_data->key_size = 2*(keylen + 1); /* utf16 encoding */
 
 copy_value:
 	valuelen = utf8s_to_utf16s(value, strlen(value), UTF16_HOST_ENDIAN,
 				(wchar_t *) kvp_data->value,
 				(HV_KVP_EXCHANGE_MAX_VALUE_SIZE / 2) - 2);
-	kvp_data->value_size = 2*(valuelen + 1); /*                */
+	kvp_data->value_size = 2*(valuelen + 1); /* utf16 encoding */
 
 	/*
-                                                         
-                 
-  */
+	 * If the utf8s to utf16s conversion failed; notify host
+	 * of the error.
+	 */
 	if ((keylen < 0) || (valuelen < 0))
 		icmsghdrp->status = HV_E_FAIL;
 
-	kvp_data->value_type = REG_SZ; /*                            */
+	kvp_data->value_type = REG_SZ; /* all our values are strings */
 
 response_done:
 	icmsghdrp->icflags = ICMSGHDRFLAG_TRANSACTION | ICMSGHDRFLAG_RESPONSE;
@@ -358,13 +358,13 @@ response_done:
 }
 
 /*
-                                                                    
-                                                                          
-                                                                     
-                                                                        
-                                                                     
-                                                                        
-                                                                    
+ * This callback is invoked when we get a KVP message from the host.
+ * The host ensures that only one KVP transaction can be active at a time.
+ * KVP implementation in Linux needs to forward the key to a user-mde
+ * component to retrive the corresponding value. Consequently, we cannot
+ * respond to the host in the conext of this callback. Since the host
+ * guarantees that at most only one transaction can be active at a time,
+ * we stash away the transaction state in a set of global variables.
  */
 
 void hv_kvp_onchannelcallback(void *context)
@@ -380,9 +380,9 @@ void hv_kvp_onchannelcallback(void *context)
 
 	if (kvp_transaction.active) {
 		/*
-                                                
-                                         
-   */
+		 * We will defer processing this callback once
+		 * the current transaction is complete.
+		 */
 		kvp_transaction.kvp_context = context;
 		return;
 	}
@@ -401,9 +401,9 @@ void hv_kvp_onchannelcallback(void *context)
 				sizeof(struct icmsg_hdr)];
 
 			/*
-                                                     
-                                                    
-    */
+			 * Stash away this global state for completing the
+			 * transaction; note transactions are serialized.
+			 */
 
 			kvp_transaction.recv_len = recvlen;
 			kvp_transaction.recv_channel = channel;
@@ -412,14 +412,14 @@ void hv_kvp_onchannelcallback(void *context)
 			kvp_transaction.kvp_msg = kvp_msg;
 
 			/*
-                                  
-                          
-                                         
-                                          
-                              
-                                
-                               
-    */
+			 * Get the information from the
+			 * user-mode component.
+			 * component. This transaction will be
+			 * completed when we get the value from
+			 * the user-mode component.
+			 * Set a timeout to deal with
+			 * user-mode not responding.
+			 */
 			schedule_work(&kvp_sendkey_work);
 			schedule_delayed_work(&kvp_work, 5*HZ);
 
@@ -448,11 +448,11 @@ hv_kvp_init(struct hv_util_service *srv)
 	recv_buffer = srv->recv_buffer;
 
 	/*
-                                                      
-                                                       
-                                                       
-                   
-  */
+	 * When this driver loads, the user level daemon that
+	 * processes the host requests may not yet be running.
+	 * Defer processing channel callbacks until the daemon
+	 * has registered.
+	 */
 	kvp_transaction.active = true;
 
 	return 0;

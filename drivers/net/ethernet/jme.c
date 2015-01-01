@@ -140,16 +140,16 @@ jme_setup_wakeup_frame(struct jme_adapter *jme,
 	int i;
 
 	/*
-                     
-  */
+	 * Setup CRC pattern
+	 */
 	jwrite32(jme, JME_WFOI, WFOI_CRC_SEL | (fnr & WFOI_FRAME_SEL));
 	wmb();
 	jwrite32(jme, JME_WFODP, crc);
 	wmb();
 
 	/*
-              
-  */
+	 * Setup Mask
+	 */
 	for (i = 0 ; i < WAKEUP_FRAME_MASK_DWNR ; ++i) {
 		jwrite32(jme, JME_WFOI,
 				((i << WFOI_MASK_SHIFT) & WFOI_MASK_SEL) |
@@ -374,8 +374,8 @@ jme_start_irq(struct jme_adapter *jme)
 		);
 
 	/*
-                     
-  */
+	 * Enable Interrupts
+	 */
 	jwrite32(jme, JME_IENS, INTR_ENABLE);
 }
 
@@ -383,8 +383,8 @@ static inline void
 jme_stop_irq(struct jme_adapter *jme)
 {
 	/*
-                      
-  */
+	 * Disable Interrupts
+	 */
 	jwrite32f(jme, JME_IENC, INTR_ENABLE);
 }
 
@@ -431,9 +431,9 @@ jme_check_link(struct net_device *netdev, int testonly)
 	if (phylink & PHY_LINK_UP) {
 		if (!(phylink & PHY_LINK_AUTONEG_COMPLETE)) {
 			/*
-                             
-                                                   
-    */
+			 * If we did not enable AN
+			 * Speed/Duplex Info should be obtained from SMI
+			 */
 			phylink = PHY_LINK_UP;
 
 			bmcr = jme_mdio_read(jme->dev,
@@ -453,8 +453,8 @@ jme_check_link(struct net_device *netdev, int testonly)
 			strcat(linkmsg, "Forced: ");
 		} else {
 			/*
-                                                    
-    */
+			 * Keep polling for speed/duplex resolve complete
+			 */
 			while (!(phylink & PHY_LINK_SPEEDDPU_RESOLVED) &&
 				--cnt) {
 
@@ -481,9 +481,9 @@ jme_check_link(struct net_device *netdev, int testonly)
 		jme->phylink = phylink;
 
 		/*
-                                                             
-                                 
-   */
+		 * The speed/duplex setting of jme->reg_ghc already cleared
+		 * by jme_reset_mac_processor()
+		 */
 		switch (phylink & PHY_LINK_SPEED_MASK) {
 		case PHY_LINK_SPEED_10M:
 			jme->reg_ghc |= GHC_SPEED_10M;
@@ -573,8 +573,8 @@ jme_setup_tx_resources(struct jme_adapter *jme)
 		goto err_set_null;
 
 	/*
-                  
-  */
+	 * 16 Bytes align
+	 */
 	txring->desc		= (void *)ALIGN((unsigned long)(txring->alloc),
 						RING_DESC_ALIGN);
 	txring->dma		= ALIGN(txring->dmaalloc, RING_DESC_ALIGN);
@@ -588,8 +588,8 @@ jme_setup_tx_resources(struct jme_adapter *jme)
 		goto err_free_txring;
 
 	/*
-                                   
-  */
+	 * Initialize Transmit Descriptors
+	 */
 	memset(txring->alloc, 0, TX_RING_ALLOC_SIZE(jme->tx_ring_size));
 	memset(txring->bufinf, 0,
 		sizeof(struct jme_buffer_info) * jme->tx_ring_size);
@@ -654,34 +654,34 @@ static inline void
 jme_enable_tx_engine(struct jme_adapter *jme)
 {
 	/*
-                  
-  */
+	 * Select Queue 0
+	 */
 	jwrite32(jme, JME_TXCS, TXCS_DEFAULT | TXCS_SELECT_QUEUE0);
 	wmb();
 
 	/*
-                                     
-  */
+	 * Setup TX Queue 0 DMA Bass Address
+	 */
 	jwrite32(jme, JME_TXDBA_LO, (__u64)jme->txring[0].dma & 0xFFFFFFFFUL);
 	jwrite32(jme, JME_TXDBA_HI, (__u64)(jme->txring[0].dma) >> 32);
 	jwrite32(jme, JME_TXNDA, (__u64)jme->txring[0].dma & 0xFFFFFFFFUL);
 
 	/*
-                           
-  */
+	 * Setup TX Descptor Count
+	 */
 	jwrite32(jme, JME_TXQDC, jme->tx_ring_size);
 
 	/*
-                    
-  */
+	 * Enable TX Engine
+	 */
 	wmb();
 	jwrite32f(jme, JME_TXCS, jme->reg_txcs |
 				TXCS_SELECT_QUEUE0 |
 				TXCS_ENABLE);
 
 	/*
-                                    
-  */
+	 * Start clock for TX MAC Processor
+	 */
 	jme_mac_txclk_on(jme);
 }
 
@@ -689,8 +689,8 @@ static inline void
 jme_restart_tx_engine(struct jme_adapter *jme)
 {
 	/*
-                     
-  */
+	 * Restart TX Engine
+	 */
 	jwrite32(jme, JME_TXCS, jme->reg_txcs |
 				TXCS_SELECT_QUEUE0 |
 				TXCS_ENABLE);
@@ -703,8 +703,8 @@ jme_disable_tx_engine(struct jme_adapter *jme)
 	u32 val;
 
 	/*
-                     
-  */
+	 * Disable TX Engine
+	 */
 	jwrite32(jme, JME_TXCS, jme->reg_txcs | TXCS_SELECT_QUEUE0);
 	wmb();
 
@@ -719,8 +719,8 @@ jme_disable_tx_engine(struct jme_adapter *jme)
 		pr_err("Disable TX engine timeout\n");
 
 	/*
-                                   
-  */
+	 * Stop clock for TX MAC Processor
+	 */
 	jme_mac_txclk_off(jme);
 }
 
@@ -836,8 +836,8 @@ jme_setup_rx_resources(struct jme_adapter *jme)
 		goto err_set_null;
 
 	/*
-                  
-  */
+	 * 16 Bytes align
+	 */
 	rxring->desc		= (void *)ALIGN((unsigned long)(rxring->alloc),
 						RING_DESC_ALIGN);
 	rxring->dma		= ALIGN(rxring->dmaalloc, RING_DESC_ALIGN);
@@ -850,8 +850,8 @@ jme_setup_rx_resources(struct jme_adapter *jme)
 		goto err_free_rxring;
 
 	/*
-                                   
-  */
+	 * Initiallize Receive Descriptors
+	 */
 	memset(rxring->bufinf, 0,
 		sizeof(struct jme_buffer_info) * jme->rx_ring_size);
 	for (i = 0 ; i < jme->rx_ring_size ; ++i) {
@@ -883,33 +883,33 @@ static inline void
 jme_enable_rx_engine(struct jme_adapter *jme)
 {
 	/*
-                  
-  */
+	 * Select Queue 0
+	 */
 	jwrite32(jme, JME_RXCS, jme->reg_rxcs |
 				RXCS_QUEUESEL_Q0);
 	wmb();
 
 	/*
-                             
-  */
+	 * Setup RX DMA Bass Address
+	 */
 	jwrite32(jme, JME_RXDBA_LO, (__u64)(jme->rxring[0].dma) & 0xFFFFFFFFUL);
 	jwrite32(jme, JME_RXDBA_HI, (__u64)(jme->rxring[0].dma) >> 32);
 	jwrite32(jme, JME_RXNDA, (__u64)(jme->rxring[0].dma) & 0xFFFFFFFFUL);
 
 	/*
-                             
-  */
+	 * Setup RX Descriptor Count
+	 */
 	jwrite32(jme, JME_RXQDC, jme->rx_ring_size);
 
 	/*
-                        
-  */
+	 * Setup Unicast Filter
+	 */
 	jme_set_unicastaddr(jme->dev);
 	jme_set_multi(jme->dev);
 
 	/*
-                    
-  */
+	 * Enable RX Engine
+	 */
 	wmb();
 	jwrite32f(jme, JME_RXCS, jme->reg_rxcs |
 				RXCS_QUEUESEL_Q0 |
@@ -917,8 +917,8 @@ jme_enable_rx_engine(struct jme_adapter *jme)
 				RXCS_QST);
 
 	/*
-                                    
-  */
+	 * Start clock for RX MAC Processor
+	 */
 	jme_mac_rxclk_on(jme);
 }
 
@@ -926,8 +926,8 @@ static inline void
 jme_restart_rx_engine(struct jme_adapter *jme)
 {
 	/*
-                   
-  */
+	 * Start RX Engine
+	 */
 	jwrite32(jme, JME_RXCS, jme->reg_rxcs |
 				RXCS_QUEUESEL_Q0 |
 				RXCS_ENABLE |
@@ -941,8 +941,8 @@ jme_disable_rx_engine(struct jme_adapter *jme)
 	u32 val;
 
 	/*
-                     
-  */
+	 * Disable RX Engine
+	 */
 	jwrite32(jme, JME_RXCS, jme->reg_rxcs);
 	wmb();
 
@@ -957,8 +957,8 @@ jme_disable_rx_engine(struct jme_adapter *jme)
 		pr_err("Disable RX engine timeout\n");
 
 	/*
-                                   
-  */
+	 * Stop clock for RX MAC Processor
+	 */
 	jme_mac_rxclk_off(jme);
 }
 
@@ -1204,8 +1204,8 @@ jme_shutdown_nic(struct jme_adapter *jme)
 
 	if (!(phylink & PHY_LINK_UP)) {
 		/*
-                                             
-   */
+		 * Disable all interrupt before issue timer
+		 */
 		jme_stop_irq(jme);
 		jwrite32(jme, JME_TIMER2, TMCSR_EN | 0xFFFFFE);
 	}
@@ -1527,15 +1527,15 @@ static void
 jme_intr_msi(struct jme_adapter *jme, u32 intrstat)
 {
 	/*
-                     
-  */
+	 * Disable interrupt
+	 */
 	jwrite32f(jme, JME_IENC, INTR_ENABLE);
 
 	if (intrstat & (INTR_LINKCH | INTR_SWINTR)) {
 		/*
-                                  
-                                 
-   */
+		 * Link change event is critical
+		 * all other events are ignored
+		 */
 		jwrite32(jme, JME_IEVE, intrstat);
 		tasklet_schedule(&jme->linkch_task);
 		goto out_reenable;
@@ -1579,8 +1579,8 @@ jme_intr_msi(struct jme_adapter *jme, u32 intrstat)
 
 out_reenable:
 	/*
-                       
-  */
+	 * Re-enable interrupt
+	 */
 	jwrite32f(jme, JME_IENS, INTR_ENABLE);
 }
 
@@ -1594,14 +1594,14 @@ jme_intr(int irq, void *dev_id)
 	intrstat = jread32(jme, JME_IEVE);
 
 	/*
-                                            
-  */
+	 * Check if it's really an interrupt for us
+	 */
 	if (unlikely((intrstat & INTR_ENABLE) == 0))
 		return IRQ_NONE;
 
 	/*
-                                   
-  */
+	 * Check if the device still exist
+	 */
 	if (unlikely(intrstat == ~((typeof(intrstat))0)))
 		return IRQ_NONE;
 
@@ -1775,7 +1775,7 @@ jme_phy_calibration(struct jme_adapter *jme)
 
 	jme_phy_off(jme);
 	jme_phy_on(jme);
-	/*                         */
+	/*  Enabel PHY test mode 1 */
 	ctrl1000 = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_CTRL1000);
 	ctrl1000 &= ~PHY_GAD_TEST_MODE_MSK;
 	ctrl1000 |= PHY_GAD_TEST_MODE_1;
@@ -1793,7 +1793,7 @@ jme_phy_calibration(struct jme_adapter *jme)
 			JM_PHY_EXT_COMM_2_CALI_LATCH);
 	jme_phy_specreg_write(jme, JM_PHY_EXT_COMM_2_REG, phy_data);
 
-	/*                        */
+	/*  Disable PHY test mode */
 	ctrl1000 = jme_mdio_read(jme->dev, jme->mii_if.phy_id, MII_CTRL1000);
 	ctrl1000 &= ~PHY_GAD_TEST_MODE_MSK;
 	jme_mdio_write(jme->dev, jme->mii_if.phy_id, MII_CTRL1000, ctrl1000);
@@ -1907,7 +1907,7 @@ jme_set_100m_half(struct jme_adapter *jme)
 		jwrite32(jme, JME_GHC, GHC_SPEED_100M);
 }
 
-#define JME_WAIT_LINK_TIME 2000 /*        */
+#define JME_WAIT_LINK_TIME 2000 /* 2000ms */
 static void
 jme_wait_link(struct jme_adapter *jme)
 {
@@ -2149,26 +2149,26 @@ jme_fill_tx_desc(struct jme_adapter *jme, struct sk_buff *skb, int idx)
 	txdesc->dw[3] = 0;
 	txdesc->desc1.pktsize = cpu_to_le16(skb->len);
 	/*
-                         
-                                         
-                                                         
-                                      
-                                              
-  */
+	 * Set OWN bit at final.
+	 * When kernel transmit faster than NIC.
+	 * And NIC trying to send this descriptor before we tell
+	 * it to start sending this TX queue.
+	 * Other fields are already filled correctly.
+	 */
 	wmb();
 	flags = TXFLAG_OWN | TXFLAG_INT;
 	/*
-                                    
-  */
+	 * Set checksum flags while not tso
+	 */
 	if (jme_tx_tso(skb, &txdesc->desc1.mss, &flags))
 		jme_tx_csum(jme, skb, &flags);
 	jme_tx_vlan(skb, &txdesc->desc1.vlan, &flags);
 	jme_map_tx_skb(jme, skb, idx);
 	txdesc->desc1.flags = flags;
 	/*
-                                                
-                              
-  */
+	 * Set tx buffer info after telling NIC to send
+	 * For better tx_clean timing
+	 */
 	wmb();
 	txbi->nr_desc = skb_shinfo(skb)->nr_frags + 2;
 	txbi->skb = skb;
@@ -2211,7 +2211,7 @@ jme_stop_queue_if_full(struct jme_adapter *jme)
 }
 
 /*
-                                                        
+ * This function is already protected by netif_tx_lock()
  */
 
 static netdev_tx_t
@@ -2349,8 +2349,8 @@ jme_tx_timeout(struct net_device *netdev)
 		jme_set_settings(netdev, &jme->old_ecmd);
 
 	/*
-                                 
-  */
+	 * Force to Reset the link again
+	 */
 	jme_reset_link(jme);
 }
 
@@ -2647,9 +2647,9 @@ jme_set_settings(struct net_device *netdev,
 		return -EINVAL;
 
 	/*
-                                                        
-                                                      
-  */
+	 * Check If user changed duplex only while force_media.
+	 * Hardware would not generate link change interrupt.
+	 */
 	if (jme->mii_if.force_media &&
 	ecmd->autoneg != AUTONEG_ENABLE &&
 	(jme->mii_if.full_duplex != ecmd->duplex))
@@ -2841,8 +2841,8 @@ jme_get_eeprom(struct net_device *netdev,
 	int i, offset = eeprom->offset, len = eeprom->len;
 
 	/*
-                                          
-  */
+	 * ethtool will check the boundary for us
+	 */
 	eeprom->magic = JME_EEPROM_MAGIC;
 	for (i = 0 ; i < len ; ++i)
 		data[i] = jme_smb_read(jme, i + offset);
@@ -2861,8 +2861,8 @@ jme_set_eeprom(struct net_device *netdev,
 		return -EINVAL;
 
 	/*
-                                          
-  */
+	 * ethtool will check the boundary for us
+	 */
 	for (i = 0 ; i < len ; ++i)
 		jme_smb_write(jme, i + offset, data[i]);
 
@@ -2957,8 +2957,8 @@ jme_init_one(struct pci_dev *pdev,
 	u32 apmc;
 
 	/*
-                            
-  */
+	 * set up PCI device basics
+	 */
 	rc = pci_enable_device(pdev);
 	if (rc) {
 		pr_err("Cannot enable PCI device\n");
@@ -2987,8 +2987,8 @@ jme_init_one(struct pci_dev *pdev,
 	pci_set_master(pdev);
 
 	/*
-                             
-  */
+	 * alloc and init net device
+	 */
 	netdev = alloc_etherdev(sizeof(*jme));
 	if (!netdev) {
 		rc = -ENOMEM;
@@ -3017,8 +3017,8 @@ jme_init_one(struct pci_dev *pdev,
 	pci_set_drvdata(pdev, netdev);
 
 	/*
-                     
-  */
+	 * init adapter info
+	 */
 	jme = netdev_priv(netdev);
 	jme->pdev = pdev;
 	jme->dev = netdev;
@@ -3090,8 +3090,8 @@ jme_init_one(struct pci_dev *pdev,
 		netdev->features |= NETIF_F_RXCSUM;
 
 	/*
-                                               
-  */
+	 * Get Max Read Req Size from PCI Config Space
+	 */
 	pci_read_config_byte(pdev, PCI_DCSR_MRRS, &jme->mrrs);
 	jme->mrrs &= PCI_DCSR_MRRS_MASK;
 	switch (jme->mrrs) {
@@ -3107,8 +3107,8 @@ jme_init_one(struct pci_dev *pdev,
 	}
 
 	/*
-                                         
-  */
+	 * Must check before reset_mac_processor
+	 */
 	jme_check_hw_ver(jme);
 	jme->mii_if.dev = netdev;
 	if (jme->fpgaver) {
@@ -3152,8 +3152,8 @@ jme_init_one(struct pci_dev *pdev,
 	jme_phy_off(jme);
 
 	/*
-                                                         
-  */
+	 * Reset MAC processor and reload EEPROM for MAC Address
+	 */
 	jme_reset_mac_processor(jme);
 	rc = jme_reload_eeprom(jme);
 	if (rc) {
@@ -3163,8 +3163,8 @@ jme_init_one(struct pci_dev *pdev,
 	jme_load_macaddr(netdev);
 
 	/*
-                                                         
-  */
+	 * Tell stack that we are not ready to work until open()
+	 */
 	netif_carrier_off(netdev);
 
 	rc = register_netdev(netdev);

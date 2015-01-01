@@ -30,12 +30,12 @@ static unsigned long get_uart_base(void)
 	unsigned long mpcore_periph;
 
 	/*
-                                                    
-                                                             
-                                                          
-                                                     
-                   
-  */
+	 * Make an educated guess regarding the memory map:
+	 * - the original A9 core tile, which has MPCore peripherals
+	 *   located at 0x1e000000, should use UART at 0x10009000
+	 * - all other (RS1 complaint) tiles use UART mapped
+	 *   at 0x1c090000
+	 */
 	asm("mrc p15, 4, %0, c15, c0, 0" : "=r" (mpcore_periph));
 
 	if (mpcore_periph == 0x1e000000)
@@ -45,7 +45,7 @@ static unsigned long get_uart_base(void)
 }
 
 /*
-                                 
+ * This does not append a newline
  */
 static inline void putc(int c)
 {
@@ -66,7 +66,7 @@ static inline void flush(void)
 }
 
 /*
-                
+ * nothing to do
  */
 #define arch_decomp_setup()
 #define arch_decomp_wdog()

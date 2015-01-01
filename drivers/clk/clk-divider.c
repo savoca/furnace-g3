@@ -18,13 +18,13 @@
 #include <linux/string.h>
 
 /*
-                                                       
-  
-                        
-                                                               
-                                                            
-                                                                 
-                                                    
+ * DOC: basic adjustable divider clock that cannot gate
+ *
+ * Traits of this clock:
+ * prepare - clk_prepare only ensures that parents are prepared
+ * enable - clk_enable only ensures that parents are enabled
+ * rate - rate is adjustable.  clk->rate = parent->rate / divisor
+ * parent - fixed parent.  No clk_set_parent support
  */
 
 #define to_clk_divider(_hw) container_of(_hw, struct clk_divider, hw)
@@ -48,8 +48,8 @@ static unsigned long clk_divider_recalc_rate(struct clk_hw *hw,
 EXPORT_SYMBOL_GPL(clk_divider_recalc_rate);
 
 /*
-                                                        
-                    
+ * The reverse of DIV_ROUND_UP: The maximum number which
+ * divided by m is r
  */
 #define MULT_ROUND_UP(r, m) ((r) * (m) + (m) - 1)
 
@@ -77,9 +77,9 @@ static int clk_divider_bestdiv(struct clk_hw *hw, unsigned long rate,
 	}
 
 	/*
-                                                      
-                                   
-  */
+	 * The maximum divider we can use without overflowing
+	 * unsigned long in rate * i below
+	 */
 	maxdiv = min(ULONG_MAX / rate, maxdiv);
 
 	for (i = 1; i <= maxdiv; i++) {
@@ -171,7 +171,7 @@ struct clk *clk_register_divider(struct device *dev, const char *name,
 		return NULL;
 	}
 
-	/*                                */
+	/* struct clk_divider assignments */
 	div->reg = reg;
 	div->shift = shift;
 	div->width = width;

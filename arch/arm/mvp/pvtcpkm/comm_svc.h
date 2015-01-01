@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-        
-  
-                                                                 
+/**
+ * @file
+ *
+ * @brief Communication functions exported by the comm_rt module.
  */
 
 #ifndef _COMM_SVC_H_
@@ -69,5 +69,5 @@ CommSvc_WriteVec(CommChannel channel,
 unsigned int CommSvc_RequestInlineEvents(CommChannel channel);
 unsigned int CommSvc_ReleaseInlineEvents(CommChannel channel);
 
-#endif /*              */
+#endif /* _COMM_SVC_H_ */
 

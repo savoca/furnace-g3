@@ -38,20 +38,20 @@
 #include "util.h"
 
 /*
-                                                     
-                                                   
-                                                    
-                                                     
-                                                     
-                            
-  
-                                                     
-                                                   
-                                                     
-                                                    
-                                                       
-                                                     
-                                               
+ * NOTE! When we get the inode, we're the only people
+ * that have access to it, and as such there are no
+ * race conditions we have to worry about. The inode
+ * is not on the hash-lists, and it cannot be reached
+ * through the filesystem because the directory entry
+ * has been deleted earlier.
+ *
+ * HOWEVER: we must make sure that we get no aliases,
+ * which means that we have to call "clear_inode()"
+ * _before_ we mark the inode not in use in the inode
+ * bitmaps. Otherwise a newly created file might use
+ * the same inode number (not actually the same pointer
+ * though), and then we'd have two inodes sharing the
+ * same inode number and space on the harddisk.
  */
 void ufs_free_inode (struct inode * inode)
 {
@@ -161,14 +161,14 @@ static void ufs2_init_inodes_chunk(struct super_block *sb,
 }
 
 /*
-                                                                       
-                                                                         
-                                                                        
-                                                                       
-                                 
-  
-                                                                     
-                              
+ * There are two policies for allocating an inode.  If the new inode is
+ * a directory, then a forward search is made for a block group with both
+ * free space and a low directory-to-inode ratio; if that fails, then of
+ * the groups with above-average free space, that group with the fewest
+ * directories already is chosen.
+ *
+ * For other inodes, search forward from the parent directory's block
+ * group to find a free inode.
  */
 struct inode *ufs_new_inode(struct inode *dir, umode_t mode)
 {
@@ -185,7 +185,7 @@ struct inode *ufs_new_inode(struct inode *dir, umode_t mode)
 
 	UFSD("ENTER\n");
 	
-	/*                                            */
+	/* Cannot create files in a deleted directory */
 	if (!dir || !dir->i_nlink)
 		return ERR_PTR(-EPERM);
 	sb = dir->i_sb;
@@ -200,8 +200,8 @@ struct inode *ufs_new_inode(struct inode *dir, umode_t mode)
 	lock_super (sb);
 
 	/*
-                                                  
-  */
+	 * Try to place the inode in its parent directory
+	 */
 	i = ufs_inotocg(dir->i_ino);
 	if (sbi->fs_cs(i).cs_nifree) {
 		cg = i;
@@ -209,8 +209,8 @@ struct inode *ufs_new_inode(struct inode *dir, umode_t mode)
 	}
 
 	/*
-                                                          
-  */
+	 * Use a quadratic hash to find a group with a free inode
+	 */
 	for ( j = 1; j < uspi->s_ncg; j <<= 1 ) {
 		i += j;
 		if (i >= uspi->s_ncg)
@@ -222,8 +222,8 @@ struct inode *ufs_new_inode(struct inode *dir, umode_t mode)
 	}
 
 	/*
-                                                   
-  */
+	 * That failed: try linear search for a free inode
+	 */
 	i = ufs_inotocg(dir->i_ino) + 1;
 	for (j = 2; j < uspi->s_ncg; j++) {
 		i++;
@@ -310,9 +310,9 @@ cg_found:
 		struct ufs2_inode *ufs2_inode;
 
 		/*
-                                                                 
-                                                         
-   */
+		 * setup birth date, we do it here because of there is no sense
+		 * to hold it in struct ufs_inode_info, and lose 64 bit
+		 */
 		bh = sb_bread(sb, uspi->s_sbbase + ufs_inotofsba(inode->i_ino));
 		if (!bh) {
 			ufs_warning(sb, "ufs_read_inode",

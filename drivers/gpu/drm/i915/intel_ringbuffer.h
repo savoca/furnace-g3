@@ -46,20 +46,20 @@ struct  intel_ring_buffer {
 	int		effective_size;
 	struct intel_hw_status_page status_page;
 
-	/*                                                               
-                                                                  
-                                                               
-                                                   
-   
-                                                                 
-                                  
-  */
+	/** We track the position of the requests in the ring buffer, and
+	 * when each is retired we increment last_retired_head as the GPU
+	 * must have finished processing the request and so we know we
+	 * can advance the ringbuffer up to that position.
+	 *
+	 * last_retired_head is set to -1 after the value is consumed so
+	 * we can detect new retirements.
+	 */
 	u32		last_retired_head;
 
 	spinlock_t	irq_lock;
 	u32		irq_refcount;
 	u32		irq_mask;
-	u32		irq_seqno;		/*                           */
+	u32		irq_seqno;		/* last seq seem at irq time */
 	u32		trace_irq_seqno;
 	u32		waiting_seqno;
 	u32		sync_seqno[I915_NUM_RINGS-1];
@@ -83,38 +83,38 @@ struct  intel_ring_buffer {
 				   struct intel_ring_buffer *to,
 				   u32 seqno);
 
-	u32		semaphore_register[3]; /*                           */
-	u32		signal_mbox[2]; /*                             */
-	/* 
-                                                            
-               
-   
-                                                            
-                                                              
-                                                             
-   
-                                                         
-  */
+	u32		semaphore_register[3]; /*our mbox written by others */
+	u32		signal_mbox[2]; /* mboxes this ring signals to */
+	/**
+	 * List of objects currently involved in rendering from the
+	 * ringbuffer.
+	 *
+	 * Includes buffers having the contents of their GPU caches
+	 * flushed, not necessarily primitives.  last_rendering_seqno
+	 * represents when the rendering involved will be completed.
+	 *
+	 * A reference is held on the buffer while on this list.
+	 */
 	struct list_head active_list;
 
-	/* 
-                                                              
-                
-  */
+	/**
+	 * List of breadcrumbs associated with GPU requests currently
+	 * outstanding.
+	 */
 	struct list_head request_list;
 
-	/* 
-                                                        
-   
-                                                       
-                                                          
-                                                      
-  */
+	/**
+	 * List of objects currently pending a GPU write flush.
+	 *
+	 * All elements on this list will belong to either the
+	 * active_list or flushing_list, last_rendering_seqno can
+	 * be used to differentiate between the two elements.
+	 */
 	struct list_head gpu_write_list;
 
-	/* 
-                                                         
-  */
+	/**
+	 * Do we have some not yet emitted requests outstanding?
+	 */
 	u32 outstanding_lazy_request;
 
 	wait_queue_head_t irq_queue;
@@ -136,10 +136,10 @@ intel_ring_sync_index(struct intel_ring_buffer *ring,
 	int idx;
 
 	/*
-                          
-                           
-                           
-  */
+	 * cs -> 0 = vcs, 1 = bcs
+	 * vcs -> 0 = bcs, 1 = cs,
+	 * bcs -> 0 = cs, 1 = vcs.
+	 */
 
 	idx = (other - ring) - 1;
 	if (idx < 0)
@@ -155,20 +155,20 @@ intel_read_status_page(struct intel_ring_buffer *ring,
 	return ioread32(ring->status_page.page_addr + reg);
 }
 
-/* 
-                                                                             
-                                                                      
-                     
-  
-                                                
-                                                                         
-                            
-                                        
-                                        
-                                          
-                                           
-  
-                                                                   
+/**
+ * Reads a dword out of the status page, which is written to from the command
+ * queue by automatic updates, MI_REPORT_HEAD, MI_STORE_DATA_INDEX, or
+ * MI_STORE_DATA_IMM.
+ *
+ * The following dwords have a reserved meaning:
+ * 0x00: ISR copy, updated when an ISR bit not set in the HWSTAM changes.
+ * 0x04: ring 0 head pointer
+ * 0x05: ring 1 head pointer (915-class)
+ * 0x06: ring 2 head pointer (915-class)
+ * 0x10-0x1b: Context status DWords (GM45)
+ * 0x1f: Last written status offset. (GM45)
+ *
+ * The area from dword 0x20 to 0x3ff is available for driver usage.
  */
 #define READ_HWSP(dev_priv, reg) intel_read_status_page(LP_RING(dev_priv), reg)
 #define READ_BREADCRUMB(dev_priv) READ_HWSP(dev_priv, I915_BREADCRUMB_INDEX)
@@ -214,7 +214,7 @@ static inline void i915_trace_irq_get(struct intel_ring_buffer *ring, u32 seqno)
 		ring->trace_irq_seqno = seqno;
 }
 
-/*           */
+/* DRI warts */
 int intel_render_ring_init_dri(struct drm_device *dev, u64 start, u32 size);
 
-#endif /*                      */
+#endif /* _INTEL_RINGBUFFER_H_ */

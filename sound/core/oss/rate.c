@@ -29,7 +29,7 @@
 #define R_MASK	(BITS-1)
 
 /*
-                                
+ *  Basic rate conversion plugin
  */
 
 struct rate_channel {
@@ -294,7 +294,7 @@ static int rate_action(struct snd_pcm_plugin *plugin,
 	default:
 		break;
 	}
-	return 0;	/*                              */
+	return 0;	/* silenty ignore other actions */
 }
 
 int snd_pcm_plugin_build_rate(struct snd_pcm_substream *plug,

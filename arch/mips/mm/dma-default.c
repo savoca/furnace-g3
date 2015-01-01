@@ -30,9 +30,9 @@ static inline struct page *dma_addr_to_page(struct device *dev,
 }
 
 /*
-                                                                      
-                                                                         
-            
+ * Warning on the terminology - Linux calls an uncached area coherent;
+ * MIPS terminology calls memory areas with hardware maintained coherency
+ * coherent.
  */
 
 static inline int cpu_is_noncoherent_r10000(struct device *dev)
@@ -46,7 +46,7 @@ static gfp_t massage_gfp_flags(const struct device *dev, gfp_t gfp)
 {
 	gfp_t dma_flag;
 
-	/*                          */
+	/* ignore region specifiers */
 	gfp &= ~(__GFP_DMA | __GFP_DMA32 | __GFP_HIGHMEM);
 
 #ifdef CONFIG_ISA
@@ -73,7 +73,7 @@ static gfp_t massage_gfp_flags(const struct device *dev, gfp_t gfp)
 #endif
 		dma_flag = 0;
 
-	/*                         */
+	/* Don't invoke OOM killer */
 	gfp |= __GFP_NORETRY;
 
 	return gfp | dma_flag;
@@ -170,10 +170,10 @@ static inline void __dma_sync_virtual(void *addr, size_t size,
 }
 
 /*
-                                                                
-                                                                  
-                                                               
-                 
+ * A single sg entry may refer to multiple physically contiguous
+ * pages. But we still need to process highmem pages individually.
+ * If highmem is not configured then the bulk of this loop gets
+ * optimized out.
  */
 static inline void __dma_sync(struct page *page,
 	unsigned long offset, size_t size, enum dma_data_direction direction)
@@ -279,7 +279,7 @@ static void mips_dma_sync_sg_for_cpu(struct device *dev,
 {
 	int i;
 
-	/*                                                        */
+	/* Make sure that gcc doesn't leave the empty loop body.  */
 	for (i = 0; i < nelems; i++, sg++) {
 		if (cpu_is_noncoherent_r10000(dev))
 			__dma_sync(sg_page(sg), sg->offset, sg->length,
@@ -292,7 +292,7 @@ static void mips_dma_sync_sg_for_device(struct device *dev,
 {
 	int i;
 
-	/*                                                        */
+	/* Make sure that gcc doesn't leave the empty loop body.  */
 	for (i = 0; i < nelems; i++, sg++) {
 		if (!plat_device_is_coherent(dev))
 			__dma_sync(sg_page(sg), sg->offset, sg->length,

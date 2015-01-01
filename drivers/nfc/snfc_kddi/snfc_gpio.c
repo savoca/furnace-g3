@@ -1,10 +1,10 @@
 /*
-             
- 
+* snfc_gpio.c
+*
 */
 
 /*
-                              
+ *    INCLUDE FILES FOR MODULE
  */
 
 #include "snfc_gpio.h"
@@ -13,14 +13,14 @@
 
 
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 int snfc_gpio_open(int gpionum, int direction, int value)
 {
 	int rc = 0;
-	//                  
+	//char int_name[30];
 	unsigned gpio_cfg = 0;
 
 	if(direction == GPIO_DIRECTION_IN)
@@ -67,9 +67,9 @@ int snfc_gpio_open(int gpionum, int direction, int value)
 }
 
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 void snfc_gpio_write(int gpionum, int value)
 {
@@ -77,9 +77,9 @@ void snfc_gpio_write(int gpionum, int value)
 }
 
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 int snfc_gpio_read(int gpionum)
 {

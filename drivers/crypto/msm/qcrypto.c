@@ -51,7 +51,7 @@
 #define DEBUG_MAX_RW_BUF 2048
 
 /*
-                                                             
+ * For crypto 5.0 which has burst size alignment requirement.
  */
 #define MAX_ALIGN_SIZE  0x40
 
@@ -92,21 +92,21 @@ static char _debug_read_buf[DEBUG_MAX_RW_BUF];
 struct crypto_priv;
 struct crypto_engine {
 	struct list_head elist;
-	void *qce; /*            */
-	struct platform_device *pdev; /*                 */
-	struct crypto_async_request *req; /*                        */
+	void *qce; /* qce handle */
+	struct platform_device *pdev; /* platform device */
+	struct crypto_async_request *req; /* current active request */
 	struct crypto_priv *pcp;
 	struct tasklet_struct done_tasklet;
 	uint32_t  bus_scale_handle;
 	struct crypto_queue req_queue;	/*
-                                        
-                                      
-                              
-      */
+					 * request queue for those requests
+					 * that have this engine assgined
+					 * waiting to be executed
+					 */
 	u32 total_req;
 	u32 err_req;
 	u32 unit;
-	int res; /*                  */
+	int res; /* execution result */
 	unsigned int signature;
 	uint32_t high_bw_req_count;
 	bool     high_bw_req;
@@ -115,35 +115,35 @@ struct crypto_engine {
 };
 
 struct crypto_priv {
-	/*                                       */
+	/* CE features supported by target device*/
 	struct msm_ce_hw_support platform_support;
 
-	/*                                              */
+	/* CE features/algorithms supported by HW engine*/
 	struct ce_hw_support ce_support;
 
-	/*                                */
+	/* the lock protects queue and req*/
 	spinlock_t lock;
 
-	/*                                */
+	/* list of  registered algorithms */
 	struct list_head alg_list;
 
-	/*                        */
+	/* current active request */
 	struct crypto_async_request *req;
 
 	uint32_t ce_lock_count;
 	struct work_struct unlock_ce_ws;
-	struct list_head engine_list; /*                          */
-	int32_t total_units;   /*                        */
+	struct list_head engine_list; /* list of  qcrypto engines */
+	int32_t total_units;   /* total units of engines */
 	struct mutex engine_lock;
-	struct crypto_engine *next_engine; /*                    */
+	struct crypto_engine *next_engine; /* next assign engine */
 };
 static struct crypto_priv qcrypto_dev;
 static struct crypto_engine *_qcrypto_static_assign_engine(
 					struct crypto_priv *cp);
 
-/*                                                                         
-                          
-                                                                          */
+/*-------------------------------------------------------------------------
+* Resource Locking Service
+* ------------------------------------------------------------------------*/
 #define QCRYPTO_CMD_ID				1
 #define QCRYPTO_CE_LOCK_CMD			1
 #define QCRYPTO_CE_UNLOCK_CMD			0
@@ -228,7 +228,7 @@ struct qcrypto_alg {
 };
 
 #define QCRYPTO_MAX_KEY_SIZE	64
-/*                                            */
+/* max of AES_BLOCK_SIZE, DES3_EDE_BLOCK_SIZE */
 #define QCRYPTO_MAX_IV_LENGTH	16
 
 struct qcrypto_cipher_ctx {
@@ -243,26 +243,26 @@ struct qcrypto_cipher_ctx {
 
 	struct crypto_priv *cp;
 	unsigned int flags;
-	struct crypto_engine *pengine;  /*                       */
+	struct crypto_engine *pengine;  /* fixed engine assigned */
 };
 
 struct qcrypto_cipher_req_ctx {
 	u8 *iv;
 	unsigned int ivsize;
 	int  aead;
-	struct scatterlist asg;		/*                               */
-	unsigned char *assoc;		/*                                 */
-	unsigned int assoclen;		/*                                    */
-	struct scatterlist *assoc_sg;	/*                                */
+	struct scatterlist asg;		/* Formatted associated data sg  */
+	unsigned char *assoc;		/* Pointer to formatted assoc data */
+	unsigned int assoclen;		/* Save Unformatted assoc data length */
+	struct scatterlist *assoc_sg;	/* Save Unformatted assoc data sg */
 	enum qce_cipher_alg_enum alg;
 	enum qce_cipher_dir_enum dir;
 	enum qce_cipher_mode_enum mode;
 
-	struct scatterlist *orig_src;	/*                      */
-	struct scatterlist *orig_dst;	/*                      */
-	struct scatterlist dsg;		/*               */
-	struct scatterlist ssg;		/*                 */
-	unsigned char *data;		/*                      */
+	struct scatterlist *orig_src;	/* Original src sg ptr  */
+	struct scatterlist *orig_dst;	/* Original dst sg ptr  */
+	struct scatterlist dsg;		/* Dest Data sg  */
+	struct scatterlist ssg;		/* Source Data sg  */
+	unsigned char *data;		/* Incoming data pointer*/
 
 };
 
@@ -276,7 +276,7 @@ static uint8_t  _std_init_vector_sha1_uint8[] =   {
 	0xC3, 0xD2, 0xE1, 0xF0
 };
 
-/*                                                                */
+/* standard initialization vector for SHA-256, source: FIPS 180-2 */
 static uint8_t _std_init_vector_sha256_uint8[] = {
 	0x6A, 0x09, 0xE6, 0x67, 0xBB, 0x67, 0xAE, 0x85,
 	0x3C, 0x6E, 0xF3, 0x72, 0xA5, 0x4F, 0xF5, 0x3A,
@@ -293,7 +293,7 @@ struct qcrypto_sha_ctx {
 	struct completion ahash_req_complete;
 	struct crypto_priv *cp;
 	unsigned int flags;
-	struct crypto_engine *pengine;  /*                       */
+	struct crypto_engine *pengine;  /* fixed engine assigned */
 };
 
 struct qcrypto_sha_req_ctx {
@@ -301,10 +301,10 @@ struct qcrypto_sha_req_ctx {
 	struct scatterlist *src;
 	uint32_t nbytes;
 
-	struct scatterlist *orig_src;	/*                      */
-	struct scatterlist dsg;		/*         */
-	unsigned char *data;		/*                      */
-	unsigned char *data2;		/*                     */
+	struct scatterlist *orig_src;	/* Original src sg ptr  */
+	struct scatterlist dsg;		/* Data sg */
+	unsigned char *data;		/* Incoming data pointer*/
+	unsigned char *data2;		/* Updated data pointer*/
 
 	uint32_t byte_count[4];
 	u64 count;
@@ -313,7 +313,7 @@ struct qcrypto_sha_req_ctx {
 	uint8_t	 trailing_buf[SHA_MAX_BLOCK_SIZE];
 	uint32_t trailing_buf_len;
 
-	/*                          */
+	/* dma buffer, Internal use */
 	uint8_t	staging_dmabuf
 		[SHA_MAX_BLOCK_SIZE+SHA_MAX_DIGEST_SIZE+MAX_ALIGN_SIZE];
 
@@ -561,10 +561,10 @@ static int _qcrypto_cipher_cra_init(struct crypto_tfm *tfm)
 	q_alg = container_of(alg, struct qcrypto_alg, cipher_alg);
 	ctx->flags = 0;
 
-	/*                               */
+	/* update context with ptr to cp */
 	ctx->cp = q_alg->cp;
 
-	/*                 */
+	/* random first IV */
 	get_random_bytes(ctx->iv, QCRYPTO_MAX_IV_LENGTH);
 	ctx->pengine = _qcrypto_static_assign_engine(ctx->cp);
 	if (ctx->pengine == NULL)
@@ -584,7 +584,7 @@ static int _qcrypto_ahash_cra_init(struct crypto_tfm *tfm)
 								sha_alg);
 
 	crypto_ahash_set_reqsize(ahash, sizeof(struct qcrypto_sha_req_ctx));
-	/*                               */
+	/* update context with ptr to cp */
 	sha_ctx->cp = q_alg->cp;
 	sha_ctx->flags = 0;
 	sha_ctx->ahash_req = NULL;
@@ -1156,7 +1156,7 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 	} else {
 		uint32_t ivsize = crypto_aead_ivsize(aead);
 
-		/*                                          */
+		/* for aead operations, other than aes(ccm) */
 		if (cp->ce_support.aligned_only)  {
 			struct qcrypto_cipher_req_ctx *rctx;
 			uint32_t bytes = 0;
@@ -1187,7 +1187,7 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 
 		if (ret == 0) {
 			if (rctx->dir  == QCE_ENCRYPT) {
-				/*                     */
+				/* copy the icv to dst */
 				scatterwalk_map_and_copy(icv, areq->dst,
 						areq->cryptlen,
 						ctx->authsize, 1);
@@ -1195,7 +1195,7 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 			} else {
 				unsigned char tmp[SHA256_DIGESTSIZE] = {0};
 
-				/*                      */
+				/* compare icv from src */
 				scatterwalk_map_and_copy(tmp,
 					areq->src, areq->cryptlen -
 					ctx->authsize, ctx->authsize, 0);
@@ -1251,9 +1251,9 @@ static int qccrypto_set_aead_ccm_nonce(struct qce_req *qreq)
 
 	memcpy(&qreq->nonce[0] , qreq->iv, qreq->ivsize);
 	/*
-                                        
-                                    
-  */
+	 * Format control info per RFC 3610 and
+	 * NIST Special Publication 800-38C
+	 */
 	qreq->nonce[0] |= (8 * ((qreq->authsize - 2) / 2));
 	if (areq->assoclen)
 		qreq->nonce[0] |= 64;
@@ -1280,9 +1280,9 @@ static int qcrypto_aead_ccm_format_adata(struct qce_req *qreq, uint32_t alen,
 	}
 	adata = qreq->assoc;
 	/*
-                                        
-                                                 
-  */
+	 * Add control info for associated data
+	 * RFC 3610 and NIST Special Publication 800-38C
+	 */
 	if (alen < 65280) {
 		*(__be16 *)adata = cpu_to_be16(alen);
 		len = 2;
@@ -1464,12 +1464,12 @@ static int _qcrypto_process_aead(struct  crypto_engine *pengine,
 		else
 			qreq.cryptlen = req->cryptlen -
 						qreq.authsize;
-		/*           */
+		/* Get NONCE */
 		ret = qccrypto_set_aead_ccm_nonce(&qreq);
 		if (ret)
 			return ret;
 
-		/*                           */
+		/* Format Associated data    */
 		ret = qcrypto_aead_ccm_format_adata(&qreq,
 						req->assoclen,
 						req->assoc);
@@ -1529,23 +1529,23 @@ static int _qcrypto_process_aead(struct  crypto_engine *pengine,
 			req->dst = &rctx->dsg;
 		}
 		/*
-                                      
-                  
-   */
+		 * Save the original associated data
+		 * length and sg
+		 */
 		rctx->assoc_sg  = req->assoc;
 		rctx->assoclen  = req->assoclen;
 		rctx->assoc  = qreq.assoc;
 		/*
-                                             
-              
-   */
+		 * update req with new formatted associated
+		 * data info
+		 */
 		req->assoc = &rctx->asg;
 		req->assoclen = qreq.assoclen;
 		sg_set_buf(req->assoc, qreq.assoc,
 					req->assoclen);
 		sg_mark_end(req->assoc);
 	} else {
-		/*                                          */
+		/* for aead operations, other than aes(ccm) */
 		if (pengine->pcp->ce_support.aligned_only) {
 			uint32_t bytes = 0;
 			uint32_t num_sg = 0;
@@ -1553,10 +1553,10 @@ static int _qcrypto_process_aead(struct  crypto_engine *pengine,
 			rctx->orig_src = req->src;
 			rctx->orig_dst = req->dst;
 			/*
-                                           
-                                                      
-                                     
-    */
+			 * The data area should be big enough to
+			 * include  assoicated data, ciphering data stream,
+			 * generated MAC, and CCM padding.
+			 */
 			if ((MAX_ALIGN_SIZE * 2 > ULONG_MAX - req->assoclen) ||
 				((MAX_ALIGN_SIZE * 2 + req->assoclen) >
 						ULONG_MAX - qreq.ivsize) ||
@@ -1579,7 +1579,7 @@ static int _qcrypto_process_aead(struct  crypto_engine *pengine,
 				return -ENOMEM;
 			}
 
-			/*                      */
+			/* copy associated data */
 			num_sg = qcrypto_count_sg(req->assoc, req->assoclen);
 			bytes = qcrypto_sg_copy_to_buffer(
 				req->assoc, num_sg,
@@ -1589,11 +1589,11 @@ static int _qcrypto_process_aead(struct  crypto_engine *pengine,
 				pr_warn("bytes copied=0x%x bytes to copy= 0x%x",
 						bytes, req->assoclen);
 
-			/*         */
+			/* copy iv */
 			memcpy(rctx->data + req->assoclen, qreq.iv,
 				qreq.ivsize);
 
-			/*          */
+			/* copy src */
 			num_sg = qcrypto_count_sg(req->src, req->cryptlen);
 			bytes = qcrypto_sg_copy_to_buffer(
 					req->src,
@@ -1997,7 +1997,7 @@ static int _qcrypto_dec_aes_ctr(struct ablkcipher_request *req)
 	rctx->alg = CIPHER_ALG_AES;
 	rctx->mode = QCE_MODE_CTR;
 
-	/*                                                           */
+	/* Note. There is no such thing as aes/counter mode, decrypt */
 	rctx->dir = QCE_ENCRYPT;
 
 	pstat->ablk_cipher_aes_dec++;
@@ -2296,10 +2296,10 @@ static int _qcrypto_aead_givencrypt_aes_cbc(struct aead_givcrypt_request *req)
 	rctx->alg = CIPHER_ALG_AES;
 	rctx->dir = QCE_ENCRYPT;
 	rctx->mode = QCE_MODE_CBC;
-	rctx->iv = req->giv;	/*              */
+	rctx->iv = req->giv;	/* generated iv */
 
 	memcpy(req->giv, ctx->iv, crypto_aead_ivsize(authenc));
-	 /*                                                  */
+	 /* avoid consecutive packets going out with same IV */
 	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
 	pstat->aead_sha1_aes_enc++;
 	return _qcrypto_queue_req(cp, ctx->pengine, &areq->base);
@@ -2339,7 +2339,7 @@ static int _qcrypto_aead_decrypt_aes_ctr(struct aead_request *req)
 	rctx->aead = 1;
 	rctx->alg = CIPHER_ALG_AES;
 
-	/*                                                           */
+	/* Note. There is no such thing as aes/counter mode, decrypt */
 	rctx->dir = QCE_ENCRYPT;
 
 	rctx->mode = QCE_MODE_CTR;
@@ -2365,15 +2365,15 @@ static int _qcrypto_aead_givencrypt_aes_ctr(struct aead_givcrypt_request *req)
 	rctx->alg = CIPHER_ALG_AES;
 	rctx->dir = QCE_ENCRYPT;
 	rctx->mode = QCE_MODE_CTR;
-	rctx->iv = req->giv;	/*              */
+	rctx->iv = req->giv;	/* generated iv */
 
 	memcpy(req->giv, ctx->iv, crypto_aead_ivsize(authenc));
-	 /*                                                  */
+	 /* avoid consecutive packets going out with same IV */
 	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
 	pstat->aead_sha1_aes_enc++;
 	return _qcrypto_queue_req(cp, ctx->pengine, &areq->base);
 };
-#endif /*                      */
+#endif /* QCRYPTO_AEAD_AES_CTR */
 
 static int _qcrypto_aead_encrypt_des_cbc(struct aead_request *req)
 {
@@ -2431,10 +2431,10 @@ static int _qcrypto_aead_givencrypt_des_cbc(struct aead_givcrypt_request *req)
 	rctx->alg = CIPHER_ALG_DES;
 	rctx->dir = QCE_ENCRYPT;
 	rctx->mode = QCE_MODE_CBC;
-	rctx->iv = req->giv;	/*              */
+	rctx->iv = req->giv;	/* generated iv */
 
 	memcpy(req->giv, ctx->iv, crypto_aead_ivsize(authenc));
-	 /*                                                  */
+	 /* avoid consecutive packets going out with same IV */
 	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
 	pstat->aead_sha1_des_enc++;
 	return _qcrypto_queue_req(cp, ctx->pengine, &areq->base);
@@ -2496,10 +2496,10 @@ static int _qcrypto_aead_givencrypt_3des_cbc(struct aead_givcrypt_request *req)
 	rctx->alg = CIPHER_ALG_3DES;
 	rctx->dir = QCE_ENCRYPT;
 	rctx->mode = QCE_MODE_CBC;
-	rctx->iv = req->giv;	/*              */
+	rctx->iv = req->giv;	/* generated iv */
 
 	memcpy(req->giv, ctx->iv, crypto_aead_ivsize(authenc));
-	 /*                                                  */
+	 /* avoid consecutive packets going out with same IV */
 	*(__be64 *)req->giv ^= cpu_to_be64(req->seq);
 	pstat->aead_sha1_3des_enc++;
 	return _qcrypto_queue_req(cp, ctx->pengine, &areq->base);
@@ -2577,7 +2577,7 @@ static int _sha1_hmac_export(struct ahash_request  *req, void *out)
 	return _sha1_export(req, out);
 }
 
-/*                                                     */
+/* crypto hw padding constant for hmac first operation */
 #define HMAC_PADDING 64
 
 static int __sha1_import_common(struct ahash_request  *req, const void *in,
@@ -2595,10 +2595,10 @@ static int __sha1_import_common(struct ahash_request  *req, const void *in,
 	} else {
 		rctx->first_blk = 0;
 		/*
-                                               
-                                                 
-                                                  
-   */
+		 * For hmac, there is a hardware padding done
+		 * when first is set. So the byte_count will be
+		 * incremened by 64 after the operstion of first
+		 */
 		if (hmac)
 			hw_count += HMAC_PADDING;
 	}
@@ -2654,10 +2654,10 @@ static int __sha256_import_common(struct ahash_request  *req, const void *in,
 	} else {
 		rctx->first_blk = 0;
 		/*
-                                               
-                                                 
-                                                  
-   */
+		 * for hmac, there is a hardware padding done
+		 * when first is set. So the byte_count will be
+		 * incremened by 64 after the operstion of first
+		 */
 		if (hmac)
 			hw_count += HMAC_PADDING;
 	}
@@ -2728,7 +2728,7 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 	uint8_t  *staging;
 	int ret = 0;
 
-	/*                                                               */
+	/* check for trailing buffer from previous updates and append it */
 	total = req->nbytes + rctx->trailing_buf_len;
 	len = req->nbytes;
 
@@ -2741,7 +2741,7 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 		return 0;
 	}
 
-	/*                                       */
+	/* save the original req structure fields*/
 	rctx->src = req->src;
 	rctx->nbytes = req->nbytes;
 
@@ -2749,7 +2749,7 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 							L1_CACHE_BYTES);
 	memcpy(staging, rctx->trailing_buf, rctx->trailing_buf_len);
 	k_src = &rctx->trailing_buf[0];
-	/*                          */
+	/*  get new trailing buffer */
 	sha_pad_len = ALIGN(total, sha_block_size) - total;
 	trailing_buf_len =  sha_block_size - sha_pad_len;
 	offset = req->nbytes - trailing_buf_len;
@@ -2853,7 +2853,7 @@ static int _sha_final(struct ahash_request *req, uint32_t sha_block_size)
 
 	rctx->last_blk = 1;
 
-	/*                                       */
+	/* save the original req structure fields*/
 	rctx->src = req->src;
 	rctx->nbytes = req->nbytes;
 
@@ -2893,7 +2893,7 @@ static int _sha_digest(struct ahash_request *req)
 			return -ENOMEM;
 	}
 
-	/*                                       */
+	/* save the original req structure fields*/
 	rctx->src = req->src;
 	rctx->nbytes = req->nbytes;
 	rctx->first_blk = 1;
@@ -3111,7 +3111,7 @@ static int _sha_hmac_outer_hash(struct ahash_request *req,
 							sha_digest_size);
 	sg_mark_end(&rctx->sg[0]);
 
-	/*                                       */
+	/* save the original req structure fields*/
 	rctx->src = req->src;
 	rctx->nbytes = req->nbytes;
 
@@ -3694,7 +3694,7 @@ static struct crypto_alg _qcrypto_aead_sha1_hmac_algos[] = {
 			}
 		}
 	},
-#endif /*                      */
+#endif /* QCRYPTO_AEAD_AES_CTR */
 	{
 		.cra_name	= "authenc(hmac(sha1),cbc(des))",
 		.cra_driver_name = "qcrypto-aead-hmac-sha1-cbc-des",
@@ -3790,7 +3790,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	/*          */
+	/* open qce */
 	handle = qce_open(pdev, &rc);
 	if (handle == NULL) {
 		kfree(pengine);
@@ -3868,7 +3868,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		return 0;
 	}
 
-	/*                                                       */
+	/* register crypto cipher algorithms the device supports */
 	for (i = 0; i < ARRAY_SIZE(_qcrypto_ablk_cipher_algos); i++) {
 		struct qcrypto_alg *q_alg;
 
@@ -3901,7 +3901,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		}
 	}
 
-	/*                                                       */
+	/* register crypto cipher algorithms the device supports */
 	if (cp->ce_support.aes_xts) {
 		struct qcrypto_alg *q_alg;
 
@@ -3935,9 +3935,9 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	}
 
 	/*
-                                                         
-                   
-  */
+	 * Register crypto hash (sha1 and sha256) algorithms the
+	 * device supports
+	 */
 	for (i = 0; i < ARRAY_SIZE(_qcrypto_ahash_algos); i++) {
 		struct qcrypto_alg *q_alg = NULL;
 
@@ -3970,7 +3970,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		}
 	}
 
-	/*                                                                 */
+	/* register crypto aead (hmac-sha1) algorithms the device supports */
 	if (cp->ce_support.sha1_hmac_20 || cp->ce_support.sha1_hmac
 		|| cp->ce_support.sha_hmac) {
 		for (i = 0; i < ARRAY_SIZE(_qcrypto_aead_sha1_hmac_algos);
@@ -4009,7 +4009,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	}
 
 	if ((cp->ce_support.sha_hmac) || (cp->platform_support.sha_hmac)) {
-		/*                                                     */
+		/* register crypto hmac algorithms the device supports */
 		for (i = 0; i < ARRAY_SIZE(_qcrypto_sha_hmac_algos); i++) {
 			struct qcrypto_alg *q_alg = NULL;
 
@@ -4046,9 +4046,9 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		}
 	}
 	/*
-                                                   
-                   
-  */
+	 * Register crypto cipher (aes-ccm) algorithms the
+	 * device supports
+	 */
 	if (cp->ce_support.aes_ccm) {
 		struct qcrypto_alg *q_alg;
 
@@ -4103,9 +4103,9 @@ static int  _qcrypto_suspend(struct platform_device *pdev, pm_message_t state)
 		return -EINVAL;
 
 	/*
-                                                                      
-                                 
-  */
+	 * Check if this platform supports clock management in suspend/resume
+	 * If not, just simply return 0.
+	 */
 	cp = pengine->pcp;
 	if (!cp->ce_support.clk_mgmt_sus_res)
 		return 0;

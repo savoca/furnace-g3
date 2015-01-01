@@ -1,7 +1,7 @@
 #ifndef _ASM_S390X_COMPAT_H
 #define _ASM_S390X_COMPAT_H
 /*
-                                            
+ * Architecture specific compatibility types
  */
 #include <linux/types.h>
 #include <linux/sched.h>
@@ -12,7 +12,7 @@
 #define PSW32_MASK_IO		0x02000000UL
 #define PSW32_MASK_EXT		0x01000000UL
 #define PSW32_MASK_KEY		0x00F00000UL
-#define PSW32_MASK_BASE		0x00080000UL	/*            */
+#define PSW32_MASK_BASE		0x00080000UL	/* Always one */
 #define PSW32_MASK_MCHECK	0x00040000UL
 #define PSW32_MASK_WAIT		0x00020000UL
 #define PSW32_MASK_PSTATE	0x00010000UL
@@ -137,7 +137,7 @@ struct compat_statfs {
 #define COMPAT_RLIM_OLD_INFINITY	0x7fffffff
 #define COMPAT_RLIM_INFINITY		0xffffffff
 
-typedef u32		compat_old_sigset_t;	/*                  */
+typedef u32		compat_old_sigset_t;	/* at least 32 bits */
 
 #define _COMPAT_NSIG		64
 #define _COMPAT_NSIG_BPW	32
@@ -148,10 +148,10 @@ typedef u32		compat_sigset_word;
 #define COMPAT_LOFF_T_MAX	0x7fffffffffffffffL
 
 /*
-                                                      
-                                                    
-                                                       
-                                        
+ * A pointer passed in from user mode. This should not
+ * be used for syscall parameters, just declare them
+ * as pointers because the syscall entry code will have
+ * appropriately converted them already.
  */
 typedef	u32		compat_uptr_t;
 
@@ -241,4 +241,4 @@ struct compat_shmid64_ds {
 	compat_ulong_t __unused1;
 	compat_ulong_t __unused2;
 };
-#endif /*                     */
+#endif /* _ASM_S390X_COMPAT_H */

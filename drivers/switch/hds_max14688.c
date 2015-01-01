@@ -10,8 +10,8 @@
  * the Linux kernel binary object.
  */
 
-/*               */
-/*                       */
+/* #define DEBUG */
+/* #define VERBOSE_DEBUG */
 
 #include <linux/kernel.h>
 #include <linux/version.h>
@@ -29,7 +29,7 @@
 #include <mach/board_lge.h>
 #include <linux/switch.h>
 
-/*                 */
+/* for Device Tree */
 #include <linux/io.h>
 #include <linux/of.h>
 
@@ -102,7 +102,7 @@
 #define MAX14688_OVERWRITE_JACK_INSERTION
 #define MAX14688_WORK_DELAY                    0
 
-/*                       */
+/* Time constants [usec] */
 #define MAX14688_JIG_POWER_DETECTION_DEBOUNCE   12000
 #define MAX14688_MIC_SWITCH_TURN_ON_TIME            1
 #define MAX14688_MIC_SWITCH_TURN_OFF_TIME           1
@@ -156,7 +156,7 @@
 #define BITS_MATCH(_word, _bit) \
 	(((_word) & (_bit)) == (_bit))
 
-/*              */
+/* Register map */
 #define MAX14688_REG_ADDR_INVALID   0xFF
 #define MAX14688_REG_ADDR_BASE      0x00
 #define MAX14688_REG_ADDR(_offset)  (MAX14688_REG_ADDR_BASE + (_offset))
@@ -185,18 +185,18 @@
 #define PINCONTROL1_MANUALMICSW     BIT (6)
 #define PINCONTROL1_FORCEINT        BIT (5)
 #define PINCONTROL1_FORCEMICSW      BIT (4)
-#define PINCONTROL1_MODE1           BITS(3, 2) /*                         */
-#define PINCONTROL1_MODE0           BITS(1, 0) /*                         */
+#define PINCONTROL1_MODE1           BITS(3, 2) /* Accessory Power control */
+#define PINCONTROL1_MODE0           BITS(1, 0) /* Microphone Bias control */
 #define PINCONTROL2                 MAX14688_REG_ADDR(0x09)
 #define PINCONTROL2_INTAUTO         BIT (2)
-#define PINCONTROL2_MICOUTDELAY     BIT (0)   /*                                     */
+#define PINCONTROL2_MICOUTDELAY     BIT (0)   /* Microphone Bias Ouput Delay control */
 #define ADCCONTROL                  MAX14688_REG_ADDR(0x0A)
 #define ADCCONTROL_MANUALADC        BIT (5)
 #define ADCCONTROL_FORCEADC         BIT (4)
 #define ADCCONTROL_ADCCTL           BITS(1, 0)
 #define ADC_VAL_MAX                 BITS(5, 0)
 
-/*                             */
+/* Interrupt corresponding bit */
 #define IRQ_EOC                     BIT (5)
 #define IRQ_DET                     BIT (4)
 #define IRQ_SWD                     BIT (3)
@@ -233,8 +233,8 @@ extern int msm_serial_set_uart_console(int enable);
 #endif
 
 bool earjack_detect = false;
-/*                                                                
-                                                    */
+/* (name, mic impedence, left impedence, has button, mode0, mode1,
+switch name, switch state, event type,  event code) */
 static struct max14688_jack_match max14688_jack_matches[] = {
 	JACK_MATCH("3P", Z(0, 50000), Z(0, 4),   false,  LOW,   LOW,   SWITCH_NAME,          LGE_HEADSET_NO_MIC, EV_SW, SW_HEADPHONE_INSERT, NONE),
 	JACK_MATCH("4P", Z(120000, 2600000),  Z(0,   4),   true,   HIGH,  LOW,   SWITCH_NAME,          LGE_HEADSET,        EV_SW, SW_HEADPHONE_INSERT, SW_MICROPHONE_INSERT),
@@ -248,11 +248,11 @@ static struct max14688_jack_match max14688_jack_matches[] = {
 };
 
 static struct max14688_button_match max14688_button_matches[] = {
-  /*                                                                  
-                                                                      */
+  /*           name      mic                left         event   event
+                       impedence          impedence      type    code */
     BUTTON_MATCH("MEDIA",  Z(0,      150000), DONTCARE,    EV_KEY, KEY_MEDIA),
     BUTTON_MATCH("VOLUP",  Z(150000, 400000), DONTCARE,    EV_KEY, KEY_VOLUMEUP),
-    BUTTON_MATCH("VOLDN",  Z(400000, 600000), DONTCARE,    EV_KEY, KEY_VOLUMEDOWN),
+    BUTTON_MATCH("VOLDN",  Z(400000, 650000), DONTCARE,    EV_KEY, KEY_VOLUMEDOWN),
 };
 
 static int max14688_log_level = 1;
@@ -278,10 +278,10 @@ struct max14688 {
     struct                  delayed_work check_suspended_work;
     int                     suspended;
 #endif
-    int                     matched_jack;   /*                     */
-    int                     matched_button; /*                     */
+    int                     matched_jack;   /* invalid if negative */
+    int                     matched_button; /* invalid if negative */
 
-    /*                    */
+    /* from platform data */
     struct max14688_jack_match    *jack_matches;
     int                            num_of_jack_matches;
     struct max14688_button_match  *button_matches;
@@ -321,10 +321,10 @@ struct max14688 {
 	(__current_button(_me)->name)
 
   #define __msleep(msec) msleep_interruptible((unsigned int)(msec))
-/*                                                   
-                                                   */
+/*#define __msleep(msec) msleep((unsigned int)(msec))
+#define __msleep(msec) mdelay((unsigned int)(msec))*/
 
-/*                                   */
+/* Reading from Sequential Registers */
 static __inline int max14688_i2c_seq_read (struct max14688 *me,
     u8 addr, u8 *dst, u16 len)
 {
@@ -346,12 +346,12 @@ static __inline int max14688_i2c_seq_read (struct max14688 *me,
 
     rc = i2c_transfer(adap, msg, 2);
 
-    /*                                                          
-                        */
+    /* If everything went ok (i.e. 2 msg transmitted), return 0,
+       else error code. */
     return (rc == 2) ? 0 : rc;
 }
 
-/*                                 */
+/* Writing to Sequential Registers */
 static __inline int max14688_i2c_seq_write (struct max14688 *me,
     u8 addr, const u8 *src, u16 len)
 {
@@ -371,8 +371,8 @@ static __inline int max14688_i2c_seq_write (struct max14688 *me,
 
     rc = i2c_transfer(adap, msg, 1);
 
-    /*                                                          
-                        */
+    /* If everything went ok (i.e. 1 msg transmitted), return 0,
+       else error code. */
     return (rc == 1) ? 0 : rc;
 }
 
@@ -399,7 +399,7 @@ static __always_inline void max14688_enable_irq (struct max14688 *me,
     }
 
     if (unlikely((me->irq_unmask & irq_bits) == irq_bits)) {
-	    /*                  */
+	    /* already unmasked */
 	    return;
     }
 
@@ -423,7 +423,7 @@ static __always_inline void max14688_enable_irq (struct max14688 *me,
 
     pr_debug("%s[me->irq_unmask = %d]\n", __func__, me->irq_unmask);
 
-    /*                  */
+    /* set enabled flag */
     me->irq_unmask |= irq_bits;
 
     rc = max14688_write(me, MASK, me->irq_unmask & IRQ_ALL);
@@ -442,11 +442,11 @@ static __always_inline void max14688_disable_irq (struct max14688 *me,
     }
 
     if (unlikely((me->irq_unmask & irq_bits) == 0)) {
-	    /*                */
+	    /* already masked */
 	    return;
     }
 
-    /*                    */
+    /* clear enabled flag */
     me->irq_unmask &= ~irq_bits;
 
     if (unlikely(!me->irq_unmask)) {
@@ -612,7 +612,7 @@ static void max14688_lookup_jack (struct max14688 *me, int micZ, int leftZ)
 		    return;
 	    }
     }
-    me->matched_jack = -1; /*           */
+    me->matched_jack = -1; /* not found */
 }
 
 static void max14688_lookup_button (struct max14688 *me, int micZ)
@@ -627,7 +627,7 @@ static void max14688_lookup_button (struct max14688 *me, int micZ)
 	    }
     }
 
-    me->matched_button = -1; /*           */
+    me->matched_button = -1; /* not found */
 }
 
 #define JACK_IN_VALUE      MAX14688_JACK_IN_VALUE
@@ -657,13 +657,13 @@ static void max14688_det_work (struct work_struct *work)
 
     max14688_update_status(me);
 
-    /*                                */
+    /* Read MIC and L-line impedences */
     micZ  = me->read_mic_impedence(me->dev);
     leftZ = me->read_left_impedence(me->dev);
 
     log_dbg("%s[micZ = %d, leftZ = %d\n", __func__, micZ, leftZ);
 
-    /*                                        */
+    /* Look up jack matching impedence ranges */
     max14688_lookup_jack(me, micZ, leftZ);
 
     if (unlikely(!__present_valid_jack(me))) {
@@ -685,7 +685,7 @@ static void max14688_det_work (struct work_struct *work)
     goto out;
 
 no_match_found:
-    /*                  */
+    /* Handle exception */
     log_err("unknown jack - mic %d, left %d\n", micZ, leftZ);
 
 out:
@@ -702,7 +702,7 @@ static void max14688_irq_button_released (struct max14688 *me)
 	log_dbg("button %s released\n", __current_button_name(me));
 	me->report_button(me->dev, __current_button(me), BUTTON_UP_VALUE);
 
-	/*                        */
+	/* release current button */
 	me->matched_button = -1;
 
 out:
@@ -713,13 +713,13 @@ static void max14688_irq_button_pressed (struct max14688 *me)
 {
     int micZ;
 
-    /*                          */
+    /* Make sure no button down */
     max14688_irq_button_released(me);
 
-    /*                     */
+    /* Read MIC impedences */
     micZ = me->read_mic_impedence(me->dev);
 
-    /*                                          */
+    /* Look up button matching impedence ranges */
     max14688_lookup_button(me, micZ);
 
     log_dbg("%s[micZ = %d]\n", __func__, micZ);
@@ -747,7 +747,7 @@ static void max14688_irq_jack_removed (struct max14688 *me)
 	max14688_write_mode0(me, MAX14688_MODE_LOW);
 	max14688_write_mode1(me, MAX14688_MODE_LOW);
 
-	/*                          */
+	/* Make sure no button down */
 	max14688_irq_button_released(me);
 
 	if (unlikely(!__present_valid_jack(me))) {
@@ -757,7 +757,7 @@ static void max14688_irq_jack_removed (struct max14688 *me)
 	log_dbg("jack %s removed\n", __current_jack_name(me));
 	me->report_jack(me->dev, __current_jack(me), JACK_OUT_VALUE);
 
-	/*                      */
+	/* release current jack */
 	me->matched_jack = -1;
 #ifdef CONFIG_EARJACK_DEBUGGER
 	if (lge_get_board_revno() < HW_REV_1_0)
@@ -769,13 +769,9 @@ out:
 
 static void max14688_irq_jack_inserted (struct max14688 *me)
 {
-	unsigned long det_work_delay =
-		usecs_to_jiffies(MAX14688_IDETIN_RISE_TIME) +
-		usecs_to_jiffies(MAX14688_IDETIN_FALL_TIME) +
-		usecs_to_jiffies(MAX14688_IDETIN_ON_TIME) +
-		usecs_to_jiffies(MAX14688_JIG_INJURY_TIME);
+	unsigned long det_work_delay = msecs_to_jiffies(500);
 
-	/*                                                        */
+	/* Check INT bit and STATUS_INT bit for avoiding JIG mode */
 	if (unlikely(max14688_get_status(me, STATUS_INT) && max14688_get_status(me, STATUS_MICIN))) {
 		log_info("JIG power detected\n");
 
@@ -836,7 +832,7 @@ static void max14688_irq_work (struct work_struct *work)
 
     __lock(me);
 
-	/*               */
+	/* re-new status */
 	max14688_update_status(me);
 
 	spin_lock(&me->irq_lock);
@@ -850,7 +846,7 @@ static void max14688_irq_work (struct work_struct *work)
 
 	log_dbg("%s[jack_detected = %d]\n", __func__, jack_detected);
 	if (likely(irq_bits & IRQ_DET)) {
-		/*                        */
+		/* jack insert/remove irq */
 		if (jack_detected) {
 			max14688_irq_jack_inserted(me);
 		} else {
@@ -863,7 +859,7 @@ static void max14688_irq_work (struct work_struct *work)
 	}
 
 	if (likely(irq_bits & IRQ_SWD)) {
-		/*                          */
+		/* button press/release irq */
 		if (button_pressed) {
 			max14688_irq_button_pressed(me);
 		} else {
@@ -1035,7 +1031,7 @@ static ssize_t max14688_adc_refresh_store (struct device *dev,
 		goto out;
 	}
 
-	/*                                */
+	/* Save original ADCCONTROL value */
 	adccontrol_save = adccontrol;
 
 	delay = (unsigned int)simple_strtoul(buf, NULL, 10);
@@ -1070,7 +1066,7 @@ static ssize_t max14688_adc_refresh_store (struct device *dev,
 
 	} while (likely(!BITS_GET(adcstatus, ADCSTATUS_EOC)));
 
-	/*                                                             */
+	/* Restore ADCCONTROL value and make sure FORCEADC bit cleared */
 	adccontrol_save &= ~ADCCONTROL_FORCEADC;
 	rc = max14688_write(me, ADCCONTROL, adccontrol_save);
 	if (unlikely(rc)) {
@@ -1100,21 +1096,21 @@ static ssize_t max14688_monitor_show (struct device *dev,
 	irq_saved  = me->irq_saved;
 	spin_unlock_irqrestore(&me->irq_lock, flags);
 
-	/*                                                                        */
+	/**************************************************************************/
 	reg_val = 0;
 	max14688_read(me, ADCCONVERSION, &reg_val);
 
 	rc += (int)snprintf(buf+rc, PAGE_SIZE,
 			"Latest ADC conversion   %u (code %02Xh)\n", reg_val, reg_val);
 
-	/*                                                                        */
+	/**************************************************************************/
 	reg_val = 0;
 	max14688_read(me, ADCSTATUS, &reg_val);
 
 	rc += (int)snprintf(buf+rc, PAGE_SIZE,
 			"ADCSTATUS register      %02Xh\n", reg_val);
 
-	/*                                                                        */
+	/**************************************************************************/
 	rc += (int)snprintf(buf+rc, PAGE_SIZE,
 			"Saved Status            %02Xh\n", me->status);
 	rc += (int)snprintf(buf+rc, PAGE_SIZE,
@@ -1133,7 +1129,7 @@ static ssize_t max14688_monitor_show (struct device *dev,
 			"  DETIN is %s\n",
 			BITS_GET(me->status, STATUS_DETIN) ? "detected" : "not detected");
 
-	/*                                                                        */
+	/**************************************************************************/
 	reg_val = 0;
 	max14688_read(me, MASK, &reg_val);
 
@@ -1148,7 +1144,7 @@ static ssize_t max14688_monitor_show (struct device *dev,
 			!!(reg_val & IRQ_MICIN),
 			!!(reg_val & IRQ_DETIN));
 
-	/*                                                                        */
+	/**************************************************************************/
 	rc += (int)snprintf(buf+rc, PAGE_SIZE,
 			"Saved interrupt flags   %02Xh\n", irq_saved);
 	rc += (int)snprintf(buf+rc, PAGE_SIZE,
@@ -1160,7 +1156,7 @@ static ssize_t max14688_monitor_show (struct device *dev,
 			!!(irq_saved & IRQ_MICIN),
 			!!(irq_saved & IRQ_DETIN));
 
-	/*                                                                        */
+	/**************************************************************************/
 	rc += (int)snprintf(buf+rc, PAGE_SIZE,
 			"Enabled interrupt flags %02Xh\n", irq_unmask);
 	rc += (int)snprintf(buf+rc, PAGE_SIZE,
@@ -1172,7 +1168,7 @@ static ssize_t max14688_monitor_show (struct device *dev,
 			!!(irq_unmask & IRQ_MICIN),
 			!!(irq_unmask & IRQ_DETIN));
 
-	/*                                                                        */
+	/**************************************************************************/
 	reg_val = 0;
 	max14688_read(me, PINCONTROL1, &reg_val);
 
@@ -1221,7 +1217,7 @@ static ssize_t max14688_monitor_show (struct device *dev,
 			"delayed until Z detection after DET going low" :
 			"follows the MODE0/1 after DET going low");
 
-	/*                                                                        */
+	/**************************************************************************/
 	reg_val = 0;
 	max14688_read(me, ADCCONTROL, &reg_val);
 
@@ -1383,7 +1379,7 @@ static int max14688_read_left_impedence (struct device *dev)
 
     log_dbg("%s[adc value = %d]\n", __func__, adcconversion);
 
-    /*                                                                                          */
+    /* Greater than 2.69k(ohm) resistor is connected, read the EOC bit in the ADCSTATUS address */
     max14688_read(me, ADCSTATUS, &adcstatus);
     if (!(BITS_GET(adcstatus, ADCSTATUS_EOC))) {
 	    log_dbg("%s[ADC_VAL_MAX = %d]\n", __func__, (int)ADC_VAL_MAX);
@@ -1438,17 +1434,17 @@ static void max14688_report_button (struct device *dev,
 
 static const struct i2c_device_id max14688_i2c_ids[] = {
     { DRIVER_NAME, 0 },
-    { /*              */ }
+    { /* end of array */ }
 };
 MODULE_DEVICE_TABLE(i2c, max14688_i2c_ids);
 
 #ifdef CONFIG_OF
 static const struct of_device_id max14688_device_ids[] = {
     { .compatible = "maxim,"DRIVER_NAME, },
-    { /*              */ }
+    { /* end of array */ }
 };
 MODULE_DEVICE_TABLE(of, max14688_device_ids);
-#endif /*           */
+#endif /* CONFIG_OF */
 
 #ifdef I2C_SUSPEND_WORKAROUND
 static void max14688_check_suspended_worker(struct work_struct *work)
@@ -1575,36 +1571,36 @@ static __devinit int max14688_probe (struct i2c_client *client,
 
     me->irq = gpio_to_irq(me->gpio_int);
 
-    /*                                                */
+    /* Save jack lookup table given via platform data */
     me->jack_matches        = pdata->jack_matches;
     me->num_of_jack_matches = pdata->num_of_jack_matches;
 
-    /*                                                  */
+    /* Save button lookup table given via platform data */
     me->button_matches        = pdata->button_matches;
     me->num_of_button_matches = pdata->num_of_button_matches;
 
     me->matched_jack   = -1;
     me->matched_button = -1;
 
-    /*                         */
+    /* Platform-specific Calls */
     me->detect_jack = pdata->detect_jack;
     me->read_mic_impedence = pdata->read_mic_impedence;
     me->read_left_impedence = pdata->read_left_impedence;
     me->report_jack = pdata->report_jack;
     me->report_button = pdata->report_button;
 
-    /*                                */
+    /* Disable & Clear all interrupts */
     max14688_write(me, MASK, 0x00);
     max14688_read(me, INTERRUPT, &me->irq_saved);
 
-    /*                                                                */
+    /* INT AUTO disable(INT follows the state diagram and flow chart) */
     max14688_read(me, PINCONTROL2, &pincontrol2);
     max14688_write(me, PINCONTROL2, ~PINCONTROL2_INTAUTO & pincontrol2);
     max14688_read(me, PINCONTROL2, &pincontrol2);
 
     log_dbg("%s[pincontrol2 = %d]\n", __func__, pincontrol2);
 
-    /*                      */
+    /* Default MODE setting */
     max14688_write_mode0(me, MAX14688_MODE_LOW);
     max14688_write_mode1(me, MAX14688_MODE_LOW);
 
@@ -1613,14 +1609,14 @@ static __devinit int max14688_probe (struct i2c_client *client,
 
     log_dbg("%s[me->irq_saved = %d]\n", __func__, me->irq_saved);
 
-    /*                    */
+    /* Register input_dev */
     me->input_dev = input_allocate_device();
     if (unlikely(!me->input_dev)) {
 	    log_err("failed to allocate memory for new input device\n");
 	    rc = -ENOMEM;
 	    goto abort;
     }
-    /*                          */
+    /* initialize switch device */
     me->sdev.name             = pdata->switch_name;
 
     rc = switch_dev_register(&me->sdev);
@@ -1680,7 +1676,7 @@ static __devinit int max14688_probe (struct i2c_client *client,
 	    goto abort;
     }
 
-    /*                                  */
+    /* Create max14688 sysfs attributes */
     me->attr_grp = &max14688_attr_group;
     rc = sysfs_create_group(me->kobj, me->attr_grp);
     if (unlikely(rc)) {
@@ -1689,11 +1685,11 @@ static __devinit int max14688_probe (struct i2c_client *client,
 	    goto abort;
     }
 
-    /*                  */
+    /* Get MAX14688 IRQ */
     if (unlikely(me->irq < 0)) {
 	    log_warn("interrupt disabled\n");
     } else {
-	    /*                                 */
+	    /* Request system IRQ for MAX14688 */
 	    rc = request_threaded_irq(me->irq, NULL, max14688_isr,
 			    IRQF_ONESHOT | IRQF_TRIGGER_FALLING, DRIVER_NAME, me);
 	    if (unlikely(rc < 0)) {
@@ -1706,7 +1702,7 @@ static __devinit int max14688_probe (struct i2c_client *client,
 
     max14688_enable_irq(me, IRQ_DET);
 
-    /*                         */
+    /* Complete initialization */
 
     log_info(DRIVER_DESC" "DRIVER_VERSION" Installed\n");
 
@@ -1780,9 +1776,9 @@ static int max14688_resume (struct device *dev)
 	__unlock(me);
 	return 0;
 }
-#endif /*                 */
+#endif /* CONFIG_PM_SLEEP */
 
-/*                                                                         */
+/*static SIMPLE_DEV_PM_OPS(max14688_pm, max14688_suspend, max14688_resume);*/
 
 const struct dev_pm_ops max14688_pm = {
     .suspend               = max14688_suspend,
@@ -1795,7 +1791,7 @@ static struct i2c_driver max14688_i2c_driver = {
     .driver.pm             = &max14688_pm,
 #ifdef CONFIG_OF
     .driver.of_match_table = of_match_ptr(max14688_device_ids),
-#endif /*           */
+#endif /* CONFIG_OF */
     .probe                 = max14688_probe,
     .remove                = __devexit_p(max14688_remove),
     .id_table              = max14688_i2c_ids,
@@ -1808,7 +1804,7 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_VERSION(DRIVER_VERSION);
 
-/*                                                                            */
+/******************************************************************************/
 
 struct device *max14688_device (struct input_dev *input_dev)
 {

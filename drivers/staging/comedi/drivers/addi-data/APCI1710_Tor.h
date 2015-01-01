@@ -33,7 +33,7 @@
 #define APCI1710_TOR_READINTERRUPT	2
 
 /*
-                                      
+ * TOR_COUNTER INISIALISATION FUNCTION
  */
 int i_APCI1710_InsnConfigInitTorCounter(struct comedi_device *dev,
 					struct comedi_subdevice *s,
@@ -49,7 +49,7 @@ int i_APCI1710_InsnReadGetTorCounterInitialisation(struct comedi_device *dev,
 						   struct comedi_insn *insn,
 						   unsigned int *data);
 /*
-                            
+ * TOR_COUNTER READ FUNCTION
  */
 int i_APCI1710_InsnBitsGetTorCounterProgressStatusAndValue(struct comedi_device *dev,
 							   struct comedi_subdevice *s,

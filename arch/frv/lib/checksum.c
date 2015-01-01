@@ -28,17 +28,17 @@
  *		2 of the License, or (at your option) any later version.
  */
 
-/*                                                                                            
-                              */
+/* Revised by Kenneth Albanowski for m68knommu. Basic problem: unaligned access kills, so most
+   of the assembly has to go. */
 
 #include <net/checksum.h>
 #include <linux/module.h>
 
 static inline unsigned short from32to16(unsigned long x)
 {
-	/*                                       */
+	/* add up 16-bit and 16-bit for 16+c bit */
 	x = (x & 0xffff) + (x >> 16);
-	/*                */
+	/* add up carry.. */
 	x = (x & 0xffff) + (x >> 16);
 	return x;
 }
@@ -56,7 +56,7 @@ static unsigned long do_csum(const unsigned char * buff, int len)
 		len--;
 		buff++;
 	}
-	count = len >> 1;		/*                      */
+	count = len >> 1;		/* nr of 16-bit words.. */
 	if (count) {
 		if (2 & (unsigned long) buff) {
 			result += *(unsigned short *) buff;
@@ -64,7 +64,7 @@ static unsigned long do_csum(const unsigned char * buff, int len)
 			len -= 2;
 			buff += 2;
 		}
-		count >>= 1;		/*                      */
+		count >>= 1;		/* nr of 32-bit words.. */
 		if (count) {
 		        unsigned long carry = 0;
 			do {
@@ -93,22 +93,22 @@ out:
 }
 
 /*
-                                                               
-                             
-  
-                                                           
-                       
-  
-                                                         
-                                          
-  
-                                                      
+ * computes the checksum of a memory block at buff, length len,
+ * and adds in "sum" (32-bit)
+ *
+ * returns a 32-bit number suitable for feeding into itself
+ * or csum_tcpudp_magic
+ *
+ * this function must be called with even lengths, except
+ * for the last fragment, which may be odd
+ *
+ * it's best to have buff aligned on a 32-bit boundary
  */
 __wsum csum_partial(const void *buff, int len, __wsum sum)
 {
 	unsigned int result = do_csum(buff, len);
 
-	/*                             */
+	/* add in old sum, and carry.. */
 	result += (__force u32)sum;
 	if ((__force u32)sum > result)
 		result += 1;
@@ -118,8 +118,8 @@ __wsum csum_partial(const void *buff, int len, __wsum sum)
 EXPORT_SYMBOL(csum_partial);
 
 /*
-                                                                   
-            
+ * this routine is used for miscellaneous IP-like checksums, mainly
+ * in icmp.c
  */
 __sum16 ip_compute_csum(const void *buff, int len)
 {
@@ -129,7 +129,7 @@ __sum16 ip_compute_csum(const void *buff, int len)
 EXPORT_SYMBOL(ip_compute_csum);
 
 /*
-                                                               
+ * copy from fs while checksumming, otherwise like csum_partial
  */
 __wsum
 csum_partial_copy_from_user(const void __user *src, void *dst,
@@ -154,7 +154,7 @@ csum_partial_copy_from_user(const void __user *src, void *dst,
 EXPORT_SYMBOL(csum_partial_copy_from_user);
 
 /*
-                                                               
+ * copy from ds while checksumming, otherwise like csum_partial
  */
 __wsum
 csum_partial_copy_nocheck(const void *src, void *dst, int len, __wsum sum)

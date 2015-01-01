@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-         
-  
-                                                                             
+/**
+ *  @file
+ *
+ *  @brief Contains linux-specific type definitions and function declarations
  */
 
 #ifndef	_COMM_OS_LINUX_H_
@@ -40,7 +40,7 @@
 
 
 /*
-                    
+ * Type definitions.
  */
 
 typedef atomic_t CommOSAtomic;
@@ -54,7 +54,7 @@ typedef struct module *CommOSModule;
 
 
 /*
-                
+ * Initializers.
  */
 
 #define CommOSSpinlock_Define DEFINE_SPINLOCK
@@ -63,8 +63,8 @@ typedef struct module *CommOSModule;
 #define COMM_OS_DOLOG(...) pr_info(__VA_ARGS__)
 
 
-/* 
-                                                
+/**
+ *  @brief Logs given arguments in debug builds.
  */
 
 #if defined(COMM_OS_DEBUG)
@@ -74,15 +74,15 @@ typedef struct module *CommOSModule;
 #endif
 
 
-/* 
-                                
+/**
+ *  @brief Logs given arguments.
  */
 
 #define CommOS_Log(args) do { COMM_OS_DOLOG args ; } while (0)
 
 
-/* 
-                                           
+/**
+ *  @brief Logs function name and location.
  */
 
 #if defined(COMM_OS_TRACE)
@@ -94,10 +94,10 @@ typedef struct module *CommOSModule;
 #endif
 
 
-/* 
-                                
-                                           
-                        
+/**
+ *  @brief Write atomic variable
+ *  @param[in,out] atomic variable to write
+ *  @param val new value
  */
 
 static inline void
@@ -108,10 +108,10 @@ CommOS_WriteAtomic(CommOSAtomic *atomic,
 }
 
 
-/* 
-                                
-                                  
-                 
+/**
+ *  @brief Reads atomic variable
+ *  @param atomic variable to read
+ *  @return value
  */
 
 static inline int
@@ -121,11 +121,11 @@ CommOS_ReadAtomic(CommOSAtomic *atomic)
 }
 
 
-/* 
-                                                                     
-                                  
-                           
-                     
+/**
+ *  @brief Atomically add value to atomic variable, return new value.
+ *  @param[in,out] atomic variable
+ *  @param val value to add
+ *  @return new value
  */
 
 static inline int
@@ -136,11 +136,11 @@ CommOS_AddReturnAtomic(CommOSAtomic *atomic,
 }
 
 
-/* 
-                                                                             
-                                  
-                                 
-                     
+/**
+ *  @brief Atomically substract value from atomic variable, return new value.
+ *  @param[in,out] atomic variable
+ *  @param val value to substract
+ *  @return new value
  */
 
 static inline int
@@ -151,9 +151,9 @@ CommOS_SubReturnAtomic(CommOSAtomic *atomic,
 }
 
 
-/* 
-                                    
-                                          
+/**
+ *  @brief Initializes a given lock.
+ *  @param[in,out] lock lock to initialize
  */
 
 static inline void
@@ -163,9 +163,9 @@ CommOS_SpinlockInit(CommOSSpinlock *lock)
 }
 
 
-/* 
-                                                                
-                                    
+/**
+ *  @brief Locks given lock and disables bottom half processing.
+ *  @param[in,out] lock lock to lock
  */
 
 static inline void
@@ -175,10 +175,10 @@ CommOS_SpinLockBH(CommOSSpinlock *lock)
 }
 
 
-/* 
-                                                                     
-                                    
-                                                  
+/**
+ *  @brief Attempts to lock the given lock and disable BH processing.
+ *  @param[in,out] lock lock to lock
+ *  @return zero if successful, non-zero otherwise
  */
 
 static inline int
@@ -188,9 +188,9 @@ CommOS_SpinTrylockBH(CommOSSpinlock *lock)
 }
 
 
-/* 
-                                                           
-                                      
+/**
+ *  @brief Unlocks given lock and re-enables BH processing.
+ *  @param[in,out] lock lock to unlock
  */
 
 static inline void
@@ -200,9 +200,9 @@ CommOS_SpinUnlockBH(CommOSSpinlock *lock)
 }
 
 
-/* 
-                                
-                                    
+/**
+ *  @brief Locks the given lock.
+ *  @param[in,out] lock lock to lock
  */
 
 static inline void
@@ -212,10 +212,10 @@ CommOS_SpinLock(CommOSSpinlock *lock)
 }
 
 
-/* 
-                                           
-                                        
-                                                  
+/**
+ *  @brief Attempts to lock the given lock.
+ *  @param[in,out] lock lock to try-lock
+ *  @return zero if successful, non-zero otherwise
  */
 
 static inline int
@@ -225,9 +225,9 @@ CommOS_SpinTrylock(CommOSSpinlock *lock)
 }
 
 
-/* 
-                              
-                                      
+/**
+ *  @brief Unlocks given lock.
+ *  @param[in,out] lock lock to unlock
  */
 
 static inline void
@@ -237,9 +237,9 @@ CommOS_SpinUnlock(CommOSSpinlock *lock)
 }
 
 
-/* 
-                                   
-                                            
+/**
+ *  @brief Initializes given mutex.
+ *  @param[in,out] mutex mutex to initialize
  */
 
 static inline void
@@ -249,10 +249,10 @@ CommOS_MutexInit(CommOSMutex *mutex)
 }
 
 
-/* 
-                          
-                                      
-                                                                
+/**
+ *  @brief Acquires mutex.
+ *  @param[in,out] mutex mutex to lock
+ *  @return zero if successful, non-zero otherwise (interrupted)
  */
 
 static inline int
@@ -262,9 +262,9 @@ CommOS_MutexLock(CommOSMutex *mutex)
 }
 
 
-/* 
-                                                  
-                                      
+/**
+ *  @brief Acquires mutex in uninterruptible mode.
+ *  @param[in,out] mutex mutex to lock
  */
 
 static inline void
@@ -274,10 +274,10 @@ CommOS_MutexLockUninterruptible(CommOSMutex *mutex)
 }
 
 
-/* 
-                                           
-                                          
-                                                  
+/**
+ *  @brief Attempts to acquire given mutex.
+ *  @param[in,out] mutex mutex to try-lock
+ *  @return zero if successful, non-zero otherwise
  */
 
 static inline int
@@ -287,9 +287,9 @@ CommOS_MutexTrylock(CommOSMutex *mutex)
 }
 
 
-/* 
-                                  
-                                        
+/**
+ *  @brief Releases a given mutex.
+ *  @param[in,out] mutex mutex to unlock
  */
 
 static inline void
@@ -299,9 +299,9 @@ CommOS_MutexUnlock(CommOSMutex *mutex)
 }
 
 
-/* 
-                                    
-                                             
+/**
+ *  @brief Initializes a wait queue.
+ *  @param[in,out] wq workqueue to initialize
  */
 
 static inline void
@@ -311,21 +311,21 @@ CommOS_WaitQueueInit(CommOSWaitQueue *wq)
 }
 
 
-/* 
-                                                                                
-                                                              
-                                                
-                             
-                                               
-                                 
-                                       
-                                       
-                                                                 
-                                                            
-                                  
-                                             
-                                                                      
-                                                          
+/**
+ *  @brief Puts the caller on a wait queue until either of the following occurs:
+ *      - the condition function (predicate) evaluates to TRUE
+ *      - the specified timeout interval elapsed
+ *      - a signal is pending
+ *  @param[in,out] wq wait queue to put item on
+ *  @param cond predicate to test
+ *  @param condArg1 argument 1 for cond
+ *  @param condArg2 argument 2 for cond
+ *  @param[in,out] timeoutMillis timeout interval in milliseconds
+ *  @param interruptible enable/disable signal pending check
+ *  @return 1 if condition was met
+ *          0 if the timeout interval elapsed
+ *          <0, if a signal is pending or other error set by condition
+ *  @sideeffect timeoutMillis is updated to time remaining
  */
 
 static inline int
@@ -384,7 +384,7 @@ CommOS_DoWait(CommOSWaitQueue *wq,
 			retTimeout = 1;
 	}
 	*timeoutMillis = (unsigned long long)jiffies_to_msecs(retTimeout);
-#else /*                                         */
+#else /* !defined(COMM_OS_LINUX_WAIT_WORKAROUND) */
 	timeout = msecs_to_jiffies((unsigned int)(*timeoutMillis));
 
 	for (;;) {
@@ -417,20 +417,20 @@ CommOS_DoWait(CommOSWaitQueue *wq,
 }
 
 
-/* 
-                                                                                
-                                                              
-                                                
-                             
-                                               
-                                 
-                                       
-                                       
-                                                                 
-                                  
-                                             
-                                                                      
-                                                          
+/**
+ *  @brief Puts the caller on a wait queue until either of the following occurs:
+ *      - the condition function (predicate) evaluates to TRUE
+ *      - the specified timeout interval elapsed
+ *      - a signal is pending
+ *  @param[in,out] wq wait queue to put item on
+ *  @param cond predicate to test
+ *  @param condArg1 argument 1 for cond
+ *  @param condArg2 argument 2 for cond
+ *  @param[in,out] timeoutMillis timeout interval in milliseconds
+ *  @return 1 if condition was met
+ *          0 if the timeout interval elapsed
+ *          <0, if a signal is pending or other error set by condition
+ *  @sideeffect timeoutMillis is updated to time remaining
  */
 
 static inline int
@@ -444,19 +444,19 @@ CommOS_Wait(CommOSWaitQueue *wq,
 }
 
 
-/* 
-                                                                                
-                                                              
-                                                
-                                               
-                                 
-                                       
-                                       
-                                                                 
-                                  
-                                             
-                                      
-                                                          
+/**
+ *  @brief Puts the caller on a wait queue until either of the following occurs:
+ *      - the condition function (predicate) evaluates to TRUE
+ *      - the specified timeout interval elapsed
+ *  @param[in,out] wq wait queue to put item on
+ *  @param cond predicate to test
+ *  @param condArg1 argument 1 for cond
+ *  @param condArg2 argument 2 for cond
+ *  @param[in,out] timeoutMillis timeout interval in milliseconds
+ *  @return 1 if condition was met
+ *          0 if the timeout interval elapsed
+ *          <0, error set by condition
+ *  @sideeffect timeoutMillis is updated to time remaining
  */
 
 static inline int
@@ -470,9 +470,9 @@ CommOS_WaitUninterruptible(CommOSWaitQueue *wq,
 }
 
 
-/* 
-                                                            
-                                 
+/**
+ *  @brief Wakes up task(s) waiting on the given wait queue.
+ *  @param[in,out] wq wait queue.
  */
 
 static inline void
@@ -482,10 +482,10 @@ CommOS_WakeUp(CommOSWaitQueue *wq)
 }
 
 
-/* 
-                                                                     
-                                 
-                                                                        
+/**
+ *  @brief Allocates kernel memory of specified size; does not sleep.
+ *  @param size size to allocate.
+ *  @return Address of allocated memory or NULL if the allocation fails.
  */
 
 static inline void *
@@ -495,10 +495,10 @@ CommOS_KmallocNoSleep(unsigned int size)
 }
 
 
-/* 
-                                                                
-                                 
-                                                                        
+/**
+ *  @brief Allocates kernel memory of specified size; may sleep.
+ *  @param size size to allocate.
+ *  @return Address of allocated memory or NULL if the allocation fails.
  */
 
 static inline void *
@@ -508,9 +508,9 @@ CommOS_Kmalloc(unsigned int size)
 }
 
 
-/* 
-                                                    
-                              
+/**
+ *  @brief Frees previously allocated kernel memory.
+ *  @param obj object to free.
  */
 
 static inline void
@@ -520,8 +520,8 @@ CommOS_Kfree(void *obj)
 }
 
 
-/* 
-                                                          
+/**
+ *  @brief Yields the current cpu to other runnable tasks.
  */
 
 static inline void
@@ -531,9 +531,9 @@ CommOS_Yield(void)
 }
 
 
-/* 
-                                                 
-                                                                             
+/**
+ *  @brief Gets the current time in milliseconds.
+ *  @return Current time in milliseconds, with precision of at most one tick.
  */
 
 static inline unsigned long long
@@ -543,9 +543,9 @@ CommOS_GetCurrentMillis(void)
 }
 
 
-/* 
-                                  
-                                   
+/**
+ *  @brief Initializes given list.
+ *  @param list list to initialize.
  */
 
 static inline void
@@ -555,36 +555,36 @@ CommOS_ListInit(CommOSList *list)
 }
 
 
-/* 
-                                  
-                             
-                                              
+/**
+ *  @brief Tests if list is empty.
+ *  @param list list to test.
+ *  @return non-zero if empty, zero otherwise.
  */
 
 #define CommOS_ListEmpty(list) list_empty((list))
 
 
-/* 
-                                                   
-                               
-                               
+/**
+ *  @brief Adds given element to beginning of list.
+ *  @param list list to add to.
+ *  @param elem element to add.
  */
 
 #define CommOS_ListAdd(list, elem) list_add((elem), (list))
 
 
-/* 
-                                             
-                               
-                               
+/**
+ *  @brief Adds given element to end of list.
+ *  @param list list to add to.
+ *  @param elem element to add.
  */
 
 #define CommOS_ListAddTail(list, elem) list_add_tail((elem), (list))
 
 
-/* 
-                                               
-                                  
+/**
+ *  @brief Deletes given element from its list.
+ *  @param elem element to delete.
  */
 
 #define CommOS_ListDel(elem)		\
@@ -594,50 +594,50 @@ CommOS_ListInit(CommOSList *list)
 	} while (0)
 
 
-/* 
-                                
-                                     
-                                         
-                                                                              
+/**
+ *  @brief Iterates over a list.
+ *  @param list list to iterate over.
+ *  @param[out] item stores next element.
+ *  @param itemListFieldName name in the item structure storing the list head.
  */
 
 #define CommOS_ListForEach(list, item, itemListFieldName) \
 	list_for_each_entry((item), (list), itemListFieldName)
 
 
-/* 
-                                       
-                                     
-                                                                     
-                                                
-                                                                              
+/**
+ *  @brief Iterates safely over a list.
+ *  @param list list to iterate over.
+ *  @param[out] item stores next element. May be deleted in the loop.
+ *  @param[out] tmpItem saves iteration element.
+ *  @param itemListFieldName name in the item structure storing the list head.
  */
 
 #define CommOS_ListForEachSafe(list, item, tmpItem, itemListFieldName) \
 	list_for_each_entry_safe((item), (tmpItem), (list), itemListFieldName)
 
 
-/* 
-                                                                          
-                               
-                             
+/**
+ *  @brief Combines two lists, adds second list to beginning of first one.
+ *  @param list list to add to.
+ *  @param list2 list to add.
  */
 
 #define CommOS_ListSplice(list, list2) list_splice((list2), (list))
 
 
-/* 
-                                                                    
-                               
-                             
+/**
+ *  @brief Combines two lists, adds second list to end of first one.
+ *  @param list list to add to.
+ *  @param list2 list to add.
  */
 
 #define CommOS_ListSpliceTail(list, list2) list_splice_tail((list2), (list))
 
 
-/* 
-                                      
-                          
+/**
+ *  @brief Gets current module handle.
+ *  @return module handle.
  */
 
 static inline CommOSModule
@@ -647,10 +647,10 @@ CommOS_ModuleSelf(void)
 }
 
 
-/* 
-                          
-                                    
-                                                   
+/**
+ *  @brief Retains module.
+ *  @param[in,out] module to retain.
+ *  @return zero if successful, non-zero otherwise.
  */
 
 static inline int
@@ -669,9 +669,9 @@ out:
 }
 
 
-/* 
-                           
-                                     
+/**
+ *  @brief Releases module.
+ *  @param[in,out] module to release.
  */
 
 static inline void
@@ -682,11 +682,11 @@ CommOS_ModulePut(CommOSModule module)
 }
 
 
-/* 
-                                      
+/**
+ *  @brief Inserts r/w memory barrier.
  */
 
 #define CommOS_MemBarrier smp_mb
 
-#endif  /*                   */
+#endif  /* _COMM_OS_LINUX_H_ */
 

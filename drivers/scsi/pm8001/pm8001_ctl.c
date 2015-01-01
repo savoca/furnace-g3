@@ -42,14 +42,14 @@
 #include "pm8001_sas.h"
 #include "pm8001_ctl.h"
 
-/*                      */
+/* scsi host attributes */
 
-/* 
-                                                                    
-                                          
-                            
-  
-                                       
+/**
+ * pm8001_ctl_mpi_interface_rev_show - MPI interface revision number
+ * @cdev: pointer to embedded class device
+ * @buf: the buffer returned
+ *
+ * A sysfs 'read-only' shost attribute.
  */
 static ssize_t pm8001_ctl_mpi_interface_rev_show(struct device *cdev,
 	struct device_attribute *attr, char *buf)
@@ -64,12 +64,12 @@ static ssize_t pm8001_ctl_mpi_interface_rev_show(struct device *cdev,
 static
 DEVICE_ATTR(interface_rev, S_IRUGO, pm8001_ctl_mpi_interface_rev_show, NULL);
 
-/* 
-                                                
-                                          
-                            
-  
-                                       
+/**
+ * pm8001_ctl_fw_version_show - firmware version
+ * @cdev: pointer to embedded class device
+ * @buf: the buffer returned
+ *
+ * A sysfs 'read-only' shost attribute.
  */
 static ssize_t pm8001_ctl_fw_version_show(struct device *cdev,
 	struct device_attribute *attr, char *buf)
@@ -85,12 +85,12 @@ static ssize_t pm8001_ctl_fw_version_show(struct device *cdev,
 		       (u8)(pm8001_ha->main_cfg_tbl.firmware_rev));
 }
 static DEVICE_ATTR(fw_version, S_IRUGO, pm8001_ctl_fw_version_show, NULL);
-/* 
-                                                            
-                                          
-                            
-  
-                                       
+/**
+ * pm8001_ctl_max_out_io_show - max outstanding io supported
+ * @cdev: pointer to embedded class device
+ * @buf: the buffer returned
+ *
+ * A sysfs 'read-only' shost attribute.
  */
 static ssize_t pm8001_ctl_max_out_io_show(struct device *cdev,
 	struct device_attribute *attr, char *buf)
@@ -103,12 +103,12 @@ static ssize_t pm8001_ctl_max_out_io_show(struct device *cdev,
 			pm8001_ha->main_cfg_tbl.max_out_io);
 }
 static DEVICE_ATTR(max_out_io, S_IRUGO, pm8001_ctl_max_out_io_show, NULL);
-/* 
-                                                    
-                                          
-                            
-  
-                                       
+/**
+ * pm8001_ctl_max_devices_show - max devices support
+ * @cdev: pointer to embedded class device
+ * @buf: the buffer returned
+ *
+ * A sysfs 'read-only' shost attribute.
  */
 static ssize_t pm8001_ctl_max_devices_show(struct device *cdev,
 	struct device_attribute *attr, char *buf)
@@ -121,13 +121,13 @@ static ssize_t pm8001_ctl_max_devices_show(struct device *cdev,
 			(u16)(pm8001_ha->main_cfg_tbl.max_sgl >> 16));
 }
 static DEVICE_ATTR(max_devices, S_IRUGO, pm8001_ctl_max_devices_show, NULL);
-/* 
-                                                                         
-                      
-                                          
-                            
-  
-                                       
+/**
+ * pm8001_ctl_max_sg_list_show - max sg list supported iff not 0.0 for no
+ * hardware limitation
+ * @cdev: pointer to embedded class device
+ * @buf: the buffer returned
+ *
+ * A sysfs 'read-only' shost attribute.
  */
 static ssize_t pm8001_ctl_max_sg_list_show(struct device *cdev,
 	struct device_attribute *attr, char *buf)
@@ -159,12 +159,12 @@ show_sas_spec_support_status(unsigned int mode, char *buf)
 	return len;
 }
 
-/* 
-                                                        
-                                          
-                            
-  
-                                       
+/**
+ * pm8001_ctl_sas_spec_support_show - sas spec supported
+ * @cdev: pointer to embedded class device
+ * @buf: the buffer returned
+ *
+ * A sysfs 'read-only' shost attribute.
  */
 static ssize_t pm8001_ctl_sas_spec_support_show(struct device *cdev,
 	struct device_attribute *attr, char *buf)
@@ -179,14 +179,14 @@ static ssize_t pm8001_ctl_sas_spec_support_show(struct device *cdev,
 static DEVICE_ATTR(sas_spec_support, S_IRUGO,
 		   pm8001_ctl_sas_spec_support_show, NULL);
 
-/* 
-                                            
-                                          
-                            
-  
-                                     
-  
-                                       
+/**
+ * pm8001_ctl_sas_address_show - sas address
+ * @cdev: pointer to embedded class device
+ * @buf: the buffer returned
+ *
+ * This is the controller sas address
+ *
+ * A sysfs 'read-only' shost attribute.
  */
 static ssize_t pm8001_ctl_host_sas_address_show(struct device *cdev,
 	struct device_attribute *attr, char *buf)
@@ -200,12 +200,12 @@ static ssize_t pm8001_ctl_host_sas_address_show(struct device *cdev,
 static DEVICE_ATTR(host_sas_address, S_IRUGO,
 		   pm8001_ctl_host_sas_address_show, NULL);
 
-/* 
-                                                
-                                          
-                            
-  
-                                        
+/**
+ * pm8001_ctl_logging_level_show - logging level
+ * @cdev: pointer to embedded class device
+ * @buf: the buffer returned
+ *
+ * A sysfs 'read/write' shost attribute.
  */
 static ssize_t pm8001_ctl_logging_level_show(struct device *cdev,
 	struct device_attribute *attr, char *buf)
@@ -233,12 +233,12 @@ static ssize_t pm8001_ctl_logging_level_store(struct device *cdev,
 
 static DEVICE_ATTR(logging_level, S_IRUGO | S_IWUSR,
 	pm8001_ctl_logging_level_show, pm8001_ctl_logging_level_store);
-/* 
-                                           
-                                          
-                            
-  
-                                       
+/**
+ * pm8001_ctl_aap_log_show - aap1 event log
+ * @cdev: pointer to embedded class device
+ * @buf: the buffer returned
+ *
+ * A sysfs 'read-only' shost attribute.
  */
 static ssize_t pm8001_ctl_aap_log_show(struct device *cdev,
 	struct device_attribute *attr, char *buf)
@@ -269,12 +269,12 @@ static ssize_t pm8001_ctl_aap_log_show(struct device *cdev,
 	return str - buf;
 }
 static DEVICE_ATTR(aap_log, S_IRUGO, pm8001_ctl_aap_log_show, NULL);
-/* 
-                                          
-                                          
-                            
-  
-                                       
+/**
+ * pm8001_ctl_aap_log_show - IOP event log
+ * @cdev: pointer to embedded class device
+ * @buf: the buffer returned
+ *
+ * A sysfs 'read-only' shost attribute.
  */
 static ssize_t pm8001_ctl_iop_log_show(struct device *cdev,
 	struct device_attribute *attr, char *buf)
@@ -318,7 +318,7 @@ static struct flash_command flash_command_table[] =
 {
      {"set_nvmd",    FLASH_CMD_SET_NVMD},
      {"update",      FLASH_CMD_UPDATE},
-     {"",            FLASH_CMD_NONE} /*                            */
+     {"",            FLASH_CMD_NONE} /* Last entry should be NULL. */
 };
 
 struct error_fw {
@@ -340,7 +340,7 @@ static struct error_fw flash_error_table[] =
      {"Image file size Error",		FAIL_FILE_SIZE},
      {"Input parameter error",		FAIL_PARAMETERS},
      {"Out of memory",			FAIL_OUT_MEMORY},
-     {"OK", 0}	/*                          */
+     {"OK", 0}	/* Last entry err_code = 0. */
 };
 
 static int pm8001_set_nvmd(struct pm8001_hba_info *pm8001_ha)
@@ -412,13 +412,13 @@ static int pm8001_update_flash(struct pm8001_hba_info *pm8001_ha)
 			payload->id = 0;
 			fwControl =
 			      (struct fw_control_info *)payload->func_specific;
-			fwControl->len = IOCTL_BUF_SIZE;   /*    */
-			fwControl->size = partitionSize + HEADER_LEN;/*    */
-			fwControl->retcode = 0;/*     */
-			fwControl->offset = loopNumber * IOCTL_BUF_SIZE;/*    */
+			fwControl->len = IOCTL_BUF_SIZE;   /* IN */
+			fwControl->size = partitionSize + HEADER_LEN;/* IN */
+			fwControl->retcode = 0;/* OUT */
+			fwControl->offset = loopNumber * IOCTL_BUF_SIZE;/*OUT */
 
-		/*                                                              
-                        */
+		/* for the last chunk of data in case file size is not even with
+		4k, load only the rest*/
 		if (((loopcount-loopNumber) == 1) &&
 			((partitionSize + HEADER_LEN) % IOCTL_BUF_SIZE)) {
 			fwControl->len =

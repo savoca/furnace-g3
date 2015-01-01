@@ -163,7 +163,7 @@ void __init config_apollo(void)
 
 	cpuctrl=0xaa00;
 
-	/*                             */
+	/* clear DMA translation table */
 	for(i=0;i<0x400;i++)
 		addr_xlat_map[i]=0;
 
@@ -185,13 +185,13 @@ irqreturn_t dn_timer_int(int irq, void *dev_id)
 
 void dn_sched_init(irq_handler_t timer_routine)
 {
-	/*                 */
+	/* program timer 1 */
 	*(volatile unsigned char *)(timer+3)=0x01;
 	*(volatile unsigned char *)(timer+1)=0x40;
 	*(volatile unsigned char *)(timer+5)=0x09;
 	*(volatile unsigned char *)(timer+7)=0xc4;
 
-	/*                     */
+	/* enable IRQ of PIC B */
 	*(volatile unsigned char *)(pica+1)&=(~8);
 
 #if 0
@@ -212,7 +212,7 @@ unsigned long dn_gettimeoffset(void) {
 int dn_dummy_hwclk(int op, struct rtc_time *t) {
 
 
-  if(!op) { /*      */
+  if(!op) { /* read */
     t->tm_sec=rtc->second;
     t->tm_min=rtc->minute;
     t->tm_hour=rtc->hours;

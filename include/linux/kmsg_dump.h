@@ -16,9 +16,9 @@
 #include <linux/list.h>
 
 /*
-                                                                            
-                                                                              
-                           
+ * Keep this list arranged in rough order of priority. Anything listed after
+ * KMSG_DUMP_OOPS will not be logged by default unless printk.always_kmsg_dump
+ * is passed to the kernel.
  */
 enum kmsg_dump_reason {
 	KMSG_DUMP_PANIC,
@@ -29,13 +29,13 @@ enum kmsg_dump_reason {
 	KMSG_DUMP_POWEROFF,
 };
 
-/* 
-                                                             
-                                                                         
-                                                             
-                                                    
-                                            
-                                                                 
+/**
+ * struct kmsg_dumper - kernel crash message dumper structure
+ * @dump:	The callback which gets called on crashes. The buffer is passed
+ * 		as two sections, where s1 (length l1) contains the older
+ * 		messages and s2 (length l2) contains the newer.
+ * @list:	Entry in the dumper list (private)
+ * @registered:	Flag that specifies if this is already registered
  */
 struct kmsg_dumper {
 	void (*dump)(struct kmsg_dumper *dumper, enum kmsg_dump_reason reason,
@@ -67,4 +67,4 @@ static inline int kmsg_dump_unregister(struct kmsg_dumper *dumper)
 }
 #endif
 
-#endif /*                    */
+#endif /* _LINUX_KMSG_DUMP_H */

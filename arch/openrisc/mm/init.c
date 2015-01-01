@@ -29,7 +29,7 @@
 #include <linux/bootmem.h>
 #include <linux/init.h>
 #include <linux/delay.h>
-#include <linux/blkdev.h>	/*              */
+#include <linux/blkdev.h>	/* for initrd_* */
 #include <linux/pagemap.h>
 #include <linux/memblock.h>
 
@@ -52,12 +52,12 @@ static void __init zone_sizes_init(void)
 {
 	unsigned long zones_size[MAX_NR_ZONES];
 
-	/*                      */
+	/* Clear the zone sizes */
 	memset(zones_size, 0, sizeof(zones_size));
 
 	/*
-                           
-  */
+	 * We use only ZONE_NORMAL
+	 */
 	zones_size[ZONE_NORMAL] = max_low_pfn;
 
 	free_area_init(zones_size);
@@ -66,10 +66,10 @@ static void __init zone_sizes_init(void)
 extern const char _s_kernel_ro[], _e_kernel_ro[];
 
 /*
-                                                       
-  
-                                                                     
-                                            
+ * Map all physical memory into kernel's address space.
+ *
+ * This is explicitly coded for two-level page tables, so if you need
+ * something else then this needs to change.
  */
 static void __init map_ram(void)
 {
@@ -79,9 +79,9 @@ static void __init map_ram(void)
 	pud_t *pue;
 	pmd_t *pme;
 	pte_t *pte;
-	/*                                                
-                         
-  */
+	/* These mark extents of read-only kernel pages...
+	 * ...from vmlinux.lds.S
+	 */
 	struct memblock_region *region;
 
 	v = PAGE_OFFSET;
@@ -104,11 +104,11 @@ static void __init map_ram(void)
 				     __func__);
 			}
 
-			/*                                     */
+			/* Alloc one page for holding PTE's... */
 			pte = (pte_t *) alloc_bootmem_low_pages(PAGE_SIZE);
 			set_pmd(pme, __pmd(_KERNPG_TABLE + __pa(pte)));
 
-			/*                                          */
+			/* Fill the newly allocated page with PTE'S */
 			for (j = 0; p < e && j < PTRS_PER_PGD;
 			     v += PAGE_SIZE, p += PAGE_SIZE, j++, pte++) {
 				if (v >= (u32) _e_kernel_ro ||
@@ -137,15 +137,15 @@ void __init paging_init(void)
 
 	printk(KERN_INFO "Setting up paging and PTEs.\n");
 
-	/*                                                                   */
+	/* clear out the init_mm.pgd that will contain the kernel's mappings */
 
 	for (i = 0; i < PTRS_PER_PGD; i++)
 		swapper_pg_dir[i] = __pgd(0);
 
-	/*                                                         
-                                                        
-               
-  */
+	/* make sure the current pgd table points to something sane
+	 * (even if it is most probably not used until the next
+	 *  switch_mm)
+	 */
 	current_pgd = init_mm.pgd;
 
 	end = (unsigned long)__va(max_low_pfn * PAGE_SIZE);
@@ -154,12 +154,12 @@ void __init paging_init(void)
 
 	zone_sizes_init();
 
-	/*                        */
-	/*                                                              
-                                                                 
-                                                                  
-                         
-  */
+	/* self modifying code ;) */
+	/* Since the old TLB miss handler has been running up until now,
+	 * the kernel pages are still all RW, so we can still modify the
+	 * text directly... after this change and a TLB flush, the kernel
+	 * pages will become RO.
+	 */
 	{
 		extern unsigned long dtlb_miss_handler;
 		extern unsigned long itlb_miss_handler;
@@ -176,19 +176,19 @@ void __init paging_init(void)
 				(unsigned long)itlb_vector) >> 2;
 	}
 
-	/*                                                       */
+	/* Invalidate instruction caches after code modification */
 	mtspr(SPR_ICBIR, 0x900);
 	mtspr(SPR_ICBIR, 0xa00);
 
-	/*                                                               
-                                                                 
-                                                                
-                                
-  */
+	/* New TLB miss handlers and kernel page tables are in now place.
+	 * Make sure that page flags get updated for all pages in TLB by
+	 * flushing the TLB and forcing all TLB entries to be recreated
+	 * from their page table flags.
+	 */
 	flush_tlb_all();
 }
 
-/*                                  */
+/* References to section boundaries */
 
 extern char _stext, _etext, _edata, __bss_start, _end;
 extern char __init_begin, __init_end;
@@ -197,14 +197,14 @@ static int __init free_pages_init(void)
 {
 	int reservedpages, pfn;
 
-	/*                                                 */
+	/* this will put all low memory onto the freelists */
 	totalram_pages = free_all_bootmem();
 
 	reservedpages = 0;
 	for (pfn = 0; pfn < max_low_pfn; pfn++) {
 		/*
-                                  
-   */
+		 * Only count reserved RAM pages
+		 */
 		if (PageReserved(mem_map + pfn))
 			reservedpages++;
 	}
@@ -227,7 +227,7 @@ void __init mem_init(void)
 
 	high_memory = (void *)__va(max_low_pfn * PAGE_SIZE);
 
-	/*                     */
+	/* clear the zero-page */
 	memset((void *)empty_zero_page, 0, PAGE_SIZE);
 
 	reservedpages = free_pages_init();

@@ -69,8 +69,8 @@ static void ci13xxx_msm_disconnect(void)
 				ULPI_CLR(ULPI_MISC_A));
 }
 
-/*                                                       
-                                
+/* Link power management will reduce power consumption by
+ * short time HW suspend/resume.
  */
 static void ci13xxx_msm_set_l1(struct ci13xxx *udc)
 {
@@ -79,7 +79,7 @@ static void ci13xxx_msm_set_l1(struct ci13xxx *udc)
 
 	dev_dbg(dev, "Enable link power management\n");
 
-	/*                                        */
+	/* Enable remote wakeup and L1 for IN EPs */
 	writel_relaxed(0xffff0000, USB_L1_EP_CTRL);
 
 	temp = readl_relaxed(USB_L1_CONFIG);
@@ -111,11 +111,11 @@ static void ci13xxx_msm_connect(void)
 		writel_relaxed(temp, USB_USBCMD);
 
 		/*
-                                                 
-                                                  
-                                                       
-                                                
-   */
+		 * Add memory barrier as it is must to complete
+		 * above USB PHY and Link register writes before
+		 * moving ahead with USB peripheral mode enumeration,
+		 * otherwise USB peripheral mode may not work.
+		 */
 		mb();
 	}
 }
@@ -141,10 +141,10 @@ static void ci13xxx_msm_reset(void)
 		writel_relaxed(temp, USB_PHY_CTRL2);
 
 		/*
-                                                          
-                                                          
-                 
-   */
+		 * Add memory barrier to make sure above LINK writes are
+		 * complete before moving ahead with USB peripheral mode
+		 * enumeration.
+		 */
 		mb();
 	}
 }
@@ -262,7 +262,7 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "ci13xxx_msm_probe\n");
 
 	if (pdata) {
-		/*                                                      */
+		/* Acceptable values for nz_itc are: 0,1,2,4,8,16,32,64 */
 		if (pdata->log2_itc > CI13XXX_MSM_MAX_LOG2_ITC ||
 			pdata->log2_itc <= 0)
 			ci13xxx_msm_udc_driver.nz_itc = 0;
@@ -271,7 +271,7 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 				1 << (pdata->log2_itc-1);
 
 		is_l1_supported = pdata->l1_supported;
-		/*                                             */
+		/* Set ahb2ahb bypass flag if it is requested. */
 		if (pdata->enable_ahb2ahb_bypass)
 			ci13xxx_msm_udc_driver.flags |=
 				CI13XXX_ENABLE_AHB2AHB_BYPASS;

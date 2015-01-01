@@ -30,7 +30,7 @@ nul_destroy(struct rpc_auth *auth)
 }
 
 /*
-                                        
+ * Lookup NULL creds for current process
  */
 static struct rpc_cred *
 nul_lookup_cred(struct rpc_auth *auth, struct auth_cred *acred, int flags)
@@ -39,7 +39,7 @@ nul_lookup_cred(struct rpc_auth *auth, struct auth_cred *acred, int flags)
 }
 
 /*
-                       
+ * Destroy cred handle.
  */
 static void
 nul_destroy_cred(struct rpc_cred *cred)
@@ -47,7 +47,7 @@ nul_destroy_cred(struct rpc_cred *cred)
 }
 
 /*
-                                            
+ * Match cred handle against current process
  */
 static int
 nul_match(struct auth_cred *acred, struct rpc_cred *cred, int taskflags)
@@ -56,7 +56,7 @@ nul_match(struct auth_cred *acred, struct rpc_cred *cred, int taskflags)
 }
 
 /*
-                      
+ * Marshal credential.
  */
 static __be32 *
 nul_marshal(struct rpc_task *task, __be32 *p)
@@ -70,7 +70,7 @@ nul_marshal(struct rpc_task *task, __be32 *p)
 }
 
 /*
-                                                    
+ * Refresh credential. This is a no-op for AUTH_NULL
  */
 static int
 nul_refresh(struct rpc_task *task)

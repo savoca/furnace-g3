@@ -33,18 +33,18 @@
 #include <asm/mach/time.h>
 
 /*
-                    
+ * Our system timer.
  */
 static struct sys_timer *system_timer;
 
 #if defined(CONFIG_RTC_DRV_CMOS) || defined(CONFIG_RTC_DRV_CMOS_MODULE) || \
     defined(CONFIG_NVRAM) || defined(CONFIG_NVRAM_MODULE)
-/*                          */
+/* this needs a better home */
 DEFINE_SPINLOCK(rtc_lock);
 EXPORT_SYMBOL(rtc_lock);
-#endif	/*                             */
+#endif	/* pc-style 'CMOS' RTC support */
 
-/*                                                  */
+/* change this if you have some constant time drift */
 #define USECS_PER_JIFFY	(1000000/HZ)
 
 #ifdef CONFIG_SMP
@@ -78,7 +78,7 @@ u32 arch_gettimeoffset(void)
 
 	return 0;
 }
-#endif /*                                */
+#endif /* CONFIG_ARCH_USES_GETTIMEOFFSET */
 
 #ifdef CONFIG_LEDS_TIMER
 static inline void do_leds(void)
@@ -97,7 +97,7 @@ static inline void do_leds(void)
 
 #ifndef CONFIG_GENERIC_CLOCKEVENTS
 /*
-                               
+ * Kernel system timer support.
  */
 void timer_tick(void)
 {

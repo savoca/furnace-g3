@@ -35,14 +35,14 @@
 
 #include "sb1250_defs.h"
 
-/*                                                                       
-                    
-                                                                          */
+/* **********************************************************************
+   * DUART Registers
+   ********************************************************************** */
 
 /*
-                                      
-                               
-                               
+ * DUART Mode Register #1 (Table 10-3)
+ * Register: DUART_MODE_REG_1_A
+ * Register: DUART_MODE_REG_1_B
  */
 
 #define S_DUART_BITS_PER_CHAR       0
@@ -84,12 +84,12 @@
 #define M_DUART_RX_RTS_ENA          _SB_MAKEMASK1(7)
 
 /*
-                                      
-                               
-                               
+ * DUART Mode Register #2 (Table 10-4)
+ * Register: DUART_MODE_REG_2_A
+ * Register: DUART_MODE_REG_2_B
  */
 
-#define M_DUART_MODE_RESERVED1      _SB_MAKEMASK(3, 0)   /*         */
+#define M_DUART_MODE_RESERVED1      _SB_MAKEMASK(3, 0)   /* ignored */
 
 #define M_DUART_STOP_BIT_LEN_2      _SB_MAKEMASK1(3)
 #define M_DUART_STOP_BIT_LEN_1      0
@@ -97,7 +97,7 @@
 #define M_DUART_TX_CTS_ENA          _SB_MAKEMASK1(4)
 
 
-#define M_DUART_MODE_RESERVED2      _SB_MAKEMASK1(5)    /*              */
+#define M_DUART_MODE_RESERVED2      _SB_MAKEMASK1(5)    /* must be zero */
 
 #define S_DUART_CHAN_MODE	    6
 #define M_DUART_CHAN_MODE           _SB_MAKEMASK(2, S_DUART_CHAN_MODE)
@@ -112,9 +112,9 @@
 #define V_DUART_CHAN_MODE_REM_LOOP  V_DUART_CHAN_MODE(K_DUART_CHAN_MODE_REM_LOOP)
 
 /*
-                                      
-                        
-                        
+ * DUART Command Register (Table 10-5)
+ * Register: DUART_CMD_A
+ * Register: DUART_CMD_B
  */
 
 #define M_DUART_RX_EN               _SB_MAKEMASK1(0)
@@ -147,10 +147,10 @@
 #define M_DUART_CMD_RESERVED             _SB_MAKEMASK1(7)
 
 /*
-                                     
-                           
-                           
-            
+ * DUART Status Register (Table 10-6)
+ * Register: DUART_STATUS_A
+ * Register: DUART_STATUS_B
+ * READ-ONLY
  */
 
 #define M_DUART_RX_RDY              _SB_MAKEMASK1(0)
@@ -163,28 +163,28 @@
 #define M_DUART_RCVD_BRK            _SB_MAKEMASK1(7)
 
 /*
-                                        
-                            
-                            
+ * DUART Baud Rate Register (Table 10-7)
+ * Register: DUART_CLK_SEL_A
+ * Register: DUART_CLK_SEL_B
  */
 
 #define M_DUART_CLK_COUNTER         _SB_MAKEMASK(12, 0)
 #define V_DUART_BAUD_RATE(x)        (100000000/((x)*20)-1)
 
 /*
-                                             
-                            
-                            
-                            
-                            
+ * DUART Data Registers (Table 10-8 and 10-9)
+ * Register: DUART_RX_HOLD_A
+ * Register: DUART_RX_HOLD_B
+ * Register: DUART_TX_HOLD_A
+ * Register: DUART_TX_HOLD_B
  */
 
 #define M_DUART_RX_DATA             _SB_MAKEMASK(8, 0)
 #define M_DUART_TX_DATA             _SB_MAKEMASK(8, 0)
 
 /*
-                                          
-                          
+ * DUART Input Port Register (Table 10-10)
+ * Register: DUART_IN_PORT
  */
 
 #define M_DUART_IN_PIN0_VAL         _SB_MAKEMASK1(0)
@@ -197,8 +197,8 @@
 #define M_DUART_RIN1_PIN            _SB_MAKEMASK1(7)
 
 /*
-                                                                           
-                              
+ * DUART Input Port Change Status Register (Tables 10-11, 10-12, and 10-13)
+ * Register: DUART_INPORT_CHNG
  */
 
 #define S_DUART_IN_PIN_VAL          0
@@ -209,19 +209,19 @@
 
 
 /*
-                                                   
-                       
+ * DUART Output port control register (Table 10-14)
+ * Register: DUART_OPCR
  */
 
-#define M_DUART_OPCR_RESERVED0      _SB_MAKEMASK1(0)   /*              */
+#define M_DUART_OPCR_RESERVED0      _SB_MAKEMASK1(0)   /* must be zero */
 #define M_DUART_OPC2_SEL            _SB_MAKEMASK1(1)
-#define M_DUART_OPCR_RESERVED1      _SB_MAKEMASK1(2)   /*              */
+#define M_DUART_OPCR_RESERVED1      _SB_MAKEMASK1(2)   /* must be zero */
 #define M_DUART_OPC3_SEL            _SB_MAKEMASK1(3)
-#define M_DUART_OPCR_RESERVED2      _SB_MAKEMASK(4, 4)  /*              */
+#define M_DUART_OPCR_RESERVED2      _SB_MAKEMASK(4, 4)  /* must be zero */
 
 /*
-                                           
-                           
+ * DUART Aux Control Register (Table 10-15)
+ * Register: DUART_AUX_CTRL
  */
 
 #define M_DUART_IP0_CHNG_ENA        _SB_MAKEMASK1(0)
@@ -234,8 +234,8 @@
 #define M_DUART_CIN_CHNG_ENA        _SB_MAKEMASK1(2)
 
 /*
-                                                
-                      
+ * DUART Interrupt Status Register (Table 10-16)
+ * Register: DUART_ISR
  */
 
 #define M_DUART_ISR_TX_A            _SB_MAKEMASK1(0)
@@ -256,10 +256,10 @@
 #define M_DUART_ISR_ALL_B	    _SB_MAKEMASK(4, 4)
 
 /*
-                                                          
-                                                          
-                        
-                        
+ * DUART Channel A Interrupt Status Register (Table 10-17)
+ * DUART Channel B Interrupt Status Register (Table 10-18)
+ * Register: DUART_ISR_A
+ * Register: DUART_ISR_B
  */
 
 #define M_DUART_ISR_TX              _SB_MAKEMASK1(0)
@@ -270,8 +270,8 @@
 #define M_DUART_ISR_RESERVED        _SB_MAKEMASK(4, 4)
 
 /*
-                                              
-                      
+ * DUART Interrupt Mask Register (Table 10-19)
+ * Register: DUART_IMR
  */
 
 #define M_DUART_IMR_TX_A            _SB_MAKEMASK1(0)
@@ -287,10 +287,10 @@
 #define M_DUART_IMR_ALL_B           _SB_MAKEMASK(4, 4)
 
 /*
-                                                        
-                                                        
-                        
-                        
+ * DUART Channel A Interrupt Mask Register (Table 10-20)
+ * DUART Channel B Interrupt Mask Register (Table 10-21)
+ * Register: DUART_IMR_A
+ * Register: DUART_IMR_B
  */
 
 #define M_DUART_IMR_TX              _SB_MAKEMASK1(0)
@@ -302,8 +302,8 @@
 
 
 /*
-                                               
-                          
+ * DUART Output Port Set Register (Table 10-22)
+ * Register: DUART_SET_OPR
  */
 
 #define M_DUART_SET_OPR0            _SB_MAKEMASK1(0)
@@ -313,8 +313,8 @@
 #define M_DUART_OPSR_RESERVED       _SB_MAKEMASK(4, 4)
 
 /*
-                                                 
-                            
+ * DUART Output Port Clear Register (Table 10-23)
+ * Register: DUART_CLEAR_OPR
  */
 
 #define M_DUART_CLR_OPR0            _SB_MAKEMASK1(0)
@@ -324,8 +324,8 @@
 #define M_DUART_OPCR_RESERVED       _SB_MAKEMASK(4, 4)
 
 /*
-                                               
-                           
+ * DUART Output Port RTS Register (Table 10-24)
+ * Register: DUART_OUT_PORT
  */
 
 #define M_DUART_OUT_PIN_SET0        _SB_MAKEMASK1(0)
@@ -341,7 +341,7 @@
 
 #if SIBYTE_HDR_FEATURE(1250, PASS2) || SIBYTE_HDR_FEATURE(112x, PASS1) || SIBYTE_HDR_FEATURE_CHIP(1480)
 /*
-                                  
+ * Full Interrupt Control Register
  */
 
 #define S_DUART_SIG_FULL           _SB_MAKE64(0)
@@ -353,10 +353,10 @@
 #define M_DUART_INT_TIME           _SB_MAKEMASK(4, S_DUART_INT_TIME)
 #define V_DUART_INT_TIME(x)        _SB_MAKEVALUE(x, S_DUART_INT_TIME)
 #define G_DUART_INT_TIME(x)        _SB_GETVALUE(x, S_DUART_INT_TIME, M_DUART_INT_TIME)
-#endif /*                                  */
+#endif /* 1250 PASS2 || 112x PASS1 || 1480 */
 
 
-/*                                                                        */
+/* ********************************************************************** */
 
 
 #endif

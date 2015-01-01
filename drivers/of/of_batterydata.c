@@ -47,7 +47,7 @@ static int of_batterydata_read_lut(const struct device_node *np,
 
 	prop = of_find_property(np, "qcom,lut-row-legend", NULL);
 	if (!prop || row_legend_data == NULL) {
-		/*                */
+		/* single row lut */
 		rows = 1;
 	} else if (!prop->value) {
 		pr_err("%s: No row legend value found\n", np->name);
@@ -245,14 +245,14 @@ static int64_t of_batterydata_convert_battery_id_kohm(int batt_id_uv,
 	int64_t resistor_value_kohm, denom;
 
 	if (batt_id_uv == 0) {
-		/*                                                           */
+		/* vadc not correct or batt id line grounded, report 0 kohms */
 		return 0;
 	}
-	/*                                                      */
+	/* calculate the battery id resistance reported via ADC */
 	denom = div64_s64(vadc_vdd * 1000000LL, batt_id_uv) - 1000000LL;
 
 	if (denom == 0) {
-		/*                                                 */
+		/* batt id connector might be open, return 0 kohms */
 		return 0;
 	}
 	resistor_value_kohm = div64_s64(rpull_up * 1000000LL + denom/2, denom);
@@ -285,8 +285,8 @@ int of_batterydata_read_data(struct device_node *batterydata_container_node,
 	best_id_kohm = 0;
 
 	/*
-                                                                        
-  */
+	 * Find the battery data with a battery id resistor closest to this one
+	 */
 	for_each_child_of_node(batterydata_container_node, node) {
 		rc = of_batterydata_read_batt_id_kohm(node,
 						"qcom,batt-id-kohm",

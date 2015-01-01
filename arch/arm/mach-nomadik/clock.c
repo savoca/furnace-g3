@@ -11,8 +11,8 @@
 #include "clock.h"
 
 /*
-                                                                   
-                                                                        
+ * The nomadik board uses generic clocks, but the serial pl011 file
+ * calls clk_enable(), clk_disable(), clk_get_rate(), so we provide them
  */
 unsigned long clk_get_rate(struct clk *clk)
 {
@@ -20,7 +20,7 @@ unsigned long clk_get_rate(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_get_rate);
 
-/*                               */
+/* enable and disable do nothing */
 int clk_enable(struct clk *clk)
 {
 	return 0;
@@ -41,8 +41,8 @@ static struct clk clk_48 = {
 };
 
 /*
-                                                                          
-                                        
+ * Catch-all default clock to satisfy drivers using the clk API.  We don't
+ * model the actual hardware clocks yet.
  */
 static struct clk clk_default;
 

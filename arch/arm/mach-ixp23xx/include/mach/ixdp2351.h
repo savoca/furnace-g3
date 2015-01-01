@@ -16,7 +16,7 @@
 #define __ASM_ARCH_IXDP2351_H
 
 /*
-                       
+ * NP module memory map
  */
 #define IXDP2351_NP_PHYS_BASE		(IXP23XX_EXP_BUS_CS4_BASE)
 #define IXDP2351_NP_PHYS_SIZE		0x00100000
@@ -34,7 +34,7 @@
 #define IXDP2351_NP_CPLD_VERSION_REG	IXDP2351_NP_CPLD_REG(0x04)
 
 /*
-                               
+ * Base board module memory map
  */
 
 #define IXDP2351_BB_BASE_PHYS		(IXP23XX_EXP_BUS_CS5_BASE)
@@ -54,7 +54,7 @@
 #define IXDP2351_VIRT_CPLD_BASE		IXDP2351_BB_AREA_BASE(0x00024000)
 
 /*
-                          
+ * On board CPLD registers
  */
 #define IXDP2351_CPLD_BB_REG(reg) ((volatile u16 *)(IXDP2351_VIRT_CPLD_BASE + reg))
 
@@ -69,21 +69,21 @@
 #define IXDP2351_CPLD_INTA_MASK_SET_REG	IXDP2351_CPLD_BB_REG(0x14)
 #define IXDP2351_CPLD_INTB_STAT_REG	IXDP2351_CPLD_BB_REG(0x18)
 #define IXDP2351_CPLD_INTA_STAT_REG	IXDP2351_CPLD_BB_REG(0x1C)
-#define IXDP2351_CPLD_INTB_RAW_REG	IXDP2351_CPLD_BB_REG(0x20)	/*      */
-#define IXDP2351_CPLD_INTA_RAW_REG	IXDP2351_CPLD_BB_REG(0x24)	/*      */
-#define IXDP2351_CPLD_INTB_MASK_CLR_REG	IXDP2351_CPLD_INTB_RAW_REG	/*       */
-#define IXDP2351_CPLD_INTA_MASK_CLR_REG	IXDP2351_CPLD_INTA_RAW_REG	/*       */
+#define IXDP2351_CPLD_INTB_RAW_REG	IXDP2351_CPLD_BB_REG(0x20)	/* read */
+#define IXDP2351_CPLD_INTA_RAW_REG	IXDP2351_CPLD_BB_REG(0x24)	/* read */
+#define IXDP2351_CPLD_INTB_MASK_CLR_REG	IXDP2351_CPLD_INTB_RAW_REG	/* write */
+#define IXDP2351_CPLD_INTA_MASK_CLR_REG	IXDP2351_CPLD_INTA_RAW_REG	/* write */
 #define IXDP2351_CPLD_INTB_SIM_REG	IXDP2351_CPLD_BB_REG(0x28)
 #define IXDP2351_CPLD_INTA_SIM_REG	IXDP2351_CPLD_BB_REG(0x2C)
-	/*                                      */
+	/* Interrupt bits are defined in irqs.h */
 #define IXDP2351_CPLD_BB_GBE0_REG	IXDP2351_CPLD_BB_REG(0x30)
 #define IXDP2351_CPLD_BB_GBE1_REG	IXDP2351_CPLD_BB_REG(0x34)
 
-/*                                                           */
-/*                                              */
-/*                                                             */
-/*                                                             */
-/*                                                            */
+/* #define IXDP2351_CPLD_BB_MISC_REG	IXDP2351_CPLD_REG(0x1C) */
+/* #define IXDP2351_CPLD_BB_MISC_REV_MASK	0xFF		*/
+/* #define IXDP2351_CPLD_BB_GDXCS0_REG	IXDP2351_CPLD_REG(0x24) */
+/* #define IXDP2351_CPLD_BB_GDXCS1_REG	IXDP2351_CPLD_REG(0x28) */
+/* #define IXDP2351_CPLD_BB_CLOCK_REG	IXDP2351_CPLD_REG(0x04) */
 
 
 #endif

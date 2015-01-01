@@ -1,4 +1,4 @@
-/*                                */
+/* For general debugging purposes */
 
 #include "../perf.h"
 

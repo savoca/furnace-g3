@@ -44,10 +44,10 @@
 #include <net/sctp/sctp.h>
 
 /*
-                                                         
-                                                               
-                                                        
-                                  
+ * Global counters to count raw object allocation counts.
+ * To add new counters, choose a unique suffix for the variable
+ * name as the helper macros key off this suffix to make
+ * life easier for the programmer.
  */
 
 SCTP_DBG_OBJCNT(sock);
@@ -62,8 +62,8 @@ SCTP_DBG_OBJCNT(ssnmap);
 SCTP_DBG_OBJCNT(datamsg);
 SCTP_DBG_OBJCNT(keys);
 
-/*                                                               
-                  
+/* An array to make it easy to pretty print the debug information
+ * to the proc fs.
  */
 static sctp_dbg_objcnt_entry_t sctp_dbg_objcnt[] = {
 	SCTP_DBG_OBJCNT_ENTRY(sock),
@@ -79,9 +79,9 @@ static sctp_dbg_objcnt_entry_t sctp_dbg_objcnt[] = {
 	SCTP_DBG_OBJCNT_ENTRY(keys),
 };
 
-/*                                                       
-                                                                 
-                                                 
+/* Callback from procfs to read out objcount information.
+ * Walk through the entries in the sctp_dbg_objcnt array, dumping
+ * the raw object counts for each monitored type.
  */
 static int sctp_objcnt_seq_show(struct seq_file *seq, void *v)
 {
@@ -128,7 +128,7 @@ static const struct file_operations sctp_objcnt_ops = {
 	.release = seq_release,
 };
 
-/*                                                  */
+/* Initialize the objcount in the proc filesystem.  */
 void sctp_dbg_objcnt_init(void)
 {
 	struct proc_dir_entry *ent;
@@ -139,7 +139,7 @@ void sctp_dbg_objcnt_init(void)
 		pr_warn("sctp_dbg_objcnt: Unable to create /proc entry.\n");
 }
 
-/*                                                     */
+/* Cleanup the objcount entry in the proc filesystem.  */
 void sctp_dbg_objcnt_exit(void)
 {
 	remove_proc_entry("sctp_dbg_objcnt", proc_net_sctp);

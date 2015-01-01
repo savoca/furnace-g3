@@ -10,4 +10,4 @@ extern char *unprotected_ifaces;
 
 int spd_is_protected_interface(const char *name);
 
-#endif				/*            */
+#endif				/* SPD_UTIL_H */

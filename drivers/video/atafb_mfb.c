@@ -18,7 +18,7 @@
 
 
     /*
-                  
+     *  Monochrome
      */
 
 void atafb_mfb_copyarea(struct fb_info *info, u_long next_line,
@@ -83,8 +83,8 @@ void atafb_mfb_linefill(struct fb_info *info, u_long next_line,
 
 	dest = (u8 *)info->screen_base + dy * next_line + (dx >> 3);
 
-	for (rows = width / 8; rows--; /*               */ ) {
-		//                               
+	for (rows = width / 8; rows--; /* check margins */ ) {
+		// use fast_memmove or fb_memmove
 		*dest++ = *data++;
 	}
 }
@@ -100,11 +100,11 @@ int init_module(void)
 void cleanup_module(void)
 {
 }
-#endif /*        */
+#endif /* MODULE */
 
 
     /*
-                                   
+     *  Visible symbols for modules
      */
 
 EXPORT_SYMBOL(atafb_mfb_copyarea);

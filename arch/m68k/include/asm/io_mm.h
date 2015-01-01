@@ -1,18 +1,18 @@
 /*
-                              
-  
-                                                                    
-                         
-                                 
-                                                         
-                                                   
-  
-                                                           
-                                                                    
-                                            
-  
-                                               
-                                                  
+ * linux/include/asm-m68k/io.h
+ *
+ * 4/1/00 RZ: - rewritten to avoid clashes between ISA/PCI and other
+ *              IO access
+ *            - added Q40 support
+ *            - added skeleton for GG-II and Amiga PCMCIA
+ * 2/3/01 RZ: - moved a few more defs into raw_io.h
+ *
+ * inX/outX should not be used by any driver unless it does
+ * ISA access. Other drivers should use function defined in raw_io.h
+ * or define its own macros on top of these.
+ *
+ *    inX(),outX()              are for ISA I/O
+ *    isa_readX(),isa_writeX()  are for ISA memory
  */
 
 #ifndef _IO_H
@@ -32,7 +32,7 @@
 
 
 /*
-                                             
+ * IO/MEM definitions for various ISA bridges
  */
 
 
@@ -47,7 +47,7 @@
 #define Q40_ISA_MEM_W(madr)  (q40_isa_mem_base+  4*((unsigned long)(madr)))
 
 #define MULTI_ISA 0
-#endif /*     */
+#endif /* Q40 */
 
 #ifdef CONFIG_AMIGA_PCMCIA
 #include <asm/amigayle.h>
@@ -61,7 +61,7 @@
 #undef MULTI_ISA
 #define MULTI_ISA 1
 #endif
-#endif /*              */
+#endif /* AMIGA_PCMCIA */
 
 
 
@@ -92,8 +92,8 @@ extern int isa_sex;
 #endif
 
 /*
-                                                                           
-                                                              
+ * define inline addr translation functions. Normally only one variant will
+ * be compiled in so the case statement will be optimised away
  */
 
 static inline u8 __iomem *isa_itb(unsigned long addr)
@@ -106,7 +106,7 @@ static inline u8 __iomem *isa_itb(unsigned long addr)
 #ifdef CONFIG_AMIGA_PCMCIA
     case ISA_TYPE_AG: return (u8 __iomem *)AG_ISA_IO_B(addr);
 #endif
-    default: return NULL; /*                              */
+    default: return NULL; /* avoid warnings, just in case */
     }
 }
 static inline u16 __iomem *isa_itw(unsigned long addr)
@@ -119,7 +119,7 @@ static inline u16 __iomem *isa_itw(unsigned long addr)
 #ifdef CONFIG_AMIGA_PCMCIA
     case ISA_TYPE_AG: return (u16 __iomem *)AG_ISA_IO_W(addr);
 #endif
-    default: return NULL; /*                              */
+    default: return NULL; /* avoid warnings, just in case */
     }
 }
 static inline u32 __iomem *isa_itl(unsigned long addr)
@@ -129,7 +129,7 @@ static inline u32 __iomem *isa_itl(unsigned long addr)
 #ifdef CONFIG_AMIGA_PCMCIA
     case ISA_TYPE_AG: return (u32 __iomem *)AG_ISA_IO_W(addr);
 #endif
-    default: return 0; /*                              */
+    default: return 0; /* avoid warnings, just in case */
     }
 }
 static inline u8 __iomem *isa_mtb(unsigned long addr)
@@ -142,7 +142,7 @@ static inline u8 __iomem *isa_mtb(unsigned long addr)
 #ifdef CONFIG_AMIGA_PCMCIA
     case ISA_TYPE_AG: return (u8 __iomem *)addr;
 #endif
-    default: return NULL; /*                              */
+    default: return NULL; /* avoid warnings, just in case */
     }
 }
 static inline u16 __iomem *isa_mtw(unsigned long addr)
@@ -155,7 +155,7 @@ static inline u16 __iomem *isa_mtw(unsigned long addr)
 #ifdef CONFIG_AMIGA_PCMCIA
     case ISA_TYPE_AG: return (u16 __iomem *)addr;
 #endif
-    default: return NULL; /*                              */
+    default: return NULL; /* avoid warnings, just in case */
     }
 }
 
@@ -186,7 +186,7 @@ static inline void isa_delay(void)
 #ifdef CONFIG_AMIGA_PCMCIA
     case ISA_TYPE_AG: break;
 #endif
-    default: break; /*                */
+    default: break; /* avoid warnings */
     }
 }
 
@@ -240,10 +240,10 @@ static inline void isa_delay(void)
 #define writeb  isa_writeb
 #define writew  isa_writew
 
-#else  /*            */
+#else  /* CONFIG_ISA */
 
 /*
-                                                               
+ * We need to define dummy functions for GENERIC_IOMAP support.
  */
 #define inb(port)          0xff
 #define inb_p(port)        0xff
@@ -266,14 +266,14 @@ static inline void isa_delay(void)
 #define outsl(port,buf,nr) ((void)0)
 
 /*
-                                                  
+ * These should be valid on any ioremap()ed region
  */
 #define readb(addr)      in_8(addr)
 #define writeb(val,addr) out_8((addr),(val))
 #define readw(addr)      in_le16(addr)
 #define writew(val,addr) out_le16((addr),(val))
 
-#endif /*            */
+#endif /* CONFIG_ISA */
 
 #define readl(addr)      in_le32(addr)
 #define writel(val,addr) out_le32((addr),(val))
@@ -318,19 +318,19 @@ static inline void memcpy_toio(volatile void __iomem *dst, const void *src, int 
 #define IO_SPACE_LIMIT 0x0fffffff
 #endif
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
 #define __ARCH_HAS_NO_PAGE_ZERO_MAPPED		1
 
 /*
-                                                                      
-         
+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
+ * access
  */
 #define xlate_dev_mem_ptr(p)	__va(p)
 
 /*
-                                                          
+ * Convert a virtual cached pointer to an uncached pointer
  */
 #define xlate_dev_kmem_ptr(p)	p
 
-#endif /*       */
+#endif /* _IO_H */

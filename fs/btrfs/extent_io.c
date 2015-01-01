@@ -45,12 +45,12 @@ struct extent_page_data {
 	struct extent_io_tree *tree;
 	get_extent_t *get_extent;
 
-	/*                                                          
-                               
-  */
+	/* tells writepage not to lock the state bits for this range
+	 * it still does the unlocking
+	 */
 	unsigned int extent_locked:1;
 
-	/*                                               */
+	/* tells the submit_bio code to use a WRITE_SYNC */
 	unsigned int sync_io:1;
 };
 
@@ -108,9 +108,9 @@ void extent_io_exit(void)
 	}
 
 	/*
-                                                        
-                   
-  */
+	 * Make sure all delayed rcu free are flushed before we
+	 * destroy caches.
+	 */
 	rcu_barrier();
 	if (extent_state_cache)
 		kmem_cache_destroy(extent_state_cache);
@@ -264,13 +264,13 @@ static void merge_cb(struct extent_io_tree *tree, struct extent_state *new,
 }
 
 /*
-                                                                      
-                                                                    
-                                                                   
-                                                                   
-                                                                     
-  
-                                                 
+ * utility function to look for merge candidates inside a given range.
+ * Any extents with matching state are merged together into a single
+ * extent in the tree.  Extents with EXTENT_IO in their state field
+ * are not merged because the end_io handlers need to be able to do
+ * operations on them without sleeping (or doing allocations/splits).
+ *
+ * This should be called with the tree lock held.
  */
 static void merge_state(struct extent_io_tree *tree,
 		        struct extent_state *state)
@@ -325,14 +325,14 @@ static void set_state_bits(struct extent_io_tree *tree,
 			   struct extent_state *state, int *bits);
 
 /*
-                                                                      
-                                
-  
-                                                                            
-                         
-  
-                                                                         
-                                                                   
+ * insert an extent_state struct into the tree.  'bits' are set on the
+ * struct before it is inserted.
+ *
+ * This may return -EEXIST if the extent is already there, in which case the
+ * state struct is freed.
+ *
+ * The tree lock is not taken internally.  This is a utility function and
+ * probably isn't what you want to call (see set/clear_extent_bit).
  */
 static int insert_state(struct extent_io_tree *tree,
 			struct extent_state *state, u64 start, u64 end,
@@ -374,18 +374,18 @@ static void split_cb(struct extent_io_tree *tree, struct extent_state *orig,
 }
 
 /*
-                                                                       
-                                                                            
-                                                 
-  
-                  
-                                                                         
-                                            
-                                     
-                             
-  
-                                                                      
-                 
+ * split a given extent state struct in two, inserting the preallocated
+ * struct 'prealloc' as the newly created second half.  'split' indicates an
+ * offset inside 'orig' where it should be split.
+ *
+ * Before calling,
+ * the tree has 'orig' at [orig->start, orig->end].  After calling, there
+ * are two extent state structs in the tree:
+ * prealloc: [orig->start, split - 1]
+ * orig: [ split, orig->end ]
+ *
+ * The tree locks are not taken by this function. They need to be held
+ * by the caller.
  */
 static int split_state(struct extent_io_tree *tree, struct extent_state *orig,
 		       struct extent_state *prealloc, u64 split)
@@ -418,11 +418,11 @@ static struct extent_state *next_state(struct extent_state *state)
 }
 
 /*
-                                                                 
-                                                                       
-  
-                                                                    
-                                            
+ * utility function to clear some bits in an extent state struct.
+ * it will optionally wake up any one waiting on this state (wake == 1)
+ *
+ * If no bits are set on the state struct after clearing things, the
+ * struct is freed and removed from the tree
  */
 static struct extent_state *clear_state_bit(struct extent_io_tree *tree,
 					    struct extent_state *state,
@@ -473,16 +473,16 @@ void extent_io_tree_panic(struct extent_io_tree *tree, int err)
 }
 
 /*
-                                                                      
-                                                                
-                                                      
-  
-                                                                     
-                                                                       
-  
-                                       
-  
-                                                                       
+ * clear some bits on a range in the tree.  This may require splitting
+ * or inserting elements in the tree, so the gfp mask is used to
+ * indicate which allocations or sleeping are allowed.
+ *
+ * pass 'wake' == 1 to kick any sleepers, and 'delete' == 1 to remove
+ * the given range from the tree regardless of state (ie for truncate).
+ *
+ * the range [start, end] is inclusive.
+ *
+ * This takes the tree lock, and returns 0 on success and < 0 on error.
  */
 int clear_extent_bit(struct extent_io_tree *tree, u64 start, u64 end,
 		     int bits, int wake, int delete,
@@ -530,9 +530,9 @@ again:
 			free_extent_state(cached);
 	}
 	/*
-                                                    
-                    
-  */
+	 * this search will find the extents that end after
+	 * our range starts
+	 */
 	node = tree_search(tree, start);
 	if (!node)
 		goto out;
@@ -543,27 +543,27 @@ hit_next:
 	WARN_ON(state->end < start);
 	last_end = state->end;
 
-	/*                                                  */
+	/* the state doesn't have the wanted bits, go ahead */
 	if (!(state->state & bits)) {
 		state = next_state(state);
 		goto next;
 	}
 
 	/*
-                                   
-                 
-                                           
-   
-                                                      
-                        
-   
-                                                     
-                                                       
-                         
-   
-                                                        
-                          
-  */
+	 *     | ---- desired range ---- |
+	 *  | state | or
+	 *  | ------------- state -------------- |
+	 *
+	 * We need to split the extent we found, and may flip
+	 * bits on second half.
+	 *
+	 * If the extent we found extends past our range, we
+	 * just split and search again.  It'll get split again
+	 * the next time though.
+	 *
+	 * If the extent we found is inside our range, we clear
+	 * the desired bit on it.
+	 */
 
 	if (state->start < start) {
 		prealloc = alloc_extent_state_atomic(prealloc);
@@ -584,11 +584,11 @@ hit_next:
 		goto search_again;
 	}
 	/*
-                               
-                                    
-                                                  
-                     
-  */
+	 * | ---- desired range ---- |
+	 *                        | state |
+	 * We need to split the extent, and clear the bit
+	 * on the first half
+	 */
 	if (state->start <= end && state->end > end) {
 		prealloc = alloc_extent_state_atomic(prealloc);
 		BUG_ON(!prealloc);
@@ -644,9 +644,9 @@ static void wait_on_state(struct extent_io_tree *tree,
 }
 
 /*
-                                                                    
-                                       
-                                          
+ * waits for one or more bits to clear on a range in the state tree.
+ * The range [start, end] is inclusive.
+ * The tree lock is taken by this function
  */
 void wait_extent_bit(struct extent_io_tree *tree, u64 start, u64 end, int bits)
 {
@@ -657,9 +657,9 @@ void wait_extent_bit(struct extent_io_tree *tree, u64 start, u64 end, int bits)
 again:
 	while (1) {
 		/*
-                                                         
-                     
-   */
+		 * this search will find all the extents that end after
+		 * our range starts
+		 */
 		node = tree_search(tree, start);
 		if (!node)
 			break;
@@ -722,14 +722,14 @@ static void uncache_state(struct extent_state **cached_ptr)
 }
 
 /*
-                                                                         
-                                                                 
-  
-                                                                            
-                                                                        
-                                                           
-  
-                                                      
+ * set some bits on a range in the tree.  This may require allocations or
+ * sleeping, so the gfp mask is used to indicate what is allowed.
+ *
+ * If any of the exclusive bits are set, this will fail with -EEXIST if some
+ * part of the range already has the desired bits set.  The start of the
+ * existing range is returned in failed_start in this case.
+ *
+ * [start, end] is inclusive This takes the tree lock.
  */
 
 static int __must_check
@@ -761,9 +761,9 @@ again:
 		}
 	}
 	/*
-                                                        
-                     
-  */
+	 * this search will find all the extents that end after
+	 * our range starts.
+	 */
 	node = tree_search(tree, start);
 	if (!node) {
 		prealloc = alloc_extent_state_atomic(prealloc);
@@ -781,11 +781,11 @@ hit_next:
 	last_end = state->end;
 
 	/*
-                               
-             
-   
-                                          
-  */
+	 * | ---- desired range ---- |
+	 * | state |
+	 *
+	 * Just lock what we found and keep going
+	 */
 	if (state->start == start && state->end <= end) {
 		struct rb_node *next_node;
 		if (state->state & exclusive_bits) {
@@ -813,21 +813,21 @@ hit_next:
 	}
 
 	/*
-                                   
-             
-        
-                                          
-   
-                                                              
-                
-   
-                                           
-                                                           
-                               
-   
-                                                          
-                      
-  */
+	 *     | ---- desired range ---- |
+	 * | state |
+	 *   or
+	 * | ------------- state -------------- |
+	 *
+	 * We need to split the extent we found, and may flip bits on
+	 * second half.
+	 *
+	 * If the extent we found extends past our
+	 * range, we just split and search again.  It'll get split
+	 * again the next time though.
+	 *
+	 * If the extent we found is inside our range, we set the
+	 * desired bit on it.
+	 */
 	if (state->start < start) {
 		if (state->state & exclusive_bits) {
 			*failed_start = start;
@@ -855,12 +855,12 @@ hit_next:
 		goto search_again;
 	}
 	/*
-                               
-                                            
-   
-                                                         
-                               
-  */
+	 * | ---- desired range ---- |
+	 *     | state | or               | state |
+	 *
+	 * There's a hole, we need to insert something in it and
+	 * ignore the extent we found.
+	 */
 	if (state->start > start) {
 		u64 this_end;
 		if (end < last_start)
@@ -872,9 +872,9 @@ hit_next:
 		BUG_ON(!prealloc);
 
 		/*
-                                                      
-                      
-   */
+		 * Avoid to free 'prealloc' if it can be merged with
+		 * the later extent.
+		 */
 		err = insert_state(tree, prealloc, start, this_end,
 				   &bits);
 		if (err)
@@ -886,11 +886,11 @@ hit_next:
 		goto search_again;
 	}
 	/*
-                               
-                                    
-                                                
-                     
-  */
+	 * | ---- desired range ---- |
+	 *                        | state |
+	 * We need to split the extent, and set the bit
+	 * on the first half
+	 */
 	if (state->start <= end && state->end > end) {
 		if (state->state & exclusive_bits) {
 			*failed_start = start;
@@ -938,20 +938,20 @@ int set_extent_bit(struct extent_io_tree *tree, u64 start, u64 end, int bits,
 }
 
 
-/* 
-                                                                             
-                               
-                                    
-                                            
-                                       
-                                               
-                             
-  
-                                                                              
-                                                                           
-                                                                              
-                                                                            
-                           
+/**
+ * convert_extent - convert all bits in a given range from one bit to another
+ * @tree:	the io tree to search
+ * @start:	the start offset in bytes
+ * @end:	the end offset in bytes (inclusive)
+ * @bits:	the bits to set in this range
+ * @clear_bits:	the bits to clear in this range
+ * @mask:	the allocation mask
+ *
+ * This will go through and set bits for the given range.  If any states exist
+ * already in this range they are set with the given bit and cleared of the
+ * clear_bits.  This is only meant to be used by things that are mergeable, ie
+ * converting from say DELALLOC to DIRTY.  This is not meant to be used with
+ * boundary bits like LOCK.
  */
 int convert_extent_bit(struct extent_io_tree *tree, u64 start, u64 end,
 		       int bits, int clear_bits, gfp_t mask)
@@ -972,9 +972,9 @@ again:
 
 	spin_lock(&tree->lock);
 	/*
-                                                        
-                     
-  */
+	 * this search will find all the extents that end after
+	 * our range starts.
+	 */
 	node = tree_search(tree, start);
 	if (!node) {
 		prealloc = alloc_extent_state_atomic(prealloc);
@@ -994,11 +994,11 @@ hit_next:
 	last_end = state->end;
 
 	/*
-                               
-             
-   
-                                          
-  */
+	 * | ---- desired range ---- |
+	 * | state |
+	 *
+	 * Just lock what we found and keep going
+	 */
 	if (state->start == start && state->end <= end) {
 		struct rb_node *next_node;
 
@@ -1019,21 +1019,21 @@ hit_next:
 	}
 
 	/*
-                                   
-             
-        
-                                          
-   
-                                                              
-                
-   
-                                           
-                                                           
-                               
-   
-                                                          
-                      
-  */
+	 *     | ---- desired range ---- |
+	 * | state |
+	 *   or
+	 * | ------------- state -------------- |
+	 *
+	 * We need to split the extent we found, and may flip bits on
+	 * second half.
+	 *
+	 * If the extent we found extends past our
+	 * range, we just split and search again.  It'll get split
+	 * again the next time though.
+	 *
+	 * If the extent we found is inside our range, we set the
+	 * desired bit on it.
+	 */
 	if (state->start < start) {
 		prealloc = alloc_extent_state_atomic(prealloc);
 		if (!prealloc) {
@@ -1056,12 +1056,12 @@ hit_next:
 		goto search_again;
 	}
 	/*
-                               
-                                            
-   
-                                                         
-                               
-  */
+	 * | ---- desired range ---- |
+	 *     | state | or               | state |
+	 *
+	 * There's a hole, we need to insert something in it and
+	 * ignore the extent we found.
+	 */
 	if (state->start > start) {
 		u64 this_end;
 		if (end < last_start)
@@ -1076,9 +1076,9 @@ hit_next:
 		}
 
 		/*
-                                                      
-                      
-   */
+		 * Avoid to free 'prealloc' if it can be merged with
+		 * the later extent.
+		 */
 		err = insert_state(tree, prealloc, start, this_end,
 				   &bits);
 		if (err)
@@ -1088,11 +1088,11 @@ hit_next:
 		goto search_again;
 	}
 	/*
-                               
-                                    
-                                                
-                     
-  */
+	 * | ---- desired range ---- |
+	 *                        | state |
+	 * We need to split the extent, and set the bit
+	 * on the first half
+	 */
 	if (state->start <= end && state->end > end) {
 		prealloc = alloc_extent_state_atomic(prealloc);
 		if (!prealloc) {
@@ -1128,7 +1128,7 @@ search_again:
 	goto again;
 }
 
-/*                                      */
+/* wrappers around set/clear extent bit */
 int set_extent_dirty(struct extent_io_tree *tree, u64 start, u64 end,
 		     gfp_t mask)
 {
@@ -1188,8 +1188,8 @@ static int clear_extent_uptodate(struct extent_io_tree *tree, u64 start,
 }
 
 /*
-                                                                            
-                            
+ * either insert or lock state struct between start and end use mask to tell
+ * us if waiting is desired.
  */
 int lock_extent_bits(struct extent_io_tree *tree, u64 start, u64 end,
 		     int bits, struct extent_state **cached_state)
@@ -1245,7 +1245,7 @@ int unlock_extent(struct extent_io_tree *tree, u64 start, u64 end)
 }
 
 /*
-                                                                      
+ * helper function to set both pages and extents in the tree writeback
  */
 static int set_range_writeback(struct extent_io_tree *tree, u64 start, u64 end)
 {
@@ -1255,7 +1255,7 @@ static int set_range_writeback(struct extent_io_tree *tree, u64 start, u64 end)
 
 	while (index <= end_index) {
 		page = find_get_page(tree->mapping, index);
-		BUG_ON(!page); /*                                       */
+		BUG_ON(!page); /* Pages should be in the extent_io_tree */
 		set_page_writeback(page);
 		page_cache_release(page);
 		index++;
@@ -1263,9 +1263,9 @@ static int set_range_writeback(struct extent_io_tree *tree, u64 start, u64 end)
 	return 0;
 }
 
-/*                                                               
-                                                              
-                                  
+/* find the first state struct with 'bits' set after 'start', and
+ * return it.  tree->lock must be held.  NULL will returned if
+ * nothing was found after 'start'
  */
 struct extent_state *find_first_extent_bit_state(struct extent_io_tree *tree,
 						 u64 start, int bits)
@@ -1274,9 +1274,9 @@ struct extent_state *find_first_extent_bit_state(struct extent_io_tree *tree,
 	struct extent_state *state;
 
 	/*
-                                                        
-                     
-  */
+	 * this search will find all the extents that end after
+	 * our range starts.
+	 */
 	node = tree_search(tree, start);
 	if (!node)
 		goto out;
@@ -1295,11 +1295,11 @@ out:
 }
 
 /*
-                                                                
-                                                                 
-                                                  
-  
-                                                    
+ * find the first offset in the io tree with 'bits' set. zero is
+ * returned if we find something, and *start_ret and *end_ret are
+ * set to reflect the state struct that was found.
+ *
+ * If nothing was found, 1 is returned, < 0 on error
  */
 int find_first_extent_bit(struct extent_io_tree *tree, u64 start,
 			  u64 *start_ret, u64 *end_ret, int bits)
@@ -1319,10 +1319,10 @@ int find_first_extent_bit(struct extent_io_tree *tree, u64 start,
 }
 
 /*
-                                                                       
-                                                                      
-  
-                                                                   
+ * find a contiguous range of bytes in the file marked as delalloc, not
+ * more than 'max_bytes'.  start and end are used to return the range,
+ *
+ * 1 is returned if we find something, 0 if nothing was in the tree
  */
 static noinline u64 find_delalloc_range(struct extent_io_tree *tree,
 					u64 *start, u64 *end, u64 max_bytes,
@@ -1337,9 +1337,9 @@ static noinline u64 find_delalloc_range(struct extent_io_tree *tree,
 	spin_lock(&tree->lock);
 
 	/*
-                                                        
-                     
-  */
+	 * this search will find all the extents that end after
+	 * our range starts.
+	 */
 	node = tree_search(tree, cur_start);
 	if (!node) {
 		if (!found)
@@ -1421,11 +1421,11 @@ static noinline int lock_delalloc_pages(struct inode *inode,
 	int ret;
 	int i;
 
-	/*                                                       */
+	/* the caller is responsible for locking the start index */
 	if (index == locked_page->index && index == end_index)
 		return 0;
 
-	/*                                  */
+	/* skip the page at the start index */
 	nrpages = end_index - index + 1;
 	while (nrpages > 0) {
 		ret = find_get_pages_contig(inode->i_mapping, index,
@@ -1435,12 +1435,12 @@ static noinline int lock_delalloc_pages(struct inode *inode,
 			ret = -EAGAIN;
 			goto done;
 		}
-		/*                                              */
+		/* now we have an array of pages, lock them all */
 		for (i = 0; i < ret; i++) {
 			/*
-                                             
-                 
-    */
+			 * the caller is taking responsibility for
+			 * locked_page
+			 */
 			if (pages[i] != locked_page) {
 				lock_page(pages[i]);
 				if (!PageDirty(pages[i]) ||
@@ -1470,10 +1470,10 @@ done:
 }
 
 /*
-                                                                       
-                                                                      
-  
-                                                                   
+ * find a contiguous range of bytes in the file marked as delalloc, not
+ * more than 'max_bytes'.  start and end are used to return the range,
+ *
+ * 1 is returned if we find something, 0 if nothing was in the tree
  */
 static noinline u64 find_lock_delalloc_range(struct inode *inode,
 					     struct extent_io_tree *tree,
@@ -1489,7 +1489,7 @@ static noinline u64 find_lock_delalloc_range(struct inode *inode,
 	int loops = 0;
 
 again:
-	/*                                                            */
+	/* step one, find a bunch of delalloc bytes starting at start */
 	delalloc_start = *start;
 	delalloc_end = 0;
 	found = find_delalloc_range(tree, &delalloc_start, &delalloc_end,
@@ -1502,27 +1502,27 @@ again:
 	}
 
 	/*
-                                                                
-                                                             
-               
-  */
+	 * start comes from the offset of locked_page.  We have to lock
+	 * pages in order, so we can't process delalloc bytes before
+	 * locked_page
+	 */
 	if (delalloc_start < *start)
 		delalloc_start = *start;
 
 	/*
-                                                              
-                     
-  */
+	 * make sure to limit the number of pages we try to lock down
+	 * if we're looping.
+	 */
 	if (delalloc_end + 1 - delalloc_start > max_bytes && loops)
 		delalloc_end = delalloc_start + PAGE_CACHE_SIZE - 1;
 
-	/*                                                            */
+	/* step two, lock all the pages after the page that has start */
 	ret = lock_delalloc_pages(inode, locked_page,
 				  delalloc_start, delalloc_end);
 	if (ret == -EAGAIN) {
-		/*                                                  
-                                                              
-   */
+		/* some of the pages are gone, lets avoid looping by
+		 * shortening the size of the delalloc range we're searching
+		 */
 		free_extent_state(cached_state);
 		if (!loops) {
 			unsigned long offset = (*start) & (PAGE_CACHE_SIZE - 1);
@@ -1534,12 +1534,12 @@ again:
 			goto out_failed;
 		}
 	}
-	BUG_ON(ret); /*                                     */
+	BUG_ON(ret); /* Only valid values are 0 and -EAGAIN */
 
-	/*                                                     */
+	/* step three, lock the state bits for the whole range */
 	lock_extent_bits(tree, delalloc_start, delalloc_end, 0, &cached_state);
 
-	/*                                                 */
+	/* then test to make sure it is all still delalloc */
 	ret = test_range_bit(tree, delalloc_start, delalloc_end,
 			     EXTENT_DELALLOC, 1, cached_state);
 	if (!ret) {
@@ -1615,9 +1615,9 @@ int extent_clear_unlock_delalloc(struct inode *inode,
 }
 
 /*
-                                                                 
-                                                                  
-                                               
+ * count the number of bytes in the tree that have a given bit(s)
+ * set.  This can be fairly slow, except for EXTENT_DIRTY which is
+ * cached.  The total number found is returned.
  */
 u64 count_range_bits(struct extent_io_tree *tree,
 		     u64 *start, u64 search_end, u64 max_bytes,
@@ -1641,9 +1641,9 @@ u64 count_range_bits(struct extent_io_tree *tree,
 		goto out;
 	}
 	/*
-                                                        
-                     
-  */
+	 * this search will find all the extents that end after
+	 * our range starts.
+	 */
 	node = tree_search(tree, cur_start);
 	if (!node)
 		goto out;
@@ -1677,8 +1677,8 @@ out:
 }
 
 /*
-                                                                             
-                                                    
+ * set the private field for a given byte offset in the tree.  If there isn't
+ * an extent_state there already, this does nothing.
  */
 int set_state_private(struct extent_io_tree *tree, u64 start, u64 private)
 {
@@ -1688,9 +1688,9 @@ int set_state_private(struct extent_io_tree *tree, u64 start, u64 private)
 
 	spin_lock(&tree->lock);
 	/*
-                                                        
-                     
-  */
+	 * this search will find all the extents that end after
+	 * our range starts.
+	 */
 	node = tree_search(tree, start);
 	if (!node) {
 		ret = -ENOENT;
@@ -1715,9 +1715,9 @@ int get_state_private(struct extent_io_tree *tree, u64 start, u64 *private)
 
 	spin_lock(&tree->lock);
 	/*
-                                                        
-                     
-  */
+	 * this search will find all the extents that end after
+	 * our range starts.
+	 */
 	node = tree_search(tree, start);
 	if (!node) {
 		ret = -ENOENT;
@@ -1735,10 +1735,10 @@ out:
 }
 
 /*
-                                                       
-                                                                    
-                                                                
-                      
+ * searches a range in the state tree for a given mask.
+ * If 'filled' == 1, this returns 1 only if every extent in the tree
+ * has the bits set.  Otherwise, 1 is returned if any bit in the
+ * range is found set.
  */
 int test_range_bit(struct extent_io_tree *tree, u64 start, u64 end,
 		   int bits, int filled, struct extent_state *cached)
@@ -1791,8 +1791,8 @@ int test_range_bit(struct extent_io_tree *tree, u64 start, u64 end,
 }
 
 /*
-                                                            
-                                                   
+ * helper function to set a given page up to date if all the
+ * extents in the tree for that page are up to date
  */
 static void check_page_uptodate(struct extent_io_tree *tree, struct page *page)
 {
@@ -1803,8 +1803,8 @@ static void check_page_uptodate(struct extent_io_tree *tree, struct page *page)
 }
 
 /*
-                                                                  
-                             
+ * helper function to unlock a page if all the extents in the tree
+ * for that page are unlocked
  */
 static void check_page_locked(struct extent_io_tree *tree, struct page *page)
 {
@@ -1815,8 +1815,8 @@ static void check_page_locked(struct extent_io_tree *tree, struct page *page)
 }
 
 /*
-                                                           
-                                                    
+ * helper function to end page writeback if all the extents
+ * in the tree for that page are done with writeback
  */
 static void check_page_writeback(struct extent_io_tree *tree,
 				 struct page *page)
@@ -1825,12 +1825,12 @@ static void check_page_writeback(struct extent_io_tree *tree,
 }
 
 /*
-                                                                
-                                                                   
-                                                                     
-                                                                        
-                                                                      
-                                                                
+ * When IO fails, either with EIO or csum verification fails, we
+ * try other mirrors that might have a good copy of the data.  This
+ * io_failure_record is used to record state as we go through all the
+ * mirrors.  If another mirror has good data, the page is set up to date
+ * and things continue.  If a good mirror can't be found, the original
+ * bio end_io callback is called to indicate things have failed.
  */
 struct io_failure_record {
 	struct page *page;
@@ -1875,14 +1875,14 @@ static void repair_io_failure_callback(struct bio *bio, int err)
 }
 
 /*
-                                                                     
-                                                                             
-                                                                               
-                       
-                                                                             
-                                                                      
-                                                                           
-                                   
+ * this bypasses the standard btrfs submit functions deliberately, as
+ * the standard behavior is to write all copies in a raid setup. here we only
+ * want to write the one bad copy. so we do the mapping for ourselves and issue
+ * submit_bio directly.
+ * to avoid any synchonization issues, wait for the data after writing, which
+ * actually prevents the read that triggered the error from finishing.
+ * currently, there can be no more than two copies of every data bit. thus,
+ * exactly one rewrite is required.
  */
 int repair_io_failure(struct btrfs_mapping_tree *map_tree, u64 start,
 			u64 length, u64 logical, struct page *page,
@@ -1927,7 +1927,7 @@ int repair_io_failure(struct btrfs_mapping_tree *map_tree, u64 start,
 	wait_for_completion(&compl);
 
 	if (!test_bit(BIO_UPTODATE, &bio->bi_flags)) {
-		/*                                     */
+		/* try to remap that extent elsewhere? */
 		bio_put(bio);
 		return -EIO;
 	}
@@ -1961,8 +1961,8 @@ int repair_eb_io_failure(struct btrfs_root *root, struct extent_buffer *eb,
 }
 
 /*
-                                                                      
-                                                                
+ * each time an IO finishes, we do a fast check in the IO failure tree
+ * to see if we need to process or clean up an io_failure_record
  */
 static int clean_io_failure(u64 start, struct page *page)
 {
@@ -1991,7 +1991,7 @@ static int clean_io_failure(u64 start, struct page *page)
 	BUG_ON(!failrec->this_mirror);
 
 	if (failrec->in_validation) {
-		/*                                               */
+		/* there was no real error, just free the record */
 		pr_debug("clean_io_failure: freeing dummy error at %llu\n",
 			 failrec->start);
 		did_repair = 1;
@@ -2024,11 +2024,11 @@ out:
 }
 
 /*
-                                                         
-                                                                             
-                                                                          
-                                                                                
-         
+ * this is a generic handler for readpage errors (default
+ * readpage_io_failed_hook). if other copies exist, read those and write back
+ * good data to the failed position. does not investigate in remapping the
+ * failed extent elsewhere, hoping the device will be smart enough to do this as
+ * needed
  */
 
 static int bio_readpage_error(struct bio *failed_bio, struct page *page,
@@ -2092,13 +2092,13 @@ static int bio_readpage_error(struct bio *failed_bio, struct page *page,
 		failrec->logical = logical;
 		free_extent_map(em);
 
-		/*                                          */
+		/* set the bits in the private failure tree */
 		ret = set_extent_bits(failure_tree, start, end,
 					EXTENT_LOCKED | EXTENT_DIRTY, GFP_NOFS);
 		if (ret >= 0)
 			ret = set_state_private(failure_tree, start,
 						(u64)(unsigned long)failrec);
-		/*                                  */
+		/* set the bits in the inode's tree */
 		if (ret >= 0)
 			ret = set_extent_bits(tree, start, end, EXTENT_DAMAGED,
 						GFP_NOFS);
@@ -2113,20 +2113,20 @@ static int bio_readpage_error(struct bio *failed_bio, struct page *page,
 			 failrec->logical, failrec->start, failrec->len,
 			 failrec->in_validation);
 		/*
-                                                                  
-                                                 
-                                                       
-   */
+		 * when data can be on disk more than twice, add to failrec here
+		 * (e.g. with a list for failed_mirror) to make
+		 * clean_io_failure() clean all those errors at once.
+		 */
 	}
 	num_copies = btrfs_num_copies(
 			      &BTRFS_I(inode)->root->fs_info->mapping_tree,
 			      failrec->logical, failrec->len);
 	if (num_copies == 1) {
 		/*
-                                                                 
-                                                             
-                                                            
-   */
+		 * we only have a single copy of the data, so don't bother with
+		 * all the retry and error correction code that follows. no
+		 * matter what the error is, it is very likely to persist.
+		 */
 		pr_debug("bio_readpage_error: cannot repair, num_copies == 1. "
 			 "state=%p, num_copies=%d, next_mirror %d, "
 			 "failed_mirror %d\n", state, num_copies,
@@ -2145,29 +2145,29 @@ static int bio_readpage_error(struct bio *failed_bio, struct page *page,
 	}
 
 	/*
-                           
-                                      
-                                      
-  */
+	 * there are two premises:
+	 *	a) deliver good data to the caller
+	 *	b) correct the bad sectors on disk
+	 */
 	if (failed_bio->bi_vcnt > 1) {
 		/*
-                                                                 
-                                                                  
-                                                      
-    
-                                                                 
-                                                                 
-   */
+		 * to fulfill b), we need to know the exact failing sectors, as
+		 * we don't want to rewrite any more than the failed ones. thus,
+		 * we need separate read requests for the failed bio
+		 *
+		 * if the following BUG_ON triggers, our validation request got
+		 * merged. we need separate requests for our algorithm to work.
+		 */
 		BUG_ON(failrec->in_validation);
 		failrec->in_validation = 1;
 		failrec->this_mirror = failed_mirror;
 		read_mode = READ_SYNC | REQ_FAILFAST_DEV;
 	} else {
 		/*
-                                                                
-                                                          
-                                                            
-   */
+		 * we're ready to fulfill a) and b) alongside. get a good copy
+		 * of the failed sector and if we succeed, we have setup
+		 * everything for repair_io_failure to do the rest for us.
+		 */
 		if (failrec->in_validation) {
 			BUG_ON(failrec->this_mirror != failed_mirror);
 			failrec->in_validation = 0;
@@ -2211,7 +2211,7 @@ static int bio_readpage_error(struct bio *failed_bio, struct page *page,
 	return ret;
 }
 
-/*                                                                  */
+/* lots and lots of room for performance fixes in the end_bio funcs */
 
 int end_extent_writepage(struct page *page, int err, u64 start, u64 end)
 {
@@ -2232,7 +2232,7 @@ int end_extent_writepage(struct page *page, int err, u64 start, u64 end)
 	    tree->ops->writepage_io_failed_hook) {
 		ret = tree->ops->writepage_io_failed_hook(NULL, page,
 						 start, end, NULL);
-		/*                             */
+		/* Writeback already completed */
 		if (ret == 0)
 			return 1;
 	}
@@ -2246,13 +2246,13 @@ int end_extent_writepage(struct page *page, int err, u64 start, u64 end)
 }
 
 /*
-                                            
-                                   
-                                                          
-                                                        
-  
-                                                                  
-                                                            
+ * after a writepage IO is done, we need to:
+ * clear the uptodate bits on error
+ * clear the writeback bits in the extent tree for this IO
+ * end_page_writeback if the page has no more pending IO
+ *
+ * Scheduling is not allowed, so the extent state tree is expected
+ * to have one and only one object corresponding to this IO.
  */
 static void end_bio_extent_writepage(struct bio *bio, int err)
 {
@@ -2291,15 +2291,15 @@ static void end_bio_extent_writepage(struct bio *bio, int err)
 }
 
 /*
-                                           
-                                   
-                                         
-                                                                  
-                                        
-                                                              
-  
-                                                                  
-                                                            
+ * after a readpage IO is done, we need to:
+ * clear the uptodate bits on error
+ * set the uptodate bits if things worked
+ * set the page up to date if all extents in the tree are uptodate
+ * clear the lock bit in the extent tree
+ * unlock the page if there are no other extents locked for it
+ *
+ * Scheduling is not allowed, so the extent state tree is expected
+ * to have one and only one object corresponding to this IO.
  */
 static void end_bio_extent_readpage(struct bio *bio, int err)
 {
@@ -2342,9 +2342,9 @@ static void end_bio_extent_readpage(struct bio *bio, int err)
 		state = find_first_extent_bit_state(tree, start, EXTENT_LOCKED);
 		if (state && state->start == start) {
 			/*
-                                                     
-             
-    */
+			 * take a reference on the state, unlock will drop
+			 * the ref
+			 */
 			cache_state(state, &cached);
 		}
 		spin_unlock(&tree->lock);
@@ -2366,15 +2366,15 @@ static void end_bio_extent_readpage(struct bio *bio, int err)
 				uptodate = 1;
 		} else if (!uptodate) {
 			/*
-                                                       
-                                                       
-                                              
-                                                          
-                                                           
-                                                        
-                                                       
-                                       
-    */
+			 * The generic bio_readpage_error handles errors the
+			 * following way: If possible, new read requests are
+			 * created and submitted and will end up in
+			 * end_bio_extent_readpage as well (if we're lucky, not
+			 * in the !uptodate case). In that case it returns 0 and
+			 * we just go on with the next page in our bio. If it
+			 * can't handle the error it will return -EIO and we
+			 * remain responsible for that page.
+			 */
 			ret = bio_readpage_error(bio, page, start, end, mirror, NULL);
 			if (ret == 0) {
 				uptodate =
@@ -2436,8 +2436,8 @@ btrfs_bio_alloc(struct block_device *bdev, u64 first_sector, int nr_vecs,
 }
 
 /*
-                                                         
-                                                           
+ * Since writes are async, they will only return -ENOMEM.
+ * Reads can return the full range of I/O error conditions.
  */
 static int __must_check submit_one_bio(int rw, struct bio *bio,
 				       int mirror_num, unsigned long bio_flags)
@@ -2560,10 +2560,10 @@ void set_page_extent_mapped(struct page *page)
 }
 
 /*
-                                                                           
-                                                                    
-            
-                                                               
+ * basic readpage implementation.  Locked extent state structs are inserted
+ * into the tree that are removed when the IO is done (by the end_io
+ * handlers)
+ * XXX JDM: This needs looking at to ensure proper page locking
  */
 static int __extent_read_full_page(struct extent_io_tree *tree,
 				   struct page *page,
@@ -2674,7 +2674,7 @@ static int __extent_read_full_page(struct extent_io_tree *tree,
 		free_extent_map(em);
 		em = NULL;
 
-		/*                                         */
+		/* we've found a hole, just zero and go on */
 		if (block_start == EXTENT_MAP_HOLE) {
 			char *userpage;
 			struct extent_state *cached = NULL;
@@ -2692,7 +2692,7 @@ static int __extent_read_full_page(struct extent_io_tree *tree,
 			pg_offset += iosize;
 			continue;
 		}
-		/*                                                      */
+		/* the get_extent function already copied into the page */
 		if (test_range_bit(tree, cur, cur_end,
 				   EXTENT_UPTODATE, 1, NULL)) {
 			check_page_uptodate(tree, page);
@@ -2701,9 +2701,9 @@ static int __extent_read_full_page(struct extent_io_tree *tree,
 			pg_offset += iosize;
 			continue;
 		}
-		/*                                                     
-                        
-   */
+		/* we have an inline extent but it didn't get marked up
+		 * to date.  Error out
+		 */
 		if (block_start == EXTENT_MAP_INLINE) {
 			SetPageError(page);
 			unlock_extent(tree, cur, cur + iosize - 1);
@@ -2769,10 +2769,10 @@ static noinline void update_nr_written(struct page *page,
 }
 
 /*
-                                                                    
-                                                                      
-                                                                        
-                                                     
+ * the writepage semantics are similar to regular writepage.  extent
+ * records are inserted to lock ranges in the tree, and as dirty areas
+ * are found, they are marked writeback.  Then the lock bits are removed
+ * and the end_io handler clears the writeback ranges
  */
 static int __extent_writepage(struct page *page, struct writeback_control *wbc,
 			      void *data)
@@ -2848,9 +2848,9 @@ static int __extent_writepage(struct page *page, struct writeback_control *wbc,
 	if (!epd->extent_locked && fill_delalloc) {
 		u64 delalloc_to_write = 0;
 		/*
-                                                        
-                  
-   */
+		 * make sure the wbc mapping index is at least updated
+		 * to this page.
+		 */
 		update_nr_written(page, wbc, 0);
 
 		while (delalloc_end < page_end) {
@@ -2868,16 +2868,16 @@ static int __extent_writepage(struct page *page, struct writeback_control *wbc,
 						       delalloc_end,
 						       &page_started,
 						       &nr_written);
-			/*                                    */
+			/* File system has been set read-only */
 			if (ret) {
 				SetPageError(page);
 				goto done;
 			}
 			/*
-                                                     
-                                           
-                     
-    */
+			 * delalloc_end is already one less than the total
+			 * length, so we don't subtract one from
+			 * PAGE_CACHE_SIZE
+			 */
 			delalloc_to_write += (delalloc_end - delalloc_start +
 					      PAGE_CACHE_SIZE) >>
 					      PAGE_CACHE_SHIFT;
@@ -2892,16 +2892,16 @@ static int __extent_writepage(struct page *page, struct writeback_control *wbc,
 						 thresh);
 		}
 
-		/*                                                        
-            
-   */
+		/* did the fill delalloc function already unlock and start
+		 * the IO?
+		 */
 		if (page_started) {
 			ret = 0;
 			/*
-                                                 
-                                                
-                  
-    */
+			 * we've unlocked the page, so we can't update
+			 * the mapping's writeback index, just update
+			 * nr_to_write.
+			 */
 			wbc->nr_to_write -= nr_written;
 			goto done_unlocked;
 		}
@@ -2910,7 +2910,7 @@ static int __extent_writepage(struct page *page, struct writeback_control *wbc,
 		ret = tree->ops->writepage_start_hook(page, start,
 						      page_end);
 		if (ret) {
-			/*                           */
+			/* Fixup worker will requeue */
 			if (ret == -EBUSY)
 				wbc->pages_skipped++;
 			else
@@ -2923,9 +2923,9 @@ static int __extent_writepage(struct page *page, struct writeback_control *wbc,
 	}
 
 	/*
-                                                              
-                                                
-  */
+	 * we don't want to touch the inode after unlocking the page,
+	 * so we update the mapping writeback index now
+	 */
 	update_nr_written(page, wbc, nr_written + 1);
 
 	end = page_end;
@@ -2965,25 +2965,25 @@ static int __extent_writepage(struct page *page, struct writeback_control *wbc,
 		em = NULL;
 
 		/*
-                                                            
-                    
-   */
+		 * compressed and inline extents are written through other
+		 * paths in the FS
+		 */
 		if (compressed || block_start == EXTENT_MAP_HOLE ||
 		    block_start == EXTENT_MAP_INLINE) {
 			/*
-                                                  
-                        
-    */
+			 * end_io notification does not happen here for
+			 * compressed extents
+			 */
 			if (!compressed && tree->ops &&
 			    tree->ops->writepage_end_io_hook)
 				tree->ops->writepage_end_io_hook(page, cur,
 							 cur + iosize - 1,
 							 NULL, 1);
 			else if (compressed) {
-				/*                                       
-                                         
-                
-     */
+				/* we don't want to end_page_writeback on
+				 * a compressed extent.  this happens
+				 * elsewhere
+				 */
 				nr++;
 			}
 
@@ -2991,7 +2991,7 @@ static int __extent_writepage(struct page *page, struct writeback_control *wbc,
 			pg_offset += iosize;
 			continue;
 		}
-		/*                                                  */
+		/* leave this out until we have a page_mkwrite call */
 		if (0 && !test_range_bit(tree, cur, cur + iosize - 1,
 				   EXTENT_DIRTY, 0, NULL)) {
 			cur = cur + iosize;
@@ -3032,7 +3032,7 @@ static int __extent_writepage(struct page *page, struct writeback_control *wbc,
 	}
 done:
 	if (nr == 0) {
-		/*                                                       */
+		/* make sure the mapping tag for page dirty gets cleared */
 		set_page_writeback(page);
 		end_page_writeback(page);
 	}
@@ -3040,7 +3040,7 @@ done:
 
 done_unlocked:
 
-	/*                                         */
+	/* drop our reference on any cached states */
 	free_extent_state(cached_state);
 	return 0;
 }
@@ -3225,13 +3225,13 @@ int btree_write_cache_pages(struct address_space *mapping,
 	struct pagevec pvec;
 	int nr_pages;
 	pgoff_t index;
-	pgoff_t end;		/*           */
+	pgoff_t end;		/* Inclusive */
 	int scanned = 0;
 	int tag;
 
 	pagevec_init(&pvec, 0);
 	if (wbc->range_cyclic) {
-		index = mapping->writeback_index; /*                        */
+		index = mapping->writeback_index; /* Start from prev offset */
 		end = -1;
 	} else {
 		index = wbc->range_start >> PAGE_CACHE_SHIFT;
@@ -3292,10 +3292,10 @@ retry:
 			free_extent_buffer(eb);
 
 			/*
-                                                       
-                                                       
-                 
-    */
+			 * the filesystem may choose to bump up nr_to_write.
+			 * We have to make sure to honor the new nr_to_write
+			 * at any time
+			 */
 			nr_to_write_done = wbc->nr_to_write <= 0;
 		}
 		pagevec_release(&pvec);
@@ -3303,9 +3303,9 @@ retry:
 	}
 	if (!scanned && !done) {
 		/*
-                                                                 
-                                  
-   */
+		 * We hit the last page and there is more work to be done: wrap
+		 * back to the start of the file
+		 */
 		scanned = 1;
 		index = 0;
 		goto retry;
@@ -3314,20 +3314,20 @@ retry:
 	return ret;
 }
 
-/* 
-                                                                                                     
-                                             
-                                                                     
-                                            
-                                           
-  
-                                                                     
-                                                                             
-                                                                                
-                                                                              
-                                                                            
-                                                                          
-                           
+/**
+ * write_cache_pages - walk the list of dirty pages of the given address space and write all of them.
+ * @mapping: address space structure to write
+ * @wbc: subtract the number of written pages from *@wbc->nr_to_write
+ * @writepage: function called for each page
+ * @data: data passed to writepage function
+ *
+ * If a page is already under I/O, write_cache_pages() skips it, even
+ * if it's dirty.  This is desirable behaviour for memory-cleaning writeback,
+ * but it is INCORRECT for data-integrity system calls such as fsync().  fsync()
+ * and msync() need to guarantee that all the data which was dirty at the time
+ * the call was made get new I/O started against them.  If wbc->sync_mode is
+ * WB_SYNC_ALL then we were called for data integrity and we must wait for
+ * existing IO to complete.
  */
 static int extent_write_cache_pages(struct extent_io_tree *tree,
 			     struct address_space *mapping,
@@ -3341,13 +3341,13 @@ static int extent_write_cache_pages(struct extent_io_tree *tree,
 	struct pagevec pvec;
 	int nr_pages;
 	pgoff_t index;
-	pgoff_t end;		/*           */
+	pgoff_t end;		/* Inclusive */
 	int scanned = 0;
 	int tag;
 
 	pagevec_init(&pvec, 0);
 	if (wbc->range_cyclic) {
-		index = mapping->writeback_index; /*                        */
+		index = mapping->writeback_index; /* Start from prev offset */
 		end = -1;
 	} else {
 		index = wbc->range_start >> PAGE_CACHE_SHIFT;
@@ -3371,12 +3371,12 @@ retry:
 			struct page *page = pvec.pages[i];
 
 			/*
-                                                          
-                                                           
-                                                           
-                                                    
-             
-    */
+			 * At this point we hold neither mapping->tree_lock nor
+			 * lock on the page itself: the page may be truncated or
+			 * invalidated (changing page->mapping to NULL), or even
+			 * swizzled back from swapper_space to tmpfs file
+			 * mapping
+			 */
 			if (tree->ops &&
 			    tree->ops->write_cache_pages_lock_hook) {
 				tree->ops->write_cache_pages_lock_hook(page,
@@ -3421,10 +3421,10 @@ retry:
 				done = 1;
 
 			/*
-                                                       
-                                                       
-                 
-    */
+			 * the filesystem may choose to bump up nr_to_write.
+			 * We have to make sure to honor the new nr_to_write
+			 * at any time
+			 */
 			nr_to_write_done = wbc->nr_to_write <= 0;
 		}
 		pagevec_release(&pvec);
@@ -3432,9 +3432,9 @@ retry:
 	}
 	if (!scanned && !done) {
 		/*
-                                                                 
-                                  
-   */
+		 * We hit the last page and there is more work to be done: wrap
+		 * back to the start of the file
+		 */
 		scanned = 1;
 		index = 0;
 		goto retry;
@@ -3452,7 +3452,7 @@ static void flush_epd_write_bio(struct extent_page_data *epd)
 			rw = WRITE_SYNC;
 
 		ret = submit_one_bio(rw, epd->bio, 0, 0);
-		BUG_ON(ret < 0); /*         */
+		BUG_ON(ret < 0); /* -ENOMEM */
 		epd->bio = NULL;
 	}
 }
@@ -3574,9 +3574,9 @@ int extent_readpages(struct extent_io_tree *tree,
 }
 
 /*
-                                                                   
-                                                                      
-                        
+ * basic invalidatepage code, this waits on any locked or writeback
+ * ranges corresponding to the page, and then deletes any extent state
+ * records from the tree
  */
 int extent_invalidatepage(struct extent_io_tree *tree,
 			  struct page *page, unsigned long offset)
@@ -3600,9 +3600,9 @@ int extent_invalidatepage(struct extent_io_tree *tree,
 }
 
 /*
-                                                                  
-                                                                        
-                    
+ * a helper for releasepage, this tests for areas of the page that
+ * are locked or under IO and drops the related state bits if it is safe
+ * to drop the page.
  */
 int try_release_extent_state(struct extent_map_tree *map,
 			     struct extent_io_tree *tree, struct page *page,
@@ -3619,16 +3619,16 @@ int try_release_extent_state(struct extent_map_tree *map,
 		if ((mask & GFP_NOFS) == GFP_NOFS)
 			mask = GFP_NOFS;
 		/*
-                                                            
-                                     
-   */
+		 * at this point we can safely clear everything except the
+		 * locked bit and the nodatasum bit
+		 */
 		ret = clear_extent_bit(tree, start, end,
 				 ~(EXTENT_LOCKED | EXTENT_NODATASUM),
 				 0, 0, NULL, mask);
 
-		/*                                               
-                                            
-   */
+		/* if clear_extent_bit failed for enomem reasons,
+		 * we can't allow the release to continue.
+		 */
 		if (ret < 0)
 			ret = 0;
 		else
@@ -3638,9 +3638,9 @@ int try_release_extent_state(struct extent_map_tree *map,
 }
 
 /*
-                                                                    
-                                                                        
-                          
+ * a helper for releasepage.  As long as there are no locked extents
+ * in the range corresponding to the page, both state records and extent
+ * map records are removed
  */
 int try_release_extent_mapping(struct extent_map_tree *map,
 			       struct extent_io_tree *tree, struct page *page,
@@ -3672,13 +3672,13 @@ int try_release_extent_mapping(struct extent_map_tree *map,
 					    EXTENT_LOCKED | EXTENT_WRITEBACK,
 					    0, NULL)) {
 				remove_extent_mapping(map, em);
-				/*                      */
+				/* once for the rb tree */
 				free_extent_map(em);
 			}
 			start = extent_map_end(em);
 			write_unlock(&map->lock);
 
-			/*             */
+			/* once for us */
 			free_extent_map(em);
 		}
 	}
@@ -3686,8 +3686,8 @@ int try_release_extent_mapping(struct extent_map_tree *map,
 }
 
 /*
-                                                                   
-                                                
+ * helper function for fiemap, which doesn't want to see any holes.
+ * This maps until we find something past 'last'
  */
 static struct extent_map *get_extent_skip_holes(struct inode *inode,
 						u64 offset,
@@ -3710,13 +3710,13 @@ static struct extent_map *get_extent_skip_holes(struct inode *inode,
 		if (IS_ERR_OR_NULL(em))
 			return em;
 
-		/*                                */
+		/* if this isn't a hole return it */
 		if (!test_bit(EXTENT_FLAG_VACANCY, &em->flags) &&
 		    em->block_start != EXTENT_MAP_HOLE) {
 			return em;
 		}
 
-		/*                                            */
+		/* this is a hole, advance to the next extent */
 		offset = extent_map_end(em);
 		free_extent_map(em);
 		if (offset >= last)
@@ -3760,9 +3760,9 @@ int extent_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 	len = ALIGN(len, BTRFS_I(inode)->root->sectorsize);
 
 	/*
-                                                             
-                                                    
-  */
+	 * lookup the last file extent.  We're not using i_size here
+	 * because there might be preallocation past i_size
+	 */
 	ret = btrfs_lookup_file_extent(NULL, BTRFS_I(inode)->root,
 				       path, btrfs_ino(inode), -1, 0);
 	if (ret < 0) {
@@ -3776,28 +3776,28 @@ int extent_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 	btrfs_item_key_to_cpu(path->nodes[0], &found_key, path->slots[0]);
 	found_type = btrfs_key_type(&found_key);
 
-	/*                                              */
+	/* No extents, but there might be delalloc bits */
 	if (found_key.objectid != btrfs_ino(inode) ||
 	    found_type != BTRFS_EXTENT_DATA_KEY) {
-		/*                                 */
+		/* have to trust i_size as the end */
 		last = (u64)-1;
 		last_for_get_extent = isize;
 	} else {
 		/*
-                                                        
-                                                              
-                                                                  
-   */
+		 * remember the start of the last extent.  There are a
+		 * bunch of different factors that go into the length of the
+		 * extent, so its much less complex to remember where it started
+		 */
 		last = found_key.offset;
 		last_for_get_extent = last + 1;
 	}
 	btrfs_free_path(path);
 
 	/*
-                                                                     
-                                                                       
-                
-  */
+	 * we might have some extents allocated but more delalloc past those
+	 * extents.  so, we trust isize unless the start of the last extent is
+	 * beyond isize
+	 */
 	if (last < isize) {
 		last = (u64)-1;
 		last_for_get_extent = isize;
@@ -3818,22 +3818,22 @@ int extent_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 	while (!end) {
 		u64 offset_in_extent;
 
-		/*                                                   */
+		/* break if the extent we found is outside the range */
 		if (em->start >= max || extent_map_end(em) < off)
 			break;
 
 		/*
-                                                           
-                                                      
-                                                      
-                                        
-   */
+		 * get_extent may return an extent that starts before our
+		 * requested range.  We have to make sure the ranges
+		 * we return to fiemap always move forward and don't
+		 * overlap, so adjust the offsets here
+		 */
 		em_start = max(em->start, off);
 
 		/*
-                                                   
-                                        
-   */
+		 * record the offset from the start of the extent
+		 * for adjusting the disk offset below
+		 */
 		offset_in_extent = em_start - em->start;
 		em_end = extent_map_end(em);
 		em_len = em_end - em_start;
@@ -3842,8 +3842,8 @@ int extent_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 		flags = 0;
 
 		/*
-                                             
-   */
+		 * bump off for our next call to get_extent
+		 */
 		off = extent_map_end(em);
 		if (off >= max)
 			end = 1;
@@ -3871,7 +3871,7 @@ int extent_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 			end = 1;
 		}
 
-		/*                                                            */
+		/* now scan forward to see if this is really the last extent. */
 		em = get_extent_skip_holes(inode, off, last_for_get_extent,
 					   get_extent);
 		if (IS_ERR(em)) {
@@ -3981,7 +3981,7 @@ static int extent_buffer_under_io(struct extent_buffer *eb)
 }
 
 /*
-                                           
+ * Helper for releasing extent buffer page.
  */
 static void btrfs_release_extent_buffer_page(struct extent_buffer *eb,
 						unsigned long start_idx)
@@ -4001,36 +4001,36 @@ static void btrfs_release_extent_buffer_page(struct extent_buffer *eb,
 		if (page) {
 			spin_lock(&page->mapping->private_lock);
 			/*
-                                                         
-                                                          
-                                                        
-                                                        
-              
-    */
+			 * We do this since we'll remove the pages after we've
+			 * removed the eb from the radix tree, so we could race
+			 * and have this page now attached to the new eb.  So
+			 * only clear page_private if it's still connected to
+			 * this eb.
+			 */
 			if (PagePrivate(page) &&
 			    page->private == (unsigned long)eb) {
 				BUG_ON(test_bit(EXTENT_BUFFER_DIRTY, &eb->bflags));
 				BUG_ON(PageDirty(page));
 				BUG_ON(PageWriteback(page));
 				/*
-                                                  
-                   
-     */
+				 * We need to make sure we haven't be attached
+				 * to a new eb.
+				 */
 				ClearPagePrivate(page);
 				set_page_private(page, 0);
-				/*                          */
+				/* One for the page private */
 				page_cache_release(page);
 			}
 			spin_unlock(&page->mapping->private_lock);
 
-			/*                                  */
+			/* One for when we alloced the page */
 			page_cache_release(page);
 		}
 	} while (index != start_idx);
 }
 
 /*
-                                          
+ * Helper for releasing the extent buffer.
  */
 static inline void btrfs_release_extent_buffer(struct extent_buffer *eb)
 {
@@ -4040,26 +4040,26 @@ static inline void btrfs_release_extent_buffer(struct extent_buffer *eb)
 
 static void check_buffer_tree_ref(struct extent_buffer *eb)
 {
-	/*                                                       
-                                                
-                                                     
-        
-   
-                                                       
-                                                      
-                                                    
-              
-   
-                                                     
-                                                  
-                                                         
-                                                         
-                                                          
-                        
-   
-                                                              
-                                         
-  */
+	/* the ref bit is tricky.  We have to make sure it is set
+	 * if we have the buffer dirty.   Otherwise the
+	 * code to free a buffer can end up dropping a dirty
+	 * page
+	 *
+	 * Once the ref bit is set, it won't go away while the
+	 * buffer is dirty or in writeback, and it also won't
+	 * go away while we have the reference count on the
+	 * eb bumped.
+	 *
+	 * We can't just set the ref bit without bumping the
+	 * ref on the eb because free_extent_buffer might
+	 * see the ref bit and try to clear it.  If this happens
+	 * free_extent_buffer might end up dropping our original
+	 * ref by mistake and freeing the page before we are able
+	 * to add one more ref.
+	 *
+	 * So bump the ref count first, then set the bit.  If someone
+	 * beat us to it, drop the ref we added.
+	 */
 	if (!test_bit(EXTENT_BUFFER_TREE_REF, &eb->bflags)) {
 		atomic_inc(&eb->refs);
 		if (test_and_set_bit(EXTENT_BUFFER_TREE_REF, &eb->bflags))
@@ -4116,12 +4116,12 @@ struct extent_buffer *alloc_extent_buffer(struct extent_io_tree *tree,
 		spin_lock(&mapping->private_lock);
 		if (PagePrivate(p)) {
 			/*
-                                                         
-                                                         
-                                                          
-                                                           
-                              
-    */
+			 * We could have already allocated an eb for this page
+			 * and attached one so lets see if we can get a ref on
+			 * the existing eb, and if we can we know it's good and
+			 * we can just return that one, else we know we can just
+			 * overwrite page->private.
+			 */
 			exists = (struct extent_buffer *)p->private;
 			if (atomic_inc_not_zero(&exists->refs)) {
 				spin_unlock(&mapping->private_lock);
@@ -4132,9 +4132,9 @@ struct extent_buffer *alloc_extent_buffer(struct extent_io_tree *tree,
 			}
 
 			/*
-                                                       
-                                   
-    */
+			 * Do this so attach doesn't complain and we need to
+			 * drop the ref the old guy had.
+			 */
 			ClearPagePrivate(p);
 			WARN_ON(PageDirty(p));
 			page_cache_release(p);
@@ -4148,9 +4148,9 @@ struct extent_buffer *alloc_extent_buffer(struct extent_io_tree *tree,
 			uptodate = 0;
 
 		/*
-                                                                
-                            
-   */
+		 * see below about how we avoid a nasty race with release page
+		 * and why we unlock later
+		 */
 	}
 	if (uptodate)
 		set_bit(EXTENT_BUFFER_UPTODATE, &eb->bflags);
@@ -4175,7 +4175,7 @@ again:
 		mark_extent_buffer_accessed(exists);
 		goto free_eb;
 	}
-	/*                                */
+	/* add one reference for the tree */
 	spin_lock(&eb->refs_lock);
 	check_buffer_tree_ref(eb);
 	spin_unlock(&eb->refs_lock);
@@ -4183,14 +4183,14 @@ again:
 	radix_tree_preload_end();
 
 	/*
-                                               
-                                                 
-                                                  
-                                                        
-                                                          
-                                                   
-                       
-  */
+	 * there is a race where release page may have
+	 * tried to find this extent buffer in the radix
+	 * but failed.  It will tell the VM it is safe to
+	 * reclaim the, and it will clear the page private bit.
+	 * We must make sure to set the page private bit properly
+	 * after the extent buffer is in the radix tree so
+	 * it doesn't get lost
+	 */
 	SetPageChecked(eb->pages[0]);
 	for (i = 1; i < num_pages; i++) {
 		p = extent_buffer_page(eb, i);
@@ -4236,7 +4236,7 @@ static inline void btrfs_release_extent_buffer_rcu(struct rcu_head *head)
 	__free_extent_buffer(eb);
 }
 
-/*                                          */
+/* Expects to have eb->eb_lock already held */
 static void release_extent_buffer(struct extent_buffer *eb, gfp_t mask)
 {
 	WARN_ON(atomic_read(&eb->refs) == 0);
@@ -4250,7 +4250,7 @@ static void release_extent_buffer(struct extent_buffer *eb, gfp_t mask)
 				  eb->start >> PAGE_CACHE_SHIFT);
 		spin_unlock(&tree->buffer_lock);
 
-		/*                                                   */
+		/* Should be safe to release our pages at this point */
 		btrfs_release_extent_buffer_page(eb, 0);
 
 		call_rcu(&eb->rcu_head, btrfs_release_extent_buffer_rcu);
@@ -4272,9 +4272,9 @@ void free_extent_buffer(struct extent_buffer *eb)
 		atomic_dec(&eb->refs);
 
 	/*
-                                                                      
-                                                      
-  */
+	 * I know this is terrible, but it's temporary until we stop tracking
+	 * the uptodate bits and such for the extent buffers.
+	 */
 	release_extent_buffer(eb, GFP_ATOMIC);
 }
 
@@ -4855,9 +4855,9 @@ int try_release_extent_buffer(struct page *page, gfp_t mask)
 	struct extent_buffer *eb;
 
 	/*
-                                                                      
-        
-  */
+	 * We need to make sure noboody is attaching this page to an eb right
+	 * now.
+	 */
 	spin_lock(&page->mapping->private_lock);
 	if (!PagePrivate(page)) {
 		spin_unlock(&page->mapping->private_lock);
@@ -4868,10 +4868,10 @@ int try_release_extent_buffer(struct page *page, gfp_t mask)
 	BUG_ON(!eb);
 
 	/*
-                                                                      
-                                                                     
-              
-  */
+	 * This is a little awful but should be ok, we need to make sure that
+	 * the eb doesn't disappear out from under us while we're looking at
+	 * this page.
+	 */
 	spin_lock(&eb->refs_lock);
 	if (atomic_read(&eb->refs) != 1 || extent_buffer_under_io(eb)) {
 		spin_unlock(&eb->refs_lock);
@@ -4884,9 +4884,9 @@ int try_release_extent_buffer(struct page *page, gfp_t mask)
 		mask = GFP_NOFS;
 
 	/*
-                                                                        
-                                                               
-  */
+	 * If tree ref isn't set then we know the ref on this eb is a real ref,
+	 * so just return, this page will likely be freed soon anyway.
+	 */
 	if (!test_and_clear_bit(EXTENT_BUFFER_TREE_REF, &eb->bflags)) {
 		spin_unlock(&eb->refs_lock);
 		return 0;

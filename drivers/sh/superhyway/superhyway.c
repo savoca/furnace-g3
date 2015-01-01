@@ -33,22 +33,22 @@ static void superhyway_device_release(struct device *dev)
 	kfree(sdev);
 }
 
-/* 
-                                                  
-                                                  
-                                                                  
-                                             
-  
-                                                                             
-                                                                        
-  
-                                                                           
-                                                                              
-                                                                             
-                                                                           
-  
-                                                                           
-                                                                            
+/**
+ * superhyway_add_device - Add a SuperHyway module
+ * @base: Physical address where module is mapped.
+ * @sdev: SuperHyway device to add, or NULL to allocate a new one.
+ * @bus: Bus where SuperHyway module resides.
+ *
+ * This is responsible for adding a new SuperHyway module. This sets up a new
+ * struct superhyway_device for the module being added if @sdev == NULL.
+ *
+ * Devices are initially added in the order that they are scanned (from the
+ * top-down of the memory map), and are assigned an ID based on the order that
+ * they are added. Any manual addition of a module will thus get the ID after
+ * the devices already discovered regardless of where it resides in memory.
+ *
+ * Further work can and should be done in superhyway_scan_bus(), to be sure
+ * that any new modules are properly discovered and subsequently registered.
  */
 int superhyway_add_device(unsigned long base, struct superhyway_device *sdev,
 			  struct superhyway_bus *bus)
@@ -163,13 +163,13 @@ static int superhyway_device_remove(struct device *dev)
 	return -ENODEV;
 }
 
-/* 
-                                                                
-                                       
-  
-                                                                            
-                                                                            
-           
+/**
+ * superhyway_register_driver - Register a new SuperHyway driver
+ * @drv: SuperHyway driver to register.
+ *
+ * This registers the passed in @drv. Any devices matching the id table will
+ * automatically be populated and handed off to the driver's specified probe
+ * routine.
  */
 int superhyway_register_driver(struct superhyway_driver *drv)
 {
@@ -179,12 +179,12 @@ int superhyway_register_driver(struct superhyway_driver *drv)
 	return driver_register(&drv->drv);
 }
 
-/* 
-                                                                
-                                         
-  
-                                                                              
-                                       
+/**
+ * superhyway_unregister_driver - Unregister a SuperHyway driver
+ * @drv: SuperHyway driver to unregister.
+ *
+ * This cleans up after superhyway_register_driver(), and should be invoked in
+ * the exit path of any module drivers.
  */
 void superhyway_unregister_driver(struct superhyway_driver *drv)
 {

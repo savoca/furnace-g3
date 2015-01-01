@@ -34,9 +34,9 @@
 
 static struct map_desc r8a7740_io_desc[] __initdata = {
 	 /*
-                      
-                                                   
-   */
+	  * for CPGA/INTC/PFC
+	  * 0xe6000000-0xefffffff -> 0xe6000000-0xefffffff
+	  */
 	{
 		.virtual	= 0xe6000000,
 		.pfn		= __phys_to_pfn(0xe6000000),
@@ -45,9 +45,9 @@ static struct map_desc r8a7740_io_desc[] __initdata = {
 	},
 #ifdef CONFIG_CACHE_L2X0
 	/*
-                   
-                                                  
-  */
+	 * for l2x0_init()
+	 * 0xf0100000-0xf0101000 -> 0xf0002000-0xf0003000
+	 */
 	{
 		.virtual	= 0xf0002000,
 		.pfn		= __phys_to_pfn(0xf0100000),
@@ -62,7 +62,7 @@ void __init r8a7740_map_io(void)
 	iotable_init(r8a7740_io_desc, ARRAY_SIZE(r8a7740_io_desc));
 }
 
-/*        */
+/* SCIFA0 */
 static struct plat_sci_port scif0_platform_data = {
 	.mapbase	= 0xe6c40000,
 	.flags		= UPF_BOOT_AUTOCONF,
@@ -80,7 +80,7 @@ static struct platform_device scif0_device = {
 	},
 };
 
-/*        */
+/* SCIFA1 */
 static struct plat_sci_port scif1_platform_data = {
 	.mapbase	= 0xe6c50000,
 	.flags		= UPF_BOOT_AUTOCONF,
@@ -98,7 +98,7 @@ static struct platform_device scif1_device = {
 	},
 };
 
-/*        */
+/* SCIFA2 */
 static struct plat_sci_port scif2_platform_data = {
 	.mapbase	= 0xe6c60000,
 	.flags		= UPF_BOOT_AUTOCONF,
@@ -116,7 +116,7 @@ static struct platform_device scif2_device = {
 	},
 };
 
-/*        */
+/* SCIFA3 */
 static struct plat_sci_port scif3_platform_data = {
 	.mapbase	= 0xe6c70000,
 	.flags		= UPF_BOOT_AUTOCONF,
@@ -134,7 +134,7 @@ static struct platform_device scif3_device = {
 	},
 };
 
-/*        */
+/* SCIFA4 */
 static struct plat_sci_port scif4_platform_data = {
 	.mapbase	= 0xe6c80000,
 	.flags		= UPF_BOOT_AUTOCONF,
@@ -152,7 +152,7 @@ static struct platform_device scif4_device = {
 	},
 };
 
-/*        */
+/* SCIFA5 */
 static struct plat_sci_port scif5_platform_data = {
 	.mapbase	= 0xe6cb0000,
 	.flags		= UPF_BOOT_AUTOCONF,
@@ -170,7 +170,7 @@ static struct platform_device scif5_device = {
 	},
 };
 
-/*        */
+/* SCIFA6 */
 static struct plat_sci_port scif6_platform_data = {
 	.mapbase	= 0xe6cc0000,
 	.flags		= UPF_BOOT_AUTOCONF,
@@ -188,7 +188,7 @@ static struct platform_device scif6_device = {
 	},
 };
 
-/*        */
+/* SCIFA7 */
 static struct plat_sci_port scif7_platform_data = {
 	.mapbase	= 0xe6cd0000,
 	.flags		= UPF_BOOT_AUTOCONF,
@@ -206,7 +206,7 @@ static struct platform_device scif7_device = {
 	},
 };
 
-/*       */
+/* SCIFB */
 static struct plat_sci_port scifb_platform_data = {
 	.mapbase	= 0xe6c30000,
 	.flags		= UPF_BOOT_AUTOCONF,
@@ -224,7 +224,7 @@ static struct platform_device scifb_device = {
 	},
 };
 
-/*     */
+/* CMT */
 static struct sh_timer_config cmt10_platform_data = {
 	.name = "CMT10",
 	.channel_offset = 0x10,
@@ -269,7 +269,7 @@ static struct platform_device *r8a7740_early_devices[] __initdata = {
 	&cmt10_device,
 };
 
-/*     */
+/* I2C */
 static struct resource i2c0_resources[] = {
 	[0] = {
 		.name	= "IIC0",
@@ -292,8 +292,8 @@ static struct resource i2c1_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start  = evt2irq(0x780), /*           */
-		.end    = evt2irq(0x7e0), /*            */
+		.start  = evt2irq(0x780), /* IIC1_ALI1 */
+		.end    = evt2irq(0x7e0), /* IIC1_DTEI1 */
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -324,8 +324,8 @@ static struct platform_device *r8a7740_late_devices[] __initdata = {
 #define i2c_write(reg, offset, data)	iowrite8(data, reg + offset)
 
 /*
-                                                        
-                              
+ * r8a7740 chip has lasting errata on I2C I/O pad reset.
+ * this is work-around for it.
  */
 static void r8a7740_i2c_workaround(struct platform_device *pdev)
 {
@@ -345,10 +345,10 @@ static void r8a7740_i2c_workaround(struct platform_device *pdev)
 	}
 
 	i2c_write(reg, ICCR, i2c_read(reg, ICCR) | 0x80);
-	i2c_read(reg, ICCR); /*            */
+	i2c_read(reg, ICCR); /* dummy read */
 
 	i2c_write(reg, ICSTART, i2c_read(reg, ICSTART) | 0x10);
-	i2c_read(reg, ICSTART); /*            */
+	i2c_read(reg, ICSTART); /* dummy read */
 
 	mdelay(100);
 
@@ -369,7 +369,7 @@ static void r8a7740_i2c_workaround(struct platform_device *pdev)
 
 void __init r8a7740_add_standard_devices(void)
 {
-	/*                 */
+	/* I2C work-around */
 	r8a7740_i2c_workaround(&i2c0_device);
 	r8a7740_i2c_workaround(&i2c1_device);
 
@@ -390,9 +390,9 @@ void __init r8a7740_add_early_devices(void)
 	early_platform_add_devices(r8a7740_early_devices,
 				   ARRAY_SIZE(r8a7740_early_devices));
 
-	/*                                  */
+	/* setup early console here as well */
 	shmobile_setup_console();
 
-	/*                                             */
+	/* override timer setup with soc-specific code */
 	shmobile_timer.init = r8a7740_earlytimer_init;
 }

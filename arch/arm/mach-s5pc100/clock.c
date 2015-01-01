@@ -284,7 +284,7 @@ static int s5pc100_epll_set_rate(struct clk *clk, unsigned long rate)
 	unsigned int epll_con;
 	unsigned int i;
 
-	if (clk->rate == rate)	/*                           */
+	if (clk->rate == rate)	/* Return if nothing changed */
 		return 0;
 
 	epll_con = __raw_readl(S5P_EPLL_CON);
@@ -376,9 +376,9 @@ static int s5pc100_sclk1_ctrl(struct clk *clk, int enable)
 }
 
 /*
-                                                                           
-                                                                              
-                          
+ * The following clocks will be disabled during clock initialization. It is
+ * recommended to keep the following clocks disabled until the driver requests
+ * for enabling the clock.
  */
 static struct clk init_clocks_off[] = {
 	{
@@ -1118,7 +1118,7 @@ static struct clksrc_clk clk_sclk_spi2 = {
 	.reg_div = { .reg = S5P_CLK_DIV2, .shift = 12, .size = 4 },
 };
 
-/*                           */
+/* Clock initialisation code */
 static struct clksrc_clk *sysclks[] = {
 	&clk_mout_apll,
 	&clk_mout_epll,
@@ -1180,7 +1180,7 @@ void __init_or_cpufreq s5pc100_setup_clocks(void)
 	unsigned long hpll;
 	unsigned int ptr;
 
-	/*                                         */
+	/* Set S5PC100 functions for clk_fout_epll */
 	clk_fout_epll.enable = s5p_epll_enable;
 	clk_fout_epll.ops = &s5pc100_epll_ops;
 
@@ -1221,7 +1221,7 @@ void __init_or_cpufreq s5pc100_setup_clocks(void)
 }
 
 /*
-                                                                    
+ * The following clocks will be enabled during clock initialization.
  */
 static struct clk init_clocks[] = {
 	{

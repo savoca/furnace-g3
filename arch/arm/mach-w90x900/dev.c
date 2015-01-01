@@ -42,7 +42,7 @@
 
 #include "cpu.h"
 
-/*                                */
+/*NUC900 evb norflash driver data */
 
 #define NUC900_FLASH_BASE	0xA0000000
 #define NUC900_FLASH_SIZE	0x400000
@@ -91,7 +91,7 @@ static struct platform_device nuc900_flash_device = {
 	.num_resources	=	ARRAY_SIZE(nuc900_flash_resources),
 };
 
-/*                          */
+/* USB EHCI Host Controller */
 
 static struct resource nuc900_usb_ehci_resource[] = {
 	[0] = {
@@ -119,7 +119,7 @@ static struct platform_device nuc900_device_usb_ehci = {
 	}
 };
 
-/*                          */
+/* USB OHCI Host Controller */
 
 static struct resource nuc900_usb_ohci_resource[] = {
 	[0] = {
@@ -146,7 +146,7 @@ static struct platform_device nuc900_device_usb_ohci = {
 	}
 };
 
-/*                    */
+/* USB Device (Gadget)*/
 
 static struct resource nuc900_usbgadget_resource[] = {
 	[0] = {
@@ -168,7 +168,7 @@ static struct platform_device nuc900_device_usbgadget = {
 	.resource	= nuc900_usbgadget_resource,
 };
 
-/*            */
+/* MAC device */
 
 static struct resource nuc900_emc_resource[] = {
 	[0] = {
@@ -200,7 +200,7 @@ static struct platform_device nuc900_device_emc = {
 	}
 };
 
-/*            */
+/* SPI device */
 
 static struct nuc900_spi_info nuc900_spiflash_data = {
 	.num_cs		= 1,
@@ -237,7 +237,7 @@ static struct platform_device nuc900_device_spi = {
 			}
 };
 
-/*                            */
+/* spi device, spi flash info */
 
 static struct mtd_partition nuc900_spi_flash_partitions[] = {
 	{
@@ -265,7 +265,7 @@ static struct spi_board_info nuc900_spi_board_info[] __initdata = {
 	},
 };
 
-/*            */
+/* WDT Device */
 
 static struct resource nuc900_wdt_resource[] = {
 	[0] = {
@@ -288,15 +288,15 @@ static struct platform_device nuc900_device_wdt = {
 };
 
 /*
-                                                       
-                                                        
-                                                      
-                                                       
-                                                         
-          
+ * public device definition between 910 and 920, or 910
+ * and 950 or 950 and 960...,their dev platform register
+ * should be in specific file such as nuc950, nuc960 c
+ * files rather than the public dev.c file here. so the
+ * corresponding platform_device definition should not be
+ * static.
 */
 
-/*               */
+/* RTC controller*/
 
 static struct resource nuc900_rtc_resource[] = {
 	[0] = {
@@ -318,7 +318,7 @@ struct platform_device nuc900_device_rtc = {
 	.resource	= nuc900_rtc_resource,
 };
 
-/*                      */
+/*TouchScreen controller*/
 
 static struct resource nuc900_ts_resource[] = {
 	[0] = {
@@ -340,7 +340,7 @@ struct platform_device nuc900_device_ts = {
 	.num_resources	= ARRAY_SIZE(nuc900_ts_resource),
 };
 
-/*            */
+/* FMI Device */
 
 static struct resource nuc900_fmi_resource[] = {
 	[0] = {
@@ -362,7 +362,7 @@ struct platform_device nuc900_device_fmi = {
 	.resource	= nuc900_fmi_resource,
 };
 
-/*               */
+/* KPI controller*/
 
 static int nuc900_keymap[] = {
 	KEY(0, 0, KEY_A),
@@ -421,10 +421,10 @@ struct platform_device nuc900_device_kpi = {
 			}
 };
 
-/*               */
+/* LCD controller*/
 
 static struct nuc900fb_display nuc900_lcd_info[] = {
-	/*                                                      */
+	/* Giantplus Technology GPM1040A0 320x240 Color TFT LCD */
 	[0] = {
 		.type		= LCM_DCCS_VA_SRC_RGB565,
 		.width		= 320,
@@ -486,7 +486,7 @@ struct platform_device nuc900_device_lcd = {
 	}
 };
 
-/*                 */
+/* AUDIO controller*/
 static u64 nuc900_device_audio_dmamask = -1;
 static struct resource nuc900_ac97_resource[] = {
 	[0] = {
@@ -513,7 +513,7 @@ struct platform_device nuc900_device_ac97 = {
 	}
 };
 
-/*                                            */
+/*Here should be your evb resourse,such as LCD*/
 
 static struct platform_device *nuc900_public_dev[] __initdata = {
 	&nuc900_serial_device,
@@ -527,7 +527,7 @@ static struct platform_device *nuc900_public_dev[] __initdata = {
 	&nuc900_device_ac97,
 };
 
-/*                                                  */
+/* Provide adding specific CPU platform devices API */
 
 void __init nuc900_board_init(struct platform_device **device, int size)
 {

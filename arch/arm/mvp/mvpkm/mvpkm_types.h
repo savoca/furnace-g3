@@ -18,11 +18,11 @@
  */
 #line 5
 
-/* 
-        
-  
-                                                                         
-                                               
+/**
+ * @file
+ *
+ * @brief Types used in the interface between users, user level wrappers,
+ *        and the kernel module implementation.
  */
 
 
@@ -36,9 +36,9 @@
 #include "include_check.h"
 
 
-/* 
-                                                                         
-                                                                   
+/**
+ * @brief HkvaMapInfo structure describing the mpn and execute permission
+ *                    flag to use to map a given page in HKVA space
  */
 typedef struct HkvaMapInfo {
 	uint32 mpn;

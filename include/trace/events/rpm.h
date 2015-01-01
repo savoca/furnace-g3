@@ -11,8 +11,8 @@
 struct device;
 
 /*
-                                                              
-                                 
+ * The rpm_internal events are used for tracing some important
+ * runtime pm internal functions.
  */
 DECLARE_EVENT_CLASS(rpm_internal,
 
@@ -94,7 +94,7 @@ TRACE_EVENT(rpm_return_int,
 		__entry->ret)
 );
 
-#endif /*                        */
+#endif /* _TRACE_RUNTIME_POWER_H */
 
-/*                                      */
+/* This part must be outside protection */
 #include <trace/define_trace.h>

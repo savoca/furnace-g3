@@ -144,14 +144,14 @@ struct processor_specific_info {
 };
 
 static struct processor_specific_info proc_info[SMP2P_NUM_PROCS] = {
-		{0},	/*    */
-		{"rdbg_modem", 0, 0},	/*     */
-		{"rdbg_adsp", SMEM_LC_DEBUGGER, 16*1024},	/*    */
-		{0},	/*                     */
-		{"rdbg_wcnss", 0, 0},		/*     */
-		{0},	/*                     */
-		{0},	/*                */
-		{0}		/*                      */
+		{0},	/*APPS*/
+		{"rdbg_modem", 0, 0},	/*MODEM*/
+		{"rdbg_adsp", SMEM_LC_DEBUGGER, 16*1024},	/*ADSP*/
+		{0},	/*SMP2P_RESERVED_PROC_1*/
+		{"rdbg_wcnss", 0, 0},		/*WCNSS*/
+		{0},	/*SMP2P_RESERVED_PROC_2*/
+		{0},	/*SMP2P_POWER_PROC*/
+		{0}		/*SMP2P_REMOTE_MOCK_PROC*/
 };
 
 static int smq_blockmap_get(struct smq_block_map *block_map,
@@ -496,133 +496,133 @@ static void smq_dtor(struct smq *smq)
 }
 
 /*
-                                                                         
-                                                                     
-                                                                            
-                                                                          
-                                                   
-  
-                           
-  
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                               
-                               
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                      
-                                                      
-                                                      
-                                                      
-                             
-                             
-                                               
-                                               
-                                               
-                                               
-                                               
-                                               
-                                               
-                                               
-                                               
-  
-                                                                        
-                                                                         
-                                    
-                                                 
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-  
-                                                                          
-                                                                           
-                                                                           
-                                                                             
-                            
-  
-                                                                          
-                                                                 
-                                                     
-  
-                                                                        
-                                                                                
-  
-           
-                                                                        
-                                                          
-                                                                          
-                                                                        
-  
-                                         
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-  
-                                                                              
-                                                                                
-                                                                                
-                          
-  
-                                                     
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-  
-                                                    
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-                                      
-  
-                     
-                                                                        
-                                                                       
-                                                                                
-                               
-                               
+ * The shared memory is used as a circular ring buffer in each direction.
+ * Thus we have a bi-directional shared memory channel between the AP
+ * and a subsystem. We call this SMQ. Each memory channel contains a header,
+ * data and a control mechanism that is used to synchronize read and write
+ * of data between the AP and the remote subsystem.
+ *
+ * Overall SMQ memory view:
+ *
+ *    +------------------------------------------------+
+ *    | SMEM buffer                                    |
+ *    |-----------------------+------------------------|
+ *    |Producer: LA           | Producer: Remote       |
+ *    |Consumer: Remote       |           subsystem    |
+ *    |          subsystem    | Consumer: LA           |
+ *    |                       |                        |
+ *    |               Producer|                Consumer|
+ *    +-----------------------+------------------------+
+ *    |                       |
+ *    |                       |
+ *    |                       +--------------------------------------+
+ *    |                                                              |
+ *    |                                                              |
+ *    v                                                              v
+ *    +--------------------------------------------------------------+
+ *    |   Header  |       Data      |            Control             |
+ *    +-----------+---+---+---+-----+----+--+--+-----+---+--+--+-----+
+ *    |           | b | b | b |     | S  |n |n |     | S |n |n |     |
+ *    |  Producer | l | l | l |     | M  |o |o |     | M |o |o |     |
+ *    |    Ver    | o | o | o |     | Q  |d |d |     | Q |d |d |     |
+ *    |-----------| c | c | c | ... |    |e |e | ... |   |e |e | ... |
+ *    |           | k | k | k |     | O  |  |  |     | I |  |  |     |
+ *    |  Consumer |   |   |   |     | u  |0 |1 |     | n |0 |1 |     |
+ *    |    Ver    | 0 | 1 | 2 |     | t  |  |  |     |   |  |  |     |
+ *    +-----------+---+---+---+-----+----+--+--+-----+---+--+--+-----+
+ *                                       |           |
+ *                                       +           |
+ *                                                   |
+ *                          +------------------------+
+ *                          |
+ *                          v
+ *                        +----+----+----+----+
+ *                        | SMQ Nodes         |
+ *                        |----|----|----|----|
+ *                 Node # |  0 |  1 |  2 | ...|
+ *                        |----|----|----|----|
+ * Starting Block Index # |  0 |  3 |  8 | ...|
+ *                        |----|----|----|----|
+ *            # of blocks |  3 |  5 |  1 | ...|
+ *                        +----+----+----+----+
+ *
+ * Header: Contains version numbers for software compatibility to ensure
+ * that both producers and consumers on the AP and subsystems know how to
+ * read from and write to the queue.
+ * Both the producer and consumer versions are 1.
+ *     +---------+-------------------+
+ *     | Size    | Field             |
+ *     +---------+-------------------+
+ *     | 1 byte  | Producer Version  |
+ *     +---------+-------------------+
+ *     | 1 byte  | Consumer Version  |
+ *     +---------+-------------------+
+ *
+ * Data: The data portion contains multiple blocks [0..N] of a fixed size.
+ * The block size SM_BLOCKSIZE is fixed to 128 bytes for header version #1.
+ * Payload sent from the debug agent app is split (if necessary) and placed
+ * in these blocks. The first data block is placed at the next 8 byte aligned
+ * address after the header.
+ *
+ * The number of blocks for a given SMEM allocation is derived as follows:
+ *   Number of Blocks = ((Total Size - Alignment - Size of Header
+ *		- Size of SMQIn - Size of SMQOut)/(SM_BLOCKSIZE))
+ *
+ * The producer maintains a private block map of each of these blocks to
+ * determine which of these blocks in the queue is available and which are free.
+ *
+ * Control:
+ * The control portion contains a list of nodes [0..N] where N is number
+ * of available data blocks. Each node identifies the data
+ * block indexes that contain a particular debug message to be transfered,
+ * and the number of blocks it took to hold the contents of the message.
+ *
+ * Each node has the following structure:
+ *     +---------+-------------------+
+ *     | Size    | Field             |
+ *     +---------+-------------------+
+ *     | 2 bytes |Staring Block Index|
+ *     +---------+-------------------+
+ *     | 2 bytes |Number of Blocks   |
+ *     +---------+-------------------+
+ *
+ * The producer and the consumer update different parts of the control channel
+ * (SMQOut / SMQIn) respectively. Each of these control data structures contains
+ * information about the last node that was written / read, and the actual nodes
+ * that were written/read.
+ *
+ * SMQOut Structure (R/W by producer, R by consumer):
+ *     +---------+-------------------+
+ *     | Size    | Field             |
+ *     +---------+-------------------+
+ *     | 4 bytes | Magic Init Number |
+ *     +---------+-------------------+
+ *     | 4 bytes | Reset             |
+ *     +---------+-------------------+
+ *     | 4 bytes | Last Sent Index   |
+ *     +---------+-------------------+
+ *     | 4 bytes | Index Free Read   |
+ *     +---------+-------------------+
+ *
+ * SMQIn Structure (R/W by consumer, R by producer):
+ *     +---------+-------------------+
+ *     | Size    | Field             |
+ *     +---------+-------------------+
+ *     | 4 bytes | Magic Init Number |
+ *     +---------+-------------------+
+ *     | 4 bytes | Reset ACK         |
+ *     +---------+-------------------+
+ *     | 4 bytes | Last Read Index   |
+ *     +---------+-------------------+
+ *     | 4 bytes | Index Free Write  |
+ *     +---------+-------------------+
+ *
+ * Magic Init Number:
+ * Both SMQ Out and SMQ In initialize this field with a predefined magic
+ * number so as to make sure that both the consumer and producer blocks
+ * have fully initialized and have valid data in the shared memory control area.
+ *	Producer Magic #: 0xFF00FF01
+ *	Consumer Magic #: 0xFF00FF02
  */
 static int smq_ctor(struct smq *smq, void *base_addr, int size,
 	enum smq_type type, struct mutex *lock_ptr)

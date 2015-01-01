@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 /*
-                                            
-  
+ * Qualcomm PMIC irq 8821 driver header file
+ *
  */
 
 #ifndef __MFD_PM8821_IRQ_H
@@ -41,5 +41,5 @@ static inline int pm8821_irq_exit(struct pm_irq_chip *chip)
 {
 	return -ENXIO;
 }
-#endif /*                       */
-#endif /*                    */
+#endif /* CONFIG_MFD_PM8821_IRQ */
+#endif /* __MFD_PM8821_IRQ_H */

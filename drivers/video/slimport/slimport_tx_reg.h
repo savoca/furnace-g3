@@ -22,8 +22,8 @@
 #define RX_P0 0x7e
 #define RX_P1 0x80
 
-/*                                                             */
-/*                                     */
+/***************************************************************/
+/* DEV_ADDR = 0x7e , HDMI port register*/
 #define HDMI_RX_PORT_SEL_REG 0x10
 #define DDC_EN 0x10
 #define TMDS_EN 0x01
@@ -245,8 +245,8 @@
 
 
 
-/*                                                             */
-/*                                          */
+/***************************************************************/
+/*Register definition of device address 0x80*/
 
 
 #define HDMI_RX_HDCP_STATUS_REG 0X3F
@@ -297,8 +297,8 @@
 #define HDMI_RX_MPEG_VS_INFO_CTRL 0XFF
 
 
-/*                                                             */
-/*                                          */
+/***************************************************************/
+/*Register definition of device address 0x70*/
 #define SP_TX_HDCP_STATUS	0x00
 #define SP_TX_HDCP_AUTH_PASS	0x02
 
@@ -467,8 +467,8 @@
 #define SP_TX_BUF_DATA_0_REG 0xF0
 
 
-/*                                                             */
-/*                                          */
+/***************************************************************/
+/*Register definition of device address 0x72*/
 #define SP_TX_VND_IDL_REG 0x00
 #define SP_TX_VND_IDH_REG 0x01
 #define SP_TX_DEV_IDL_REG 0x02
@@ -625,8 +625,8 @@
 #define SP_TX_INT_CTRL_REG 0xFF
 
 
-/*                                                             */
-/*                                          */
+/***************************************************************/
+/*Register definition of device address 0x7a*/
 
 #define SP_TX_LT_CTRL_REG0 0x30
 #define SP_TX_LT_CTRL_REG1 0x31
@@ -660,8 +660,8 @@
 #define SP_TX_AUD_INTERFACE_CTRL5 0x68
 #define SP_TX_AUD_INTERFACE_CTRL6 0x69
 
-/*                                                             */
-/*                  */
+/***************************************************************/
+/*Definition of DPCD*/
 
 #define DPCD_DPCD_REV  0x00
 #define DPCD_MAX_LINK_RATE 0x01

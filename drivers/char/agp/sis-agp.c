@@ -1,5 +1,5 @@
 /*
-                        
+ * SiS AGPGART routines.
  */
 
 #include <linux/module.h>
@@ -98,10 +98,10 @@ static void sis_delayed_enable(struct agp_bridge_data *bridge, u32 mode)
 		pci_write_config_dword(device, agp + PCI_AGP_COMMAND, command);
 
 		/*
-                                                              
-                                                                    
-                         
-   */
+		 * Weird: on some sis chipsets any rate change in the target
+		 * command register triggers a 5ms screwup during which the master
+		 * cannot be configured
+		 */
 		if (device->device == bridge->dev->device) {
 			dev_info(&agp_bridge->dev->dev, "SiS delay workaround: giving bridge time to recover\n");
 			msleep(10);
@@ -147,11 +147,11 @@ static struct agp_bridge_driver sis_driver = {
 	.agp_type_to_mask_type  = agp_generic_type_to_mask_type,
 };
 
-//                                       
+// chipsets that require the 'delay hack'
 static int sis_broken_chipsets[] __devinitdata = {
 	PCI_DEVICE_ID_SI_648,
 	PCI_DEVICE_ID_SI_746,
-	0 //           
+	0 // terminator
 };
 
 static void __devinit sis_get_driver(struct agp_bridge_data *bridge)
@@ -165,8 +165,8 @@ static void __devinit sis_get_driver(struct agp_bridge_data *bridge)
 	if (sis_broken_chipsets[i] || agp_sis_force_delay)
 		sis_driver.agp_enable=sis_delayed_enable;
 
-	//                                            
-	//                                      
+	// sis chipsets that indicate less than agp3.5
+	// are not actually fully agp3 compliant
 	if ((agp_bridge->major_version == 3 && agp_bridge->minor_version >= 5
 	     && agp_sis_agp_spec!=0) || agp_sis_agp_spec==1) {
 		sis_driver.aperture_sizes = agp3_generic_sizes;
@@ -203,7 +203,7 @@ static int __devinit agp_sis_probe(struct pci_dev *pdev,
 
 	get_agp_version(bridge);
 
-	/*                           */
+	/* Fill in the mode register */
 	pci_read_config_dword(pdev, bridge->capndx+PCI_AGP_STATUS, &bridge->mode);
 	sis_get_driver(bridge);
 
@@ -237,7 +237,7 @@ static int agp_sis_resume(struct pci_dev *pdev)
 	return sis_driver.configure();
 }
 
-#endif /*           */
+#endif /* CONFIG_PM */
 
 static struct pci_device_id agp_sis_pci_table[] = {
 	{

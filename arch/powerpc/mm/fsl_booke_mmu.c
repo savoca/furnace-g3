@@ -74,7 +74,7 @@ unsigned long tlbcam_sz(int idx)
 }
 
 /*
-                                                       
+ * Return PA for this VA if it is mapped by a CAM, or 0
  */
 phys_addr_t v_mapped_by_tlbcam(unsigned long va)
 {
@@ -86,7 +86,7 @@ phys_addr_t v_mapped_by_tlbcam(unsigned long va)
 }
 
 /*
-                                              
+ * Return VA for a given PA or 0 if not mapped
  */
 unsigned long p_mapped_by_tlbcam(phys_addr_t pa)
 {
@@ -100,11 +100,11 @@ unsigned long p_mapped_by_tlbcam(phys_addr_t pa)
 }
 
 /*
-                                                                             
-                                                                              
-                                                                              
-                                                                             
-         
+ * Set up a variable-size TLB entry (tlbcam). The parameters are not checked;
+ * in particular size must be a power of 4 between 4k and the max supported by
+ * an implementation; max may further be limited by what can be represented in
+ * an unsigned long (for example, 32-bit implementations cannot support a 4GB
+ * size).
  */
 static void settlbcam(int index, unsigned long virt, phys_addr_t phys,
 		unsigned long size, unsigned long flags, unsigned int pid)
@@ -133,7 +133,7 @@ static void settlbcam(int index, unsigned long virt, phys_addr_t phys,
 	if (mmu_has_feature(MMU_FTR_BIG_PHYS))
 		TLBCAM[index].MAS7 = (u64)phys >> 32;
 
-	/*                                                           */
+	/* Below is unlikely -- only for large user pages or similar */
 	if (pte_user(flags)) {
 	   TLBCAM[index].MAS3 |= MAS3_UX | MAS3_UR;
 	   TLBCAM[index].MAS3 |= ((flags & _PAGE_RW) ? MAS3_UW : 0);
@@ -154,12 +154,12 @@ unsigned long calc_cam_sz(unsigned long ram, unsigned long virt,
 	unsigned long max_cam;
 
 	if ((mfspr(SPRN_MMUCFG) & MMUCFG_MAVN) == MMUCFG_MAVN_V1) {
-		/*                                     */
+		/* Convert (4^max) kB to (2^max) bytes */
 		max_cam = ((mfspr(SPRN_TLB1CFG) >> 16) & 0xf) * 2 + 10;
 		camsize &= ~1U;
 		align &= ~1U;
 	} else {
-		/*                                     */
+		/* Convert (2^max) kB to (2^max) bytes */
 		max_cam = __ilog2(mfspr(SPRN_TLB1PS)) + 10;
 	}
 
@@ -178,7 +178,7 @@ unsigned long map_mem_in_cams(unsigned long ram, int max_cam_idx)
 	phys_addr_t phys = memstart_addr;
 	unsigned long amount_mapped = 0;
 
-	/*                      */
+	/* Calculate CAM values */
 	for (i = 0; ram && i < max_cam_idx; i++) {
 		unsigned long cam_sz;
 
@@ -207,7 +207,7 @@ unsigned long __init mmu_mapin_ram(unsigned long top)
 }
 
 /*
-                                                                         
+ * MMU_init_hw does the chip-specific initialization of the MMU hardware.
  */
 void __init MMU_init_hw(void)
 {
@@ -219,7 +219,7 @@ void __init adjust_total_lowmem(void)
 	unsigned long ram;
 	int i;
 
-	/*                                        */
+	/* adjust lowmem size to __max_low_memory */
 	ram = min((phys_addr_t)__max_low_memory, (phys_addr_t)total_lowmem);
 
 	__max_low_memory = map_mem_in_cams(ram, CONFIG_LOWMEM_CAM_NUM);
@@ -238,7 +238,7 @@ void setup_initial_memory_limit(phys_addr_t first_memblock_base,
 {
 	phys_addr_t limit = first_memblock_base + first_memblock_size;
 
-	/*                                                    */
+	/* 64M mapped initially according to head_fsl_booke.S */
 	memblock_set_current_limit(min_t(u64, limit, 0x04000000));
 }
 #endif

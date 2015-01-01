@@ -21,9 +21,9 @@ int __umc_driver_register(struct umc_driver *umc_drv, struct module *module,
 }
 EXPORT_SYMBOL_GPL(__umc_driver_register);
 
-/* 
-                                                             
-                                    
+/**
+ * umc_driver_register - unregister a UMC capabiltity driver.
+ * @umc_drv:  pointer to the driver.
  */
 void umc_driver_unregister(struct umc_driver *umc_drv)
 {

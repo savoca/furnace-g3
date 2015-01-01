@@ -96,11 +96,11 @@ out:
 }
 
 /*
-                                                                           
-                                                                      
-                                                                      
-  
-                                                                     
+ * We have two copies, and flip between them to make it seem like an atomic
+ * update. The update is not really atomic wrt the events counter, but
+ * it is internally consistent with the bit layout depending on shift.
+ *
+ * We copy the events count, move the bits around and flip the index.
  */
 void prop_change_shift(struct prop_descriptor *pd, int shift)
 {
@@ -130,8 +130,8 @@ void prop_change_shift(struct prop_descriptor *pd, int shift)
 	percpu_counter_set(&pd->pg[index].events, events);
 
 	/*
-                                                        
-  */
+	 * ensure the new pg is fully written before the switch
+	 */
 	smp_wmb();
 	pd->index = index;
 	local_irq_restore(flags);
@@ -143,8 +143,8 @@ out:
 }
 
 /*
-                                                             
-                                               
+ * wrap the access to the data in an rcu_read_lock() section;
+ * this is used to track the active references.
  */
 static struct prop_global *prop_get_global(struct prop_descriptor *pd)
 __acquires(RCU)
@@ -154,8 +154,8 @@ __acquires(RCU)
 	rcu_read_lock();
 	index = pd->index;
 	/*
-                                 
-  */
+	 * match the wmb from vcd_flip()
+	 */
 	smp_rmb();
 	return &pd->pg[index];
 }
@@ -183,7 +183,7 @@ prop_adjust_shift(int *pl_shift, unsigned long *pl_period, int new_shift)
 }
 
 /*
-         
+ * PERCPU
  */
 
 #define PROP_BATCH (8*(1+ilog2(nr_cpu_ids)))
@@ -202,11 +202,11 @@ void prop_local_destroy_percpu(struct prop_local_percpu *pl)
 }
 
 /*
-                                           
-  
-                       
-                        
-               
+ * Catch up with missed period expirations.
+ *
+ *   until (c_{j} == c)
+ *     x_{j} -= x_{j}/2;
+ *     c_{j}++;
  */
 static
 void prop_norm_percpu(struct prop_global *pg, struct prop_local_percpu *pl)
@@ -220,9 +220,9 @@ void prop_norm_percpu(struct prop_global *pg, struct prop_local_percpu *pl)
 	global_period &= period_mask;
 
 	/*
-                                                                      
-                        
-  */
+	 * Fast path - check if the local and global period count still match
+	 * outside of the lock.
+	 */
 	if (pl->period == global_period)
 		return;
 
@@ -230,10 +230,10 @@ void prop_norm_percpu(struct prop_global *pg, struct prop_local_percpu *pl)
 	prop_adjust_shift(&pl->shift, &pl->period, pg->shift);
 
 	/*
-                                                      
-              
-                                                 
-  */
+	 * For each missed period, we half the local counter.
+	 * basically:
+	 *   pl->events >> (global_period - pl->period);
+	 */
 	period = (global_period - pl->period) >> (pg->shift - 1);
 	if (period < BITS_PER_LONG) {
 		s64 val = percpu_counter_read(&pl->events);
@@ -251,7 +251,7 @@ void prop_norm_percpu(struct prop_global *pg, struct prop_local_percpu *pl)
 }
 
 /*
-                 
+ *   ++x_{j}, ++t
  */
 void __prop_inc_percpu(struct prop_descriptor *pd, struct prop_local_percpu *pl)
 {
@@ -264,8 +264,8 @@ void __prop_inc_percpu(struct prop_descriptor *pd, struct prop_local_percpu *pl)
 }
 
 /*
-                                                                              
-                                                                             
+ * identical to __prop_inc_percpu, except that it limits this pl's fraction to
+ * @frac/PROP_FRAC_BASE by ignoring events when this limit has been exceeded.
  */
 void __prop_inc_percpu_max(struct prop_descriptor *pd,
 			   struct prop_local_percpu *pl, long frac)
@@ -296,9 +296,9 @@ out_put:
 }
 
 /*
-                                       
-  
-                                              
+ * Obtain a fraction of this proportion
+ *
+ *   p_{j} = x_{j} / (period/2 + t % period/2)
  */
 void prop_fraction_percpu(struct prop_descriptor *pd,
 		struct prop_local_percpu *pl,
@@ -319,7 +319,7 @@ void prop_fraction_percpu(struct prop_descriptor *pd,
 }
 
 /*
-         
+ * SINGLE
  */
 
 int prop_local_init_single(struct prop_local_single *pl)
@@ -336,7 +336,7 @@ void prop_local_destroy_single(struct prop_local_single *pl)
 }
 
 /*
-                                           
+ * Catch up with missed period expirations.
  */
 static
 void prop_norm_single(struct prop_global *pg, struct prop_local_single *pl)
@@ -350,17 +350,17 @@ void prop_norm_single(struct prop_global *pg, struct prop_local_single *pl)
 	global_period &= period_mask;
 
 	/*
-                                                                      
-                        
-  */
+	 * Fast path - check if the local and global period count still match
+	 * outside of the lock.
+	 */
 	if (pl->period == global_period)
 		return;
 
 	raw_spin_lock_irqsave(&pl->lock, flags);
 	prop_adjust_shift(&pl->shift, &pl->period, pg->shift);
 	/*
-                                                      
-  */
+	 * For each missed period, we half the local counter.
+	 */
 	period = (global_period - pl->period) >> (pg->shift - 1);
 	if (likely(period < BITS_PER_LONG))
 		pl->events >>= period;
@@ -371,7 +371,7 @@ void prop_norm_single(struct prop_global *pg, struct prop_local_single *pl)
 }
 
 /*
-                 
+ *   ++x_{j}, ++t
  */
 void __prop_inc_single(struct prop_descriptor *pd, struct prop_local_single *pl)
 {
@@ -384,9 +384,9 @@ void __prop_inc_single(struct prop_descriptor *pd, struct prop_local_single *pl)
 }
 
 /*
-                                       
-  
-                                              
+ * Obtain a fraction of this proportion
+ *
+ *   p_{j} = x_{j} / (period/2 + t % period/2)
  */
 void prop_fraction_single(struct prop_descriptor *pd,
 	       	struct prop_local_single *pl,

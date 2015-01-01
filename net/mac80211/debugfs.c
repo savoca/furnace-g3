@@ -125,7 +125,7 @@ static ssize_t hwflags_read(struct file *file, char __user *user_buf,
 	int mxln = 500;
 	ssize_t rv;
 	char *buf = kzalloc(mxln, GFP_KERNEL);
-	int sf = 0; /*                         */
+	int sf = 0; /* how many written so far */
 
 	if (!buf)
 		return 0;
@@ -208,7 +208,7 @@ DEBUGFS_READONLY_FILE_OPS(hwflags);
 DEBUGFS_READONLY_FILE_OPS(channel_type);
 DEBUGFS_READONLY_FILE_OPS(queues);
 
-/*                  */
+/* statistics stuff */
 
 static ssize_t format_devstat_counter(struct ieee80211_local *local,
 	char __user *userbuf,
@@ -284,7 +284,7 @@ void debugfs_hw_add(struct ieee80211_local *local)
 
 	statsd = debugfs_create_dir("statistics", phyd);
 
-	/*                                                                  */
+	/* if the dir failed, don't put all the other things into the root! */
 	if (!statsd)
 		return;
 

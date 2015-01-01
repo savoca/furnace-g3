@@ -163,7 +163,7 @@ struct platform_device s3c64xx_device_iisv4 = {
 EXPORT_SYMBOL(s3c64xx_device_iisv4);
 
 
-/*                                 */
+/* PCM Controller platform_devices */
 
 static int s3c64xx_pcm_cfg_gpio(struct platform_device *pdev)
 {
@@ -252,7 +252,7 @@ struct platform_device s3c64xx_device_pcm1 = {
 };
 EXPORT_SYMBOL(s3c64xx_device_pcm1);
 
-/*                                  */
+/* AC97 Controller platform devices */
 
 static int s3c64xx_ac97_cfg_gpd(struct platform_device *pdev)
 {

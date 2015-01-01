@@ -39,10 +39,10 @@ static struct ipc_namespace *create_ipc_ns(struct task_struct *tsk,
 	shm_init_ns(ns);
 
 	/*
-                                                        
-                                                                    
-                           
-  */
+	 * msgmni has already been computed for the new ipc ns.
+	 * Thus, do the ipcns creation notification before registering that
+	 * new ipcns in the chain.
+	 */
 	ipcns_notify(IPCNS_CREATED);
 	register_ipcns_notifier(ns);
 
@@ -62,12 +62,12 @@ struct ipc_namespace *copy_ipcs(unsigned long flags,
 }
 
 /*
-                                        
-                                               
-                                   
-                                                         
-  
-                                                           
+ * free_ipcs - free all ipcs of one type
+ * @ns:   the namespace to remove the ipcs from
+ * @ids:  the table of ipcs to free
+ * @free: the function called to free each individual ipc
+ *
+ * Called for each kind of ipc when an ipc_namespace exits.
  */
 void free_ipcs(struct ipc_namespace *ns, struct ipc_ids *ids,
 	       void (*free)(struct ipc_namespace *, struct kern_ipc_perm *))
@@ -94,13 +94,13 @@ void free_ipcs(struct ipc_namespace *ns, struct ipc_ids *ids,
 static void free_ipc_ns(struct ipc_namespace *ns)
 {
 	/*
-                                                                  
-                                                                 
-                                                                    
-                                                                    
-                                                                    
-                         
-  */
+	 * Unregistering the hotplug notifier at the beginning guarantees
+	 * that the ipc namespace won't be freed while we are inside the
+	 * callback routine. Since the blocking_notifier_chain_XXX routines
+	 * hold a rw lock on the notifier list, unregister_ipcns_notifier()
+	 * won't take the rw lock before blocking_notifier_call_chain() has
+	 * released the rd lock.
+	 */
 	unregister_ipcns_notifier(ns);
 	sem_exit_ns(ns);
 	msg_exit_ns(ns);
@@ -108,29 +108,29 @@ static void free_ipc_ns(struct ipc_namespace *ns)
 	atomic_dec(&nr_ipc_ns);
 
 	/*
-                                                                     
-                                                          
-  */
+	 * Do the ipcns removal notification after decrementing nr_ipc_ns in
+	 * order to have a correct value when recomputing msgmni.
+	 */
 	ipcns_notify(IPCNS_REMOVED);
 	put_user_ns(ns->user_ns);
 	kfree(ns);
 }
 
 /*
-                                                     
-                            
-  
-                                                         
-                                                          
-                                                            
-                                                             
-                                                                
-                                                          
-                                                            
-  
-                                                          
-                                                              
-                         
+ * put_ipc_ns - drop a reference to an ipc namespace.
+ * @ns: the namespace to put
+ *
+ * If this is the last task in the namespace exiting, and
+ * it is dropping the refcount to 0, then it can race with
+ * a task in another ipc namespace but in a mounts namespace
+ * which has this ipcns's mqueuefs mounted, doing some action
+ * with one of the mqueuefs files.  That can raise the refcount.
+ * So dropping the refcount, and raising the refcount when
+ * accessing it through the VFS, are protected with mq_lock.
+ *
+ * (Clearly, a task raising the refcount on its own ipc_ns
+ * needn't take mq_lock since it can't race with the last task
+ * in the ipcns exiting).
  */
 void put_ipc_ns(struct ipc_namespace *ns)
 {
@@ -163,7 +163,7 @@ static void ipcns_put(void *ns)
 
 static int ipcns_install(struct nsproxy *nsproxy, void *ns)
 {
-	/*                                        */
+	/* Ditch state from the old ipc namespace */
 	exit_sem(current);
 	put_ipc_ns(nsproxy->ipc_ns);
 	nsproxy->ipc_ns = get_ipc_ns(ns);

@@ -48,7 +48,7 @@
 #endif
 #include <linux/spinlock.h>
 
-/*                   */
+/* Interrupt offsets */
 #define INT_RT_STS(base)			(base + 0x10)
 #define INT_SET_TYPE(base)			(base + 0x11)
 #define INT_POLARITY_HIGH(base)			(base + 0x12)
@@ -61,7 +61,7 @@
 #define INT_MID_SEL(base)			(base + 0x1A)
 #define INT_PRIORITY(base)			(base + 0x1B)
 
-/*                             */
+/* Peripheral register offsets */
 #define CHGR_CHG_OPTION				0x08
 #define CHGR_ATC_STATUS				0x0A
 #define CHGR_VBAT_STATUS			0x0B
@@ -135,7 +135,7 @@
 
 #define REG_OFFSET_PERP_SUBTYPE			0x05
 
-/*                                */
+/* SMBB peripheral subtype values */
 #define SMBB_CHGR_SUBTYPE			0x01
 #define SMBB_BUCK_SUBTYPE			0x02
 #define SMBB_BAT_IF_SUBTYPE			0x03
@@ -144,7 +144,7 @@
 #define SMBB_BOOST_SUBTYPE			0x06
 #define SMBB_MISC_SUBTYPE			0x07
 
-/*                                */
+/* SMBB peripheral subtype values */
 #define SMBBP_CHGR_SUBTYPE			0x31
 #define SMBBP_BUCK_SUBTYPE			0x32
 #define SMBBP_BAT_IF_SUBTYPE			0x33
@@ -152,7 +152,7 @@
 #define SMBBP_BOOST_SUBTYPE			0x36
 #define SMBBP_MISC_SUBTYPE			0x37
 
-/*                                 */
+/* SMBCL peripheral subtype values */
 #define SMBCL_CHGR_SUBTYPE			0x41
 #define SMBCL_BUCK_SUBTYPE			0x42
 #define SMBCL_BAT_IF_SUBTYPE			0x43
@@ -161,7 +161,7 @@
 
 #define QPNP_CHARGER_DEV_NAME	"qcom,qpnp-charger"
 
-/*                       */
+/* Status bits and masks */
 #define CHGR_BOOT_DONE			BIT(7)
 #define CHGR_CHG_EN			BIT(7)
 #define CHGR_ON_BAT_FORCE_BIT		BIT(0)
@@ -180,8 +180,8 @@
 #define OCP_THR_500_MA			0x01
 #define OCP_THR_200_MA			0x00
 
-/*                       */
-/*                     */
+/* Interrupt definitions */
+/* smbb_chg_interrupts */
 #define CHG_DONE_IRQ			BIT(7)
 #define CHG_FAILED_IRQ			BIT(6)
 #define FAST_CHG_ON_IRQ			BIT(5)
@@ -191,7 +191,7 @@
 #define VBAT_DET_HI_IRQ			BIT(1)
 #define VBAT_DET_LOW_IRQ		BIT(0)
 
-/*                      */
+/* smbb_buck_interrupts */
 #define VDD_LOOP_IRQ			BIT(6)
 #define IBAT_LOOP_IRQ			BIT(5)
 #define ICHG_LOOP_IRQ			BIT(4)
@@ -200,35 +200,35 @@
 #define VREF_OV_IRQ			BIT(1)
 #define VBAT_OV_IRQ			BIT(0)
 
-/*                        */
+/* smbb_bat_if_interrupts */
 #define PSI_IRQ				BIT(4)
 #define VCP_ON_IRQ			BIT(3)
 #define BAT_FET_ON_IRQ			BIT(2)
 #define BAT_TEMP_OK_IRQ			BIT(1)
 #define BATT_PRES_IRQ			BIT(0)
 
-/*                     */
+/* smbb_usb_interrupts */
 #define CHG_GONE_IRQ			BIT(2)
 #define USBIN_VALID_IRQ			BIT(1)
 #define COARSE_DET_USB_IRQ		BIT(0)
 
-/*                    */
+/* smbb_dc_interrupts */
 #define DCIN_VALID_IRQ			BIT(1)
 #define COARSE_DET_DC_IRQ		BIT(0)
 
-/*                       */
+/* smbb_boost_interrupts */
 #define LIMIT_ERROR_IRQ			BIT(1)
 #define BOOST_PWR_OK_IRQ		BIT(0)
 
-/*                      */
+/* smbb_misc_interrupts */
 #define TFTWDOG_IRQ			BIT(0)
 
-/*            */
+/* SMBB types */
 #define SMBB				BIT(1)
 #define SMBBP				BIT(2)
 #define SMBCL				BIT(3)
 
-/*                  */
+/* Workaround flags */
 #define CHG_FLAGS_VCP_WA		BIT(0)
 #define BOOST_FLASH_WA			BIT(1)
 #define POWER_STAGE_WA			BIT(2)
@@ -244,57 +244,57 @@ struct qpnp_chg_regulator {
 	struct regulator_dev			*rdev;
 };
 
-/* 
-                                            
-                                              
-                                                   
-                                                
-                                              
-                                                            
-                                                             
-                                                           
-                                               
-                                             
-                                             
-                                                
-                                                
-                                                    
-                                       
-                                      
-                                            
-                                                                      
-                                                                  
-                                                                   
-                                                                  
-                                                        
-                                                 
-                                                             
-                                                              
-                                                              
-                                                         
-                                                         
-                                                                     
-                                                  
-                                                 
-                                               
-                                             
-                                              
-                                                
-                                                                 
-                                                                 
-                             
-                     
-                                                              
-                                                       
-                                                       
-                                                     
-                                                            
-                                                             
-                                                             
-                                                               
-                                                   
-                           
-  
+/**
+ * struct qpnp_chg_chip - device information
+ * @dev:			device pointer to access the parent
+ * @spmi:			spmi pointer to access spmi information
+ * @chgr_base:			charger peripheral base address
+ * @buck_base:			buck  peripheral base address
+ * @bat_if_base:		battery interface  peripheral base address
+ * @usb_chgpth_base:		USB charge path peripheral base address
+ * @dc_chgpth_base:		DC charge path peripheral base address
+ * @boost_base:			boost peripheral base address
+ * @misc_base:			misc peripheral base address
+ * @freq_base:			freq peripheral base address
+ * @bat_is_cool:		indicates that battery is cool
+ * @bat_is_warm:		indicates that battery is warm
+ * @chg_done:			indicates that charging is completed
+ * @usb_present:		present status of usb
+ * @dc_present:			present status of dc
+ * @batt_present:		present status of battery
+ * @use_default_batt_values:	flag to report default battery properties
+ * @btc_disabled		Flag to disable btc (disables hot and cold irqs)
+ * @max_voltage_mv:		the max volts the batt should be charged up to
+ * @min_voltage_mv:		min battery voltage before turning the FET on
+ * @batt_weak_voltage_mv:	Weak battery voltage threshold
+ * @vbatdet_max_err_mv		resume voltage hysterisis
+ * @max_bat_chg_current:	maximum battery charge current in mA
+ * @warm_bat_chg_ma:	warm battery maximum charge current in mA
+ * @cool_bat_chg_ma:	cool battery maximum charge current in mA
+ * @warm_bat_mv:		warm temperature battery target voltage
+ * @cool_bat_mv:		cool temperature battery target voltage
+ * @resume_delta_mv:		voltage delta at which battery resumes charging
+ * @term_current:		the charging based term current
+ * @safe_current:		battery safety current setting
+ * @maxinput_usb_ma:		Maximum Input current USB
+ * @maxinput_dc_ma:		Maximum Input current DC
+ * @hot_batt_p			Hot battery threshold setting
+ * @cold_batt_p			Cold battery threshold setting
+ * @warm_bat_decidegc		Warm battery temperature in degree Celsius
+ * @cool_bat_decidegc		Cool battery temperature in degree Celsius
+ * @revision:			PMIC revision
+ * @type:			SMBB type
+ * @tchg_mins			maximum allowed software initiated charge time
+ * @thermal_levels		amount of thermal mitigation levels
+ * @thermal_mitigation		thermal mitigation level values
+ * @therm_lvl_sel		thermal mitigation level selection
+ * @dc_psy			power supply to export information to userspace
+ * @usb_psy			power supply to export information to userspace
+ * @bms_psy			power supply to export information to userspace
+ * @batt_psy:			power supply to export information to userspace
+ * @flags:			flags to activate specific workarounds
+ *				throughout the driver
+ *
  */
 struct qpnp_chg_chip {
 	struct device			*dev;
@@ -434,19 +434,19 @@ struct qpnp_chg_chip {
 	unsigned int			max_usb_qc20_mode_on_current;
 	unsigned int			max_usb_qc20_mode_off_current;
 
-	/*                                                         
-                                              
-                                   
-                                           
-    
-                                                              
-                                             
-                                 
-                                  
-    
-                                                                                          
-                                                                                          
-   */
+	/* The first  bit of chip->qc20_disabled is mean LCD state.
+	  *   (chip->qc20_disabled & QC20_CALL_STATE)
+	  * 	   1 : Call state is offhook.
+	  * 	   0 : Call state is idle or ringing.
+	  *
+	  * The second bit of chip->qc20_disabled is mean call state.
+	  *   (chip->qc20_disabled & QC20_LCD_STATE)
+	  * 	   1 : LCD backlight is on.
+	  * 	   0 : LCD backlight is off.
+	  *
+	  *  If chip->qc20_disabled is true, QC 2.0 is disabled by LG charging scenario of QC 2.0
+	  *  If chip->qc20_disabled is false, QC 2.0 is enabled by LG charging scenario of QC 2.0
+	  */
 	int					qc20_disabled;
 	struct work_struct		qc20_check_work;
 	struct delayed_work	qc20_iusb_work;
@@ -995,7 +995,7 @@ qpnp_chg_iusbmax_set(struct qpnp_chg_chip *chip, int mA)
 		chip->usb_chgpth_base + CHGR_I_MAX_REG, 1);
 	}
 
-	/*                            */
+	/* Impose input current limit */
 	if (chip->maxinput_usb_ma)
 		mA = (chip->maxinput_usb_ma) <= mA ? chip->maxinput_usb_ma : mA;
 
@@ -1169,7 +1169,7 @@ switch_parallel_ovp_mode(struct qpnp_chg_chip *chip, bool enable)
 	rc = override_dcin_ilimit(chip, 1);
 	udelay(10);
 
-	/*                               */
+	/* enable/disable dual path mode */
 	rc = qpnp_chg_masked_write(chip,
 			chip->usb_chgpth_base + SEC_ACCESS,
 			0xA5,
@@ -1192,7 +1192,7 @@ switch_parallel_ovp_mode(struct qpnp_chg_chip *chip, bool enable)
 static int
 qpnp_chg_usb_suspend_enable(struct qpnp_chg_chip *chip, int enable)
 {
-	/*                                                 */
+	/* Turn off DC OVP FET when going into USB suspend */
 	if (chip->parallel_ovp_mode && enable)
 		switch_parallel_ovp_mode(chip, 0);
 
@@ -1229,15 +1229,15 @@ qpnp_chg_charge_en(struct qpnp_chg_chip *chip, int enable)
 static int
 qpnp_chg_force_run_on_batt(struct qpnp_chg_chip *chip, int disable)
 {
-	/*                                               */
+	/* Don't run on battery for batteryless hardware */
 	if (chip->use_default_batt_values)
 		return 0;
-	/*                                                  */
+	/* Don't force on battery if battery is not present */
 	if (!qpnp_chg_is_batt_present(chip))
 		return 0;
 
-	/*                                                             
-                             */
+	/* This bit forces the charger to run off of the battery rather
+	 * than a connected charger */
 	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
 			CHGR_ON_BAT_FORCE_BIT,
 			disable ? CHGR_ON_BAT_FORCE_BIT : 0, 1);
@@ -1514,7 +1514,7 @@ qpnp_chg_ocp_clear_work(struct work_struct *work)
 	if (rc)
 		pr_err("Failed to clear OCP bit rc = %d\n", rc);
 
-	/*                       */
+	/* force usb ovp fet off */
 	rc = qpnp_chg_masked_write(chip,
 			chip->usb_chgpth_base + CHGR_USB_USB_OTG_CTL,
 			USB_OTG_EN_BIT,
@@ -1523,7 +1523,7 @@ qpnp_chg_ocp_clear_work(struct work_struct *work)
 		pr_err("Failed to turn off usb ovp rc = %d\n", rc);
 
 	if (chip->type == SMBBP) {
-		/*                                         */
+		/* Wait for OCP circuitry to be powered up */
 		msleep(100);
 		rc = qpnp_chg_read(chip, &usb_sts,
 				INT_RT_STS(chip->usb_chgpth_base), 1);
@@ -1613,7 +1613,7 @@ qpnp_chg_vddmax_get(struct qpnp_chg_chip *chip)
 	return QPNP_CHG_V_MIN_MV + (int)vddmax * QPNP_CHG_V_STEP_MV;
 }
 
-/*                        */
+/* JEITA compliance logic */
 static void
 qpnp_chg_set_appropriate_vddmax(struct qpnp_chg_chip *chip)
 {
@@ -1650,7 +1650,7 @@ qpnp_usbin_health_check_work(struct work_struct *work)
 		power_supply_set_health_state(chip->usb_psy, psy_health_sts);
 		power_supply_changed(chip->usb_psy);
 	}
-	/*                                                           */
+	/* enable OVP monitor in usb valid after coarse-det complete */
 	chip->usb_valid_check_ovp = true;
 	spin_unlock(&chip->usbin_health_monitor_lock);
 	return;
@@ -1686,17 +1686,17 @@ qpnp_chg_coarse_det_usb_irq_handler(int irq, void *_chip)
 
 	if (host_mode)
 		return IRQ_HANDLED;
-	/*                                                 
-                                                         
-                                                     
-                                                */
+	/* ignore to monitor OVP in usbin valid irq handler
+	 if the coarse-det fired first, do the OVP state monitor
+	 in the usbin_health_check work, and after the work,
+	 enable monitor OVP in usbin valid irq handler */
 	chip->usb_valid_check_ovp = false;
 	if (chip->usb_coarse_det ^ usb_coarse_det) {
 		chip->usb_coarse_det = usb_coarse_det;
 		if (usb_coarse_det) {
-			/*                                                  
-                                                   
-                       */
+			/* usb coarse-det rising edge, check the usbin_valid
+			debounce time setting, and start a delay work to
+			check the OVP status*/
 			rc = qpnp_chg_read(chip, &ovp_ctl,
 					chip->usb_chgpth_base + USB_OVP_CTL, 1);
 
@@ -1710,8 +1710,8 @@ qpnp_chg_coarse_det_usb_irq_handler(int irq, void *_chip)
 			schedule_delayed_work(&chip->usbin_health_check,
 					msecs_to_jiffies(debounce[ovp_ctl]));
 		} else {
-			/*                                                   
-                     */
+			/* usb coarse-det rising edge, set the usb psy health
+			status to unknown */
 			pr_debug("usb coarse det clear, set usb health to unknown\n");
 			chip->usbin_health = USBIN_UNKNOW;
 			power_supply_set_health_state(chip->usb_psy,
@@ -1792,7 +1792,7 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 	pr_info("usbin-valid triggered: %d host_mode: %d\n",
 		usb_present, host_mode);
 
-	/*                                                 */
+	/* In host mode notifications cmoe from USB supply */
 	if (host_mode)
 #ifdef CONFIG_LGE_PM
 		return;
@@ -1803,11 +1803,11 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 	if (chip->usb_present ^ usb_present) {
 		chip->usb_present = usb_present;
 		if (!usb_present) {
-			/*                                                
-                                             
-                                                    
-                                                    
-                                  */
+			/* when a valid charger inserted, and increase the
+			 *  charger voltage to OVP threshold, then
+			 *  usb_in_valid falling edge interrupt triggers.
+			 *  So we handle the OVP monitor here, and ignore
+			 *  other health state changes */
 			if (chip->ovp_monitor_enable &&
 				       (chip->usb_valid_check_ovp)) {
 				usbin_health =
@@ -1843,11 +1843,11 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 			}
 #endif
 		} else {
-			/*                                          
-                                               
-                                          
-                                               
-                                    */
+			/* when OVP clamped usbin, and then decrease
+			 * the charger voltage to lower than the OVP
+			 * threshold, a usbin_valid rising edge
+			 * interrupt triggered. So we change the usb
+			 * psy health state back to good */
 			if (chip->ovp_monitor_enable &&
 				       (chip->usb_valid_check_ovp)) {
 				usbin_health =
@@ -2268,7 +2268,7 @@ switch_usb_to_charge_mode(struct qpnp_chg_chip *chip)
 		}
 	}
 
-	/*                    */
+	/* enable usb ovp fet */
 	rc = qpnp_chg_masked_write(chip,
 			chip->usb_chgpth_base + CHGR_USB_USB_OTG_CTL,
 			USB_OTG_EN_BIT,
@@ -2319,7 +2319,7 @@ switch_usb_to_host_mode(struct qpnp_chg_chip *chip)
 		}
 	}
 
-	/*                       */
+	/* force usb ovp fet off */
 	rc = qpnp_chg_masked_write(chip,
 			chip->usb_chgpth_base + CHGR_USB_USB_OTG_CTL,
 			USB_OTG_EN_BIT,
@@ -2330,7 +2330,7 @@ switch_usb_to_host_mode(struct qpnp_chg_chip *chip)
 	}
 
 	if (chip->type == SMBBP) {
-		/*                                         */
+		/* Wait for OCP circuitry to be powered up */
 		msleep(100);
 		rc = qpnp_chg_read(chip, &usb_sts,
 				INT_RT_STS(chip->usb_chgpth_base), 1);
@@ -2576,7 +2576,7 @@ get_prop_batt_status(struct qpnp_chg_chip *chip)
 {
 	int rc;
 
-/*       */
+/* FixMe */
 #ifdef CONFIG_LGE_PM
 	u8 chgr_sts;
 	union power_supply_propval ret = {0,};
@@ -2651,7 +2651,7 @@ get_prop_batt_status(struct qpnp_chg_chip *chip)
 	if (chgr_sts & FAST_CHG_ON_IRQ && bat_if_sts & BAT_FET_ON_IRQ)
 		return POWER_SUPPLY_STATUS_CHARGING;
 
-	/*                                                                  */
+	/* report full if state of charge is 100 and a charger is connected */
 	if ((qpnp_chg_is_usb_chg_plugged_in(chip) ||
 		qpnp_chg_is_dc_chg_plugged_in(chip))
 			&& get_batt_capacity(chip) == 100) {
@@ -2765,8 +2765,8 @@ get_prop_capacity(struct qpnp_chg_chip *chip)
 		pr_debug("No BMS supply registered return 50\n");
 	}
 
-	/*                                           
-                                    */
+	/* return default capacity to avoid userspace
+	 * from shutting down unecessarily */
 	return DEFAULT_CAPACITY;
 #endif
 }
@@ -2913,7 +2913,7 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 	chip->usb_psy->get_property(chip->usb_psy,
 			  POWER_SUPPLY_PROP_ONLINE, &ret);
 
-	/*                                           */
+	/* Only honour requests while USB is present */
 	if (qpnp_chg_is_usb_chg_plugged_in(chip)) {
 		chip->usb_psy->get_property(chip->usb_psy,
 			  POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
@@ -3076,7 +3076,7 @@ qpnp_chg_bat_if_configure_btc(struct qpnp_chg_chip *chip)
 {
 	u8 btc_cfg = 0, mask = 0;
 
-	/*                                              */
+	/* Do nothing if battery peripheral not present */
 	if (!chip->bat_if_base)
 		return 0;
 
@@ -3285,7 +3285,7 @@ qpnp_chg_trim_ibat(struct qpnp_chg_chip *chip, u8 ibat_trim)
 		if (abs(ibat_diff_ma) > 50) {
 			ibat_trim += (ibat_diff_ma / 20);
 			ibat_trim &= IBAT_TRIM_OFFSET_MASK;
-			/*                                              */
+			/* reject new ibat_trim if it is outside limits */
 			if (!is_within_range(ibat_trim, IBAT_TRIM_LOW_LIM,
 						IBAT_TRIM_HIGH_LIM))
 				return;
@@ -3313,10 +3313,10 @@ qpnp_chg_input_current_settled(struct qpnp_chg_chip *chip)
 	chip->aicl_settled = true;
 
 	/*
-                                 
-                                                    
-                                        
-  */
+	 * Perform the ibat calibration.
+	 * This is for devices which have a IBAT_TRIM error
+	 * which can show IBAT_MAX out of spec.
+	 */
 	if (!chip->ibat_calibration_enabled)
 		return 0;
 
@@ -3361,7 +3361,7 @@ qpnp_chg_input_current_settled(struct qpnp_chg_chip *chip)
 		return rc;
 	}
 
-	/*                                       */
+	/* save the ibat_max to restore it later */
 	rc = qpnp_chg_ibatmax_get(chip, &ibat_max_ma);
 	if (rc) {
 		pr_debug("failed to save ibatmax rc=%d\n", rc);
@@ -3376,17 +3376,17 @@ qpnp_chg_input_current_settled(struct qpnp_chg_chip *chip)
 
 	for (i = 0; i < 3; i++) {
 		/*
-                                                          
-                                                          
-             
-   */
+		 * ibat settling delay - to make sure the BMS controller
+		 * has sufficient time to sample ibat for the configured
+		 * ibat_max
+		 */
 		msleep(20);
 		if (qpnp_chg_is_ibat_loop_active(chip))
 			qpnp_chg_trim_ibat(chip, ibat_trim);
 		else
 			pr_debug("ibat loop not active\n");
 
-		/*                                                     */
+		/* read the adjusted ibat_trim for further adjustments */
 		rc = qpnp_chg_read(chip, &ibat_trim,
 			chip->buck_base + BUCK_CTRL_TRIM3, 1);
 		if (rc) {
@@ -3395,7 +3395,7 @@ qpnp_chg_input_current_settled(struct qpnp_chg_chip *chip)
 		}
 	}
 
-	/*                 */
+	/* restore IBATMAX */
 	rc = qpnp_chg_ibatmax_set(chip, ibat_max_ma);
 	if (rc)
 		pr_err("failed to restore ibatmax rc=%d\n", rc);
@@ -3452,7 +3452,7 @@ qpnp_batt_system_temp_level_set(struct qpnp_chg_chip *chip, int lvl_sel)
 	if (lvl_sel >= 0 && lvl_sel < chip->thermal_levels) {
 		chip->therm_lvl_sel = lvl_sel;
 		if (lvl_sel == (chip->thermal_levels - 1)) {
-			/*                                            */
+			/* disable charging if highest value selected */
 			qpnp_chg_buck_control(chip, 0);
 		} else {
 			qpnp_chg_buck_control(chip, 1);
@@ -3463,7 +3463,7 @@ qpnp_batt_system_temp_level_set(struct qpnp_chg_chip *chip, int lvl_sel)
 	}
 }
 
-/*                          */
+/* OTG regulator operations */
 static int
 qpnp_chg_regulator_otg_enable(struct regulator_dev *rdev)
 {
@@ -3523,7 +3523,7 @@ qpnp_chg_regulator_boost_enable(struct regulator_dev *rdev)
 		BOOST_PWR_EN, 1);
 }
 
-/*                            */
+/* Boost regulator operations */
 #define ABOVE_VBAT_WEAK		BIT(1)
 static int
 qpnp_chg_regulator_boost_disable(struct regulator_dev *rdev)
@@ -3719,7 +3719,7 @@ qpnp_chg_regulator_batfet_enable(struct regulator_dev *rdev)
 	int rc = 0;
 
 	mutex_lock(&chip->batfet_vreg_lock);
-	/*                                    */
+	/* Only enable if not already enabled */
 	if (!qpnp_chg_bat_if_batfet_reg_enabled(chip)) {
 		rc = qpnp_chg_regulator_batfet_set(chip, 1);
 		if (rc)
@@ -3739,7 +3739,7 @@ qpnp_chg_regulator_batfet_disable(struct regulator_dev *rdev)
 	int rc = 0;
 
 	mutex_lock(&chip->batfet_vreg_lock);
-	/*                                          */
+	/* Don't allow disable if charger connected */
 	if (!qpnp_chg_is_usb_chg_plugged_in(chip) &&
 			!qpnp_chg_is_dc_chg_plugged_in(chip)) {
 		rc = qpnp_chg_regulator_batfet_set(chip, 0);
@@ -3936,7 +3936,7 @@ qpnp_eoc_work(struct work_struct *work)
 				chip->delta_vddmax_mv = 0;
 				qpnp_chg_set_appropriate_vddmax(chip);
 				qpnp_chg_charge_en(chip, 0);
-				/*                                    */
+				/* sleep for a second before enabling */
 				msleep(2000);
 				qpnp_chg_charge_en(chip,
 						!chip->charging_disabled);
@@ -4020,7 +4020,7 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 
 	if (state == ADC_TM_WARM_STATE) {
 		if (temp >= chip->warm_bat_decidegc) {
-			/*                */
+			/* Normal to warm */
 			bat_warm = true;
 			bat_cool = false;
 			chip->adc_param.low_temp =
@@ -4029,7 +4029,7 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 				ADC_TM_COOL_THR_ENABLE;
 		} else if (temp >=
 				chip->cool_bat_decidegc + HYSTERISIS_DECIDEGC){
-			/*                */
+			/* Cool to normal */
 			bat_warm = false;
 			bat_cool = false;
 
@@ -4040,7 +4040,7 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 		}
 	} else {
 		if (temp <= chip->cool_bat_decidegc) {
-			/*                */
+			/* Normal to cool */
 			bat_warm = false;
 			bat_cool = true;
 			chip->adc_param.high_temp =
@@ -4049,7 +4049,7 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 				ADC_TM_WARM_THR_ENABLE;
 		} else if (temp <=
 				chip->warm_bat_decidegc - HYSTERISIS_DECIDEGC){
-			/*                */
+			/* Warm to normal */
 			bat_warm = false;
 			bat_cool = false;
 
@@ -4064,28 +4064,28 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 		chip->bat_is_cool = bat_cool;
 		chip->bat_is_warm = bat_warm;
 
-		/* 
-                                           
-    
-                                                           
-                                                             
-                                  
-   */
+		/**
+		 * set appropriate voltages and currents.
+		 *
+		 * Note that when the battery is hot or cold, the charger
+		 * driver will not resume with SoC. Only vbatdet is used to
+		 * determine resume of charging.
+		 */
 		if (bat_cool || bat_warm) {
 			chip->resuming_charging = false;
 			qpnp_chg_set_appropriate_vbatdet(chip);
 
-			/*                                            
-                                              
-                                                 
-                                            */
+			/* To avoid ARB, only vbatdet is configured in
+			 * warm/cold zones. Once vbat < vbatdet the
+			 * appropriate vddmax/ibatmax adjustments will
+			 * be made in the fast charge interrupt. */
 			bypass_vbatdet_comp(chip, 1);
 			qpnp_chg_charge_en(chip, !chip->charging_disabled);
 			qpnp_chg_charge_en(chip, chip->charging_disabled);
 			qpnp_chg_charge_en(chip, !chip->charging_disabled);
 		} else {
 			bypass_vbatdet_comp(chip, 0);
-			/*                           */
+			/* restore normal parameters */
 			qpnp_chg_set_appropriate_vbatdet(chip);
 			qpnp_chg_set_appropriate_vddmax(chip);
 			qpnp_chg_set_appropriate_battery_current(chip);
@@ -4235,7 +4235,7 @@ int get_vusb_averaged(struct qpnp_chg_chip *chip, int sample_count)
 	int vusb_uv = 0;
 	int i;
 
-	/*                  */
+	/* avoid  overflows */
 	if (sample_count > 256)
 		sample_count = 256;
 
@@ -4252,7 +4252,7 @@ int get_vbat_averaged(struct qpnp_chg_chip *chip, int sample_count)
 	int vbat_uv = 0;
 	int i;
 
-	/*                  */
+	/* avoid  overflows */
 	if (sample_count > 256)
 		sample_count = 256;
 
@@ -4428,12 +4428,12 @@ qpnp_batt_power_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		chip->charging_disabled = !(val->intval);
 		if (chip->charging_disabled) {
-			/*                  */
+			/* disable charging */
 			qpnp_chg_charge_en(chip, !chip->charging_disabled);
 			qpnp_chg_force_run_on_batt(chip,
 						chip->charging_disabled);
 		} else {
-			/*                 */
+			/* enable charging */
 			qpnp_chg_force_run_on_batt(chip,
 					chip->charging_disabled);
 			qpnp_chg_charge_en(chip, !chip->charging_disabled);
@@ -4817,9 +4817,9 @@ module_param_call(qpnp_thermal_mitigation, qpnp_set_thermal_chg_current,
 #endif
 
 #ifdef CONFIG_LGE_QC_2_0_SCENARIO
-/*                                                                 
-                                                      
-                                        
+/* When QC 2.0 TA is connected, LG charging scenario is as follows.
+  *  - QC 2.0 is enabled in lcd off & Call idle state.
+  *  - QC 2.0 is disabled in other case.
   */
 static int quick_charging_state;
 
@@ -4839,10 +4839,10 @@ static void qpnp_qc20_check_work(struct work_struct *work)
 				struct qpnp_chg_chip, qc20_check_work);
 	int pre_qc20_disabled  = chip->qc20_disabled;
 
-	/*                             */
+	/* quick_charging_state update */
 	switch (quick_charging_state) {
 	case QC20_STATUS_NONE:
-		/*                                                 */
+		/* This case is that QC 2.0 TA is pluged or unplued*/
 		break;
 
 	case QC20_STATUS_LCD_ON:
@@ -4873,13 +4873,13 @@ static void qpnp_qc20_check_work(struct work_struct *work)
 		pr_err("qpnp_qc20_state_update state err \n");
 	}
 
-	/*                           */
+	/* UBS input voltage control */
 	if (chip->qc20_ta_connected) {
-		/*                                                                                      
-                                               
-                                                                  
-                                          
-                                                               */
+		/* UBS input voltage is changed as follows at Only two case when QC 2.0 TA is connected.
+		  *   1. QC 2.0 LG charging state is changed.
+		  *		(This case is !!chip->qc20_disabled != !!pre_qc20_disabled)
+		  *   2. QC 2.0 TA is pluged or unplued.
+		  *		(This case is quick_charging_state == QC20_STATUS_NONE) */
 		if ((!!chip->qc20_disabled != !!pre_qc20_disabled) || quick_charging_state == QC20_STATUS_NONE) {
 			if (chip->qc20_disabled) {
 				pr_info("Quick charging disabled \n");
@@ -4903,8 +4903,8 @@ static void qpnp_qc20_check_work(struct work_struct *work)
 		pr_info("qpnp_qc20_check_work state = %d, qc20_disabled =%d, pre_qc20_disabled =%d,  qc20_ta_connected =%d \n"
 			, quick_charging_state, chip->qc20_disabled, pre_qc20_disabled, chip->qc20_ta_connected);
 	} else {
-		/*                                                             
-                                                                     */
+		/* When QC 2.0 TA is disconnected, UBS input voltage is set 9V.
+		  * Because HVDCP module don't work, when UBS input voltage is 5V. */
 		if (quick_charging_state == QC20_STATUS_NONE) {
 			pr_info("Quick charging unpluged \n");
 			chip->max_usb_qc20_current = 0;
@@ -4916,9 +4916,9 @@ static void qpnp_qc20_check_work(struct work_struct *work)
 
 }
 
-/*                                                                  
-                                                                                
-                                            
+/* The HVDCP module set VINMIN to 7.2V, when QC 2.0 TA is connected.
+ * And the HVDCP module set VINMIN to 4.2V ~ 4.4V, when TA or USB  is connected.
+ * The threshold of dectecting QC 2.0 is 6V.
  */
 static void qpnp_qc20_ta_check(int vinmin_voltage)
 {
@@ -4963,7 +4963,7 @@ static void qpnp_qc20_iusb_work(struct work_struct *work)
 
 	if (chip->qc20_ta_connected) {
 		if (!chip->max_usb_qc20_current) {
-			/*                       */
+			/* QC 2.0 TA is plugged. */
 			if (chip->qc20_disabled) {
 				chip->max_usb_qc20_current = chip->max_usb_qc20_mode_off_current;
 #ifdef CONFIG_LGE_QC_2_0_SCENARIO_WITH_VOLTAGE
@@ -4976,7 +4976,7 @@ static void qpnp_qc20_iusb_work(struct work_struct *work)
 #endif
 			}
 		} else {
-		/*                          */
+		/* QC 2.0 state is changed. */
 			if (chip->qc20_disabled && chip->max_usb_qc20_current == chip->max_usb_qc20_mode_on_current) {
 				chip->max_usb_qc20_current = chip->max_usb_qc20_mode_off_current;
 #ifdef CONFIG_LGE_QC_2_0_SCENARIO_WITH_VOLTAGE
@@ -5103,7 +5103,7 @@ static ssize_t at_chg_status_store(struct device *dev,
 	}
 
 	if (strncmp(buf, "0", 1) == 0) {
-		/*               */
+		/* stop charging */
 		pr_info("[Diag] stop charging\n");
 		qpnp_chg->factory_chg_disable = true;
 		ret = qpnp_chg_charge_en(qpnp_chg, false);
@@ -5114,7 +5114,7 @@ static ssize_t at_chg_status_store(struct device *dev,
 		ret = qpnp_chg_force_run_on_batt(qpnp_chg, 1);
 
 	} else if (strncmp(buf, "1", 1) == 0) {
-		/*                */
+		/* start charging */
 		pr_info("[Diag] start charging\n");
 		qpnp_chg->factory_chg_disable = false;
 		ret = qpnp_chg_charge_en(qpnp_chg, true);
@@ -5175,7 +5175,7 @@ static ssize_t at_chg_complete_store(struct device *dev,
 	}
 
 	if (strncmp(buf, "0", 1) == 0) {
-		/*                       */
+		/* charging not complete */
 		pr_info("[Diag] charging not complete start\n");
 		qpnp_chg->factory_chg_disable = true;
 		ret = qpnp_chg_charge_en(qpnp_chg, true);
@@ -5185,7 +5185,7 @@ static ssize_t at_chg_complete_store(struct device *dev,
 
 		ret = qpnp_chg_force_run_on_batt(qpnp_chg, 0);
 	} else if (strncmp(buf, "1", 1) == 0) {
-		/*                   */
+		/* charging complete */
 		pr_info("[Diag] charging complete start\n");
 		qpnp_chg->factory_chg_disable = false;
 		ret = qpnp_chg_charge_en(qpnp_chg, false);
@@ -5206,7 +5206,7 @@ static ssize_t at_pmic_reset_show(struct device *dev,
 	int r = 0;
 	bool pm_reset = true;
 
-	msleep(3000); /*                                       */
+	msleep(3000); /* for waiting return values of testmode */
 
 	machine_restart(NULL);
 
@@ -5446,11 +5446,11 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			return rc;
 		}
 
-		/*                    */
+		/* HACK: Disable wdog */
 		rc = qpnp_chg_masked_write(chip, chip->chgr_base + 0x62,
 			0xFF, 0xA0, 1);
 
-		/*                      */
+		/* HACK: use analog EOC */
 		rc = qpnp_chg_masked_write(chip, chip->chgr_base +
 			CHGR_IBAT_TERM_CHGR,
 			0xFF, 0x08, 1);
@@ -5484,7 +5484,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBB_BAT_IF_SUBTYPE:
 	case SMBBP_BAT_IF_SUBTYPE:
 	case SMBCL_BAT_IF_SUBTYPE:
-		/*                                   */
+		/* Select battery presence detection */
 		switch (chip->bpd_detection) {
 		case BPD_TYPE_BAT_THM:
 			reg = BAT_THM_EN;
@@ -5508,7 +5508,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			pr_debug("failed to chose BPD rc=%d\n", rc);
 			return rc;
 		}
-		/*                       */
+		/* Force on VREF_BAT_THM */
 		rc = qpnp_chg_masked_write(chip,
 			chip->bat_if_base + BAT_IF_VREF_BAT_THM_CTRL,
 			VREF_BATT_THERM_FORCE_ON,
@@ -5520,7 +5520,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 
 #ifdef CONFIG_LGE_PM
 #ifndef CONFIG_MACH_MSM8974_G3_KDDI
-		/*                                                                      */
+		/* disable BATFET Ultra LPM when the devices don't use QCT Wi-Fi Chipset*/
 		rc = qpnp_chg_masked_write(chip,
 			chip->bat_if_base + 0xDF,
 			0xC0, 0x00, 1);
@@ -5758,7 +5758,7 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	rc = of_property_read_string(chip->spmi->dev.of_node,
 		"qcom,bpd-detection", &bpd);
 	if (rc) {
-		/*                                      */
+		/* Select BAT_THM as default BPD scheme */
 		chip->bpd_detection = BPD_TYPE_BAT_THM;
 		rc = 0;
 	} else {
@@ -5772,7 +5772,7 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	if (!chip->vbatdet_max_err_mv)
 		chip->vbatdet_max_err_mv = VBATDET_MAX_ERR_MV;
 
-	/*                                                                    */
+	/* Look up JEITA compliance parameters if cool and warm temp provided */
 	if (chip->cool_bat_decidegc || chip->warm_bat_decidegc) {
 		chip->adc_tm_dev = qpnp_get_adc_tm(chip->dev, "chg");
 		if (IS_ERR(chip->adc_tm_dev)) {
@@ -5790,36 +5790,36 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 			return rc;
 	}
 
-	/*                                      */
+	/* Get the use-external-rsense property */
 	chip->use_external_rsense = of_property_read_bool(
 			chip->spmi->dev.of_node,
 			"qcom,use-external-rsense");
 
-	/*                               */
+	/* Get the btc-disabled property */
 	chip->btc_disabled = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,btc-disabled");
 
 	ext_ovp_present = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,ext-ovp-present");
 
-	/*                                    */
+	/* Get the charging-disabled property */
 	chip->charging_disabled = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,charging-disabled");
 
 	chip->ovp_monitor_enable = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,ovp-monitor-en");
 
-	/*                                  */
+	/* Get the duty-cycle-100p property */
 	chip->duty_cycle_100p = of_property_read_bool(
 					chip->spmi->dev.of_node,
 					"qcom,duty-cycle-100p");
 
-	/*                                   */
+	/* Get the fake-batt-values property */
 	chip->use_default_batt_values =
 			of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,use-default-batt-values");
 
-	/*                                             */
+	/* Disable charging when faking battery values */
 	if (chip->use_default_batt_values)
 		chip->charging_disabled = true;
 
@@ -6018,15 +6018,15 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->insertion_ocv_work,
 			qpnp_chg_insertion_ocv_work);
 
-	/*                                */
+	/* Get all device tree properties */
 	rc = qpnp_charger_read_dt_props(chip);
 	if (rc)
 		return rc;
 
 	/*
-                                                              
-                                                              
-  */
+	 * Check if bat_if is set in DT and make sure VADC is present
+	 * Also try loading the battery data profile if bat_if exists
+	 */
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
 			pr_err("qpnp_chg: spmi resource absent\n");
@@ -6308,7 +6308,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		}
 	}
 
-	/*                                      */
+	/* Turn on appropriate workaround flags */
 	rc = qpnp_chg_setup_flags(chip);
 	if (rc < 0) {
 		pr_err("failed to setup flags rc=%d\n", rc);
@@ -6434,8 +6434,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	power_supply_set_present(chip->usb_psy,
 			qpnp_chg_is_usb_chg_plugged_in(chip));
 
-	/*                                                                    
-                                                */
+	/* Set USB psy online to avoid userspace from shutting down if battery
+	 * capacity is at zero and no chargers online. */
 	if (qpnp_chg_is_usb_chg_plugged_in(chip))
 		power_supply_set_online(chip->usb_psy, 1);
 
@@ -6593,8 +6593,8 @@ static struct spmi_driver qpnp_charger_driver = {
 	},
 };
 
-/* 
-                                                      
+/**
+ * qpnp_chg_init() - register spmi driver for qpnp-chg
  */
 int __init
 qpnp_chg_init(void)

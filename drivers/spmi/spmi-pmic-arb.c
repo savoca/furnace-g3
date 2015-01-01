@@ -30,11 +30,11 @@
 
 #define SPMI_PMIC_ARB_NAME		"spmi_pmic_arb"
 
-/*                                      */
+/* PMIC Arbiter configuration registers */
 #define PMIC_ARB_VERSION		0x0000
 #define PMIC_ARB_INT_EN			0x0004
 
-/*                                */
+/* PMIC Arbiter channel registers */
 #define PMIC_ARB_CMD(N)			(0x0800 + (0x80 * (N)))
 #define PMIC_ARB_CONFIG(N)		(0x0804 + (0x80 * (N)))
 #define PMIC_ARB_STATUS(N)		(0x0808 + (0x80 * (N)))
@@ -43,13 +43,13 @@
 #define PMIC_ARB_RDATA0(N)		(0x0818 + (0x80 * (N)))
 #define PMIC_ARB_RDATA1(N)		(0x081C + (0x80 * (N)))
 
-/*                      */
+/* Interrupt Controller */
 #define SPMI_PIC_OWNER_ACC_STATUS(M, N)	(0x0000 + ((32 * (M)) + (4 * (N))))
 #define SPMI_PIC_ACC_ENABLE(N)		(0x0200 + (4 * (N)))
 #define SPMI_PIC_IRQ_STATUS(N)		(0x0600 + (4 * (N)))
 #define SPMI_PIC_IRQ_CLEAR(N)		(0x0A00 + (4 * (N)))
 
-/*               */
+/* Mapping Table */
 #define SPMI_MAPPING_TABLE_REG(N)	(0x0B00 + (4 * (N)))
 #define SPMI_MAPPING_BIT_INDEX(X)	(((X) >> 18) & 0xF)
 #define SPMI_MAPPING_BIT_IS_0_FLAG(X)	(((X) >> 17) & 0x1)
@@ -58,13 +58,13 @@
 #define SPMI_MAPPING_BIT_IS_1_RESULT(X)	(((X) >> 0) & 0xFF)
 
 #define SPMI_MAPPING_TABLE_LEN		255
-#define SPMI_MAPPING_TABLE_TREE_DEPTH	16	/*                    */
+#define SPMI_MAPPING_TABLE_TREE_DEPTH	16	/* Maximum of 16-bits */
 
-/*                 */
+/* Ownership Table */
 #define SPMI_OWNERSHIP_TABLE_REG(N)	(0x0700 + (4 * (N)))
 #define SPMI_OWNERSHIP_PERIPH2OWNER(X)	((X) & 0x7)
 
-/*                       */
+/* Channel Status fields */
 enum pmic_arb_chnl_status {
 	PMIC_ARB_STATUS_DONE	= (1 << 0),
 	PMIC_ARB_STATUS_FAILURE	= (1 << 1),
@@ -72,10 +72,10 @@ enum pmic_arb_chnl_status {
 	PMIC_ARB_STATUS_DROPPED	= (1 << 3),
 };
 
-/*                         */
+/* Command register fields */
 #define PMIC_ARB_CMD_MAX_BYTE_COUNT	8
 
-/*                 */
+/* Command Opcodes */
 enum pmic_arb_cmd_op_code {
 	PMIC_ARB_OP_EXT_WRITEL = 0,
 	PMIC_ARB_OP_EXT_READL = 1,
@@ -93,7 +93,7 @@ enum pmic_arb_cmd_op_code {
 	PMIC_ARB_OP_ZERO_WRITE = 16,
 };
 
-/*                                            */
+/* Maximum number of support PMIC peripherals */
 #define PMIC_ARB_MAX_PERIPHS		256
 #define PMIC_ARB_PERIPH_ID_VALID	(1 << 15)
 #define PMIC_ARB_TIMEOUT_US		100
@@ -102,12 +102,12 @@ enum pmic_arb_cmd_op_code {
 #define PMIC_ARB_APID_MASK		0xFF
 #define PMIC_ARB_PPID_MASK		0xFFF
 
-/*                      */
+/* interrupt enable bit */
 #define SPMI_PIC_ACC_ENABLE_BIT		BIT(0)
 
-/* 
-                                                          
-                                                              
+/**
+ * base - base address of the PMIC Arbiter core registers.
+ * intr - base address of the SPMI interrupt control registers
  */
 struct spmi_pmic_arb_dev {
 	struct spmi_controller	controller;
@@ -183,11 +183,11 @@ static int pmic_arb_wait_for_done(struct spmi_pmic_arb_dev *dev)
 	return -ETIMEDOUT;
 }
 
-/* 
-                                                                     
-                                 
-                          
-                                             
+/**
+ * pa_read_data: reads pmic-arb's register and copy 1..4 bytes to buf
+ * @bc byte count -1. range: 0..3
+ * @reg register's address
+ * @buf output parameter, length must be bc+1
  */
 static void pa_read_data(struct spmi_pmic_arb_dev *dev, u8 *buf, u32 reg, u8 bc)
 {
@@ -195,11 +195,11 @@ static void pa_read_data(struct spmi_pmic_arb_dev *dev, u8 *buf, u32 reg, u8 bc)
 	memcpy(buf, &data, (bc & 3) + 1);
 }
 
-/* 
-                                                                  
-                                 
-                          
-                                            
+/**
+ * pa_write_data: write 1..4 bytes from buf to pmic-arb's register
+ * @bc byte-count -1. range: 0..3
+ * @reg register's address
+ * @buf buffer to write. length must be bc+1
  */
 static void
 pa_write_data(struct spmi_pmic_arb_dev *dev, u8 *buf, u32 reg, u8 bc)
@@ -209,7 +209,7 @@ pa_write_data(struct spmi_pmic_arb_dev *dev, u8 *buf, u32 reg, u8 bc)
 	pmic_arb_write(dev, reg, data);
 }
 
-/*                  */
+/* Non-data command */
 static int pmic_arb_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid)
 {
 	struct spmi_pmic_arb_dev *pmic_arb = spmi_get_ctrldata(ctrl);
@@ -219,7 +219,7 @@ static int pmic_arb_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid)
 
 	pr_debug("op:0x%x sid:%d\n", opc, sid);
 
-	/*                                  */
+	/* Check for valid non-data command */
 	if (opc < SPMI_CMD_RESET || opc > SPMI_CMD_WAKEUP)
 		return -EINVAL;
 
@@ -251,7 +251,7 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 	}
 	pr_debug("op:0x%x sid:%d bc:%d addr:0x%x\n", opc, sid, bc, addr);
 
-	/*                  */
+	/* Check the opcode */
 	if (opc >= 0x60 && opc <= 0x7F)
 		opc = PMIC_ARB_OP_READ;
 	else if (opc >= 0x20 && opc <= 0x2F)
@@ -269,7 +269,7 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 	if (rc)
 		goto done;
 
-	/*                                                               */
+	/* Read from FIFO, note 'bc' is actually number of bytes minus 1 */
 	pa_read_data(pmic_arb, buf, PMIC_ARB_RDATA0(pmic_arb->channel)
 							, min_t(u8, bc, 3));
 
@@ -298,7 +298,7 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 	}
 	pr_debug("op:0x%x sid:%d bc:%d addr:0x%x\n", opc, sid, bc, addr);
 
-	/*                  */
+	/* Check the opcode */
 	if (opc >= 0x40 && opc <= 0x5F)
 		opc = PMIC_ARB_OP_WRITE;
 	else if (opc >= 0x00 && opc <= 0x0F)
@@ -312,7 +312,7 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 
 	cmd = (opc << 27) | ((sid & 0xf) << 20) | (addr << 4) | (bc & 0x7);
 
-	/*                     */
+	/* Write data to FIFOs */
 	spin_lock_irqsave(&pmic_arb->lock, flags);
 	pa_write_data(pmic_arb, buf, PMIC_ARB_WDATA0(pmic_arb->channel)
 							, min_t(u8, bc, 3));
@@ -320,7 +320,7 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 		pa_write_data(pmic_arb, buf + 4,
 				PMIC_ARB_WDATA1(pmic_arb->channel), bc - 4);
 
-	/*                       */
+	/* Start the transaction */
 	pmic_arb_write(pmic_arb, PMIC_ARB_CMD(pmic_arb->channel), cmd);
 	rc = pmic_arb_wait_for_done(pmic_arb);
 	spin_unlock_irqrestore(&pmic_arb->lock, flags);
@@ -328,13 +328,13 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 	return rc;
 }
 
-/*              */
+/* APID to PPID */
 static u16 get_peripheral_id(struct spmi_pmic_arb_dev *pmic_arb, u8 apid)
 {
 	return pmic_arb->periph_id_map[apid] & PMIC_ARB_PPID_MASK;
 }
 
-/*                                  */
+/* APID to PPID, returns valid flag */
 static int is_apid_valid(struct spmi_pmic_arb_dev *pmic_arb, u8 apid)
 {
 	return pmic_arb->periph_id_map[apid] & PMIC_ARB_PERIPH_ID_VALID;
@@ -371,14 +371,14 @@ static u32 search_mapping_table(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 	return apid;
 }
 
-/*              */
+/* PPID to APID */
 static uint32_t map_peripheral_id(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 {
 	u32 apid = search_mapping_table(pmic_arb, ppid);
 	u32 old_ppid;
 	u32 owner;
 
-	/*                                                   */
+	/* If the apid was found, add it to the lookup table */
 	if (apid < PMIC_ARB_MAX_PERIPHS) {
 		old_ppid = get_peripheral_id(pmic_arb, apid);
 
@@ -386,14 +386,14 @@ static uint32_t map_peripheral_id(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 				readl_relaxed(pmic_arb->cnfg +
 					SPMI_OWNERSHIP_TABLE_REG(apid)));
 
-		/*                 */
+		/* Check ownership */
 		if (owner != pmic_arb->owner) {
 			dev_err(pmic_arb->dev, "PPID 0x%x incorrect owner %d\n",
 				ppid, owner);
 			return PMIC_ARB_MAX_PERIPHS;
 		}
 
-		/*                         */
+		/* Check if already mapped */
 		if (pmic_arb->periph_id_map[apid] & PMIC_ARB_PERIPH_ID_VALID) {
 			if (ppid != old_ppid) {
 				dev_err(pmic_arb->dev,
@@ -419,7 +419,7 @@ static uint32_t map_peripheral_id(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 	return PMIC_ARB_MAX_PERIPHS;
 }
 
-/*                                          */
+/* Enable interrupt at the PMIC Arbiter PIC */
 static int pmic_arb_pic_enable(struct spmi_controller *ctrl,
 				struct qpnp_irq_spec *spec, uint32_t data)
 {
@@ -447,14 +447,14 @@ static int pmic_arb_pic_enable(struct spmi_controller *ctrl,
 		status = status | SPMI_PIC_ACC_ENABLE_BIT;
 		writel_relaxed(status,
 				pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
-		/*                                                          */
+		/* Interrupt needs to be enabled before returning to caller */
 		wmb();
 	}
 	spin_unlock_irqrestore(&pmic_arb->lock, flags);
 	return 0;
 }
 
-/*                                           */
+/* Disable interrupt at the PMIC Arbiter PIC */
 static int pmic_arb_pic_disable(struct spmi_controller *ctrl,
 				struct qpnp_irq_spec *spec, uint32_t data)
 {
@@ -479,11 +479,11 @@ static int pmic_arb_pic_disable(struct spmi_controller *ctrl,
 	spin_lock_irqsave(&pmic_arb->lock, flags);
 	status = readl_relaxed(pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
 	if (status & SPMI_PIC_ACC_ENABLE_BIT) {
-		/*                                */
+		/* clear the enable bit and write */
 		status = status & ~SPMI_PIC_ACC_ENABLE_BIT;
 		writel_relaxed(status,
 				pmic_arb->intr + SPMI_PIC_ACC_ENABLE(apid));
-		/*                                                           */
+		/* Interrupt needs to be disabled before returning to caller */
 		wmb();
 	}
 	spin_unlock_irqrestore(&pmic_arb->lock, flags);
@@ -502,25 +502,25 @@ periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid, bool show)
 
 	if (!is_apid_valid(pmic_arb, apid)) {
 		dev_err(pmic_arb->dev, "unknown peripheral id 0x%x\n", ppid);
-		/*                  */
+		/* return IRQ_NONE; */
 	}
 
 	status = readl_relaxed(intr + SPMI_PIC_ACC_ENABLE(apid));
 	if (!(status & SPMI_PIC_ACC_ENABLE_BIT)) {
 		/*
-                                                     
-                                             
-   */
+		 * All interrupts from this peripheral are disabled
+		 * don't bother calling the qpnpint handler
+		 */
 		return IRQ_HANDLED;
 	}
 
-	/*                                             */
+	/* Read the peripheral specific interrupt bits */
 	status = readl_relaxed(intr + SPMI_PIC_IRQ_STATUS(apid));
 
 	if (!show) {
-		/*                                 */
+		/* Clear the peripheral interrupts */
 		writel_relaxed(status, intr + SPMI_PIC_IRQ_CLEAR(apid));
-		/*                                                         */
+		/* Irq needs to be cleared/acknowledged before exiting ISR */
 		mb();
 	}
 
@@ -528,7 +528,7 @@ periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid, bool show)
 		"interrupt, apid:0x%x, sid:0x%x, pid:0x%x, intr:0x%x\n",
 						apid, sid, pid, status);
 
-	/*                             */
+	/* Send interrupt notification */
 	for (i = 0; status && i < 8; ++i, status >>= 1) {
 		if (status & 0x1) {
 			struct qpnp_irq_spec irq_spec = {
@@ -547,7 +547,7 @@ periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid, bool show)
 	return IRQ_HANDLED;
 }
 
-/*                              */
+/* Peripheral interrupt handler */
 static irqreturn_t
 __pmic_arb_periph_irq(int irq, void *dev_id, bool show)
 {
@@ -563,7 +563,7 @@ __pmic_arb_periph_irq(int irq, void *dev_id, bool show)
 
 	dev_dbg(pmic_arb->dev, "Peripheral interrupt detected\n");
 
-	/*                                        */
+	/* Check the accumulated interrupt status */
 	for (i = first; i <= last; ++i) {
 		status = readl_relaxed(intr + SPMI_PIC_OWNER_ACC_STATUS(ee, i));
 
@@ -595,7 +595,7 @@ static struct syscore_ops spmi_pmic_arb_syscore_ops = {
 	.resume = spmi_pmic_arb_resume,
 };
 
-/*                                                            */
+/* Callback to register an APID for specific slave/peripheral */
 static int pmic_arb_intr_priv_data(struct spmi_controller *ctrl,
 				struct qpnp_irq_spec *spec, uint32_t *data)
 {
@@ -729,7 +729,7 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	/*                                     */
+	/* Get properties from the device tree */
 	ret = spmi_pmic_arb_get_property(pdev, "cell-index", &cell_index);
 	if (ret)
 		return -ENODEV;
@@ -767,7 +767,7 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 	pmic_arb->controller.dev.parent = pdev->dev.parent;
 	pmic_arb->controller.dev.of_node = of_node_get(pdev->dev.of_node);
 
-	/*           */
+	/* Callbacks */
 	pmic_arb->controller.cmd = pmic_arb_cmd;
 	pmic_arb->controller.read_cmd = pmic_arb_read_cmd;
 	pmic_arb->controller.write_cmd =  pmic_arb_write_cmd;
@@ -776,7 +776,7 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_add_controller;
 
-	/*                                                 */
+	/* Register the interrupt enable/disable functions */
 	ret = qpnpint_register_controller(pmic_arb->controller.dev.of_node,
 					  &pmic_arb->controller,
 					  &spmi_pmic_arb_intr_cb);
@@ -786,10 +786,10 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 		goto err_reg_controller;
 	}
 
-	/*                                         */
+	/* Register device(s) from the device tree */
 	of_spmi_register_devices(&pmic_arb->controller);
 
-	/*                                   */
+	/* Add debugfs file for mapping data */
 	if (spmi_dfs_create_file(&pmic_arb->controller, "mapping",
 					pmic_arb, &pmic_arb_dfs_fops) == NULL)
 		dev_err(&pdev->dev, "error creating 'mapping' debugfs file\n");

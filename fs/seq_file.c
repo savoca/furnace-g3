@@ -1,8 +1,8 @@
 /*
-                      
-  
-                                                                         
-                                          
+ * linux/fs/seq_file.c
+ *
+ * helper functions for making synthetic files from sequences of records.
+ * initial implementation -- AV, Oct 2001.
  */
 
 #include <linux/fs.h>
@@ -15,9 +15,9 @@
 
 
 /*
-                                                                             
-                                                                
-                                                       
+ * seq_files have a buffer which can may overflow. When this happens a larger
+ * buffer is reallocated and all the data will be printed again.
+ * The overflow state is true when m->count == m->size.
  */
 static bool seq_overflow(struct seq_file *m)
 {
@@ -29,19 +29,19 @@ static void seq_set_overflow(struct seq_file *m)
 	m->count = m->size;
 }
 
-/* 
-                                        
-                            
-                                            
-  
-                                                                  
-                                                                   
-                                                               
-                                                                    
-                                                                   
-                                                                      
-                                                                     
-                                                               
+/**
+ *	seq_open -	initialize sequential file
+ *	@file: file we initialize
+ *	@op: method table describing the sequence
+ *
+ *	seq_open() sets @file, associating it with a sequence described
+ *	by @op.  @op->start() sets the iterator up and returns the first
+ *	element of sequence. @op->stop() shuts it down.  @op->next()
+ *	returns the next element of sequence.  @op->show() prints element
+ *	into the buffer.  In case of error ->start() and ->next() return
+ *	ERR_PTR(error).  In the end of sequence they return %NULL. ->show()
+ *	returns 0 in case of success and negative number in case of error.
+ *	Returning SEQ_SKIP means "discard this element and move on".
  */
 int seq_open(struct file *file, const struct seq_operations *op)
 {
@@ -58,21 +58,21 @@ int seq_open(struct file *file, const struct seq_operations *op)
 	p->op = op;
 
 	/*
-                                                        
-                                                         
-                                                      
-  */
+	 * Wrappers around seq_open(e.g. swaps_open) need to be
+	 * aware of this. If they set f_version themselves, they
+	 * should call seq_open first and then set f_version.
+	 */
 	file->f_version = 0;
 
 	/*
-                                                                 
-                                                                 
-            
-   
-                                                                        
-                                                                    
-                                                                  
-  */
+	 * seq_files support lseek() and pread().  They do not implement
+	 * write() at all, but we clear FMODE_PWRITE here for historical
+	 * reasons.
+	 *
+	 * If a client of seq_files a) implements file.write() and b) wishes to
+	 * support pwrite() then that client will need to implement its own
+	 * file.open() which calls seq_open() and then sets FMODE_PWRITE.
+	 */
 	file->f_mode &= ~FMODE_PWRITE;
 	return 0;
 }
@@ -136,14 +136,14 @@ Eoverflow:
 	return !m->buf ? -ENOMEM : -EAGAIN;
 }
 
-/* 
-                                                   
-                               
-                              
-                                             
-                                          
-  
-                            
+/**
+ *	seq_read -	->read() method for sequential files.
+ *	@file: the file to read from
+ *	@buf: the buffer to read to
+ *	@size: the maximum number of bytes to read
+ *	@ppos: the current position in the file
+ *
+ *	Ready-made ->f_op->read()
  */
 ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
@@ -157,24 +157,24 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 	mutex_lock(&m->lock);
 
 	/*
-                                                                
-                                                                
-                                              
-   
-                                                             
-                                                
-                                                              
-                                                                  
-                                                                 
-  */
+	 * seq_file->op->..m_start/m_stop/m_next may do special actions
+	 * or optimisations based on the file->f_version, so we want to
+	 * pass the file->f_version to those methods.
+	 *
+	 * seq_file->version is just copy of f_version, and seq_file
+	 * methods can treat it simply as file version.
+	 * It is copied in first and copied out after all operations.
+	 * It is convenient to have it as  part of structure to avoid the
+	 * need of passing another argument to all the seq_file methods.
+	 */
 	m->version = file->f_version;
 
-	/*                                        */
+	/* Don't assume *ppos is where we left it */
 	if (unlikely(*ppos != m->read_pos)) {
 		while ((err = traverse(m, *ppos)) == -EAGAIN)
 			;
 		if (err) {
-			/*                   */
+			/* With prejudice... */
 			m->read_pos = 0;
 			m->version = 0;
 			m->index = 0;
@@ -185,13 +185,13 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 		}
 	}
 
-	/*                                   */
+	/* grab buffer if we didn't have one */
 	if (!m->buf) {
 		m->buf = kmalloc(m->size = PAGE_SIZE, GFP_KERNEL);
 		if (!m->buf)
 			goto Enomem;
 	}
-	/*                               */
+	/* if not empty - flush it first */
 	if (m->count) {
 		n = min(m->count, size);
 		err = copy_to_user(buf, m->buf + m->from, n);
@@ -207,7 +207,7 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 		if (!size)
 			goto Done;
 	}
-	/*                                       */
+	/* we need at least one record in buffer */
 	pos = m->index;
 	p = m->op->start(m, &pos);
 	while (1) {
@@ -240,7 +240,7 @@ ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 	m->count = 0;
 	goto Done;
 Fill:
-	/*                                            */
+	/* they want more? let's try to get some more */
 	while (m->count < size) {
 		size_t offs = m->count;
 		loff_t next = pos;
@@ -288,13 +288,13 @@ Efault:
 }
 EXPORT_SYMBOL(seq_read);
 
-/* 
-                                                      
-                              
-                        
-                                                   
-  
-                              
+/**
+ *	seq_lseek -	->llseek() method for sequential files.
+ *	@file: the file in question
+ *	@offset: new position
+ *	@origin: 0 for absolute, 1 for relative position
+ *
+ *	Ready-made ->f_op->llseek()
  */
 loff_t seq_lseek(struct file *file, loff_t offset, int origin)
 {
@@ -314,7 +314,7 @@ loff_t seq_lseek(struct file *file, loff_t offset, int origin)
 				while ((retval=traverse(m, offset)) == -EAGAIN)
 					;
 				if (retval) {
-					/*                           */
+					/* with extreme prejudice... */
 					file->f_pos = 0;
 					m->read_pos = 0;
 					m->version = 0;
@@ -332,13 +332,13 @@ loff_t seq_lseek(struct file *file, loff_t offset, int origin)
 }
 EXPORT_SYMBOL(seq_lseek);
 
-/* 
-                                                                     
-                          
-                                       
-  
-                                                                    
-                                                                  
+/**
+ *	seq_release -	free the structures associated with sequential file.
+ *	@file: file in question
+ *	@inode: file->f_path.dentry->d_inode
+ *
+ *	Frees the structures associated with sequential file; can be used
+ *	as ->f_op->release() if you don't have private data to destroy.
  */
 int seq_release(struct inode *inode, struct file *file)
 {
@@ -349,15 +349,15 @@ int seq_release(struct inode *inode, struct file *file)
 }
 EXPORT_SYMBOL(seq_release);
 
-/* 
-                                                                  
-                    
-             
-                                             
-  
-                                                                       
-                                                                       
-                    
+/**
+ *	seq_escape -	print string into buffer, escaping some characters
+ *	@m:	target buffer
+ *	@s:	string
+ *	@esc:	set of characters that need escaping
+ *
+ *	Puts string into buffer, replacing each occurrence of character from
+ *	@esc with usual octal escape.  Returns 0 in case of success, -1 - in
+ *	case of overflow.
  */
 int seq_escape(struct seq_file *m, const char *s, const char *esc)
 {
@@ -404,16 +404,16 @@ int seq_printf(struct seq_file *m, const char *f, ...)
 }
 EXPORT_SYMBOL(seq_printf);
 
-/* 
-                                                         
-                   
-                                        
-                                             
-  
-                                                                                
-                                     
-                                                                             
-                
+/**
+ *	mangle_path -	mangle and copy path to buffer beginning
+ *	@s: buffer start
+ *	@p: beginning of path in above buffer
+ *	@esc: set of characters that need escaping
+ *
+ *      Copy the path from @p to @s, replacing each occurrence of character from
+ *      @esc with usual octal escape.
+ *      Returns pointer past last written character in @s, or NULL in case of
+ *      failure.
  */
 char *mangle_path(char *s, const char *p, const char *esc)
 {
@@ -436,14 +436,14 @@ char *mangle_path(char *s, const char *p, const char *esc)
 }
 EXPORT_SYMBOL(mangle_path);
 
-/* 
-                                                    
-                          
-                                  
-                                                  
-  
-                                                            
-                                           
+/**
+ * seq_path - seq_file interface to print a pathname
+ * @m: the seq_file handle
+ * @path: the struct path to print
+ * @esc: set of characters to escape in the output
+ *
+ * return the absolute path of 'path', as represented by the
+ * dentry / mnt pair in the path parameter.
  */
 int seq_path(struct seq_file *m, const struct path *path, const char *esc)
 {
@@ -466,7 +466,7 @@ int seq_path(struct seq_file *m, const struct path *path, const char *esc)
 EXPORT_SYMBOL(seq_path);
 
 /*
-                                                   
+ * Same as seq_path, but relative to supplied root.
  */
 int seq_path_root(struct seq_file *m, const struct path *path,
 		  const struct path *root, const char *esc)
@@ -496,7 +496,7 @@ int seq_path_root(struct seq_file *m, const struct path *path,
 }
 
 /*
-                                                                    
+ * returns the path of the 'dentry' from the root of its filesystem.
  */
 int seq_dentry(struct seq_file *m, struct dentry *dentry, const char *esc)
 {
@@ -661,18 +661,18 @@ int seq_puts(struct seq_file *m, const char *s)
 EXPORT_SYMBOL(seq_puts);
 
 /*
-                                                                                
-                                          
-                                                                   
-                                                            
-                                                                              
+ * A helper routine for putting decimal numbers without rich format of printf().
+ * only 'unsigned long long' is supported.
+ * This routine will put one byte delimiter + number into seq_file.
+ * This routine is very quick when you show lots of numbers.
+ * In usual cases, it will be better to use seq_printf(). It's easier to read.
  */
 int seq_put_decimal_ull(struct seq_file *m, char delimiter,
 			unsigned long long num)
 {
 	int len;
 
-	if (m->count + 2 >= m->size) /*                              */
+	if (m->count + 2 >= m->size) /* we'll write 2 bytes at least */
 		goto overflow;
 
 	if (delimiter)
@@ -712,13 +712,13 @@ int seq_put_decimal_ll(struct seq_file *m, char delimiter,
 }
 EXPORT_SYMBOL(seq_put_decimal_ll);
 
-/* 
-                                             
-                                                                        
-                      
-                        
-  
-                                           
+/**
+ * seq_write - write arbitrary data to buffer
+ * @seq: seq_file identifying the buffer to which data should be written
+ * @data: data address
+ * @len: number of bytes
+ *
+ * Return 0 on success, non-zero otherwise.
  */
 int seq_write(struct seq_file *seq, const void *data, size_t len)
 {
@@ -763,12 +763,12 @@ struct list_head *seq_list_next(void *v, struct list_head *head, loff_t *ppos)
 }
 EXPORT_SYMBOL(seq_list_next);
 
-/* 
-                                                  
-                               
-                                            
-  
-                                   
+/**
+ * seq_hlist_start - start an iteration of a hlist
+ * @head: the head of the hlist
+ * @pos:  the start position of the sequence
+ *
+ * Called at seq_file->op->start().
  */
 struct hlist_node *seq_hlist_start(struct hlist_head *head, loff_t pos)
 {
@@ -781,13 +781,13 @@ struct hlist_node *seq_hlist_start(struct hlist_head *head, loff_t pos)
 }
 EXPORT_SYMBOL(seq_hlist_start);
 
-/* 
-                                                       
-                               
-                                            
-  
-                                                                     
-                                           
+/**
+ * seq_hlist_start_head - start an iteration of a hlist
+ * @head: the head of the hlist
+ * @pos:  the start position of the sequence
+ *
+ * Called at seq_file->op->start(). Call this function if you want to
+ * print a header at the top of the output.
  */
 struct hlist_node *seq_hlist_start_head(struct hlist_head *head, loff_t pos)
 {
@@ -798,13 +798,13 @@ struct hlist_node *seq_hlist_start_head(struct hlist_head *head, loff_t pos)
 }
 EXPORT_SYMBOL(seq_hlist_start_head);
 
-/* 
-                                                          
-                              
-                               
-                              
-  
-                                  
+/**
+ * seq_hlist_next - move to the next position of the hlist
+ * @v:    the current iterator
+ * @head: the head of the hlist
+ * @ppos: the current position
+ *
+ * Called at seq_file->op->next().
  */
 struct hlist_node *seq_hlist_next(void *v, struct hlist_head *head,
 				  loff_t *ppos)
@@ -819,16 +819,16 @@ struct hlist_node *seq_hlist_next(void *v, struct hlist_head *head,
 }
 EXPORT_SYMBOL(seq_hlist_next);
 
-/* 
-                                                                       
-                               
-                                            
-  
-                                   
-  
-                                                                 
-                                                                 
-                                                          
+/**
+ * seq_hlist_start_rcu - start an iteration of a hlist protected by RCU
+ * @head: the head of the hlist
+ * @pos:  the start position of the sequence
+ *
+ * Called at seq_file->op->start().
+ *
+ * This list-traversal primitive may safely run concurrently with
+ * the _rcu list-mutation primitives such as hlist_add_head_rcu()
+ * as long as the traversal is guarded by rcu_read_lock().
  */
 struct hlist_node *seq_hlist_start_rcu(struct hlist_head *head,
 				       loff_t pos)
@@ -842,17 +842,17 @@ struct hlist_node *seq_hlist_start_rcu(struct hlist_head *head,
 }
 EXPORT_SYMBOL(seq_hlist_start_rcu);
 
-/* 
-                                                                            
-                               
-                                            
-  
-                                                                     
-                                           
-  
-                                                                 
-                                                                 
-                                                          
+/**
+ * seq_hlist_start_head_rcu - start an iteration of a hlist protected by RCU
+ * @head: the head of the hlist
+ * @pos:  the start position of the sequence
+ *
+ * Called at seq_file->op->start(). Call this function if you want to
+ * print a header at the top of the output.
+ *
+ * This list-traversal primitive may safely run concurrently with
+ * the _rcu list-mutation primitives such as hlist_add_head_rcu()
+ * as long as the traversal is guarded by rcu_read_lock().
  */
 struct hlist_node *seq_hlist_start_head_rcu(struct hlist_head *head,
 					    loff_t pos)
@@ -864,17 +864,17 @@ struct hlist_node *seq_hlist_start_head_rcu(struct hlist_head *head,
 }
 EXPORT_SYMBOL(seq_hlist_start_head_rcu);
 
-/* 
-                                                                               
-                              
-                               
-                              
-  
-                                  
-  
-                                                                 
-                                                                 
-                                                          
+/**
+ * seq_hlist_next_rcu - move to the next position of the hlist protected by RCU
+ * @v:    the current iterator
+ * @head: the head of the hlist
+ * @ppos: the current position
+ *
+ * Called at seq_file->op->next().
+ *
+ * This list-traversal primitive may safely run concurrently with
+ * the _rcu list-mutation primitives such as hlist_add_head_rcu()
+ * as long as the traversal is guarded by rcu_read_lock().
  */
 struct hlist_node *seq_hlist_next_rcu(void *v,
 				      struct hlist_head *head,

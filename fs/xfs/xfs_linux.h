@@ -21,8 +21,8 @@
 #include <linux/types.h>
 
 /*
-                                                                 
-                                                   
+ * XFS_BIG_BLKNOS needs block layer disk addresses to be 64 bits.
+ * XFS_BIG_INUMS requires XFS_BIG_BLKNOS to be set.
  */
 #if defined(CONFIG_LBDAF) || (BITS_PER_LONG == 64)
 # define XFS_BIG_BLKNOS	1
@@ -95,12 +95,12 @@
 #endif
 
 /*
-                                  
+ * Feature macros (disable/enable)
  */
 #ifdef CONFIG_SMP
-#define HAVE_PERCPU_SB	/*                                               */
+#define HAVE_PERCPU_SB	/* per cpu superblock counters are a 2.6 feature */
 #else
-#undef  HAVE_PERCPU_SB	/*                                               */
+#undef  HAVE_PERCPU_SB	/* per cpu superblock counters are a 2.6 feature */
 #endif
 
 #define irix_sgid_inherit	xfs_params.sgid_inherit.val
@@ -131,20 +131,20 @@
 
 #define spinlock_destroy(lock)
 
-#define NBBY		8		/*                         */
+#define NBBY		8		/* number of bits per byte */
 
 /*
-                                                  
-                                                
+ * Size of block device i/o is parameterized here.
+ * Currently the system supports page-sized i/o.
  */
 #define	BLKDEV_IOSHIFT		PAGE_CACHE_SHIFT
 #define	BLKDEV_IOSIZE		(1<<BLKDEV_IOSHIFT)
-/*                                       */
+/* number of BB's per block device block */
 #define	BLKDEV_BB		BTOBB(BLKDEV_IOSIZE)
 
-#define ENOATTR		ENODATA		/*                     */
-#define EWRONGFS	EINVAL		/*                                  */
-#define EFSCORRUPTED	EUCLEAN		/*                         */
+#define ENOATTR		ENODATA		/* Attribute not found */
+#define EWRONGFS	EINVAL		/* Mount with wrong filesystem type */
+#define EFSCORRUPTED	EUCLEAN		/* Filesystem is corrupted */
 
 #define SYNCHRONIZE()	barrier()
 #define __return_address __builtin_return_address(0)
@@ -157,18 +157,18 @@
 #define howmany(x, y)	(((x)+((y)-1))/(y))
 
 /*
-                                                                
+ * Various platform dependent calls that don't fit anywhere else
  */
 #define xfs_sort(a,n,s,fn)	sort(a,n,s,fn,NULL)
 #define xfs_stack_trace()	dump_stack()
 
 
-/*                                                   */
+/* Move the kernel do_div definition off to one side */
 
 #if defined __i386__
-/*                                                                  
-                                                                  
-                      
+/* For ia32 we need to pull some tricks to get past various versions
+ * of the compiler which do not like us using do_div in the middle
+ * of large functions.
  */
 static inline __u32 xfs_do_div(void *a, __u32 b, int n)
 {
@@ -196,11 +196,11 @@ static inline __u32 xfs_do_div(void *a, __u32 b, int n)
 			}
 	}
 
-	/*            */
+	/* NOTREACHED */
 	return 0;
 }
 
-/*                                       */
+/* Side effect free 64 bit mod operation */
 static inline __u32 xfs_do_mod(void *a, __u32 b, int n)
 {
 	switch (n) {
@@ -222,7 +222,7 @@ static inline __u32 xfs_do_mod(void *a, __u32 b, int n)
 			}
 	}
 
-	/*            */
+	/* NOTREACHED */
 	return 0;
 }
 #else
@@ -240,11 +240,11 @@ static inline __u32 xfs_do_div(void *a, __u32 b, int n)
 			return mod;
 	}
 
-	/*            */
+	/* NOTREACHED */
 	return 0;
 }
 
-/*                                       */
+/* Side effect free 64 bit mod operation */
 static inline __u32 xfs_do_mod(void *a, __u32 b, int n)
 {
 	switch (n) {
@@ -257,7 +257,7 @@ static inline __u32 xfs_do_mod(void *a, __u32 b, int n)
 			}
 	}
 
-	/*            */
+	/* NOTREACHED */
 	return 0;
 }
 #endif
@@ -280,7 +280,7 @@ static inline __uint64_t howmany_64(__uint64_t x, __uint32_t y)
 	return x;
 }
 
-/*                                              */
+/* ARM old ABI has some weird alignment/padding */
 #if defined(__arm__) && !defined(__ARM_EABI__)
 #define __arch_pack __attribute__((packed))
 #else
@@ -297,7 +297,7 @@ static inline __uint64_t howmany_64(__uint64_t x, __uint32_t y)
 # define STATIC static noinline
 #endif
 
-#else /*       */
+#else /* DEBUG */
 
 #define ASSERT(expr)	\
 	(unlikely(expr) ? (void)0 : assfail(#expr, __FILE__, __LINE__))
@@ -306,6 +306,6 @@ static inline __uint64_t howmany_64(__uint64_t x, __uint32_t y)
 # define STATIC noinline
 #endif
 
-#endif /*       */
+#endif /* DEBUG */
 
-#endif /*               */
+#endif /* __XFS_LINUX__ */

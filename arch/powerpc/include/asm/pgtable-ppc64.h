@@ -1,8 +1,8 @@
 #ifndef _ASM_POWERPC_PGTABLE_PPC64_H_
 #define _ASM_POWERPC_PGTABLE_PPC64_H_
 /*
-                                                                           
-                               
+ * This file contains the functions and defines necessary to modify and use
+ * the ppc64 hashed page table.
  */
 
 #ifdef CONFIG_PPC_64K_PAGES
@@ -14,14 +14,14 @@
 #define FIRST_USER_ADDRESS	0
 
 /*
-                                             
+ * Size of EA range mapped by our pagetables.
  */
 #define PGTABLE_EADDR_SIZE (PTE_INDEX_SIZE + PMD_INDEX_SIZE + \
                 	    PUD_INDEX_SIZE + PGD_INDEX_SIZE + PAGE_SHIFT)
 #define PGTABLE_RANGE (ASM_CONST(1) << PGTABLE_EADDR_SIZE)
 
 
-/*                      */
+/* Some sanity checking */
 #if TASK_SIZE_USER64 > PGTABLE_RANGE
 #error TASK_SIZE_USER64 exceeds pagetable range
 #endif
@@ -33,7 +33,7 @@
 #endif
 
 /*
-                                                                 
+ * Define the address range of the kernel non-linear virtual area
  */
 
 #ifdef CONFIG_PPC_BOOK3E
@@ -44,9 +44,9 @@
 #define KERN_VIRT_SIZE	PGTABLE_RANGE
 
 /*
-                                                                
-                                                                 
-                                             
+ * The vmalloc space starts at the beginning of that region, and
+ * occupies half of it on hash CPUs and a quarter of it on Book3E
+ * (we keep a quarter for the virtual memmap)
  */
 #define VMALLOC_START	KERN_VIRT_START
 #ifdef CONFIG_PPC_BOOK3E
@@ -57,13 +57,13 @@
 #define VMALLOC_END	(VMALLOC_START + VMALLOC_SIZE)
 
 /*
-                                                                       
-                                                                    
-                    
-  
-                                                  
-                                                                      
-                                                                   
+ * The second half of the kernel virtual space is used for IO mappings,
+ * it's itself carved into the PIO region (ISA and PHB IO space) and
+ * the ioremap space
+ *
+ *  ISA_IO_BASE = KERN_IO_START, 64K reserved area
+ *  PHB_IO_BASE = ISA_IO_BASE + 64K to ISA_IO_BASE + 2G, PHB IO spaces
+ * IOREMAP_BASE = ISA_IO_BASE + 2G to VMALLOC_START + PGTABLE_RANGE
  */
 #define KERN_IO_START	(KERN_VIRT_START + (KERN_VIRT_SIZE >> 1))
 #define FULL_IO_SIZE	0x80000000ul
@@ -76,7 +76,7 @@
 
 
 /*
-             
+ * Region IDs
  */
 #define REGION_SHIFT		60UL
 #define REGION_MASK		(0xfUL << REGION_SHIFT)
@@ -84,12 +84,12 @@
 
 #define VMALLOC_REGION_ID	(REGION_ID(VMALLOC_START))
 #define KERNEL_REGION_ID	(REGION_ID(PAGE_OFFSET))
-#define VMEMMAP_REGION_ID	(0xfUL)	/*             */
+#define VMEMMAP_REGION_ID	(0xfUL)	/* Server only */
 #define USER_REGION_ID		(0UL)
 
 /*
-                                                               
-                                                        
+ * Defines the address of the vmemap area, in its own region on
+ * hash table CPUs and after the vmalloc space on Book3E
  */
 #ifdef CONFIG_PPC_BOOK3E
 #define VMEMMAP_BASE		VMALLOC_END
@@ -101,7 +101,7 @@
 
 
 /*
-                                   
+ * Include the PTE bits definitions
  */
 #ifdef CONFIG_PPC_BOOK3S
 #include <asm/pte-hash64.h>
@@ -113,7 +113,7 @@
 #ifdef CONFIG_PPC_MM_SLICES
 #define HAVE_ARCH_UNMAPPED_AREA
 #define HAVE_ARCH_UNMAPPED_AREA_TOPDOWN
-#endif /*                      */
+#endif /* CONFIG_PPC_MM_SLICES */
 
 #ifndef __ASSEMBLY__
 
@@ -121,9 +121,9 @@
 #include <asm/tlbflush.h>
 
 /*
-                                                                    
-                                                                 
-                       
+ * This is the default implementation of various PTE accessors, it's
+ * used in all cases except Book3S with 64K pages where we have a
+ * concept of sub-pages
  */
 #ifndef __real_pte
 
@@ -149,10 +149,10 @@
 #define pte_pagesize_index(mm, addr, pte)	MMU_PAGE_4K
 #endif
 
-#endif /*            */
+#endif /* __real_pte */
 
 
-/*                                       */
+/* pte_clear moved to later in this file */
 
 #define PMD_BAD_BITS		(PTE_TABLE_SIZE-1)
 #define PUD_BAD_BITS		(PMD_TABLE_SIZE-1)
@@ -178,10 +178,10 @@
 #define pgd_set(pgdp, pudp)	({pgd_val(*(pgdp)) = (unsigned long)(pudp);})
 
 /*
-                                                                          
-                                                              
+ * Find an entry in a page-table-directory.  We combine the address region
+ * (the high order N bits) and the pgd portion of the address.
  */
-/*                                                                   */
+/* to avoid overflow in free_pgtables we don't use PTRS_PER_PGD here */
 #define pgd_index(address) (((address) >> (PGDIR_SHIFT)) & 0x1ff)
 
 #define pgd_offset(mm, address)	 ((mm)->pgd + pgd_index(address))
@@ -195,12 +195,12 @@
 #define pte_offset_map(dir,addr)	pte_offset_kernel((dir), (addr))
 #define pte_unmap(pte)			do { } while(0)
 
-/*                                                   */
-/*                                          */
+/* to find an entry in a kernel page-table-directory */
+/* This now only contains the vmalloc pages */
 #define pgd_offset_k(address) pgd_offset(&init_mm, address)
 
 
-/*                    */
+/* Atomic PTE updates */
 static inline unsigned long pte_update(struct mm_struct *mm,
 				       unsigned long addr,
 				       pte_t *ptep, unsigned long clr,
@@ -223,7 +223,7 @@ static inline unsigned long pte_update(struct mm_struct *mm,
 	unsigned long old = pte_val(*ptep);
 	*ptep = __pte(old & ~clr);
 #endif
-	/*                                        */
+	/* huge pages use the old page table lock */
 	if (!huge)
 		assert_pte_locked(mm, addr);
 
@@ -274,12 +274,12 @@ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
 }
 
 /*
-                                                                       
-                                                                       
-                                                     
-  
-                                                                          
-                                                        
+ * We currently remove entries from the hashtable regardless of whether
+ * the entry was young or dirty. The generic routines only flush if the
+ * entry was young or dirty which is not good enough.
+ *
+ * We should be more intelligent about this but for the moment we override
+ * these functions and force a tlb flush unconditionally
  */
 #define __HAVE_ARCH_PTEP_CLEAR_YOUNG_FLUSH
 #define ptep_clear_flush_young(__vma, __address, __ptep)		\
@@ -304,8 +304,8 @@ static inline void pte_clear(struct mm_struct *mm, unsigned long addr,
 }
 
 
-/*                                                                   
-                                                
+/* Set the dirty and/or accessed bits atomically in a linux PTE, this
+ * function doesn't need to flush the hash entry
  */
 static inline void __ptep_set_access_flags(pte_t *ptep, pte_t entry)
 {
@@ -341,7 +341,7 @@ static inline void __ptep_set_access_flags(pte_t *ptep, pte_t entry)
 #define pgd_ERROR(e) \
 	printk("%s:%d: bad pgd %08lx.\n", __FILE__, __LINE__, pgd_val(e))
 
-/*                                 */
+/* Encode and de-code a swap entry */
 #define __swp_type(entry)	(((entry).val >> 1) & 0x3f)
 #define __swp_offset(entry)	((entry).val >> 8)
 #define __swp_entry(type, offset) ((swp_entry_t){((type)<< 1)|((offset)<<8)})
@@ -355,8 +355,8 @@ void pgtable_cache_add(unsigned shift, void (*ctor)(void *));
 void pgtable_cache_init(void);
 
 /*
-                                                                
-                                                                   
+ * find_linux_pte returns the address of a linux pte for a given
+ * effective address and directory.  If not found, it returns zero.
  */
 static inline pte_t *find_linux_pte(pgd_t *pgdir, unsigned long ea)
 {
@@ -388,8 +388,8 @@ static inline pte_t *find_linux_pte_or_hugepte(pgd_t *pgdir, unsigned long ea,
 		*shift = 0;
 	return find_linux_pte(pgdir, ea);
 }
-#endif /*                      */
+#endif /* !CONFIG_HUGETLB_PAGE */
 
-#endif /*              */
+#endif /* __ASSEMBLY__ */
 
-#endif /*                               */
+#endif /* _ASM_POWERPC_PGTABLE_PPC64_H_ */

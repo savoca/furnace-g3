@@ -1,10 +1,10 @@
 /*
-                                                 
-                                       
-  
-                                                            
-                                                            
-                                                            
+ *	Intel Multiprocessor Specification 1.1 and 1.4
+ *	compliant MP-table parsing routines.
+ *
+ *	(c) 1995 Alan Cox, Building #3 <alan@lxorguk.ukuu.org.uk>
+ *	(c) 1998, 1999, 2000, 2009 Ingo Molnar <mingo@redhat.com>
+ *      (c) 2008 Alexey Starikovskiy <astarikovskiy@suse.de>
  */
 
 #include <linux/mm.h>
@@ -33,7 +33,7 @@
 
 #include <asm/apic.h>
 /*
-                                      
+ * Checksum an MP configuration block.
  */
 
 static int __init mpf_checksum(unsigned char *mp, int len)
@@ -131,10 +131,10 @@ static void __init print_mp_irq_info(struct mpc_intsrc *mp_irq)
 		mp_irq->srcbusirq, mp_irq->dstapic, mp_irq->dstirq);
 }
 
-#else /*                    */
+#else /* CONFIG_X86_IO_APIC */
 static inline void __init MP_bus_info(struct mpc_bus *m) {}
 static inline void __init MP_ioapic_info(struct mpc_ioapic *m) {}
-#endif /*                    */
+#endif /* CONFIG_X86_IO_APIC */
 
 static void __init MP_lintsrc_info(struct mpc_lintsrc *m)
 {
@@ -145,7 +145,7 @@ static void __init MP_lintsrc_info(struct mpc_lintsrc *m)
 }
 
 /*
-                     
+ * Read/parse the MPC
  */
 static int __init smp_check_mpc(struct mpc_table *mpc, char *oem, char *str)
 {
@@ -213,7 +213,7 @@ static int __init smp_read_mpc(struct mpc_table *mpc, unsigned early)
 #ifdef CONFIG_X86_32
 	generic_mps_oem_check(mpc, oem, str);
 #endif
-	/*                              */
+	/* Initialize the lapic mapping */
 	if (!acpi_lapic)
 		register_lapic_address(mpc->lapic);
 
@@ -224,14 +224,14 @@ static int __init smp_read_mpc(struct mpc_table *mpc, unsigned early)
 		x86_init.mpparse.smp_read_mpc_oem(mpc);
 
 	/*
-                                              
-  */
+	 *      Now process the configuration blocks.
+	 */
 	x86_init.mpparse.mpc_record(0);
 
 	while (count < mpc->length) {
 		switch (*mpt) {
 		case MP_PROCESSOR:
-			/*                                          */
+			/* ACPI may have already provided this data */
 			if (!acpi_lapic)
 				MP_processor_info((struct mpc_cpu *)mpt);
 			skip_entry(&mpt, &count, sizeof(struct mpc_cpu));
@@ -253,7 +253,7 @@ static int __init smp_read_mpc(struct mpc_table *mpc, unsigned early)
 			skip_entry(&mpt, &count, sizeof(struct mpc_lintsrc));
 			break;
 		default:
-			/*               */
+			/* wrong mptable */
 			smp_dump_mptable(mpc, mpt);
 			count = mpc->length;
 			break;
@@ -283,20 +283,20 @@ static void __init construct_default_ioirq_mptable(int mpc_default_type)
 	int ELCR_fallback = 0;
 
 	intsrc.type = MP_INTSRC;
-	intsrc.irqflag = 0;	/*            */
+	intsrc.irqflag = 0;	/* conforming */
 	intsrc.srcbus = 0;
 	intsrc.dstapic = mpc_ioapic_id(0);
 
 	intsrc.irqtype = mp_INT;
 
 	/*
-                                                           
-                                                                     
-                                                                    
-                                                                   
-                                                                   
-                                      
-  */
+	 *  If true, we have an ISA/PCI system with no IRQ entries
+	 *  in the MP table. To prevent the PCI interrupts from being set up
+	 *  incorrectly, we try to use the ELCR. The sanity check to see if
+	 *  there is good ELCR data is very simple - IRQ0, 1, 2 and 13 can
+	 *  never be level sensitive, so we simply see if the ELCR agrees.
+	 *  If it does, we assume it's valid.
+	 */
 	if (mpc_default_type == 5) {
 		printk(KERN_INFO "ISA/PCI bus type with no IRQ information... "
 		       "falling back to ELCR\n");
@@ -316,19 +316,19 @@ static void __init construct_default_ioirq_mptable(int mpc_default_type)
 		switch (mpc_default_type) {
 		case 2:
 			if (i == 0 || i == 13)
-				continue;	/*                            */
-			/*              */
+				continue;	/* IRQ0 & IRQ13 not connected */
+			/* fall through */
 		default:
 			if (i == 2)
-				continue;	/*                         */
+				continue;	/* IRQ2 is never connected */
 		}
 
 		if (ELCR_fallback) {
 			/*
-                                                            
-                                                        
-                                                             
-    */
+			 *  If the ELCR indicates a level-sensitive interrupt, we
+			 *  copy that information over to the MP table in the
+			 *  irqflag field (level sensitive, active high polarity).
+			 */
 			if (ELCR_trigger(i))
 				intsrc.irqflag = 13;
 			else
@@ -336,13 +336,13 @@ static void __init construct_default_ioirq_mptable(int mpc_default_type)
 		}
 
 		intsrc.srcbusirq = i;
-		intsrc.dstirq = i ? i : 2;	/*                */
+		intsrc.dstirq = i ? i : 2;	/* IRQ0 to INTIN2 */
 		mp_save_irq(&intsrc);
 	}
 
 	intsrc.irqtype = mp_ExtINT;
 	intsrc.srcbusirq = 0;
-	intsrc.dstirq = 0;	/*                 */
+	intsrc.dstirq = 0;	/* 8259A to INTIN0 */
 	mp_save_irq(&intsrc);
 }
 
@@ -358,7 +358,7 @@ static void __init construct_ioapic_table(int mpc_default_type)
 	default:
 		printk(KERN_ERR "???\nUnknown standard configuration %d\n",
 		       mpc_default_type);
-		/*              */
+		/* fall through */
 	case 1:
 	case 5:
 		memcpy(bus.bustype, "ISA   ", 6);
@@ -387,8 +387,8 @@ static void __init construct_ioapic_table(int mpc_default_type)
 	MP_ioapic_info(&ioapic);
 
 	/*
-                                                                     
-  */
+	 * We set up most of the low 16 IO-APIC pins according to MPS rules.
+	 */
 	construct_default_ioirq_mptable(mpc_default_type);
 }
 #else
@@ -403,15 +403,15 @@ static inline void __init construct_default_ISA_mptable(int mpc_default_type)
 	int i;
 
 	/*
-                                  
-  */
+	 * local APIC has default address
+	 */
 	mp_lapic_addr = APIC_DEFAULT_PHYS_BASE;
 
 	/*
-                           
-  */
+	 * 2 CPUs, numbered 0 & 1.
+	 */
 	processor.type = MP_PROCESSOR;
-	/*                                                  */
+	/* Either an integrated APIC or a discrete 82489DX. */
 	processor.apicver = mpc_default_type > 4 ? 0x10 : 0x01;
 	processor.cpuflag = CPU_ENABLED;
 	processor.cpufeature = (boot_cpu_data.x86 << 8) |
@@ -427,7 +427,7 @@ static inline void __init construct_default_ISA_mptable(int mpc_default_type)
 	construct_ioapic_table(mpc_default_type);
 
 	lintsrc.type = MP_LINTSRC;
-	lintsrc.irqflag = 0;		/*            */
+	lintsrc.irqflag = 0;		/* conforming */
 	lintsrc.srcbusid = 0;
 	lintsrc.srcbusirq = 0;
 	lintsrc.destapic = MP_APIC_ALL;
@@ -461,9 +461,9 @@ static int __init check_physptr(struct mpf_intel *mpf, unsigned int early)
 	size = get_mpc_size(mpf->physptr);
 	mpc = early_ioremap(mpf->physptr, size);
 	/*
-                                                         
-                          
-  */
+	 * Read the physical hardware table.  Anything here will
+	 * override the defaults.
+	 */
 	if (!smp_read_mpc(mpc, early)) {
 #ifdef CONFIG_X86_LOCAL_APIC
 		smp_found_config = 0;
@@ -480,10 +480,10 @@ static int __init check_physptr(struct mpf_intel *mpf, unsigned int early)
 
 #ifdef CONFIG_X86_IO_APIC
 	/*
-                                                        
-                                                         
-                                       
-  */
+	 * If there are no explicit MP IRQ entries, then we are
+	 * broken.  We set up most of the low 16 IO-APIC pins to
+	 * ISA defaults and hope it will work.
+	 */
 	if (!mp_irq_entries) {
 		struct mpc_bus bus;
 
@@ -503,7 +503,7 @@ static int __init check_physptr(struct mpf_intel *mpf, unsigned int early)
 }
 
 /*
-                                                         
+ * Scan the memory blocks for an SMP configuration block.
  */
 void __init default_get_smp_config(unsigned int early)
 {
@@ -516,9 +516,9 @@ void __init default_get_smp_config(unsigned int early)
 		return;
 
 	/*
-                                                     
-                                 
-  */
+	 * MPS doesn't support hyperthreading, aka only have
+	 * thread 0 apic id in MPS table
+	 */
 	if (acpi_lapic && acpi_ioapic)
 		return;
 
@@ -534,13 +534,13 @@ void __init default_get_smp_config(unsigned int early)
 	}
 #endif
 	/*
-                                       
-  */
+	 * Now see if we need to read further.
+	 */
 	if (mpf->feature1 != 0) {
 		if (early) {
 			/*
-                                    
-    */
+			 * local APIC has default address
+			 */
 			mp_lapic_addr = APIC_DEFAULT_PHYS_BASE;
 			return;
 		}
@@ -558,8 +558,8 @@ void __init default_get_smp_config(unsigned int early)
 	if (!early)
 		printk(KERN_INFO "Processors: %d\n", num_processors);
 	/*
-                                           
-  */
+	 * Only use the first configuration found.
+	 */
 }
 
 static void __init smp_reserve_memory(struct mpf_intel *mpf)
@@ -610,33 +610,33 @@ void __init default_find_smp_config(void)
 	unsigned int address;
 
 	/*
-                                                    
-                               
-   
-                                         
-                                  
-                           
-  */
+	 * FIXME: Linux assumes you have 640K of base ram..
+	 * this continues the error...
+	 *
+	 * 1) Scan the bottom 1K for a signature
+	 * 2) Scan the top 1K of base RAM
+	 * 3) Scan the 64K of bios
+	 */
 	if (smp_scan_config(0x0, 0x400) ||
 	    smp_scan_config(639 * 0x400, 0x400) ||
 	    smp_scan_config(0xF0000, 0x10000))
 		return;
 	/*
-                                                          
-                                                       
-                            
-   
-                                                          
-                                                      
-   
-                                                            
-                                                         
-                                                           
-                                                             
-                    
-   
-                                                       
-  */
+	 * If it is an SMP machine we should know now, unless the
+	 * configuration is in an EISA/MCA bus machine with an
+	 * extended bios data area.
+	 *
+	 * there is a real-mode segmented pointer pointing to the
+	 * 4K EBDA area at 0x40E, calculate and scan it here.
+	 *
+	 * NOTE! There are Linux loaders that will corrupt the EBDA
+	 * area, and as such this kind of SMP config may be less
+	 * trustworthy, simply because the SMP table may have been
+	 * stomped on during early boot. These loaders are buggy and
+	 * should be fixed.
+	 *
+	 * MP1.4 SPEC states to only scan first 1K of 4K EBDA.
+	 */
 
 	address = get_bios_ebda();
 	if (address)
@@ -656,7 +656,7 @@ static int  __init get_MP_intsrc_index(struct mpc_intsrc *m)
 	if (m->irqflag != 0x0f)
 		return 0;
 
-	/*            */
+	/* not legacy */
 
 	for (i = 0; i < mp_irq_entries; i++) {
 		if (mp_irqs[i].irqtype != mp_INT)
@@ -670,14 +670,14 @@ static int  __init get_MP_intsrc_index(struct mpc_intsrc *m)
 		if (mp_irqs[i].srcbusirq != m->srcbusirq)
 			continue;
 		if (irq_used[i]) {
-			/*                 */
+			/* already claimed */
 			return -2;
 		}
 		irq_used[i] = 1;
 		return i;
 	}
 
-	/*           */
+	/* not found */
 	return -1;
 }
 
@@ -700,14 +700,14 @@ static void __init check_irq_src(struct mpc_intsrc *m, int *nr_m_spare)
 		return;
 	}
 	if (!i) {
-		/*                    */
+		/* legacy, do nothing */
 		return;
 	}
 	if (*nr_m_spare < SPARE_SLOT_NUM) {
 		/*
-                                                            
-                                  
-   */
+		 * not found (-1), or duplicated (-2) are invalid entries,
+		 * we need to use the slot later
+		 */
 		m_spare[*nr_m_spare] = m;
 		*nr_m_spare += 1;
 	}
@@ -723,10 +723,10 @@ check_slot(unsigned long mpc_new_phys, unsigned long mpc_new_length, int count)
 
 	return 0;
 }
-#else /*                    */
+#else /* CONFIG_X86_IO_APIC */
 static
 inline void __init check_irq_src(struct mpc_intsrc *m, int *nr_m_spare) {}
-#endif /*                    */
+#endif /* CONFIG_X86_IO_APIC */
 
 static int  __init replace_intsrc_all(struct mpc_table *mpc,
 					unsigned long mpc_new_phys,
@@ -759,7 +759,7 @@ static int  __init replace_intsrc_all(struct mpc_table *mpc,
 			skip_entry(&mpt, &count, sizeof(struct mpc_lintsrc));
 			break;
 		default:
-			/*               */
+			/* wrong mptable */
 			smp_dump_mptable(mpc, mpt);
 			goto out;
 		}
@@ -794,7 +794,7 @@ static int  __init replace_intsrc_all(struct mpc_table *mpc,
 	}
 #endif
 out:
-	/*                 */
+	/* update checksum */
 	mpc->checksum = 0;
 	mpc->checksum -= mpf_checksum((unsigned char *)mpc, mpc->length);
 
@@ -816,7 +816,7 @@ early_param("update_mptable", update_mptable_setup);
 static unsigned long __initdata mpc_new_phys;
 static unsigned long mpc_new_length __initdata = 4096;
 
-/*                                   */
+/* alloc_mptable or alloc_mptable=4k */
 static int __initdata alloc_mptable;
 static int __init parse_alloc_mptable_opt(char *p)
 {
@@ -853,8 +853,8 @@ static int __init update_mp_table(void)
 		return 0;
 
 	/*
-                                     
-  */
+	 * Now see if we need to go further.
+	 */
 	if (mpf->feature1 != 0)
 		return 0;
 
@@ -877,7 +877,7 @@ static int __init update_mp_table(void)
 
 	if (!mpc_new_phys) {
 		unsigned char old, new;
-		/*                                     */
+		/* check if we can change the position */
 		mpc->checksum = 0;
 		old = mpf_checksum((unsigned char *)mpc, mpc->length);
 		mpc->checksum = 0xff;
@@ -892,10 +892,10 @@ static int __init update_mp_table(void)
 		mpc_new = phys_to_virt(mpc_new_phys);
 		memcpy(mpc_new, mpc, mpc->length);
 		mpc = mpc_new;
-		/*                             */
+		/* check if we can modify that */
 		if (mpc_new_phys - mpf->physptr) {
 			struct mpf_intel *mpf_new;
-			/*                             */
+			/* steal 16 bytes from [0, 1k) */
 			printk(KERN_INFO "mpf new: %x\n", 0x400 - 16);
 			mpf_new = phys_to_virt(0x400 - 16);
 			memcpy(mpf_new, mpf, 16);
@@ -908,11 +908,11 @@ static int __init update_mp_table(void)
 	}
 
 	/*
-                                        
-                                              
-                                                              
-                                          
-  */
+	 * only replace the one with mp_INT and
+	 *	 MP_IRQ_TRIGGER_LEVEL|MP_IRQ_POLARITY_LOW,
+	 * already in mp_irqs , stored by ... and mp_config_acpi_gsi,
+	 * may need pci=routeirq for all coverage
+	 */
 	replace_intsrc_all(mpc, mpc_new_phys, mpc_new_length);
 
 	return 0;

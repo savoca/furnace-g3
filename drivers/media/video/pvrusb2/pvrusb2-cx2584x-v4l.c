@@ -21,8 +21,8 @@
 
 /*
 
-                                                                  
-                                       
+   This source file is specifically designed to interface with the
+   cx2584x, in kernels 2.6.16 or newer.
 
 */
 
@@ -53,7 +53,7 @@ static const struct routing_scheme_item routing_scheme0[] = {
 		.vid = CX25840_COMPOSITE7,
 		.aud = CX25840_AUDIO8,
 	},
-	[PVR2_CVAL_INPUT_RADIO] = { /*                             */
+	[PVR2_CVAL_INPUT_RADIO] = { /* Treat the same as composite */
 		.vid = CX25840_COMPOSITE3,
 		.aud = CX25840_AUDIO_SERIAL,
 	},
@@ -72,15 +72,15 @@ static const struct routing_scheme routing_def0 = {
 	.cnt = ARRAY_SIZE(routing_scheme0),
 };
 
-/*                            */
+/* Specific to gotview device */
 static const struct routing_scheme_item routing_schemegv[] = {
 	[PVR2_CVAL_INPUT_TV] = {
 		.vid = CX25840_COMPOSITE2,
 		.aud = CX25840_AUDIO5,
 	},
 	[PVR2_CVAL_INPUT_RADIO] = {
-		/*                                                    
-                                             */
+		/* line-in is used for radio and composite.  A GPIO is
+		   used to switch between the two choices. */
 		.vid = CX25840_COMPOSITE1,
 		.aud = CX25840_AUDIO_SERIAL,
 	},
@@ -99,7 +99,7 @@ static const struct routing_scheme routing_defgv = {
 	.cnt = ARRAY_SIZE(routing_schemegv),
 };
 
-/*                                   */
+/* Specific to grabster av400 device */
 static const struct routing_scheme_item routing_schemeav400[] = {
 	[PVR2_CVAL_INPUT_COMPOSITE] = {
 		.vid = CX25840_COMPOSITE1,
@@ -156,11 +156,11 @@ void pvr2_cx25840_subdev_update(struct pvr2_hdw *hdw, struct v4l2_subdev *sd)
 
 
 /*
-                                                                         
-                          
-                 
-                         
-                      
-                           
-              
+  Stuff for Emacs to see, in order to encourage consistent editing style:
+  *** Local Variables: ***
+  *** mode: c ***
+  *** fill-column: 70 ***
+  *** tab-width: 8 ***
+  *** c-basic-offset: 8 ***
+  *** End: ***
   */

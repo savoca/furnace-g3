@@ -32,7 +32,7 @@ typedef u64 __nocast cputime64_t;
 #define cputime_one_jiffy		jiffies_to_cputime(1)
 
 /*
-                                   
+ * Convert cputime <-> jiffies (HZ)
  */
 #define cputime_to_jiffies(__ct)	\
 	((__force u64)(__ct) / (NSEC_PER_SEC / HZ))
@@ -44,7 +44,7 @@ typedef u64 __nocast cputime64_t;
 	(__force cputime64_t)((__jif) * (NSEC_PER_SEC / HZ))
 
 /*
-                                   
+ * Convert cputime <-> microseconds
  */
 #define cputime_to_usecs(__ct)		\
 	((__force u64)(__ct) / NSEC_PER_USEC)
@@ -54,7 +54,7 @@ typedef u64 __nocast cputime64_t;
 	(__force cputime64_t)((__usecs) * NSEC_PER_USEC)
 
 /*
-                              
+ * Convert cputime <-> seconds
  */
 #define cputime_to_secs(__ct)		\
 	((__force u64)(__ct) / NSEC_PER_SEC)
@@ -62,7 +62,7 @@ typedef u64 __nocast cputime64_t;
 	(__force cputime_t)((__secs) * NSEC_PER_SEC)
 
 /*
-                                      
+ * Convert cputime <-> timespec (nsec)
  */
 static inline cputime_t timespec_to_cputime(const struct timespec *val)
 {
@@ -76,7 +76,7 @@ static inline void cputime_to_timespec(const cputime_t ct, struct timespec *val)
 }
 
 /*
-                                     
+ * Convert cputime <-> timeval (msec)
  */
 static inline cputime_t timeval_to_cputime(struct timeval *val)
 {
@@ -90,7 +90,7 @@ static inline void cputime_to_timeval(const cputime_t ct, struct timeval *val)
 }
 
 /*
-                                      
+ * Convert cputime <-> clock (USER_HZ)
  */
 #define cputime_to_clock_t(__ct)	\
 	((__force u64)(__ct) / (NSEC_PER_SEC / USER_HZ))
@@ -98,10 +98,10 @@ static inline void cputime_to_timeval(const cputime_t ct, struct timeval *val)
 	(__force cputime_t)((__x) * (NSEC_PER_SEC / USER_HZ))
 
 /*
-                              
+ * Convert cputime64 to clock.
  */
 #define cputime64_to_clock_t(__ct)	\
 	cputime_to_clock_t((__force cputime_t)__ct)
 
-#endif /*                            */
-#endif /*                  */
+#endif /* CONFIG_VIRT_CPU_ACCOUNTING */
+#endif /* __IA64_CPUTIME_H */

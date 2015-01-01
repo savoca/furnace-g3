@@ -23,7 +23,7 @@
 #include <linux/syscalls.h>
 
 /*
-                                                                  
+ * Create a simple rootfs that is similar to the default initramfs
  */
 static int __init default_rootfs(void)
 {

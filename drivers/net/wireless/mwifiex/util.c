@@ -26,10 +26,10 @@
 #include "11n.h"
 
 /*
-                                                     
-  
-                                                          
-                                                          
+ * Firmware initialization complete callback handler.
+ *
+ * This function wakes up the function waiting on the init
+ * wait queue for the firmware initialization to complete.
  */
 int mwifiex_init_fw_complete(struct mwifiex_adapter *adapter)
 {
@@ -40,11 +40,11 @@ int mwifiex_init_fw_complete(struct mwifiex_adapter *adapter)
 }
 
 /*
-                                               
-  
-                                                                   
-                                                               
-                        
+ * Firmware shutdown complete callback handler.
+ *
+ * This function sets the hardware status to not ready and wakes up
+ * the function waiting on the init wait queue for the firmware
+ * shutdown to complete.
  */
 int mwifiex_shutdown_fw_complete(struct mwifiex_adapter *adapter)
 {
@@ -55,8 +55,8 @@ int mwifiex_shutdown_fw_complete(struct mwifiex_adapter *adapter)
 }
 
 /*
-                                            
-               
+ * This function sends init/shutdown command
+ * to firmware.
  */
 int mwifiex_init_shutdown_fw(struct mwifiex_private *priv,
 			     u32 func_init_shutdown)
@@ -77,10 +77,10 @@ int mwifiex_init_shutdown_fw(struct mwifiex_private *priv,
 EXPORT_SYMBOL_GPL(mwifiex_init_shutdown_fw);
 
 /*
-                                                      
-  
-                                                                       
-              
+ * IOCTL request handler to set/get debug information.
+ *
+ * This function collates/sets the information from/to different driver
+ * structures.
  */
 int mwifiex_get_debug_info(struct mwifiex_private *priv,
 			   struct mwifiex_debug_info *info)
@@ -142,13 +142,13 @@ int mwifiex_get_debug_info(struct mwifiex_private *priv,
 }
 
 /*
-                                                                       
-          
-  
-                                                                       
-                                                                       
-                                                                    
-                                                             
+ * This function processes the received packet before sending it to the
+ * kernel.
+ *
+ * It extracts the SKB from the received buffer and sends it to kernel.
+ * In case the received buffer does not contain the data in SKB format,
+ * the function creates a blank SKB, fills it with the data from the
+ * received buffer and then sends this new SKB to the kernel.
  */
 int mwifiex_recv_packet(struct mwifiex_adapter *adapter, struct sk_buff *skb)
 {
@@ -178,13 +178,13 @@ int mwifiex_recv_packet(struct mwifiex_adapter *adapter, struct sk_buff *skb)
 }
 
 /*
-                                     
-  
-                                                             
-  
-                                                              
-                                                              
-                                                
+ * IOCTL completion callback handler.
+ *
+ * This function is called when a pending IOCTL is completed.
+ *
+ * If work queue support is enabled, the function wakes up the
+ * corresponding waiting function. Otherwise, it processes the
+ * IOCTL response and frees the response buffer.
  */
 int mwifiex_complete_cmd(struct mwifiex_adapter *adapter,
 			 struct cmd_ctrl_node *cmd_node)

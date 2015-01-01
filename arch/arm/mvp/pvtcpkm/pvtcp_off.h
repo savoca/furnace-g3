@@ -18,11 +18,11 @@
  */
 #line 5
 
-/* 
-        
-  
-                                     
-                                                      
+/**
+ * @file
+ *
+ * @brief Offload common definitions.
+ * This file is meant to only be included via pvtcp.h.
  */
 
 #ifndef _PVTCP_OFF_H_
@@ -30,25 +30,25 @@
 
 
 #define PVTCP_OFF_SOCK_COMMON_FIELDS                                \
-   volatile unsigned int opFlags; /*                             */ \
-   volatile unsigned int flags    /*                             */
+   volatile unsigned int opFlags; /* Saves op codes as bit mask. */ \
+   volatile unsigned int flags    /* General purpose flags.      */
 
 
-/*                              */
+/* General purpose socket flags */
 
 enum PvtcpOffPvskFlags {
-   PVTCP_OFF_PVSKF_IPV6_LOOP = 0, /*                                          */
-   PVTCP_OFF_PVSKF_SHUT_RD,       /*                                          */
-   PVTCP_OFF_PVSKF_SHUT_WR,       /*                                          */
-   PVTCP_OFF_PVSKF_TCP_NODELAY,   /*                                          */
-   PVTCP_OFF_PVSKF_TCP_CORK,      /*                                          */
-   PVTCP_OFF_PVSKF_DISCONNECT,    /*                                          */
+   PVTCP_OFF_PVSKF_IPV6_LOOP = 0, /* Used for IPV6 loopback morphing/reset.   */
+   PVTCP_OFF_PVSKF_SHUT_RD,       /* Set to initiate socket recv shutdown.    */
+   PVTCP_OFF_PVSKF_SHUT_WR,       /* Set to initiate socket send shutdown.    */
+   PVTCP_OFF_PVSKF_TCP_NODELAY,   /* Caches the TCP_NODELAY socket option.    */
+   PVTCP_OFF_PVSKF_TCP_CORK,      /* Caches the TCP_CORK socket option.       */
+   PVTCP_OFF_PVSKF_DISCONNECT,    /* Set do indicate connect()/AF_UNSPEC.     */
    PVTCP_OFF_PVSKF_INVALID = 32
 };
 
 
 /*
-                                                          
+ * Include OS-dependent PvtcpSock structure and functions.
  */
 
 #if defined(__linux__)
@@ -59,22 +59,22 @@ enum PvtcpOffPvskFlags {
 
 
 /*
-                                         
+ * Offload packet payload data structure.
  */
 
 typedef struct PvtcpOffBuf {
-   CommOSList link;    /*                       */
+   CommOSList link;    /* Link in socket queue. */
    unsigned short len;
    unsigned short off;
    char data[1];
 } PvtcpOffBuf;
 
 
-/* 
-                                                                            
-                                      
-                                                       
-                                     
+/**
+ *  @brief Returns net buffer given private data structure pointer and based
+ *      on the internal offset pointer
+ *  @param arg pointer to PvtcpOffBuf wrapper structure
+ *  @return address of buffer or NULL
  */
 
 static inline void *
@@ -86,10 +86,10 @@ PvtcpOffBufFromInternalOff(PvtcpOffBuf *arg)
 }
 
 
-/* 
-                                                                  
-                                                       
-                                     
+/**
+ *  @brief Returns net buffer given private data structure pointer
+ *  @param arg pointer to PvtcpOffBuf wrapper structure
+ *  @return address of buffer or NULL
  */
 
 static inline void *
@@ -101,10 +101,10 @@ PvtcpOffBufFromInternal(PvtcpOffBuf *arg)
 }
 
 
-/* 
-                                                                   
-                                                       
-                                                      
+/**
+ *  @brief Returns internal data structure given net buffer pointer
+ *  @param arg pointer to PvtcpOffBuf wrapper structure
+ *  @return address of internal data structure or NULL
  */
 
 static inline PvtcpOffBuf *
@@ -116,12 +116,12 @@ PvtcpOffInternalFromBuf(void *arg)
 }
 
 
-/* 
-                                                  
-                                           
-                                      
-                                                     
-                                                                                
+/**
+ * @brief Tests operation flag for AIO processing.
+ * @param pvsk socket to test operation on.
+ * @param op operation to test if set.
+ * @return non-zero if operation set, zero otherwise.
+ * @sideeffect socket processing by AIO threads affected according to operation.
  */
 
 static inline int
@@ -132,11 +132,11 @@ PvskTestOpFlag(struct PvtcpSock *pvsk,
 }
 
 
-/* 
-                                                                          
-                                                  
-                              
-                                                                                
+/**
+ * @brief Sets operation flag for AIO processing; acquires the state lock.
+ * @param[in,out] pvsk socket to set operation on.
+ * @param op operation to set.
+ * @sideeffect socket processing by AIO threads affected according to operation.
  */
 
 static inline void
@@ -152,11 +152,11 @@ PvskSetOpFlag(struct PvtcpSock *pvsk,
 }
 
 
-/* 
-                                                                            
-                                                    
-                                
-                                                                                
+/**
+ * @brief Resets operation flag for AIO processing; acquires the state lock.
+ * @param[in,out] pvsk socket to reset operation on.
+ * @param op operation to reset.
+ * @sideeffect socket processing by AIO threads affected according to operation.
  */
 
 static inline void
@@ -172,11 +172,11 @@ PvskResetOpFlag(struct PvtcpSock *pvsk,
 }
 
 
-/* 
-                                             
-                      
-                            
-                                                
+/**
+ * @brief Tests general purpose socket flags.
+ * @param pvsk socket.
+ * @param flag flag to test.
+ * @return non-zero if flag set, zero otherwise.
  */
 
 static inline int
@@ -187,11 +187,11 @@ PvskTestFlag(struct PvtcpSock *pvsk,
 }
 
 
-/* 
-                                                                     
-                              
-                                    
-                                                 
+/**
+ * @brief Sets general purpose socket flags; acquires the state lock.
+ * @param[in,out] pvsk socket.
+ * @param flag flag to set or clear.
+ * @param onOff whether to set or clear the flag.
  */
 
 static inline void
@@ -216,5 +216,5 @@ PvskSetFlag(struct PvtcpSock *pvsk,
 
 int PvtcpOffSockInit(PvtcpSock *pvsk, CommChannel channel);
 
-#endif /*               */
+#endif /* _PVTCP_OFF_H_ */
 

@@ -19,9 +19,9 @@
 #include <asm/tlbflush.h>
 
 /*
-                                                                     
-                                                           
-                                   
+ * Free all pages allocated for subpage protection maps and pointers.
+ * Also makes sure that the subpage_prot_table structure is
+ * reinitialized for the next user.
  */
 void subpage_prot_free(struct mm_struct *mm)
 {
@@ -87,8 +87,8 @@ static void hpte_flush_range(struct mm_struct *mm, unsigned long addr,
 }
 
 /*
-                                                                  
-                                                        
+ * Clear the subpage protection map for an address range, allowing
+ * all accesses that are allowed by the pte permissions.
  */
 static void subpage_prot_clear(unsigned long addr, unsigned long len)
 {
@@ -123,21 +123,21 @@ static void subpage_prot_clear(unsigned long addr, unsigned long len)
 
 		memset(spp, 0, nw * sizeof(u32));
 
-		/*                                            */
+		/* now flush any existing HPTEs for the range */
 		hpte_flush_range(mm, addr, nw);
 	}
 	up_write(&mm->mmap_sem);
 }
 
 /*
-                                                         
-                                                              
-                                                                  
-                                  
-                                                                
-                                                                 
-                                                                  
-                   
+ * Copy in a subpage protection map for an address range.
+ * The map has 2 bits per 4k subpage, so 32 bits per 64k page.
+ * Each 2-bit field is 0 to allow any access, 1 to prevent writes,
+ * 2 or 3 to prevent all accesses.
+ * Note that the normal page protections also apply; the subpage
+ * protection mechanism is an additional constraint, so putting 0
+ * in a 2-bit field won't allow writes to a page that is otherwise
+ * write-protected.
  */
 long sys_subpage_prot(unsigned long addr, unsigned long len, u32 __user *map)
 {
@@ -148,7 +148,7 @@ long sys_subpage_prot(unsigned long addr, unsigned long len, u32 __user *map)
 	unsigned long next, limit;
 	int err;
 
-	/*                  */
+	/* Check parameters */
 	if ((addr & ~PAGE_MASK) || (len & ~PAGE_MASK) ||
 	    addr >= TASK_SIZE || len >= TASK_SIZE || addr + len > TASK_SIZE)
 		return -EINVAL;
@@ -157,7 +157,7 @@ long sys_subpage_prot(unsigned long addr, unsigned long len, u32 __user *map)
 		return -EINVAL;
 
 	if (!map) {
-		/*                                                    */
+		/* Clear out the protection map for the address range */
 		subpage_prot_clear(addr, len);
 		return 0;
 	}
@@ -206,7 +206,7 @@ long sys_subpage_prot(unsigned long addr, unsigned long len, u32 __user *map)
 		map += nw;
 		down_write(&mm->mmap_sem);
 
-		/*                                            */
+		/* now flush any existing HPTEs for the range */
 		hpte_flush_range(mm, addr, nw);
 	}
 	if (limit > spt->maxaddr)

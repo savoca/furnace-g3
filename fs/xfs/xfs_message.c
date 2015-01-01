@@ -26,7 +26,7 @@
 #include "xfs_mount.h"
 
 /*
-                        
+ * XFS logging functions
  */
 static void
 __xfs_printk(

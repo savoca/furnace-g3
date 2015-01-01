@@ -14,7 +14,7 @@
 #include <asm/div64.h>
 
 /*
-                   
+ * basic delay loop
  */
 void __delay(unsigned long loops)
 {
@@ -34,13 +34,13 @@ void __delay(unsigned long loops)
 EXPORT_SYMBOL(__delay);
 
 /*
-                                                    
+ * handle a delay specified in terms of microseconds
  */
 void __udelay(unsigned long usecs)
 {
 	unsigned long start, stop, cnt;
 
-	/*                   */
+	/* usecs * CLK / 1E6 */
 	stop = __muldiv64u(usecs, MN10300_TSCCLK, 1000000);
 	start = TMTSCBC;
 

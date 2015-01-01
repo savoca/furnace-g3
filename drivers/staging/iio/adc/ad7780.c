@@ -47,9 +47,9 @@ struct ad7780_state {
 	struct spi_transfer		xfer;
 	struct spi_message		msg;
 	/*
-                                                       
-                                                      
-  */
+	 * DMA (thus cache coherency maintenance) requires the
+	 * transfer buffers to live in their own cache lines.
+	 */
 	unsigned int			data ____cacheline_aligned;
 };
 
@@ -137,8 +137,8 @@ static const struct ad7780_chip_info ad7780_chip_info_tbl[] = {
 	},
 };
 
-/* 
-                     
+/**
+ *  Interrupt handler
  */
 static irqreturn_t ad7780_interrupt(int irq, void *dev_id)
 {
@@ -206,7 +206,7 @@ static int __devinit ad7780_probe(struct spi_device *spi)
 
 	init_waitqueue_head(&st->wq_data_avail);
 
-	/*                       */
+	/* Setup default message */
 
 	st->xfer.rx_buf = &st->data;
 	st->xfer.len = st->chip_info->channel.scan_type.storagebits / 8;

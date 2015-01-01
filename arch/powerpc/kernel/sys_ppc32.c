@@ -57,14 +57,14 @@ asmlinkage long ppc32_select(u32 n, compat_ulong_t __user *inp,
 		compat_ulong_t __user *outp, compat_ulong_t __user *exp,
 		compat_uptr_t tvp_x)
 {
-	/*               */
+	/* sign extend n */
 	return compat_sys_select((int)n, inp, outp, exp, compat_ptr(tvp_x));
 }
 
-/*                                                          
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat option as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_sysfs(u32 option, u32 arg1, u32 arg2)
 {
@@ -77,57 +77,57 @@ long compat_sys_ipc(u32 call, u32 first, u32 second, u32 third, compat_uptr_t pt
 {
 	int version;
 
-	version = call >> 16; /*                                 */
+	version = call >> 16; /* hack for backward compatibility */
 	call &= 0xffff;
 
 	switch (call) {
 
 	case SEMTIMEDOP:
 		if (fifth)
-			/*                   */
+			/* sign extend semid */
 			return compat_sys_semtimedop((int)first,
 						     compat_ptr(ptr), second,
 						     compat_ptr(fifth));
-		/*                                      */
+		/* else fall through for normal semop() */
 	case SEMOP:
-		/*                                               */
-		/*                   */
+		/* struct sembuf is the same on 32 and 64bit :)) */
+		/* sign extend semid */
 		return sys_semtimedop((int)first, compat_ptr(ptr), second,
 				      NULL);
 	case SEMGET:
-		/*                        */
+		/* sign extend key, nsems */
 		return sys_semget((int)first, (int)second, third);
 	case SEMCTL:
-		/*                           */
+		/* sign extend semid, semnum */
 		return compat_sys_semctl((int)first, (int)second, third,
 					 compat_ptr(ptr));
 
 	case MSGSND:
-		/*                   */
+		/* sign extend msqid */
 		return compat_sys_msgsnd((int)first, (int)second, third,
 					 compat_ptr(ptr));
 	case MSGRCV:
-		/*                           */
+		/* sign extend msqid, msgtyp */
 		return compat_sys_msgrcv((int)first, second, (int)fifth,
 					 third, version, compat_ptr(ptr));
 	case MSGGET:
-		/*                 */
+		/* sign extend key */
 		return sys_msgget((int)first, second);
 	case MSGCTL:
-		/*                   */
+		/* sign extend msqid */
 		return compat_sys_msgctl((int)first, second, compat_ptr(ptr));
 
 	case SHMAT:
-		/*                   */
+		/* sign extend shmid */
 		return compat_sys_shmat((int)first, second, third, version,
 					compat_ptr(ptr));
 	case SHMDT:
 		return sys_shmdt(compat_ptr(ptr));
 	case SHMGET:
-		/*                   */
+		/* sign extend key_t */
 		return sys_shmget((int)first, second, third);
 	case SHMCTL:
-		/*                   */
+		/* sign extend shmid */
 		return compat_sys_shmctl((int)first, second, compat_ptr(ptr));
 
 	default:
@@ -138,10 +138,10 @@ long compat_sys_ipc(u32 call, u32 first, u32 second, u32 third, compat_uptr_t pt
 }
 #endif
 
-/*                                                                   
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat out_fd and in_fd as unsigned ints, 
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_sendfile(u32 out_fd, u32 in_fd, compat_off_t __user * offset, u32 count)
 {
@@ -153,7 +153,7 @@ asmlinkage long compat_sys_sendfile(u32 out_fd, u32 in_fd, compat_off_t __user *
 	if (offset && get_user(of, offset))
 		return -EFAULT;
 
-	/*                                                          */		
+	/* The __user pointer cast is valid because of the set_fs() */		
 	set_fs(KERNEL_DS);
 	up = offset ? (off_t __user *) &of : NULL;
 	ret = sys_sendfile((int)out_fd, (int)in_fd, up, count);
@@ -175,7 +175,7 @@ asmlinkage int compat_sys_sendfile64(int out_fd, int in_fd, compat_loff_t __user
 	if (offset && get_user(lof, offset))
 		return -EFAULT;
 		
-	/*                                                          */		
+	/* The __user pointer cast is valid because of the set_fs() */		
 	set_fs(KERNEL_DS);
 	up = offset ? (loff_t __user *) &lof : NULL;
 	ret = sys_sendfile64(out_fd, in_fd, up, count);
@@ -209,10 +209,10 @@ out:
 	return error;
 }
 
-/*                                                           
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat option as an unsigned int, 
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_prctl(u32 option, u32 arg2, u32 arg3, u32 arg4, u32 arg5)
 {
@@ -223,10 +223,10 @@ asmlinkage long compat_sys_prctl(u32 option, u32 arg2, u32 arg3, u32 arg4, u32 a
 			 (unsigned long) arg5);
 }
 
-/*                                                        
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat pid as an unsigned int, 
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_sched_rr_get_interval(u32 pid, struct compat_timespec __user *interval)
 {
@@ -234,7 +234,7 @@ asmlinkage long compat_sys_sched_rr_get_interval(u32 pid, struct compat_timespec
 	int ret;
 	mm_segment_t old_fs = get_fs ();
 
-	/*                                                          */
+	/* The __user pointer cast is valid because of the set_fs() */
 	set_fs (KERNEL_DS);
 	ret = sys_sched_rr_get_interval((int)pid, (struct timespec __user *) &t);
 	set_fs (old_fs);
@@ -243,10 +243,10 @@ asmlinkage long compat_sys_sched_rr_get_interval(u32 pid, struct compat_timespec
 	return ret;
 }
 
-/*                                                        
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat mode as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_access(const char __user * filename, u32 mode)
 {
@@ -254,10 +254,10 @@ asmlinkage long compat_sys_access(const char __user * filename, u32 mode)
 }
 
 
-/*                                                        
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat mode as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_creat(const char __user * pathname, u32 mode)
 {
@@ -265,10 +265,10 @@ asmlinkage long compat_sys_creat(const char __user * pathname, u32 mode)
 }
 
 
-/*                                                                 
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat pid and options as unsigned ints,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_waitpid(u32 pid, unsigned int __user * stat_addr, u32 options)
 {
@@ -276,10 +276,10 @@ asmlinkage long compat_sys_waitpid(u32 pid, unsigned int __user * stat_addr, u32
 }
 
 
-/*                                                              
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat gidsetsize as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_getgroups(u32 gidsetsize, gid_t __user *grouplist)
 {
@@ -287,10 +287,10 @@ asmlinkage long compat_sys_getgroups(u32 gidsetsize, gid_t __user *grouplist)
 }
 
 
-/*                                                       
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat pid as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_getpgid(u32 pid)
 {
@@ -299,10 +299,10 @@ asmlinkage long compat_sys_getpgid(u32 pid)
 
 
 
-/*                                                       
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat pid as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_getsid(u32 pid)
 {
@@ -310,10 +310,10 @@ asmlinkage long compat_sys_getsid(u32 pid)
 }
 
 
-/*                                                             
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat pid and sig as unsigned ints,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_kill(u32 pid, u32 sig)
 {
@@ -321,10 +321,10 @@ asmlinkage long compat_sys_kill(u32 pid, u32 sig)
 }
 
 
-/*                                                        
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat mode as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_mkdir(const char __user * pathname, u32 mode)
 {
@@ -333,42 +333,42 @@ asmlinkage long compat_sys_mkdir(const char __user * pathname, u32 mode)
 
 long compat_sys_nice(u32 increment)
 {
-	/*                       */
+	/* sign extend increment */
 	return sys_nice((int)increment);
 }
 
 off_t ppc32_lseek(unsigned int fd, u32 offset, unsigned int origin)
 {
-	/*               */
+	/* sign extend n */
 	return sys_lseek(fd, (int)offset, origin);
 }
 
 long compat_sys_truncate(const char __user * path, u32 length)
 {
-	/*                    */
+	/* sign extend length */
 	return sys_truncate(path, (int)length);
 }
 
 long compat_sys_ftruncate(int fd, u32 length)
 {
-	/*                    */
+	/* sign extend length */
 	return sys_ftruncate(fd, (int)length);
 }
 
-/*                                                          
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat bufsiz as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_readlink(const char __user * path, char __user * buf, u32 bufsiz)
 {
 	return sys_readlink(path, buf, (int)bufsiz);
 }
 
-/*                                                          
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat option as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_sched_get_priority_max(u32 policy)
 {
@@ -376,10 +376,10 @@ asmlinkage long compat_sys_sched_get_priority_max(u32 policy)
 }
 
 
-/*                                                          
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat policy as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_sched_get_priority_min(u32 policy)
 {
@@ -387,10 +387,10 @@ asmlinkage long compat_sys_sched_get_priority_min(u32 policy)
 }
 
 
-/*                                                       
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat pid as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_sched_getparam(u32 pid, struct sched_param __user *param)
 {
@@ -398,10 +398,10 @@ asmlinkage long compat_sys_sched_getparam(u32 pid, struct sched_param __user *pa
 }
 
 
-/*                                                       
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat pid as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_sched_getscheduler(u32 pid)
 {
@@ -409,10 +409,10 @@ asmlinkage long compat_sys_sched_getscheduler(u32 pid)
 }
 
 
-/*                                                       
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat pid as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_sched_setparam(u32 pid, struct sched_param __user *param)
 {
@@ -420,10 +420,10 @@ asmlinkage long compat_sys_sched_setparam(u32 pid, struct sched_param __user *pa
 }
 
 
-/*                                                                
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat pid and policy as unsigned ints,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_sched_setscheduler(u32 pid, u32 policy, struct sched_param __user *param)
 {
@@ -431,10 +431,10 @@ asmlinkage long compat_sys_sched_setscheduler(u32 pid, u32 policy, struct sched_
 }
 
 
-/*                                                       
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat len as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_setdomainname(char __user *name, u32 len)
 {
@@ -442,10 +442,10 @@ asmlinkage long compat_sys_setdomainname(char __user *name, u32 len)
 }
 
 
-/*                                                              
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat gidsetsize as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_setgroups(u32 gidsetsize, gid_t __user *grouplist)
 {
@@ -455,15 +455,15 @@ asmlinkage long compat_sys_setgroups(u32 gidsetsize, gid_t __user *grouplist)
 
 asmlinkage long compat_sys_sethostname(char __user *name, u32 len)
 {
-	/*                 */
+	/* sign extend len */
 	return sys_sethostname(name, (int)len);
 }
 
 
-/*                                                              
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat pid and pgid as unsigned ints,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_setpgid(u32 pid, u32 pgid)
 {
@@ -472,32 +472,32 @@ asmlinkage long compat_sys_setpgid(u32 pid, u32 pgid)
 
 long compat_sys_getpriority(u32 which, u32 who)
 {
-	/*                           */
+	/* sign extend which and who */
 	return sys_getpriority((int)which, (int)who);
 }
 
 long compat_sys_setpriority(u32 which, u32 who, u32 niceval)
 {
-	/*                                    */
+	/* sign extend which, who and niceval */
 	return sys_setpriority((int)which, (int)who, (int)niceval);
 }
 
 long compat_sys_ioprio_get(u32 which, u32 who)
 {
-	/*                           */
+	/* sign extend which and who */
 	return sys_ioprio_get((int)which, (int)who);
 }
 
 long compat_sys_ioprio_set(u32 which, u32 who, u32 ioprio)
 {
-	/*                                   */
+	/* sign extend which, who and ioprio */
 	return sys_ioprio_set((int)which, (int)who, (int)ioprio);
 }
 
-/*                                                           
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat newmask as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_ssetmask(u32 newmask)
 {
@@ -506,15 +506,15 @@ asmlinkage long compat_sys_ssetmask(u32 newmask)
 
 asmlinkage long compat_sys_syslog(u32 type, char __user * buf, u32 len)
 {
-	/*                 */
+	/* sign extend len */
 	return sys_syslog(type, buf, (int)len);
 }
 
 
-/*                                                        
-                                                                  
-                                                                                                              
-                                                                                     
+/* Note: it is necessary to treat mask as an unsigned int,
+ * with the corresponding cast to a signed int to insure that the 
+ * proper conversion (sign extension) between the register representation of a signed int (msr in 32-bit mode)
+ * and the register representation of a signed int (msr in 64-bit mode) is performed.
  */
 asmlinkage long compat_sys_umask(u32 mask)
 {
@@ -525,19 +525,19 @@ unsigned long compat_sys_mmap2(unsigned long addr, size_t len,
 			  unsigned long prot, unsigned long flags,
 			  unsigned long fd, unsigned long pgoff)
 {
-	/*                                                 */
+	/* This should remain 12 even if PAGE_SIZE changes */
 	return sys_mmap(addr, len, prot, flags, fd, pgoff << 12);
 }
 
 long compat_sys_tgkill(u32 tgid, u32 pid, int sig)
 {
-	/*                       */
+	/* sign extend tgid, pid */
 	return sys_tgkill((int)tgid, (int)pid, sig);
 }
 
 /* 
-                     
-                                                                 
+ * long long munging:
+ * The 32 bit ABI passes long longs in an odd even register pair.
  */
 
 compat_ssize_t compat_sys_pread64(unsigned int fd, char __user *ubuf, compat_size_t count,

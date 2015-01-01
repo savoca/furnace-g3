@@ -52,8 +52,8 @@
 #ifdef  CONFIG_SMB349_VZW_FAST_CHG
 #include <linux/slimport.h>
 #endif
-/*                                                                                                     */
-#if 0 && defined(CONFIG_MACH_MSM8974_G3_LGU_EVB) //          
+/* Todo the function of battery removed was disable because early bring up board uses embedded battery */
+#if 0 && defined(CONFIG_MACH_MSM8974_G3_LGU_EVB) //workaround
 #include <linux/qpnp/qpnp-temp-alarm.h>
 #endif
 
@@ -63,7 +63,7 @@
 
 #define SMB349_MASK(BITS, POS)  ((unsigned char)(((1 << BITS) - 1) << POS))
 
-/*                      */
+/* Register definitions */
 #define CHG_CURRENT_REG                         0x00
 #define CHG_OTHER_CURRENT_REG                   0x01
 #define VAR_FUNC_REG                            0x02
@@ -81,12 +81,12 @@
 #define FLEX_CHARGE_REG                         0x10
 #define STATUS_INT_REG                          0x11
 #define I2C_BUS_SLAVE_ADDR_REG                  0x12
-/*                                                        */
+/* for checking boostback issue due to trim bit at A4 chip*/
 #define CHIP_MINOR_REG                          0x16
 #define CMD_A_REG                               0x30
 #define CMD_B_REG                               0x31
 #define CMD_C_REG                               0x33
-/*                           */
+/* for checking A4 or A6 chip*/
 #define CHIP_MAJOR_REG                          0x34
 #define IRQ_A_REG                               0x35
 #define IRQ_B_REG                               0x36
@@ -100,11 +100,11 @@
 #define STATUS_D_REG                            0x3E
 #define STATUS_E_REG                            0x3F
 
-/*                       */
+/* Status bits and masks */
 #define CHG_STATUS_MASK                         SMB349_MASK(2, 1)
 #define CHG_ENABLE_STATUS_BIT                   BIT(0)
 
-/*                        */
+/* Control bits and masks */
 #define FAST_CHG_CURRENT_MASK                   SMB349_MASK(4, 4)
 #define AC_INPUT_CURRENT_LIMIT_MASK             SMB349_MASK(4, 0)
 #define PRE_CHG_CURRENT_MASK                    SMB349_MASK(3, 5)
@@ -231,7 +231,7 @@ struct smb349_struct {
 	int		stat_gpio;
 #if defined(CONFIG_MACH_MSM8974_G3_LGU_EVB)
 	int		otg_en_gpio;
-	//                                    
+	//struct wake_lock	battgone_wake_lock;
 #endif
 	int		irq;
 #if defined(CONFIG_BQ51053B_CHARGER) && defined(CONFIG_WIRELESS_CHARGER)
@@ -406,7 +406,7 @@ static int smb349_read_reg(struct i2c_client *client, int reg,
 		ret = i2c_smbus_read_byte_data(client, reg);
 		if (ret >= 0)
 			break;
-		/*                                                                     */
+		/* this message will change pr_debug after verifying I2C communication */
 		pr_info("i2c read fail try count:%d ret:%d\n", i + 1, ret);
 		msleep(20);
 	}
@@ -433,7 +433,7 @@ static int smb349_read_block_reg(struct i2c_client *client, u8 reg,
 				length, val);
 		if (ret >= 0)
 			break;
-		/*                                                                     */
+		/* this message will change pr_debug after verifying I2C communication */
 		pr_info("i2c read fail try count:%d ret:%d\n", i + 1, ret);
 		msleep(20);
 	}
@@ -457,7 +457,7 @@ static int smb349_write_reg(struct i2c_client *client, int reg,
 		ret = i2c_smbus_write_byte_data(client, reg, val);
 		if (ret >= 0)
 			break;
-		/*                                                                     */
+		/* this message will change pr_debug after verifying I2C communication */
 		pr_info("i2c read fail try count:%d ret:%d\n", i + 1, ret);
 		msleep(20);
 	}
@@ -513,7 +513,7 @@ static void smb349_irqstat_init(struct smb349_struct *smb349_chg)
 	mutex_unlock(&smb349_chg->lock);
 }
 #ifndef CONFIG_LGE_PM
-/*                         */
+/* Reserved for future use */
 static bool smb349_is_dc_online(struct i2c_client *client)
 {
 	u8 irq_status_c;
@@ -570,7 +570,7 @@ static bool smb349_is_charger_present_rt(struct i2c_client *client)
 		return false;
 	}
 
-	/*                                                              */
+	/* uses under voltage status bit to detect cable plug or unplug */
 	ret = smb349_read_reg(client, IRQ_E_REG, &irq_status_e);
 	if (ret) {
 		pr_err("Failed to read IRQ_STATUS_F_REG rc=%d\n", ret);
@@ -581,7 +581,7 @@ static bool smb349_is_charger_present_rt(struct i2c_client *client)
 	smb349_chg->irqstat[IRQSTAT_E] = irq_status_e;
 	mutex_unlock(&smb349_chg->lock);
 
-	/*                                    */
+	/* insert case is 0, remove case is 1 */
 	power_ok = !(irq_status_e & 0x01);
 
 	if (power_ok) {
@@ -611,12 +611,12 @@ static bool smb349_is_charger_present(struct i2c_client *client)
 		pr_err("smb349_chg is not yet initialized\n");
 		return false;
 	}
-/*                                                              */
+/* uses under voltage status bit to detect cable plug or unplug */
 	mutex_lock(&smb349_chg->lock);
 	irq_status_e = smb349_chg->irqstat[IRQSTAT_E];
 	mutex_unlock(&smb349_chg->lock);
 
-	/*                                    */
+	/* insert case is 0, remove case is 1 */
 	power_ok = !(irq_status_e & 0x01);
 
 	if (power_ok) {
@@ -687,16 +687,16 @@ static int smb349_get_prop_charge_type(struct smb349_struct *smb349_chg)
 
 	if (status == SMB_CHG_STATUS_NONE)
 		chg_type = POWER_SUPPLY_CHARGE_TYPE_NONE;
-	else if (status == SMB_CHG_STATUS_FAST_CHARGE) /*                  */
+	else if (status == SMB_CHG_STATUS_FAST_CHARGE) /* constant current */
 		chg_type = POWER_SUPPLY_CHARGE_TYPE_FAST;
-	else if (status == SMB_CHG_STATUS_TAPER_CHARGE) /*                  */
+	else if (status == SMB_CHG_STATUS_TAPER_CHARGE) /* constant voltage */
 		chg_type = POWER_SUPPLY_CHARGE_TYPE_FAST;
 	else if (status == SMB_CHG_STATUS_PRE_CHARGE)
 		chg_type = POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
 
 	pr_debug("smb-chg-status=%d=%s.\n", status, smb349_chg_status[status]);
 
-	if (smb349_chg->chg_status != status) { /*                */
+	if (smb349_chg->chg_status != status) { /* Status changed */
 		power_supply_changed(&smb349_chg->batt_psy);
 		wake_lock_timeout(&smb349_chg->uevent_wake_lock, HZ*2);
 		if (status == SMB_CHG_STATUS_NONE) {
@@ -827,7 +827,7 @@ static int smb349_get_prop_batt_temp(struct smb349_struct *smb349_chg)
 		return DEFAULT_TEMP;
 	}
 
-	/*                                          */
+	/* Approach adc channel for read batt temp' */
 #ifdef CONFIG_SENSORS_QPNP_ADC_VOLTAGE
 	return smb349_get_batt_temp_origin();
 #else
@@ -881,8 +881,8 @@ static int get_prop_batt_capacity_bms(struct smb349_struct *smb349_chg)
 		pr_debug("BMS supply is not registered.\n");
 	}
 
-	/*                                           
-                                    */
+	/* return default capacity to avoid userspace
+	 * from shutting down unecessarily */
 	return DEFAULT_CAPACITY;
 #else
 	pr_err("CONFIG_QPNP_BMS is not defined.\n");
@@ -913,12 +913,12 @@ static int smb349_get_prop_batt_current_now(struct smb349_struct *smb349_chg)
 		return DEFAULT_CURRENT;
 	}
 
-	/*                                     
-                            
-                         
-                                         
-                                                              
-  */
+	/* SMB349 Vchg connected to PMIC AMUX1,
+	 * Indicate Charge Current,
+	 * Vchg = Ichg * 0.5ohm.
+	 * adc physical result expressed micro-.
+	 * will be report default value when vadc is not ready state.
+	 */
 	rc = qpnp_vadc_read(smb349_chg->vadc_dev, LR_MUX4_AMUX_THM1, &results);
 	if (rc) {
 		pr_err("Unable to read amux_thm1 rc=%d\n", rc);
@@ -1037,7 +1037,7 @@ static int smb349_get_prop_batt_status(struct smb349_struct *smb349_chg)
 static int smb349_enable_charging(struct smb349_struct *smb349_chg, bool enable)
 {
 	int ret;
-	u8 val = (u8)(!!enable << SMB349_CHG_ENABLE_SHIFT); /*             */
+	u8 val = (u8)(!!enable << SMB349_CHG_ENABLE_SHIFT); /* active high */
 #if SMB349_BOOSTBACK_WORKAROUND
 	smb349_bb_param param;
 #endif
@@ -1138,7 +1138,7 @@ static void smb349_batt_remove_insert_cb(int batt_present)
 		return;
 	}
 
-	/*                                                  */
+	/* Here comes into just battery missing status only */
 	wake_lock(&the_smb349_chg->battgone_wake_lock);
 
 	charger = smb349_is_charger_present(the_smb349_chg->client);
@@ -1150,21 +1150,21 @@ static void smb349_batt_remove_insert_cb(int batt_present)
 		thm_regulation ? 1 : 0, charger, ftm_cable ? 1 : 0, pseudo_batt_info.mode);
 
 	/*
-                                
-                                                                     
-                                            
-   
-                                   
-   
-                                             
-                                          
-                                                                   
-   
-                                                                         
-                                                                             
-                                                                            
-                                                                         
-  */
+	 * Battery missing work-aronnd.
+	 * this func' should be excute after first battery missing detected.
+	 * when, re-check battery rt status, still,
+	 *
+	 * 1) Battery missing : power off.
+	 *
+	 * 2) Battery present : check charger error.
+	 *    (abnoraml scene - No charger error)
+	 *    (real battery remove/insert during re-check - charger error)
+	 *
+	 *    - No charger error                : not power off(abnormal scene).
+	 *    - Charger error by chg timeout    : not power off(should be restored).
+	 *    - Charger error by thermal regul' : not power off(by smb349 thermal).
+	 *    - Charger error by others         : power off(assume batt remove).
+	 */
 	if ((!batt_present ||
 		(batt_present && (charger_err && !the_smb349_chg->chg_timeout)) ||
 		(batt_present && (charger_err && !thm_regulation))) &&
@@ -1173,10 +1173,10 @@ static void smb349_batt_remove_insert_cb(int batt_present)
 		switch_set_state(&the_smb349_chg->batt_removed, 1);
 		power_supply_changed(&the_smb349_chg->batt_psy);
 
-		/*                               */
+		/* makes logger save time margin */
 		msleep(5000);
 
-		/*                                                         */
+		/* use oem-11 restart reason for battery remove insert irq */
 		kernel_restart("oem-11");
 		wake_unlock(&the_smb349_chg->battgone_wake_lock);
 	} else {
@@ -1237,12 +1237,12 @@ static ssize_t at_chg_status_store(struct device *dev,
 	}
 
 	if (strncmp(buf, "0", 1) == 0) {
-		/*               */
+		/* stop charging */
 		pr_info("[Diag] stop charging start\n");
 		ret = smb349_enable_charging(the_smb349_chg, false);
 
 	} else if (strncmp(buf, "1", 1) == 0) {
-		/*                */
+		/* start charging */
 		pr_info("[Diag] start charging start\n");
 		ret = smb349_enable_charging(the_smb349_chg, true);
 	}
@@ -1293,11 +1293,11 @@ static ssize_t at_chg_complete_store(struct device *dev,
 	}
 
 	if (strncmp(buf, "0", 1) == 0) {
-		/*                       */
+		/* charging not complete */
 		pr_info("[Diag] charging not complete start\n");
 		ret = smb349_enable_charging(the_smb349_chg, true);
 	} else if (strncmp(buf, "1", 1) == 0) {
-		/*                   */
+		/* charging complete */
 		pr_info("[Diag] charging complete start\n");
 		ret = smb349_enable_charging(the_smb349_chg, false);
 	}
@@ -1314,7 +1314,7 @@ static ssize_t at_pmic_reset_show(struct device *dev,
 	int r = 0;
 	bool pm_reset = true;
 
-	msleep(3000); /*                                       */
+	msleep(3000); /* for waiting return values of testmode */
 
 	machine_restart(NULL);
 
@@ -1326,7 +1326,7 @@ DEVICE_ATTR(at_charge, 0644, at_chg_status_show, at_chg_status_store);
 DEVICE_ATTR(at_chcomp, 0644, at_chg_complete_show, at_chg_complete_store);
 DEVICE_ATTR(at_pmrst, 0644, at_pmic_reset_show, NULL);
 
-/*                                      */
+/* for dynamically smb349 irq debugging */
 static int smb349_irq_debug;
 static int smb349_irq_debug_set(const char *val, struct kernel_param *kp)
 {
@@ -1545,8 +1545,8 @@ static int smb349_chg_is_otg_active(struct smb349_struct *smb349_chg)
 }
 
 /*
-                                           
-                           
+ * Increase otg current limit step by step.
+ * 500mA -> 750mA -> 1000mA
  */
 static void smb349_change_otg_current_limit(struct smb349_struct *smb349_chg)
 {
@@ -1604,8 +1604,8 @@ static int smb349_aicl_dynamic_switch(struct smb349_struct *smb349_chg, int mode
 		if ( val & OPTICHG_DET_THR_BIT ) {
 			val &= ~OPTICHG_DET_THR_BIT;
 
-			/*                                                            
-                             */
+			/* in decreasing case, need to toggle aicl disable and disable
+			   to recover aicl result */
 			val &= ~OPTICHG_ENABLE_BIT;
 			ret = smb349_write_reg(smb349_chg->client, VAR_FUNC_REG, val);
 			if (ret) {
@@ -1733,9 +1733,9 @@ static int smb349_get_vbat_adc(void)
 #endif
 }
 
-/*                                         
-                                                
-                                                           */
+/* [smb349_bb_rechg_worker for corner case]
+ * When DC_IN voltage is lower than 4.5V at EOC,
+ * Charger doesn't re-charge, so need to monitor for rechg */
 #define SMB349_BB_RECHG_VOLT_TRESH 4200000
 #define SMB349_BB_DCIN_VOLT_TRESH  4500000
 #define SMB349_BB_RECHG_POLLING_PERIOD (60 * HZ)
@@ -1759,7 +1759,7 @@ static void smb349_bb_rechg_worker(struct work_struct *work)
 	smb349_chg->is_rechg_work_trigger = false;
 
 	pr_debug("vbat:%d, dcin:%d\n", vbat_volt/1000, dcin_volt/1000);
-	if (vbat_volt <= SMB349_BB_RECHG_VOLT_TRESH) { /*            */
+	if (vbat_volt <= SMB349_BB_RECHG_VOLT_TRESH) { /* rechg case */
 		pr_debug("kicking AICL Low\n");
 		smb349_aicl_dynamic_switch(smb349_chg, AICL_DEC);
 	} else if (dcin_volt < SMB349_BB_DCIN_VOLT_TRESH) {
@@ -1775,23 +1775,23 @@ static void smb349_bb_worker_trigger(struct smb349_struct *smb349_chg,
 	static bool is_bb_worker_running = false;
 	static bool is_bb_worker_eoc = false;
 
-	/*                             
-                                                    */
+	/* below code is for debug msg.
+	 * After verifying code, this code will be delete. */
 	int dbg_pre_running = is_bb_worker_running;
 	int dbg_pre_eoc = is_bb_worker_eoc;
 	char *dbg_msg;
 	int dbg_state = 0;
 
-	if (param.caller == 0) { /*                         */
+	if (param.caller == 0) { /* called from bottom half */
 		if (param.usb_present) {
-			if (param.val & BIT(1)) { /*               */
+			if (param.val & BIT(1)) { /* Charging TERM */
 				dbg_state = 1;
 				cancel_delayed_work_sync(&smb349_chg->bb_work);
 				smb349_aicl_dynamic_switch(smb349_chg, AICL_INC);
 				is_bb_worker_running = false;
 				is_bb_worker_eoc = true;
 				schedule_delayed_work(&smb349_chg->bb_rechg_work, 0);
-			} else if (is_bb_worker_eoc) { /*                    */
+			} else if (is_bb_worker_eoc) { /* waiting for Re-chg */
 				dbg_state = 2;
 				if (param.val & BIT(5)) {
 					dbg_state = 3;
@@ -1813,15 +1813,15 @@ static void smb349_bb_worker_trigger(struct smb349_struct *smb349_chg,
 			} else {
 				dbg_state = 5;
 			}
-		} else { /*                 */
+		} else { /* usb unplug case */
 			dbg_state = 6;
 			cancel_delayed_work_sync(&smb349_chg->bb_work);
 			smb349_aicl_dynamic_switch(smb349_chg, AICL_DEC);
 			is_bb_worker_running = false;
 			is_bb_worker_eoc = false;
 		}
-	} else if (param.caller == 1) { /*                                    */
-		if (smb349_chg->charging_disabled) { /*                  */
+	} else if (param.caller == 1) { /* called from smb349_enable_charging */
+		if (smb349_chg->charging_disabled) { /* charging disable */
 			if (is_bb_worker_running) {
 				dbg_state = 7;
 				cancel_delayed_work_sync(&smb349_chg->bb_work);
@@ -1831,7 +1831,7 @@ static void smb349_bb_worker_trigger(struct smb349_struct *smb349_chg,
 			} else {
 				dbg_state = 8;
 			}
-		} else { /*                 */
+		} else { /* charging enable */
 			if ( !is_bb_worker_running &&
 					smb349_is_charger_present(smb349_chg->client) ) {
 				dbg_state = 9;
@@ -1888,15 +1888,15 @@ static void smb349_bb_worker_trigger(struct smb349_struct *smb349_chg,
 #endif
 
 /*
-                                                                       
-                                                   
-                                                        
-                                           
-                      
-                     
-                           
-                                           
-                               
+ * Do the IRQ work from a thread context rather than interrupt context.
+ * Read status registers to clear interrupt source.
+ * Notify the power-supply driver about change detected.
+ * Relevant events for start/stop charging:
+ * 1. DC insert/remove
+ * 2. End-Of-Charging
+ * 3. Battery insert/remove
+ * 4. Temperture too hot/cold (Do not use.)
+ * 5. Charging timeout expired.
  */
 static void smb349_irq_worker(struct work_struct *work)
 {
@@ -1912,14 +1912,14 @@ static void smb349_irq_worker(struct work_struct *work)
 #endif
 
 	u8 irqstat[IRQSTAT_NUM];
-	/*                                               
-                                   
-                                   
-                                   
-                                   
-                                   
-                                   
-  */
+	/* for clearing IRQ, status register block reads.
+	 * 35h - IRQ status A - irqstat[0]
+	 * 36h - IRQ status B - irqstat[1]
+	 * 37h - IRQ status C - irqstat[2]
+	 * 38h - IRQ status D - irqstat[3]
+	 * 39h - IRQ status E - irqstat[4]
+	 * 3Ah - IRQ status F - irqstat[5]
+	 */
 	ret = smb349_read_block_reg(smb349_chg->client, IRQ_A_REG, IRQSTAT_NUM, irqstat);
 	if (ret) {
 		pr_err("Failed to read IRQ status block = %d\n", ret);
@@ -1927,8 +1927,8 @@ static void smb349_irq_worker(struct work_struct *work)
 	}
 
 #if SMB349_BOOSTBACK_WORKAROUND
-	/*                       
-                                                          */
+	/* during silent pr_info,
+	   have to monitor rechg&term, timeout, dc_in under&over */
 	if ( smb349_console_silent && ( (irqstat[IRQSTAT_C] & 0x22 ) ||
 			(irqstat[IRQSTAT_D] & 0x0A) || (irqstat[IRQSTAT_E] & 0x0A ) ))
 		smb349_console_silent = 0;
@@ -1940,13 +1940,13 @@ static void smb349_irq_worker(struct work_struct *work)
 		irqstat[0],irqstat[1], irqstat[2], irqstat[3], irqstat[4], irqstat[5]);
 #endif
 
-	/*                 */
+	/* store irqstatus */
 	smb349_irqstat_store(smb349_chg, irqstat);
 
-	/*                                 */
+	/* 3Ah - IRQ status F - irqstat[5] */
 	if ((irqstat[IRQSTAT_F] & OTG_OC_LIMIT_MASK) || (irqstat[IRQSTAT_F] & OTG_BATT_UV_MASK)) {
 		if (irqstat[IRQSTAT_F] & OTG_OC_LIMIT_MASK) {
-			/*                                                              */
+			/* otg is disabled, if otg current is over recent current limit */
 			pr_info("smb349 OTG over current limit.\n");
 
 			if (otg_limit_status < OTG_CURRENT_LIMIT_1000) {
@@ -1982,8 +1982,8 @@ static void smb349_irq_worker(struct work_struct *work)
 		}
 	}
 
-	/*                                 */
-	/*                  */
+	/* 38h - IRQ status D - irqstat[3] */
+	/* Timeout handling */
 	if ( (irqstat[IRQSTAT_D] & (BIT(0) | BIT(2))) ) {
 		pr_info("[TIMEOUT] timeout val : 0x%02X\n", irqstat[IRQSTAT_D]);
 		smb349_chg_timeout(0);
@@ -2031,8 +2031,8 @@ static void smb349_irq_worker(struct work_struct *work)
 			smb349_chg->usb_present, usb_present);
 
 #if defined(CONFIG_BQ51053B_CHARGER) && defined(CONFIG_WIRELESS_CHARGER)
-	/*                            
-                                                */
+	/*If below codes are changed ,
+	 *we have to update change in set_usb_present()*/
 	if ( (smb349_chg->usb_present ^ usb_present) ||
 			(smb349_chg->wlc_present ^ wlc_present) ||
 			(smb349_chg->chg_status == SMB_CHG_STATUS_EXCEPTION && !usb_present) ) {
@@ -2079,9 +2079,9 @@ static void smb349_irq_worker(struct work_struct *work)
 }
 
 /*
-                                                                
-                                                                          
-                                                         
+ * The STAT pin is low when charging and high when not charging.
+ * When the smb350 start/stop charging the STAT pin triggers an interrupt.
+ * Interrupt is triggered on both rising or falling edge.
  */
 static irqreturn_t smb349_irq(int irq, void *dev_id)
 {
@@ -2092,7 +2092,7 @@ static irqreturn_t smb349_irq(int irq, void *dev_id)
 #if SMB349_BOOSTBACK_WORKAROUND
 	smb349_chg->irq_trigger_cnt++;
 #endif
-	/*                                                       */
+	/* I2C transfers API should not run in interrupt context */
 	schedule_delayed_work(&smb349_chg->irq_work, msecs_to_jiffies(100));
 
 	return IRQ_HANDLED;
@@ -2223,7 +2223,7 @@ static int smb349_chg_timeout_set(struct smb349_struct *smb349_chg)
 {
 	int ret;
 
-	/*                                                   */
+	/* Complete timeout 764m, pre-charge timeout disable */
 	ret = smb349_masked_write(smb349_chg->client, STAT_TIMER_REG,
 				COMPETE_CHG_TIMEOUT_BIT | PRE_CHG_TIMEOUT_BIT, 0x7);
 	if (ret) {
@@ -2231,7 +2231,7 @@ static int smb349_chg_timeout_set(struct smb349_struct *smb349_chg)
 		return ret;
 	}
 
-	/*                        */
+	/* set Charge timeout bit */
 	ret = smb349_masked_write(smb349_chg->client, STATUS_IRQ_REG,
 				CHG_TIMEOUT_BIT, 0x80);
 	if (ret) {
@@ -2245,9 +2245,9 @@ static int smb349_chg_timeout_set(struct smb349_struct *smb349_chg)
 }
 
 /*
-                                     
-                                             
-                               
+ * val must be EN_PIN_CTRL_MASK or 0.
+ * EN_PIN_CTRL_MASK - pin control, active low
+ * 0 - I2C control, active high
  */
 static int smb349_set_pin_control(struct smb349_struct *smb349_chg, u8 val)
 {
@@ -2269,9 +2269,9 @@ static int smb349_set_pin_control(struct smb349_struct *smb349_chg, u8 val)
 }
 
 /*
-                               
-                           
-                       
+ * val must be USB_CS_BIT or 0.
+ * USB_CS_BIT - pin control
+ * 0 - register control
  */
 static int smb349_set_usbcs_control(struct smb349_struct *smb349_chg, u8 val)
 {
@@ -2312,7 +2312,7 @@ static int smb349_set_float_voltage(struct smb349_struct *smb349_chg, u8 val)
 	return 0;
 }
 
-/*                                                            */
+/* ToDo : Must implements & verify hwo to set 500mA or 100mA. */
 #define SMB349_USB_5_1_MODE_SHIFT	1
 static int smb349_set_usb_5_1_mode(struct smb349_struct *smb349_chg, u8 usb5)
 {
@@ -2457,9 +2457,9 @@ static void remove_debugfs_entries(struct smb349_struct *smb349_chg)
 		debugfs_remove_recursive(smb349_chg->dent);
 }
 
-/*                                       
-                              
-             
+/* @val must be OPTICHG_DET_THR_BIT or 0.
+*   OPTICHG_DET_THR_BIT - 4.5V
+*   0 - 4.25V
 */
 static int smb349_set_optichg_det_thr(struct smb349_struct *smb349_chg, u8 val)
 {
@@ -2504,7 +2504,7 @@ static void smb349_version_check(struct smb349_struct *smb349_chg)
 				break;
 		}
 		pr_info("chip major number : 0x%02X(%s)\n", val, str);
-		/*                                    */
+		/* only check minor number at A4 chip */
 		if (is_major_a4) {
 			ret = smb349_read_reg(smb349_chg->client, CHIP_MINOR_REG, &val);
 			if (ret) {
@@ -2577,7 +2577,7 @@ static int smb349_hwinit(struct smb349_struct *smb349_chg)
 		return ret;
 	}
 
-	/*                               */
+	/* Set Floating Voltage to 4.35v */
 	ret = smb349_set_float_voltage(smb349_chg, 0x2d);
 	if (ret) {
 		pr_err("Failed to set floating voltage rc=%d\n", ret);
@@ -2597,7 +2597,7 @@ static int smb349_hwinit(struct smb349_struct *smb349_chg)
 		return ret;
 	}
 
-	/*                                    */
+	/* set AICL detect threshold to 4.25V */
 	ret = smb349_set_optichg_det_thr(smb349_chg, 0);
 	if (ret) {
 		pr_err("Failed to set AICL threshold=%d\n", ret);
@@ -2625,7 +2625,7 @@ static int smb349_hwinit(struct smb349_struct *smb349_chg)
 	return 0;
 }
 
-/*                                         */
+/* It must be called for USB devices only. */
 static int
 smb349_set_usb_2_3_mode(struct smb349_struct *smb349_chg, bool force_usb2)
 {
@@ -2663,18 +2663,18 @@ smb349_set_usb_2_3_mode(struct smb349_struct *smb349_chg, bool force_usb2)
 	}
 
 #if SMB349_BOOSTBACK_WORKAROUND
-	/*                                           */
+	/* USB uses HC mode for boostback workaround */
 	if (smb349_chg->is_bb_work_case) {
-		if (usb3) { /*         */
+		if (usb3) { /* usb 3.0 */
 			ret = smb349_masked_write(smb349_chg->client, CHG_CURRENT_REG,
-								0x0F, 0x01); /*       */
+								0x0F, 0x01); /* 900mA */
 			if (ret) {
 				pr_err("Failed to set CHG_ENABLE_BIT rc=%d\n", ret);
 				return ret;
 			}
-		} else { /*         */
+		} else { /* usb 2.0 */
 			ret = smb349_masked_write(smb349_chg->client, CHG_CURRENT_REG,
-								0x0F, 0x00); /*       */
+								0x0F, 0x00); /* 500mA */
 			if (ret) {
 				pr_err("Failed to set CHG_ENABLE_BIT rc=%d\n", ret);
 				return ret;
@@ -2687,9 +2687,9 @@ smb349_set_usb_2_3_mode(struct smb349_struct *smb349_chg, bool force_usb2)
 }
 
 /*
-                                     
-                                       
-                
+ * mode must be USB_HC_MODE_BIT or 0.
+ * USB_HC_MODE_BIT - high current mode.
+ * 0 - usb mode.
  */
 static int smb349_usb_hc_mode(struct smb349_struct *smb349_chg, u8 mode)
 {
@@ -2711,8 +2711,8 @@ static int smb349_usb_hc_mode(struct smb349_struct *smb349_chg, u8 mode)
 }
 
 /*
-                                                            
-                                         
+ * FAST_CHARGE_SET_BIT - Allow fast-charge current settings.
+ * 0 - Force pre-charge current settings.
  */
 static int smb349_set_fast_charge(struct smb349_struct *smb349_chg, u8 val)
 {
@@ -2838,7 +2838,7 @@ static int smb349_switch_usb_to_charge_mode(struct smb349_struct *smb349_chg)
 	if (!smb349_chg_is_otg_active(smb349_chg))
 		return 0;
 
-	/*                */
+	/* enable usb otg */
 	ret = smb349_masked_write(smb349_chg->client, CMD_A_REG,
 						USB_OTG_EN_BIT, 0);
 	if (ret) {
@@ -2870,7 +2870,7 @@ static int smb349_switch_usb_to_host_mode(struct smb349_struct *smb349_chg)
 
 	smb349_enable_charging(smb349_chg, false);
 
-	/*               */
+	/* force usb otg */
 	ret = smb349_masked_write(smb349_chg->client, CMD_A_REG,
 						USB_OTG_EN_BIT, USB_OTG_EN_BIT);
 	if (ret) {
@@ -2961,7 +2961,7 @@ static void smb349_batt_external_power_changed(struct power_supply *psy)
 #else
 		smb349_usb_hc_mode(smb349_chg, 0);
 #endif
-		/*                                  */
+		/* ToDo : Must implements & verify. */
 #ifndef CONFIG_LGE_PM
 		smb349_chg->usb_psy->get_property(smb349_chg->usb_psy,
 			  POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
@@ -2973,7 +2973,7 @@ static void smb349_batt_external_power_changed(struct power_supply *psy)
 	} else if (smb349_chg->ac_online &&
 				smb349_is_charger_present(smb349_chg->client)) {
 		smb349_usb_hc_mode(smb349_chg, USB_HC_MODE_BIT);
-		/*                                  */
+		/* ToDo : Must implements & verify. */
 		if (smb349_chg->is_phy_forced_on)
 			smb349_pmic_usb_override_wrap(smb349_chg, false);
 
@@ -2987,7 +2987,7 @@ static void smb349_batt_external_power_changed(struct power_supply *psy)
 #ifdef CONFIG_WIRELESS_CHARGER
 #ifdef CONFIG_BQ51053B_CHARGER
 	} else if (wireless_charging){
-		/*                          */
+		/*Prepare Wireless Charging */
 		if(is_wireless_charger_plugged()){
 			smb349_input_current_limit_set(smb349_chg, 900);
 			smb349_usb_hc_mode(smb349_chg, USB_HC_MODE_BIT);
@@ -3027,19 +3027,19 @@ static void smb349_batt_external_power_changed(struct power_supply *psy)
 #else
 		smb349_enable_charging(smb349_chg, true);
 #endif
-		/*                                  */
+		/* ToDo : Must implements & verify. */
 #ifndef CONFIG_LGE_PM
 		smb349_chg_usb_suspend_enable(smb349_chg, 0);
 #endif
 	}
 
 	pr_debug("end of power supply changed\n");
-/*                                 */
+/*#ifndef CONFIG_MAX17050_FUELGAUGE*/
 	power_supply_changed(&smb349_chg->batt_psy);
-/*      */
+/*#endif*/
 }
 
-/*                                  */
+/* ToDo : Must implements & verify. */
 static int smb349_batt_power_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
@@ -3166,9 +3166,9 @@ int set_wireless_power_supply_control(int value)
 }
 EXPORT_SYMBOL(set_wireless_power_supply_control);
 
-/*                                                                                           
-                                                                                  
-                                                                             */
+/*W/R function to alternate smb349_irq_worker n the specific case of WLC insersion or removal
+  *case1. WLC PAD is detected to USB until WLC driver probe is finished completely
+  *case2. SMB IRQ does not happen sometimes when USB is inserted on WLC PAD  */
 #ifdef CONFIG_BQ51053B_CHARGER
 void set_usb_present(int value)
 {
@@ -3211,7 +3211,7 @@ bool external_smb349_is_charger_present(void)
 	irq_status_e = the_smb349_chg->irqstat[IRQSTAT_E];
 	mutex_unlock(&the_smb349_chg->lock);
 
-	/*                                    */
+	/* insert case is 0, remove case is 1 */
 	power_ok = !(irq_status_e & 0x01);
 
 	if (power_ok)
@@ -3284,8 +3284,8 @@ static int pm_power_set_property(struct power_supply *psy,
 		smb349_chg->ac_online = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		/*                                          */
-		//                                         
+		/* SMB329 does not use cable detect current */
+		//smb349_chg->chg_current_ma = val->intval;
 		break;
 	default:
 		return -EINVAL;
@@ -3356,20 +3356,20 @@ static void smb349_status_print(struct smb349_struct *smb349_chg)
 
 	union power_supply_propval ret = {0,};
 
-	/*     */
+	/* 3Dh */
 	rc = smb349_read_reg(client, STATUS_C_REG, &val_3d);
 	if (rc) {
 		pr_err("Failed to read STATUS_C_REG rc=%d\n", rc);
 		return;
 	}
-	/*     */
+	/* 3Bh */
 	rc = smb349_read_reg(client, STATUS_A_REG, &val_3b);
 	if (rc) {
 		pr_err("Failed to read STATUS_A_REG rc=%d\n", rc);
 		return;
 	}
 
-	/*                                                       */
+	/* 35h(irq status A) ~ 38h(irq status D) read irq status */
 	mutex_lock(&smb349_chg->lock);
 	val_35 = smb349_chg->irqstat[IRQSTAT_A];
 	val_36 = smb349_chg->irqstat[IRQSTAT_B];
@@ -3377,7 +3377,7 @@ static void smb349_status_print(struct smb349_struct *smb349_chg)
 	val_38 = smb349_chg->irqstat[IRQSTAT_D];
 	mutex_unlock(&smb349_chg->lock);
 
-	/*     */
+	/* 31h */
 	rc = smb349_read_reg(client, CMD_B_REG, &val_31);
 	if (rc) {
 		pr_err("Failed to read CMD_B_REG rc=%d\n", rc);
@@ -3414,24 +3414,24 @@ static void smb349_status_print(struct smb349_struct *smb349_chg)
 			  POWER_SUPPLY_PROP_CHARGE_TYPE, &ret);
 
 	printk(KERN_ERR "[chglog]EN:%d ERR:%d STAT:%c M:%c U:%d EOC:%d RE:%d BL:%c BO:%d BM:%d HOFF:%d TO:%c SYS:%d IT:%d TEMP:0x%02X PSY:[PRE:%d,ON:%d-%d,TYP:%d]\n",
-			val_3d & BIT(0)? 1: 0,		/*                    */
-			val_3d & BIT(6)? 1: 0,		/*                    */
-			chg_status,			/*                      */
-			val_31 & BIT(0)? 'H':'U',	/*               */
-			val_31 & BIT(2)? 3: 2,		/*                    */
-			val_3d & BIT(5)? 1: 0,		/*                                        */
-			val_37 & BIT(4)? 1: 0,		/*                                     */
-			val_3d & BIT(4)? 'L':'H',	/*                                                   */
-			val_36 & BIT(6)? 1: 0,		/*                                */
-			val_36 & BIT(4)? 1: 0,		/*                            */
-			val_3d & BIT(3)? 1: 0,		/*                               */
-			chg_timeout,			/*                                                                    */
-			val_3b & BIT(7)? 1: 0,		/*                                             */
-			val_37 & BIT(6)? 1: 0,		/*                              */
-			val_35,				/*                                               */
-			smb349_chg->usb_present,	/*                  */
-			smb349_chg->usb_online, smb349_chg->ac_online, /*                                              */
-			ret.intval			/*                               */
+			val_3d & BIT(0)? 1: 0,		/* EN:charging enable */
+			val_3d & BIT(6)? 1: 0,		/* ERR:charging error */
+			chg_status,			/* STAT:charging status */
+			val_31 & BIT(0)? 'H':'U',	/* M:USB,HC mode */
+			val_31 & BIT(2)? 3: 2,		/* U:USB2,3 selection */
+			val_3d & BIT(5)? 1: 0,		/* EOC: At least one cycle has terminated */
+			val_37 & BIT(4)? 1: 0,		/* RE: Re-charge battery thresh status */
+			val_3d & BIT(4)? 'L':'H',	/* BL: battery voltage level L:Vbat<2.1V,H:Vbat>2.1V */
+			val_36 & BIT(6)? 1: 0,		/* BO: Battery overvoltage status */
+			val_36 & BIT(4)? 1: 0,		/* BM: Battery missing status */
+			val_3d & BIT(3)? 1: 0,		/* HOFF: charger hold-off status */
+			chg_timeout,			/* TO: timeout status P:pre-chg, C:completion, B:P and C, N:not occur */
+			val_3b & BIT(7)? 1: 0,		/* SYS: system current more than input current */
+			val_37 & BIT(6)? 1: 0,		/* IT: internal temp limit 130C */
+			val_35,				/* TEMP: temperature interrupt register 35h dump */
+			smb349_chg->usb_present,	/* PRE: usb_present */
+			smb349_chg->usb_online, smb349_chg->ac_online, /* ON: power_supply online usb_online-ac_online */
+			ret.intval			/* TYP: power_supply charger type*/
 		);
 }
 #endif
@@ -3657,7 +3657,7 @@ static int __devinit smb349_probe(struct i2c_client *client,
 	uint *smem_batt = 0;
 #endif
 
-	/*                                        */
+	/* STAT pin change on start/stop charging */
 	u32 irq_flags = IRQF_TRIGGER_FALLING;
 
 	unsigned int *p_cable_type = (unsigned int *)
@@ -3709,8 +3709,8 @@ static int __devinit smb349_probe(struct i2c_client *client,
 			smb349_chg->otg_en_gpio =
 				of_get_named_gpio(dev_node, "summit,otg-en-gpio", 0);
 			if (smb349_chg->otg_en_gpio < 0) {
-/*                                                
-                                                        */
+/* Todo check below commit after bring-up LAF mode
+ * Change-Id: I0f2352dc17eb08ec00d67f1a64f3979090ef4db3 */
 			//                                                                            
 				printk("Unable to get named gpio for otg_en_gpio.\n");
 				return smb349_chg->otg_en_gpio;
@@ -3803,8 +3803,8 @@ static int __devinit smb349_probe(struct i2c_client *client,
 	{
 		ret = gpio_request(smb349_chg->otg_en_gpio, "otg_en");
 		if (ret) {
-/*                                                
-                                                        */
+/* Todo check below commit after bring-up LAF mode
+ * Change-Id: I0f2352dc17eb08ec00d67f1a64f3979090ef4db3 */
 		//                                                    
 			printk("otg_en_gpio gpio_request failed for %d ret=%d\n",
 				   smb349_chg->otg_en_gpio, ret);
@@ -3833,12 +3833,12 @@ static int __devinit smb349_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, smb349_chg);
 
 #ifndef CONFIG_LGE_PM
-	/*                        */
-	/*                    */
-	/*                                   */
+	/* Control chg_susp_gpio. */
+	/* Control en_n_gpio. */
+	/* Wait the device to exist shutdown */
 #endif
 
-	/*                             */
+	/* Read I2C_BUS_SLAVE_ADDR_REG */
 	ret = smb349_read_reg(client, I2C_BUS_SLAVE_ADDR_REG, &temp);
 	if ((ret) || ((temp >> 1) != client->addr)) {
 		pr_err("No device.\n");
@@ -3847,10 +3847,10 @@ static int __devinit smb349_probe(struct i2c_client *client,
 	}
 	pr_debug("I2C_BUS_SLAVE_ADDR_REG.0x%x\n", temp);
 
-	/*                                   */
+	/* checking chip version information */
 	smb349_version_check(smb349_chg);
 
-	/*                    */
+	/* initialize irqstat */
 	smb349_irqstat_init(smb349_chg);
 
 	ret = smb349_hwinit(smb349_chg);
@@ -3901,7 +3901,7 @@ static int __devinit smb349_probe(struct i2c_client *client,
 	}
 
 	smb349_chg->batt_removed.name = "battery_removed";
-	smb349_chg->batt_removed.state = 0; /*                                           */
+	smb349_chg->batt_removed.state = 0; /*if batt is removed, state will be set to 1 */
 	smb349_chg->batt_removed.print_name = batt_removed_print_name;
 	smb349_chg->batt_removed.print_state = batt_removed_print_state;
 
@@ -4134,7 +4134,7 @@ static int __devexit smb349_remove(struct i2c_client *client)
 static int smb349_suspend_enable(struct smb349_struct *smb349_chg, bool enable)
 {
 	int ret;
-	u8 val = (u8)(!!enable << SUSPEND_MODE_SHIFT); /*             */
+	u8 val = (u8)(!!enable << SUSPEND_MODE_SHIFT); /* active high */
 
 	ret = smb349_masked_write(smb349_chg->client, CMD_A_REG,
 					SUSPEND_MODE_BIT, val);
@@ -4187,11 +4187,11 @@ static void smb349_shutdown(struct i2c_client *client)
 	}
 
 	if (smb349_pmic_batt_present()) {
-	/*                                                  
-                                   */
+	/* sometimes failed to boot after reseting the phone
+	 * when using low voltage adapter */
 		smb349_pmic_usb_override_wrap(smb349_chg, false);
-	/*                                                                  
-                                                                       */
+	/* after entering shutdown, phy_vbus should remain normal operation.
+	 * garantee phy_vbus still remains normal op by using below variable. */
 		smb349_chg->is_phy_forced_on = true;
 		smb349_suspend_enable(smb349_chg, true);
 		mdelay(100);

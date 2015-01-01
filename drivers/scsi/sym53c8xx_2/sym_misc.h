@@ -41,11 +41,11 @@
 #define SYM_MISC_H
 
 /*
-                                    
+ *  A la VMS/CAM-3 queue management.
  */
 typedef struct sym_quehead {
-	struct sym_quehead *flink;	/*                  */
-	struct sym_quehead *blink;	/*                  */
+	struct sym_quehead *flink;	/* Forward  pointer */
+	struct sym_quehead *blink;	/* Backward pointer */
 } SYM_QUEHEAD;
 
 #define sym_que_init(ptr) do { \
@@ -154,7 +154,7 @@ static inline struct sym_quehead *sym_remque_tail(struct sym_quehead *head)
 }
 
 /*
-                           
+ *  This one may be useful.
  */
 #define FOR_EACH_QUEUED_ELEMENT(head, qp) \
 	for (qp = (head)->flink; qp != (head); qp = qp->flink)
@@ -165,21 +165,21 @@ static inline struct sym_quehead *sym_remque_tail(struct sym_quehead *head)
 #define sym_qptr(p)	((struct sym_quehead *) (p))
 
 /*
-                             
+ *  Simple bitmap operations.
  */ 
 #define sym_set_bit(p, n)	(((u32 *)(p))[(n)>>5] |=  (1<<((n)&0x1f)))
 #define sym_clr_bit(p, n)	(((u32 *)(p))[(n)>>5] &= ~(1<<((n)&0x1f)))
 #define sym_is_bit(p, n)	(((u32 *)(p))[(n)>>5] &   (1<<((n)&0x1f)))
 
 /*
-                                                                 
-                                                              
-                            
+ * The below round up/down macros are to be used with a constant 
+ * as argument (sizeof(...) for example), for the compiler to 
+ * optimize the whole thing.
  */
 #define _U_(a,m)	(a)<=(1<<m)?m:
 
 /*
-                                                     
+ * Round up logarithm to base 2 of a 16 bit constant.
  */
 #define _LGRU16_(a) \
 ( \
@@ -187,4 +187,4 @@ static inline struct sym_quehead *sym_remque_tail(struct sym_quehead *head)
  _U_(a, 8)_U_(a, 9)_U_(a,10)_U_(a,11)_U_(a,12)_U_(a,13)_U_(a,14)_U_(a,15) \
  16)
 
-#endif /*            */
+#endif /* SYM_MISC_H */

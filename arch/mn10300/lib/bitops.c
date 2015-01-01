@@ -12,7 +12,7 @@
 #include <asm/bitops.h>
 
 /*
-                                         
+ * try flipping a bit using BSET and BCLR
  */
 void change_bit(unsigned long nr, volatile void *addr)
 {
@@ -31,7 +31,7 @@ try_clear_bit:
 }
 
 /*
-                                                                     
+ * try flipping a bit using BSET and BCLR and returning the old value
  */
 int test_and_change_bit(unsigned long nr, volatile void *addr)
 {

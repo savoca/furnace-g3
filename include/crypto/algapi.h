@@ -179,7 +179,7 @@ void *__crypto_dequeue_request(struct crypto_queue *queue, unsigned int offset);
 struct crypto_async_request *crypto_dequeue_request(struct crypto_queue *queue);
 int crypto_tfm_in_queue(struct crypto_queue *queue, struct crypto_tfm *tfm);
 
-/*                                                                */
+/* These functions require the input/output to be aligned as u32. */
 void crypto_inc(u8 *a, unsigned int size);
 void crypto_xor(u8 *dst, const u8 *src, unsigned int size);
 
@@ -378,13 +378,13 @@ static inline struct crypto_alg *crypto_get_attr_alg(struct rtattr **tb,
 }
 
 /*
-                                                                             
-                          
+ * Returns CRYPTO_ALG_ASYNC if type/mask requires the use of sync algorithms.
+ * Otherwise returns zero.
  */
 static inline int crypto_requires_sync(u32 type, u32 mask)
 {
 	return (type ^ CRYPTO_ALG_ASYNC) & mask & CRYPTO_ALG_ASYNC;
 }
 
-#endif	/*                  */
+#endif	/* _CRYPTO_ALGAPI_H */
 

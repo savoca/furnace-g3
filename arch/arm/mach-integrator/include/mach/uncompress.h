@@ -26,7 +26,7 @@
 #define AMBA_UART_FR	(*(volatile unsigned char *)0x16000018)
 
 /*
-                                 
+ * This does not append a newline
  */
 static void putc(int c)
 {
@@ -43,7 +43,7 @@ static inline void flush(void)
 }
 
 /*
-                
+ * nothing to do
  */
 #define arch_decomp_setup()
 

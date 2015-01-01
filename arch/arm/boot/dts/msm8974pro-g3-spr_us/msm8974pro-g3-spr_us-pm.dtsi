@@ -32,6 +32,7 @@
 		bq24296@6b {
 			status ="ok";
 			revision = "rev_b...";
+			ti,pre-input-current-ma = <1000>;
 		};
 		idtp9025a@25 {
 			revision = "rev_b...";

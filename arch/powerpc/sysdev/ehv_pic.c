@@ -39,7 +39,7 @@ static u32 __iomem *mpic_percpu_base_vaddr;
 #define MPIC_EOI  0x00B0
 
 /*
-                                   
+ * Linux descriptor level callbacks
  */
 
 void ehv_pic_unmask_irq(struct irq_data *d)
@@ -86,7 +86,7 @@ int ehv_pic_set_affinity(struct irq_data *d, const struct cpumask *dest,
 
 static unsigned int ehv_pic_type_to_vecpri(unsigned int type)
 {
-	/*                         */
+	/* Now convert sense value */
 
 	switch (type & IRQ_TYPE_SENSE_MASK) {
 	case IRQ_TYPE_EDGE_RISING:
@@ -133,10 +133,10 @@ int ehv_pic_set_irq_type(struct irq_data *d, unsigned int flow_type)
 	vnew |= vecpri;
 
 	/*
-                                                          
-                                    
-                                                                 
-  */
+	 * TODO : Add specific interface call for platform to set
+	 * individual interrupt priorities.
+	 * platform currently using static/default priority for all ints
+	 */
 
 	prio = 8;
 
@@ -160,7 +160,7 @@ static struct irq_chip ehv_pic_direct_eoi_irq_chip = {
 	.irq_set_type	= ehv_pic_set_irq_type,
 };
 
-/*                                                                  */
+/* Return an interrupt vector or NO_IRQ if no interrupt is pending. */
 unsigned int ehv_pic_get_irq(void)
 {
 	int irq;
@@ -168,23 +168,23 @@ unsigned int ehv_pic_get_irq(void)
 	BUG_ON(global_ehv_pic == NULL);
 
 	if (global_ehv_pic->coreint_flag)
-		irq = mfspr(SPRN_EPR); /*                  */
+		irq = mfspr(SPRN_EPR); /* if core int mode */
 	else
-		ev_int_iack(0, &irq); /*             */
+		ev_int_iack(0, &irq); /* legacy mode */
 
-	if (irq == 0xFFFF)    /*                              */
+	if (irq == 0xFFFF)    /* 0xFFFF --> no irq is pending */
 		return NO_IRQ;
 
 	/*
-                                                                
-                                                                 
-  */
+	 * this will also setup revmap[] in the slow path for the first
+	 * time, next calls will always use fast path by indexing revmap
+	 */
 	return irq_linear_revmap(global_ehv_pic->irqhost, irq);
 }
 
 static int ehv_pic_host_match(struct irq_domain *h, struct device_node *node)
 {
-	/*                                          */
+	/* Exact match, unless ehv_pic node is NULL */
 	return h->of_node == NULL || h->of_node == node;
 }
 
@@ -194,7 +194,7 @@ static int ehv_pic_host_map(struct irq_domain *h, unsigned int virq,
 	struct ehv_pic *ehv_pic = h->host_data;
 	struct irq_chip *chip;
 
-	/*              */
+	/* Default chip */
 	chip = &ehv_pic->hc_irq;
 
 	if (mpic_percpu_base_vaddr)
@@ -203,15 +203,15 @@ static int ehv_pic_host_map(struct irq_domain *h, unsigned int virq,
 
 	irq_set_chip_data(virq, chip);
 	/*
-                                                          
-                                                        
-                                                            
-                                                           
-                  
-  */
+	 * using handle_fasteoi_irq as our irq handler, this will
+	 * only call the eoi callback and suitable for the MPIC
+	 * controller which set ISR/IPR automatically and clear the
+	 * highest priority active interrupt in ISR/IPR when we do
+	 * a specific eoi
+	 */
 	irq_set_chip_and_handler(virq, chip, handle_fasteoi_irq);
 
-	/*                      */
+	/* Set default irq type */
 	irq_set_irq_type(virq, IRQ_TYPE_NONE);
 
 	return 0;
@@ -223,11 +223,11 @@ static int ehv_pic_host_xlate(struct irq_domain *h, struct device_node *ct,
 
 {
 	/*
-                                                            
-                                                         
-                                               
-                                                     
-  */
+	 * interrupt sense values coming from the guest device tree
+	 * interrupt specifiers can have four possible sense and
+	 * level encoding information and they need to
+	 * be translated between firmware type & linux type.
+	 */
 
 	static unsigned char map_of_senses_to_linux_irqtype[4] = {
 		IRQ_TYPE_EDGE_FALLING,

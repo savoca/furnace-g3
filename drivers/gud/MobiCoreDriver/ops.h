@@ -32,4 +32,4 @@ bool mc_fastcall(void *data);
 int mc_fastcall_init(struct mc_context *context);
 void mc_fastcall_destroy(void);
 
-#endif /*            */
+#endif /* _MC_OPS_H_ */

@@ -75,6 +75,16 @@ config LGE_DM_APP
 	 LGE DM APP Support
 endmenu
 
+menu "LGE ACG Carrier Code"
+
+config LGE_ACG_CARRIER_CODE
+    bool "LGE ACG Carrier Code"
+    default n
+    depends on MACH_LGE
+    help
+     LGE ACG Carrier Code
+endmenu
+
 config LGE_TESTMODE_CRC_SKIP
 	bool "LGE factory testmode Support"
 	default n

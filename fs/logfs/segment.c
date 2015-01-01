@@ -22,7 +22,7 @@ static int logfs_mark_segment_bad(struct super_block *sb, u32 segno)
 	if (err)
 		return err;
 	logfs_super(sb)->s_bad_segments++;
-	/*                         */
+	/* FIXME: write to journal */
 	return 0;
 }
 
@@ -75,7 +75,7 @@ int __logfs_buf_write(struct logfs_area *area, u64 ofs, void *buf, size_t len,
 	long offset = ofs & (PAGE_SIZE-1);
 	long copylen;
 
-	/*                                        */
+	/* Only logfs_wbuf_recover may use len==0 */
 	BUG_ON(!len && !use_filler);
 	do {
 		copylen = min((ulong)len, PAGE_SIZE - offset);
@@ -83,7 +83,7 @@ int __logfs_buf_write(struct logfs_area *area, u64 ofs, void *buf, size_t len,
 		page = get_mapping_page(area->a_sb, index, use_filler);
 		if (IS_ERR(page))
 			return PTR_ERR(page);
-		BUG_ON(!page); /*                       */
+		BUG_ON(!page); /* FIXME: reserve a pool */
 		SetPageUptodate(page);
 		memcpy(page_address(page) + offset, buf, copylen);
 
@@ -112,7 +112,7 @@ static void pad_partial_page(struct logfs_area *area)
 
 	if (len % PAGE_SIZE) {
 		page = get_mapping_page(sb, index, 0);
-		BUG_ON(!page); /*                       */
+		BUG_ON(!page); /* FIXME: reserve a pool */
 		memset(page_address(page) + offset, 0xff, len);
 		if (!PagePrivate(page)) {
 			SetPagePrivate(page);
@@ -134,7 +134,7 @@ static void pad_full_pages(struct logfs_area *area)
 
 	while (no_indizes) {
 		page = get_mapping_page(sb, index, 0);
-		BUG_ON(!page); /*                       */
+		BUG_ON(!page); /* FIXME: reserve a pool */
 		SetPageUptodate(page);
 		memset(page_address(page), 0xff, PAGE_CACHE_SIZE);
 		if (!PagePrivate(page)) {
@@ -148,8 +148,8 @@ static void pad_full_pages(struct logfs_area *area)
 }
 
 /*
-                                                                               
-                                                                        
+ * bdev_writeseg will write full pages.  Memset the tail to prevent data leaks.
+ * Also make sure we allocate (and memset) all pages for final writeout.
  */
 static void pad_wbuf(struct logfs_area *area, int final)
 {
@@ -159,9 +159,9 @@ static void pad_wbuf(struct logfs_area *area, int final)
 }
 
 /*
-                                                                           
-                                                                             
-                                                                 
+ * We have to be careful with the alias tree.  Since lookup is done by bix,
+ * it needs to be normalized, so 14, 15, 16, etc. all match when dealing with
+ * indirect blocks.  So always use it through accessor functions.
  */
 static void *alias_tree_lookup(struct super_block *sb, u64 ino, u64 bix,
 		level_t level)
@@ -236,7 +236,7 @@ int logfs_load_object_aliases(struct super_block *sb,
 			block = __alloc_block(sb, ino, bix, level);
 			block->ops = &btree_block_ops;
 			err = alias_tree_insert(sb, ino, bix, level, block);
-			BUG_ON(err); /*               */
+			BUG_ON(err); /* mempool empty */
 		}
 		if (test_and_set_bit(item->child_no, block->alias_map)) {
 			printk(KERN_ERR"LogFS: Alias collision detected\n");
@@ -307,12 +307,12 @@ static int __logfs_segment_write(struct inode *inode, void *buf,
 	ofs = logfs_get_free_bytes(area, len + LOGFS_OBJECT_HEADERSIZE);
 	LOGFS_BUG_ON(ofs <= 0, sb);
 	/*
-                                                                 
-                                                                     
-                                                                   
-                                                               
-                        
-  */
+	 * Order is important.  logfs_get_free_bytes(), by modifying the
+	 * segment file, may modify the content of the very page we're about
+	 * to write now.  Which is fine, as long as the calculated crc and
+	 * written data still match.  So do the modifications _before_
+	 * calculating the crc.
+	 */
 
 	h.len	= cpu_to_be16(len);
 	h.type	= type;
@@ -353,11 +353,11 @@ static s64 logfs_segment_write_compress(struct inode *inode, void *buf,
 	return ret;
 }
 
-/* 
-                                                         
-                                 
-  
-                            
+/**
+ * logfs_segment_write - write data block to object store
+ * @inode:		inode containing data
+ *
+ * Returns an errno or zero.
  */
 int logfs_segment_write(struct inode *inode, struct page *page,
 		struct logfs_shadow *shadow)
@@ -372,7 +372,7 @@ int logfs_segment_write(struct inode *inode, struct page *page,
 	BUG_ON(super->s_flags & LOGFS_SB_FLAG_SHUTDOWN);
 	do_compress = logfs_inode(inode)->li_flags & LOGFS_IF_COMPRESSED;
 	if (shadow->gc_level != 0) {
-		/*                                                     */
+		/* temporarily disable compression for indirect blocks */
 		do_compress = 0;
 	}
 
@@ -391,7 +391,7 @@ int logfs_segment_write(struct inode *inode, struct page *page,
 			shadow->ino, shadow->bix, shadow->gc_level,
 			shadow->old_ofs, shadow->new_ofs,
 			shadow->old_len, shadow->new_len);
-	/*                                              */
+	/* this BUG_ON did catch a locking bug.  useful */
 	BUG_ON(!(shadow->new_ofs & (super->s_segsize - 1)));
 	return ret;
 }
@@ -421,9 +421,9 @@ int wbuf_read(struct super_block *sb, u64 ofs, size_t len, void *buf)
 }
 
 /*
-                                                                          
-                                                                         
-                                                                       
+ * The "position" of indirect blocks is ambiguous.  It can be the position
+ * of any data block somewhere behind this indirect block.  So we need to
+ * normalize the positions through logfs_block_mask() before comparing.
  */
 static int check_pos(struct super_block *sb, u64 pos1, u64 pos2, level_t level)
 {
@@ -506,9 +506,9 @@ static void move_btree_to_page(struct inode *inode, struct page *page,
 }
 
 /*
-                                                                             
-                                                       
-                                                               
+ * This silences a false, yet annoying gcc warning.  I hate it when my editor
+ * jumps into bitops.h each time I recompile this file.
+ * TODO: Complain to gcc folks about this and upgrade compiler.
  */
 static unsigned long fnb(const unsigned long *addr,
 		unsigned long size, unsigned long offset)
@@ -540,7 +540,7 @@ void move_page_to_btree(struct page *page)
 			break;
 
 		item = mempool_alloc(super->s_alias_pool, GFP_NOFS);
-		BUG_ON(!item); /*               */
+		BUG_ON(!item); /* mempool empty */
 		memset(item, 0, sizeof(*item));
 
 		child = kmap_atomic(page);
@@ -559,7 +559,7 @@ void move_page_to_btree(struct page *page)
 	block->ops = &btree_block_ops;
 	err = alias_tree_insert(block->sb, block->ino, block->bix, block->level,
 			block);
-	BUG_ON(err); /*               */
+	BUG_ON(err); /* mempool empty */
 	ClearPageUptodate(page);
 }
 
@@ -642,15 +642,15 @@ out_err:
 	return err;
 }
 
-/* 
-                                                         
-                                 
-                     
-                              
-                     
-                       
-  
-                                            
+/**
+ * logfs_segment_read - read data block from object store
+ * @inode:		inode containing data
+ * @buf:		data buffer
+ * @ofs:		physical data offset
+ * @bix:		block index
+ * @level:		block level
+ *
+ * Returns 0 on success or a negative errno.
  */
 int logfs_segment_read(struct inode *inode, struct page *page,
 		u64 ofs, u64 bix, level_t level)
@@ -792,8 +792,8 @@ void logfs_sync_segments(struct super_block *sb)
 }
 
 /*
-                                                                     
-                                                                 
+ * Pick a free segment to be used for this area.  Effectively takes a
+ * candidate from the free list (not really a candidate anymore).
  */
 static void ostore_get_free_segment(struct logfs_area *area)
 {
@@ -891,7 +891,7 @@ static void map_invalidatepage(struct page *page, unsigned long l)
 
 static int map_releasepage(struct page *page, gfp_t g)
 {
-	/*                           */
+	/* Don't release these pages */
 	return 0;
 }
 
@@ -913,7 +913,7 @@ int logfs_init_mapping(struct super_block *sb)
 	super->s_mapping_inode = inode;
 	mapping = inode->i_mapping;
 	mapping->a_ops = &mapping_aops;
-	/*                                                    */
+	/* Would it be possible to use __GFP_HIGHMEM as well? */
 	mapping_set_gfp_mask(mapping, GFP_NOFS);
 	return 0;
 }

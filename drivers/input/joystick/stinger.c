@@ -4,7 +4,7 @@
  */
 
 /*
-                                          
+ * Gravis Stinger gamepad driver for Linux
  */
 
 /*
@@ -41,13 +41,13 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
 
 /*
-             
+ * Constants.
  */
 
 #define STINGER_MAX_LENGTH 8
 
 /*
-                    
+ * Per-Stinger data.
  */
 
 struct stinger {
@@ -58,8 +58,8 @@ struct stinger {
 };
 
 /*
-                                                                        
-                                            
+ * stinger_process_packet() decodes packets the driver receives from the
+ * Stinger. It updates the data accordingly.
  */
 
 static void stinger_process_packet(struct stinger *stinger)
@@ -89,9 +89,9 @@ static void stinger_process_packet(struct stinger *stinger)
 }
 
 /*
-                                                                        
-                                                                            
-                             
+ * stinger_interrupt() is called by the low level driver when characters
+ * are ready for us. We then buffer them for further processing, or call the
+ * packet processing routine.
  */
 
 static irqreturn_t stinger_interrupt(struct serio *serio,
@@ -99,7 +99,7 @@ static irqreturn_t stinger_interrupt(struct serio *serio,
 {
 	struct stinger *stinger = serio_get_drvdata(serio);
 
-	/*                                 */
+	/* All Stinger packets are 4 bytes */
 
 	if (stinger->idx < STINGER_MAX_LENGTH)
 		stinger->data[stinger->idx++] = data;
@@ -113,7 +113,7 @@ static irqreturn_t stinger_interrupt(struct serio *serio,
 }
 
 /*
-                                                            
+ * stinger_disconnect() is the opposite of stinger_connect()
  */
 
 static void stinger_disconnect(struct serio *serio)
@@ -127,9 +127,9 @@ static void stinger_disconnect(struct serio *serio)
 }
 
 /*
-                                                                      
-                                                                      
-                   
+ * stinger_connect() is the routine that is called when someone adds a
+ * new serio device that supports Stinger protocol and registers it as
+ * an input device.
  */
 
 static int stinger_connect(struct serio *serio, struct serio_driver *drv)
@@ -182,7 +182,7 @@ static int stinger_connect(struct serio *serio, struct serio_driver *drv)
 }
 
 /*
-                              
+ * The serio driver structure.
  */
 
 static struct serio_device_id stinger_serio_ids[] = {
@@ -209,7 +209,7 @@ static struct serio_driver stinger_drv = {
 };
 
 /*
-                                                       
+ * The functions for inserting/removing us as a module.
  */
 
 static int __init stinger_init(void)

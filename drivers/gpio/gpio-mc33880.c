@@ -16,8 +16,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-/*          
-                                              
+/* Supports:
+ * Freescale MC33880 high-side/low-side switch
  */
 
 #include <linux/init.h>
@@ -31,7 +31,7 @@
 #define DRIVER_NAME "mc33880"
 
 /*
-                                                   
+ * Pin configurations, see MAX7301 datasheet page 6
  */
 #define PIN_CONFIG_MASK 0x03
 #define PIN_CONFIG_IN_PULLUP 0x03
@@ -42,11 +42,11 @@
 
 
 /*
-                                              
-                                            
+ * Some registers must be read back to modify.
+ * To save time we cache them here in memory
  */
 struct mc33880 {
-	struct mutex	lock;	/*                                    */
+	struct mutex	lock;	/* protect from simultaneous accesses */
 	u8		port_config;
 	struct gpio_chip chip;
 	struct spi_device *spi;
@@ -93,8 +93,8 @@ static int __devinit mc33880_probe(struct spi_device *spi)
 	}
 
 	/*
-                                                       
-  */
+	 * bits_per_word cannot be configured in platform data
+	 */
 	spi->bits_per_word = 8;
 
 	ret = spi_setup(spi);
@@ -120,10 +120,10 @@ static int __devinit mc33880_probe(struct spi_device *spi)
 	mc->chip.owner = THIS_MODULE;
 
 	mc->port_config = 0x00;
-	/*                                                             
-                                                                
-                        
-  */
+	/* write twice, because during initialisation the first setting
+	 * is just for testing SPI communication, and the second is the
+	 * "real" configuration
+	 */
 	ret = mc33880_write_config(mc);
 	mc->port_config = 0x00;
 	if (!ret)
@@ -182,8 +182,8 @@ static int __init mc33880_init(void)
 {
 	return spi_register_driver(&mc33880_driver);
 }
-/*                                                
-                                                
+/* register after spi postcore initcall and before
+ * subsys initcalls that may rely on these GPIOs
  */
 subsys_initcall(mc33880_init);
 

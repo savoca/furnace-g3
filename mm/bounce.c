@@ -1,6 +1,6 @@
-/*                                         
-  
-                         
+/* bounce buffer handling for block devices
+ *
+ * - Split from highmem.c
  */
 
 #include <linux/mm.h>
@@ -42,7 +42,7 @@ static __init int init_emergency_pool(void)
 __initcall(init_emergency_pool);
 
 /*
-                                 
+ * highmem version, map in to vec
  */
 static void bounce_copy_vec(struct bio_vec *to, unsigned char *vfrom)
 {
@@ -56,15 +56,15 @@ static void bounce_copy_vec(struct bio_vec *to, unsigned char *vfrom)
 	local_irq_restore(flags);
 }
 
-#else /*                */
+#else /* CONFIG_HIGHMEM */
 
 #define bounce_copy_vec(to, vfrom)	\
 	memcpy(page_address((to)->bv_page) + (to)->bv_offset, vfrom, (to)->bv_len)
 
-#endif /*                */
+#endif /* CONFIG_HIGHMEM */
 
 /*
-                                                    
+ * allocate pages in the DMA region for the ISA pool
  */
 static void *mempool_alloc_pages_isa(gfp_t gfp_mask, void *data)
 {
@@ -72,8 +72,8 @@ static void *mempool_alloc_pages_isa(gfp_t gfp_mask, void *data)
 }
 
 /*
-                                                                      
-                                                                     
+ * gets called "every" time someone init's a queue with BLK_BOUNCE_ISA
+ * as the max address, so check if the pool has already been created.
  */
 int init_emergency_isa_pool(void)
 {
@@ -89,9 +89,9 @@ int init_emergency_isa_pool(void)
 }
 
 /*
-                                                                   
-                                                                    
-                                     
+ * Simple bounce buffer support for highmem pages. Depending on the
+ * queue gfp mask set, *to may or may not be a highmem page. kmap it
+ * always, it will do the Right Thing
  */
 static void copy_to_high_bio_irq(struct bio *to, struct bio *from)
 {
@@ -103,16 +103,16 @@ static void copy_to_high_bio_irq(struct bio *to, struct bio *from)
 		fromvec = from->bi_io_vec + i;
 
 		/*
-                
-   */
+		 * not bounced
+		 */
 		if (tovec->bv_page == fromvec->bv_page)
 			continue;
 
 		/*
-                                                           
-                                                           
-                                               
-   */
+		 * fromvec->bv_offset and fromvec->bv_len might have been
+		 * modified by the block layer, so use the original copy,
+		 * bounce_copy_vec already uses tovec->bv_len
+		 */
 		vfrom = page_address(fromvec->bv_page) + tovec->bv_offset;
 
 		bounce_copy_vec(tovec, vfrom);
@@ -130,8 +130,8 @@ static void bounce_end_io(struct bio *bio, mempool_t *pool, int err)
 		set_bit(BIO_EOPNOTSUPP, &bio_orig->bi_flags);
 
 	/*
-                                      
-  */
+	 * free up bounce indirect pages used
+	 */
 	__bio_for_each_segment(bvec, bio, i, 0) {
 		org_vec = bio_orig->bi_io_vec + i;
 		if (bvec->bv_page == org_vec->bv_page)
@@ -188,14 +188,14 @@ static void __blk_queue_bounce(struct request_queue *q, struct bio **bio_orig,
 		page = from->bv_page;
 
 		/*
-                                          
-   */
+		 * is destination page below bounce pfn?
+		 */
 		if (page_to_pfn(page) <= queue_bounce_pfn(q))
 			continue;
 
 		/*
-                   
-   */
+		 * irk, bounce it
+		 */
 		if (!bio) {
 			unsigned int cnt = (*bio_orig)->bi_vcnt;
 
@@ -223,17 +223,17 @@ static void __blk_queue_bounce(struct request_queue *q, struct bio **bio_orig,
 	}
 
 	/*
-                    
-  */
+	 * no pages bounced
+	 */
 	if (!bio)
 		return;
 
 	trace_block_bio_bounce(q, *bio_orig);
 
 	/*
-                                                               
-         
-  */
+	 * at least one page was bounced, fill in possible non-highmem
+	 * pages
+	 */
 	__bio_for_each_segment(from, *bio_orig, i, 0) {
 		to = bio_iovec_idx(bio, i);
 		if (!to->bv_page) {
@@ -271,16 +271,16 @@ void blk_queue_bounce(struct request_queue *q, struct bio **bio_orig)
 	mempool_t *pool;
 
 	/*
-                                    
-  */
+	 * Data-less bio, nothing to bounce
+	 */
 	if (!bio_has_data(*bio_orig))
 		return;
 
 	/*
-                                                                  
-                                                                    
-                                                
-  */
+	 * for non-isa bounce case, just check if the bounce pfn is equal
+	 * to or bigger than the highest pfn in the system -- in that case,
+	 * don't waste time iterating over bio segments
+	 */
 	if (!(q->bounce_gfp & GFP_DMA)) {
 		if (queue_bounce_pfn(q) >= blk_max_pfn)
 			return;
@@ -291,8 +291,8 @@ void blk_queue_bounce(struct request_queue *q, struct bio **bio_orig)
 	}
 
 	/*
-             
-  */
+	 * slow path
+	 */
 	__blk_queue_bounce(q, bio_orig, pool);
 }
 

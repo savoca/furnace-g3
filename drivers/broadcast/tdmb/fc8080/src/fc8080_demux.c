@@ -11,7 +11,7 @@
 *******************************************************************************/
 
 /*
-                      
+** Include Header File
 */
 #include "../inc/fci_types.h"
 #include "../inc/fc8080_regs.h"
@@ -19,11 +19,11 @@
 
 #include <linux/input.h>
 
-/*                                                            
-                     
-                                                             */
+/*============================================================
+**	  1.   DEFINITIONS
+*============================================================*/
 
-//          
+// Sync byte
 #define SYNC_MASK_FIC           0x80
 #define SYNC_MASK_DM            0x90
 #define SYNC_MASK_NVIDEO        0xC0
@@ -31,32 +31,32 @@
 #define SYNC_MASK_VIDEO1        0xB8
 #define SYNC_MASK_APAD          0xA0
 
-//                 
+// packet indicator
 #define PKT_IND_NONE            0x00
 #define PKT_IND_END             0x20
 #define PKT_IND_CONTINUE        0x40
 #define PKT_IND_START           0x80
 #define PKT_IND_MASK            0xE0
 
-//          
+// data size
 #define FIC_DATA_SIZE           (FIC_BUF_LENGTH / 2)
 #define MSC_DATA_SIZE           (CH0_BUF_LENGTH / 2)
 #define DM_DATA_SIZE            188
 #define NV_DATA_SIZE            (CH2_BUF_LENGTH / 2)
 
-//                       
+// TS service information
 typedef struct _TS_FRAME_INFO
 {
 	fci_u8	ind;
-	fci_u16	length;   //                         
-	fci_u8	subch_id; //          
+	fci_u16	length;   // current receiving length
+	fci_u8	subch_id; // sub ch id
 	fci_u8*	buffer;
 #ifdef TSIF_LGE_IF
 	fci_u8	done;
 #endif
 } TS_FRAME_INFO;
 
-//                            
+// TS frame header information
 typedef struct _TS_FRAME_HDR_
 {
 	fci_u8	sync;
@@ -65,9 +65,9 @@ typedef struct _TS_FRAME_HDR_
 	fci_u8*	data;
 } TS_FRAME_HDR;
 
-/*                                                            
-                   
-                                                             */
+/*============================================================
+**	  2.   Variables
+*============================================================*/
 static int (*pFicCallback)(fci_u32 userdata, fci_u8 *data, int length) = NULL;
 static int (*pMscCallback)(fci_u32 userdata, fci_u8 subChId, fci_u8 *data, int length) = NULL;
 static fci_u32 gFicUserData = 0, gMscUserData = 0;
@@ -119,9 +119,9 @@ TS_FRAME_INFO sTSNVideo[8] = {
 	{0, 0, 0xff, NULL, 0}
 };
 
-/*                                                            
-                            
-                                                             */
+/*============================================================
+**	  3.   Function Prototype
+*============================================================*/
 int ts_fic_gather(fci_u8* data, fci_u32 length)
 {
 	fci_u16 len;
@@ -132,41 +132,41 @@ int ts_fic_gather(fci_u8* data, fci_u32 length)
 	header.length	= (data[2] << 8) | data[3];
 	header.data		= &data[4];
 
-	//                    
+	// current real length
 	len = (header.length > 184) ? 184 : header.length;
 
-	if(header.ind == PKT_IND_START) { //                
-		//                                                     
+	if(header.ind == PKT_IND_START) { // fic start frame
+		// discard already data if exist, receive new fic frame
 		sTSFic.ind		= header.ind;
 		sTSFic.length	= 0;
 		memcpy((void*)&sTSFic.buffer[sTSFic.length], header.data, len);
 		sTSFic.length	= len;
 		return BBM_OK;
-	} else if(header.ind == PKT_IND_CONTINUE)	{ //                   
+	} else if(header.ind == PKT_IND_CONTINUE)	{ // fic continue frame
 		if(sTSFic.ind != PKT_IND_START) {
-			//                                              
+			// discard already data & current receiving data
 			sTSFic.ind = PKT_IND_NONE;
 		} else {
-			//      
+			// store
 			sTSFic.ind = header.ind;
 			memcpy((void*)&sTSFic.buffer[sTSFic.length], header.data, len);
 			sTSFic.length += len;
 		}
 		return BBM_OK;
-	} else if(header.ind == PKT_IND_END) { //              
+	} else if(header.ind == PKT_IND_END) { // fic end frame
 		if(sTSFic.ind != PKT_IND_CONTINUE) {
-			//                                             
+			// discard alread data & current receiving data
 			sTSFic.ind = PKT_IND_NONE;
 			return BBM_E_MUX_INDICATOR;
 		} else {
-			//      
+			// store
 			sTSFic.ind = header.ind;
 			memcpy((void*)&sTSFic.buffer[sTSFic.length], header.data, len);
 			sTSFic.length += len;
 		}
 	}
 
-	//                      
+	// send host application
 	if((sTSFic.length >= FIC_DATA_SIZE) && (sTSFic.ind == PKT_IND_END)) {
 #ifdef TSIF_LGE_IF
 		sTSFic.done=1;
@@ -239,7 +239,7 @@ int ts_nv_gather(fci_u8* data, fci_u32 length) {
 int ts_dmb_gather(fci_u8* data, fci_u32 length) {
 	fci_u8 ch;
 
-	//           
+	// trace sync
 	if(data[0] == SYNC_MASK_VIDEO){
 		ch = 0;
 	} else if(data[0] == SYNC_MASK_VIDEO1){
@@ -283,7 +283,7 @@ int fc8080_demux(fci_u8* data, fci_u32 length) {
 		} else if((data[i] & 0xC0) == 0xC0) {
 			res = ts_nv_gather(&data[i], 188);
 		} else {
-			//                         
+			//PRINTF(" %02X", data[i]);
 			sync_error++;
 		}
 	}

@@ -21,12 +21,12 @@
 #include "mpi-internal.h"
 #include "longlong.h"
 
-/*               
-                                                                             
-                                                                         
-                                       
-  
-                                 
+/****************
+ * Scan through an mpi and return byte for byte. a -1 is returned to indicate
+ * the end of the mpi. Scanning is done from the lsb to the msb, returned
+ * values are in the range of 0 .. 255.
+ *
+ * FIXME: This code is VERY ugly!
  */
 int mpi_getbyte(const MPI a, unsigned idx)
 {
@@ -45,8 +45,8 @@ int mpi_getbyte(const MPI a, unsigned idx)
 	return -1;
 }
 
-/*               
-                                                                 
+/****************
+ * Put a value at position IDX into A. idx counts from lsb to msb
  */
 void mpi_putbyte(MPI a, unsigned idx, int xc)
 {
@@ -113,8 +113,8 @@ void mpi_putbyte(MPI a, unsigned idx, int xc)
 	log_bug("index out of range\n");
 }
 
-/*               
-                                                   
+/****************
+ * Count the number of zerobits at the low end of A
  */
 unsigned mpi_trailing_zeros(const MPI a)
 {

@@ -34,11 +34,11 @@
 #define AD5380_CTRL_INT_VREF_2V5		BIT(12)
 #define AD5380_CTRL_INT_VREF_EN			BIT(10)
 
-/* 
-                                                      
-                                                    
-                                    
-                                  
+/**
+ * struct ad5380_chip_info - chip specific information
+ * @channel_template:	channel specification template
+ * @num_channels:	number of channels
+ * @int_vref:		internal vref in uV
 */
 
 struct ad5380_chip_info {
@@ -47,13 +47,13 @@ struct ad5380_chip_info {
 	unsigned int		int_vref;
 };
 
-/* 
-                                                      
-                                               
-                                                                  
-                                    
-                                              
-                                                               
+/**
+ * struct ad5380_state - driver instance specific data
+ * @regmap:		regmap instance used by the device
+ * @chip_info:		chip model specific constants, available modes etc
+ * @vref_reg:		vref supply regulator
+ * @vref:		actual reference voltage used in uA
+ * @pwr_down:		whether the chip is currently in power down mode
  */
 
 struct ad5380_state {

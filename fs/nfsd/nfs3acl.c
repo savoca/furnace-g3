@@ -5,7 +5,7 @@
  */
 
 #include "nfsd.h"
-/*                                    */
+/* FIXME: nfsacl.h is a broken header */
 #include <linux/nfsacl.h>
 #include <linux/gfp.h>
 #include "cache.h"
@@ -15,7 +15,7 @@
 #define RETURN_STATUS(st)	{ resp->status = (st); return (st); }
 
 /*
-             
+ * NULL call.
  */
 static __be32
 nfsd3_proc_null(struct svc_rqst *rqstp, void *argp, void *resp)
@@ -24,7 +24,7 @@ nfsd3_proc_null(struct svc_rqst *rqstp, void *argp, void *resp)
 }
 
 /*
-                                               
+ * Get the Access and/or Default ACL of a file.
  */
 static __be32 nfsd3_proc_getacl(struct svc_rqst * rqstp,
 		struct nfsd3_getaclargs *argp, struct nfsd3_getaclres *resp)
@@ -55,7 +55,7 @@ static __be32 nfsd3_proc_getacl(struct svc_rqst * rqstp,
 			}
 		}
 		if (acl == NULL) {
-			/*                                          */
+			/* Solaris returns the inode's minimum ACL. */
 
 			struct inode *inode = fh->fh_dentry->d_inode;
 			acl = posix_acl_from_mode(inode->i_mode, GFP_KERNEL);
@@ -63,8 +63,8 @@ static __be32 nfsd3_proc_getacl(struct svc_rqst * rqstp,
 		resp->acl_access = acl;
 	}
 	if (resp->mask & (NFS_DFACL|NFS_DFACLCNT)) {
-		/*                                                       
-                         */
+		/* Check how Solaris handles requests for the Default ACL
+		   of a non-directory! */
 
 		acl = nfsd_get_posix_acl(fh, ACL_TYPE_DEFAULT);
 		if (IS_ERR(acl)) {
@@ -80,7 +80,7 @@ static __be32 nfsd3_proc_getacl(struct svc_rqst * rqstp,
 		resp->acl_default = acl;
 	}
 
-	/*                                                                    */
+	/* resp->acl_{access,default} are released in nfs3svc_release_getacl. */
 	RETURN_STATUS(0);
 
 fail:
@@ -90,7 +90,7 @@ fail:
 }
 
 /*
-                                               
+ * Set the Access and/or Default ACL of a file.
  */
 static __be32 nfsd3_proc_setacl(struct svc_rqst * rqstp,
 		struct nfsd3_setaclargs *argp,
@@ -111,15 +111,15 @@ static __be32 nfsd3_proc_setacl(struct svc_rqst * rqstp,
 			fh, ACL_TYPE_DEFAULT, argp->acl_default) );
 	}
 
-	/*                                                      
-                               */
+	/* argp->acl_{access,default} may have been allocated in
+	   nfs3svc_decode_setaclargs. */
 	posix_acl_release(argp->acl_access);
 	posix_acl_release(argp->acl_default);
 	RETURN_STATUS(nfserr);
 }
 
 /*
-                       
+ * XDR decode functions
  */
 static int nfs3svc_decode_getaclargs(struct svc_rqst *rqstp, __be32 *p,
 		struct nfsd3_getaclargs *args)
@@ -158,10 +158,10 @@ static int nfs3svc_decode_setaclargs(struct svc_rqst *rqstp, __be32 *p,
 }
 
 /*
-                       
+ * XDR encode functions
  */
 
-/*        */
+/* GETACL */
 static int nfs3svc_encode_getaclres(struct svc_rqst *rqstp, __be32 *p,
 		struct nfsd3_getaclres *resp)
 {
@@ -206,7 +206,7 @@ static int nfs3svc_encode_getaclres(struct svc_rqst *rqstp, __be32 *p,
 	return 1;
 }
 
-/*        */
+/* SETACL */
 static int nfs3svc_encode_setaclres(struct svc_rqst *rqstp, __be32 *p,
 		struct nfsd3_attrstat *resp)
 {
@@ -216,7 +216,7 @@ static int nfs3svc_encode_setaclres(struct svc_rqst *rqstp, __be32 *p,
 }
 
 /*
-                        
+ * XDR release functions
  */
 static int nfs3svc_release_getacl(struct svc_rqst *rqstp, __be32 *p,
 		struct nfsd3_getaclres *resp)
@@ -245,10 +245,10 @@ struct nfsd3_voidargs { int dummy; };
    respsize,					\
  }
 
-#define ST 1		/*       */
-#define AT 21		/*            */
-#define pAT (1+AT)	/*                               */
-#define ACL (1+NFS_ACL_MAX_ENTRIES*3)  /*                     */
+#define ST 1		/* status*/
+#define AT 21		/* attributes */
+#define pAT (1+AT)	/* post attributes - conditional */
+#define ACL (1+NFS_ACL_MAX_ENTRIES*3)  /* Access Control List */
 
 static struct svc_procedure		nfsd_acl_procedures3[] = {
   PROC(null,	void,		void,		void,	  RC_NOCACHE, ST),

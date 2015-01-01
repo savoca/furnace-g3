@@ -1,7 +1,7 @@
 /*
-                                     
-  
-                                                   
+ *	linux/arch/alpha/kernel/pci-noop.c
+ *
+ * Stub PCI interfaces for Jensen-specific kernels.
  */
 
 #include <linux/pci.h>
@@ -19,7 +19,7 @@
 
 
 /*
-                           
+ * The PCI controller list.
  */
 
 struct pci_controller *hose_head, **hose_tail = &hose_head;
@@ -54,7 +54,7 @@ sys_pciconfig_iobase(long which, unsigned long bus, unsigned long dfn)
 {
 	struct pci_controller *hose;
 
-	/*                             */
+	/* from hose or from bus.devfn */
 	if (which & IOBASE_FROM_HOSE) {
 		for (hose = hose_head; hose; hose = hose->next) 
 			if (hose->index == bus)
@@ -62,7 +62,7 @@ sys_pciconfig_iobase(long which, unsigned long bus, unsigned long dfn)
 		if (!hose)
 			return -ENODEV;
 	} else {
-		/*                               */
+		/* Special hook for ISA access.  */
 		if (bus == 0 && dfn == 0)
 			hose = pci_isa_hose;
 		else

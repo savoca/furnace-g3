@@ -41,10 +41,10 @@
 #include <asm/atomic.h>
 #include "tspdrv.h"
 
-static int g_nTimerPeriodMs = 5; /*                                                              */
+static int g_nTimerPeriodMs = 5; /* 5ms timer by default. This variable could be used by the SPI.*/
 
 #ifdef VIBE_RUNTIME_RECORD
-/*                                                    */
+/* Flag indicating whether runtime recorder on or off */
 static atomic_t g_bRuntimeRecord;
 #endif
 
@@ -55,22 +55,22 @@ static char IMMR_DEB = false;
 #endif
 
 #include "touch_fops.c"
-/*                                     */
-#define VERSION_STR " v3.7.11.0\n"                  /*                                        */
-#define VERSION_STR_LEN 16                          /*                                                               */
+/* Device name and version information */
+#define VERSION_STR " v3.7.11.0\n"                  /* DO NOT CHANGE - this is auto-generated */
+#define VERSION_STR_LEN 16                          /* account extra space for future extra digits in version number */
 static char g_szDeviceName[  (VIBE_MAX_DEVICE_NAME_LENGTH
                             + VERSION_STR_LEN)
-                            * NUM_ACTUATORS];       /*                            */
-static size_t g_cchDeviceName;                      /*                            */
+                            * NUM_ACTUATORS];       /* initialized in init_module */
+static size_t g_cchDeviceName;                      /* initialized in init_module */
 
-/*                                              */
+/* Flag indicating whether the driver is in use */
 static char g_bIsPlaying = false;
 
-/*                                */
+/* Flag indicating the debug level*/
 static atomic_t g_nDebugLevel;
 
 
-/*                                  */
+/* Buffer to store data sent to SPI */
 #define MAX_SPI_BUFFER_SIZE (NUM_ACTUATORS * (VIBE_OUTPUT_SAMPLE_SIZE + SPI_HEADER_SIZE))
 
 static char g_cWriteBuffer[MAX_SPI_BUFFER_SIZE];
@@ -91,7 +91,7 @@ static int g_nMajor = 0;
 
 
 
-/*                                                                       */
+/* Needs to be included after the global variables because they use them */
 #include "tspdrvOutputDataHandler.c"
 #ifdef CONFIG_HIGH_RES_TIMERS
     #include "VibeOSKernelLinuxHRTime.c"
@@ -123,7 +123,7 @@ asmlinkage void _DbgOut(int level, const char *fmt,...)
     }
 }
 
-/*         */
+/* File IO */
 static int open(struct inode *inode, struct file *file);
 static int release(struct inode *inode, struct file *file);
 static ssize_t read(struct file *file, char *buf, size_t count, loff_t *ppos);
@@ -145,7 +145,7 @@ static struct file_operations fops =
 #endif
     .open =             open,
     .release =          release,
-    .llseek =           default_llseek    /*                                                        */
+    .llseek =           default_llseek    /* using default implementation as declared in linux/fs.h */
 };
 
 #ifndef IMPLEMENT_AS_CHAR_DRIVER
@@ -173,15 +173,15 @@ static void platform_release(struct device *dev);
 static struct platform_device platdev =
 {
 	.name =     MODULE_NAME,
-	.id =       -1,                     /*                                     */
+	.id =       -1,                     /* means that there is only one device */
 	.dev =
     {
 		.platform_data = NULL,
-		.release = platform_release,    /*                                                    */
+		.release = platform_release,    /* a warning is thrown during rmmod if this is absent */
 	},
 };
 
-/*             */
+/* Module info */
 MODULE_AUTHOR("Immersion Corporation");
 MODULE_DESCRIPTION("TouchSense Kernel Module");
 MODULE_LICENSE("GPL v2");
@@ -235,7 +235,7 @@ static struct device_attribute immersion_device_attrs[] = {
 
 static int __init tspdrv_init(void)
 {
-    int nRet, i;   /*                   */
+    int nRet, i;   /* initialized below */
 
     atomic_set(&g_nDebugLevel, DBL_ERROR);
 #ifdef VIBE_RUNTIME_RECORD
@@ -291,14 +291,14 @@ static int __init tspdrv_init(void)
     VibeOSKernelLinuxInitTimer();
     ResetOutputData();
 
-    /*                                                            */
+    /* Get and concatenate device name and initialize data buffer */
     g_cchDeviceName = 0;
     for (i=0; i<NUM_ACTUATORS; i++)
     {
         char *szName = g_szDeviceName + g_cchDeviceName;
         ImmVibeSPI_Device_GetName(i, szName, VIBE_MAX_DEVICE_NAME_LENGTH);
 
-        /*                                                  */
+        /* Append version information and get buffer length */
         strcat(szName, VERSION_STR);
         g_cchDeviceName += strlen(szName);
 
@@ -342,16 +342,16 @@ static int release(struct inode *inode, struct file *file)
     DbgOut((DBL_INFO, "tspdrv: release.\n"));
 
     /*
-                                                                         
-                                                                       
-                                                              
+    ** Reset force and stop timer when the driver is closed, to make sure
+    ** no dangling semaphore remains in the system, especially when the
+    ** driver is run outside of immvibed for testing purposes.
     */
     VibeOSKernelLinuxStopTimer();
 
     /*
-                                                                   
-                                                                        
-                    
+    ** Clear the variable used to store the magic number to prevent
+    ** unauthorized caller to write data. TouchSense service is the only
+    ** valid caller.
     */
     file->private_data = (void*)NULL;
 
@@ -364,28 +364,28 @@ static ssize_t read(struct file *file, char *buf, size_t count, loff_t *ppos)
 {
     const size_t nBufSize = (g_cchDeviceName > (size_t)(*ppos)) ? min(count, g_cchDeviceName - (size_t)(*ppos)) : 0;
 
-    /*                     */
+    /* End of buffer, exit */
     if (0 == nBufSize) return 0;
 
     if (0 != copy_to_user(buf, g_szDeviceName + (*ppos), nBufSize))
     {
-        /*                                   */
+        /* Failed to copy all the data, exit */
         DbgOut((DBL_ERROR, "tspdrv: copy_to_user failed.\n"));
         return 0;
     }
 
-    /*                                                    */
+    /* Update file position and return copied buffer size */
     *ppos += nBufSize;
     return nBufSize;
 }
 
 static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 {
-    *ppos = 0;  /*                                         */
+    *ppos = 0;  /* file position not used, always set to 0 */
 
     /*
-                                                 
-                                                   
+    ** Prevent unauthorized caller to write data.
+    ** TouchSense service is the only valid caller.
     */
     if (file->private_data != (void*)TSPDRV_MAGIC_NUMBER)
     {
@@ -394,11 +394,11 @@ static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *p
     }
 
     /*
-                                                                                                     
-                                                                                      
-                                                                                             
-                                                                                                        
-                                              
+    ** Ignore packets that have size smaller than SPI_HEADER_SIZE or bigger than MAX_SPI_BUFFER_SIZE.
+    ** Please note that the daemon may send an empty buffer (count == SPI_HEADER_SIZE)
+    ** during quiet time between effects while playing a Timeline effect in order to maintain
+    ** correct timing: if "count" is equal to SPI_HEADER_SIZE, the call to VibeOSKernelLinuxStartTimer()
+    ** will just wait for the next timer tick.
     */
     if ((count < SPI_HEADER_SIZE) || (count > MAX_SPI_BUFFER_SIZE))
     {
@@ -406,22 +406,22 @@ static ssize_t write(struct file *file, const char *buf, size_t count, loff_t *p
         return 0;
     }
 
-    /*                                   */
+    /* Copy immediately the input buffer */
     if (0 != copy_from_user(g_cWriteBuffer, buf, count))
     {
-        /*                                   */
+        /* Failed to copy all the data, exit */
         DbgOut((DBL_ERROR, "tspdrv: copy_from_user failed.\n"));
         return 0;
     }
 
-    /*                                                                  */
+    /* Extract force output samples and save them in an internal buffer */
     if (!SaveOutputData(g_cWriteBuffer, count))
     {
         DbgOut((DBL_ERROR, "tspdrv: SaveOutputData failed.\n"));
         return 0;
     }
 
-    /*                                                  */
+    /* Start the timer after receiving new output force */
     g_bIsPlaying = true;
 
     VibeOSKernelLinuxStartTimer();
@@ -469,7 +469,7 @@ static int ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsig
             {
                 long nDbgLevel;
                 if (0 != copy_from_user((void *)&nDbgLevel, (const void __user *)arg, sizeof(long))) {
-                    /*                        */
+                    /* Error copying the data */
                     DbgOut((DBL_ERROR, "copy_from_user failed to copy debug level data.\n"));
                     return -1;
                 }
@@ -491,7 +491,7 @@ static int ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsig
             {
                 long nRecordFlag;
                 if (0 != copy_from_user((void *)&nRecordFlag, (const void __user *)arg, sizeof(long))) {
-                    /*                        */
+                    /* Error copying the data */
                     DbgOut((DBL_ERROR, "copy_from_user failed to copy runtime record flag.\n"));
                     return -1;
                 }
@@ -511,7 +511,7 @@ static int ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsig
             {
                 long nRecorderBufSize;
                 if (0 != copy_from_user((void *)&nRecorderBufSize, (const void __user *)arg, sizeof(long))) {
-                    /*                        */
+                    /* Error copying the data */
                     DbgOut((DBL_ERROR, "copy_from_user failed to copy recorder buffer size.\n"));
                     return -1;
                 }
@@ -532,7 +532,7 @@ static int ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsig
 
                 if (0 != copy_from_user((void *)&deviceParam, (const void __user *)arg, sizeof(deviceParam)))
                 {
-                    /*                        */
+                    /* Error copying the data */
                     DbgOut((DBL_ERROR, "tspdrv: copy_from_user failed to copy kernel parameter data.\n"));
                     return -1;
                 }
@@ -540,13 +540,13 @@ static int ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsig
                 switch (deviceParam.nDeviceParamID)
                 {
                     case VIBE_KP_CFG_UPDATE_RATE_MS:
-                        /*                         */
+                        /* Update the timer period */
                         g_nTimerPeriodMs = deviceParam.nDeviceParamValue;
 
 
 
 #ifdef CONFIG_HIGH_RES_TIMERS
-                        /*                                                                                  */
+                        /* For devices using high resolution timer we need to update the ktime period value */
                         g_ktTimerPeriod = ktime_set(0, g_nTimerPeriodMs * 1000000);
 #endif
                         break;
@@ -589,7 +589,7 @@ static int resume(struct platform_device *pdev)
 {
     DbgOut((DBL_ERROR, "tspdrv: resume.\n"));
 
-	return 0;   /*            */
+	return 0;   /* can resume */
 }
 
 static void platform_release(struct device *dev)

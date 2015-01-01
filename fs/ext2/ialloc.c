@@ -22,25 +22,25 @@
 #include "acl.h"
 
 /*
-                                                                    
+ * ialloc.c contains the inodes allocation and deallocation routines
  */
 
 /*
-                                                                          
-                                                                          
-                                                                  
-  
-                                                                         
-                                                                            
-                                      
+ * The free inodes are managed by bitmaps.  A file system contains several
+ * blocks groups.  Each group contains 1 bitmap block for blocks, 1 bitmap
+ * block for inodes, N blocks for the inode table and data blocks.
+ *
+ * The file system contains group descriptors which are located after the
+ * super block.  Each descriptor contains the number of the bitmap block and
+ * the free blocks count in the block.
  */
 
 
 /*
-                                                                    
-                                                            
-  
-                                                   
+ * Read the inode allocation bitmap for a given block_group, reading
+ * into the specified slot in the superblock's bitmap cache.
+ *
+ * Return buffer_head of bitmap on success or NULL.
  */
 static struct buffer_head *
 read_inode_bitmap(struct super_block * sb, unsigned long block_group)
@@ -86,20 +86,20 @@ static void ext2_release_inode(struct super_block *sb, int group, int dir)
 }
 
 /*
-                                                     
-                                                   
-                                                    
-                                                     
-                                                     
-                            
-  
-                                                     
-                                                   
-                                                     
-                                                    
-                                                       
-                                                     
-                                               
+ * NOTE! When we get the inode, we're the only people
+ * that have access to it, and as such there are no
+ * race conditions we have to worry about. The inode
+ * is not on the hash-lists, and it cannot be reached
+ * through the filesystem because the directory entry
+ * has been deleted earlier.
+ *
+ * HOWEVER: we must make sure that we get no aliases,
+ * which means that we have to call "clear_inode()"
+ * _before_ we mark the inode not in use in the inode
+ * bitmaps. Otherwise a newly created file might use
+ * the same inode number (not actually the same pointer
+ * though), and then we'd have two inodes sharing the
+ * same inode number and space on the harddisk.
  */
 void ext2_free_inode (struct inode * inode)
 {
@@ -115,10 +115,10 @@ void ext2_free_inode (struct inode * inode)
 	ext2_debug ("freeing inode %lu\n", ino);
 
 	/*
-                                                               
-                                                           
-  */
-	/*                                        */
+	 * Note: we must free any quota before locking the superblock,
+	 * as writing the quota to disk may need the lock as well.
+	 */
+	/* Quota is already initialized in iput() */
 	ext2_xattr_delete_inode(inode);
 	dquot_free_inode(inode);
 	dquot_drop(inode);
@@ -138,7 +138,7 @@ void ext2_free_inode (struct inode * inode)
 	if (!bitmap_bh)
 		return;
 
-	/*                                                    */
+	/* Ok, now we can actually update the inode bitmaps.. */
 	if (!ext2_clear_bit_atomic(sb_bgl_lock(EXT2_SB(sb), block_group),
 				bit, (void *) bitmap_bh->b_data))
 		ext2_error (sb, "ext2_free_inode",
@@ -153,16 +153,16 @@ void ext2_free_inode (struct inode * inode)
 }
 
 /*
-                                                                         
-                                                                         
-                                     
-  
-                                                                      
-                                   
-                                                                        
-                                                       
-  
-                                                       
+ * We perform asynchronous prereading of the new inode's inode block when
+ * we create the inode, in the expectation that the inode will be written
+ * back soon.  There are two reasons:
+ *
+ * - When creating a large number of files, the async prereads will be
+ *   nicely merged into large reads
+ * - When writing out a large number of inodes, we don't need to keep on
+ *   stalling the writes while we read the inode block.
+ *
+ * FIXME: ext2_get_group_desc() needs to be simplified.
  */
 static void ext2_preread_inode(struct inode *inode)
 {
@@ -184,8 +184,8 @@ static void ext2_preread_inode(struct inode *inode)
 		return;
 
 	/*
-                                                            
-  */
+	 * Figure out the offset within the block group inode table
+	 */
 	offset = ((inode->i_ino - 1) % EXT2_INODES_PER_GROUP(inode->i_sb)) *
 				EXT2_INODE_SIZE(inode->i_sb);
 	block = le32_to_cpu(gdp->bg_inode_table) +
@@ -194,14 +194,14 @@ static void ext2_preread_inode(struct inode *inode)
 }
 
 /*
-                                                                       
-                                                                         
-                                                                        
-                                                                       
-                                 
-  
-                                                                      
-                              
+ * There are two policies for allocating an inode.  If the new inode is
+ * a directory, then a forward search is made for a block group with both
+ * free space and a low directory-to-inode ratio; if that fails, then of
+ * the groups with above-average free space, that group with the fewest
+ * directories already is chosen.
+ *
+ * For other inodes, search forward from the parent directory\'s block
+ * group to find a free inode.
  */
 static int find_group_dir(struct super_block *sb, struct inode *parent)
 {
@@ -230,28 +230,28 @@ static int find_group_dir(struct super_block *sb, struct inode *parent)
 }
 
 /* 
-                                      
-   
-                                                   
-  
-                                                                         
-                                                                       
-                                              
-   
-                               
-   
-                                                
-                                                     
-                                                   
-                                                   
-                                                   
-                                                            
-                                                             
-                                                              
-                                                          
-   
-                                                                         
-                                             
+ * Orlov's allocator for directories. 
+ * 
+ * We always try to spread first-level directories.
+ *
+ * If there are blockgroups with both free inodes and free blocks counts 
+ * not worse than average we return one with smallest directory count. 
+ * Otherwise we simply return a random group. 
+ * 
+ * For the rest rules look so: 
+ * 
+ * It's OK to put directory into a group unless 
+ * it has too many directories already (max_dirs) or 
+ * it has too few free inodes left (min_inodes) or 
+ * it has too few free blocks left (min_blocks) or 
+ * it's already running too large debt (max_debt). 
+ * Parent's group is preferred, if it doesn't satisfy these 
+ * conditions we search cyclically through the rest. If none 
+ * of the groups look good we just look for a group with more 
+ * free inodes than average (starting at parent's group). 
+ * 
+ * Debt is incremented each time we allocate a directory and decremented 
+ * when we allocate an inode, within 0--255. 
  */ 
 
 #define INODE_COST 64
@@ -312,7 +312,7 @@ static int find_group_orlov(struct super_block *sb, struct inode *parent)
 	}
 
 	if (ndirs == 0)
-		ndirs = 1;	/*                                    */
+		ndirs = 1;	/* percpu_counters are approximate... */
 
 	blocks_per_dir = (le32_to_cpu(es->s_blocks_count)-free_blocks) / ndirs;
 
@@ -356,9 +356,9 @@ fallback:
 
 	if (avefreei) {
 		/*
-                                                                 
-                                                                
-   */
+		 * The free-inodes counter is approximate, and for really small
+		 * filesystems the above test can fail to find any blockgroups
+		 */
 		avefreei = 0;
 		goto fallback;
 	}
@@ -377,8 +377,8 @@ static int find_group_other(struct super_block *sb, struct inode *parent)
 	int group, i;
 
 	/*
-                                                  
-  */
+	 * Try to place the inode in its parent directory
+	 */
 	group = parent_group;
 	desc = ext2_get_group_desc (sb, group, NULL);
 	if (desc && le16_to_cpu(desc->bg_free_inodes_count) &&
@@ -386,20 +386,20 @@ static int find_group_other(struct super_block *sb, struct inode *parent)
 		goto found;
 
 	/*
-                                                                      
-                                                                        
-                                                                    
-                                                                    
-                         
-   
-                                                                      
-  */
+	 * We're going to place this inode in a different blockgroup from its
+	 * parent.  We want to cause files in a common directory to all land in
+	 * the same blockgroup.  But we want files which are in a different
+	 * directory which shares a blockgroup with our parent to land in a
+	 * different blockgroup.
+	 *
+	 * So add our directory's i_ino into the starting point for the hash.
+	 */
 	group = (group + parent->i_ino) % ngroups;
 
 	/*
-                                                                   
-                
-  */
+	 * Use a quadratic hash to find a group with a free inode and some
+	 * free blocks.
+	 */
 	for (i = 1; i < ngroups; i <<= 1) {
 		group += i;
 		if (group >= ngroups)
@@ -411,9 +411,9 @@ static int find_group_other(struct super_block *sb, struct inode *parent)
 	}
 
 	/*
-                                                                       
-                       
-  */
+	 * That failed: try linear search for a free inode, even if that group
+	 * has no free blocks.
+	 */
 	group = parent_group;
 	for (i = 0; i < ngroups; i++) {
 		if (++group >= ngroups)
@@ -480,35 +480,35 @@ repeat_in_this_group:
 					      EXT2_INODES_PER_GROUP(sb), ino);
 		if (ino >= EXT2_INODES_PER_GROUP(sb)) {
 			/*
-                                                        
-                                                         
-                                                       
-                                                         
-                                                      
-                       
-    */
+			 * Rare race: find_group_xx() decided that there were
+			 * free inodes in this group, but by the time we tried
+			 * to allocate one, they're all gone.  This can also
+			 * occur because the counters which find_group_orlov()
+			 * uses are approximate.  So just go and search the
+			 * next block group.
+			 */
 			if (++group == sbi->s_groups_count)
 				group = 0;
 			continue;
 		}
 		if (ext2_set_bit_atomic(sb_bgl_lock(sbi, group),
 						ino, bitmap_bh->b_data)) {
-			/*                    */
+			/* we lost this inode */
 			if (++ino >= EXT2_INODES_PER_GROUP(sb)) {
-				/*                                         */
+				/* this group is exhausted, try next group */
 				if (++group == sbi->s_groups_count)
 					group = 0;
 				continue;
 			}
-			/*                                          */
+			/* try to find free inode in the same group */
 			goto repeat_in_this_group;
 		}
 		goto got;
 	}
 
 	/*
-                            
-  */
+	 * Scanned all blockgroups.
+	 */
 	err = -ENOSPC;
 	goto fail;
 got:
@@ -660,7 +660,7 @@ unsigned long ext2_count_free_inodes (struct super_block * sb)
 #endif
 }
 
-/*                                             */
+/* Called at mount-time, super-block is locked */
 unsigned long ext2_count_dirs (struct super_block * sb)
 {
 	unsigned long count = 0;

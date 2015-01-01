@@ -20,19 +20,19 @@
 
 extern atomic_t ppc_n_lost_interrupts;
 
-/*                                                         */
+/* This number is used when no interrupt has been assigned */
 #define NO_IRQ			(0)
 
-/*                                      */
+/* Total number of virq in the platform */
 #define NR_IRQS		CONFIG_NR_IRQS
 
-/*                                          */
+/* Same thing, used by the generic IRQ code */
 #define NR_IRQS_LEGACY		NUM_ISA_INTERRUPTS
 
 extern irq_hw_number_t virq_to_hw(unsigned int virq);
 
-/* 
-                                                
+/**
+ * irq_early_init - Init irq remapping subsystem
  */
 extern void irq_early_init(void);
 
@@ -50,8 +50,8 @@ struct pt_regs;
 
 #if defined(CONFIG_BOOKE) || defined(CONFIG_40x)
 /*
-                                                                
-                    
+ * Per-cpu stacks for handling critical, debug and machine check
+ * level interrupts.
  */
 extern struct thread_info *critirq_ctx[NR_CPUS];
 extern struct thread_info *dbgirq_ctx[NR_CPUS];
@@ -62,7 +62,7 @@ extern void exc_lvl_ctx_init(void);
 #endif
 
 /*
-                                                        
+ * Per-cpu stacks for handling hard and soft interrupts.
  */
 extern struct thread_info *hardirq_ctx[NR_CPUS];
 extern struct thread_info *softirq_ctx[NR_CPUS];
@@ -75,5 +75,5 @@ extern void do_IRQ(struct pt_regs *regs);
 
 int irq_choose_cpu(const struct cpumask *mask);
 
-#endif /*            */
-#endif /*            */
+#endif /* _ASM_IRQ_H */
+#endif /* __KERNEL__ */

@@ -17,13 +17,13 @@
 #include "consumer.h"
 #include "types.h"
 
-/* 
-                                                 
-                                                     
-                                                                       
-                                       
-                                       
-                                                        
+/**
+ * struct iio_hwmon_state - device instance state
+ * @channels:		filled with array of channels from iio
+ * @num_channels:	number of channels in channels (saves counting twice)
+ * @hwmon_dev:		associated hwmon device
+ * @attr_group:	the group of attributes
+ * @attrs:		null terminated array of attribute pointers.
  */
 struct iio_hwmon_state {
 	struct iio_channel *channels;
@@ -34,9 +34,9 @@ struct iio_hwmon_state {
 };
 
 /*
-                                                             
-                                                          
-                     
+ * Assumes that IIO and hwmon operate in the same base units.
+ * This is supposed to be true, but needs verification for
+ * new channel types.
  */
 static ssize_t iio_hwmon_read_val(struct device *dev,
 				  struct device_attribute *attr,
@@ -48,9 +48,9 @@ static ssize_t iio_hwmon_read_val(struct device *dev,
 	struct iio_hwmon_state *state = dev_get_drvdata(dev);
 
 	/*
-                                                           
-                          
-  */
+	 * No locking between this pair, so theoretically possible
+	 * the scale has changed.
+	 */
 	ret = iio_st_read_channel_raw(&state->channels[sattr->index],
 				      &val);
 	if (ret < 0)
@@ -112,7 +112,7 @@ static int __devinit iio_hwmon_probe(struct platform_device *pdev)
 		goto error_free_state;
 	}
 
-	/*                                   */
+	/* count how many attributes we have */
 	while (st->channels[st->num_channels].indio_dev)
 		st->num_channels++;
 

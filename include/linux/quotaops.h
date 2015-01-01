@@ -1,8 +1,8 @@
 /*
-                                                                           
-                                          
-  
-                                                     
+ * Definitions for diskquota-operations. When diskquota is configured these
+ * macros expand to the right source-code.
+ *
+ * Author:  Marco van Wieringen <mvw@planets.elm.net>
  */
 #ifndef _LINUX_QUOTAOPS_
 #define _LINUX_QUOTAOPS_
@@ -18,7 +18,7 @@ static inline struct quota_info *sb_dqopt(struct super_block *sb)
 	return &sb->s_dquot;
 }
 
-/*                         */
+/* i_mutex must being held */
 static inline bool is_quota_modification(struct inode *inode, struct iattr *ia)
 {
 	return (ia->ia_valid & ATTR_SIZE && ia->ia_size != inode->i_size) ||
@@ -36,7 +36,7 @@ void __quota_error(struct super_block *sb, const char *func,
 		   const char *fmt, ...);
 
 /*
-                                                 
+ * declaration of quota_function calls in kernel.
  */
 void inode_add_rsv_space(struct inode *inode, qsize_t number);
 void inode_claim_rsv_space(struct inode *inode, qsize_t number);
@@ -61,7 +61,7 @@ int dquot_claim_space_nodirty(struct inode *inode, qsize_t number);
 void dquot_free_inode(const struct inode *inode);
 
 int dquot_disable(struct super_block *sb, int type, unsigned int flags);
-/*                              */
+/* Suspend quotas on remount RO */
 static inline int dquot_suspend(struct super_block *sb, int type)
 {
 	return dquot_disable(sb, type, DQUOT_SUSPENDED);
@@ -100,7 +100,7 @@ static inline struct mem_dqinfo *sb_dqinfo(struct super_block *sb, int type)
 }
 
 /*
-                                         
+ * Functions for checking status of quota
  */
 
 static inline bool sb_has_quota_usage_enabled(struct super_block *sb, int type)
@@ -129,10 +129,10 @@ static inline unsigned sb_any_quota_suspended(struct super_block *sb)
 	return tmsk;
 }
 
-/*                                                                   */
+/* Does kernel know about any quota information for given sb + type? */
 static inline bool sb_has_quota_loaded(struct super_block *sb, int type)
 {
-	/*                                                             */
+	/* Currently if anything is on, then quota usage is on as well */
 	return sb_has_quota_usage_enabled(sb, type);
 }
 
@@ -151,7 +151,7 @@ static inline bool sb_has_quota_active(struct super_block *sb, int type)
 }
 
 /*
-                                       
+ * Operations supported for diskquotas.
  */
 extern const struct dquot_operations dquot_operations;
 extern const struct quotactl_ops dquot_quotactl_ops;
@@ -178,7 +178,7 @@ static inline int sb_any_quota_suspended(struct super_block *sb)
 	return 0;
 }
 
-/*                                                                   */
+/* Does kernel know about any quota information for given sb + type? */
 static inline int sb_has_quota_loaded(struct super_block *sb, int type)
 {
 	return 0;
@@ -255,7 +255,7 @@ static inline int dquot_resume(struct super_block *sb, int type)
 
 #define dquot_file_open		generic_file_open
 
-#endif /*              */
+#endif /* CONFIG_QUOTA */
 
 static inline int dquot_alloc_space_nodirty(struct inode *inode, qsize_t nr)
 {
@@ -275,10 +275,10 @@ static inline int dquot_alloc_space(struct inode *inode, qsize_t nr)
 	ret = dquot_alloc_space_nodirty(inode, nr);
 	if (!ret) {
 		/*
-                                                                  
-                                                           
-                             
-   */
+		 * Mark inode fully dirty. Since we are allocating blocks, inode
+		 * would become fully dirty soon anyway and it reportedly
+		 * reduces lock contention.
+		 */
 		mark_inode_dirty(inode);
 	}
 	return ret;
@@ -357,4 +357,4 @@ static inline void dquot_release_reservation_block(struct inode *inode,
 	__dquot_free_space(inode, nr << inode->i_blkbits, DQUOT_SPACE_RESERVE);
 }
 
-#endif /*                  */
+#endif /* _LINUX_QUOTAOPS_ */

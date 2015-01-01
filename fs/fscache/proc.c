@@ -16,7 +16,7 @@
 #include "internal.h"
 
 /*
-                                             
+ * initialise the /proc/fs/fscache/ directory
  */
 int __init fscache_proc_init(void)
 {
@@ -64,7 +64,7 @@ error_dir:
 }
 
 /*
-                                           
+ * clean up the /proc/fs/fscache/ directory
  */
 void fscache_proc_cleanup(void)
 {

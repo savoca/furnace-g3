@@ -33,7 +33,7 @@
 
 typedef unsigned long efi_status_t;
 typedef u8 efi_bool_t;
-typedef u16 efi_char16_t;		/*                   */
+typedef u16 efi_char16_t;		/* UNICODE character */
 
 
 typedef struct {
@@ -48,7 +48,7 @@ typedef struct {
   (d0), (d1), (d2), (d3), (d4), (d5), (d6), (d7) }})
 
 /*
-                           
+ * Generic EFI table header
  */
 typedef	struct {
 	u64 signature;
@@ -59,10 +59,10 @@ typedef	struct {
 } efi_table_hdr_t;
 
 /*
-                         
+ * Memory map descriptor:
  */
 
-/*               */
+/* Memory types: */
 #define EFI_RESERVED_TYPE		 0
 #define EFI_LOADER_CODE			 1
 #define EFI_LOADER_DATA			 2
@@ -79,15 +79,15 @@ typedef	struct {
 #define EFI_PAL_CODE			13
 #define EFI_MAX_MEMORY_TYPE		14
 
-/*                   */
-#define EFI_MEMORY_UC		((u64)0x0000000000000001ULL)	/*          */
-#define EFI_MEMORY_WC		((u64)0x0000000000000002ULL)	/*                  */
-#define EFI_MEMORY_WT		((u64)0x0000000000000004ULL)	/*               */
-#define EFI_MEMORY_WB		((u64)0x0000000000000008ULL)	/*            */
-#define EFI_MEMORY_WP		((u64)0x0000000000001000ULL)	/*               */
-#define EFI_MEMORY_RP		((u64)0x0000000000002000ULL)	/*              */
-#define EFI_MEMORY_XP		((u64)0x0000000000004000ULL)	/*                 */
-#define EFI_MEMORY_RUNTIME	((u64)0x8000000000000000ULL)	/*                                */
+/* Attribute values: */
+#define EFI_MEMORY_UC		((u64)0x0000000000000001ULL)	/* uncached */
+#define EFI_MEMORY_WC		((u64)0x0000000000000002ULL)	/* write-coalescing */
+#define EFI_MEMORY_WT		((u64)0x0000000000000004ULL)	/* write-through */
+#define EFI_MEMORY_WB		((u64)0x0000000000000008ULL)	/* write-back */
+#define EFI_MEMORY_WP		((u64)0x0000000000001000ULL)	/* write-protect */
+#define EFI_MEMORY_RP		((u64)0x0000000000002000ULL)	/* read-protect */
+#define EFI_MEMORY_XP		((u64)0x0000000000004000ULL)	/* execute-protect */
+#define EFI_MEMORY_RUNTIME	((u64)0x8000000000000000ULL)	/* range requires runtime mapping */
 #define EFI_MEMORY_DESCRIPTOR_VERSION	1
 
 #define EFI_PAGE_SHIFT		12
@@ -109,7 +109,7 @@ typedef struct {
 } efi_capsule_header_t;
 
 /*
-                                                          
+ * Allocation types for calls to boottime->allocate_pages.
  */
 #define EFI_ALLOCATE_ANY_PAGES		0
 #define EFI_ALLOCATE_MAX_ADDRESS	1
@@ -119,7 +119,7 @@ typedef struct {
 typedef int (*efi_freemem_callback_t) (u64 start, u64 end, void *arg);
 
 /*
-                                      
+ * Types and defines for Time Services
  */
 #define EFI_TIME_ADJUST_DAYLIGHT 0x1
 #define EFI_TIME_IN_DAYLIGHT     0x2
@@ -146,7 +146,7 @@ typedef struct {
 } efi_time_cap_t;
 
 /*
-                          
+ * EFI Boot Services table
  */
 typedef struct {
 	efi_table_hdr_t hdr;
@@ -197,14 +197,14 @@ typedef struct {
 } efi_boot_services_t;
 
 /*
-                                        
+ * Types and defines for EFI ResetSystem
  */
 #define EFI_RESET_COLD 0
 #define EFI_RESET_WARM 1
 #define EFI_RESET_SHUTDOWN 2
 
 /*
-                             
+ * EFI Runtime Services table
  */
 #define EFI_RUNTIME_SERVICES_SIGNATURE ((u64)0x5652453544e5552ULL)
 #define EFI_RUNTIME_SERVICES_REVISION  0x00010000
@@ -259,7 +259,7 @@ typedef efi_status_t efi_query_capsule_caps_t(efi_capsule_header_t **capsules,
 					      int *reset_type);
 
 /*
-                                                
+ *  EFI Configuration Table and GUID definitions
  */
 #define NULL_GUID \
     EFI_GUID(  0x00000000, 0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 )
@@ -338,7 +338,7 @@ typedef struct {
 
 typedef struct {
 	efi_table_hdr_t hdr;
-	u64 fw_vendor;	/*                                       */
+	u64 fw_vendor;	/* physical addr of CHAR16 vendor string */
 	u32 fw_revision;
 	u32 __pad1;
 	u64 con_in_handle;
@@ -356,7 +356,7 @@ typedef struct {
 
 typedef struct {
 	efi_table_hdr_t hdr;
-	u32 fw_vendor;	/*                                       */
+	u32 fw_vendor;	/* physical addr of CHAR16 vendor string */
 	u32 fw_revision;
 	u32 con_in_handle;
 	u32 con_in;
@@ -372,7 +372,7 @@ typedef struct {
 
 typedef struct {
 	efi_table_hdr_t hdr;
-	unsigned long fw_vendor;	/*                                       */
+	unsigned long fw_vendor;	/* physical addr of CHAR16 vendor string */
 	u32 fw_revision;
 	unsigned long con_in_handle;
 	unsigned long con_in;
@@ -448,20 +448,20 @@ typedef struct {
 #define EFI_INVALID_TABLE_ADDR		(~0UL)
 
 /*
-                                                         
+ * All runtime access to EFI goes through this structure:
  */
 extern struct efi {
-	efi_system_table_t *systab;	/*                  */
-	unsigned int runtime_version;	/*                          */
-	unsigned long mps;		/*           */
-	unsigned long acpi;		/*                             */
-	unsigned long acpi20;		/*                        */
-	unsigned long smbios;		/*               */
-	unsigned long sal_systab;	/*                  */
-	unsigned long boot_info;	/*                 */
-	unsigned long hcdp;		/*            */
-	unsigned long uga;		/*           */
-	unsigned long uv_systab;	/*                 */
+	efi_system_table_t *systab;	/* EFI system table */
+	unsigned int runtime_version;	/* Runtime services version */
+	unsigned long mps;		/* MPS table */
+	unsigned long acpi;		/* ACPI table  (IA64 ext 0.71) */
+	unsigned long acpi20;		/* ACPI table  (ACPI 2.0) */
+	unsigned long smbios;		/* SM BIOS table */
+	unsigned long sal_systab;	/* SAL system table */
+	unsigned long boot_info;	/* boot info table */
+	unsigned long hcdp;		/* HCDP table */
+	unsigned long uga;		/* UGA table */
+	unsigned long uv_systab;	/* UV system table */
 	efi_get_time_t *get_time;
 	efi_set_time_t *set_time;
 	efi_get_wakeup_time_t *get_wakeup_time;
@@ -495,7 +495,7 @@ extern void *efi_get_pal_addr (void);
 extern void efi_map_pal_code (void);
 extern void efi_memmap_walk (efi_freemem_callback_t callback, void *arg);
 extern void efi_gettimeofday (struct timespec *ts);
-extern void efi_enter_virtual_mode (void);	/*                                         */
+extern void efi_enter_virtual_mode (void);	/* switch EFI to virtual mode, if possible */
 extern u64 efi_get_iobase (void);
 extern u32 efi_mem_type (unsigned long phys_addr);
 extern u64 efi_mem_attributes (unsigned long phys_addr);
@@ -508,13 +508,13 @@ extern int efi_set_rtc_mmss(unsigned long nowtime);
 extern void efi_reserve_boot_services(void);
 extern struct efi_memory_map memmap;
 
-/* 
-                                                         
-                                 
-                        
-  
-                                                                         
-                         
+/**
+ * efi_range_is_wc - check the WC bit on an address range
+ * @start: starting kvirt address
+ * @len: length of range
+ *
+ * Consult the EFI memory map and make sure it's ok to set this range WC.
+ * Returns true or false.
  */
 static inline int efi_range_is_wc(unsigned long start, unsigned long len)
 {
@@ -525,7 +525,7 @@ static inline int efi_range_is_wc(unsigned long start, unsigned long len)
 		if (!(efi_mem_attributes(paddr) & EFI_MEMORY_WC))
 			return 0;
 	}
-	/*                       */
+	/* The range checked out */
 	return 1;
 }
 
@@ -534,8 +534,8 @@ extern int __init efi_setup_pcdp_console(char *);
 #endif
 
 /*
-                                                                                
-                               
+ * We play games with efi_enabled so that the compiler will, if possible, remove
+ * EFI-related code altogether.
  */
 #ifdef CONFIG_EFI
 # ifdef CONFIG_X86
@@ -549,7 +549,7 @@ extern int __init efi_setup_pcdp_console(char *);
 #endif
 
 /*
-                      
+ * Variable Attributes
  */
 #define EFI_VARIABLE_NON_VOLATILE       0x0000000000000001
 #define EFI_VARIABLE_BOOTSERVICE_ACCESS 0x0000000000000002
@@ -567,14 +567,14 @@ extern int __init efi_setup_pcdp_console(char *);
 				EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS | \
 				EFI_VARIABLE_APPEND_WRITE)
 /*
-                                                                     
+ * The type of search to perform when calling boottime->locate_handle
  */
 #define EFI_LOCATE_ALL_HANDLES			0
 #define EFI_LOCATE_BY_REGISTER_NOTIFY		1
 #define EFI_LOCATE_BY_PROTOCOL			2
 
 /*
-                              
+ * EFI Device Path information
  */
 #define EFI_DEV_HW			0x01
 #define  EFI_DEV_PCI				 1
@@ -625,10 +625,10 @@ static inline void memrange_efi_to_native(u64 *addr, u64 *npages)
 
 #if defined(CONFIG_EFI_VARS) || defined(CONFIG_EFI_VARS_MODULE)
 /*
-                        
-  
-                                                                       
-                 
+ * EFI Variable support.
+ *
+ * Different firmware drivers can expose their EFI-like variables using
+ * the following.
  */
 
 struct efivar_operations {
@@ -639,13 +639,13 @@ struct efivar_operations {
 
 struct efivars {
 	/*
-                               
-                                             
-                                   
-                                                                       
-                                                                   
-                                                        
-  */
+	 * ->lock protects two things:
+	 * 1) ->list - adds, removals, reads, writes
+	 * 2) ops.[gs]et_variable() calls.
+	 * It must not be held when creating sysfs entries or calling kmalloc.
+	 * ops.get_next_variable() is only called from register_efivars(),
+	 * which is protected by the BKL, so that path is safe.
+	 */
 	spinlock_t lock;
 	struct list_head list;
 	struct kset *kset;
@@ -660,6 +660,6 @@ int register_efivars(struct efivars *efivars,
 		     struct kobject *parent_kobj);
 void unregister_efivars(struct efivars *efivars);
 
-#endif /*                 */
+#endif /* CONFIG_EFI_VARS */
 
-#endif /*              */
+#endif /* _LINUX_EFI_H */

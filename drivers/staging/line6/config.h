@@ -19,7 +19,7 @@
 
 
 /*
-                     
+ * Development tools.
  */
 #define DO_DEBUG_MESSAGES    0
 #define DO_DUMP_URB_SEND     DO_DEBUG_MESSAGES

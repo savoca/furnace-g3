@@ -33,17 +33,17 @@
 #include <mach/regs-apbh.h>
 
 
-/*                                                       */
+/* 0 means DMA mode(recommended, default), !0 - PIO mode */
 static int pio;
 static int clock;
 
-/*                                             */
+/* default timeout for busy waits is 2 seconds */
 #define STMP_SPI_TIMEOUT	(2 * HZ)
 
 struct stmp_spi {
 	int		id;
 
-	void *  __iomem regs;	/*                                */
+	void *  __iomem regs;	/* vaddr of the control registers */
 
 	int		irq, err_irq;
 	u32		dma;
@@ -59,7 +59,7 @@ struct stmp_spi {
 	struct work_struct work;
 	struct workqueue_struct *workqueue;
 
-	/*                            */
+	/* lock protects queue access */
 	spinlock_t lock;
 	struct list_head queue;
 
@@ -80,9 +80,9 @@ struct stmp_spi {
 	succeeded;							\
 	})
 
-/* 
-                   
-                          
+/**
+ * stmp_spi_init_hw
+ * Initialize the SSP port
  */
 static int stmp_spi_init_hw(struct stmp_spi *ss)
 {
@@ -135,11 +135,11 @@ static int stmp_spi_setup_transfer(struct spi_device *spi,
 		bits_per_word = t->bits_per_word;
 
 	/*
-                    
-                                                
-                                    
-                                                           
-  */
+	 * Calculate speed:
+	 *	- by default, use maximum speed from ssp clk
+	 *	- if device overrides it, use it
+	 *	- if transfer specifies other speed, use transfer's one
+	 */
 	hz = 1000 * ss->speed_khz / ss->divider;
 	if (spi->max_speed_hz)
 		hz = min(hz, spi->max_speed_hz);
@@ -173,8 +173,8 @@ static int stmp_spi_setup_transfer(struct spi_device *spi,
 	       BF(rate - 1, SSP_TIMING_CLOCK_RATE),
 	       HW_SSP_TIMING + ss->regs);
 
-	writel(BF(1 /*          */, SSP_CTRL1_SSP_MODE)		|
-	       BF(4 /*          */, SSP_CTRL1_WORD_LENGTH)	|
+	writel(BF(1 /* mode SPI */, SSP_CTRL1_SSP_MODE)		|
+	       BF(4 /* 8 bits   */, SSP_CTRL1_WORD_LENGTH)	|
 	       ((spi->mode & SPI_CPOL) ? BM_SSP_CTRL1_POLARITY : 0) |
 	       ((spi->mode & SPI_CPHA) ? BM_SSP_CTRL1_PHASE : 0) |
 	       (pio ? 0 : BM_SSP_CTRL1_DMA_ENABLE),
@@ -185,9 +185,9 @@ static int stmp_spi_setup_transfer(struct spi_device *spi,
 
 static int stmp_spi_setup(struct spi_device *spi)
 {
-	/*                               
-                                             
-  */
+	/* spi_setup() does basic checks,
+	 * stmp_spi_setup_transfer() does more later
+	 */
 	if (spi->bits_per_word != 8) {
 		dev_err(&spi->dev, "%s, unsupported bits_per_word=%d\n",
 			__func__, spi->bits_per_word);
@@ -286,7 +286,7 @@ static int stmp_spi_txrx_pio(struct stmp_spi *ss, int cs,
 			stmp3xxx_setl(BM_SSP_CTRL0_READ,
 					ss->regs + HW_SSP_CTRL0);
 
-		/*      */
+		/* Run! */
 		stmp3xxx_setl(BM_SSP_CTRL0_RUN, ss->regs + HW_SSP_CTRL0);
 
 		if (!busy_wait(readl(ss->regs + HW_SSP_CTRL0) &
@@ -296,7 +296,7 @@ static int stmp_spi_txrx_pio(struct stmp_spi *ss, int cs,
 		if (write)
 			writel(*buf, ss->regs + HW_SSP_DATA);
 
-		/*              */
+		/* Set TRANSFER */
 		stmp3xxx_setl(BM_SSP_CTRL0_DATA_XFER, ss->regs + HW_SSP_CTRL0);
 
 		if (!write) {
@@ -310,7 +310,7 @@ static int stmp_spi_txrx_pio(struct stmp_spi *ss, int cs,
 					BM_SSP_CTRL0_RUN))
 			break;
 
-		/*                          */
+		/* advance to the next byte */
 		buf++;
 	}
 
@@ -334,7 +334,7 @@ static int stmp_spi_handle_message(struct stmp_spi *ss, struct spi_message *m)
 		if (first || t->speed_hz || t->bits_per_word)
 			stmp_spi_setup_transfer(m->spi, t);
 
-		/*                                                        */
+		/* reject "not last" transfers which request to change cs */
 		if (t->cs_change && !last) {
 			dev_err(&m->spi->dev,
 				"Message with t->cs_change has been skipped\n");
@@ -382,8 +382,8 @@ static int stmp_spi_handle_message(struct stmp_spi *ss, struct spi_message *m)
 	return status;
 }
 
-/* 
-                                                   
+/**
+ * stmp_spi_handle - handle messages from the queue
  */
 static void stmp_spi_handle(struct work_struct *w)
 {
@@ -407,12 +407,12 @@ static void stmp_spi_handle(struct work_struct *w)
 	return;
 }
 
-/* 
-                                                
-                                                               
-                      
-                   
-                           
+/**
+ * stmp_spi_transfer - perform message transfer.
+ * Called indirectly from spi_async, queues all the messages to
+ * spi_handle_message.
+ * @spi: spi device
+ * @m: message to be queued
  */
 static int stmp_spi_transfer(struct spi_device *spi, struct spi_message *m)
 {
@@ -467,7 +467,7 @@ static int __devinit stmp_spi_probe(struct platform_device *dev)
 	ss = spi_master_get_devdata(master);
 	platform_set_drvdata(dev, master);
 
-	/*                                                       */
+	/* Get resources(memory, IRQ) associated with the device */
 	r = platform_get_resource(dev, IORESOURCE_MEM, 0);
 	if (r == NULL) {
 		err = -ENODEV;
@@ -494,7 +494,7 @@ static int __devinit stmp_spi_probe(struct platform_device *dev)
 	master->transfer = stmp_spi_transfer;
 	master->setup = stmp_spi_setup;
 
-	/*                                               */
+	/* the spi->mode bits understood by this driver: */
 	master->mode_bits = SPI_CPOL | SPI_CPHA;
 
 	ss->irq = platform_get_irq(dev, 0);
@@ -526,7 +526,7 @@ static int __devinit stmp_spi_probe(struct platform_device *dev)
 	master->bus_num = dev->id;
 	master->num_chipselect = 1;
 
-	/*                                */
+	/* SPI controller initializations */
 	err = stmp_spi_init_hw(ss);
 	if (err) {
 		dev_dbg(&dev->dev, "cannot initialize hardware\n");
@@ -542,7 +542,7 @@ static int __devinit stmp_spi_probe(struct platform_device *dev)
 	dev_info(&dev->dev, "max possible speed %d = %ld/%d kHz\n",
 		ss->speed_khz, clk_get_rate(ss->clk), ss->divider);
 
-	/*                            */
+	/* Register for SPI interrupt */
 	err = request_irq(ss->irq, stmp_spi_irq, 0,
 			  dev_name(&dev->dev), ss);
 	if (err) {
@@ -550,7 +550,7 @@ static int __devinit stmp_spi_probe(struct platform_device *dev)
 		goto out_release_hw;
 	}
 
-	/*                                                */
+	/* ..and shared interrupt for all SSP controllers */
 	err = request_irq(ss->err_irq, stmp_spi_irq_err, IRQF_SHARED,
 			  dev_name(&dev->dev), ss);
 	if (err) {

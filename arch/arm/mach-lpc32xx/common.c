@@ -33,7 +33,7 @@
 #include "common.h"
 
 /*
-                 
+ * Watchdog timer
  */
 static struct resource watchdog_resources[] = {
 	[0] = {
@@ -51,7 +51,7 @@ struct platform_device lpc32xx_watchdog_device = {
 };
 
 /*
-             
+ * I2C busses
  */
 static struct i2c_pnx_data i2c0_data = {
 	.name = I2C_CHIP_NAME "1",
@@ -95,7 +95,7 @@ struct platform_device lpc32xx_i2c2_device = {
 	},
 };
 
-/*                               */
+/* TSC (Touch Screen Controller) */
 
 static struct resource lpc32xx_tsc_resources[] = {
 	{
@@ -116,7 +116,7 @@ struct platform_device lpc32xx_tsc_device = {
 	.resource = lpc32xx_tsc_resources,
 };
 
-/*     */
+/* RTC */
 
 static struct resource lpc32xx_rtc_resources[] = {
 	{
@@ -138,7 +138,7 @@ struct platform_device lpc32xx_rtc_device = {
 };
 
 /*
-              
+ * ADC support
  */
 static struct resource adc_resources[] = {
 	{
@@ -160,9 +160,9 @@ struct platform_device lpc32xx_adc_device = {
 };
 
 /*
-              
+ * USB support
  */
-/*                                          */
+/* The dmamask must be set for OHCI to work */
 static u64 ohci_dmamask = ~(u32) 0;
 static struct resource ohci_resources[] = {
 	{
@@ -186,7 +186,7 @@ struct platform_device lpc32xx_ohci_device = {
 };
 
 /*
-                  
+ * Network Support
  */
 static struct resource net_resources[] = {
 	[0] = DEFINE_RES_MEM(LPC32XX_ETHERNET_BASE, SZ_4K),
@@ -207,7 +207,7 @@ struct platform_device lpc32xx_net_device = {
 };
 
 /*
-                                       
+ * Returns the unique ID for the device
  */
 void lpc32xx_get_uid(u32 devid[4])
 {
@@ -218,8 +218,8 @@ void lpc32xx_get_uid(u32 devid[4])
 }
 
 /*
-                        
-                                  
+ * Returns SYSCLK source
+ * 0 = PLL397, 1 = main oscillator
  */
 int clk_is_sysclk_mainosc(void)
 {
@@ -231,21 +231,21 @@ int clk_is_sysclk_mainosc(void)
 }
 
 /*
-                                      
+ * System reset via the watchdog timer
  */
 static void lpc32xx_watchdog_reset(void)
 {
-	/*                                  */
+	/* Make sure WDT clocks are enabled */
 	__raw_writel(LPC32XX_CLKPWR_PWMCLK_WDOG_EN,
 		LPC32XX_CLKPWR_TIMER_CLK_CTRL);
 
-	/*                                                    */
+	/* Instant assert of RESETOUT_N with pulse length 1mS */
 	__raw_writel(13000, io_p2v(LPC32XX_WDTIM_BASE + 0x18));
 	__raw_writel(0x70, io_p2v(LPC32XX_WDTIM_BASE + 0xC));
 }
 
 /*
-                                                         
+ * Detects and returns IRAM size for the device variation
  */
 #define LPC32XX_IRAM_BANK_SIZE SZ_128K
 static u32 iram_size;
@@ -275,7 +275,7 @@ u32 lpc32xx_return_iram_size(void)
 }
 
 /*
-                                                      
+ * Computes PLL rate from PLL register and input clock
  */
 u32 clk_check_pll_setup(u32 ifreq, struct clk_pll_setup *pllsetup)
 {
@@ -283,12 +283,12 @@ u32 clk_check_pll_setup(u32 ifreq, struct clk_pll_setup *pllsetup)
 	int mode;
 
 	/*
-                    
-                                      
-                                        
-                                     
-                                             
-  */
+	 * PLL requirements
+	 * ifreq must be >= 1MHz and <= 20MHz
+	 * FCCO must be >= 156MHz and <= 320MHz
+	 * FREF must be >= 1MHz and <= 27MHz
+	 * Assume the passed input data is not valid
+	 */
 
 	ilfreq = ifreq;
 	m = pllsetup->pll_m;
@@ -300,34 +300,34 @@ u32 clk_check_pll_setup(u32 ifreq, struct clk_pll_setup *pllsetup)
 	pllsetup->fdbk_div_ctrl_b13;
 
 	switch (mode) {
-	case 0x0: /*                  */
+	case 0x0: /* Non-integer mode */
 		cfreq = (m * ilfreq) / (2 * p * n);
 		fcco = (m * ilfreq) / n;
 		fref = ilfreq / n;
 		break;
 
-	case 0x1: /*              */
+	case 0x1: /* integer mode */
 		cfreq = (m * ilfreq) / n;
 		fcco = (m * ilfreq) / (n * 2 * p);
 		fref = ilfreq / n;
 		break;
 
 	case 0x2:
-	case 0x3: /*             */
+	case 0x3: /* Direct mode */
 		cfreq = (m * ilfreq) / n;
 		fcco = cfreq;
 		fref = ilfreq / n;
 		break;
 
 	case 0x4:
-	case 0x5: /*             */
+	case 0x5: /* Bypass mode */
 		cfreq = ilfreq / (2 * p);
 		fcco = 156000000;
 		fref = 1000000;
 		break;
 
 	case 0x6:
-	case 0x7: /*                    */
+	case 0x7: /* Direct bypass mode */
 	default:
 		cfreq = ilfreq;
 		fcco = 156000000;
@@ -390,11 +390,11 @@ void lpc23xx_restart(char mode, const char *cmd)
 		break;
 
 	default:
-		/*            */
+		/* Do nothing */
 		break;
 	}
 
-	/*                                   */
+	/* Wait for watchdog to reset system */
 	while (1)
 		;
 }

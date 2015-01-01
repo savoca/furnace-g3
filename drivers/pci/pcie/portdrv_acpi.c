@@ -18,18 +18,18 @@
 #include "aer/aerdrv.h"
 #include "../pci.h"
 
-/* 
-                                                                               
-                                                               
-                                                                 
-  
-                                                                              
-                                                                             
-                                                                               
-                                                          
-  
-                                                                         
-                                                                     
+/**
+ * pcie_port_acpi_setup - Request the BIOS to release control of PCIe services.
+ * @port: PCIe Port service for a root port or event collector.
+ * @srv_mask: Bit mask of services that can be enabled for @port.
+ *
+ * Invoked when @port is identified as a PCIe port device.  To avoid conflicts
+ * with the BIOS PCIe port native services support requires the BIOS to yield
+ * control of these services to the kernel.  The mask of services that the BIOS
+ * allows to be enabled for @port is written to @srv_mask.
+ *
+ * NOTE: It turns out that we cannot do that for individual port services
+ * separately, because that would make some systems work incorrectly.
  */
 int pcie_port_acpi_setup(struct pci_dev *port, int *srv_mask)
 {

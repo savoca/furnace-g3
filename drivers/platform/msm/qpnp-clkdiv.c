@@ -53,13 +53,13 @@ struct q_clkdiv {
 
 static LIST_HEAD(qpnp_clkdiv_devs);
 
-/* 
-                                        
-                               
-                                                         
-  
-                                                                             
-                                                                          
+/**
+ * qpnp_clkdiv_get - get a clkdiv handle
+ * @dev: client device pointer.
+ * @name: client specific name for the clock in question.
+ *
+ * Return a clkdiv handle given a client specific name. This name be a prefix
+ * for a property naming that takes a phandle to the actual clkdiv device.
  */
 struct q_clkdiv *qpnp_clkdiv_get(struct device *dev, const char *name)
 {
@@ -107,9 +107,9 @@ static int __clkdiv_enable(struct q_clkdiv *q_clkdiv, bool enable)
 	return rc;
 }
 
-/* 
-                                       
-                                      
+/**
+ * qpnp_clkdiv_enable - enable a clkdiv
+ * @q_clkdiv: pointer to clkdiv handle
  */
 int qpnp_clkdiv_enable(struct q_clkdiv *q_clkdiv)
 {
@@ -117,9 +117,9 @@ int qpnp_clkdiv_enable(struct q_clkdiv *q_clkdiv)
 }
 EXPORT_SYMBOL(qpnp_clkdiv_enable);
 
-/* 
-                                         
-                                      
+/**
+ * qpnp_clkdiv_disable - disable a clkdiv
+ * @q_clkdiv: pointer to clkdiv handle
  */
 int qpnp_clkdiv_disable(struct q_clkdiv *q_clkdiv)
 {
@@ -127,12 +127,12 @@ int qpnp_clkdiv_disable(struct q_clkdiv *q_clkdiv)
 }
 EXPORT_SYMBOL(qpnp_clkdiv_disable);
 
-/* 
-                                      
-                                                       
-  
-                                                                          
-                                    
+/**
+ * @q_clkdiv: pointer to clkdiv handle
+ * @cfg: setting used to configure the output frequency
+ *
+ * Given a q_clkdiv_cfg setting, configure the corresponding clkdiv device
+ * for the desired output frequency.
  */
 int qpnp_clkdiv_config(struct q_clkdiv *q_clkdiv, enum q_clkdiv_cfg cfg)
 {

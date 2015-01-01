@@ -32,13 +32,13 @@
 
 extern void diva_mnt_internal_dprintf(dword drv_id, dword type, char *p, ...);
 
-#define MODEM_PARSE_ENTRIES  16 /*                                 */
-#define FAX_PARSE_ENTRIES    12 /*                                 */
-#define LINE_PARSE_ENTRIES   15 /*                                 */
-#define STAT_PARSE_ENTRIES   70 /*                                 */
+#define MODEM_PARSE_ENTRIES  16 /* amount of variables of interest */
+#define FAX_PARSE_ENTRIES    12 /* amount of variables of interest */
+#define LINE_PARSE_ENTRIES   15 /* amount of variables of interest */
+#define STAT_PARSE_ENTRIES   70 /* amount of variables of interest */
 
 /*
-                 
+  LOCAL FUNCTIONS
 */
 static int DivaSTraceLibraryStart(void *hLib);
 static int DivaSTraceLibraryStop(void *hLib);
@@ -60,7 +60,7 @@ static int SuperTraceGetDLayer1Statistics(void *hLib);
 static int SuperTraceGetDLayer2Statistics(void *hLib);
 
 /*
-                 
+  LOCAL FUNCTIONS
 */
 static int ScheduleNextTraceRequest(diva_strace_context_t *pLib);
 static int process_idi_event(diva_strace_context_t *pLib,
@@ -100,10 +100,10 @@ static int diva_trace_read_variable(diva_man_var_header_t *pVar,
 				    void *variable);
 
 /*
-                                           
-                                                 
-                  
-                    
+  Initialize the library and return context
+  of the created trace object that will represent
+  the IDI adapter.
+  Return 0 on error.
 */
 diva_strace_library_interface_t *DivaSTraceLibraryCreateInstance(int Adapter,
 								 const diva_trace_library_user_interface_t *user_proc,
@@ -121,8 +121,8 @@ diva_strace_library_interface_t *DivaSTraceLibraryCreateInstance(int Adapter,
 	pLib->Adapter  = Adapter;
 
 	/*
-                           
- */
+	  Set up Library Interface
+	*/
 	pLib->instance.hLib                                = pLib;
 	pLib->instance.DivaSTraceLibraryStart              = DivaSTraceLibraryStart;
 	pLib->instance.DivaSTraceLibraryStop               = DivaSTraceLibraryStop;
@@ -166,9 +166,9 @@ diva_strace_library_interface_t *DivaSTraceLibraryCreateInstance(int Adapter,
 	pLib->Channels = SuperTraceGetNumberOfChannels(pLib->hAdapter);
 
 	/*
-                                                                 
-                                          
- */
+	  Calculate amount of parte table entites necessary to translate
+	  information from all events of onterest
+	*/
 	pLib->parse_entries = (MODEM_PARSE_ENTRIES + FAX_PARSE_ENTRIES + \
 			       STAT_PARSE_ENTRIES + \
 			       LINE_PARSE_ENTRIES + 1) * pLib->Channels;
@@ -196,14 +196,14 @@ static int DivaSTraceLibraryStart(void *hLib) {
 }
 
 /*
-                      
-                                        
-                                   
+  Return (-1) on error
+  Return (0) if was initiated or pending
+  Return (1) if removal is complete
 */
 static int DivaSTraceLibraryStop(void *hLib) {
 	diva_strace_context_t *pLib = (diva_strace_context_t *)hLib;
 
-	if (!pLib->e.Id) { /*                            */
+	if (!pLib->e.Id) { /* Was never started/assigned */
 		return (1);
 	}
 
@@ -238,9 +238,9 @@ static void *SuperTraceGetHandle(void *hLib) {
 }
 
 /*
-                                                       
-                                                          
-                                              
+  After library handle object is gone in signaled state
+  this function should be called and will pick up incoming
+  IDI messages (return codes and indications).
 */
 static int SuperTraceMessageInput(void *hLib) {
 	diva_strace_context_t *pLib = (diva_strace_context_t *)hLib;
@@ -249,8 +249,8 @@ static int SuperTraceMessageInput(void *hLib) {
 
 	if (pLib->e.complete == 255) {
 		/*
-                       
-  */
+		  Process return code
+		*/
 		pLib->req_busy = 0;
 		Rc             = pLib->e.Rc;
 		pLib->e.Rc     = 0;
@@ -263,8 +263,8 @@ static int SuperTraceMessageInput(void *hLib) {
 		if (Rc != pLib->rc_ok) {
 			int ignore = 0;
 			/*
-                                                       
-   */
+			  Auto-detect amount of events/channels and features
+			*/
 			if (pLib->general_b_ch_event == 1) {
 				pLib->general_b_ch_event = 2;
 				ignore = 1;
@@ -295,7 +295,7 @@ static int SuperTraceMessageInput(void *hLib) {
 			}
 
 			if (!ignore) {
-				return (-1); /*                */
+				return (-1); /* request failed */
 			}
 		} else {
 			if (pLib->general_b_ch_event == 1) {
@@ -312,15 +312,15 @@ static int SuperTraceMessageInput(void *hLib) {
 		if (pLib->audio_trace_init == 2) {
 			pLib->audio_trace_init = 1;
 		}
-		pLib->rc_ok = 0xff; /*                                  */
+		pLib->rc_ok = 0xff; /* default OK after assign was done */
 		if ((ret = ScheduleNextTraceRequest(pLib))) {
 			return (-1);
 		}
 	} else {
 		/*
-                      
-                                                     
-  */
+		  Process indication
+		  Always 'RNR' indication if return code is pending
+		*/
 		Ind         = pLib->e.Ind;
 		pLib->e.Ind = 0;
 		if (pLib->removal_state) {
@@ -332,18 +332,18 @@ static int SuperTraceMessageInput(void *hLib) {
 		} else {
 			if (pLib->e.complete != 0x02) {
 				/*
-                                     
-    */
+				  Look-ahead call, set up buffers
+				*/
 				pLib->e.RNum       = 1;
 				pLib->e.R->P       = (byte *)&pLib->buffer[0];
 				pLib->e.R->PLength = (word)(sizeof(pLib->buffer) - 1);
 
 			} else {
 				/*
-                                                   
-    */
+				  Indication reception complete, process it now
+				*/
 				byte *p = (byte *)&pLib->buffer[0];
-				pLib->buffer[pLib->e.R->PLength] = 0; /*                          */
+				pLib->buffer[pLib->e.R->PLength] = 0; /* terminate I.E. with zero */
 
 				switch (Ind) {
 				case MAN_COMBI_IND: {
@@ -369,14 +369,14 @@ static int SuperTraceMessageInput(void *hLib) {
 						case MAN_TRACE_IND:
 							if (pLib->trace_on == 1) {
 								/*
-                                                    
-                            
-        */
+								  Ignore first trace event that is result of
+								  EVENT_ON operation
+								*/
 								pLib->trace_on++;
 							} else {
 								/*
-                                             
-        */
+								  Delivery XLOG buffer to application
+								*/
 								if (pLib->user_proc_table.trace_proc) {
 									(*(pLib->user_proc_table.trace_proc))(pLib->user_proc_table.user_context,
 													      &pLib->instance, pLib->Adapter,
@@ -404,14 +404,14 @@ static int SuperTraceMessageInput(void *hLib) {
 				case MAN_TRACE_IND:
 					if (pLib->trace_on == 1) {
 						/*
-                                                  
-                          
-      */
+						  Ignore first trace event that is result of
+						  EVENT_ON operation
+						*/
 						pLib->trace_on++;
 					} else {
 						/*
-                                           
-      */
+						  Delivery XLOG buffer to application
+						*/
 						if (pLib->user_proc_table.trace_proc) {
 							(*(pLib->user_proc_table.trace_proc))(pLib->user_proc_table.user_context,
 											      &pLib->instance, pLib->Adapter,
@@ -434,7 +434,7 @@ static int SuperTraceMessageInput(void *hLib) {
 }
 
 /*
-                                                               
+  Internal state machine responsible for scheduling of requests
 */
 static int ScheduleNextTraceRequest(diva_strace_context_t *pLib) {
 	char name[64];
@@ -525,7 +525,7 @@ static int ScheduleNextTraceRequest(diva_strace_context_t *pLib) {
 				       pLib->buffer,
 				       "Trace\\Event Enable",
 				       &tmp,
-				       0x87, /*           */
+				       0x87, /* MI_BITFLD */
 					sizeof(tmp))) {
 			return (-1);
 		}
@@ -540,7 +540,7 @@ static int ScheduleNextTraceRequest(diva_strace_context_t *pLib) {
 				       pLib->buffer,
 				       "Trace\\AudioCh# Enable",
 				       &tmp,
-				       0x87, /*           */
+				       0x87, /* MI_BITFLD */
 					sizeof(tmp))) {
 			return (-1);
 		}
@@ -555,7 +555,7 @@ static int ScheduleNextTraceRequest(diva_strace_context_t *pLib) {
 				       pLib->buffer,
 				       "Trace\\B-Ch# Enable",
 				       &tmp,
-				       0x87, /*           */
+				       0x87, /* MI_BITFLD */
 					sizeof(tmp))) {
 			return (-1);
 		}
@@ -570,7 +570,7 @@ static int ScheduleNextTraceRequest(diva_strace_context_t *pLib) {
 				       pLib->buffer,
 				       "Trace\\Max Log Length",
 				       &tmp,
-				       0x82, /*         */
+				       0x82, /* MI_UINT */
 					sizeof(tmp))) {
 			return (-1);
 		}
@@ -595,7 +595,7 @@ static int ScheduleNextTraceRequest(diva_strace_context_t *pLib) {
 				       pLib->buffer,
 				       "Trace\\Event Enable",
 				       &pLib->trace_event_mask,
-				       0x87, /*           */
+				       0x87, /* MI_BITFLD */
 					sizeof(pLib->trace_event_mask))) {
 			return (-1);
 		}
@@ -609,7 +609,7 @@ static int ScheduleNextTraceRequest(diva_strace_context_t *pLib) {
 				       pLib->buffer,
 				       "Trace\\AudioCh# Enable",
 				       &pLib->audio_tap_mask,
-				       0x87, /*           */
+				       0x87, /* MI_BITFLD */
 					sizeof(pLib->audio_tap_mask))) {
 			return (-1);
 		}
@@ -624,7 +624,7 @@ static int ScheduleNextTraceRequest(diva_strace_context_t *pLib) {
 				       pLib->buffer,
 				       "Trace\\EyeCh# Enable",
 				       &pLib->audio_tap_mask,
-				       0x87, /*           */
+				       0x87, /* MI_BITFLD */
 					sizeof(pLib->audio_tap_mask))) {
 			return (-1);
 		}
@@ -639,7 +639,7 @@ static int ScheduleNextTraceRequest(diva_strace_context_t *pLib) {
 				       pLib->buffer,
 				       "Trace\\B-Ch# Enable",
 				       &pLib->bchannel_trace_mask,
-				       0x87, /*           */
+				       0x87, /* MI_BITFLD */
 					sizeof(pLib->bchannel_trace_mask))) {
 			return (-1);
 		}
@@ -907,8 +907,8 @@ static int process_idi_event(diva_strace_context_t *pLib,
 	}
 
 	/*
-                            
- */
+	  First look for Line Event
+	*/
 	for (i = 1; i <= pLib->Channels; i++) {
 		sprintf(name, "State\\B%d\\Line", i);
 		if (find_var(pVar, name)) {
@@ -917,8 +917,8 @@ static int process_idi_event(diva_strace_context_t *pLib,
 	}
 
 	/*
-                                
- */
+	  Look for Moden Progress Event
+	*/
 	for (i = 1; i <= pLib->Channels; i++) {
 		sprintf(name, "State\\B%d\\Modem\\Event", i);
 		if (find_var(pVar, name)) {
@@ -927,8 +927,8 @@ static int process_idi_event(diva_strace_context_t *pLib,
 	}
 
 	/*
-                     
- */
+	  Look for Fax Event
+	*/
 	for (i = 1; i <= pLib->Channels; i++) {
 		sprintf(name, "State\\B%d\\FAX\\Event", i);
 		if (find_var(pVar, name)) {
@@ -937,8 +937,8 @@ static int process_idi_event(diva_strace_context_t *pLib,
 	}
 
 	/*
-                                    
- */
+	  Notification about loss of events
+	*/
 	if (!strncmp("Events Down", path, pVar->path_length)) {
 		if (pLib->trace_events_down == 1) {
 			pLib->trace_events_down = 2;
@@ -1046,9 +1046,9 @@ static int diva_fax_event(diva_strace_context_t *pLib, int Channel) {
 }
 
 /*
-                                                    
-                                                     
-            
+  Process INFO indications that arrive from the card
+  Uses path of first I.E. to detect the source of the
+  infication
 */
 static int process_idi_info(diva_strace_context_t *pLib,
 			    diva_man_var_header_t *pVar) {
@@ -1057,8 +1057,8 @@ static int process_idi_info(diva_strace_context_t *pLib,
 	int i, len;
 
 	/*
-                                   
- */
+	  First look for Modem Status Info
+	*/
 	for (i = pLib->Channels; i > 0; i--) {
 		len = sprintf(name, "State\\B%d\\Modem", i);
 		if (!strncmp(name, path, len)) {
@@ -1067,8 +1067,8 @@ static int process_idi_info(diva_strace_context_t *pLib,
 	}
 
 	/*
-                           
- */
+	  Look for Fax Status Info
+	*/
 	for (i = pLib->Channels; i > 0; i--) {
 		len = sprintf(name, "State\\B%d\\FAX", i);
 		if (!strncmp(name, path, len)) {
@@ -1077,8 +1077,8 @@ static int process_idi_info(diva_strace_context_t *pLib,
 	}
 
 	/*
-                            
- */
+	  Look for Line Status Info
+	*/
 	for (i = pLib->Channels; i > 0; i--) {
 		len = sprintf(name, "State\\B%d", i);
 		if (!strncmp(name, path, len)) {
@@ -1094,11 +1094,11 @@ static int process_idi_info(diva_strace_context_t *pLib,
 }
 
 /*
-                             
+  MODEM INSTANCE STATE UPDATE
 
-                                                                 
-                                                                       
-                               
+  Update Modem Status Information and issue notification to user,
+  that will inform about change in the state of modem instance, that is
+  associuated with this channel
 */
 static int diva_modem_info(diva_strace_context_t *pLib,
 			   int Channel,
@@ -1120,10 +1120,10 @@ static int diva_modem_info(diva_strace_context_t *pLib,
 	}
 
 	/*
-                                                                       
-                                                                           
-                                    
- */
+	  We do not use first event to notify user - this is the event that is
+	  generated as result of EVENT ON operation and is used only to initialize
+	  internal variables of application
+	*/
 	if (pLib->modem_init_event & (1L << nr)) {
 		diva_trace_notify_user(pLib, nr, DIVA_SUPER_TRACE_NOTIFY_MODEM_CHANGE);
 	} else {
@@ -1153,10 +1153,10 @@ static int diva_fax_info(diva_strace_context_t *pLib,
 	}
 
 	/*
-                                                                       
-                                                                           
-                                    
- */
+	  We do not use first event to notify user - this is the event that is
+	  generated as result of EVENT ON operation and is used only to initialize
+	  internal variables of application
+	*/
 	if (pLib->fax_init_event & (1L << nr)) {
 		diva_trace_notify_user(pLib, nr, DIVA_SUPER_TRACE_NOTIFY_FAX_CHANGE);
 	} else {
@@ -1167,9 +1167,9 @@ static int diva_fax_info(diva_strace_context_t *pLib,
 }
 
 /*
-                   
-                                                                
-                                                  
+  LINE STATE UPDATE
+  Update Line Status Information and issue notification to user,
+  that will inform about change in the line state.
 */
 static int diva_line_info(diva_strace_context_t *pLib,
 			  int Channel,
@@ -1191,13 +1191,13 @@ static int diva_line_info(diva_strace_context_t *pLib,
 	}
 
 	/*
-                                                                       
-                                                                           
-                                    
+	  We do not use first event to notify user - this is the event that is
+	  generated as result of EVENT ON operation and is used only to initialize
+	  internal variables of application
 
-                                                                          
-                             
- */
+	  Exception is is if the line is "online". In this case we have to notify
+	  user about this confition.
+	*/
 	if (pLib->line_init_event & (1L << nr)) {
 		diva_trace_notify_user(pLib, nr, DIVA_SUPER_TRACE_NOTIFY_LINE_CHANGE);
 	} else {
@@ -1211,7 +1211,7 @@ static int diva_line_info(diva_strace_context_t *pLib,
 }
 
 /*
-                                             
+  Move position to next vatianle in the chain
 */
 static diva_man_var_header_t *get_next_var(diva_man_var_header_t *pVar) {
 	byte *msg = (byte *)pVar;
@@ -1230,7 +1230,7 @@ static diva_man_var_header_t *get_next_var(diva_man_var_header_t *pVar) {
 }
 
 /*
-                                           
+  Move position to variable with given name
 */
 static diva_man_var_header_t *find_var(diva_man_var_header_t *pVar,
 				       const char *name) {
@@ -1485,8 +1485,8 @@ static void diva_create_parse_table(diva_strace_context_t *pLib) {
 	pLib->statistic_parse_first = pLib->cur_parse_entry;
 
 	/*
-                 
- */
+	  Outgoing Calls
+	*/
 	strcpy(pLib->parse_table[pLib->cur_parse_entry].path,
 	       "Statistics\\Outgoing Calls\\Calls");
 	pLib->parse_table[pLib->cur_parse_entry++].variable = \
@@ -1523,8 +1523,8 @@ static void diva_create_parse_table(diva_strace_context_t *pLib) {
 		&pLib->InterfaceStat.outg.Other_Failures;
 
 	/*
-                 
- */
+	  Incoming Calls
+	*/
 	strcpy(pLib->parse_table[pLib->cur_parse_entry].path,
 	       "Statistics\\Incoming Calls\\Calls");
 	pLib->parse_table[pLib->cur_parse_entry++].variable = \
@@ -1566,8 +1566,8 @@ static void diva_create_parse_table(diva_strace_context_t *pLib) {
 		&pLib->InterfaceStat.inc.Ignored;
 
 	/*
-                   
- */
+	  Modem Statistics
+	*/
 	pLib->mdm_statistic_parse_first = pLib->cur_parse_entry;
 
 	strcpy(pLib->parse_table[pLib->cur_parse_entry].path,
@@ -1618,8 +1618,8 @@ static void diva_create_parse_table(diva_strace_context_t *pLib) {
 	pLib->mdm_statistic_parse_last  = pLib->cur_parse_entry - 1;
 
 	/*
-                 
- */
+	  Fax Statistics
+	*/
 	pLib->fax_statistic_parse_first = pLib->cur_parse_entry;
 
 	strcpy(pLib->parse_table[pLib->cur_parse_entry].path,
@@ -1715,8 +1715,8 @@ static void diva_create_parse_table(diva_strace_context_t *pLib) {
 	pLib->fax_statistic_parse_last  = pLib->cur_parse_entry - 1;
 
 	/*
-            
- */
+	  B-Layer1"
+	*/
 	strcpy(pLib->parse_table[pLib->cur_parse_entry].path,
 	       "Statistics\\B-Layer1\\X-Frames");
 	pLib->parse_table[pLib->cur_parse_entry++].variable = \
@@ -1748,8 +1748,8 @@ static void diva_create_parse_table(diva_strace_context_t *pLib) {
 		&pLib->InterfaceStat.b1.R_Errors;
 
 	/*
-           
- */
+	  B-Layer2
+	*/
 	strcpy(pLib->parse_table[pLib->cur_parse_entry].path,
 	       "Statistics\\B-Layer2\\X-Frames");
 	pLib->parse_table[pLib->cur_parse_entry++].variable = \
@@ -1781,8 +1781,8 @@ static void diva_create_parse_table(diva_strace_context_t *pLib) {
 		&pLib->InterfaceStat.b2.R_Errors;
 
 	/*
-           
- */
+	  D-Layer1
+	*/
 	strcpy(pLib->parse_table[pLib->cur_parse_entry].path,
 	       "Statistics\\D-Layer1\\X-Frames");
 	pLib->parse_table[pLib->cur_parse_entry++].variable = \
@@ -1814,8 +1814,8 @@ static void diva_create_parse_table(diva_strace_context_t *pLib) {
 		&pLib->InterfaceStat.d1.R_Errors;
 
 	/*
-           
- */
+	  D-Layer2
+	*/
 	strcpy(pLib->parse_table[pLib->cur_parse_entry].path,
 	       "Statistics\\D-Layer2\\X-Frames");
 	pLib->parse_table[pLib->cur_parse_entry++].variable = \
@@ -1861,7 +1861,7 @@ static void diva_trace_error(diva_strace_context_t *pLib,
 }
 
 /*
-                               
+  Delivery notification to user
 */
 static void diva_trace_notify_user(diva_strace_context_t *pLib,
 				   int Channel,
@@ -1876,37 +1876,37 @@ static void diva_trace_notify_user(diva_strace_context_t *pLib,
 }
 
 /*
-                                                                    
+  Read variable value to they destination based on the variable type
 */
 static int diva_trace_read_variable(diva_man_var_header_t *pVar,
 				    void *variable) {
 	switch (pVar->type) {
-	case 0x03: /*                                                  */
+	case 0x03: /* MI_ASCIIZ - syting                               */
 		return (diva_strace_read_asz(pVar, (char *)variable));
-	case 0x04: /*                                                  */
+	case 0x04: /* MI_ASCII  - string                               */
 		return (diva_strace_read_asc(pVar, (char *)variable));
-	case 0x05: /*                                                  */
+	case 0x05: /* MI_NUMBER - counted sequence of bytes            */
 		return (diva_strace_read_ie(pVar, (diva_trace_ie_t *)variable));
-	case 0x81: /*                                                  */
+	case 0x81: /* MI_INT    - signed integer                       */
 		return (diva_strace_read_int(pVar, (int *)variable));
-	case 0x82: /*                                                  */
+	case 0x82: /* MI_UINT   - unsigned integer                     */
 		return (diva_strace_read_uint(pVar, (dword *)variable));
-	case 0x83: /*                                                  */
+	case 0x83: /* MI_HINT   - unsigned integer, hex representetion */
 		return (diva_strace_read_uint(pVar, (dword *)variable));
-	case 0x87: /*                                                  */
+	case 0x87: /* MI_BITFLD - unsigned integer, bit representation */
 		return (diva_strace_read_uint(pVar, (dword *)variable));
 	}
 
 	/*
-                                                       
-                                                                      
-                                               
- */
+	  This type of variable is not handled, indicate error
+	  Or one problem in management interface, or in application recodeing
+	  table, or this application should handle it.
+	*/
 	return (-1);
 }
 
 /*
-                                    
+  Read signed integer to destination
 */
 static int diva_strace_read_int(diva_man_var_header_t *pVar, int *var) {
 	byte *ptr = (char *)&pVar->path_length;
@@ -1970,7 +1970,7 @@ static int diva_strace_read_uint(diva_man_var_header_t *pVar, dword *var) {
 }
 
 /*
-                                   
+  Read zero terminated ASCII string
 */
 static int diva_strace_read_asz(diva_man_var_header_t *pVar, char *var) {
 	char *ptr = (char *)&pVar->path_length;
@@ -1988,7 +1988,7 @@ static int diva_strace_read_asz(diva_man_var_header_t *pVar, char *var) {
 }
 
 /*
-                                                      
+  Read counted (with leading length byte) ASCII string
 */
 static int diva_strace_read_asc(diva_man_var_header_t *pVar, char *var) {
 	char *ptr = (char *)&pVar->path_length;
@@ -2001,8 +2001,8 @@ static int diva_strace_read_asc(diva_man_var_header_t *pVar, char *var) {
 }
 
 /*
-                                                                    
-                          
+  Read one information element - i.e. one string of byte values with
+  one length byte in front
 */
 static int diva_strace_read_ie(diva_man_var_header_t *pVar,
 			       diva_trace_ie_t *var) {
@@ -2031,9 +2031,9 @@ static int SuperTraceSetAudioTap(void *hLib, int Channel, int on) {
 	}
 
 	/*
-                                                
-            
- */
+	  EYE patterns have TM_M_DATA set as additional
+	  condition
+	*/
 	if (pLib->audio_tap_mask) {
 		pLib->trace_event_mask |= TM_M_DATA;
 	} else {
@@ -2098,7 +2098,7 @@ static int SuperTraceClearCall(void *hLib, int Channel) {
 }
 
 /*
-                                        
+  Parse and update cumulative statistice
 */
 static int diva_ifc_statistics(diva_strace_context_t *pLib,
 			       diva_man_var_header_t *pVar) {
@@ -2122,10 +2122,10 @@ static int diva_ifc_statistics(diva_strace_context_t *pLib,
 	}
 
 	/*
-                                                                       
-                                                                           
-                                    
- */
+	  We do not use first event to notify user - this is the event that is
+	  generated as result of EVENT ON operation and is used only to initialize
+	  internal variables of application
+	*/
 	if (mdm_updated) {
 		diva_trace_notify_user(pLib, 0, DIVA_SUPER_TRACE_NOTIFY_MDM_STAT_CHANGE);
 	} else if (fax_updated) {

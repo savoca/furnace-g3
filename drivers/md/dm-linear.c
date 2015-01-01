@@ -15,7 +15,7 @@
 #define DM_MSG_PREFIX "linear"
 
 /*
-                                           
+ * Linear: maps a linear range of a device.
  */
 struct linear_c {
 	struct dm_dev *dev;
@@ -23,7 +23,7 @@ struct linear_c {
 };
 
 /*
-                                                  
+ * Construct a linear mapping: <dev_path> <offset>
  */
 static int linear_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 {
@@ -121,8 +121,8 @@ static int linear_ioctl(struct dm_target *ti, unsigned int cmd,
 	int r = 0;
 
 	/*
-                                                               
-  */
+	 * Only pass ioctls through if the device sizes match exactly.
+	 */
 	if (lc->start ||
 	    ti->len != i_size_read(dev->bdev->bd_inode) >> SECTOR_SHIFT)
 		r = scsi_verify_blk_ioctl(NULL, cmd);

@@ -26,7 +26,7 @@ static dword notify_handle;
 static DESCRIPTOR _DAdapter;
 
 /*
-                         
+ * didd callback function
  */
 static void *didd_callback(void *context, DESCRIPTOR *adapter,
 			   int removal)
@@ -45,7 +45,7 @@ static void *didd_callback(void *context, DESCRIPTOR *adapter,
 }
 
 /*
-                  
+ * connect to didd
  */
 static int DIVA_INIT_FUNCTION connect_didd(void)
 {
@@ -57,7 +57,7 @@ static int DIVA_INIT_FUNCTION connect_didd(void)
 	DIVA_DIDD_Read(DIDD_Table, sizeof(DIDD_Table));
 
 	for (x = 0; x < MAX_DESCRIPTORS; x++) {
-		if (DIDD_Table[x].type == IDI_DADAPTER) {	/*                */
+		if (DIDD_Table[x].type == IDI_DADAPTER) {	/* DADAPTER found */
 			dadapter = 1;
 			memcpy(&_DAdapter, &DIDD_Table[x], sizeof(_DAdapter));
 			req.didd_notify.e.Req = 0;
@@ -69,7 +69,7 @@ static int DIVA_INIT_FUNCTION connect_didd(void)
 			if (req.didd_notify.e.Rc != 0xff)
 				return (0);
 			notify_handle = req.didd_notify.info.handle;
-		} else if (DIDD_Table[x].type == IDI_DIMAINT) {	/*             */
+		} else if (DIDD_Table[x].type == IDI_DIMAINT) {	/* MAINT found */
 			DbgRegister("DIDD", DRIVERRELEASE_DIDD, DBG_DEFAULT);
 		}
 	}
@@ -77,7 +77,7 @@ static int DIVA_INIT_FUNCTION connect_didd(void)
 }
 
 /*
-                       
+ * disconnect from didd
  */
 static void DIVA_EXIT_FUNCTION disconnect_didd(void)
 {
@@ -90,7 +90,7 @@ static void DIVA_EXIT_FUNCTION disconnect_didd(void)
 }
 
 /*
-       
+ * init
  */
 int DIVA_INIT_FUNCTION diddfunc_init(void)
 {
@@ -105,7 +105,7 @@ int DIVA_INIT_FUNCTION diddfunc_init(void)
 }
 
 /*
-        
+ * finit
  */
 void DIVA_EXIT_FUNCTION diddfunc_finit(void)
 {

@@ -32,7 +32,7 @@ static unsigned char ufs_fragtable_8fpb[], ufs_fragtable_other[];
 static void ufs_clusteracct(struct super_block *, struct ufs_cg_private_info *, unsigned, int);
 
 /*
-                                                         
+ * Free 'count' fragments from fragment number 'fragment'
  */
 void ufs_free_fragments(struct inode *inode, u64 fragment, unsigned count)
 {
@@ -91,8 +91,8 @@ void ufs_free_fragments(struct inode *inode, u64 fragment, unsigned count)
 	ufs_fragacct(sb, blkmap, ucg->cg_frsum, 1);
 
 	/*
-                                                  
-  */
+	 * Trying to reassemble free fragments into block
+	 */
 	blkno = ufs_fragstoblks (bbase);
 	if (ubh_isblockset(UCPI_UBH(ucpi), ucpi->c_freeoff, blkno)) {
 		fs32_sub(sb, &ucg->cg_cs.cs_nffree, uspi->s_fpb);
@@ -129,7 +129,7 @@ failed:
 }
 
 /*
-                                                                             
+ * Free 'count' fragments from fragment number 'fragment' (free whole blocks)
  */
 void ufs_free_blocks(struct inode *inode, u64 fragment, unsigned count)
 {
@@ -227,14 +227,14 @@ failed:
 }
 
 /*
-                                       
-                                                            
-                                                           
-                                                  
-                               
-  
-                                                            
-                                                                     
+ * Modify inode page cache in such way:
+ * have - blocks with b_blocknr equal to oldb...oldb+count-1
+ * get - blocks with b_blocknr equal to newb...newb+count-1
+ * also we suppose that oldb...oldb+count-1 blocks
+ * situated at the end of file.
+ *
+ * We can come here from ufs_writepage or ufs_prepare_write,
+ * locked_page is argument of these functions, so we already lock it.
  */
 static void ufs_change_blocknr(struct inode *inode, sector_t beg,
 			       unsigned int count, sector_t oldb,
@@ -265,9 +265,9 @@ static void ufs_change_blocknr(struct inode *inode, sector_t beg,
 
 		if (likely(cur_index != index)) {
 			page = ufs_get_locked_page(mapping, index);
-			if (!page)/*                  */
+			if (!page)/* it was truncated */
 				continue;
-			if (IS_ERR(page)) {/*        */
+			if (IS_ERR(page)) {/* or EIO */
 				ufs_error(inode->i_sb, __func__,
 					  "read of page %llu failed\n",
 					  (unsigned long long)index);
@@ -374,8 +374,8 @@ u64 ufs_new_fragments(struct inode *inode, void *p, u64 fragment,
 	newcount = oldcount + count;
 
 	/*
-                                                  
-  */
+	 * Somebody else has just allocated our fragments
+	 */
 	if (oldcount) {
 		if (!tmp) {
 			ufs_error(sb, "ufs_new_fragments", "internal error, "
@@ -400,8 +400,8 @@ u64 ufs_new_fragments(struct inode *inode, void *p, u64 fragment,
 	}
 
 	/*
-                                                    
-  */
+	 * There is not enough space for user on the device
+	 */
 	if (!capable(CAP_SYS_RESOURCE) && ufs_freespace(uspi, UFS_MINFREE) <= 0) {
 		unlock_super (sb);
 		UFSD("EXIT (FAILED)\n");
@@ -416,8 +416,8 @@ u64 ufs_new_fragments(struct inode *inode, void *p, u64 fragment,
 		cgno = ufs_dtog(uspi, goal);
 	 
 	/*
-                         
-  */
+	 * allocate new fragment
+	 */
 	if (oldcount == 0) {
 		result = ufs_alloc_fragments (inode, cgno, goal, count, err);
 		if (result) {
@@ -434,8 +434,8 @@ u64 ufs_new_fragments(struct inode *inode, void *p, u64 fragment,
 	}
 
 	/*
-                
-  */
+	 * resize block
+	 */
 	result = ufs_add_fragments (inode, tmp, oldcount, newcount, err);
 	if (result) {
 		*err = 0;
@@ -449,8 +449,8 @@ u64 ufs_new_fragments(struct inode *inode, void *p, u64 fragment,
 	}
 
 	/*
-                                    
-  */
+	 * allocate new block and move data
+	 */
 	switch (fs32_to_cpu(sb, usb1->fs_optim)) {
 	    case UFS_OPTSPACE:
 		request = newcount;
@@ -533,8 +533,8 @@ static u64 ufs_add_fragments(struct inode *inode, u64 fragment,
 		if (ubh_isclr (UCPI_UBH(ucpi), ucpi->c_freeoff, fragno + i))
 			return 0;
 	/*
-                         
-  */
+	 * Block can be extended
+	 */
 	ucg->cg_time = cpu_to_fs32(sb, get_seconds());
 	for (i = newcount; i < (uspi->s_fpb - fragoff); i++)
 		if (ubh_isclr (UCPI_UBH(ucpi), ucpi->c_freeoff, fragno + i))
@@ -592,13 +592,13 @@ static u64 ufs_alloc_fragments(struct inode *inode, unsigned cgno,
 	oldcg = cgno;
 	
 	/*
-                                            
-  */
+	 * 1. searching on preferred cylinder group
+	 */
 	UFS_TEST_FREE_SPACE_CG
 
 	/*
-                       
-  */
+	 * 2. quadratic rehash
+	 */
 	for (j = 1; j < uspi->s_ncg; j *= 2) {
 		cgno += j;
 		if (cgno >= uspi->s_ncg) 
@@ -607,9 +607,9 @@ static u64 ufs_alloc_fragments(struct inode *inode, unsigned cgno,
 	}
 
 	/*
-                         
-                                                             
-  */
+	 * 3. brute force search
+	 * We start at i = 2 ( 0 is checked at 1.step, 1 at 2.step )
+	 */
 	cgno = (oldcg + 1) % uspi->s_ncg;
 	for (j = 2; j < uspi->s_ncg; j++) {
 		cgno++;
@@ -709,8 +709,8 @@ static u64 ufs_alloccg_block(struct inode *inode,
 	goal = ufs_dtogd(uspi, goal);
 	
 	/*
-                                                
-  */
+	 * If the requested block is available, use it.
+	 */
 	if (ubh_isblockset(UCPI_UBH(ucpi), ucpi->c_freeoff, ufs_fragstoblks(goal))) {
 		result = goal;
 		goto gotit;
@@ -773,20 +773,20 @@ static unsigned ubh_scanc(struct ufs_sb_private_info *uspi,
 }
 
 /*
-                                                                      
-                              
-                                        
-                                               
-                         
+ * Find a block of the specified size in the specified cylinder group.
+ * @sp: pointer to super block
+ * @ucpi: pointer to cylinder group info
+ * @goal: near which block we want find new one
+ * @count: specified size
  */
 static u64 ufs_bitmap_search(struct super_block *sb,
 			     struct ufs_cg_private_info *ucpi,
 			     u64 goal, unsigned count)
 {
 	/*
-                                                           
-                                          
-  */
+	 * Bit patterns for identifying fragments in the block map
+	 * used as ((map & mask_arr) == want_arr)
+	 */
 	static const int mask_arr[9] = {
 		0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff, 0x3ff
 	};
@@ -835,8 +835,8 @@ static u64 ufs_bitmap_search(struct super_block *sb,
 	ucpi->c_frotor = result;
 
 	/*
-                             
-  */
+	 * found the byte in the map
+	 */
 
 	for (end = result + 8; result < end; result += uspi->s_fpb) {
 		blockmap = ubh_blkmap(UCPI_UBH(ucpi), ucpi->c_freeoff, result);
@@ -876,8 +876,8 @@ static void ufs_clusteracct(struct super_block * sb,
 		ubh_clrbit(UCPI_UBH(ucpi), ucpi->c_clusteroff, blkno);
 
 	/*
-                                               
-  */
+	 * Find the size of the cluster going forward.
+	 */
 	start = blkno + 1;
 	end = start + uspi->s_contigsumsize;
 	if ( end >= ucpi->c_nclusterblks)
@@ -888,8 +888,8 @@ static void ufs_clusteracct(struct super_block * sb,
 	forw = i - start;
 	
 	/*
-                                                
-  */
+	 * Find the size of the cluster going backward.
+	 */
 	start = blkno - 1;
 	end = start - uspi->s_contigsumsize;
 	if (end < 0 ) 
@@ -900,9 +900,9 @@ static void ufs_clusteracct(struct super_block * sb,
 	back = start - i;
 	
 	/*
-                                                            
-                  
-  */
+	 * Account for old cluster and the possibly new forward and
+	 * back clusters.
+	 */
 	i = back + forw + 1;
 	if (i > uspi->s_contigsumsize)
 		i = uspi->s_contigsumsize;

@@ -10,8 +10,8 @@
 #include "internals.h"
 
 /*
-                                                                   
-                                                 
+ * What should we do if we get a hw irq event on an illegal vector?
+ * Each architecture has to answer this themself.
  */
 static void ack_bad(struct irq_data *data)
 {
@@ -22,7 +22,7 @@ static void ack_bad(struct irq_data *data)
 }
 
 /*
-                
+ * NOP functions
  */
 static void noop(struct irq_data *data) { }
 
@@ -32,7 +32,7 @@ static unsigned int noop_ret(struct irq_data *data)
 }
 
 /*
-                                       
+ * Generic no controller implementation
  */
 struct irq_chip no_irq_chip = {
 	.name		= "none",
@@ -44,8 +44,8 @@ struct irq_chip no_irq_chip = {
 };
 
 /*
-                                                     
-                              
+ * Generic dummy implementation which can be used for
+ * real dumb interrupt sources
  */
 struct irq_chip dummy_irq_chip = {
 	.name		= "dummy",

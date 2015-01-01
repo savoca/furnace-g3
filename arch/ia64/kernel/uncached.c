@@ -33,9 +33,9 @@ extern void __init efi_memmap_walk_uc(efi_freemem_callback_t, void *);
 
 struct uncached_pool {
 	struct gen_pool *pool;
-	struct mutex add_chunk_mutex;	/*                                    */
-	int nchunks_added;		/*                                    */
-	atomic_t status;		/*                                    */
+	struct mutex add_chunk_mutex;	/* serialize adding a converted chunk */
+	int nchunks_added;		/* #of converted chunks added to pool */
+	atomic_t status;		/* smp called function's return status*/
 };
 
 #define MAX_CONVERTED_CHUNKS_PER_NODE	2
@@ -67,13 +67,13 @@ static void uncached_ipi_mc_drain(void *data)
 
 
 /*
-                                                                  
-  
-                                                     
-                                                       
-  
-                                                                            
-                                                     
+ * Add a new chunk of uncached memory pages to the specified pool.
+ *
+ * @pool: pool to add new chunk of uncached memory to
+ * @nid: node id of node to allocate memory from, or -1
+ *
+ * This is accomplished by first allocating a granule of cached memory pages
+ * and then converting them to uncached memory pages.
  */
 static int uncached_add_chunk(struct uncached_pool *uc_pool, int nid)
 {
@@ -82,10 +82,10 @@ static int uncached_add_chunk(struct uncached_pool *uc_pool, int nid)
 	unsigned long c_addr, uc_addr;
 
 	if (mutex_lock_interruptible(&uc_pool->add_chunk_mutex) != 0)
-		return -1;	/*                         */
+		return -1;	/* interrupted by a signal */
 
 	if (uc_pool->nchunks_added > nchunks_added) {
-		/*                                                 */
+		/* someone added a new chunk while we were waiting */
 		mutex_unlock(&uc_pool->add_chunk_mutex);
 		return 0;
 	}
@@ -95,7 +95,7 @@ static int uncached_add_chunk(struct uncached_pool *uc_pool, int nid)
 		return -1;
 	}
 
-	/*                                                              */
+	/* attempt to allocate a granule's worth of cached memory pages */
 
 	page = alloc_pages_exact_node(nid,
 				GFP_KERNEL | __GFP_ZERO | GFP_THISNODE,
@@ -105,16 +105,16 @@ static int uncached_add_chunk(struct uncached_pool *uc_pool, int nid)
 		return -1;
 	}
 
-	/*                                                  */
+	/* convert the memory pages from cached to uncached */
 
 	c_addr = (unsigned long)page_address(page);
 	uc_addr = c_addr - PAGE_OFFSET + __IA64_UNCACHED_OFFSET;
 
 	/*
-                                                                
-                                                                   
-                                                            
-  */
+	 * There's a small race here where it's possible for someone to
+	 * access the page through /dev/mem halfway through the conversion
+	 * to uncached - not sure it's really worth bothering about
+	 */
 	for (i = 0; i < (IA64_GRANULE_SIZE / PAGE_SIZE); i++)
 		SetPageUncached(&page[i]);
 
@@ -136,7 +136,7 @@ static int uncached_add_chunk(struct uncached_pool *uc_pool, int nid)
 	else
 		flush_icache_range(uc_addr, uc_addr + IA64_GRANULE_SIZE);
 
-	/*                                                             */
+	/* flush the just introduced uncached translation from the TLB */
 	local_flush_tlb_all();
 
 	preempt_enable();
@@ -150,9 +150,9 @@ static int uncached_add_chunk(struct uncached_pool *uc_pool, int nid)
 		goto failed;
 
 	/*
-                                                                      
-                           
-  */
+	 * The chunk of memory pages has been converted to uncached so now we
+	 * can add it to the pool.
+	 */
 	status = gen_pool_add(uc_pool->pool, uc_addr, IA64_GRANULE_SIZE, nid);
 	if (status)
 		goto failed;
@@ -161,7 +161,7 @@ static int uncached_add_chunk(struct uncached_pool *uc_pool, int nid)
 	mutex_unlock(&uc_pool->add_chunk_mutex);
 	return 0;
 
-	/*                                                                  */
+	/* failed to convert or add the chunk so give it back to the kernel */
 failed:
 	for (i = 0; i < (IA64_GRANULE_SIZE / PAGE_SIZE); i++)
 		ClearPageUncached(&page[i]);
@@ -173,14 +173,14 @@ failed:
 
 
 /*
-                      
-  
-                                                      
-                                                   
-  
-                                                                    
-                                                                            
-                                                                        
+ * uncached_alloc_page
+ *
+ * @starting_nid: node id of node to start with, or -1
+ * @n_pages: number of contiguous pages to allocate
+ *
+ * Allocate the specified number of contiguous uncached pages on the
+ * the requested node. If not enough contiguous uncached pages are available
+ * on the requested node, roundrobin starting with the next higher node.
  */
 unsigned long uncached_alloc_page(int starting_nid, int n_pages)
 {
@@ -216,12 +216,12 @@ EXPORT_SYMBOL(uncached_alloc_page);
 
 
 /*
-                     
-  
-                                                   
-                                               
-  
-                                               
+ * uncached_free_page
+ *
+ * @uc_addr: uncached address of first page to free
+ * @n_pages: number of contiguous pages to free
+ *
+ * Free the specified number of uncached pages.
  */
 void uncached_free_page(unsigned long uc_addr, int n_pages)
 {
@@ -240,14 +240,14 @@ EXPORT_SYMBOL(uncached_free_page);
 
 
 /*
-                         
-  
-                                                                     
-                                                                 
-                                                                           
-  
-                                                                   
-                             
+ * uncached_build_memmap,
+ *
+ * @uc_start: uncached starting address of a chunk of uncached memory
+ * @uc_end: uncached ending address of a chunk of uncached memory
+ * @arg: ignored, (NULL argument passed in on call to efi_memmap_walk_uc())
+ *
+ * Called at boot time to build a map of pages that can be used for
+ * memory special operations.
  */
 static int __init uncached_build_memmap(u64 uc_start, u64 uc_end, void *arg)
 {

@@ -24,17 +24,17 @@
 #include "smem_private.h"
 #include "smp2p_private.h"
 
-/* 
-                                                                        
-  
-                                                                            
-                                                                        
-                                                
-                                                             
-                                                
-                                                           
-                                                                        
-                                                                              
+/**
+ * struct smp2p_loopback_ctx - Representation of remote loopback object.
+ *
+ * @proc_id: Processor id of the processor that sends the loopback commands.
+ * @out: Handle to the  smem entry structure for providing the response.
+ * @out_nb: Notifies the opening of local entry.
+ * @out_is_active: Outbound entry events should be processed.
+ * @in_nb: Notifies changes in the remote entry.
+ * @in_is_active: Inbound entry events should be processed.
+ * @rmt_lpb_work: Work item that handles the incoming loopback commands.
+ * @rmt_cmd: Structure that holds the current and previous value of the entry.
  */
 struct smp2p_loopback_ctx {
 	int proc_id;
@@ -50,10 +50,10 @@ struct smp2p_loopback_ctx {
 static struct smp2p_loopback_ctx  remote_loopback[SMP2P_NUM_PROCS];
 static struct msm_smp2p_remote_mock remote_mock;
 
-/* 
-                                                       
-  
-                         
+/**
+ * remote_spinlock_test - Handles remote spinlock test.
+ *
+ * @ctx: Loopback context
  */
 static void remote_spinlock_test(struct smp2p_loopback_ctx *ctx)
 {
@@ -107,10 +107,10 @@ static void remote_spinlock_test(struct smp2p_loopback_ctx *ctx)
 	remote_spin_unlock_irqrestore(smem_spinlock, flags);
 }
 
-/* 
-                                                                    
-  
-                                                              
+/**
+ * smp2p_rmt_lpb_worker - Handles incoming remote loopback commands.
+ *
+ * @work: Work Item scheduled to handle the incoming commands.
  */
 static void smp2p_rmt_lpb_worker(struct work_struct *work)
 {
@@ -136,7 +136,7 @@ static void smp2p_rmt_lpb_worker(struct work_struct *work)
 
 	switch (lpb_cmd) {
 	case SMP2P_LB_CMD_NOOP:
-	    /*            */
+	    /* Do nothing */
 	    break;
 
 	case SMP2P_LB_CMD_ECHO:
@@ -171,7 +171,7 @@ static void smp2p_rmt_lpb_worker(struct work_struct *work)
 	case SMP2P_LB_CMD_RSPIN_LOCKED:
 	case SMP2P_LB_CMD_RSPIN_UNLOCKED:
 	case SMP2P_LB_CMD_RSPIN_END:
-		/*                                   */
+		/* not used for remote spinlock test */
 		break;
 
 	default:
@@ -181,13 +181,13 @@ static void smp2p_rmt_lpb_worker(struct work_struct *work)
 	}
 }
 
-/* 
-                                                                            
-  
-                                                                              
-                                                                           
-                                                                         
-                                                                       
+/**
+ * smp2p_rmt_in_edge_notify -  Schedules a work item to handle the commands.
+ *
+ * @nb: Notifier block, this is called when the value in remote entry changes.
+ * @event: Takes value SMP2P_ENTRY_UPDATE or SMP2P_OPEN based on the event.
+ * @data: Consists of previous and current value in case of entry update.
+ * @returns: 0 for success (return value required for notifier chains).
  */
 static int smp2p_rmt_in_edge_notify(struct notifier_block *nb,
 				unsigned long event, void *data)
@@ -207,13 +207,13 @@ static int smp2p_rmt_in_edge_notify(struct notifier_block *nb,
 	return 0;
 }
 
-/* 
-                                                                             
-  
-                                                                    
-                                                                  
-                                                                         
-                                                                       
+/**
+ * smp2p_rmt_out_edge_notify - Notifies on the opening of the outbound entry.
+ *
+ * @nb: Notifier block, this is called when the local entry is open.
+ * @event: Takes on value SMP2P_OPEN when the local entry is open.
+ * @data: Consist of current value of the remote entry, if entry is open.
+ * @returns: 0 for success (return value required for notifier chains).
  */
 static int smp2p_rmt_out_edge_notify(struct notifier_block  *nb,
 				unsigned long event, void *data)
@@ -228,13 +228,13 @@ static int smp2p_rmt_out_edge_notify(struct notifier_block  *nb,
 	return 0;
 }
 
-/* 
-                                                                    
-  
-                                                                        
-                                                                     
-                                                             
-                                                               
+/**
+ * msm_smp2p_init_rmt_lpb -  Initializes the remote loopback object.
+ *
+ * @ctx: Pointer to remote loopback object that needs to be initialized.
+ * @pid: Processor id  of the processor that is sending the commands.
+ * @entry: Name of the entry that needs to be opened locally.
+ * @returns: 0 on success, standard Linux error code otherwise.
  */
 static int msm_smp2p_init_rmt_lpb(struct  smp2p_loopback_ctx *ctx,
 			int pid, const char *entry)
@@ -270,11 +270,11 @@ static int msm_smp2p_init_rmt_lpb(struct  smp2p_loopback_ctx *ctx,
 	return ret;
 }
 
-/* 
-                                                                    
-  
-                                                                          
-                                              
+/**
+ * msm_smp2p_init_rmt_lpb_proc - Wrapper over msm_smp2p_init_rmt_lpb
+ *
+ * @remote_pid: Processor ID of the processor that sends loopback command.
+ * @returns: Pointer to outbound entry handle.
  */
 void *msm_smp2p_init_rmt_lpb_proc(int remote_pid)
 {
@@ -290,13 +290,13 @@ void *msm_smp2p_init_rmt_lpb_proc(int remote_pid)
 }
 EXPORT_SYMBOL(msm_smp2p_init_rmt_lpb_proc);
 
-/* 
-                                                                           
-  
-                                                   
-                                                               
-  
-                                                    
+/**
+ * msm_smp2p_deinit_rmt_lpb_proc - Unregister support for remote processor.
+ *
+ * @remote_pid:  Processor ID of the remote system.
+ * @returns: 0 on success, standard Linux error code otherwise.
+ *
+ * Unregister loopback support for remote processor.
  */
 int msm_smp2p_deinit_rmt_lpb_proc(int remote_pid)
 {
@@ -309,12 +309,12 @@ int msm_smp2p_deinit_rmt_lpb_proc(int remote_pid)
 
 	ctx = &remote_loopback[remote_pid];
 
-	/*                                 */
+	/* abort any pending notifications */
 	remote_loopback[remote_pid].out_is_active = false;
 	remote_loopback[remote_pid].in_is_active = false;
 	flush_work(&ctx->rmt_lpb_work);
 
-	/*                    */
+	/* unregister entries */
 	tmp = msm_smp2p_out_close(&remote_loopback[remote_pid].out);
 	remote_loopback[remote_pid].out = NULL;
 	if (tmp) {
@@ -335,13 +335,13 @@ int msm_smp2p_deinit_rmt_lpb_proc(int remote_pid)
 }
 EXPORT_SYMBOL(msm_smp2p_deinit_rmt_lpb_proc);
 
-/* 
-                                                                         
-  
-                                                    
-  
-                                                                           
-                                                               
+/**
+ * msm_smp2p_set_remote_mock_exists - Sets the remote mock configuration.
+ *
+ * @item_exists: true = Remote mock SMEM item exists
+ *
+ * This is used in the testing environment to simulate the existence of the
+ * remote smem item in order to test the negotiation algorithm.
  */
 void msm_smp2p_set_remote_mock_exists(bool item_exists)
 {
@@ -349,10 +349,10 @@ void msm_smp2p_set_remote_mock_exists(bool item_exists)
 }
 EXPORT_SYMBOL(msm_smp2p_set_remote_mock_exists);
 
-/* 
-                                                      
-  
-                                             
+/**
+ * msm_smp2p_get_remote_mock - Get remote mock object.
+ *
+ * @returns: Point to the remote mock object.
  */
 void *msm_smp2p_get_remote_mock(void)
 {
@@ -360,11 +360,11 @@ void *msm_smp2p_get_remote_mock(void)
 }
 EXPORT_SYMBOL(msm_smp2p_get_remote_mock);
 
-/* 
-                                                                          
-  
-                          
-                                              
+/**
+ * msm_smp2p_get_remote_mock_smem_item - Returns a pointer to remote item.
+ *
+ * @size:    Size of item.
+ * @returns: Pointer to mock remote smem item.
  */
 void *msm_smp2p_get_remote_mock_smem_item(uint32_t *size)
 {
@@ -378,13 +378,13 @@ void *msm_smp2p_get_remote_mock_smem_item(uint32_t *size)
 }
 EXPORT_SYMBOL(msm_smp2p_get_remote_mock_smem_item);
 
-/* 
-                                                                             
-  
-                          
-  
-                                                                        
-                                      
+/**
+ * smp2p_remote_mock_rx_interrupt - Triggers receive interrupt for mock proc.
+ *
+ * @returns: 0 for success
+ *
+ * This function simulates the receiving of interrupt by the mock remote
+ * processor in a testing environment.
  */
 int smp2p_remote_mock_rx_interrupt(void)
 {
@@ -395,21 +395,21 @@ int smp2p_remote_mock_rx_interrupt(void)
 }
 EXPORT_SYMBOL(smp2p_remote_mock_rx_interrupt);
 
-/* 
-                                                                      
-  
-                                                                              
-                                                
+/**
+ * smp2p_remote_mock_tx_interrupt - Calls the SMP2P interrupt handler.
+ *
+ * This function calls the interrupt handler of the Apps processor to simulate
+ * receiving interrupts from a remote processor.
  */
 static void smp2p_remote_mock_tx_interrupt(void)
 {
 	msm_smp2p_interrupt_handler(SMP2P_REMOTE_MOCK_PROC);
 }
 
-/* 
-                                                                            
-  
-                          
+/**
+ * smp2p_remote_mock_init - Initialize the remote mock and loopback objects.
+ *
+ * @returns: 0 for success
  */
 static int __init smp2p_remote_mock_init(void)
 {
@@ -429,7 +429,7 @@ static int __init smp2p_remote_mock_init(void)
 		INIT_WORK(&(remote_loopback[i].rmt_lpb_work),
 				smp2p_rmt_lpb_worker);
 		if (i == SMP2P_REMOTE_MOCK_PROC)
-			/*                                               */
+			/* do not register loopback for remote mock proc */
 			continue;
 
 		msm_smp2p_init_rmt_lpb(&remote_loopback[i],

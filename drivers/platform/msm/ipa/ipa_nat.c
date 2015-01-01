@@ -33,7 +33,7 @@ static int ipa_nat_vma_fault_remap(
 	return VM_FAULT_SIGBUS;
 }
 
-/*                                       */
+/* VMA related file operations functions */
 static struct vm_operations_struct ipa_nat_remap_vm_ops = {
 	.fault = ipa_nat_vma_fault_remap,
 };
@@ -106,14 +106,14 @@ static const struct file_operations ipa_nat_fops = {
 	.mmap = ipa_nat_mmap
 };
 
-/* 
-                                                              
-                                   
-  
-                                                                               
-                                                                
-  
-                                             
+/**
+ * allocate_nat_device() - Allocates memory for the NAT device
+ * @mem:	[in/out] memory parameters
+ *
+ * Called by NAT client driver to allocate memory for the NAT entries. Based on
+ * the request size either shared or system memory will be used.
+ *
+ * Returns:	0 on success, negative on failure
  */
 int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 {
@@ -210,14 +210,14 @@ bail:
 	return result;
 }
 
-/*                         */
-/* 
-                                                             
-                                                
-  
-                                                                       
-  
-                                             
+/* IOCTL function handlers */
+/**
+ * ipa_nat_init_cmd() - Post IP_V4_NAT_INIT command to IPA HW
+ * @init:	[in] initialization command attributes
+ *
+ * Called by NAT client driver to post IP_V4_NAT_INIT command to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
  */
 int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 {
@@ -337,13 +337,13 @@ bail:
 	return result;
 }
 
-/* 
-                                                     
-                                               
-  
-                                                                
-  
-                                             
+/**
+ * ipa_nat_dma_cmd() - Post NAT_DMA command to IPA HW
+ * @dma:	[in] initialization command attributes
+ *
+ * Called by NAT client driver to post NAT_DMA command to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
  */
 int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 {
@@ -399,11 +399,11 @@ bail:
 	return ret;
 }
 
-/* 
-                                                                            
-                                            
-  
-                                                                           
+/**
+ * ipa_nat_free_mem_and_device() - free the NAT memory and remove the device
+ * @nat_ctx:	[in] the IPA NAT memory to free
+ *
+ * Called by NAT client driver to free the NAT memory and remove the device
  */
 void ipa_nat_free_mem_and_device(struct ipa_nat_mem *nat_ctx)
 {
@@ -431,13 +431,13 @@ void ipa_nat_free_mem_and_device(struct ipa_nat_mem *nat_ctx)
 	return;
 }
 
-/* 
-                                         
-                                                 
-  
-                                                      
-  
-                                             
+/**
+ * ipa_nat_del_cmd() - Delete a NAT table
+ * @del:	[in] delete table table table parameters
+ *
+ * Called by NAT client driver to delete the nat table
+ *
+ * Returns:	0 on success, negative on failure
  */
 int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 {

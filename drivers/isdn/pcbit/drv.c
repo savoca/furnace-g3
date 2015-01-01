@@ -10,11 +10,11 @@
  */
 
 /*
-         
-  
-                                      
-                                                
-  
+ *	Fixes:
+ *
+ *	Nuno Grilo	<l38486@alfa.ist.utl.pt>
+ *      fixed msn_list NULL pointer dereference.
+ *
  */
 
 #include <linux/module.h>
@@ -53,7 +53,7 @@ static char *pcbit_devname[MAX_PCBIT_CARDS] = {
 };
 
 /*
-             
+ * prototypes
  */
 
 static int pcbit_command(isdn_ctrl *ctl);
@@ -127,8 +127,8 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 	INIT_WORK(&dev->qdelivery, pcbit_deliver);
 
 	/*
-               
-  */
+	 *  interrupts
+	 */
 
 	if (request_irq(irq, &pcbit_irq_handler, 0, pcbit_devname[board], dev) != 0)
 	{
@@ -143,7 +143,7 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 
 	dev->irq = irq;
 
-	/*                           */
+	/* next frame to be received */
 	dev->rcv_seq = 0;
 	dev->send_seq = 0;
 	dev->unack_seq = 0;
@@ -202,8 +202,8 @@ int pcbit_init_dev(int board, int mem_base, int irq)
 	dev->free = 511;
 
 	/*
-                              
-  */
+	 * set_protocol_running(dev);
+	 */
 
 	return 0;
 }
@@ -216,7 +216,7 @@ void pcbit_terminate(int board)
 	dev = dev_pcbit[board];
 
 	if (dev) {
-		/*                               */
+		/* unregister_isdn(dev->dev_if); */
 		free_irq(dev->irq, dev);
 		pcbit_clear_msn(dev);
 		kfree(dev->dev_if);
@@ -290,9 +290,9 @@ static int pcbit_command(isdn_ctrl *ctl)
 }
 
 /*
-                   
-                                                         
-                                              
+ * Another Hack :-(
+ * on some conditions the board stops sending TDATA_CONFs
+ * let's see if we can turn around the problem
  */
 
 #ifdef BLOCK_TIMER
@@ -353,10 +353,10 @@ static int pcbit_xmit(int driver, int chnum, int ack, struct sk_buff *skb)
 		       chan->queued);
 #endif
 		/*
-                                                 
-                                   
-                       
-   */
+		 * packet stays on the head of the device queue
+		 * since dev_start_xmit will fail
+		 * see net/core/dev.c
+		 */
 #ifdef BLOCK_TIMER
 		if (chan->block_timer.function == NULL) {
 			init_timer(&chan->block_timer);
@@ -404,7 +404,7 @@ static int pcbit_writecmd(const u_char __user *buf, int len, int driver, int cha
 
 	switch (dev->l2_state) {
 	case L2_LWMODE:
-		/*                                                */
+		/* check (size <= rdp_size); write buf into board */
 		if (len < 0 || len > BANK4 + 1 || len > 1024)
 		{
 			printk("pcbit_writecmd: invalid length %d\n", len);
@@ -419,9 +419,9 @@ static int pcbit_writecmd(const u_char __user *buf, int len, int driver, int cha
 		kfree(cbuf);
 		return len;
 	case L2_FWMODE:
-		/*                       */
-		/*            */
-		/*                          */
+		/* this is the hard part */
+		/* dumb board */
+		/* get it into kernel space */
 		if ((ptr = kmalloc(len, GFP_KERNEL)) == NULL)
 			return -ENOMEM;
 		if (copy_from_user(ptr, buf, len)) {
@@ -460,8 +460,8 @@ static int pcbit_writecmd(const u_char __user *buf, int len, int driver, int cha
 }
 
 /*
-                              
-  
+ *  demultiplexing of messages
+ *
  */
 
 void pcbit_l3_receive(struct pcbit_dev *dev, ulong msg,
@@ -522,9 +522,9 @@ void pcbit_l3_receive(struct pcbit_dev *dev, ulong msg,
 
 	case MSG_CONN_IND:
 		/*
-                                   
-                                                
-   */
+		 *  channel: 1st not used will do
+		 *           if both are used we're in trouble
+		 */
 
 		if (!dev->b1->fsm_state)
 			chan = dev->b1;
@@ -558,16 +558,16 @@ void pcbit_l3_receive(struct pcbit_dev *dev, ulong msg,
 
 	case MSG_CONN_CONF:
 		/*
-                                                         
-                                                          
-                                           
-   */
+		 * We should be able to find the channel by the message
+		 * reference number. The current version of the firmware
+		 * doesn't sent the ref number correctly.
+		 */
 #ifdef DEBUG
 		printk(KERN_DEBUG "refnum=%04x b1=%04x b2=%04x\n", refnum,
 		       dev->b1->s_refnum,
 		       dev->b2->s_refnum);
 #endif
-		/*                                                  */
+		/* We just try to find a channel in the right state */
 
 		if (dev->b1->fsm_state == ST_CALL_INIT)
 			chan = dev->b1;
@@ -600,7 +600,7 @@ void pcbit_l3_receive(struct pcbit_dev *dev, ulong msg,
 
 		if (capi_decode_conn_actv_ind(chan, skb)) {
 			printk("error in capi_decode_conn_actv_ind\n");
-			/*                                             */
+			/* pcbit_fsm_event(dev, chan, EV_ERROR, NULL); */
 			break;
 		}
 		chan->r_refnum = refnum;
@@ -632,7 +632,7 @@ void pcbit_l3_receive(struct pcbit_dev *dev, ulong msg,
 		if (!(err = capi_decode_sel_proto_conf(chan, skb)))
 			pcbit_fsm_event(dev, chan, EV_NET_SELP_RESP, NULL);
 		else {
-			/*       */
+			/* Error */
 			printk("error %d - capi_decode_sel_proto_conf\n", err);
 		}
 		break;
@@ -694,8 +694,8 @@ void pcbit_l3_receive(struct pcbit_dev *dev, ulong msg,
 }
 
 /*
-                   
-                                   
+ *   Single statbuf
+ *   should be a statbuf per device
  */
 
 static char statbuf[STATBUF_LEN];
@@ -710,7 +710,7 @@ static int pcbit_stat(u_char __user *buf, int len, int driver, int channel)
 	if (stat_count < 0)
 		stat_count = STATBUF_LEN - stat_st + stat_end;
 
-	/*                                                    */
+	/* FIXME: should we sleep and wait for more cookies ? */
 	if (len > stat_count)
 		len = stat_count;
 
@@ -809,7 +809,7 @@ static int set_protocol_running(struct pcbit_dev *dev)
 	dev->set_running_timer.data = (ulong) dev;
 	dev->set_running_timer.expires = jiffies + SET_RUN_TIMEOUT;
 
-	/*         */
+	/* kick it */
 
 	dev->l2_state = L2_STARTING;
 
@@ -831,7 +831,7 @@ static int set_protocol_running(struct pcbit_dev *dev)
 		dev->writeptr = dev->sh_mem;
 		dev->readptr = dev->sh_mem + BANK2;
 
-		/*                                       */
+		/* tell the good news to the upper layer */
 		ctl.driver = dev->id;
 		ctl.command = ISDN_STAT_RUN;
 
@@ -850,13 +850,13 @@ static int set_protocol_running(struct pcbit_dev *dev)
 #endif
 		writeb(0x40, dev->sh_mem + BANK4);
 
-		/*                      */
+		/* warn the upper layer */
 		ctl.driver = dev->id;
 		ctl.command = ISDN_STAT_STOP;
 
 		dev->dev_if->statcallb(&ctl);
 
-		return -EL2HLT;	/*                */
+		return -EL2HLT;	/* Level 2 halted */
 	}
 
 	return 0;
@@ -918,7 +918,7 @@ static int pcbit_ioctl(isdn_ctrl *ctl)
 		if (dev->l2_state == L2_RUNNING)
 			return -EBUSY;
 
-		/*            */
+		/* check addr */
 		if (cmd->info.rdp_byte.addr > BANK4)
 			return -EFAULT;
 
@@ -928,7 +928,7 @@ static int pcbit_ioctl(isdn_ctrl *ctl)
 		if (dev->l2_state == L2_RUNNING)
 			return -EBUSY;
 
-		/*            */
+		/* check addr */
 
 		if (cmd->info.rdp_byte.addr > BANK4)
 		{
@@ -973,10 +973,10 @@ static int pcbit_ioctl(isdn_ctrl *ctl)
 }
 
 /*
-                           
-  
-                                  
-                                                      
+ *        MSN list handling
+ *
+ *        if null reject all calls
+ *        if first entry has null MSN accept all calls
  */
 
 static void pcbit_clear_msn(struct pcbit_dev *dev)
@@ -1058,7 +1058,7 @@ static void pcbit_set_msn(struct pcbit_dev *dev, char *list)
 }
 
 /*
-                                                    
+ *  check if we do signal or reject an incoming call
  */
 static int pcbit_check_msn(struct pcbit_dev *dev, char *msn)
 {

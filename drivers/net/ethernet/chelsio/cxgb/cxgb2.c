@@ -83,8 +83,8 @@ static inline void cancel_mac_stats_update(struct adapter *ap)
 			 NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
 
 /*
-                                                                            
-                     
+ * The EEPROM is actually bigger but only the first few bytes are used so we
+ * only report those.
  */
 #define EEPROM_SIZE 32
 
@@ -100,9 +100,9 @@ MODULE_PARM_DESC(dflt_msg_enable, "Chelsio T1 default message enable bitmap");
 #define HCLOCK 0x0
 #define LCLOCK 0x1
 
-/*                         */
+/* T1 cards powersave mode */
 static int t1_clock(struct adapter *adapter, int mode);
-static int t1powersave = 1;	/*                               */
+static int t1powersave = 1;	/* HW default is powersave mode. */
 
 module_param(t1powersave, int, 0);
 MODULE_PARM_DESC(t1powersave, "Enable/Disable T1 powersaving mode");
@@ -116,7 +116,7 @@ static const char pci_speed[][4] = {
 };
 
 /*
-                                                     
+ * Setup MAC to receive the types of packets we want.
  */
 static void t1_set_rxmode(struct net_device *dev)
 {
@@ -159,7 +159,7 @@ void t1_link_negotiated(struct adapter *adapter, int port_id, int link_stat,
 			netif_carrier_off(p->dev);
 		link_report(p);
 
-		/*                         */
+		/* multi-ports: inform toe */
 		if ((speed > 0) && (adapter->params.nports > 1)) {
 			unsigned int sched_speed = 10;
 			switch (speed) {
@@ -193,13 +193,13 @@ static void link_start(struct port_info *p)
 static void enable_hw_csum(struct adapter *adapter)
 {
 	if (adapter->port[0].dev->hw_features & NETIF_F_TSO)
-		t1_tp_set_ip_checksum_offload(adapter->tp, 1);	/*              */
+		t1_tp_set_ip_checksum_offload(adapter->tp, 1);	/* for TSO only */
 	t1_tp_set_tcp_checksum_offload(adapter->tp, 1);
 }
 
 /*
-                                         
-                                         
+ * Things to do upon first use of a card.
+ * This must run with the rtnl lock held.
  */
 static int cxgb_up(struct adapter *adapter)
 {
@@ -234,7 +234,7 @@ out_err:
 }
 
 /*
-                                                          
+ * Release resources when all the ports have been stopped.
  */
 static void cxgb_down(struct adapter *adapter)
 {
@@ -282,9 +282,9 @@ static int cxgb_close(struct net_device *dev)
 	clear_bit(dev->if_port, &adapter->open_device_map);
 	if (adapter->params.stats_update_period &&
 	    !(adapter->open_device_map & PORT_MASK)) {
-		/*                               */
+		/* Stop statistics accumulation. */
 		smp_mb__after_clear_bit();
-		spin_lock(&adapter->work_lock);   /*                       */
+		spin_lock(&adapter->work_lock);   /* sync with update task */
 		spin_unlock(&adapter->work_lock);
 		cancel_mac_stats_update(adapter);
 	}
@@ -301,7 +301,7 @@ static struct net_device_stats *t1_get_stats(struct net_device *dev)
 	struct net_device_stats *ns = &p->netstats;
 	const struct cmac_statistics *pstats;
 
-	/*                                   */
+	/* Do a full update of the MAC stats */
 	pstats = p->mac->ops->statistics_update(p->mac,
 						MAC_STATS_UPDATE_FULL);
 
@@ -324,7 +324,7 @@ static struct net_device_stats *t1_get_stats(struct net_device *dev)
 	ns->multicast  = pstats->RxMulticastFramesOK;
 	ns->collisions = pstats->TxTotalCollisions;
 
-	/*                    */
+	/* detailed rx_errors */
 	ns->rx_length_errors = pstats->RxFrameTooLongErrors +
 		pstats->RxJabberErrors;
 	ns->rx_over_errors   = 0;
@@ -333,7 +333,7 @@ static struct net_device_stats *t1_get_stats(struct net_device *dev)
 	ns->rx_fifo_errors   = 0;
 	ns->rx_missed_errors = 0;
 
-	/*                    */
+	/* detailed tx_errors */
 	ns->tx_aborted_errors   = pstats->TxFramesAbortedDueToXSCollisions;
 	ns->tx_carrier_errors   = 0;
 	ns->tx_fifo_errors      = pstats->TxUnderrun;
@@ -395,7 +395,7 @@ static char stats_strings[][ETH_GSTRING_LEN] = {
 	"RxJumboFramesOk",
 	"RxJumboOctetsOk",
 
-	/*            */
+	/* Port stats */
 	"RxCsumGood",
 	"TxCsumOffload",
 	"TxTso",
@@ -403,7 +403,7 @@ static char stats_strings[][ETH_GSTRING_LEN] = {
 	"TxVlan",
 	"TxNeedHeadroom", 
 	
-	/*                 */
+	/* Interrupt stats */
 	"rx drops",
 	"pure_rsps",
 	"unhandled irqs",
@@ -553,8 +553,8 @@ static void get_regs(struct net_device *dev, struct ethtool_regs *regs,
 	struct adapter *ap = dev->ml_priv;
 
 	/*
-                                                                       
-  */
+	 * Version scheme: bits 0..9: chip version, bits 10..15: chip revision
+	 */
 	regs->version = 2;
 
 	memset(buf, 0, T2_REGMAP_SIZE);
@@ -637,7 +637,7 @@ static int set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
 	struct link_config *lc = &p->link_config;
 
 	if (!(lc->supported & SUPPORTED_Autoneg))
-		return -EOPNOTSUPP;             /*                           */
+		return -EOPNOTSUPP;             /* can't change speed/duplex */
 
 	if (cmd->autoneg == AUTONEG_DISABLE) {
 		u32 speed = ethtool_cmd_speed(cmd);
@@ -853,9 +853,9 @@ static netdev_features_t t1_fix_features(struct net_device *dev,
 	netdev_features_t features)
 {
 	/*
-                                                           
-                                                                   
-  */
+	 * Since there is no support for separate rx/tx vlan accel
+	 * enable/disable make sure tx flag is always in same state as rx.
+	 */
 	if (features & NETIF_F_HW_VLAN_RX)
 		features |= NETIF_F_HW_VLAN_TX;
 	else
@@ -887,8 +887,8 @@ static void t1_netpoll(struct net_device *dev)
 #endif
 
 /*
-                                                                         
-                                                                 
+ * Periodic accumulation of MAC statistics.  This is used only if the MAC
+ * does not have any other way to prevent stats counter overflow.
  */
 static void mac_stats_task(struct work_struct *work)
 {
@@ -904,7 +904,7 @@ static void mac_stats_task(struct work_struct *work)
 						       MAC_STATS_UPDATE_FAST);
 	}
 
-	/*                                                            */
+	/* Schedule the next statistics update if any port is active. */
 	spin_lock(&adapter->work_lock);
 	if (adapter->open_device_map & PORT_MASK)
 		schedule_mac_stats_update(adapter,
@@ -913,7 +913,7 @@ static void mac_stats_task(struct work_struct *work)
 }
 
 /*
-                                                           
+ * Processes elmer0 external interrupts in process context.
  */
 static void ext_intr_task(struct work_struct *work)
 {
@@ -922,7 +922,7 @@ static void ext_intr_task(struct work_struct *work)
 
 	t1_elmer0_ext_intr_handler(adapter);
 
-	/*                                  */
+	/* Now reenable external interrupts */
 	spin_lock_irq(&adapter->async_lock);
 	adapter->slow_intr_mask |= F_PL_INTR_EXT;
 	writel(F_PL_INTR_EXT, adapter->regs + A_PL_CAUSE);
@@ -932,15 +932,15 @@ static void ext_intr_task(struct work_struct *work)
 }
 
 /*
-                                                            
+ * Interrupt-context handler for elmer0 external interrupts.
  */
 void t1_elmer0_ext_intr(struct adapter *adapter)
 {
 	/*
-                                                               
-                                                                
-                                                  
-  */
+	 * Schedule a task to handle external interrupts as we require
+	 * a process context.  We disable EXT interrupts in the interim
+	 * and let the task reenable them when it's done.
+	 */
 	adapter->slow_intr_mask &= ~F_PL_INTR_EXT;
 	writel(adapter->slow_intr_mask | F_PL_INTR_SGE_DATA,
 		   adapter->regs + A_PL_ENABLE);
@@ -1043,7 +1043,7 @@ static int __devinit init_one(struct pci_dev *pdev,
 		if (!adapter) {
 			adapter = netdev_priv(netdev);
 			adapter->pdev = pdev;
-			adapter->port[0].dev = netdev;  /*                     */
+			adapter->port[0].dev = netdev;  /* so we don't leak it */
 
 			adapter->regs = ioremap(mmio_start, mmio_len);
 			if (!adapter->regs) {
@@ -1054,7 +1054,7 @@ static int __devinit init_one(struct pci_dev *pdev,
 			}
 
 			if (t1_get_board_rev(adapter, bi, &adapter->params)) {
-				err = -ENODEV;	  /*                            */
+				err = -ENODEV;	  /* Can't handle this chip rev */
 				goto out_free_dev;
 			}
 
@@ -1095,7 +1095,7 @@ static int __devinit init_one(struct pci_dev *pdev,
 				NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
 			netdev->hw_features |= NETIF_F_HW_VLAN_RX;
 
-			/*                   */
+			/* T204: disable TSO */
 			if (!(is_T2(adapter)) || bi->port_number != 4) {
 				netdev->hw_features |= NETIF_F_TSO;
 				netdev->features |= NETIF_F_TSO;
@@ -1117,11 +1117,11 @@ static int __devinit init_one(struct pci_dev *pdev,
 	}
 
 	/*
-                                                                   
-                                                                      
-                                                                       
-                                     
-  */
+	 * The card is now ready to go.  If any errors occur during device
+	 * registration we do not fail the whole card but rather proceed only
+	 * with the ports we manage to register successfully.  However we must
+	 * register at least one net device.
+	 */
 	for (i = 0; i < bi->port_number; ++i) {
 		err = register_netdev(adapter->port[i].dev);
 		if (err)
@@ -1129,9 +1129,9 @@ static int __devinit init_one(struct pci_dev *pdev,
 				   pci_name(pdev), adapter->port[i].dev->name);
 		else {
 			/*
-                                                        
-                                                  
-    */
+			 * Change the name we use for messages to the name of
+			 * the first successfully registered interface.
+			 */
 			if (!adapter->registered_device_map)
 				adapter->name = adapter->port[i].dev->name;
 
@@ -1150,10 +1150,10 @@ static int __devinit init_one(struct pci_dev *pdev,
 	       adapter->params.pci.speed, adapter->params.pci.width);
 
 	/*
-                                       
-  */
+	 * Set the T1B ASIC and memory clocks.
+	 */
 	if (t1powersave)
-		adapter->t1powersave = LCLOCK;	/*                               */
+		adapter->t1powersave = LCLOCK;	/* HW default is powersave mode. */
 	else
 		adapter->t1powersave = HCLOCK;
 	if (t1_is_T1B(adapter))
@@ -1203,13 +1203,13 @@ static void bit_bang(struct adapter *adapter, int bitdata, int nbits)
 
 		udelay(50);
 
-		/*                */
+		/* Set SCLOCK low */
 		val &= ~S_CLOCK;
 		__t1_tpi_write(adapter, A_ELMER0_GPO, val);
 
 		udelay(50);
 
-		/*                   */
+		/* Write SCLOCK high */
 		val |= S_CLOCK;
 		__t1_tpi_write(adapter, A_ELMER0_GPO, val);
 
@@ -1240,28 +1240,28 @@ static int t1_clock(struct adapter *adapter, int mode)
 	};
 
 	if (!t1_is_T1B(adapter))
-		return -ENODEV;	/*                           */
+		return -ENODEV;	/* Can't re-clock this chip. */
 
 	if (mode & 2)
-		return 0;	/*                    */
+		return 0;	/* show current mode. */
 
 	if ((adapter->t1powersave & 1) == (mode & 1))
-		return -EALREADY;	/*                               */
+		return -EALREADY;	/* ASIC already running in mode. */
 
 	if ((mode & 1) == HCLOCK) {
 		M_CORE_VAL = 0x14;
 		M_MEM_VAL = 0x18;
-		adapter->t1powersave = HCLOCK;	/*           */
+		adapter->t1powersave = HCLOCK;	/* overclock */
 	} else {
 		M_CORE_VAL = 0xe;
 		M_MEM_VAL = 0x10;
-		adapter->t1powersave = LCLOCK;	/*            */
+		adapter->t1powersave = LCLOCK;	/* underclock */
 	}
 
-	/*                                     */
+	/* Don't interrupt this serial stream! */
 	spin_lock(&adapter->tpi_lock);
 
-	/*                          */
+	/* Initialize for ASIC core */
 	__t1_tpi_read(adapter, A_ELMER0_GPO, &val);
 	val |= NP_LOAD;
 	udelay(50);
@@ -1273,13 +1273,13 @@ static int t1_clock(struct adapter *adapter, int mode)
 	__t1_tpi_write(adapter, A_ELMER0_GPO, val);
 	udelay(50);
 
-	/*                                           */
+	/* Serial program the ASIC clock synthesizer */
 	bit_bang(adapter, T_CORE_VAL, T_CORE_BITS);
 	bit_bang(adapter, N_CORE_VAL, N_CORE_BITS);
 	bit_bang(adapter, M_CORE_VAL, M_CORE_BITS);
 	udelay(50);
 
-	/*                  */
+	/* Finish ASIC core */
 	__t1_tpi_read(adapter, A_ELMER0_GPO, &val);
 	val |= S_LOAD_CORE;
 	udelay(50);
@@ -1291,7 +1291,7 @@ static int t1_clock(struct adapter *adapter, int mode)
 	__t1_tpi_write(adapter, A_ELMER0_GPO, val);
 	udelay(50);
 
-	/*                       */
+	/* Initialize for memory */
 	__t1_tpi_read(adapter, A_ELMER0_GPO, &val);
 	val |= NP_LOAD;
 	udelay(50);
@@ -1304,13 +1304,13 @@ static int t1_clock(struct adapter *adapter, int mode)
 	__t1_tpi_write(adapter, A_ELMER0_GPO, val);
 	udelay(50);
 
-	/*                                             */
+	/* Serial program the memory clock synthesizer */
 	bit_bang(adapter, T_MEM_VAL, T_MEM_BITS);
 	bit_bang(adapter, N_MEM_VAL, N_MEM_BITS);
 	bit_bang(adapter, M_MEM_VAL, M_MEM_BITS);
 	udelay(50);
 
-	/*               */
+	/* Finish memory */
 	__t1_tpi_read(adapter, A_ELMER0_GPO, &val);
 	val |= S_LOAD_MEM;
 	udelay(50);

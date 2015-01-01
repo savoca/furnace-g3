@@ -41,16 +41,16 @@
 #define	DRV_VERSION	"0.7.5"
 
 /*
-               
-                                                                     
+ * IO Registers
+ * Note that all runtime hot priv ports are cached in ap private_data
  */
 
 enum {
 	ATP867X_IO_CHANNEL_OFFSET	= 0x10,
 
 	/*
-                         
-  */
+	 * IO Register Bitfields
+	 */
 
 	ATP867X_IO_PIOSPD_ACTIVE_SHIFT	= 4,
 	ATP867X_IO_PIOSPD_RECOVER_SHIFT	= 0,
@@ -95,7 +95,7 @@ enum {
 					ATP867X_IO_PORTBASE((ap), (port)))
 
 /*
-                 
+ * hot priv ports
  */
 #define ATP867X_IO_MSTRPIOSPD(ap, port)	(0x08 + \
 					ATP867X_IO_DMABASE((ap), (port)))
@@ -128,12 +128,12 @@ static void atp867x_set_dmamode(struct ata_port *ap, struct ata_device *adev)
 	u8 mode = speed - XFER_UDMA_0 + 1;
 
 	/*
-                                                                     
-                
-                                      
-                           
-                                      
-  */
+	 * Doc 6.6.9: decrease the udma mode value by 1 for safer UDMA speed
+	 * on 66MHz bus
+	 *   rev-A: UDMA_1~4 (5, 6 no change)
+	 *   rev-B: all UDMA modes
+	 *   UDMA_0 stays not to disable UDMA
+	 */
 	if (dp->pci66mhz && mode > ATP867X_IO_DMAMODE_UDMA_0  &&
 	   (pdev->device == PCI_DEVICE_ID_ARTOP_ATP867B ||
 	    mode < ATP867X_IO_DMAMODE_UDMA_5))
@@ -157,9 +157,9 @@ static int atp867x_get_active_clocks_shifted(struct ata_port *ap,
 	unsigned char clocks = clk;
 
 	/*
-                                                                
-                
-  */
+	 * Doc 6.6.9: increase the clock value by 1 for safer PIO speed
+	 * on 66MHz bus
+	 */
 	if (dp->pci66mhz)
 		clocks++;
 
@@ -173,10 +173,10 @@ static int atp867x_get_active_clocks_shifted(struct ata_port *ap,
 		printk(KERN_WARNING "ATP867X: active %dclk is invalid. "
 			"Using 12clk.\n", clk);
 	case 9 ... 12:
-		clocks = 7;	/*        */
+		clocks = 7;	/* 12 clk */
 		break;
 	case 7:
-	case 8:	/*               */
+	case 8:	/* default 8 clk */
 		clocks = 0;
 		goto active_clock_shift_done;
 	}
@@ -197,14 +197,14 @@ static int atp867x_get_recover_clocks_shifted(unsigned int clk)
 		break;
 	case 13:
 	case 14:
-		--clocks;	/*             */
+		--clocks;	/* by the spec */
 		break;
 	case 15:
 		break;
 	default:
 		printk(KERN_WARNING "ATP867X: recover %dclk is invalid. "
 			"Using default 12clk.\n", clk);
-	case 12:	/*                */
+	case 12:	/* default 12 clk */
 		clocks = 0;
 		break;
 	}
@@ -289,7 +289,7 @@ static void atp867x_check_res(struct pci_dev *pdev)
 	int i;
 	unsigned long start, len;
 
-	/*                                                      */
+	/* Check the PCI resources for this channel are enabled */
 	for (i = 0; i < DEVICE_COUNT_RESOURCE; i++) {
 		start = pci_resource_start(pdev, i);
 		len   = pci_resource_len(pdev, i);
@@ -377,8 +377,8 @@ static void atp867x_fixup(struct ata_host *host)
 	u8 v;
 
 	/*
-                                                 
-  */
+	 * Broken BIOS might not set latency high enough
+	 */
 	pci_read_config_byte(pdev, PCI_LATENCY_TIMER, &v);
 	if (v < 0x80) {
 		v = 0x80;
@@ -388,26 +388,26 @@ static void atp867x_fixup(struct ata_host *host)
 	}
 
 	/*
-                                                 
-                                               
-  */
+	 * init 8bit io ports speed(0aaarrrr) to 43h and
+	 * init udma modes of master/slave to 0/0(11h)
+	 */
 	for (i = 0; i < ATP867X_NUM_PORTS; i++)
 		iowrite16(ATP867X_IO_PORTSPD_VAL, ATP867X_IO_PORTSPD(ap, i));
 
 	/*
-                       
-  */
+	 * init PreREAD counts
+	 */
 	for (i = 0; i < ATP867X_NUM_PORTS; i++)
 		iowrite16(ATP867X_PREREAD_VAL, ATP867X_IO_PREREAD(ap, i));
 
 	v = ioread8(ATP867X_IOBASE(ap) + 0x28);
-	v &= 0xcf;	/*                                   */
-	v |= 0xc0;	/*                                                  */
+	v &= 0xcf;	/* Enable INTA#: bit4=0 means enable */
+	v |= 0xc0;	/* Enable PCI burst, MRM & not immediate interrupts */
 	iowrite8(v, ATP867X_IOBASE(ap) + 0x28);
 
 	/*
-                                                        
-  */
+	 * Turn off the over clocked udma5 mode, only for Rev-B
+	 */
 	v = ioread8(ATP867X_SYS_INFO(ap));
 	v &= ATP867X_IO_SYS_MASK_RESERVED;
 	if (pdev->device == PCI_DEVICE_ID_ARTOP_ATP867B)
@@ -423,8 +423,8 @@ static int atp867x_ata_pci_sff_init_host(struct ata_host *host)
 	int i, rc;
 
 	/*
-                      
-  */
+	 * do not map rombase
+	 */
 	rc = pcim_iomap_regions(pdev, 1 << ATP867X_BAR_IOBASE, DRV_NAME);
 	if (rc == -EBUSY)
 		pcim_pin_device(pdev);
@@ -441,8 +441,8 @@ static int atp867x_ata_pci_sff_init_host(struct ata_host *host)
 #endif
 
 	/*
-                                                           
-  */
+	 * request, iomap BARs and init port addresses accordingly
+	 */
 	for (i = 0; i < host->n_ports; i++) {
 		struct ata_port *ap = host->ports[i];
 		struct ata_ioports *ioaddr = &ap->ioaddr;

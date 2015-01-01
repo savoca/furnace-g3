@@ -38,7 +38,7 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		pr_debug("%s: AUDIO_START session_id[%d]\n", __func__,
 						audio->ac->session);
 		if (audio->feedback == NON_TUNNEL_MODE) {
-			/*                            */
+			/* Configure PCM output block */
 			rc = q6asm_enc_cfg_blk_pcm(audio->ac,
 					audio->pcm_cfg.sample_rate,
 					audio->pcm_cfg.channel_count);
@@ -116,7 +116,7 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				wmapro_config->advancedencodeopt;
 		wmapro_cfg.adv_encode_opt2 =
 				wmapro_config->advancedencodeopt2;
-		/*                              */
+		/* Configure Media format block */
 		rc = q6asm_media_format_block_wmapro(audio->ac, &wmapro_cfg);
 		if (rc < 0) {
 			pr_err("cmd media format block failed\n");
@@ -167,7 +167,7 @@ static int audio_open(struct inode *inode, struct file *file)
 	int rc = 0;
 
 #ifdef CONFIG_DEBUG_FS
-	/*                                                                */
+	/* 4 bytes represents decoder number, 1 byte for terminate string */
 	char name[sizeof "msm_wmapro_" + 5];
 #endif
 	audio = kzalloc(sizeof(struct q6audio_aio), GFP_KERNEL);
@@ -198,7 +198,7 @@ static int audio_open(struct inode *inode, struct file *file)
 		return -ENOMEM;
 	}
 
-	/*                   */
+	/* open in T/NT mode */
 	if ((file->f_mode & FMODE_WRITE) && (file->f_mode & FMODE_READ)) {
 		rc = q6asm_open_read_write(audio->ac, FORMAT_LINEAR_PCM,
 					   FORMAT_WMA_V10PRO);
@@ -208,7 +208,7 @@ static int audio_open(struct inode *inode, struct file *file)
 			goto fail;
 		}
 		audio->feedback = NON_TUNNEL_MODE;
-		/*                                              */
+		/* open WMA decoder, expected frames is always 1*/
 		audio->buf_cfg.frames_per_buf = 0x01;
 		audio->buf_cfg.meta_info_enable = 0x01;
 	} else if ((file->f_mode & FMODE_WRITE) &&

@@ -94,13 +94,13 @@ MODULE_AUTHOR("Russell King");
 MODULE_DESCRIPTION("EtherH/EtherM driver");
 MODULE_LICENSE("GPL");
 
-#define ETHERH500_DATAPORT	0x800	/*      */
-#define ETHERH500_NS8390	0x000	/*      */
-#define ETHERH500_CTRLPORT	0x800	/*      */
+#define ETHERH500_DATAPORT	0x800	/* MEMC */
+#define ETHERH500_NS8390	0x000	/* MEMC */
+#define ETHERH500_CTRLPORT	0x800	/* IOC  */
 
-#define ETHERH600_DATAPORT	0x040	/*      */
-#define ETHERH600_NS8390	0x800	/*      */
-#define ETHERH600_CTRLPORT	0x200	/*      */
+#define ETHERH600_DATAPORT	0x040	/* MEMC */
+#define ETHERH600_NS8390	0x800	/* MEMC */
+#define ETHERH600_CTRLPORT	0x200	/* MEMC */
 
 #define ETHERH_CP_IE		1
 #define ETHERH_CP_IF		2
@@ -110,16 +110,16 @@ MODULE_LICENSE("GPL");
 #define ETHERH_STOP_PAGE	127
 
 /*
-                         
+ * These came from CK/TEW
  */
-#define ETHERM_DATAPORT		0x200	/*      */
-#define ETHERM_NS8390		0x800	/*      */
-#define ETHERM_CTRLPORT		0x23c	/*      */
+#define ETHERM_DATAPORT		0x200	/* MEMC */
+#define ETHERM_NS8390		0x800	/* MEMC */
+#define ETHERM_CTRLPORT		0x23c	/* MEMC */
 
 #define ETHERM_TX_START_PAGE	64
 #define ETHERM_STOP_PAGE	127
 
-/*                                                                          */
+/* ------------------------------------------------------------------------ */
 
 #define etherh_priv(dev) \
  ((struct etherh_priv *)(((char *)netdev_priv(dev)) + sizeof(struct ei_device)))
@@ -177,7 +177,7 @@ etherh_setif(struct net_device *dev)
 
 	local_irq_save(flags);
 
-	/*                        */
+	/* set the interface type */
 	switch (etherh_priv(dev)->id) {
 	case PROD_I3_ETHERLAN600:
 	case PROD_I3_ETHERLAN600A:
@@ -253,8 +253,8 @@ etherh_getifstat(struct net_device *dev)
 }
 
 /*
-                                                          
-                                                                
+ * Configure the interface.  Note that we ignore the other
+ * parts of ifmap, since its mostly meaningless for this driver.
  */
 static int etherh_set_config(struct net_device *dev, struct ifmap *map)
 {
@@ -262,9 +262,9 @@ static int etherh_set_config(struct net_device *dev, struct ifmap *map)
 	case IF_PORT_10BASE2:
 	case IF_PORT_10BASET:
 		/*
-                                              
-                                              
-   */
+		 * If the user explicitly sets the interface
+		 * media type, turn off automedia detection.
+		 */
 		dev->flags &= ~IFF_AUTOMEDIA;
 		dev->if_port = map->port;
 		break;
@@ -279,7 +279,7 @@ static int etherh_set_config(struct net_device *dev, struct ifmap *map)
 }
 
 /*
-                                                                     
+ * Reset the 8390 (hard reset).  Note that we can't actually do this.
  */
 static void
 etherh_reset(struct net_device *dev)
@@ -290,10 +290,10 @@ etherh_reset(struct net_device *dev)
 	writeb(E8390_NODMA+E8390_PAGE0+E8390_STOP, addr);
 
 	/*
-                                                
-                                              
-                                                 
-  */
+	 * See if we need to change the interface type.
+	 * Note that we use 'interface_num' as a flag
+	 * to indicate that we need to change the media.
+	 */
 	if (dev->flags & IFF_AUTOMEDIA && ei_local->interface_num) {
 		ei_local->interface_num = 0;
 
@@ -307,7 +307,7 @@ etherh_reset(struct net_device *dev)
 }
 
 /*
-                                        
+ * Write a block of data out to the 8390
  */
 static void
 etherh_block_output (struct net_device *dev, int count, const unsigned char *buf, int start_page)
@@ -324,8 +324,8 @@ etherh_block_output (struct net_device *dev, int count, const unsigned char *buf
 	}
 
 	/*
-                                                                    
-  */
+	 * Make sure we have a round number of bytes if we're in word mode.
+	 */
 	if (count & 1 && ei_local->word16)
 		count++;
 
@@ -360,7 +360,7 @@ etherh_block_output (struct net_device *dev, int count, const unsigned char *buf
 	dma_start = jiffies;
 
 	while ((readb (addr + EN0_ISR) & ENISR_RDC) == 0)
-		if (time_after(jiffies, dma_start + 2*HZ/100)) { /*      */
+		if (time_after(jiffies, dma_start + 2*HZ/100)) { /* 20ms */
 			printk(KERN_ERR "%s: timeout waiting for TX RDC\n",
 				dev->name);
 			etherh_reset (dev);
@@ -373,7 +373,7 @@ etherh_block_output (struct net_device *dev, int count, const unsigned char *buf
 }
 
 /*
-                                     
+ * Read a block of data from the 8390
  */
 static void
 etherh_block_input (struct net_device *dev, int count, struct sk_buff *skb, int ring_offset)
@@ -414,7 +414,7 @@ etherh_block_input (struct net_device *dev, int count, struct sk_buff *skb, int 
 }
 
 /*
-                              
+ * Read a header from the 8390
  */
 static void
 etherh_get_header (struct net_device *dev, struct e8390_pkt_hdr *hdr, int ring_page)
@@ -451,12 +451,12 @@ etherh_get_header (struct net_device *dev, struct e8390_pkt_hdr *hdr, int ring_p
 }
 
 /*
-                                                                     
-                                                             
-  
-                                                                
-                                                                    
-                                                              
+ * Open/initialize the board.  This is called (in the current kernel)
+ * sometime after booting when the 'ifconfig' program is run.
+ *
+ * This routine should set everything up anew at each open, even
+ * registers that "should" only need to be set once at boot, so that
+ * there is non-reboot way to recover if something goes wrong.
  */
 static int
 etherh_open(struct net_device *dev)
@@ -473,16 +473,16 @@ etherh_open(struct net_device *dev)
 		return -EAGAIN;
 
 	/*
-                                                
-                                                  
-                              
-  */
+	 * Make sure that we aren't going to change the
+	 * media type on the next reset - we are about to
+	 * do automedia manually now.
+	 */
 	ei_local->interface_num = 0;
 
 	/*
-                                                   
-                                                    
-  */
+	 * If we are doing automedia detection, do it now.
+	 * This is more reliable than the 8390's detection.
+	 */
 	if (dev->flags & IFF_AUTOMEDIA) {
 		dev->if_port = IF_PORT_10BASET;
 		etherh_setif(dev);
@@ -501,7 +501,7 @@ etherh_open(struct net_device *dev)
 }
 
 /*
-                                        
+ * The inverse routine to etherh_open().
  */
 static int
 etherh_close(struct net_device *dev)
@@ -512,7 +512,7 @@ etherh_close(struct net_device *dev)
 }
 
 /*
-                 
+ * Initialisation
  */
 
 static void __init etherh_banner(void)
@@ -524,8 +524,8 @@ static void __init etherh_banner(void)
 }
 
 /*
-                                                          
-                             
+ * Read the ethernet address string from the on board rom.
+ * This is an ascii string...
  */
 static int __devinit etherh_addr(char *addr, struct expansion_card *ec)
 {
@@ -560,7 +560,7 @@ static int __devinit etherh_addr(char *addr, struct expansion_card *ec)
 }
 
 /*
-                                                            
+ * Create an ethernet address from the system serial number.
  */
 static int __init etherm_addr(char *addr)
 {
@@ -719,14 +719,14 @@ etherh_probe(struct expansion_card *ec, const struct ecard_id *id)
 	eh->ctrl_port += data->ctrlport_offset;
 
 	/*
-                                                                
-  */
+	 * IRQ and control port handling - only for non-NIC slot cards.
+	 */
 	if (ec->slot_no != 8) {
 		ecard_setirq(ec, &etherh_ops, eh);
 	} else {
 		/*
-                                                           
-   */
+		 * If we're in the NIC slot, make sure the IRQ is enabled
+		 */
 		etherh_set_ctrl(eh, ETHERH_CP_IE);
 	}
 

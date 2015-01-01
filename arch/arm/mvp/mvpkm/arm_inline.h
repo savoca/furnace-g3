@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-        
-  
-                                                      
+/**
+ * @file
+ *
+ * @brief Inline stubs for ARM assembler instructions.
  */
 
 #ifndef _ARM_INLINE_H_
@@ -39,19 +39,19 @@
 #include "arm_defs.h"
 
 /*
-                                                                              
+ * Compiler specific include - we get the actual inline assembler macros here.
  */
 #include "arm_gcc_inline.h"
 
 /*
-                                                                          
-                  
+ * Some non-compiler specific helper functions for inline assembler macros
+ * included above.
  */
 
-/* 
-                                                                   
-  
-                                           
+/**
+ * @brief Predicate giving whether interrupts are currently enabled
+ *
+ * @return TRUE if enabled, FALSE otherwise
  */
 static inline _Bool
 ARM_InterruptsEnabled(void)
@@ -59,10 +59,10 @@ ARM_InterruptsEnabled(void)
 	return !(ARM_ReadCPSR() & ARM_PSR_I);
 }
 
-/* 
-                                                 
-  
-                                                                     
+/**
+ * @brief Read current TTBR0 base machine address
+ *
+ * @return machine address given by translation table base register 0
  */
 static inline MA
 ARM_ReadTTBase0(void)
@@ -74,12 +74,12 @@ ARM_ReadTTBase0(void)
 	return ttbase & ARM_CP15_TTBASE_MASK;
 }
 
-/* 
-                                                     
-  
-                                                               
-  
-                     
+/**
+ * @brief Read VFP/Adv.SIMD Extension System Register
+ *
+ * @param specReg which VFP/Adv. SIMD Extension System Register
+ *
+ * @return Read value
  */
 static inline uint32
 ARM_ReadVFPSystemRegister(uint8 specReg)
@@ -87,20 +87,20 @@ ARM_ReadVFPSystemRegister(uint8 specReg)
 	uint32 value = 0;
 
 	/*
-                                                              
-                                                                   
-                                                              
-                                                                 
-                                                          
-                                                               
-                                                                  
-                                                                 
-                                                                  
-                                                                   
-                                                                  
-                                                                  
-                                                      
-  */
+	 * VMRS is the instruction used to read VFP System Registers.
+	 * VMRS is the new UAL-syntax equivalent for the FMRX instruction.
+	 * At the end of the day, all these are just synonyms for MRC
+	 * instructions on CP10, as the VFP system registers sit in CP10
+	 * and MRC is the Co-processor register read instruction.
+	 * We use the primitive MRC synonym for VMRS here as VMRS/FMRX
+	 * don't seem to be working when used inside asm volatile blocks,
+	 * as, for some reason, the inline assembler seems to be setting
+	 * the VFP mode to soft-float. Moreover, we WANT the monitor code
+	 * to be compiled with soft-float so that the compiler doesn't use
+	 * VFP instructions for the monitor's own use, such as for 64-bit
+	 * integer operations, etc., since we pass-through the use of the
+	 * underlying hardware's VFP/SIMD state to the guest.
+	 */
 
 	switch (specReg) {
 	case ARM_VFP_SYSTEM_REG_FPSID:
@@ -132,30 +132,30 @@ ARM_ReadVFPSystemRegister(uint8 specReg)
 	return value;
 }
 
-/* 
-                                                         
-  
-                                                               
-                                                                  
+/**
+ * @brief Write to VFP/Adv.SIMD Extension System Register
+ *
+ * @param specReg which VFP/Adv. SIMD Extension System Register
+ * @param value desired value to be written to the System Register
  */
 static inline void
 ARM_WriteVFPSystemRegister(uint8 specReg,
 			   uint32 value)
 {
    /*
-                                                                    
-                                                                     
-                                                                
-                                                                   
-                                                             
-                                                                 
-                                                                    
-                                                                   
-                                                                    
-                                                                     
-                                                                    
-                                                                    
-                                                        
+    * VMSR is the instruction used to write to VFP System Registers.
+    * VMSR is the new UAL-syntax equivalent for the FMXR instruction.
+    * At the end of the day, all these are just synonyms for MCR
+    * instructions on CP10, as the VFP system registers sit in CP10
+    * and MCR is the Co-processor register write instruction.
+    * We use the primitive MCR synonym for VMSR here as VMSR/FMXR
+    * don't seem to be working when used inside asm volatile blocks,
+    * as, for some reason, the inline assembler seems to be setting
+    * the VFP mode to soft-float. Moreover, we WANT the monitor code
+    * to be compiled with soft-float so that the compiler doesn't use
+    * VFP instructions for the monitor's own use, such as for 64-bit
+    * integer operations, etc., since we pass-through the use of the
+    * underlying hardware's VFP/SIMD state to the guest.
     */
 
 	switch (specReg) {
@@ -177,4 +177,4 @@ ARM_WriteVFPSystemRegister(uint8 specReg,
 	}
 }
 
-#endif /*                       */
+#endif /* ifndef _ARM_INLINE_H_ */

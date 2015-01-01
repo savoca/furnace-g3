@@ -16,7 +16,7 @@
 
 #ifdef HAVE_JUMP_LABEL
 
-/*                                                           */
+/* mutex to protect coming/going of the the jump_label table */
 static DEFINE_MUTEX(jump_label_mutex);
 
 void jump_label_lock(void)
@@ -144,10 +144,10 @@ static int __jump_label_text_reserved(struct jump_entry *iter_start,
 }
 
 /* 
-                                                           
-                                                                 
-                                                                  
-           
+ * Update code which is definitely not currently executing.
+ * Architectures which need heavyweight synchronization to modify
+ * running code can override this to make the non-live update case
+ * cheaper.
  */
 void __weak __init_or_module arch_jump_label_transform_static(struct jump_entry *entry,
 					    enum jump_label_type type)
@@ -163,10 +163,10 @@ static void __jump_label_update(struct static_key *key,
 	      (entry->key == (jump_label_t)(unsigned long)key);
 	      entry++) {
 		/*
-                                                               
-                                                             
-                                                        
-   */
+		 * entry->code set to 0 invalidates module init text sections
+		 * kernel_text_address() verifies we are not in core kernel
+		 * init code, see jump_label_invalidate_module_init().
+		 */
 		if (entry->code && kernel_text_address(entry->code))
 			arch_jump_label_transform(entry, enable);
 	}
@@ -203,8 +203,8 @@ void __init jump_label_init(void)
 
 		key = iterk;
 		/*
-                                                                   
-   */
+		 * Set key->entries to iter, but preserve JUMP_LABEL_TRUE_BRANCH.
+		 */
 		*((unsigned long *)&key->entries) += (unsigned long)iter;
 #ifdef CONFIG_MODULES
 		key->next = NULL;
@@ -250,13 +250,13 @@ static void __jump_label_mod_update(struct static_key *key, int enable)
 	}
 }
 
-/*  
-                                                                                  
-                        
-  
-                                                                      
-                                                                          
-                                     
+/***
+ * apply_jump_label_nops - patch module jump labels with arch_get_jump_label_nop()
+ * @mod: module to patch
+ *
+ * Allow for run-time selection of the optimal nops. Before the module
+ * loads patch these with arch_get_jump_label_nop(), which is specified by
+ * the arch specific jump label code.
  */
 void jump_label_apply_nops(struct module *mod)
 {
@@ -264,7 +264,7 @@ void jump_label_apply_nops(struct module *mod)
 	struct jump_entry *iter_stop = iter_start + mod->num_jump_entries;
 	struct jump_entry *iter;
 
-	/*                                                            */
+	/* if the module doesn't have jump label entries, just return */
 	if (iter_start == iter_stop)
 		return;
 
@@ -281,7 +281,7 @@ static int jump_label_add_module(struct module *mod)
 	struct static_key *key = NULL;
 	struct static_key_mod *jlm;
 
-	/*                                                            */
+	/* if the module doesn't have jump label entries, just return */
 	if (iter_start == iter_stop)
 		return 0;
 
@@ -297,8 +297,8 @@ static int jump_label_add_module(struct module *mod)
 		key = iterk;
 		if (__module_address(iter->key) == mod) {
 			/*
-                                                                    
-    */
+			 * Set key->entries to iter, but preserve JUMP_LABEL_TRUE_BRANCH.
+			 */
 			*((unsigned long *)&key->entries) += (unsigned long)iter;
 			key->next = NULL;
 			continue;
@@ -394,7 +394,7 @@ jump_label_module_notify(struct notifier_block *self, unsigned long val,
 
 struct notifier_block jump_label_module_nb = {
 	.notifier_call = jump_label_module_notify,
-	.priority = 1, /*                         */
+	.priority = 1, /* higher than tracepoints */
 };
 
 static __init int jump_label_init_module(void)
@@ -403,20 +403,20 @@ static __init int jump_label_init_module(void)
 }
 early_initcall(jump_label_init_module);
 
-#endif /*                */
+#endif /* CONFIG_MODULES */
 
-/*  
-                                                             
-                          
-                      
-  
-                                                          
-                                                            
-                                                            
-                                                            
-                                     
-  
-                                                
+/***
+ * jump_label_text_reserved - check if addr range is reserved
+ * @start: start text addr
+ * @end: end text addr
+ *
+ * checks if the text addr located between @start and @end
+ * overlaps with any of the jump label patch addresses. Code
+ * that wants to modify kernel text should first verify that
+ * it does not overlap with any of the jump label addresses.
+ * Caller must hold jump_label_mutex.
+ *
+ * returns 1 if there is an overlap, 0 otherwise
  */
 int jump_label_text_reserved(void *start, void *end)
 {
@@ -445,7 +445,7 @@ static void jump_label_update(struct static_key *key, int enable)
 	if (mod)
 		stop = mod->jump_entries + mod->num_jump_entries;
 #endif
-	/*                                          */
+	/* if there are no users, entry can be NULL */
 	if (entry)
 		__jump_label_update(key, entry, stop, enable);
 }

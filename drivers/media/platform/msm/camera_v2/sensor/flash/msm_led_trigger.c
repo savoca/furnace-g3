@@ -18,7 +18,7 @@
 
 #define FLASH_NAME "camera-led-flash"
 
-/*                                */
+/*#define CONFIG_MSMB_CAMERA_DEBUG*/
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
@@ -313,7 +313,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 				fctrl.flash_trigger_name[i]);
 
 			if (flashtype == GPIO_FLASH) {
-				/*                  */
+				/* use fake current */
 				fctrl.flash_op_current[i] = LED_FULL;
 			} else {
 				rc = of_property_read_u32(flash_src_node,
@@ -342,7 +342,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 					temp = fctrl.flash_trigger[i];
 		}
 
-		/*              */
+		/* Torch source */
 		flash_src_node = of_parse_phandle(of_node, "qcom,torch-source",
 			0);
 		if (flash_src_node) {
@@ -358,7 +358,7 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 				fctrl.torch_trigger_name);
 
 			if (flashtype == GPIO_FLASH) {
-				/*                  */
+				/* use fake current */
 				fctrl.torch_op_current = LED_FULL;
 				if (temp)
 					fctrl.torch_trigger = temp;

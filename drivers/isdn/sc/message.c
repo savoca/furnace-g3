@@ -23,7 +23,7 @@
 #include "card.h"
 
 /*
-                                   
+ * receive a message from the board
  */
 int receivemessage(int card, RspMessage *rspmsg)
 {
@@ -39,12 +39,12 @@ int receivemessage(int card, RspMessage *rspmsg)
 		 sc_adapter[card]->devicename);
 
 	/*
-                                     
-  */
+	 * See if there are messages waiting
+	 */
 	if (inb(sc_adapter[card]->ioport[FIFO_STATUS]) & RF_HAS_DATA) {
 		/*
-                                                         
-   */
+		 * Map in the DPM to the base page and copy the message
+		 */
 		spin_lock_irqsave(&sc_adapter[card]->lock, flags);
 		outb((sc_adapter[card]->shmem_magic >> 14) | 0x80,
 		     sc_adapter[card]->ioport[sc_adapter[card]->shmem_pgport]);
@@ -55,8 +55,8 @@ int receivemessage(int card, RspMessage *rspmsg)
 		inb(sc_adapter[card]->ioport[FIFO_READ]);
 		spin_unlock_irqrestore(&sc_adapter[card]->lock, flags);
 		/*
-                                                
-   */
+		 * Tell the board that the message is received
+		 */
 		pr_debug("%s: Received Message seq:%d pid:%d time:%d cmd:%d "
 			 "cnt:%d (type,class,code):(%d,%d,%d) "
 			 "link:%d stat:0x%x\n",
@@ -78,7 +78,7 @@ int receivemessage(int card, RspMessage *rspmsg)
 }
 
 /*
-                              
+ * send a message to the board
  */
 int sendmessage(int card,
 		unsigned int procid,
@@ -99,9 +99,9 @@ int sendmessage(int card,
 	}
 
 	/*
-                                                               
-                                      
-  */
+	 * Make sure we only send CEPID messages when the engine is up
+	 * and CMPID messages when it is down
+	 */
 	if (sc_adapter[card]->EngineUp && procid == CMPID) {
 		pr_debug("%s: Attempt to send CM message with engine up\n",
 			 sc_adapter[card]->devicename);
@@ -132,18 +132,18 @@ int sendmessage(int card,
 	sndmsg.sequence_no = sc_adapter[card]->seq_no++ % 256;
 
 	/*
-                                       
-  */
+	 * wait for an empty slot in the queue
+	 */
 	while (!(inb(sc_adapter[card]->ioport[FIFO_STATUS]) & WF_NOT_FULL))
 		udelay(1);
 
 	/*
-                                               
-  */
+	 * Disable interrupts and map in shared memory
+	 */
 	spin_lock_irqsave(&sc_adapter[card]->lock, flags);
 	outb((sc_adapter[card]->shmem_magic >> 14) | 0x80,
 	     sc_adapter[card]->ioport[sc_adapter[card]->shmem_pgport]);
-	dpm = (DualPortMemory *) sc_adapter[card]->rambase;	/*        */
+	dpm = (DualPortMemory *) sc_adapter[card]->rambase;	/* Fix me */
 	memcpy_toio(&(dpm->req_queue[dpm->req_head]), &sndmsg, MSG_LEN);
 	dpm->req_head = (dpm->req_head + 1) % MAX_MESSAGES;
 	outb(sndmsg.sequence_no, sc_adapter[card]->ioport[FIFO_WRITE]);
@@ -196,23 +196,23 @@ int send_and_receive(int card,
 	}
 
 	tries = 0;
-	/*                       */
+	/* wait for the response */
 	while (tries < timeout) {
 		schedule_timeout_interruptible(1);
 
 		pr_debug("SAR waiting..\n");
 
 		/*
-                                   
-   */
+		 * See if we got our message back
+		 */
 		if ((sc_adapter[card]->async_msg.type == type) &&
 		    (sc_adapter[card]->async_msg.class == class) &&
 		    (sc_adapter[card]->async_msg.code == code) &&
 		    (sc_adapter[card]->async_msg.phy_link_no == link)) {
 
 			/*
-             
-    */
+			 * Got it!
+			 */
 			pr_debug("%s: Got ASYNC message\n",
 				 sc_adapter[card]->devicename);
 			memcpy(mesgdata, &(sc_adapter[card]->async_msg),

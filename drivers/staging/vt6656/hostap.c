@@ -50,34 +50,34 @@
 #define HOSTAP_CRYPT_ERR_CARD_CONF_FAILED 7
 
 
-/*                                                                   */
+/*---------------------  Static Definitions -------------------------*/
 
-/*                                                                   */
+/*---------------------  Static Classes  ----------------------------*/
 
-/*                                                                   */
-//                                                             
+/*---------------------  Static Variables  --------------------------*/
+//static int          msglevel                =MSG_LEVEL_DEBUG;
 static int          msglevel                =MSG_LEVEL_INFO;
 
-/*                                                                   */
+/*---------------------  Static Functions  --------------------------*/
 
 
 
 
-/*                                                                   */
+/*---------------------  Export Variables  --------------------------*/
 
 
 /*
-               
-                                                  
-  
-              
-       
-                             
-                             
-        
-  
-                
-  
+ * Description:
+ *      register net_device (AP) for hostap deamon
+ *
+ * Parameters:
+ *  In:
+ *      pDevice             -
+ *      rtnl_locked         -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 
 static int hostap_enable_hostapd(PSDevice pDevice, int rtnl_locked)
@@ -127,17 +127,17 @@ static int hostap_enable_hostapd(PSDevice pDevice, int rtnl_locked)
 }
 
 /*
-               
-                                 
-  
-              
-       
-                             
-                             
-        
-  
-                
-  
+ * Description:
+ *      unregister net_device(AP)
+ *
+ * Parameters:
+ *  In:
+ *      pDevice             -
+ *      rtnl_locked         -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 
 static int hostap_disable_hostapd(PSDevice pDevice, int rtnl_locked)
@@ -164,17 +164,17 @@ static int hostap_disable_hostapd(PSDevice pDevice, int rtnl_locked)
 
 
 /*
-               
-                                       
-  
-              
-       
-                             
-                             
-        
-  
-                
-  
+ * Description:
+ *      Set enable/disable hostapd mode
+ *
+ * Parameters:
+ *  In:
+ *      pDevice             -
+ *      rtnl_locked         -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 
 int vt6656_hostap_set_hostapd(PSDevice pDevice, int val, int rtnl_locked)
@@ -195,17 +195,17 @@ int vt6656_hostap_set_hostapd(PSDevice pDevice, int val, int rtnl_locked)
 
 
 /*
-               
-                                                           
-  
-              
-       
-                   
-                   
-        
-  
-                
-  
+ * Description:
+ *      remove station function supported for hostap deamon
+ *
+ * Parameters:
+ *  In:
+ *      pDevice   -
+ *      param     -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 static int hostap_remove_sta(PSDevice pDevice,
 				     struct viawget_hostapd_param *param)
@@ -223,17 +223,17 @@ static int hostap_remove_sta(PSDevice pDevice,
 }
 
 /*
-               
-                                        
-  
-              
-       
-                   
-                   
-        
-  
-                
-  
+ * Description:
+ *      add a station from hostap deamon
+ *
+ * Parameters:
+ *  In:
+ *      pDevice   -
+ *      param     -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 static int hostap_add_sta(PSDevice pDevice,
 				  struct viawget_hostapd_param *param)
@@ -248,17 +248,17 @@ static int hostap_add_sta(PSDevice pDevice,
     memcpy(pMgmt->sNodeDBTable[uNodeIndex].abyMACAddr, param->sta_addr, WLAN_ADDR_LEN);
     pMgmt->sNodeDBTable[uNodeIndex].eNodeState = NODE_ASSOC;
     pMgmt->sNodeDBTable[uNodeIndex].wCapInfo = param->u.add_sta.capability;
-//                    
-//                                                        
+// TODO listenInterval
+//    pMgmt->sNodeDBTable[uNodeIndex].wListenInterval = 1;
     pMgmt->sNodeDBTable[uNodeIndex].bPSEnable = FALSE;
     pMgmt->sNodeDBTable[uNodeIndex].bySuppRate = param->u.add_sta.tx_supp_rates;
 
-    //                
+    // set max tx rate
     pMgmt->sNodeDBTable[uNodeIndex].wTxDataRate =
            pMgmt->sNodeDBTable[uNodeIndex].wMaxSuppRate;
-    //                   
+    // set max basic rate
     pMgmt->sNodeDBTable[uNodeIndex].wMaxBasicRate = RATE_2M;
-    //                                                               
+    // Todo: check sta preamble, if ap can't support, set status code
     pMgmt->sNodeDBTable[uNodeIndex].bShortPreamble =
             WLAN_GET_CAP_INFO_SHORTPREAMBLE(pMgmt->sNodeDBTable[uNodeIndex].wCapInfo);
 
@@ -282,17 +282,17 @@ static int hostap_add_sta(PSDevice pDevice,
 }
 
 /*
-               
-                        
-  
-              
-       
-                   
-                   
-        
-  
-                
-  
+ * Description:
+ *      get station info
+ *
+ * Parameters:
+ *  In:
+ *      pDevice   -
+ *      param     -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 
 static int hostap_get_info_sta(PSDevice pDevice,
@@ -305,7 +305,7 @@ static int hostap_get_info_sta(PSDevice pDevice,
 	    param->u.get_info_sta.inactive_sec =
 	        (jiffies - pMgmt->sNodeDBTable[uNodeIndex].ulLastRxJiffer) / HZ;
 
-	    //                                                                          
+	    //param->u.get_info_sta.txexc = pMgmt->sNodeDBTable[uNodeIndex].uTxAttempts;
 	}
 	else {
 	    return -ENOENT;
@@ -315,49 +315,49 @@ static int hostap_get_info_sta(PSDevice pDevice,
 }
 
 /*
-               
-                    
-  
-              
-       
-                   
-                   
-        
-                   
-  
-                
-  
+ * Description:
+ *      reset txexec
+ *
+ * Parameters:
+ *  In:
+ *      pDevice   -
+ *      param     -
+ *  Out:
+ *      TURE, FALSE
+ *
+ * Return Value:
+ *
  */
 /*
-                                                   
-                                           
- 
-                                                 
-                         
+static int hostap_reset_txexc_sta(PSDevice pDevice,
+					  struct viawget_hostapd_param *param)
+{
+    PSMgmtObject    pMgmt = &(pDevice->sMgmtObj);
+	unsigned int uNodeIndex;
 
-                                                                   
-                                                        
-  
-       
-                    
-  
+    if (BSSbIsSTAInNodeDB(pDevice, param->sta_addr, &uNodeIndex)) {
+        pMgmt->sNodeDBTable[uNodeIndex].uTxAttempts = 0;
+	}
+	else {
+	    return -ENOENT;
+	}
 
-          
- 
+	return 0;
+}
 */
 
 /*
-               
-                        
-  
-              
-       
-                   
-                   
-        
-  
-                
-  
+ * Description:
+ *      set station flag
+ *
+ * Parameters:
+ *  In:
+ *      pDevice   -
+ *      param     -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 static int hostap_set_flags_sta(PSDevice pDevice,
 					struct viawget_hostapd_param *param)
@@ -381,17 +381,17 @@ static int hostap_set_flags_sta(PSDevice pDevice,
 
 
 /*
-               
-                                    
-  
-              
-       
-                   
-                   
-        
-  
-                
-  
+ * Description:
+ *      set generic element (wpa ie)
+ *
+ * Parameters:
+ *  In:
+ *      pDevice   -
+ *      param     -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 static int hostap_set_generic_element(PSDevice pDevice,
 					struct viawget_hostapd_param *param)
@@ -409,12 +409,12 @@ static int hostap_set_generic_element(PSDevice pDevice,
 
     DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO"pMgmt->wWPAIELen = %d\n",  pMgmt->wWPAIELen);
 
-    //            
+    // disable wpa
     if (pMgmt->wWPAIELen == 0) {
         pMgmt->eAuthenMode = WMAC_AUTH_OPEN;
 		DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO " No WPAIE, Disable WPA \n");
     } else  {
-        //           
+        // enable wpa
         if ((pMgmt->abyWPAIE[0] == WLAN_EID_RSN_WPA) ||
              (pMgmt->abyWPAIE[0] == WLAN_EID_RSN)) {
               pMgmt->eAuthenMode = WMAC_AUTH_WPANONE;
@@ -427,21 +427,21 @@ static int hostap_set_generic_element(PSDevice pDevice,
 }
 
 /*
-               
-                                  
-  
-              
-       
-                   
-        
-  
-                
-  
+ * Description:
+ *      flush station nodes table.
+ *
+ * Parameters:
+ *  In:
+ *      pDevice   -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 
 static void hostap_flush_sta(PSDevice pDevice)
 {
-    //                                           
+    // reserved node index =0 for multicast node.
     BSSvClearNodeDBTable(pDevice, 1);
     pDevice->uAssocCount = 0;
 
@@ -449,17 +449,17 @@ static void hostap_flush_sta(PSDevice pDevice)
 }
 
 /*
-               
-                                        
-  
-              
-       
-                   
-                   
-        
-  
-                
-  
+ * Description:
+ *      set each stations encryption key
+ *
+ * Parameters:
+ *  In:
+ *      pDevice   -
+ *      param     -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 static int hostap_set_encryption(PSDevice pDevice,
 				       struct viawget_hostapd_param *param,
@@ -480,10 +480,10 @@ static int hostap_set_encryption(PSDevice pDevice,
 
 	param->u.crypt.err = 0;
 /*
-                 
-                                                           
-                            
-                 
+	if (param_len !=
+	    (int) ((char *) param->u.crypt.key - (char *) param) +
+	    param->u.crypt.key_len)
+		return -EINVAL;
 */
 
 	if (param->u.crypt.alg > WPA_ALG_CCMP)
@@ -541,7 +541,7 @@ static int hostap_set_encryption(PSDevice pDevice,
 	}
 
     memcpy(abyKey, param->u.crypt.key, param->u.crypt.key_len);
-    //                     
+    // copy to node key tbl
     pMgmt->sNodeDBTable[iNodeIndex].byKeyIndex = param->u.crypt.idx;
     pMgmt->sNodeDBTable[iNodeIndex].uWepKeyLength = param->u.crypt.key_len;
     memcpy(&pMgmt->sNodeDBTable[iNodeIndex].abyWepKey[0],
@@ -569,8 +569,8 @@ static int hostap_set_encryption(PSDevice pDevice,
                              );
 
         } else {
-            //                             
-            dwKeyIndex |= (1 << 30); //                 
+            // 8021x enable, individual key
+            dwKeyIndex |= (1 << 30); // set pairwise key
             if (KeybSetKey(pDevice,
                            &(pDevice->sKey),
                            &param->sta_addr[0],
@@ -585,7 +585,7 @@ static int hostap_set_encryption(PSDevice pDevice,
                 pMgmt->sNodeDBTable[iNodeIndex].bOnFly = TRUE;
 
             } else {
-                //               
+                // Key Table Full
                 pMgmt->sNodeDBTable[iNodeIndex].bOnFly = FALSE;
                 bKeyTableFull = TRUE;
             }
@@ -640,7 +640,7 @@ static int hostap_set_encryption(PSDevice pDevice,
        pMgmt->sNodeDBTable[iNodeIndex].bOnFly = TRUE;
 
     } else {
-        dwKeyIndex |= (1 << 30); //                 
+        dwKeyIndex |= (1 << 30); // set pairwise key
         if (KeybSetKey(pDevice,
                        &(pDevice->sKey),
                        &param->sta_addr[0],
@@ -654,7 +654,7 @@ static int hostap_set_encryption(PSDevice pDevice,
             pMgmt->sNodeDBTable[iNodeIndex].bOnFly = TRUE;
 
         } else {
-            //               
+            // Key Table Full
             pMgmt->sNodeDBTable[iNodeIndex].bOnFly = FALSE;
             bKeyTableFull = TRUE;
             DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO " Key Table Full\n");
@@ -663,13 +663,13 @@ static int hostap_set_encryption(PSDevice pDevice,
     }
 
     if (bKeyTableFull == TRUE) {
-        wKeyCtl &= 0x7F00;              //                            
+        wKeyCtl &= 0x7F00;              // clear all key control filed
         wKeyCtl |= (byKeyDecMode << 4);
         wKeyCtl |= (byKeyDecMode);
-        wKeyCtl |= 0x0044;              //                              
-        wKeyCtl |= 0x4000;              //                                                             
-//              
-        //                                                                                        
+        wKeyCtl |= 0x0044;              // use group key for all address
+        wKeyCtl |= 0x4000;              // disable KeyTable[MAX_KEY_TABLE-1] on-fly to genernate rx int
+// Todo.. xxxxxx
+        //MACvSetDefaultKeyCtl(pDevice->PortOffset, wKeyCtl, MAX_KEY_TABLE-1, pDevice->byLocalID);
     }
 
     DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO " Set key sta_index= %d \n", iNodeIndex);
@@ -683,7 +683,7 @@ static int hostap_set_encryption(PSDevice pDevice,
                pMgmt->sNodeDBTable[iNodeIndex].abyWepKey[4]
               );
 
-	//            
+	// set wep key
     pDevice->bEncryptionEnable = TRUE;
     pMgmt->sNodeDBTable[iNodeIndex].byCipherSuite = byKeyDecMode;
     pMgmt->sNodeDBTable[iNodeIndex].dwKeyIndex = dwKeyIndex;
@@ -696,17 +696,17 @@ static int hostap_set_encryption(PSDevice pDevice,
 
 
 /*
-               
-                                        
-  
-              
-       
-                   
-                   
-        
-  
-                
-  
+ * Description:
+ *      get each stations encryption key
+ *
+ * Parameters:
+ *  In:
+ *      pDevice   -
+ *      param     -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 static int hostap_get_encryption(PSDevice pDevice,
 				       struct viawget_hostapd_param *param,
@@ -742,17 +742,17 @@ static int hostap_get_encryption(PSDevice pDevice,
 
 
 /*
-               
-                                                                      
-  
-              
-       
-                   
-                   
-        
-  
-                
-  
+ * Description:
+ *      vt6656_hostap_ioctl main function supported for hostap deamon.
+ *
+ * Parameters:
+ *  In:
+ *      pDevice   -
+ *      iw_point  -
+ *  Out:
+ *
+ * Return Value:
+ *
  */
 
 int vt6656_hostap_ioctl(PSDevice pDevice, struct iw_point *p)
@@ -815,10 +815,10 @@ int vt6656_hostap_ioctl(PSDevice pDevice, struct iw_point *p)
 		 ap_ioctl = 1;
 		break;
 /*
-                                      
-                                                                              
-                                                
-        
+	case VIAWGET_HOSTAPD_RESET_TXEXC_STA:
+	    DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "VIAWGET_HOSTAPD_RESET_TXEXC_STA \n");
+		 ret = hostap_reset_txexc_sta(pDevice, param);
+		break;
 */
 	case VIAWGET_HOSTAPD_SET_FLAGS_STA:
 	    DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "VIAWGET_HOSTAPD_SET_FLAGS_STA \n");

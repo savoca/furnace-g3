@@ -21,13 +21,13 @@
 #include <asm/unaligned.h>
 #include <linux/uaccess.h>
 #include <net/psnap.h>
-/*                                                                              
+/*------------------------------------------------------------------------------
  */
 #define OZ_MAX_TX_POOL_SIZE	6
-/*                                                               
+/* Maximum number of uncompleted isoc frames that can be pending.
  */
 #define OZ_MAX_SUBMITTED_ISOC	16
-/*                                                                              
+/*------------------------------------------------------------------------------
  */
 static struct oz_tx_frame *oz_tx_frame_alloc(struct oz_pd *pd);
 static void oz_tx_frame_free(struct oz_pd *pd, struct oz_tx_frame *f);
@@ -42,11 +42,11 @@ static void oz_def_app_term(void);
 static int oz_def_app_start(struct oz_pd *pd, int resume);
 static void oz_def_app_stop(struct oz_pd *pd, int pause);
 static void oz_def_app_rx(struct oz_pd *pd, struct oz_elt *elt);
-/*                                                                              
-                                                           
+/*------------------------------------------------------------------------------
+ * Counts the uncompleted isoc frames submitted to netcard.
  */
 static atomic_t g_submitted_isoc = ATOMIC_INIT(0);
-/*                               
+/* Application handler functions.
  */
 static struct oz_app_if g_app_if[OZ_APPID_MAX] = {
 	{oz_usb_init,
@@ -85,40 +85,40 @@ static struct oz_app_if g_app_if[OZ_APPID_MAX] = {
 	0,
 	OZ_APPID_SERIAL},
 };
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: process
  */
 static int oz_def_app_init(void)
 {
 	return 0;
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: process
  */
 static void oz_def_app_term(void)
 {
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: softirq
  */
 static int oz_def_app_start(struct oz_pd *pd, int resume)
 {
 	return 0;
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: softirq
  */
 static void oz_def_app_stop(struct oz_pd *pd, int pause)
 {
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: softirq
  */
 static void oz_def_app_rx(struct oz_pd *pd, struct oz_elt *elt)
 {
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq or process
  */
 void oz_pd_set_state(struct oz_pd *pd, unsigned state)
 {
@@ -139,25 +139,25 @@ void oz_pd_set_state(struct oz_pd *pd, unsigned state)
 		oz_trace("PD State: OZ_PD_S_SLEEP\n");
 		break;
 	}
-#endif /*            */
+#endif /* WANT_TRACE */
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq or process
  */
 void oz_pd_get(struct oz_pd *pd)
 {
 	atomic_inc(&pd->ref_count);
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq or process
  */
 void oz_pd_put(struct oz_pd *pd)
 {
 	if (atomic_dec_and_test(&pd->ref_count))
 		oz_pd_destroy(pd);
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq-serialized
  */
 struct oz_pd *oz_pd_alloc(u8 *mac_addr)
 {
@@ -184,8 +184,8 @@ struct oz_pd *oz_pd_alloc(u8 *mac_addr)
 	}
 	return pd;
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq or process
  */
 void oz_pd_destroy(struct oz_pd *pd)
 {
@@ -194,16 +194,16 @@ void oz_pd_destroy(struct oz_pd *pd)
 	struct oz_isoc_stream *st;
 	struct oz_farewell *fwell;
 	oz_trace("Destroying PD\n");
-	/*                    
-  */
+	/* Delete any streams.
+	 */
 	e = pd->stream_list.next;
 	while (e != &pd->stream_list) {
 		st = container_of(e, struct oz_isoc_stream, link);
 		e = e->next;
 		oz_isoc_stream_free(st);
 	}
-	/*                           
-  */
+	/* Free any queued tx frames.
+	 */
 	e = pd->tx_queue.next;
 	while (e != &pd->tx_queue) {
 		f = container_of(e, struct oz_tx_frame, link);
@@ -211,16 +211,16 @@ void oz_pd_destroy(struct oz_pd *pd)
 		oz_retire_frame(pd, f);
 	}
 	oz_elt_buf_term(&pd->elt_buff);
-	/*                    
-  */
+	/* Free any farewells.
+	 */
 	e = pd->farewell_list.next;
 	while (e != &pd->farewell_list) {
 		fwell = container_of(e, struct oz_farewell, link);
 		e = e->next;
 		kfree(fwell);
 	}
-	/*                                  
-  */
+	/* Deallocate all frames in tx pool.
+	 */
 	while (pd->tx_pool) {
 		e = pd->tx_pool;
 		pd->tx_pool = e->next;
@@ -230,8 +230,8 @@ void oz_pd_destroy(struct oz_pd *pd)
 		dev_put(pd->net_dev);
 	kfree(pd);
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq-serialized
  */
 int oz_services_start(struct oz_pd *pd, u16 apps, int resume)
 {
@@ -255,8 +255,8 @@ int oz_services_start(struct oz_pd *pd, u16 apps, int resume)
 	}
 	return rc;
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq or process
  */
 void oz_services_stop(struct oz_pd *pd, u16 apps, int pause)
 {
@@ -276,8 +276,8 @@ void oz_services_stop(struct oz_pd *pd, u16 apps, int pause)
 		}
 	}
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: softirq
  */
 void oz_pd_heartbeat(struct oz_pd *pd, u16 apps)
 {
@@ -297,8 +297,8 @@ void oz_pd_heartbeat(struct oz_pd *pd, u16 apps)
 			;
 	}
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq or process
  */
 void oz_pd_stop(struct oz_pd *pd)
 {
@@ -313,15 +313,15 @@ void oz_pd_stop(struct oz_pd *pd)
 	oz_services_stop(pd, stop_apps, 0);
 	oz_polling_lock_bh();
 	oz_pd_set_state(pd, OZ_PD_S_STOPPED);
-	/*                     */
+	/* Remove from PD list.*/
 	list_del(&pd->link);
 	oz_polling_unlock_bh();
 	oz_trace("pd ref count = %d\n", atomic_read(&pd->ref_count));
 	oz_timer_delete(pd, 0);
 	oz_pd_put(pd);
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: softirq
  */
 int oz_pd_sleep(struct oz_pd *pd)
 {
@@ -350,8 +350,8 @@ int oz_pd_sleep(struct oz_pd *pd)
 	}
 	return do_stop;
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: softirq
  */
 static struct oz_tx_frame *oz_tx_frame_alloc(struct oz_pd *pd)
 {
@@ -372,8 +372,8 @@ static struct oz_tx_frame *oz_tx_frame_alloc(struct oz_pd *pd)
 	}
 	return f;
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq or process
  */
 static void oz_tx_frame_free(struct oz_pd *pd, struct oz_tx_frame *f)
 {
@@ -388,8 +388,8 @@ static void oz_tx_frame_free(struct oz_pd *pd, struct oz_tx_frame *f)
 	if (f)
 		kfree(f);
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: softirq
  */
 int oz_prepare_frame(struct oz_pd *pd, int empty)
 {
@@ -417,8 +417,8 @@ int oz_prepare_frame(struct oz_pd *pd, int empty)
 	spin_unlock(&pd->tx_frame_lock);
 	return 0;
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq-serialized
  */
 static struct sk_buff *oz_build_frame(struct oz_pd *pd, struct oz_tx_frame *f)
 {
@@ -427,14 +427,14 @@ static struct sk_buff *oz_build_frame(struct oz_pd *pd, struct oz_tx_frame *f)
 	struct oz_hdr *oz_hdr;
 	struct oz_elt *elt;
 	struct list_head *e;
-	/*                                                            
-                         
-  */
+	/* Allocate skb with enough space for the lower layers as well
+	 * as the space we need.
+	 */
 	skb = alloc_skb(f->total_size + OZ_ALLOCATED_SPACE(dev), GFP_ATOMIC);
 	if (skb == 0)
 		return 0;
-	/*                                        
-  */
+	/* Reserve the head room for lower layers.
+	 */
 	skb_reserve(skb, LL_RESERVED_SPACE(dev));
 	skb_reset_network_header(skb);
 	skb->dev = dev;
@@ -442,13 +442,13 @@ static struct sk_buff *oz_build_frame(struct oz_pd *pd, struct oz_tx_frame *f)
 	if (dev_hard_header(skb, dev, OZ_ETHERTYPE, pd->mac_addr,
 		dev->dev_addr, skb->len) < 0)
 		goto fail;
-	/*                                                              
-  */
+	/* Push the tail to the end of the area we are going to copy to.
+	 */
 	oz_hdr = (struct oz_hdr *)skb_put(skb, f->total_size);
 	f->hdr.last_pkt_num = pd->trigger_pkt_num & OZ_LAST_PN_MASK;
 	memcpy(oz_hdr, &f->hdr, sizeof(struct oz_hdr));
-	/*                                       
-  */
+	/* Copy the elements into the frame body.
+	 */
 	elt = (struct oz_elt *)(oz_hdr+1);
 	for (e = f->elt_list.next; e != &f->elt_list; e = e->next) {
 		struct oz_elt_info *ei;
@@ -461,8 +461,8 @@ fail:
 	kfree_skb(skb);
 	return 0;
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq or process
  */
 static void oz_retire_frame(struct oz_pd *pd, struct oz_tx_frame *f)
 {
@@ -483,8 +483,8 @@ static void oz_retire_frame(struct oz_pd *pd, struct oz_tx_frame *f)
 	if (pd->elt_buff.free_elts > pd->elt_buff.max_free_elts)
 		oz_trim_elt_pool(&pd->elt_buff);
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq-serialized
  */
 static int oz_send_next_queued_frame(struct oz_pd *pd, int *more_data)
 {
@@ -515,8 +515,8 @@ static int oz_send_next_queued_frame(struct oz_pd *pd, int *more_data)
 	}
 	return 0;
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq-serialized
  */
 void oz_send_queued_frames(struct oz_pd *pd, int backlog)
 {
@@ -536,8 +536,8 @@ void oz_send_queued_frames(struct oz_pd *pd, int backlog)
 		oz_send_next_queued_frame(pd, &more);
 	}
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: softirq
  */
 static int oz_send_isoc_frame(struct oz_pd *pd)
 {
@@ -585,8 +585,8 @@ static int oz_send_isoc_frame(struct oz_pd *pd)
 	oz_elt_info_free_chain(&pd->elt_buff, &list);
 	return 0;
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq-serialized
  */
 void oz_retire_tx_frames(struct oz_pd *pd, u8 lpn)
 {
@@ -624,9 +624,9 @@ void oz_retire_tx_frames(struct oz_pd *pd, u8 lpn)
 		oz_retire_frame(pd, f);
 	}
 }
-/*                                                                              
-                                          
-                   
+/*------------------------------------------------------------------------------
+ * Precondition: stream_lock must be held.
+ * Context: softirq
  */
 static struct oz_isoc_stream *pd_stream_find(struct oz_pd *pd, u8 ep_num)
 {
@@ -639,8 +639,8 @@ static struct oz_isoc_stream *pd_stream_find(struct oz_pd *pd, u8 ep_num)
 	}
 	return 0;
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: softirq
  */
 int oz_isoc_stream_create(struct oz_pd *pd, u8 ep_num)
 {
@@ -659,8 +659,8 @@ int oz_isoc_stream_create(struct oz_pd *pd, u8 ep_num)
 		kfree(st);
 	return 0;
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq or process
  */
 static void oz_isoc_stream_free(struct oz_isoc_stream *st)
 {
@@ -668,8 +668,8 @@ static void oz_isoc_stream_free(struct oz_isoc_stream *st)
 		kfree_skb(st->skb);
 	kfree(st);
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: softirq
  */
 int oz_isoc_stream_delete(struct oz_pd *pd, u8 ep_num)
 {
@@ -683,8 +683,8 @@ int oz_isoc_stream_delete(struct oz_pd *pd, u8 ep_num)
 		oz_isoc_stream_free(st);
 	return 0;
 }
-/*                                                                              
-               
+/*------------------------------------------------------------------------------
+ * Context: any
  */
 static void oz_isoc_destructor(struct sk_buff *skb)
 {
@@ -692,8 +692,8 @@ static void oz_isoc_destructor(struct sk_buff *skb)
 	oz_event_log(OZ_EVT_TX_ISOC_DONE, atomic_read(&g_submitted_isoc),
 		0, skb, 0);
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: softirq
  */
 int oz_send_isoc_unit(struct oz_pd *pd, u8 ep_num, u8 *data, int len)
 {
@@ -717,12 +717,12 @@ int oz_send_isoc_unit(struct oz_pd *pd, u8 ep_num, u8 *data, int len)
 	if (!st)
 		return 0;
 	if (!skb) {
-		/*                                           */
+		/* Allocate enough space for max size frame. */
 		skb = alloc_skb(pd->max_tx_size + OZ_ALLOCATED_SPACE(dev),
 				GFP_ATOMIC);
 		if (skb == 0)
 			return 0;
-		/*                                         */
+		/* Reserve the head room for lower layers. */
 		skb_reserve(skb, LL_RESERVED_SPACE(dev));
 		skb_reset_network_header(skb);
 		skb->dev = dev;
@@ -774,8 +774,8 @@ int oz_send_isoc_unit(struct oz_pd *pd, u8 ep_num, u8 *data, int len)
 	}
 	return 0;
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: process
  */
 void oz_apps_init(void)
 {
@@ -784,19 +784,19 @@ void oz_apps_init(void)
 		if (g_app_if[i].init)
 			g_app_if[i].init();
 }
-/*                                                                              
-                   
+/*------------------------------------------------------------------------------
+ * Context: process
  */
 void oz_apps_term(void)
 {
 	int i;
-	/*                         */
+	/* Terminate all the apps. */
 	for (i = 0; i < OZ_APPID_MAX; i++)
 		if (g_app_if[i].term)
 			g_app_if[i].term();
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq-serialized
  */
 void oz_handle_app_elt(struct oz_pd *pd, u8 app_id, struct oz_elt *elt)
 {
@@ -806,8 +806,8 @@ void oz_handle_app_elt(struct oz_pd *pd, u8 app_id, struct oz_elt *elt)
 	ai = &g_app_if[app_id-1];
 	ai->rx(pd, elt);
 }
-/*                                                                              
-                              
+/*------------------------------------------------------------------------------
+ * Context: softirq or process
  */
 void oz_pd_indicate_farewells(struct oz_pd *pd)
 {

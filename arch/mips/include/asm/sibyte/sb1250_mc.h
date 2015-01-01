@@ -36,7 +36,7 @@
 #include "sb1250_defs.h"
 
 /*
-                                              
+ * Memory Channel Config Register (table 6-14)
  */
 
 #define S_MC_RESERVED0              0
@@ -132,9 +132,9 @@
 
 
 /*
-                                            
-  
-                                                                            
+ * Memory clock config register (Table 6-15)
+ *
+ * Note: this field has been updated to be consistent with the errata to 0.2
  */
 
 #define S_MC_CLK_RATIO              0
@@ -191,7 +191,7 @@
 
 #if SIBYTE_HDR_FEATURE(1250, PASS3) || SIBYTE_HDR_FEATURE(112x, PASS1)
 #define M_MC_REF_DISABLE             _SB_MAKEMASK1(30)
-#endif /*                          */
+#endif /* 1250 PASS3 || 112x PASS1 */
 
 #define M_MC_DLL_BYPASS              _SB_MAKEMASK1(31)
 
@@ -231,7 +231,7 @@
 
 
 /*
-                                     
+ * DRAM Command Register (Table 6-13)
  */
 
 #define S_MC_COMMAND                0
@@ -263,7 +263,7 @@
 #define M_MC_CS3                    _SB_MAKEMASK1(7)
 
 /*
-                                  
+ * DRAM Mode Register (Table 6-14)
  */
 
 #define S_MC_EMODE                  0
@@ -296,12 +296,12 @@
 #if SIBYTE_HDR_FEATURE(1250, PASS3) || SIBYTE_HDR_FEATURE(112x, PASS1)
 #define M_MC_PRE_ON_A8              _SB_MAKEMASK1(36)
 #define M_MC_RAM_WITH_A13           _SB_MAKEMASK1(37)
-#endif /*                          */
+#endif /* 1250 PASS3 || 112x PASS1 */
 
 
 
 /*
-                                      
+ * SDRAM Timing Register  (Table 6-15)
  */
 
 #define M_MC_w2rIDLE_TWOCYCLES	  _SB_MAKEMASK1(60)
@@ -323,7 +323,7 @@
 #define V_MC_tRFC_DEFAULT         V_MC_tRFC(K_MC_tRFC_DEFAULT)
 
 #if SIBYTE_HDR_FEATURE(1250, PASS3)
-#define M_MC_tRFC_PLUS16          _SB_MAKEMASK1(51)	/*                    */
+#define M_MC_tRFC_PLUS16          _SB_MAKEMASK1(51)	/* 1250C3 and later.  */
 #endif
 
 #define S_MC_tCwCr                40
@@ -398,14 +398,14 @@
                                 M_MC_r2rIDLE_TWOCYCLES
 
 /*
-                                        
-                                                           
-                                                           
+ * Errata says these are not the default
+ *                               M_MC_w2rIDLE_TWOCYCLES | \
+ *                               M_MC_r2wIDLE_TWOCYCLES | \
  */
 
 
 /*
-                                                  
+ * Chip Select Start Address Register (Table 6-17)
  */
 
 #define S_MC_CS0_START              0
@@ -429,7 +429,7 @@
 #define G_MC_CS3_START(x)           _SB_GETVALUE(x, S_MC_CS3_START, M_MC_CS3_START)
 
 /*
-                                                
+ * Chip Select End Address Register (Table 6-18)
  */
 
 #define S_MC_CS0_END                0
@@ -453,7 +453,7 @@
 #define G_MC_CS3_END(x)             _SB_GETVALUE(x, S_MC_CS3_END, M_MC_CS3_END)
 
 /*
-                                               
+ * Chip Select Interleave Register (Table 6-19)
  */
 
 #define S_MC_INTLV_RESERVED         0
@@ -467,7 +467,7 @@
 #define M_MC_INTLV_MBZ              _SB_MAKEMASK(39, S_MC_INTLV_MBZ)
 
 /*
-                                         
+ * Row Address Bits Register (Table 6-20)
  */
 
 #define S_MC_RAS_RESERVED           0
@@ -482,7 +482,7 @@
 
 
 /*
-                                            
+ * Column Address Bits Register (Table 6-21)
  */
 
 #define S_MC_CAS_RESERVED           0
@@ -497,7 +497,7 @@
 
 
 /*
-                                                  
+ * Bank Address Address Bits Register (Table 6-22)
  */
 
 #define S_MC_BA_RESERVED            0
@@ -511,7 +511,7 @@
 #define M_MC_BA_MBZ                 _SB_MAKEMASK(39, S_MC_BA_MBZ)
 
 /*
-                                              
+ * Chip Select Attribute Register (Table 6-23)
  */
 
 #define K_MC_CS_ATTR_CLOSED         0
@@ -540,7 +540,7 @@
 #define G_MC_CS3_PAGE(x)            _SB_GETVALUE(x, S_MC_CS3_PAGE, M_MC_CS3_PAGE)
 
 /*
-                                     
+ * ECC Test ECC Register (Table 6-25)
  */
 
 #define S_MC_ECC_INVERT             0

@@ -35,7 +35,7 @@
 #define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
 
 /*
-                   
+ * lock for reading
  */
 static inline void
 __down_read (struct rw_semaphore *sem)
@@ -47,7 +47,7 @@ __down_read (struct rw_semaphore *sem)
 }
 
 /*
-                   
+ * lock for writing
  */
 static inline void
 __down_write (struct rw_semaphore *sem)
@@ -64,7 +64,7 @@ __down_write (struct rw_semaphore *sem)
 }
 
 /*
-                       
+ * unlock after reading
  */
 static inline void
 __up_read (struct rw_semaphore *sem)
@@ -76,7 +76,7 @@ __up_read (struct rw_semaphore *sem)
 }
 
 /*
-                       
+ * unlock after writing
  */
 static inline void
 __up_write (struct rw_semaphore *sem)
@@ -93,7 +93,7 @@ __up_write (struct rw_semaphore *sem)
 }
 
 /*
-                                                                  
+ * trylock for reading -- returns 1 if successful, 0 if contention
  */
 static inline int
 __down_read_trylock (struct rw_semaphore *sem)
@@ -108,7 +108,7 @@ __down_read_trylock (struct rw_semaphore *sem)
 }
 
 /*
-                                                                  
+ * trylock for writing -- returns 1 if successful, 0 if contention
  */
 static inline int
 __down_write_trylock (struct rw_semaphore *sem)
@@ -119,7 +119,7 @@ __down_write_trylock (struct rw_semaphore *sem)
 }
 
 /*
-                                    
+ * downgrade write lock to read lock
  */
 static inline void
 __downgrade_write (struct rw_semaphore *sem)
@@ -136,10 +136,10 @@ __downgrade_write (struct rw_semaphore *sem)
 }
 
 /*
-                                                                                         
-                                                                                     
+ * Implement atomic add functionality.  These used to be "inline" functions, but GCC v3.1
+ * doesn't quite optimize this stuff right and ends up with bad calls to fetchandadd.
  */
 #define rwsem_atomic_add(delta, sem)	atomic64_add(delta, (atomic64_t *)(&(sem)->count))
 #define rwsem_atomic_update(delta, sem)	atomic64_add_return(delta, (atomic64_t *)(&(sem)->count))
 
-#endif /*                   */
+#endif /* _ASM_IA64_RWSEM_H */

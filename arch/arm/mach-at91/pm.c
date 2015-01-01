@@ -32,7 +32,7 @@
 #include "pm.h"
 
 /*
-                                                 
+ * Show the reason for the previous system reset.
  */
 
 #include <mach/at91_rstc.h>
@@ -68,21 +68,21 @@ static void __init show_reset_status(void)
 		reason = general;
 		break;
 	case AT91_RSTC_RSTTYP_WAKEUP:
-		/*                                                */
+		/* board-specific code enabled the wakeup sources */
 		reason = wakeup;
 
-		/*                 */
+		/* "wakeup signal" */
 		if (wake_type & AT91_SHDW_WAKEUP0)
 			r2 = signal;
 		else {
 			r2 = reason;
-			if (wake_type & AT91_SHDW_RTTWK)	/*            */
+			if (wake_type & AT91_SHDW_RTTWK)	/* rtt wakeup */
 				reason = rtt;
-			else if (wake_type & AT91_SHDW_RTCWK)	/*            */
+			else if (wake_type & AT91_SHDW_RTCWK)	/* rtc wakeup */
 				reason = rtc;
-			else if (wake_type == 0)	/*                       */
+			else if (wake_type == 0)	/* power-restored wakeup */
 				reason = restore;
-			else				/*                */
+			else				/* unknown wakeup */
 				reason = unknown;
 		}
 		break;
@@ -119,7 +119,7 @@ static int at91_pm_valid_state(suspend_state_t state)
 static suspend_state_t target_state;
 
 /*
-                                                                     
+ * Called after processes are frozen, but before we shutdown devices.
  */
 static int at91_pm_begin(suspend_state_t state)
 {
@@ -128,8 +128,8 @@ static int at91_pm_begin(suspend_state_t state)
 }
 
 /*
-                                                         
-                   
+ * Verify that all the clocks are correct before entering
+ * slow-clock mode.
  */
 static int at91_pm_verify_clocks(void)
 {
@@ -138,7 +138,7 @@ static int at91_pm_verify_clocks(void)
 
 	scsr = at91_pmc_read(AT91_PMC_SCSR);
 
-	/*                            */
+	/* USB must not be using PLLB */
 	if (cpu_is_at91rm9200()) {
 		if ((scsr & (AT91RM9200_PMC_UHP | AT91RM9200_PMC_UDP)) != 0) {
 			pr_err("AT91: PM - Suspend-to-RAM with USB still active\n");
@@ -153,7 +153,7 @@ static int at91_pm_verify_clocks(void)
 	}
 
 #ifdef CONFIG_AT91_PROGRAMMABLE_CLOCKS
-	/*                                                          */
+	/* PCK0..PCK3 must be disabled, or configured to use clk32k */
 	for (i = 0; i < 4; i++) {
 		u32 css;
 
@@ -172,14 +172,14 @@ static int at91_pm_verify_clocks(void)
 }
 
 /*
-                                                                         
-                                                                       
-                                                                       
-                              
-  
-                                                                           
-                                                                          
-                                                                     
+ * Call this from platform driver suspend() to see how deeply to suspend.
+ * For example, some controllers (like OHCI) need one of the PLL clocks
+ * in order to act as a wakeup source, and those are not available when
+ * going into slow clock mode.
+ *
+ * REVISIT: generalize as clk_will_be_available(clk)?  Other platforms have
+ * the very same problem (but not using at91 main_clk), and it'd be better
+ * to add one generic API rather than lots of platform-specific ones.
  */
 int at91_suspend_entering_slow_clock(void)
 {
@@ -203,7 +203,7 @@ static int at91_pm_enter(suspend_state_t state)
 	at91_irq_suspend();
 
 	pr_debug("AT91: PM - wake mask %08x, pm state %d\n",
-			/*                                   */
+			/* remember all the always-wake irqs */
 			(at91_pmc_read(AT91_PMC_PCSR)
 					| (1 << AT91_ID_FIQ)
 					| (1 << AT91_ID_SYS)
@@ -213,21 +213,21 @@ static int at91_pm_enter(suspend_state_t state)
 
 	switch (state) {
 		/*
-                                                            
-                                                             
-                                                 
-   */
+		 * Suspend-to-RAM is like STANDBY plus slow clock mode, so
+		 * drivers must suspend more deeply:  only the master clock
+		 * controller may be using the main oscillator.
+		 */
 		case PM_SUSPEND_MEM:
 			/*
-                                              
-    */
+			 * Ensure that clocks are in a valid state.
+			 */
 			if (!at91_pm_verify_clocks())
 				goto error;
 
 			/*
-                                                           
-                                                         
-    */
+			 * Enter slow clock mode by switching over to clk32k and
+			 * turning off the main oscillator; reverse on wakeup.
+			 */
 			if (slow_clock) {
 				int memctrl = AT91_MEMCTRL_SDRAMC;
 
@@ -236,7 +236,7 @@ static int at91_pm_enter(suspend_state_t state)
 				else if (cpu_is_at91sam9g45())
 					memctrl = AT91_MEMCTRL_DDRSDR;
 #ifdef CONFIG_AT91_SLOW_CLOCK
-				/*                                              */
+				/* copy slow_clock handler to SRAM, and call it */
 				memcpy(slow_clock, at91_slow_clock, at91_slow_clock_sz);
 #endif
 				slow_clock(at91_pmc_base, at91_ramc_base[0],
@@ -244,23 +244,23 @@ static int at91_pm_enter(suspend_state_t state)
 				break;
 			} else {
 				pr_info("AT91: PM - no slow clock mode enabled ...\n");
-				/*                                        */
+				/* FALLTHROUGH leaving master clock alone */
 			}
 
 		/*
-                                                               
-                                                              
-                                                                  
-                                                
-   */
+		 * STANDBY mode has *all* drivers suspended; ignores irqs not
+		 * marked as 'wakeup' event sources; and reduces DRAM power.
+		 * But otherwise it's identical to PM_SUSPEND_ON:  cpu idle, and
+		 * nothing fancy done with main or cpu clocks.
+		 */
 		case PM_SUSPEND_STANDBY:
 			/*
-                                                          
-                                                         
-                                                       
-                                                         
-                                                        
-    */
+			 * NOTE: the Wait-for-Interrupt instruction needs to be
+			 * in icache so no SDRAM accesses are needed until the
+			 * wakeup IRQ occurs and self-refresh is terminated.
+			 * For ARM 926 based chips, this requirement is weaker
+			 * as at91sam9 can access a RAM in self-refresh mode.
+			 */
 			at91_standby();
 			break;
 
@@ -284,7 +284,7 @@ error:
 }
 
 /*
-                                           
+ * Called right prior to thawing processes.
  */
 static void at91_pm_end(void)
 {
@@ -308,7 +308,7 @@ static int __init at91_pm_init(void)
 	pr_info("AT91: Power Management%s\n", (slow_clock ? " (with slow clock mode)" : ""));
 
 #ifdef CONFIG_ARCH_AT91RM9200
-	/*                                                                   */
+	/* AT91RM9200 SDRAM low-power mode cannot be used with self-refresh. */
 	at91_ramc_write(0, AT91RM9200_SDRAMC_LPR, 0);
 #endif
 

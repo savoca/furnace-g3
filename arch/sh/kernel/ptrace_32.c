@@ -37,7 +37,7 @@
 #include <trace/events/syscalls.h>
 
 /*
-                                                                
+ * This routine will get a word off of the process kernel stack.
  */
 static inline int get_stack_long(struct task_struct *task, int offset)
 {
@@ -49,7 +49,7 @@ static inline int get_stack_long(struct task_struct *task, int offset)
 }
 
 /*
-                                                            
+ * This routine will put a word on the process kernel stack.
  */
 static inline int put_stack_long(struct task_struct *task, int offset,
 				 unsigned long data)
@@ -68,9 +68,9 @@ void ptrace_triggered(struct perf_event *bp,
 	struct perf_event_attr attr;
 
 	/*
-                                                                  
-                                                 
-  */
+	 * Disable the breakpoint request here since ptrace has defined a
+	 * one-shot behaviour for breakpoint exceptions.
+	 */
 	attr = bp->attr;
 	attr.disabled = true;
 	modify_user_hw_breakpoint(bp, &attr);
@@ -101,7 +101,7 @@ static int set_single_step(struct task_struct *tsk, unsigned long addr)
 
 		attr = bp->attr;
 		attr.bp_addr = addr;
-		/*                     */
+		/* reenable breakpoint */
 		attr.disabled = false;
 		err = modify_user_hw_breakpoint(bp, &attr);
 		if (unlikely(err))
@@ -130,9 +130,9 @@ void user_disable_single_step(struct task_struct *child)
 }
 
 /*
-                                             
-  
-                                              
+ * Called by kernel/ptrace.c when detaching..
+ *
+ * Make sure single step bits etc are not set.
  */
 void ptrace_disable(struct task_struct *child)
 {
@@ -151,7 +151,7 @@ static int genregs_get(struct task_struct *target,
 				  regs->regs,
 				  0, 16 * sizeof(unsigned long));
 	if (!ret)
-		/*                                  */
+		/* PC, PR, SR, GBR, MACH, MACL, TRA */
 		ret = user_regset_copyout(&pos, &count, &kbuf, &ubuf,
 					  &regs->pc,
 					  offsetof(struct pt_regs, pc),
@@ -308,7 +308,7 @@ const struct pt_regs_offset regoffset_table[] = {
 };
 
 /*
-                                        
+ * These are our native regset flavours.
  */
 enum sh_regset {
 	REGSET_GENERAL,
@@ -322,10 +322,10 @@ enum sh_regset {
 
 static const struct user_regset sh_regsets[] = {
 	/*
-              
-              
-                                    
-  */
+	 * Format is:
+	 *	R0 --> R15
+	 *	PC, PR, SR, GBR, MACH, MACL, TRA
+	 */
 	[REGSET_GENERAL] = {
 		.core_note_type	= NT_PRSTATUS,
 		.n		= ELF_NGREG,
@@ -378,7 +378,7 @@ long arch_ptrace(struct task_struct *child, long request,
 	int ret;
 
 	switch (request) {
-	/*                                                  */
+	/* read the word at location addr in the USER area. */
 	case PTRACE_PEEKUSR: {
 		unsigned long tmp;
 
@@ -421,7 +421,7 @@ long arch_ptrace(struct task_struct *child, long request,
 		break;
 	}
 
-	case PTRACE_POKEUSR: /*                                                  */
+	case PTRACE_POKEUSR: /* write the word at location addr in the USER area */
 		ret = -EIO;
 		if ((addr & 3) || addr < 0 ||
 		    addr > sizeof(struct user) - 3)
@@ -508,10 +508,10 @@ asmlinkage long do_syscall_trace_enter(struct pt_regs *regs)
 	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
 	    tracehook_report_syscall_entry(regs))
 		/*
-                                                    
-                                                      
-                                                           
-   */
+		 * Tracing decided this syscall should not happen.
+		 * We'll return a bogus call number to get an ENOSYS
+		 * error, but leave the original number in regs->regs[0].
+		 */
 		ret = -1L;
 
 	if (unlikely(test_thread_flag(TIF_SYSCALL_TRACEPOINT)))

@@ -18,8 +18,8 @@
 #endif
 
 /*
-                                                                     
-                                           
+ * SMP assumption: Options of CPU 0 are a superset of all processors.
+ * This is true for all known MIPS systems.
  */
 #ifndef cpu_has_tlb
 #define cpu_has_tlb		(cpu_data[0].options & MIPS_CPU_TLB)
@@ -112,15 +112,15 @@
 #endif
 
 /*
-                                                                                
-                                                                              
-                                                                            
-                                                                           
-                                                                              
-                
-                                                                            
-                                                                            
-                 
+ * I-Cache snoops remote store.  This only matters on SMP.  Some multiprocessors
+ * such as the R10000 have I-Caches that snoop local stores; the embedded ones
+ * don't.  For maintaining I-cache coherency this means we need to flush the
+ * D-cache all the way back to whever the I-cache does refills from, so the
+ * I-cache has a chance to see the new data at all.  Then we have to flush the
+ * I-cache also.
+ * Note we may have been rescheduled and may no longer be running on the CPU
+ * that did the store so we can't optimize this into only doing the flush on
+ * the local CPU.
  */
 #ifndef cpu_icache_snoops_remote_store
 #ifdef CONFIG_SMP
@@ -144,7 +144,7 @@
 # endif
 
 /*
-                
+ * Shortcuts ...
  */
 #define cpu_has_mips32	(cpu_has_mips32r1 | cpu_has_mips32r2)
 #define cpu_has_mips64	(cpu_has_mips64r1 | cpu_has_mips64r2)
@@ -158,10 +158,10 @@
 #endif
 
 /*
-                                                                   
-                                                                             
-                                                             
-                                                                    
+ * MIPS32, MIPS64, VR5500, IDT32332, IDT32334 and maybe a few other
+ * pre-MIPS32/MIPS53 processors have CLO, CLZ.  The IDT RC64574 is 64-bit and
+ * has CLO and CLZ but not DCLO nor DCLZ.  For 64-bit kernels
+ * cpu_has_clo_clz also indicates the availability of DCLO and DCLZ.
  */
 # ifndef cpu_has_clo_clz
 # define cpu_has_clo_clz	cpu_has_mips_r
@@ -252,4 +252,4 @@
 #define cpu_hwrena_impl_bits		0
 #endif
 
-#endif /*                      */
+#endif /* __ASM_CPU_FEATURES_H */

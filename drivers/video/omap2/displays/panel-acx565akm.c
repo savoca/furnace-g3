@@ -69,10 +69,10 @@ struct acx565akm_device {
 	unsigned	has_bc:1;
 	unsigned	has_cabc:1;
 	unsigned	cabc_mode;
-	unsigned long	hw_guard_end;		/*                      
-                              
-                                   */
-	unsigned long	hw_guard_wait;		/*                           */
+	unsigned long	hw_guard_end;		/* next value of jiffies
+						   when we can issue the
+						   next sleep in/out command */
+	unsigned long	hw_guard_wait;		/* max guard time in jiffies */
 
 	struct spi_device	*spi;
 	struct mutex		mutex;
@@ -84,7 +84,7 @@ struct acx565akm_device {
 static struct acx565akm_device acx_dev;
 static int acx565akm_bl_update_status(struct backlight_device *dev);
 
-/*                                                                */
+/*--------------------MIPID interface-----------------------------*/
 
 static void acx565akm_transfer(struct acx565akm_device *md, int cmd,
 			      const u8 *wbuf, int wlen, u8 *rbuf, int rlen)
@@ -107,10 +107,10 @@ static void acx565akm_transfer(struct acx565akm_device *md, int cmd,
 
 	if (rlen > 1 && wlen == 0) {
 		/*
-                                                         
-                                                          
-                              
-   */
+		 * Between the command and the response data there is a
+		 * dummy clock cycle. Add an extra bit after the command
+		 * word to account for this.
+		 */
 		x->bits_per_word = 10;
 		cmd <<= 1;
 	}
@@ -169,7 +169,7 @@ static void hw_guard_wait(struct acx565akm_device *md)
 	}
 }
 
-/*                                                                */
+/*----------------------MIPID wrappers----------------------------*/
 
 static void set_sleep_mode(struct acx565akm_device *md, int on)
 {
@@ -180,9 +180,9 @@ static void set_sleep_mode(struct acx565akm_device *md, int on)
 	else
 		cmd = MIPID_CMD_SLEEP_OUT;
 	/*
-                                                          
-                     
-  */
+	 * We have to keep 120msec between sleep in/out commands.
+	 * (8.2.15, 8.2.16).
+	 */
 	hw_guard_wait(md);
 	acx565akm_cmd(md, cmd);
 	hw_guard_start(md, 120);
@@ -248,7 +248,7 @@ static int panel_detect(struct acx565akm_device *md)
 	return 0;
 }
 
-/*                                                                */
+/*----------------------Backlight Control-------------------------*/
 
 static void enable_backlight_ctrl(struct acx565akm_device *md, int enable)
 {
@@ -371,10 +371,10 @@ static const struct backlight_ops acx565akm_bl_ops = {
 	.update_status  = acx565akm_bl_update_status,
 };
 
-/*                                                                          */
+/*--------------------Auto Brightness control via Sysfs---------------------*/
 
 static const char *cabc_modes[] = {
-	"off",		/*                                        */
+	"off",		/* always used when CABC is not supported */
 	"ui",
 	"still-image",
 	"moving-image",
@@ -470,7 +470,7 @@ static struct attribute_group bldev_attr_group = {
 };
 
 
-/*                                                                */
+/*---------------------------ACX Panel----------------------------*/
 
 static int acx_get_recommended_bpp(struct omap_dss_device *dssdev)
 {
@@ -500,15 +500,15 @@ static int acx_panel_probe(struct omap_dss_device *dssdev)
 	dev_dbg(&dssdev->dev, "%s\n", __func__);
 	dssdev->panel.config = OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
 					OMAP_DSS_LCD_IHS;
-	/*                 */
+	/* FIXME AC bias ? */
 	dssdev->panel.timings = acx_panel_timings;
 
 	if (dssdev->platform_enable)
 		dssdev->platform_enable(dssdev);
 	/*
-                                                       
-                        
-  */
+	 * After reset we have to wait 5 msec before the first
+	 * command can be sent.
+	 */
 	msleep(5);
 
 	md->enabled = panel_enabled(md);
@@ -530,7 +530,7 @@ static int acx_panel_probe(struct omap_dss_device *dssdev)
 			dssdev->platform_disable(dssdev);
 	}
 
-	/*                                  */
+	/*------- Backlight control --------*/
 
 	props.fb_blank = FB_BLANK_UNBLANK;
 	props.power = FB_BLANK_UNBLANK;
@@ -599,7 +599,7 @@ static int acx_panel_power_on(struct omap_dss_device *dssdev)
 		goto fail_unlock;
 	}
 
-	/*               */
+	/*FIXME tweak me */
 	msleep(50);
 
 	if (dssdev->platform_enable) {
@@ -615,19 +615,19 @@ static int acx_panel_power_on(struct omap_dss_device *dssdev)
 	}
 
 	/*
-                                                         
-                                             
-                                            
-                                                                
-                   
-                                                    
-  */
+	 * We have to meet all the following delay requirements:
+	 * 1. tRW: reset pulse width 10usec (7.12.1)
+	 * 2. tRT: reset cancel time 5msec (7.12.1)
+	 * 3. Providing PCLK,HS,VS signals for 2 frames = ~50msec worst
+	 *    case (7.6.2)
+	 * 4. 120msec before the sleep out command (7.12.1)
+	 */
 	msleep(120);
 
 	set_sleep_mode(md, 0);
 	md->enabled = 1;
 
-	/*                                                        */
+	/* 5msec between sleep out and the next command. (8.2.16) */
 	msleep(5);
 	set_display_state(md, 1);
 	set_cabc_mode(md, md->cabc_mode);
@@ -661,17 +661,17 @@ static void acx_panel_power_off(struct omap_dss_device *dssdev)
 	set_sleep_mode(md, 1);
 	md->enabled = 0;
 	/*
-                                                                  
-                                                                 
-                                                                  
-                                                           
-  */
+	 * We have to provide PCLK,HS,VS signals for 2 frames (worst case
+	 * ~50msec) after sending the sleep in command and asserting the
+	 * reset signal. We probably could assert the reset w/o the delay
+	 * but we still delay to avoid possible artifacts. (7.6.1)
+	 */
 	msleep(50);
 
 	if (dssdev->platform_disable)
 		dssdev->platform_disable(dssdev);
 
-	/*                                */
+	/* FIXME need to tweak this delay */
 	msleep(100);
 
 	omapdss_sdi_display_disable(dssdev);
@@ -772,7 +772,7 @@ static struct omap_dss_driver acx_panel_driver = {
 	},
 };
 
-/*                                                      */
+/*--------------------SPI probe-------------------------*/
 
 static int acx565akm_spi_probe(struct spi_device *spi)
 {

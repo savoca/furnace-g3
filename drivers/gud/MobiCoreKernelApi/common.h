@@ -20,10 +20,10 @@ unsigned int mcapi_unique_id(void);
 #define MC_DAEMON_PID			0xFFFFFFFF
 #define MC_DRV_MOD_DEVNODE_FULLPATH	"/dev/mobicore"
 
-/*                             */
+/* dummy function helper macro */
 #define DUMMY_FUNCTION()		do {} while (0)
 
-/*                 */
+/* Found in main.c */
 extern struct device *mc_kapi;
 
 #define MCDRV_ERROR(dev, txt, ...) \
@@ -31,7 +31,7 @@ extern struct device *mc_kapi;
 
 #if defined(DEBUG)
 
-/*                       */
+/* #define DEBUG_VERBOSE */
 #if defined(DEBUG_VERBOSE)
 #define MCDRV_DBG_VERBOSE		MCDRV_DBG
 #else
@@ -66,8 +66,8 @@ extern struct device *mc_kapi;
 
 #else
 #error "Define DEBUG or NDEBUG"
-#endif /*                               */
+#endif /* [not] defined(DEBUG_MCMODULE) */
 
 #define assert(expr)			MCDRV_ASSERT(expr)
 
-#endif /*                   */
+#endif /* _MC_KAPI_COMMON_H */

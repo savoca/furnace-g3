@@ -30,14 +30,14 @@
 #include <media/v4l2-chip-ident.h>
 #include <media/upd64031a.h>
 
-/*                                                                            */
+/* --------------------- read registers functions define -------------------- */
 
-/*           */
+/* bit masks */
 #define GR_MODE_MASK              0xc0
 #define DIRECT_3DYCS_CONNECT_MASK 0xc0
 #define SYNC_CIRCUIT_MASK         0xa0
 
-/*                                                                            */
+/* -------------------------------------------------------------------------- */
 
 MODULE_DESCRIPTION("uPD64031A driver");
 MODULE_AUTHOR("T. Adachi, Takeru KOMORIYA, Hans Verkuil");
@@ -53,10 +53,10 @@ enum {
 	R00 = 0, R01, R02, R03, R04,
 	R05, R06, R07, R08, R09,
 	R0A, R0B, R0C, R0D, R0E, R0F,
-	/*                 
-                          
-                
-  */
+	/* unused registers
+	 R10, R11, R12, R13, R14,
+	 R15, R16, R17,
+	 */
 	TOT_REGS
 };
 
@@ -81,7 +81,7 @@ static u8 upd64031a_init[] = {
 	0xd0
 };
 
-/*                                                                          */
+/* ------------------------------------------------------------------------ */
 
 static u8 upd64031a_read(struct v4l2_subdev *sd, u8 reg)
 {
@@ -94,7 +94,7 @@ static u8 upd64031a_read(struct v4l2_subdev *sd, u8 reg)
 	return buf[reg];
 }
 
-/*                                                                          */
+/* ------------------------------------------------------------------------ */
 
 static void upd64031a_write(struct v4l2_subdev *sd, u8 reg, u8 val)
 {
@@ -108,9 +108,9 @@ static void upd64031a_write(struct v4l2_subdev *sd, u8 reg, u8 val)
 		v4l2_err(sd, "I/O error write 0x%02x/0x%02x\n", reg, val);
 }
 
-/*                                                                          */
+/* ------------------------------------------------------------------------ */
 
-/*                                                       */
+/* The input changed due to new input or channel changed */
 static int upd64031a_s_frequency(struct v4l2_subdev *sd, struct v4l2_frequency *freq)
 {
 	struct upd64031a_state *state = to_state(sd);
@@ -122,7 +122,7 @@ static int upd64031a_s_frequency(struct v4l2_subdev *sd, struct v4l2_frequency *
 	return 0;
 }
 
-/*                                                                          */
+/* ------------------------------------------------------------------------ */
 
 static int upd64031a_s_routing(struct v4l2_subdev *sd,
 			       u32 input, u32 output, u32 config)
@@ -188,7 +188,7 @@ static int upd64031a_s_register(struct v4l2_subdev *sd, struct v4l2_dbg_register
 }
 #endif
 
-/*                                                                         */
+/* ----------------------------------------------------------------------- */
 
 static const struct v4l2_subdev_core_ops upd64031a_core_ops = {
 	.log_status = upd64031a_log_status,
@@ -213,9 +213,9 @@ static const struct v4l2_subdev_ops upd64031a_ops = {
 	.video = &upd64031a_video_ops,
 };
 
-/*                                                                          */
+/* ------------------------------------------------------------------------ */
 
-/*                    */
+/* i2c implementation */
 
 static int upd64031a_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
@@ -253,7 +253,7 @@ static int upd64031a_remove(struct i2c_client *client)
 	return 0;
 }
 
-/*                                                                         */
+/* ----------------------------------------------------------------------- */
 
 static const struct i2c_device_id upd64031a_id[] = {
 	{ "upd64031a", 0 },

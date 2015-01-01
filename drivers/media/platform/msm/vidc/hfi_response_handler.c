@@ -936,7 +936,7 @@ static void hfi_process_session_ftb_done(
 			dprintk(VIDC_ERR,
 				"got buffer back with error %x",
 				pkt->error_type);
-			/*                      */
+			/* Proceed with the FBD */
 		}
 
 		data_done.device_id = device_id;
@@ -1208,10 +1208,10 @@ static void hfi_process_sys_get_prop_image_version(
 	}
 	str_image_version = (u8 *)&pkt->rg_property_data[1];
 	/*
-                                                         
-                                                            
-                                                     
-  */
+	 * The version string returned by firmware includes null
+	 * characters at the start and in between. Replace the null
+	 * characters with space, to print the version info.
+	 */
 	for (i = 0; i < version_string_size; i++) {
 		if (str_image_version[i] != '\0')
 			version[i] = str_image_version[i];

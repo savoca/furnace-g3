@@ -15,10 +15,10 @@
 #include <net/iw_handler.h>
 
 /*
-                                             
-  
-                                                       
-                         
+ * Temporary wext handlers & helper functions
+ *
+ * These are used only by drivers that aren't yet fully
+ * converted to cfg80211.
  */
 int cfg80211_wext_giwname(struct net_device *dev,
 			  struct iw_request_info *info,
@@ -52,4 +52,4 @@ int cfg80211_wext_giwretry(struct net_device *dev,
 			   struct iw_request_info *info,
 			   struct iw_param *retry, char *extra);
 
-#endif /*                       */
+#endif /* __NET_CFG80211_WEXT_H */

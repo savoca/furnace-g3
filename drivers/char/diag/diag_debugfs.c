@@ -269,7 +269,7 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 				temp_data->time_stamp);
 			bytes_in_buf += bytes_written;
 			bytes_remaining -= bytes_written;
-			/*                                          */
+			/* Check if there is room for another entry */
 			if (bytes_remaining < bytes_written)
 				break;
 		}
@@ -371,7 +371,7 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 	buf_size = (DEBUG_BUF_SIZE < count) ? DEBUG_BUF_SIZE : count;
 
 	if (diag_dbgfs_table_index >= diag_max_reg) {
-		/*                                            */
+		/* Done. Reset to prepare for future requests */
 		diag_dbgfs_table_index = 0;
 		return 0;
 	}
@@ -394,7 +394,7 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 	}
 
 	for (i = diag_dbgfs_table_index; i < diag_max_reg; i++) {
-		/*                                           */
+		/* Do not process empty entries in the table */
 		if (driver->table[i].process_id == 0)
 			continue;
 
@@ -413,7 +413,7 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 
 		bytes_in_buffer += bytes_written;
 
-		/*                                                   */
+		/* Check if there is room to add another table entry */
 		bytes_remaining = buf_size - bytes_in_buffer;
 
 		if (bytes_remaining < bytes_written)
@@ -557,7 +557,7 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 	buf_size = ksize(buf);
 	bytes_remaining = buf_size;
 
-	/*                       */
+	/* Only one smux for now */
 	bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
 		"Values for SMUX instance: 0\n"
 		"smux ch: %d\n"
@@ -581,7 +581,7 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 
 	for (i = 0; i < MAX_HSIC_CH; i++) {
 		if (diag_hsic[i].hsic_inited) {
-			/*                                                  */
+			/* Check if there is room to add another HSIC entry */
 			if (bytes_remaining < bytes_hsic_inited)
 				break;
 			bytes_written = scnprintf(buf+bytes_in_buffer,
@@ -625,7 +625,7 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 			if (bytes_written > bytes_hsic_inited)
 				bytes_hsic_inited = bytes_written;
 		} else {
-			/*                                                  */
+			/* Check if there is room to add another HSIC entry */
 			if (bytes_remaining < bytes_hsic_not_inited)
 				break;
 			bytes_written = scnprintf(buf+bytes_in_buffer,
@@ -705,7 +705,7 @@ void diag_debugfs_init(void)
 	diag_dbgfs_dci_data_index = 0;
 	diag_dbgfs_dci_finished = 0;
 
-	/*                        */
+	/* DCI related structures */
 	dci_data_smd = kzalloc(sizeof(struct diag_dci_data_info) *
 				DIAG_DCI_DEBUG_CNT, GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(dci_data_smd))

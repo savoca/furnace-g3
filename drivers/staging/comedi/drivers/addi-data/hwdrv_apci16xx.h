@@ -16,7 +16,7 @@
  */
 
 #ifndef COMEDI_SUBD_TTLIO
-#define COMEDI_SUBD_TTLIO   11	/*                              */
+#define COMEDI_SUBD_TTLIO   11	/* Digital Input Output But TTL */
 #endif
 
 #ifndef ADDIDATA_ENABLE
@@ -57,9 +57,9 @@ static const struct comedi_lrange range_apci16xx_ttl = { 12,
 };
 
 /*
-                                                                              
-                                                                              
-                                                                              
++----------------------------------------------------------------------------+
+|                       TTL INISIALISATION FUNCTION                          |
++----------------------------------------------------------------------------+
 */
 
 int i_APCI16XX_InsnConfigInitTTLIO(struct comedi_device *dev,
@@ -67,9 +67,9 @@ int i_APCI16XX_InsnConfigInitTTLIO(struct comedi_device *dev,
 				   unsigned int *data);
 
 /*
-                                                                              
-                                                                              
-                                                                              
++----------------------------------------------------------------------------+
+|                       TTL INPUT FUNCTION                                   |
++----------------------------------------------------------------------------+
 */
 
 int i_APCI16XX_InsnBitsReadTTLIO(struct comedi_device *dev,
@@ -81,9 +81,9 @@ int i_APCI16XX_InsnReadTTLIOAllPortValue(struct comedi_device *dev,
 					 struct comedi_insn *insn, unsigned int *data);
 
 /*
-                                                                              
-                                                                              
-                                                                              
++----------------------------------------------------------------------------+
+|                            TTL OUTPUT FUNCTIONS                            |
++----------------------------------------------------------------------------+
 */
 
 int i_APCI16XX_InsnBitsWriteTTLIO(struct comedi_device *dev,

@@ -93,13 +93,13 @@ MODULE_PARM_DESC(ir_debug, "enable integrated IR debug messages");
 #define FIFO_RX_DEPTH	8
 #define FIFO_TX_DEPTH	8
 
-#define CX25840_VIDCLK_FREQ	108000000 /*                 */
+#define CX25840_VIDCLK_FREQ	108000000 /* 108 MHz, BT.656 */
 #define CX25840_IR_REFCLK_FREQ	(CX25840_VIDCLK_FREQ / 2)
 
 /*
-                                                                        
-                                                                     
-                                                                           
+ * We use this union internally for convenience, but callers to tx_write
+ * and rx_read will be expecting records of type struct ir_raw_event.
+ * Always ensure the size of this union is dictated by struct ir_raw_event.
  */
 union cx25840_ir_fifo_rec {
 	u32 hw_fifo_data;
@@ -113,15 +113,15 @@ struct cx25840_ir_state {
 	struct i2c_client *c;
 
 	struct v4l2_subdev_ir_parameters rx_params;
-	struct mutex rx_params_lock; /*                                      */
+	struct mutex rx_params_lock; /* protects Rx parameter settings cache */
 	atomic_t rxclk_divider;
 	atomic_t rx_invert;
 
 	struct kfifo rx_kfifo;
-	spinlock_t rx_kfifo_lock; /*                       */
+	spinlock_t rx_kfifo_lock; /* protect Rx data kfifo */
 
 	struct v4l2_subdev_ir_parameters tx_params;
-	struct mutex tx_params_lock; /*                                      */
+	struct mutex tx_params_lock; /* protects Tx parameter settings cache */
 	atomic_t txclk_divider;
 };
 
@@ -133,11 +133,11 @@ static inline struct cx25840_ir_state *to_ir_state(struct v4l2_subdev *sd)
 
 
 /*
-                                                
-  
-                                                                 
-                                                         
-                                                                       
+ * Rx and Tx Clock Divider register computations
+ *
+ * Note the largest clock divider value of 0xffff corresponds to:
+ * 	(0xffff + 1) * 1000 / 108/2 MHz = 1,213,629.629... ns
+ * which fits in 21 bits, so we'll use unsigned int for time arguments.
  */
 static inline u16 count_to_clock_divider(unsigned int d)
 {
@@ -158,7 +158,7 @@ static inline u16 ns_to_clock_divider(unsigned int ns)
 
 static inline unsigned int clock_divider_to_ns(unsigned int divider)
 {
-	/*                                    */
+	/* Period of the Rx or Tx clock in ns */
 	return DIV_ROUND_CLOSEST((divider + 1) * 1000,
 				 CX25840_IR_REFCLK_FREQ / 1000000);
 }
@@ -189,11 +189,11 @@ static inline unsigned int clock_divider_to_freq(unsigned int divider,
 }
 
 /*
-                                        
-  
-                                                         
-                                                  
-                                                                       
+ * Low Pass Filter register calculations
+ *
+ * Note the largest count value of 0xffff corresponds to:
+ * 	0xffff * 1000 / 108/2 MHz = 1,213,611.11... ns
+ * which fits in 21 bits, so we'll use unsigned int for time arguments.
  */
 static inline u16 count_to_lpf_count(unsigned int d)
 {
@@ -212,27 +212,27 @@ static inline u16 ns_to_lpf_count(unsigned int ns)
 
 static inline unsigned int lpf_count_to_ns(unsigned int count)
 {
-	/*                                                        */
+	/* Duration of the Low Pass Filter rejection window in ns */
 	return DIV_ROUND_CLOSEST(count * 1000,
 				 CX25840_IR_REFCLK_FREQ / 1000000);
 }
 
 static inline unsigned int lpf_count_to_us(unsigned int count)
 {
-	/*                                                        */
+	/* Duration of the Low Pass Filter rejection window in us */
 	return DIV_ROUND_CLOSEST(count, CX25840_IR_REFCLK_FREQ / 1000000);
 }
 
 /*
-                                              
+ * FIFO register pulse width count compuations
  */
 static u32 clock_divider_to_resolution(u16 divider)
 {
 	/*
-                                                                   
-                                                                        
-                                                            
-  */
+	 * Resolution is the duration of 1 tick of the readable portion of
+	 * of the pulse width counter as read from the FIFO.  The two lsb's are
+	 * not readable, hence the << 2.  This function returns ns.
+	 */
 	return DIV_ROUND_CLOSEST((1 << 2)  * ((u32) divider + 1) * 1000,
 				 CX25840_IR_REFCLK_FREQ / 1000000);
 }
@@ -243,18 +243,18 @@ static u64 pulse_width_count_to_ns(u16 count, u16 divider)
 	u32 rem;
 
 	/*
-                                                                      
-                          
-  */
-	n = (((u64) count << 2) | 0x3) * (divider + 1) * 1000; /*             */
-	rem = do_div(n, CX25840_IR_REFCLK_FREQ / 1000000);     /*             */
+	 * The 2 lsb's of the pulse width timer count are not readable, hence
+	 * the (count << 2) | 0x3
+	 */
+	n = (((u64) count << 2) | 0x3) * (divider + 1) * 1000; /* millicycles */
+	rem = do_div(n, CX25840_IR_REFCLK_FREQ / 1000000);     /* / MHz => ns */
 	if (rem >= CX25840_IR_REFCLK_FREQ / 1000000 / 2)
 		n++;
 	return n;
 }
 
 #if 0
-/*                                                      */
+/* Keep as we will need this for Transmit functionality */
 static u16 ns_to_pulse_width_count(u32 ns, u16 divider)
 {
 	u64 n;
@@ -262,11 +262,11 @@ static u16 ns_to_pulse_width_count(u32 ns, u16 divider)
 	u32 rem;
 
 	/*
-                                                                        
-                
-  */
-	n = ((u64) ns) * CX25840_IR_REFCLK_FREQ / 1000000; /*             */
-	d = (1 << 2) * ((u32) divider + 1) * 1000; /*                   */
+	 * The 2 lsb's of the pulse width timer count are not accessible, hence
+	 * the (1 << 2)
+	 */
+	n = ((u64) ns) * CX25840_IR_REFCLK_FREQ / 1000000; /* millicycles */
+	d = (1 << 2) * ((u32) divider + 1) * 1000; /* millicycles/count */
 	rem = do_div(n, d);
 	if (rem >= d / 2)
 		n++;
@@ -285,30 +285,30 @@ static unsigned int pulse_width_count_to_us(u16 count, u16 divider)
 	u32 rem;
 
 	/*
-                                                                      
-                          
-  */
-	n = (((u64) count << 2) | 0x3) * (divider + 1);    /*             */
-	rem = do_div(n, CX25840_IR_REFCLK_FREQ / 1000000); /*             */
+	 * The 2 lsb's of the pulse width timer count are not readable, hence
+	 * the (count << 2) | 0x3
+	 */
+	n = (((u64) count << 2) | 0x3) * (divider + 1);    /* cycles      */
+	rem = do_div(n, CX25840_IR_REFCLK_FREQ / 1000000); /* / MHz => us */
 	if (rem >= CX25840_IR_REFCLK_FREQ / 1000000 / 2)
 		n++;
 	return (unsigned int) n;
 }
 
 /*
-                                                                          
-  
-                                                                               
-                                                                        
-                                                                            
-                                             
+ * Pulse Clocks computations: Combined Pulse Width Count & Rx Clock Counts
+ *
+ * The total pulse clock count is an 18 bit pulse width timer count as the most
+ * significant part and (up to) 16 bit clock divider count as a modulus.
+ * When the Rx clock divider ticks down to 0, it increments the 18 bit pulse
+ * width timer count's least significant bit.
  */
 static u64 ns_to_pulse_clocks(u32 ns)
 {
 	u64 clocks;
 	u32 rem;
-	clocks = CX25840_IR_REFCLK_FREQ / 1000000 * (u64) ns; /*              */
-	rem = do_div(clocks, 1000);                         /*                */
+	clocks = CX25840_IR_REFCLK_FREQ / 1000000 * (u64) ns; /* millicycles  */
+	rem = do_div(clocks, 1000);                         /* /1000 = cycles */
 	if (rem >= 1000 / 2)
 		clocks++;
 	return clocks;
@@ -320,7 +320,7 @@ static u16 pulse_clocks_to_clock_divider(u64 count)
 
 	rem = do_div(count, (FIFO_RXTX << 2) | 0x3);
 
-	/*                                                          */
+	/* net result needs to be rounded down and decremented by 1 */
 	if (count > RXCLK_RCD + 1)
 		count = RXCLK_RCD;
 	else if (count < 2)
@@ -331,7 +331,7 @@ static u16 pulse_clocks_to_clock_divider(u64 count)
 }
 
 /*
-                              
+ * IR Control Register helpers
  */
 enum tx_fifo_watermark {
 	TX_FIFO_HALF_EMPTY = 0,
@@ -422,7 +422,7 @@ static inline void control_tx_polarity_invert(struct i2c_client *c,
 }
 
 /*
-                                    
+ * IR Rx & Tx Clock Register helpers
  */
 static unsigned int txclk_tx_s_carrier(struct i2c_client *c,
 				       unsigned int freq,
@@ -469,13 +469,13 @@ static u32 rxclk_rx_s_max_pulse_width(struct i2c_client *c, u32 ns,
 }
 
 /*
-                                            
+ * IR Tx Carrier Duty Cycle register helpers
  */
 static unsigned int cduty_tx_s_duty_cycle(struct i2c_client *c,
 					  unsigned int duty_cycle)
 {
 	u32 n;
-	n = DIV_ROUND_CLOSEST(duty_cycle * 100, 625); /*               */
+	n = DIV_ROUND_CLOSEST(duty_cycle * 100, 625); /* 16ths of 100% */
 	if (n != 0)
 		n--;
 	if (n > 15)
@@ -485,7 +485,7 @@ static unsigned int cduty_tx_s_duty_cycle(struct i2c_client *c,
 }
 
 /*
-                             
+ * IR Filter Register helpers
  */
 static u32 filter_rx_s_min_width(struct i2c_client *c, u32 min_width_ns)
 {
@@ -495,7 +495,7 @@ static u32 filter_rx_s_min_width(struct i2c_client *c, u32 min_width_ns)
 }
 
 /*
-                                 
+ * IR IRQ Enable Register helpers
  */
 static inline void irqenable_rx(struct v4l2_subdev *sd, u32 mask)
 {
@@ -519,7 +519,7 @@ static inline void irqenable_tx(struct v4l2_subdev *sd, u32 mask)
 }
 
 /*
-                        
+ * V4L2 Subdevice IR Ops
  */
 int cx25840_ir_irq_handler(struct v4l2_subdev *sd, u32 status, bool *handled)
 {
@@ -540,7 +540,7 @@ int cx25840_ir_irq_handler(struct v4l2_subdev *sd, u32 status, bool *handled)
 
 	c = ir_state->c;
 
-	/*                                                                   */
+	/* Only support the IR controller for the CX2388[57] AV Core for now */
 	if (!(is_cx23885(state) || is_cx23887(state)))
 		return -ENODEV;
 
@@ -550,15 +550,15 @@ int cx25840_ir_irq_handler(struct v4l2_subdev *sd, u32 status, bool *handled)
 		irqen ^= IRQEN_MSK;
 	stats = cx25840_read4(c, CX25840_IR_STATS_REG);
 
-	tsr = stats & STATS_TSR; /*                         */
-	rsr = stats & STATS_RSR; /*                         */
-	rto = stats & STATS_RTO; /*                               */
-	ror = stats & STATS_ROR; /*                  */
+	tsr = stats & STATS_TSR; /* Tx FIFO Service Request */
+	rsr = stats & STATS_RSR; /* Rx FIFO Service Request */
+	rto = stats & STATS_RTO; /* Rx Pulse Width Timer Time Out */
+	ror = stats & STATS_ROR; /* Rx FIFO Over Run */
 
-	tse = irqen & IRQEN_TSE; /*                                    */
-	rse = irqen & IRQEN_RSE; /*                                    */
-	rte = irqen & IRQEN_RTE; /*                                          */
-	roe = irqen & IRQEN_ROE; /*                             */
+	tse = irqen & IRQEN_TSE; /* Tx FIFO Service Request IRQ Enable */
+	rse = irqen & IRQEN_RSE; /* Rx FIFO Service Reuqest IRQ Enable */
+	rte = irqen & IRQEN_RTE; /* Rx Pulse Width Timer Time Out IRQ Enable */
+	roe = irqen & IRQEN_ROE; /* Rx FIFO Over Run IRQ Enable */
 
 	v4l2_dbg(2, ir_debug, sd, "IR IRQ Status:  %s %s %s %s %s %s\n",
 		 tsr ? "tsr" : "   ", rsr ? "rsr" : "   ",
@@ -571,20 +571,20 @@ int cx25840_ir_irq_handler(struct v4l2_subdev *sd, u32 status, bool *handled)
 		 rte ? "rte" : "   ", roe ? "roe" : "   ");
 
 	/*
-                                 
-  */
+	 * Transmitter interrupt service
+	 */
 	if (tse && tsr) {
 		/*
-          
-                                          
-                                                                
-                                        
-                                                               
-                                            
-                                                               
-                                                         
-   */
-		/*                                                        */
+		 * TODO:
+		 * Check the watermark threshold setting
+		 * Pull FIFO_TX_DEPTH or FIFO_TX_DEPTH/2 entries from tx_kfifo
+		 * Push the data to the hardware FIFO.
+		 * If there was nothing more to send in the tx_kfifo, disable
+		 *	the TSR IRQ and notify the v4l2_device.
+		 * If there was something in the tx_kfifo, check the tx_kfifo
+		 *      level and notify the v4l2_device, if it is low.
+		 */
+		/* For now, inhibit TSR interrupt until Tx is implemented */
 		irqenable_tx(sd, 0);
 		events = V4L2_SUBDEV_IR_TX_FIFO_SERVICE_REQ;
 		v4l2_subdev_notify(sd, V4L2_SUBDEV_IR_TX_NOTIFY, &events);
@@ -592,15 +592,15 @@ int cx25840_ir_irq_handler(struct v4l2_subdev *sd, u32 status, bool *handled)
 	}
 
 	/*
-                              
-  */
+	 * Receiver interrupt service
+	 */
 	kror = 0;
 	if ((rse && rsr) || (rte && rto)) {
 		/*
-                                                
-                                                               
-                                       
-   */
+		 * Receive data on RSR to clear the STATS_RSR.
+		 * Receive data on RTO, since we may not have yet hit the RSR
+		 * watermark when we receive the RTO.
+		 */
 		for (i = 0, v = FIFO_RX_NDV;
 		     (v & FIFO_RX_NDV) && !kror; i = 0) {
 			for (j = 0;
@@ -616,7 +616,7 @@ int cx25840_ir_irq_handler(struct v4l2_subdev *sd, u32 status, bool *handled)
 					    (unsigned char *) rx_data, j,
 					    &ir_state->rx_kfifo_lock);
 			if (k != j)
-				kror++; /*                   */
+				kror++; /* rx_kfifo over run */
 		}
 		*handled = true;
 	}
@@ -629,23 +629,23 @@ int cx25840_ir_irq_handler(struct v4l2_subdev *sd, u32 status, bool *handled)
 	}
 	if (roe && ror) {
 		/*
-                                                            
-                                            
-   */
+		 * The RX FIFO Enable (CNTRL_RFE) must be toggled to clear
+		 * the Rx FIFO Over Run status (STATS_ROR)
+		 */
 		v |= CNTRL_RFE;
 		events |= V4L2_SUBDEV_IR_RX_HW_FIFO_OVERRUN;
 		v4l2_err(sd, "IR receiver hardware FIFO overrun\n");
 	}
 	if (rte && rto) {
 		/*
-                                                                
-                                                  
-   */
+		 * The IR Receiver Enable (CNTRL_RXE) must be toggled to clear
+		 * the Rx Pulse Width Timer Time Out (STATS_RTO)
+		 */
 		v |= CNTRL_RXE;
 		events |= V4L2_SUBDEV_IR_RX_END_OF_RX_DETECTED;
 	}
 	if (v) {
-		/*                                                            */
+		/* Clear STATS_ROR & STATS_RTO as needed by reseting hardware */
 		cx25840_write4(c, CX25840_IR_CNTRL_REG, cntrl & ~v);
 		cx25840_write4(c, CX25840_IR_CNTRL_REG, cntrl);
 		*handled = true;
@@ -660,7 +660,7 @@ int cx25840_ir_irq_handler(struct v4l2_subdev *sd, u32 status, bool *handled)
 	return 0;
 }
 
-/*          */
+/* Receiver */
 static int cx25840_ir_rx_read(struct v4l2_subdev *sd, u8 *buf, size_t count,
 			      ssize_t *num)
 {
@@ -693,7 +693,7 @@ static int cx25840_ir_rx_read(struct v4l2_subdev *sd, u8 *buf, size_t count,
 	for (p = (union cx25840_ir_fifo_rec *) buf, i = 0; i < n; p++, i++) {
 
 		if ((p->hw_fifo_data & FIFO_RXTX_RTO) == FIFO_RXTX_RTO) {
-			/*                                             */
+			/* Assume RTO was because of no IR light input */
 			u = 0;
 			w = 1;
 		} else {
@@ -747,7 +747,7 @@ static int cx25840_ir_rx_shutdown(struct v4l2_subdev *sd)
 	c = ir_state->c;
 	mutex_lock(&ir_state->rx_params_lock);
 
-	/*                                                      */
+	/* Disable or slow down all IR Rx circuits and counters */
 	irqenable_rx(sd, 0);
 	control_rx_enable(c, false);
 	control_rx_demodulation_enable(c, false);
@@ -791,7 +791,7 @@ static int cx25840_ir_rx_s_parameters(struct v4l2_subdev *sd,
 	p->bytes_per_data_element = sizeof(union cx25840_ir_fifo_rec);
 	o->bytes_per_data_element = p->bytes_per_data_element;
 
-	/*                                                               */
+	/* Before we tweak the hardware, we have to disable the receiver */
 	irqenable_rx(sd, 0);
 	control_rx_enable(c, false);
 
@@ -830,7 +830,7 @@ static int cx25840_ir_rx_s_parameters(struct v4l2_subdev *sd,
 	p->resolution = clock_divider_to_resolution(rxclk_divider);
 	o->resolution = p->resolution;
 
-	/*                                                                  */
+	/* FIXME - make this dependent on resolution for better performance */
 	control_rx_irq_watermark(c, RX_FIFO_HALF_FULL);
 
 	control_rx_s_edge_detection(c, CNTRL_EDG_BOTH);
@@ -855,7 +855,7 @@ static int cx25840_ir_rx_s_parameters(struct v4l2_subdev *sd,
 	return 0;
 }
 
-/*             */
+/* Transmitter */
 static int cx25840_ir_tx_write(struct v4l2_subdev *sd, u8 *buf, size_t count,
 			       ssize_t *num)
 {
@@ -868,28 +868,28 @@ static int cx25840_ir_tx_write(struct v4l2_subdev *sd, u8 *buf, size_t count,
 	c = ir_state->c;
 #if 0
 	/*
-                                                                       
-                                                                     
-                                                                        
-                                                                       
-                                                                        
-                                                                 
-                                                                      
-                        
-  */
+	 * FIXME - the code below is an incomplete and untested sketch of what
+	 * may need to be done.  The critical part is to get 4 (or 8) pulses
+	 * from the tx_kfifo, or converted from ns to the proper units from the
+	 * input, and push them off to the hardware Tx FIFO right away, if the
+	 * HW TX fifo needs service.  The rest can be pushed to the tx_kfifo in
+	 * a less critical timeframe.  Also watch out for overruning the
+	 * tx_kfifo - don't let it happen and let the caller know not all his
+	 * pulses were written.
+	 */
 	u32 *ns_pulse = (u32 *) buf;
 	unsigned int n;
 	u32 fifo_pulse[FIFO_TX_DEPTH];
 	u32 mark;
 
-	/*                                             */
+	/* Compute how much we can fit in the tx kfifo */
 	n = CX25840_IR_TX_KFIFO_SIZE - kfifo_len(ir_state->tx_kfifo);
 	n = min(n, (unsigned int) count);
 	n /= sizeof(u32);
 
-	/*                                          
-                                              
-  */
+	/* FIXME - turn on Tx Fifo service interrupt
+	 * check hardware fifo level, and other stuff
+	 */
 	for (i = 0; i < n; ) {
 		for (j = 0; j < FIFO_TX_DEPTH / 2 && i < n; j++) {
 			mark = ns_pulse[i] & LEVEL_MASK;
@@ -906,7 +906,7 @@ static int cx25840_ir_tx_write(struct v4l2_subdev *sd, u8 *buf, size_t count,
 	}
 	*num = n * sizeof(u32);
 #else
-	/*                                                                    */
+	/* For now enable the Tx FIFO Service interrupt & pretend we did work */
 	irqenable_tx(sd, IRQEN_TSE);
 	*num = count;
 #endif
@@ -939,7 +939,7 @@ static int cx25840_ir_tx_shutdown(struct v4l2_subdev *sd)
 	c = ir_state->c;
 	mutex_lock(&ir_state->tx_params_lock);
 
-	/*                                                      */
+	/* Disable or slow down all IR Tx circuits and counters */
 	irqenable_tx(sd, 0);
 	control_tx_enable(c, false);
 	control_tx_modulation_enable(c, false);
@@ -980,7 +980,7 @@ static int cx25840_ir_tx_s_parameters(struct v4l2_subdev *sd,
 	p->bytes_per_data_element = sizeof(union cx25840_ir_fifo_rec);
 	o->bytes_per_data_element = p->bytes_per_data_element;
 
-	/*                                                                  */
+	/* Before we tweak the hardware, we have to disable the transmitter */
 	irqenable_tx(sd, 0);
 	control_tx_enable(c, false);
 
@@ -1008,24 +1008,24 @@ static int cx25840_ir_tx_s_parameters(struct v4l2_subdev *sd,
 	p->resolution = clock_divider_to_resolution(txclk_divider);
 	o->resolution = p->resolution;
 
-	/*                                                                  */
+	/* FIXME - make this dependent on resolution for better performance */
 	control_tx_irq_watermark(c, TX_FIFO_HALF_EMPTY);
 
 	control_tx_polarity_invert(c, p->invert_carrier_sense);
 	o->invert_carrier_sense = p->invert_carrier_sense;
 
 	/*
-                                                                 
-                                     
-                                                                  
-                                             
-  */
+	 * FIXME: we don't have hardware help for IO pin level inversion
+	 * here like we have on the CX23888.
+	 * Act on this with some mix of logical inversion of data levels,
+	 * carrier polarity, and carrier duty cycle.
+	 */
 	o->invert_level = p->invert_level;
 
 	o->interrupt_enable = p->interrupt_enable;
 	o->enable = p->enable;
 	if (p->enable) {
-		/*                    */
+		/* reset tx_fifo here */
 		if (p->interrupt_enable)
 			irqenable_tx(sd, IRQEN_TSE);
 		control_tx_enable(c, p->enable);
@@ -1037,7 +1037,7 @@ static int cx25840_ir_tx_s_parameters(struct v4l2_subdev *sd,
 
 
 /*
-                                  
+ * V4L2 Subdevice Core Ops support
  */
 int cx25840_ir_log_status(struct v4l2_subdev *sd)
 {
@@ -1047,7 +1047,7 @@ int cx25840_ir_log_status(struct v4l2_subdev *sd)
 	int i, j;
 	u32 cntrl, txclk, rxclk, cduty, stats, irqen, filtr;
 
-	/*                                                                */
+	/* The CX23888 chip doesn't have an IR controller on the A/V core */
 	if (is_cx23888(state))
 		return 0;
 
@@ -1199,11 +1199,11 @@ static const struct v4l2_subdev_ir_parameters default_rx_params = {
 	.shutdown = true,
 
 	.modulation = true,
-	.carrier_freq = 36000, /*                                 */
+	.carrier_freq = 36000, /* 36 kHz - RC-5, and RC-6 carrier */
 
-	/*                                                         */
-	/*                                                         */
-	.noise_filter_min_width = 333333, /*    */
+	/* RC-5: 666,667 ns = 1/36 kHz * 32 cycles * 1 mark * 0.75 */
+	/* RC-6: 333,333 ns = 1/36 kHz * 16 cycles * 1 mark * 0.75 */
+	.noise_filter_min_width = 333333, /* ns */
 	.carrier_range_lower = 35000,
 	.carrier_range_upper = 37000,
 	.invert_level = false,
@@ -1218,8 +1218,8 @@ static const struct v4l2_subdev_ir_parameters default_tx_params = {
 	.shutdown = true,
 
 	.modulation = true,
-	.carrier_freq = 36000, /*                       */
-	.duty_cycle = 25,      /*                       */
+	.carrier_freq = 36000, /* 36 kHz - RC-5 carrier */
+	.duty_cycle = 25,      /* 25 %   - RC-5 carrier */
 	.invert_level = false,
 	.invert_carrier_sense = false,
 };
@@ -1230,7 +1230,7 @@ int cx25840_ir_probe(struct v4l2_subdev *sd)
 	struct cx25840_ir_state *ir_state;
 	struct v4l2_subdev_ir_parameters default_params;
 
-	/*                                                                */
+	/* Only init the IR controller for the CX2388[57] AV Core for now */
 	if (!(is_cx23885(state) || is_cx23887(state)))
 		return 0;
 
@@ -1248,7 +1248,7 @@ int cx25840_ir_probe(struct v4l2_subdev *sd)
 	ir_state->c = state->c;
 	state->ir_state = ir_state;
 
-	/*                                 */
+	/* Ensure no interrupts arrive yet */
 	if (is_cx23885(state) || is_cx23887(state))
 		cx25840_write4(ir_state->c, CX25840_IR_IRQEN_REG, IRQEN_MSK);
 	else

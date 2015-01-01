@@ -32,7 +32,7 @@
 
 
 #define LGE_QFPROM_INTERFACE_NAME "lge-qfprom"
-/*                         */
+/* service ID inside tzbsp */
 #define QFPROM_SVC_ID		8
 #define QFPROM_WRITE_CMD	0x3
 #define QFPROM_WRITE_MULT_CMD   0x4
@@ -40,24 +40,24 @@
 #define QFPROM_ROLLBACK_CMD     0x6
 #define QFPROM_PRNG_CMD		0x7
 #define QFPROM_OVERRIDE_CMD	0x8
-/*                  */
+/* qfprom read type */
 #define QFPROM_ADDR_SPACE_RAW 0
 #define QFPROM_ADDR_SPACE_CORR 1
 
 #define QFPROM_CLOCK	(0x40*1000)
 
-/*                        */
+/* QFPROM address to blow */
 #define QFPROM_CTRL_BASE                0xfc4b8000
 #define QFPROM_RD_WR_PERMISSION		(QFPROM_CTRL_BASE + 0x00A8)
-#define QFPROM_DEBUG_DISABLE		(QFPROM_CTRL_BASE + 0x00E8) /*            */
-#define QFPROM_OEM_CONFIG		(QFPROM_CTRL_BASE + 0x00F0) /*            */
+#define QFPROM_DEBUG_DISABLE		(QFPROM_CTRL_BASE + 0x00E8) /* 0xFC4B80E8 */
+#define QFPROM_OEM_CONFIG		(QFPROM_CTRL_BASE + 0x00F0) /* 0xFC4B80F0 */
 #define QFPROM_SECONDARY_HW_KEY		(QFPROM_CTRL_BASE + 0x03A8)
-#define QFPROM_SECURE_BOOT_ENABLE	(QFPROM_CTRL_BASE + 0x03f8)/*            */
+#define QFPROM_SECURE_BOOT_ENABLE	(QFPROM_CTRL_BASE + 0x03f8)/* 0xFC4B83F8 */
 #define QFPROM_HW_KEY_STATUS		(QFPROM_CTRL_BASE + 0x204C)
 #define QFPROM_OVERRIDE_REG		(QFPROM_CTRL_BASE + 0x60B8)
 #define QFPROM_CHECK_HW_KEY		0x123456
 
-/*                              */
+/* secondary hw key status flag */
 #define PRI_KEY_DERIVATION_KEY   0x00000001
 #define SEC_KEY_DERIVATION_BLOWN 0x00000002
 #define APP_KEYS_BLOCKED         0x00000004
@@ -72,21 +72,21 @@
 #define FUSING_COMPLETED_STATE 0x1F
 #endif
 
-/*                         */
+/* command buffer to write */
 struct qfprom_write_cmd_buffer {
-	u32 qfprom_addr;	/*                */
-	u32 buf;		/*                      */
-	u32 qfprom_clk;	/*              */
-	u32 qfprom_status;	/*               */
+	u32 qfprom_addr;	/* qfprom address */
+	u32 buf;		/* data to write qfprom */
+	u32 qfprom_clk;	/* qfprom clock */
+	u32 qfprom_status;	/* qfprom status */
 };
-/*                        */
+/* command buffer to read */
 struct qfprom_read_cmd_buffer {
 	u32 qfprom_addr;
 	u32 qfprom_addr_type;
 	u32 read_buf;
 	u32 qfprom_status;
 };
-/*                     */
+/* blow data structure */
 struct qfprom_blow_data {
 	u32 qfprom_addr;
 	u32 lsb_data;
@@ -107,29 +107,29 @@ u32 qfprom_read(u32 fuse_addr);
 
 #if defined(CONFIG_MACH_MSM8974_G3_TMO_US)
 static struct qfprom_blow_data blow_data[] = {
-		/*                                        */
-		/*                   */
-		{ QFPROM_OEM_CONFIG, 		0x00310000, 	0x00000262},		/*                        */
-		{ QFPROM_SECURE_BOOT_ENABLE, 	0x00202020, 	0x00000000},		/*               */
-		{ QFPROM_DEBUG_DISABLE, 	0x3FC00000, 	0x040001FE},		/*                */
+		/* Don't change array order !!!!!!!!!!!!!!*/
+		/* addr	 			 LSB		MSB*/
+		{ QFPROM_OEM_CONFIG, 		0x00310000, 	0x00000262},		/* OEM ID + OEM_PRODUCT_ID*/
+		{ QFPROM_SECURE_BOOT_ENABLE, 	0x00202020, 	0x00000000},		/* SECURE ENABLE */
+		{ QFPROM_DEBUG_DISABLE, 	0x3FC00000, 	0x040001FE},		/* JTAG DISABLE   */
 		{ QFPROM_CHECK_HW_KEY,		0x0,            0x0	  },
-		{ QFPROM_RD_WR_PERMISSION, 	0x00400000, 	0xC5C28204},	    	/*                       */
+		{ QFPROM_RD_WR_PERMISSION, 	0x00400000, 	0xC5C28204},	    	/* READ WRITE PERMISSION */
 };
 #else
 static struct qfprom_blow_data blow_data[] = {
-		/*                                        */
-		/*                   */
-		{ QFPROM_OEM_CONFIG, 		0x00310000, 	0x00000000},		/*                        */
-		{ QFPROM_SECURE_BOOT_ENABLE, 	0x00202020, 	0x00000000},		/*               */
-		{ QFPROM_DEBUG_DISABLE, 	0x3FC00000, 	0x040001FE},		/*                */
+		/* Don't change array order !!!!!!!!!!!!!!*/
+		/* addr	 			 LSB		MSB*/
+		{ QFPROM_OEM_CONFIG, 		0x00310000, 	0x00000000},		/* OEM ID + OEM_PRODUCT_ID*/
+		{ QFPROM_SECURE_BOOT_ENABLE, 	0x00202020, 	0x00000000},		/* SECURE ENABLE */
+		{ QFPROM_DEBUG_DISABLE, 	0x3FC00000, 	0x040001FE},		/* JTAG DISABLE   */
 		{ QFPROM_CHECK_HW_KEY,		0x0,            0x0	  },
-		{ QFPROM_RD_WR_PERMISSION, 	0x00400000, 	0xC5C28204},	    	/*                       */
+		{ QFPROM_RD_WR_PERMISSION, 	0x00400000, 	0xC5C28204},	    	/* READ WRITE PERMISSION */
 };
 #endif
 
-/*                                                            
-                                     
-                                                                                                              
+/* this api handle diag command(fusing check command) from ATD
+ * if fusing value 0 ==> is not fused
+ * if fusing value 1 ==> fused (secure boot enable, jtag disable, oem config, hw secondary key, RW permission)
  */
 static ssize_t qfusing_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -149,7 +149,7 @@ static ssize_t qfusing_show(struct device *dev, struct device_attribute *attr, c
 		verification_check_value = 0;
 		printk(KERN_ERR "%s: verification fail 1\n", __func__);
 	}
-	/*                */
+	/* defensive code */
 	verification_check_value = qfprom_verification_blow_data();
 	printk(KERN_INFO "%s: verification_check_value = %x\n", __func__, verification_check_value);
 
@@ -162,7 +162,7 @@ static ssize_t qfusing_show(struct device *dev, struct device_attribute *attr, c
 		verification_check_value = 0;
 		printk(KERN_ERR "%s: verification fail 2\n", __func__);
 	}
-	/*                */
+	/* defensive code */
 	verification_check_value = qfprom_verification_blow_data();
 	printk(KERN_INFO "%s, verification_check_value = %x\n", __func__, verification_check_value);
 
@@ -180,9 +180,9 @@ static ssize_t qfusing_show(struct device *dev, struct device_attribute *attr, c
 }
 
 
-/*                                                      
-                                                                                        
-                                                                      
+/* this api handle diag command(fusing command) from ATD
+ * this api fuse secure boot, jtag disable, oem config, secondary hw key, R/W permission
+ * this api check secondary hw key status before fusing R/W permission
  */
 static ssize_t qfusing_store(struct device *dev, struct device_attribute *attr,
 				const char *buf, size_t count)
@@ -285,7 +285,7 @@ int qfprom_read_one_row(u32 address, u32 *buf)
 			buf[1] = qfprom_read(address + 4);
 			break;
 		case 2:
-			/*                                                         */
+			/* ret = qfprom_read_from_misc(address, &buf[0], &buf[1]); */
 			break;
 	}
 	printk(KERN_INFO "%s : return %x\n", __func__, ret);
@@ -381,7 +381,7 @@ static DEVICE_ATTR(msb, S_IWUSR | S_IRUGO, qfprom_msb_show, qfprom_msb_store);
 
 static ssize_t qfprom_value_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	/*               */
+	/* u32 lsb, msb; */
 	u32 value = 0;
 	u32 addr = 0;
 
@@ -412,10 +412,10 @@ static ssize_t qfprom_value_show(struct device *dev, struct device_attribute *at
 }
 static DEVICE_ATTR(value, S_IWUSR | S_IRUGO, qfprom_value_show, NULL);
 
-/*                              
-                                     
-                                                   
-                                     
+/* if return value == 0, success
+ * if return value < 0, scm call fail
+ * if return value > 0, status error to read qfprom
+ * This API can use in range 0x700XXX
  */
 int qfuse_read_single_row(u32 fuse_addr, u32 addr_type, u32 *r_buf)
 {
@@ -471,8 +471,8 @@ static const struct attribute_group qfprom_attribute_group = {
 	.attrs = qfprom_attributes,
 };
 
-/*                                                                              
-                                     
+/* We cant access qfporm address range 0x70xxxxx using qfuse_single_read_row api
+ * so we read the range using io read
  */
 u32 qfprom_secondary_hwkey_status(void)
 {
@@ -510,12 +510,12 @@ u32 qfprom_verification_blow_data(void)
 			printk(KERN_INFO "%s:secondary HW key check complete!!!!!\n", __func__);
 			continue;
 		}
-		/*             */
-		/*                                                                  */
-		/*          */
+		/* msleep(10); */
+		/* ret = qfuse_read_single_row(blow_data[i].qfprom_addr, 0, p_buf); */
+		/* ret = 0; */
 		p_buf[0] = qfprom_read(blow_data[i].qfprom_addr);
 		p_buf[1] = qfprom_read(blow_data[i].qfprom_addr + 4);
-		/*                                              */
+		/* ret = qfprom_read(blow_data[i].qfprom_addr); */
 
 		if (((p_buf[0]&blow_data[i].lsb_data) == blow_data[i].lsb_data) &&
 			((p_buf[1]&blow_data[i].msb_data) == blow_data[i].msb_data)) {
@@ -523,7 +523,7 @@ u32 qfprom_verification_blow_data(void)
 
                 if( (FUSING_COMPLETED_STATE == 0x3F) && (blow_data[i].qfprom_addr == QFPROM_OEM_CONFIG) )
                 {
-                    //                     
+                    // For Product ID Check
                     fusing_verification |= ( 0x1 << (i+5) );
                 }
 
@@ -531,7 +531,7 @@ u32 qfprom_verification_blow_data(void)
 			printk(KERN_INFO "%s: %d fusing_verification\n", __func__, fusing_verification);
 		} else {
 			printk(KERN_INFO "%s: 0x%x fusing value is not match\n",__func__, blow_data[i].qfprom_addr);
-			/*             */
+			/* msleep(10); */
 		}
 	}
 err_mem:

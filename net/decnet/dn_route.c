@@ -233,14 +233,14 @@ static int dn_dst_gc(struct dst_ops *ops)
 }
 
 /*
-                                                                        
-                                                                        
-                                                                          
-                                                                           
-                                               
-  
-                                                                          
-                               
+ * The decnet standards don't impose a particular minimum mtu, what they
+ * do insist on is that the routing layer accepts a datagram of at least
+ * 230 bytes long. Here we have to subtract the routing header length from
+ * 230 to get the minimum acceptable mtu. If there is no neighbour, then we
+ * assume the worst and use a long header size.
+ *
+ * We update both the mtu and the advertised mss (i.e. the segment size we
+ * advertise to the other end).
  */
 static void dn_dst_update_pmtu(struct dst_entry *dst, u32 mtu)
 {
@@ -270,7 +270,7 @@ static void dn_dst_update_pmtu(struct dst_entry *dst, u32 mtu)
 }
 
 /*
-                                                                    
+ * When a route has been marked obsolete. (e.g. routing cache flush)
  */
 static struct dst_entry *dn_dst_check(struct dst_entry *dst, __u32 cookie)
 {
@@ -309,7 +309,7 @@ static int dn_insert_route(struct dn_route *rt, unsigned hash, struct dn_route *
 	while ((rth = rcu_dereference_protected(*rthp,
 						lockdep_is_held(&dn_rt_hash_table[hash].lock))) != NULL) {
 		if (compare_keys(&rth->fld, &rt->fld)) {
-			/*              */
+			/* Put it first */
 			*rthp = rth->dst.dn_next;
 			rcu_assign_pointer(rth->dst.dn_next,
 					   dn_rt_hash_table[hash].chain);
@@ -392,10 +392,10 @@ void dn_rt_cache_flush(int delay)
 	spin_unlock_bh(&dn_rt_flush_lock);
 }
 
-/* 
-                                                        
-                             
-  
+/**
+ * dn_return_short - Return a short packet to its sender
+ * @skb: The packet to return
+ *
  */
 static int dn_return_short(struct sk_buff *skb)
 {
@@ -404,14 +404,14 @@ static int dn_return_short(struct sk_buff *skb)
 	__le16 *src;
 	__le16 *dst;
 
-	/*                  */
+	/* Add back headers */
 	skb_push(skb, skb->data - skb_network_header(skb));
 
 	if ((skb = skb_unshare(skb, GFP_ATOMIC)) == NULL)
 		return NET_RX_DROP;
 
 	cb = DN_SKB_CB(skb);
-	/*                                       */
+	/* Skip packet length and point to flags */
 	ptr = skb->data + 2;
 	*ptr++ = (cb->rt_flags & ~DN_RT_F_RQR) | DN_RT_F_RTS;
 
@@ -419,7 +419,7 @@ static int dn_return_short(struct sk_buff *skb)
 	ptr += 2;
 	src = (__le16 *)ptr;
 	ptr += 2;
-	*ptr = 0; /*                */
+	*ptr = 0; /* Zero hop count */
 
 	swap(*src, *dst);
 
@@ -428,10 +428,10 @@ static int dn_return_short(struct sk_buff *skb)
 	return NET_RX_SUCCESS;
 }
 
-/* 
-                                                      
-                                         
-  
+/**
+ * dn_return_long - Return a long packet to its sender
+ * @skb: The long format packet to return
+ *
  */
 static int dn_return_long(struct sk_buff *skb)
 {
@@ -440,17 +440,17 @@ static int dn_return_long(struct sk_buff *skb)
 	unsigned char *src_addr, *dst_addr;
 	unsigned char tmp[ETH_ALEN];
 
-	/*                      */
+	/* Add back all headers */
 	skb_push(skb, skb->data - skb_network_header(skb));
 
 	if ((skb = skb_unshare(skb, GFP_ATOMIC)) == NULL)
 		return NET_RX_DROP;
 
 	cb = DN_SKB_CB(skb);
-	/*                                         */
+	/* Ignore packet length and point to flags */
 	ptr = skb->data + 2;
 
-	/*              */
+	/* Skip padding */
 	if (*ptr & DN_RT_F_PF) {
 		char padlen = (*ptr & ~DN_RT_F_PF);
 		ptr += padlen;
@@ -462,9 +462,9 @@ static int dn_return_long(struct sk_buff *skb)
 	ptr += 8;
 	src_addr = ptr;
 	ptr += 6;
-	*ptr = 0; /*                */
+	*ptr = 0; /* Zero hop count */
 
-	/*                             */
+	/* Swap source and destination */
 	memcpy(tmp, src_addr, ETH_ALEN);
 	memcpy(src_addr, dst_addr, ETH_ALEN);
 	memcpy(dst_addr, tmp, ETH_ALEN);
@@ -474,11 +474,11 @@ static int dn_return_long(struct sk_buff *skb)
 	return NET_RX_SUCCESS;
 }
 
-/* 
-                                                                   
-                                       
-  
-                                                                            
+/**
+ * dn_route_rx_packet - Try and find a route for an incoming packet
+ * @skb: The packet to find a route for
+ *
+ * Returns: result of input function if route is found, error code otherwise
  */
 static int dn_route_rx_packet(struct sk_buff *skb)
 {
@@ -517,13 +517,13 @@ static int dn_route_rx_long(struct sk_buff *skb)
 	struct dn_skb_cb *cb = DN_SKB_CB(skb);
 	unsigned char *ptr = skb->data;
 
-	if (!pskb_may_pull(skb, 21)) /*                                        */
+	if (!pskb_may_pull(skb, 21)) /* 20 for long header, 1 for shortest nsp */
 		goto drop_it;
 
 	skb_pull(skb, 20);
 	skb_reset_transport_header(skb);
 
-	/*                  */
+	/* Destination info */
 	ptr += 2;
 	cb->dst = dn_eth2dn(ptr);
 	if (memcmp(ptr, dn_hiord_addr, 4) != 0)
@@ -531,15 +531,15 @@ static int dn_route_rx_long(struct sk_buff *skb)
 	ptr += 6;
 
 
-	/*             */
+	/* Source info */
 	ptr += 2;
 	cb->src = dn_eth2dn(ptr);
 	if (memcmp(ptr, dn_hiord_addr, 4) != 0)
 		goto drop_it;
 	ptr += 6;
-	/*            */
+	/* Other junk */
 	ptr++;
-	cb->hops = *ptr++; /*             */
+	cb->hops = *ptr++; /* Visit Count */
 
 	return NF_HOOK(NFPROTO_DECNET, NF_DN_PRE_ROUTING, skb, skb->dev, NULL,
 		       dn_route_rx_packet);
@@ -556,7 +556,7 @@ static int dn_route_rx_short(struct sk_buff *skb)
 	struct dn_skb_cb *cb = DN_SKB_CB(skb);
 	unsigned char *ptr = skb->data;
 
-	if (!pskb_may_pull(skb, 6)) /*                                         */
+	if (!pskb_may_pull(skb, 6)) /* 5 for short header + 1 for shortest nsp */
 		goto drop_it;
 
 	skb_pull(skb, 5);
@@ -579,9 +579,9 @@ drop_it:
 static int dn_route_discard(struct sk_buff *skb)
 {
 	/*
-                                                                   
-             
-  */
+	 * I know we drop the packet here, but thats considered success in
+	 * this case
+	 */
 	kfree_skb(skb);
 	return NET_RX_SUCCESS;
 }
@@ -627,8 +627,8 @@ int dn_route_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type
 	cb->iif = dev->ifindex;
 
 	/*
-                                  
-  */
+	 * If we have padding, remove it.
+	 */
 	if (flags & DN_RT_F_PF) {
 		padlen = flags & ~DN_RT_F_PF;
 		if (!pskb_may_pull(skb, padlen + 1))
@@ -640,8 +640,8 @@ int dn_route_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type
 	skb_reset_network_header(skb);
 
 	/*
-                                  
-  */
+	 * Weed out future version DECnet
+	 */
 	if (flags & DN_RT_F_VER)
 		goto dump_it;
 
@@ -694,7 +694,7 @@ int dn_route_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type
 		if (dn->parms.state != DN_DEV_S_RU)
 			goto dump_it;
 
-		skb_pull(skb, 1); /*            */
+		skb_pull(skb, 1); /* Pull flags */
 
 		switch (flags & DN_RT_PKT_MSK) {
 		case DN_RT_PKT_LONG:
@@ -736,10 +736,10 @@ static int dn_output(struct sk_buff *skb)
 	cb->dst = rt->rt_daddr;
 
 	/*
-                                                             
-                                                              
-                                                          
-  */
+	 * Always set the Intra-Ethernet bit on all outgoing packets
+	 * originated on this node. Only valid flag from upper layers
+	 * is return-to-sender-requested. Set hop count to 0 too.
+	 */
 	cb->rt_flags &= ~DN_RT_F_RQR;
 	cb->rt_flags |= DN_RT_F_IE;
 	cb->hops = 0;
@@ -770,25 +770,25 @@ static int dn_forward(struct sk_buff *skb)
 	if (skb->pkt_type != PACKET_HOST)
 		goto drop;
 
-	/*                                              */
+	/* Ensure that we have enough space for headers */
 	rt = (struct dn_route *)skb_dst(skb);
 	header_len = dn_db->use_long ? 21 : 6;
 	if (skb_cow(skb, LL_RESERVED_SPACE(rt->dst.dev)+header_len))
 		goto drop;
 
 	/*
-                       
-  */
+	 * Hop count exceeded.
+	 */
 	if (++cb->hops > 30)
 		goto drop;
 
 	skb->dev = rt->dst.dev;
 
 	/*
-                                                             
-                                                        
-                                                    
-  */
+	 * If packet goes out same interface it came in on, then set
+	 * the Intra-Ethernet bit. This has no effect for short
+	 * packets, so we don't need to test for them here.
+	 */
 	cb->rt_flags &= ~DN_RT_F_IE;
 	if (rt->rt_flags & RTCF_DOREDIRECT)
 		cb->rt_flags |= DN_RT_F_IE;
@@ -802,8 +802,8 @@ drop:
 }
 
 /*
-                                                     
-          
+ * Used to catch bugs. This should never normally get
+ * called.
  */
 static int dn_rt_bug(struct sk_buff *skb)
 {
@@ -949,7 +949,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
 		       oldflp->flowidn_mark, init_net.loopback_dev->ifindex,
 		       oldflp->flowidn_oif);
 
-	/*                                                            */
+	/* If we have an output interface, verify its a DECnet device */
 	if (oldflp->flowidn_oif) {
 		dev_out = dev_get_by_index(&init_net, oldflp->flowidn_oif);
 		err = -ENODEV;
@@ -961,7 +961,7 @@ static int dn_route_output_slow(struct dst_entry **pprt, const struct flowidn *o
 			goto out;
 	}
 
-	/*                                                              */
+	/* If we have a source address, verify that its a local address */
 	if (oldflp->saddr) {
 		err = -EADDRNOTAVAIL;
 
@@ -993,7 +993,7 @@ source_ok:
 		;
 	}
 
-	/*                                  */
+	/* No destination? Assume its local */
 	if (!fld.daddr) {
 		fld.daddr = fld.saddr;
 
@@ -1022,25 +1022,25 @@ source_ok:
 		       fld.flowidn_oif, try_hard);
 
 	/*
-                                                              
-                                                                 
-                            
-  */
+	 * N.B. If the kernel is compiled without router support then
+	 * dn_fib_lookup() will evaluate to non-zero so this if () block
+	 * will always be executed.
+	 */
 	err = -ESRCH;
 	if (try_hard || (err = dn_fib_lookup(&fld, &res)) != 0) {
 		struct dn_dev *dn_db;
 		if (err != -ESRCH)
 			goto out;
 		/*
-                                                              
-                                                                 
-         
-    
-                                                        
-                                                             
-                                                             
-         
-   */
+		 * Here the fallback is basically the standard algorithm for
+		 * routing in endnodes which is described in the DECnet routing
+		 * docs
+		 *
+		 * If we are not trying hard, look in neighbour cache.
+		 * The result is tested to ensure that if a specific output
+		 * device/source address was requested, then we honour that
+		 * here
+		 */
 		if (!try_hard) {
 			neigh = neigh_lookup_nodev(&dn_neigh_table, &init_net, &fld.daddr);
 			if (neigh) {
@@ -1066,14 +1066,14 @@ source_ok:
 			}
 		}
 
-		/*                                        */
+		/* Not there? Perhaps its a local address */
 		if (dev_out == NULL)
 			dev_out = dn_dev_get_default();
 		err = -ENODEV;
 		if (dev_out == NULL)
 			goto out;
 		dn_db = rcu_dereference_raw(dev_out->dn_ptr);
-		/*                                                         */
+		/* Possible improvement - check all devices for local addr */
 		if (dn_dev_islocal(dev_out, fld.daddr)) {
 			dev_put(dev_out);
 			dev_out = init_net.loopback_dev;
@@ -1081,11 +1081,11 @@ source_ok:
 			res.type = RTN_LOCAL;
 			goto select_source;
 		}
-		/*                                                           */
+		/* Not local either.... try sending it to the default router */
 		neigh = neigh_clone(dn_db->router);
 		BUG_ON(neigh && neigh->dev != dev_out);
 
-		/*                                                       */
+		/* Ok then, we assume its directly connected and move on */
 select_source:
 		if (neigh)
 			gateway = ((struct dn_neigh *)neigh)->addr;
@@ -1125,9 +1125,9 @@ select_source:
 		dn_fib_select_multipath(&fld, &res);
 
 	/*
-                                                                
-                                                
-  */
+	 * We could add some logic to deal with default routes here and
+	 * get rid of some of the special casing above.
+	 */
 
 	if (!fld.saddr)
 		fld.saddr = DN_FIB_RES_PREFSRC(res);
@@ -1205,7 +1205,7 @@ e_neighbour:
 
 
 /*
-                                                                   
+ * N.B. The flags may be moved into the flowi at some future stage.
  */
 static int __dn_route_output_key(struct dst_entry **pprt, const struct flowidn *flp, int flags)
 {
@@ -1295,17 +1295,17 @@ static int dn_route_input_slow(struct sk_buff *skb)
 	if ((dn_db = rcu_dereference(in_dev->dn_ptr)) == NULL)
 		goto out;
 
-	/*                                       */
+	/* Zero source addresses are not allowed */
 	if (fld.saddr == 0)
 		goto out;
 
 	/*
-                                                           
-                                                          
-                                                               
-                                                                 
-                                                                 
-  */
+	 * In this case we've just received a packet from a source
+	 * outside ourselves pretending to come from us. We don't
+	 * allow it any further to prevent routing loops, spoofing and
+	 * other nasties. Loopback packets already have the dst attached
+	 * so this only affects packets which have originated elsewhere.
+	 */
 	err  = -ENOTUNIQ;
 	if (dn_dev_islocal(in_dev, cb->src))
 		goto out;
@@ -1315,8 +1315,8 @@ static int dn_route_input_slow(struct sk_buff *skb)
 		if (err != -ESRCH)
 			goto out;
 		/*
-                            
-   */
+		 * Is the destination us ?
+		 */
 		if (!dn_dev_islocal(in_dev, cb->dst))
 			goto e_inval;
 
@@ -1335,7 +1335,7 @@ static int dn_route_input_slow(struct sk_buff *skb)
 		dev_hold(out_dev);
 
 		if (res.r)
-			src_map = fld.saddr; /*                        */
+			src_map = fld.saddr; /* no NAT support for now */
 
 		gateway = DN_FIB_RES_GW(res);
 		if (res.type == RTN_NAT) {
@@ -1356,11 +1356,11 @@ static int dn_route_input_slow(struct sk_buff *skb)
 	switch(res.type) {
 	case RTN_UNICAST:
 		/*
-                                                        
-                                                        
-                                                     
-               
-   */
+		 * Forwarding check here, we only check for forwarding
+		 * being turned off, if you want to only forward intra
+		 * area, its up to you to set the routing tables up
+		 * correctly.
+		 */
 		if (dn_db->parms.forwarding == 0)
 			goto e_inval;
 
@@ -1368,11 +1368,11 @@ static int dn_route_input_slow(struct sk_buff *skb)
 			dn_fib_select_multipath(&fld, &res);
 
 		/*
-                                                            
-                                                      
-                                                           
-                       
-   */
+		 * Check for out_dev == in_dev. We use the RTCF_DOREDIRECT
+		 * flag as a hint to set the intra-ethernet bit when
+		 * forwarding. If we've got NAT in operation, we don't do
+		 * this optimisation.
+		 */
 		if (out_dev == in_dev && !(flags & RTCF_NAT))
 			flags |= RTCF_DOREDIRECT;
 
@@ -1386,25 +1386,25 @@ static int dn_route_input_slow(struct sk_buff *skb)
 		fld.saddr = cb->dst;
 		fld.daddr = cb->src;
 
-		/*                                  */
+		/* Routing tables gave us a gateway */
 		if (gateway)
 			goto make_route;
 
-		/*                                                   */
+		/* Packet was intra-ethernet, so we know its on-link */
 		if (cb->rt_flags & DN_RT_F_IE) {
 			gateway = cb->src;
 			flags |= RTCF_DIRECTSRC;
 			goto make_route;
 		}
 
-		/*                                        */
+		/* Use the default router if there is one */
 		neigh = neigh_clone(dn_db->router);
 		if (neigh) {
 			gateway = ((struct dn_neigh *)neigh)->addr;
 			goto make_route;
 		}
 
-		/*                     */
+		/* Close eyes and pray */
 		gateway = cb->src;
 		flags |= RTCF_DIRECTSRC;
 		goto make_route;
@@ -1545,10 +1545,10 @@ static int dn_rt_fill_info(struct sk_buff *skb, u32 pid, u32 seq,
 	if (rt->dst.dev)
 		RTA_PUT(skb, RTA_OIF, sizeof(int), &rt->dst.dev->ifindex);
 	/*
-                                                                     
-                                                                
-              
-  */
+	 * Note to self - change this if input routes reverse direction when
+	 * they deal only with inputs and not with replies like they do
+	 * currently.
+	 */
 	RTA_PUT(skb, RTA_PREFSRC, 2, &rt->rt_local_src);
 	if (rt->rt_daddr != rt->rt_gateway)
 		RTA_PUT(skb, RTA_GATEWAY, 2, &rt->rt_gateway);
@@ -1571,7 +1571,7 @@ rtattr_failure:
 }
 
 /*
-                                                   
+ * This is called by both endnodes and routers now.
  */
 static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void *arg)
 {
@@ -1659,8 +1659,8 @@ out_free:
 }
 
 /*
-                                                                     
-                                                     
+ * For routers, this is called from dn_fib_dump, but for endnodes its
+ * called directly from the rtnetlink dispatch table.
  */
 int dn_cache_dump(struct sk_buff *skb, struct netlink_callback *cb)
 {
@@ -1804,7 +1804,7 @@ static const struct file_operations dn_rt_cache_seq_fops = {
 	.release = seq_release_private,
 };
 
-#endif /*                */
+#endif /* CONFIG_PROC_FS */
 
 void __init dn_route_init(void)
 {
@@ -1821,12 +1821,12 @@ void __init dn_route_init(void)
 	goal = totalram_pages >> (26 - PAGE_SHIFT);
 
 	for(order = 0; (1UL << order) < goal; order++)
-		/*         */;
+		/* NOTHING */;
 
 	/*
-                                                                      
-                           
-  */
+	 * Only want 1024 entries max, since the table is very, very unlikely
+	 * to be larger than that.
+	 */
 	while(order && ((((1UL << order) * PAGE_SIZE) /
 				sizeof(struct dn_rt_hash_bucket)) >= 2048))
 		order--;

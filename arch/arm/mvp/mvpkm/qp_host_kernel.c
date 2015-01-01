@@ -18,11 +18,11 @@
  */
 #line 5
 
-/* 
-         
-  
-                                                                
-  
+/**
+ *  @file
+ *
+ *  @brief MVP host kernel implementation of the queue pairs API
+ *
  */
 
 #include <linux/module.h>
@@ -41,22 +41,22 @@ static QPHandle   queuePairs[QP_MAX_QUEUE_PAIRS];
 static QPListener listeners[QP_MAX_LISTENERS];
 
 /*
-                                    
+ * Protect listeners and queuePairs.
  */
 static DEFINE_MUTEX(qpLock);
 
 #define QPLock()    mutex_lock(&qpLock)
 #define QPUnlock()  mutex_unlock(&qpLock)
 
-/* 
-                                                                      
-                                
-                                                               
-                                        
-                                        
-                                           
-                                                                      
-                           
+/**
+ * @brief Map a vector of pages into virtually contiguous kernel space
+ * @param vm this vm's vm struct
+ * @param base base machine page number that lists pages to map
+ * @param nrPages number of pages to map
+ * @param[out] qp handle to qp to set up
+ * @param[out] hkva virtual address mapping
+ * @return QP_SUCCESS on success, error code otherwise. Mapped address
+ *      is returned in hkva
  */
 
 static int32
@@ -72,7 +72,7 @@ MapPages(struct MvpkmVM *vm,
 	struct page *basepfn = pfn_to_page(base);
 	struct page **pages;
 
-	BUG_ON(!vm); /*                         */
+	BUG_ON(!vm); /* this would be very bad. */
 
 	if (!hkva)
 		return QP_ERROR_INVALID_ARGS;
@@ -82,8 +82,8 @@ MapPages(struct MvpkmVM *vm,
 		return QP_ERROR_NO_MEM;
 
 	/*
-                                                  
-  */
+	 * Map in the first page, read out the MPN vector
+	 */
 	down_write(&vm->lockedSem);
 	va = kmap(basepfn);
 	if (!va) {
@@ -94,16 +94,16 @@ MapPages(struct MvpkmVM *vm,
 	}
 
 	/*
-                                            
-  */
+	 * Grab references and translate MPNs->PFNs
+	 */
 	for (i = 0; i < nrPages; i++) {
 		pages[i] = pfn_to_page(((MPN *)va)[i]);
 		get_page(pages[i]);
 	}
 
 	/*
-                                                          
-  */
+	 * Clean up the first mapping and remap the entire vector
+	 */
 	kunmap(basepfn);
 	va = vmap(pages, nrPages, VM_MAP, PAGE_KERNEL);
 	if (!va) {
@@ -119,8 +119,8 @@ MapPages(struct MvpkmVM *vm,
 	}
 
 	/*
-                         
-  */
+	 * Let's not leak mpns..
+	 */
 	memset(va, 0x0, nrPages * PAGE_SIZE);
 
 	rc = QP_SUCCESS;
@@ -130,8 +130,8 @@ out:
 	return rc;
 }
 
-/* 
-                                                              
+/**
+ * @brief Initialize all free queue pair entries and listeners
  */
 
 void
@@ -147,12 +147,12 @@ QP_HostInit(void)
 }
 
 
-/* 
-                                                         
-                                                            
-                                                                
-                                                                            
-                                                                  
+/**
+ * @brief Detaches a guest from a queue pair and notifies
+ *      any registered listeners through the detach callback
+ * @param id id that guest requested a detach from, detaches all
+ *      queue pairs associated with a VM if the resource id == QP_INVALID_ID
+ * @return QP_SUCCESS on success, appropriate error code otherwise
  */
 
 int32
@@ -167,9 +167,9 @@ QP_GuestDetachRequest(QPId id)
 	QPLock();
 
 	/*
-                                                         
-                             
-  */
+	 * Invalidate all queue pairs associated with this VM if
+	 * resource == QP_INVALID_ID
+	 */
 	if (id.resource == QP_INVALID_ID) {
 		for (i = 0; i < QP_MAX_QUEUE_PAIRS; i++) {
 			qp = &queuePairs[i];
@@ -188,17 +188,17 @@ QP_GuestDetachRequest(QPId id)
 }
 
 
-/* 
-                                                  
-                            
-                                         
-                                                  
-                                                                            
-                                                           
-                                                    
-                                                               
-                                        
-                                                                   
+/**
+ * @brief Attaches a guest to shared memory region
+ * @param vm guest to attach
+ * @param args queue pair args structure:
+ *      - args->id: id of the region to attach to;
+ *                  if id.resource == QP_INVALID_ID, then an id is assigned.
+ *      - args->capacity: total size of the region in bytes
+ *      - args->type: type of queue pair (e.g PVTCP)
+ * @param base base machine page number that lists pages to map
+ * @param nrPages number of pages to map
+ * @return QP_SUCCESS on success, appropriate error code otherwise.
  */
 
 int32
@@ -225,8 +225,8 @@ QP_GuestAttachRequest(struct MvpkmVM *vm,
 	QPLock();
 
 	/*
-                                               
-  */
+	 * Assign a resource id if id == QP_INVALID_ID
+	 */
 	if (args->id.resource == QP_INVALID_ID) {
 		for (i = 0; i < QP_MAX_QUEUE_PAIRS; i++)
 			if (queuePairs[i].state == QP_STATE_FREE) {
@@ -250,14 +250,14 @@ found:
 	}
 
 	/*
-                                                             
-                         
-  */
+	 * Brand new queue pair, allocate some memory to back it and
+	 * initialize the entry.
+	 */
 	rc = MapPages(vm, base, nrPages, qp, &hkva);
 	if (rc != QP_SUCCESS)
 		goto out;
 
-	/*                              */
+	/* NB: reversed from the guest  */
 	qp->id        = args->id;
 	qp->capacity  = args->capacity;
 	qp->produceQ  = (QHandle *)hkva;
@@ -267,8 +267,8 @@ found:
 	qp->state     = QP_STATE_GUEST_ATTACHED;
 
 	/*
-                                           
-  */
+	 * The qp is now assumed to be well-formed
+	 */
 	QP_DBG("%s: Guest attached to region [%u:%u] capacity: %u HKVA: %x\n",
 	       __func__, args->id.context, args->id.resource,
 	       args->capacity, (uint32)hkva);
@@ -282,13 +282,13 @@ out:
 }
 
 
-/* 
-                                                                  
-                                                                       
-                                                                       
-                                                                             
-                                                        
-                                                                  
+/**
+ * @brief Attaches the host to the shared memory region. The guest
+ * MUST have allocated the shmem region already or else this will fail.
+ * @param args structure with the shared memory region id to attach to,
+ *      total size of the region in bytes, and type of queue pair (e.g PVTCP)
+ * @param[in, out] qp handle to the queue pair to return
+ * @return QP_SUCCESS on success, appropriate error code otherwise
  */
 
 int32
@@ -333,11 +333,11 @@ out:
 }
 EXPORT_SYMBOL(QP_Attach);
 
-/* 
-                                                        
-                                              
-                                                                  
-                            
+/**
+ * @brief Detaches the host to the shared memory region.
+ * @param[in, out] qp handle to the queue pair
+ * @return QP_SUCCESS on success, appropriate error code otherwise
+ * @sideeffects Frees memory
  */
 
 int32
@@ -378,10 +378,10 @@ out:
 }
 
 
-/* 
-                                                                             
-                                   
-                                                       
+/**
+ * @brief Detaches and destroys all queue pairs associated with a given guest
+ * @param vmID which VM to clean up
+ * @sideeffects Destroys all queue pairs for guest vmID
  */
 
 void QP_DetachAll(Mksck_VmId vmID)
@@ -396,12 +396,12 @@ void QP_DetachAll(Mksck_VmId vmID)
 	QP_GuestDetachRequest(id);
 }
 
-/* 
-                                                                        
-                                                           
-                                        
-                                                            
-                                      
+/**
+ * @brief Registers a listener into the queue pair system. Callbacks are
+ *      called with interrupts disabled and must not sleep.
+ * @param listener listener to be called
+ * @return QP_SUCCESS on success, QP_ERROR_NO_MEM if no more
+ *         listeners can be registered
  */
 
 int32
@@ -425,10 +425,10 @@ QP_RegisterListener(const QPListener listener)
 EXPORT_SYMBOL(QP_RegisterListener);
 
 
-/* 
-                                                                   
-                                         
-                                                                  
+/**
+ * @brief Unregister a listener service from the queue pair system.
+ * @param listener listener to unregister
+ * @return QP_SUCCESS on success, appropriate error code otherwise
  */
 
 int32
@@ -451,14 +451,14 @@ QP_UnregisterListener(const QPListener listener)
 EXPORT_SYMBOL(QP_UnregisterListener);
 
 
-/* 
-                                                                   
-                                                                   
-                       
-                                     
-                                        
-                                              
-                                                                  
+/**
+ * @brief Registers a callback to be called when the guest detaches
+ *      from a queue pair. Callbacks are called with interrupts and
+ *      must not sleep.
+ * @param qp handle to the queue pair
+ * @param callback callback to be called
+ * @param data data to deliver to the callback
+ * @return QP_SUCCESS on success, appropriate error code otherwise
  */
 
 int32
@@ -480,10 +480,10 @@ QP_RegisterDetachCB(QPHandle *qp,
 EXPORT_SYMBOL(QP_RegisterDetachCB);
 
 
-/* 
-                                                             
-                   
-                     
+/**
+ * @brief Noop on the host, only guests can initiate a notify
+ * @param args noop
+ * @return QP_SUCCESS
  */
 
 
@@ -494,10 +494,10 @@ int32 QP_Notify(QPInitArgs *args)
 EXPORT_SYMBOL(QP_Notify);
 
 
-/* 
-                                                                  
-                                                         
-                                                 
+/**
+ * @brief Notify any registered listeners for the given queue pair
+ * @param args initialization arguments used by the guest
+ * @return QP_SUCCESS on success, error otherwise
  */
 
 int32 QP_NotifyListener(QPInitArgs *args)
@@ -509,8 +509,8 @@ int32 QP_NotifyListener(QPInitArgs *args)
 		return QP_ERROR_INVALID_ARGS;
 
 	/*
-                                                                    
-  */
+	 * Iterate over listeners until one of them reports they handled it
+	 */
 	QPLock();
 	for (i = 0; i < QP_MAX_LISTENERS; i++)
 		if (listeners[i]) {
@@ -521,13 +521,13 @@ int32 QP_NotifyListener(QPInitArgs *args)
 
 	if (i == QP_MAX_LISTENERS) {
 		/*
-                                             
-                                                               
-                                        
-                                                                
-                                                         
-                    
-   */
+		 * No listener successfully probed this QP.
+		 * The guest DETACH HVC isn't implemented; we need compensate
+		 * for it by deallocating the QP here.
+		 * This is a workaround which assumes, more-or-less correctly,
+		 * that unsuccessful QP probes never lead to subsequent
+		 * host-attaching.
+		 */
 
 		qp = &queuePairs[args->id.resource];
 	}

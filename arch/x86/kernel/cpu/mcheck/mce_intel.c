@@ -16,17 +16,17 @@
 #include <asm/mce.h>
 
 /*
-                                                                  
-                                                                         
-                                                           
-                                                    
+ * Support for Intel Correct Machine Check Interrupts. This allows
+ * the CPU to raise an interrupt when a corrected machine check happened.
+ * Normally we pick those up using a regular polling timer.
+ * Also supports reliable discovery of shared banks.
  */
 
 static DEFINE_PER_CPU(mce_banks_t, mce_banks_owned);
 
 /*
-                                                                  
-                                       
+ * cmci_discover_lock protects against parallel discovery attempts
+ * which could race against each other.
  */
 static DEFINE_RAW_SPINLOCK(cmci_discover_lock);
 
@@ -40,10 +40,10 @@ static int cmci_supported(int *banks)
 		return 0;
 
 	/*
-                                                        
-                                           
-                                                           
-  */
+	 * Vendor check is not strictly needed, but the initial
+	 * initialization is vendor keyed and this
+	 * makes sure none of the backdoors are entered otherwise.
+	 */
 	if (boot_cpu_data.x86_vendor != X86_VENDOR_INTEL)
 		return 0;
 	if (!cpu_has_apic || lapic_get_maxlvt() < 6)
@@ -54,10 +54,10 @@ static int cmci_supported(int *banks)
 }
 
 /*
-                                                        
-                                                   
-                                                               
-                       
+ * The interrupt handler. This is called on every event.
+ * Just call the poller directly to log any events.
+ * This could in theory increase the threshold under high load,
+ * but doesn't for now.
  */
 static void intel_threshold_interrupt(void)
 {
@@ -74,9 +74,9 @@ static void print_update(char *type, int *hdr, int num)
 }
 
 /*
-                                                                          
-                                                                           
-         
+ * Enable CMCI (Corrected Machine Check Interrupt) for available MCE banks
+ * on this CPU. Use the algorithm recommended in the SDM to discover shared
+ * banks.
  */
 static void cmci_discover(int banks, int boot)
 {
@@ -94,7 +94,7 @@ static void cmci_discover(int banks, int boot)
 
 		rdmsrl(MSR_IA32_MCx_CTL2(i), val);
 
-		/*                                */
+		/* Already owned by someone else? */
 		if (val & MCI_CTL2_CMCI_EN) {
 			if (test_and_clear_bit(i, owned) && !boot)
 				print_update("SHD", &hdr, i);
@@ -107,7 +107,7 @@ static void cmci_discover(int banks, int boot)
 		wrmsrl(MSR_IA32_MCx_CTL2(i), val);
 		rdmsrl(MSR_IA32_MCx_CTL2(i), val);
 
-		/*                                                     */
+		/* Did the enable bit stick? -- the bank supports CMCI */
 		if (val & MCI_CTL2_CMCI_EN) {
 			if (!test_and_set_bit(i, owned) && !boot)
 				print_update("CMCI", &hdr, i);
@@ -122,8 +122,8 @@ static void cmci_discover(int banks, int boot)
 }
 
 /*
-                                                              
-                            
+ * Just in case we missed an event during initialization check
+ * all the CMCI owned banks.
  */
 void cmci_recheck(void)
 {
@@ -138,8 +138,8 @@ void cmci_recheck(void)
 }
 
 /*
-                                                                    
-                                                            
+ * Disable CMCI on this CPU for all banks it owns when it goes down.
+ * This allows other CPUs to claim the banks on rediscovery.
  */
 void cmci_clear(void)
 {
@@ -154,7 +154,7 @@ void cmci_clear(void)
 	for (i = 0; i < banks; i++) {
 		if (!test_bit(i, __get_cpu_var(mce_banks_owned)))
 			continue;
-		/*              */
+		/* Disable CMCI */
 		rdmsrl(MSR_IA32_MCx_CTL2(i), val);
 		val &= ~(MCI_CTL2_CMCI_EN|MCI_CTL2_CMCI_THRESHOLD_MASK);
 		wrmsrl(MSR_IA32_MCx_CTL2(i), val);
@@ -164,8 +164,8 @@ void cmci_clear(void)
 }
 
 /*
-                                                                    
-                               
+ * After a CPU went down cycle through all the others and rediscover
+ * Must run in process context.
  */
 void cmci_rediscover(int dying)
 {
@@ -184,7 +184,7 @@ void cmci_rediscover(int dying)
 			continue;
 		if (set_cpus_allowed_ptr(current, cpumask_of(cpu)))
 			continue;
-		/*                                                    */
+		/* Recheck banks in case CPUs don't all have the same */
 		if (cmci_supported(&banks))
 			cmci_discover(banks, 0);
 	}
@@ -194,7 +194,7 @@ void cmci_rediscover(int dying)
 }
 
 /*
-                                                       
+ * Reenable CMCI on this CPU in case a CPU down failed.
  */
 void cmci_reenable(void)
 {
@@ -213,11 +213,11 @@ static void intel_init_cmci(void)
 	mce_threshold_vector = intel_threshold_interrupt;
 	cmci_discover(banks, 1);
 	/*
-                                                             
-                                                             
-                                                          
-                           
-  */
+	 * For CPU #0 this runs with still disabled APIC, but that's
+	 * ok because only the vector is set up. We still do another
+	 * check for the banks later for CPU #0 just to make sure
+	 * to not miss any events.
+	 */
 	apic_write(APIC_LVTCMCI, THRESHOLD_APIC_VECTOR|APIC_DM_FIXED);
 	cmci_recheck();
 }

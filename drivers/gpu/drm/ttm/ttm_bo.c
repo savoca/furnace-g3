@@ -25,7 +25,7 @@
  *
  **************************************************************************/
 /*
-                                                           
+ * Authors: Thomas Hellstrom <thellstrom-at-vmware-dot-com>
  */
 
 #define pr_fmt(fmt) "[TTM] " fmt
@@ -206,9 +206,9 @@ int ttm_bo_del_from_lru(struct ttm_buffer_object *bo)
 	}
 
 	/*
-                                          
-                               
-  */
+	 * TODO: Add a driver hook to delete from
+	 * driver-specific LRU's here.
+	 */
 
 	return put_count;
 }
@@ -221,19 +221,19 @@ int ttm_bo_reserve_locked(struct ttm_buffer_object *bo,
 	int ret;
 
 	while (unlikely(atomic_cmpxchg(&bo->reserved, 0, 1) != 0)) {
-		/* 
-                                               
-   */
+		/**
+		 * Deadlock avoidance for multi-bo reserving.
+		 */
 		if (use_sequence && bo->seq_valid) {
-			/* 
-                                      
-    */
+			/**
+			 * We've already reserved this one.
+			 */
 			if (unlikely(sequence == bo->val_seq))
 				return -EDEADLK;
-			/* 
-                                                     
-                                      
-    */
+			/**
+			 * Already reserved by a thread that will not back
+			 * off for us. We need to back off.
+			 */
 			if (unlikely(sequence - bo->val_seq < (1 << 31)))
 				return -EAGAIN;
 		}
@@ -250,10 +250,10 @@ int ttm_bo_reserve_locked(struct ttm_buffer_object *bo,
 	}
 
 	if (use_sequence) {
-		/* 
-                                                           
-                                         
-   */
+		/**
+		 * Wake up waiters that may need to recheck for deadlock,
+		 * if we decreased the sequence number.
+		 */
 		if (unlikely((bo->val_seq - sequence < (1 << 31))
 			     || !bo->seq_valid))
 			wake_up_all(&bo->event_queue);
@@ -318,7 +318,7 @@ void ttm_bo_unreserve(struct ttm_buffer_object *bo)
 EXPORT_SYMBOL(ttm_bo_unreserve);
 
 /*
-                         
+ * Call bo->mutex locked.
  */
 static int ttm_bo_add_ttm(struct ttm_buffer_object *bo, bool zero_alloc)
 {
@@ -374,8 +374,8 @@ static int ttm_bo_handle_move_mem(struct ttm_buffer_object *bo,
 	}
 
 	/*
-                                      
-  */
+	 * Create and bind a ttm if required.
+	 */
 
 	if (!(new_man->flags & TTM_MEMTYPE_FLAG_FIXED)) {
 		if (bo->ttm == NULL) {
@@ -456,12 +456,12 @@ out_err:
 	return ret;
 }
 
-/* 
-                     
-                                                     
-                                                               
-                            
-                                      
+/**
+ * Call bo::reserved.
+ * Will release GPU memory type usage on destruction.
+ * This is the place to put in driver specific hooks to release
+ * driver private resources.
+ * Will release the bo::reserved lock.
  */
 
 static void ttm_bo_cleanup_memtype_use(struct ttm_buffer_object *bo)
@@ -479,8 +479,8 @@ static void ttm_bo_cleanup_memtype_use(struct ttm_buffer_object *bo)
 	atomic_set(&bo->reserved, 0);
 
 	/*
-                                                       
-  */
+	 * Make processes trying to reserve really pick it up.
+	 */
 	smp_mb__after_atomic_dec();
 	wake_up_all(&bo->event_queue);
 }
@@ -501,10 +501,10 @@ static void ttm_bo_cleanup_refs_or_queue(struct ttm_buffer_object *bo)
 
 		spin_lock(&glob->lru_lock);
 
-		/* 
-                                                                 
-                                                
-   */
+		/**
+		 * Lock inversion between bo:reserve and bdev::fence_lock here,
+		 * but that's OK, since we're only trylocking.
+		 */
 
 		ret = ttm_bo_reserve_locked(bo, false, true, false, 0);
 
@@ -542,14 +542,14 @@ queue:
 			      ((HZ / 100) < 1) ? 1 : HZ / 100);
 }
 
-/* 
-                               
-                                                             
-                           
-  
-                                                                
-                                                                        
-                                                                    
+/**
+ * function ttm_bo_cleanup_refs
+ * If bo idle, remove from delayed- and lru lists, and unref.
+ * If not idle, do nothing.
+ *
+ * @interruptible         Any sleeps should occur interruptibly.
+ * @no_wait_reserve       Never wait for reserve. Return -EBUSY instead.
+ * @no_wait_gpu           Never wait for gpu. Return -EBUSY instead.
  */
 
 static int ttm_bo_cleanup_refs(struct ttm_buffer_object *bo,
@@ -585,13 +585,13 @@ retry:
 		return ret;
 	}
 
-	/* 
-                                                  
-                                                       
-                                                      
-                                                                
-             
-  */
+	/**
+	 * We can re-check for sync object without taking
+	 * the bo::lock since setting the sync object requires
+	 * also bo::reserved. A busy object at this point may
+	 * be caused by another thread recently starting an accelerated
+	 * eviction.
+	 */
 
 	if (unlikely(bo->sync_obj)) {
 		atomic_set(&bo->reserved, 0);
@@ -612,9 +612,9 @@ retry:
 	return 0;
 }
 
-/* 
-                                                                 
-                       
+/**
+ * Traverse the delayed list, and call ttm_bo_cleanup_refs on all
+ * encountered buffers.
  */
 
 static int ttm_bo_delayed_delete(struct ttm_bo_device *bdev, bool remove_all)
@@ -816,9 +816,9 @@ retry:
 
 		kref_put(&bo->list_kref, ttm_bo_release_list);
 
-		/* 
-                                                     
-   */
+		/**
+		 * We *need* to retry after releasing the lru lock.
+		 */
 
 		if (unlikely(ret != 0))
 			return ret;
@@ -848,9 +848,9 @@ void ttm_bo_mem_put(struct ttm_buffer_object *bo, struct ttm_mem_reg *mem)
 }
 EXPORT_SYMBOL(ttm_bo_mem_put);
 
-/* 
-                                                                            
-                                                                   
+/**
+ * Repeatedly evict memory from the LRU for @mem_type until we create enough
+ * space, or we've evicted everything and there isn't enough space.
  */
 static int ttm_bo_mem_force_space(struct ttm_buffer_object *bo,
 					uint32_t mem_type,
@@ -888,9 +888,9 @@ static uint32_t ttm_bo_select_caching(struct ttm_mem_type_manager *man,
 	uint32_t caching = proposed_placement & TTM_PL_MASK_CACHING;
 	uint32_t result = proposed_placement & ~TTM_PL_MASK_CACHING;
 
-	/* 
-                                     
-  */
+	/**
+	 * Keep current caching if possible.
+	 */
 
 	if ((cur_placement & caching) != 0)
 		result |= (cur_placement & caching);
@@ -925,13 +925,13 @@ static bool ttm_bo_mt_compatible(struct ttm_mem_type_manager *man,
 	return true;
 }
 
-/* 
-                                                              
-  
-                                                                            
-                                                                             
-                                                                          
-         
+/**
+ * Creates space for memory region @mem according to its type.
+ *
+ * This function first searches for free space in compatible memory types in
+ * the priority order defined by the driver.  If free space isn't found, then
+ * ttm_bo_mem_force_space is attempted in priority order to evict and find
+ * space.
  */
 int ttm_bo_mem_space(struct ttm_buffer_object *bo,
 			struct ttm_placement *placement,
@@ -967,9 +967,9 @@ int ttm_bo_mem_space(struct ttm_buffer_object *bo,
 		cur_flags = ttm_bo_select_caching(man, bo->mem.placement,
 						  cur_flags);
 		/*
-                                                                
-                                                    
-   */
+		 * Use the access and other non-mapping-related flag bits from
+		 * the memory placement flags to the current flags
+		 */
 		ttm_flag_masked(&cur_flags, placement->placement[i],
 				~TTM_PL_MASK_MEMTYPE);
 
@@ -1012,9 +1012,9 @@ int ttm_bo_mem_space(struct ttm_buffer_object *bo,
 		cur_flags = ttm_bo_select_caching(man, bo->mem.placement,
 						  cur_flags);
 		/*
-                                                                
-                                                    
-   */
+		 * Use the access and other non-mapping-related flag bits from
+		 * the memory placement flags to the current flags
+		 */
 		ttm_flag_masked(&cur_flags, placement->busy_placement[i],
 				~TTM_PL_MASK_MEMTYPE);
 
@@ -1062,10 +1062,10 @@ int ttm_bo_move_buffer(struct ttm_buffer_object *bo,
 	BUG_ON(!atomic_read(&bo->reserved));
 
 	/*
-                                                  
-                                                               
-                             
-  */
+	 * FIXME: It's possible to pipeline buffer moves.
+	 * Have the driver move function wait for idle when necessary,
+	 * instead of doing it here.
+	 */
 	spin_lock(&bdev->fence_lock);
 	ret = ttm_bo_wait(bo, false, interruptible, no_wait_gpu);
 	spin_unlock(&bdev->fence_lock);
@@ -1077,8 +1077,8 @@ int ttm_bo_move_buffer(struct ttm_buffer_object *bo,
 	mem.bus.io_reserved_vm = false;
 	mem.bus.io_reserved_count = 0;
 	/*
-                                       
-  */
+	 * Determine where to move the buffer.
+	 */
 	ret = ttm_bo_mem_space(bo, placement, &mem, interruptible, no_wait_reserve, no_wait_gpu);
 	if (ret)
 		goto out_unlock;
@@ -1117,14 +1117,14 @@ int ttm_bo_validate(struct ttm_buffer_object *bo,
 	int ret;
 
 	BUG_ON(!atomic_read(&bo->reserved));
-	/*                           */
+	/* Check that range is valid */
 	if (placement->lpfn || placement->fpfn)
 		if (placement->fpfn > placement->lpfn ||
 			(placement->lpfn - placement->fpfn) < bo->num_pages)
 			return -EINVAL;
 	/*
-                                         
-  */
+	 * Check whether we need to move buffer.
+	 */
 	ret = ttm_bo_mem_compat(placement, &bo->mem);
 	if (ret < 0) {
 		ret = ttm_bo_move_buffer(bo, placement, interruptible, no_wait_reserve, no_wait_gpu);
@@ -1132,15 +1132,15 @@ int ttm_bo_validate(struct ttm_buffer_object *bo,
 			return ret;
 	} else {
 		/*
-                                                                
-                                                              
-   */
+		 * Use the access and other non-mapping-related flag bits from
+		 * the compatible memory placement flags to the active flags
+		 */
 		ttm_flag_masked(&bo->mem.placement, placement->placement[ret],
 				~TTM_PL_MASK_MEMTYPE);
 	}
 	/*
-                               
-  */
+	 * We might need to add a TTM.
+	 */
 	if (bo->mem.mem_type == TTM_PL_SYSTEM && bo->ttm == NULL) {
 		ret = ttm_bo_add_ttm(bo, true);
 		if (ret)
@@ -1230,9 +1230,9 @@ int ttm_bo_init(struct ttm_bo_device *bdev,
 		goto out_err;
 
 	/*
-                                            
-                                  
-  */
+	 * For ttm_bo_type_device buffers, allocate
+	 * address space from the device.
+	 */
 	if (bo->type == ttm_bo_type_device) {
 		ret = ttm_bo_setup_vm(bo);
 		if (ret)
@@ -1328,8 +1328,8 @@ static int ttm_bo_force_list_clean(struct ttm_bo_device *bdev,
 	int ret;
 
 	/*
-                                                            
-  */
+	 * Can't use standard list traversal since we're unlocking.
+	 */
 
 	spin_lock(&glob->lru_lock);
 	while (!list_empty(&man->lru)) {
@@ -1554,9 +1554,9 @@ int ttm_bo_device_init(struct ttm_bo_device *bdev,
 	memset(bdev->man, 0, sizeof(bdev->man));
 
 	/*
-                                             
-                                                      
-  */
+	 * Initialize the system memory buffer type.
+	 * Other types need to be driver / IOCTL initialized.
+	 */
 	ret = ttm_bo_init_mm(bdev, TTM_PL_SYSTEM, 0);
 	if (unlikely(ret != 0))
 		goto out_no_sys;
@@ -1587,7 +1587,7 @@ out_no_sys:
 EXPORT_SYMBOL(ttm_bo_device_init);
 
 /*
-                              
+ * buffer object vm functions.
  */
 
 bool ttm_mem_reg_is_pci(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
@@ -1657,15 +1657,15 @@ static void ttm_bo_vm_insert_rb(struct ttm_buffer_object *bo)
 	rb_insert_color(&bo->vm_rb, &bdev->addr_space_rb);
 }
 
-/* 
-                   
-  
-                                                
-  
-                                                                
-                                                         
-                                                          
-                                          
+/**
+ * ttm_bo_setup_vm:
+ *
+ * @bo: the buffer to allocate address space for
+ *
+ * Allocate address space in the drm device so that applications
+ * can mmap the buffer and access the contents. This only
+ * applies to ttm_bo_type_device objects as others are not
+ * placed in the drm device address space.
  */
 
 static int ttm_bo_setup_vm(struct ttm_buffer_object *bo)
@@ -1769,8 +1769,8 @@ int ttm_bo_synccpu_write_grab(struct ttm_buffer_object *bo, bool no_wait)
 	int ret = 0;
 
 	/*
-                                                              
-  */
+	 * Using ttm_bo_reserve makes sure the lru lists are updated.
+	 */
 
 	ret = ttm_bo_reserve(bo, true, no_wait, false, 0);
 	if (unlikely(ret != 0))
@@ -1792,9 +1792,9 @@ void ttm_bo_synccpu_write_release(struct ttm_buffer_object *bo)
 }
 EXPORT_SYMBOL(ttm_bo_synccpu_write_release);
 
-/* 
-                                                                 
-                                                 
+/**
+ * A buffer object shrink method that tries to swap out the first
+ * buffer object on the bo_global::swap_lru list.
  */
 
 static int ttm_bo_swapout(struct ttm_mem_shrink *shrink)
@@ -1824,11 +1824,11 @@ static int ttm_bo_swapout(struct ttm_mem_shrink *shrink)
 			continue;
 		}
 
-		/* 
-                                                            
-                                                                
-              
-   */
+		/**
+		 * Reserve buffer. Since we unlock while sleeping, we need
+		 * to re-check that nobody removed us from the swap-list while
+		 * we slept.
+		 */
 
 		ret = ttm_bo_reserve_locked(bo, false, true, false, 0);
 		if (unlikely(ret == -EBUSY)) {
@@ -1845,9 +1845,9 @@ static int ttm_bo_swapout(struct ttm_mem_shrink *shrink)
 
 	ttm_bo_list_ref_sub(bo, put_count, true);
 
-	/* 
-                                             
-  */
+	/**
+	 * Wait for GPU, then move to system cached.
+	 */
 
 	spin_lock(&bo->bdev->fence_lock);
 	ret = ttm_bo_wait(bo, false, false, false);
@@ -1872,10 +1872,10 @@ static int ttm_bo_swapout(struct ttm_mem_shrink *shrink)
 
 	ttm_bo_unmap_virtual(bo);
 
-	/* 
-                                                        
-                                      
-  */
+	/**
+	 * Swap out. Buffer will be swapped in again as soon as
+	 * anyone tries to access a ttm page.
+	 */
 
 	if (bo->bdev->driver->swap_notify)
 		bo->bdev->driver->swap_notify(bo);
@@ -1883,11 +1883,11 @@ static int ttm_bo_swapout(struct ttm_mem_shrink *shrink)
 	ret = ttm_tt_swapout(bo->ttm, bo->persistent_swap_storage);
 out:
 
-	/* 
-   
-                                                             
-                           
-  */
+	/**
+	 *
+	 * Unreserve without putting on LRU to avoid swapping out an
+	 * already swapped buffer.
+	 */
 
 	atomic_set(&bo->reserved, 0);
 	wake_up_all(&bo->event_queue);

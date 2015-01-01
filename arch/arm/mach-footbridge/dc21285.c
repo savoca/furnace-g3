@@ -45,8 +45,8 @@ dc21285_base_address(struct pci_bus *bus, unsigned int devfn)
 	if (bus->number == 0) {
 		if (PCI_SLOT(devfn) == 0)
 			/*
-                                     
-    */
+			 * For devfn 0, point at the 21285
+			 */
 			addr = ARMCSR_BASE;
 		else {
 			devfn -= 1 << 3;
@@ -153,7 +153,7 @@ static void dc21285_enable_error(unsigned long __data)
 }
 
 /*
-                      
+ * Warn on PCI errors.
  */
 static irqreturn_t dc21285_abort_irq(int irq, void *dev_id)
 {
@@ -198,8 +198,8 @@ static irqreturn_t dc21285_serr_irq(int irq, void *dev_id)
 	*CSR_SA110_CNTL = cntl | SA110_CNTL_RXSERR;
 
 	/*
-                           
-  */
+	 * back off this interrupt
+	 */
 	disable_irq(irq);
 	timer->expires = jiffies + HZ;
 	add_timer(timer);
@@ -242,8 +242,8 @@ static irqreturn_t dc21285_parity_irq(int irq, void *dev_id)
 	*CSR_PCICMD = cmd | 1 << 31;
 
 	/*
-                           
-  */
+	 * back off this interrupt
+	 */
 	disable_irq(irq);
 	timer->expires = jiffies + HZ;
 	add_timer(timer);
@@ -306,9 +306,9 @@ void __init dc21285_preinit(void)
 			break;		
 
 	/*
-                                                       
-                            
-  */
+	 * These registers need to be set up whether we're the
+	 * central function or not.
+	 */
 	*CSR_SDRAMBASEMASK    = (mem_mask - 1) & 0x0ffc0000;
 	*CSR_SDRAMBASEOFFSET  = 0;
 	*CSR_ROMBASEMASK      = 0x80000000;
@@ -324,9 +324,9 @@ void __init dc21285_preinit(void)
 
 	if (footbridge_cfn_mode()) {
 		/*
-                                          
-                                     
-   */
+		 * Clear any existing errors - we aren't
+		 * interested in historical data...
+		 */
 		*CSR_SA110_CNTL	= (*CSR_SA110_CNTL & 0xffffde07) |
 				  SA110_CNTL_RXSERR;
 		*CSR_PCICMD = (*CSR_PCICMD & 0xffff) | PCICMD_ERROR_BITS;
@@ -341,8 +341,8 @@ void __init dc21285_preinit(void)
 	perr_timer.function = dc21285_enable_error;
 
 	/*
-                                
-  */
+	 * We don't care if these fail.
+	 */
 	dc21285_request_irq(IRQ_PCI_SERR, dc21285_serr_irq, IRQF_DISABLED,
 			    "PCI system error", &serr_timer);
 	dc21285_request_irq(IRQ_PCI_PERR, dc21285_parity_irq, IRQF_DISABLED,
@@ -364,11 +364,11 @@ void __init dc21285_preinit(void)
 				  0xff00, 0xffff, 128, NULL, NULL);
 
 		/*
-                                                                
-                                                           
-                                                                 
-                                                           
-   */
+		 * Map our SDRAM at a known address in PCI space, just in case
+		 * the firmware had other ideas.  Using a nonzero base is
+		 * necessary, since some VGA cards forcefully use PCI addresses
+		 * in the range 0x000a0000 to 0x000c0000. (eg, S3 cards).
+		 */
 		*CSR_PCICSRBASE       = 0xf4000000;
 		*CSR_PCICSRIOBASE     = csrio.start;
 		*CSR_PCISDRAMBASE     = __virt_to_bus(PAGE_OFFSET);
@@ -377,11 +377,11 @@ void __init dc21285_preinit(void)
 			      PCI_COMMAND_INVALIDATE | PCICMD_ERROR_BITS;
 	} else if (footbridge_cfn_mode() != 0) {
 		/*
-                                                         
-                                                          
-                                                         
-                        
-   */
+		 * If we are not compiled to accept "add-in" mode, then
+		 * we are using a constant virt_to_bus translation which
+		 * can not hope to cater for the way the host BIOS  has
+		 * set up the machine.
+		 */
 		panic("PCI: this kernel is compiled for central "
 			"function mode only");
 	}

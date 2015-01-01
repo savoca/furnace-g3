@@ -1,8 +1,8 @@
 /*
-                                
-  
-                                         
-   
+ * arch/alpha/lib/dec_and_lock.c
+ *
+ * ll/sc version of atomic_dec_and_lock()
+ * 
  */
 
 #include <linux/spinlock.h>
@@ -32,7 +32,7 @@ _atomic_dec_and_lock:				\n\
 
 static int __used atomic_dec_and_lock_1(atomic_t *atomic, spinlock_t *lock)
 {
-	/*           */
+	/* Slow path */
 	spin_lock(lock);
 	if (atomic_dec_and_test(atomic))
 		return 1;

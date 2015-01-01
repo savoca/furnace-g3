@@ -44,9 +44,9 @@ static void cn_test_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
 }
 
 /*
-                                                            
-                                                           
-                              
+ * Do not remove this function even if no one is using it as
+ * this is an example of how to get notifications about new
+ * connector user registration
  */
 #if 0
 static int cn_test_want_notify(void)
@@ -91,27 +91,27 @@ static int cn_test_want_notify(void)
 	req = (struct cn_notify_req *)(ctl + 1);
 
 	/*
-        
-  */
+	 * Idx.
+	 */
 	req->first = cn_test_id.idx;
 	req->range = 10;
 
 	/*
-          
-  */
+	 * Val 0.
+	 */
 	req++;
 	req->first = cn_test_id.val;
 	req->range = 10;
 
 	/*
-          
-  */
+	 * Val 1.
+	 */
 	req++;
 	req->first = cn_test_id.val + 20;
 	req->range = 10;
 
 	NETLINK_CB(skb).dst_group = ctl->group;
-	//                                                       
+	//netlink_broadcast(nls, skb, 0, ctl->group, GFP_ATOMIC);
 	netlink_unicast(nls, skb, 0, 0);
 
 	pr_info("request was sent: group=0x%x\n", ctl->group);

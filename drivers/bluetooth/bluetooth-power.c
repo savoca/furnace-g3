@@ -10,9 +10,9 @@
  * GNU General Public License for more details.
  */
 /*
-                                
-                                              
-                                            
+ * Bluetooth Power Switch Module
+ * controls power to external Bluetooth device
+ * with interface to power management device
  */
 
 #include <linux/init.h>
@@ -48,7 +48,7 @@ static int bt_vreg_init(struct bt_power_vreg_data *vreg)
 
 	BT_PWR_DBG("vreg_get for : %s", vreg->name);
 
-	/*                          */
+	/* Get the regulator handle */
 	vreg->reg = regulator_get(dev, vreg->name);
 	if (IS_ERR(vreg->reg)) {
 		rc = PTR_ERR(vreg->reg);
@@ -114,7 +114,7 @@ static int bt_vreg_disable(struct bt_power_vreg_data *vreg)
 		vreg->is_enabled = false;
 
 		if (vreg->set_voltage_sup) {
-			/*                          */
+			/* Set the min voltage to 0 */
 			rc = regulator_set_voltage(vreg->reg,
 						0,
 						vreg->high_vol_level);
@@ -136,7 +136,7 @@ static int bt_configure_vreg(struct bt_power_vreg_data *vreg)
 
 	BT_PWR_DBG("config %s", vreg->name);
 
-	/*                                   */
+	/* Get the regulator handle for vreg */
 	if (!(vreg->reg)) {
 		rc = bt_vreg_init(vreg);
 		if (rc < 0)
@@ -279,7 +279,7 @@ static int bluetooth_power_rfkill_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	/*                                                           */
+	/* force Bluetooth off during init to allow for user control */
 	rfkill_init_sw_state(rfkill, 1);
 	previous = 1;
 
@@ -425,7 +425,7 @@ static int __devinit bt_power_probe(struct platform_device *pdev)
 		}
 		pdev->dev.platform_data = bt_power_pdata;
 	} else if (pdev->dev.platform_data) {
-		/*                                              */
+		/* Optional data set to default if not provided */
 		if (!((struct bluetooth_power_platform_data *)
 			(pdev->dev.platform_data))->bt_power_setup)
 			((struct bluetooth_power_platform_data *)

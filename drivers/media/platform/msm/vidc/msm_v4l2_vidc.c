@@ -289,10 +289,10 @@ static int read_platform_resources(struct msm_vidc_core *core,
 
 	core->resources.pdev = pdev;
 	if (pdev->dev.of_node) {
-		/*                                   */
+		/* Target supports DT, parse from it */
 		return read_platform_resources_from_dt(&core->resources);
 	} else {
-		/*                         */
+		/* Legacy board file usage */
 		return read_platform_resources_from_board(
 				&core->resources);
 	}

@@ -33,11 +33,11 @@
 #include <linux/slab.h>
 #include <net/9p/9p.h>
 
-/* 
-                                                              
-                           
-                                     
-  
+/**
+ * struct p9_idpool - per-connection accounting for tag idpool
+ * @lock: protects the pool
+ * @pool: idr to allocate tag id from
+ *
  */
 
 struct p9_idpool {
@@ -45,9 +45,9 @@ struct p9_idpool {
 	struct idr pool;
 };
 
-/* 
-                                                         
-  
+/**
+ * p9_idpool_create - create a new per-connection id pool
+ *
  */
 
 struct p9_idpool *p9_idpool_create(void)
@@ -65,9 +65,9 @@ struct p9_idpool *p9_idpool_create(void)
 }
 EXPORT_SYMBOL(p9_idpool_create);
 
-/* 
-                                                          
-                        
+/**
+ * p9_idpool_destroy - create a new per-connection id pool
+ * @p: idpool to destroy
  */
 
 void p9_idpool_destroy(struct p9_idpool *p)
@@ -77,12 +77,12 @@ void p9_idpool_destroy(struct p9_idpool *p)
 }
 EXPORT_SYMBOL(p9_idpool_destroy);
 
-/* 
-                                                
-                            
-  
-                                                                               
-                                              
+/**
+ * p9_idpool_get - allocate numeric id from pool
+ * @p: pool to allocate from
+ *
+ * Bugs: This seems to be an awful generic function, should it be in idr.c with
+ *            the lock included in struct idr?
  */
 
 int p9_idpool_get(struct p9_idpool *p)
@@ -97,7 +97,7 @@ retry:
 
 	spin_lock_irqsave(&p->lock, flags);
 
-	/*                                                             */
+	/* no need to store exactly p, we just need something non-null */
 	error = idr_get_new(&p->pool, p, &i);
 	spin_unlock_irqrestore(&p->lock, flags);
 
@@ -111,13 +111,13 @@ retry:
 }
 EXPORT_SYMBOL(p9_idpool_get);
 
-/* 
-                                               
-                                          
-                              
-  
-                                                                               
-                                              
+/**
+ * p9_idpool_put - release numeric id from pool
+ * @id: numeric id which is being released
+ * @p: pool to release id into
+ *
+ * Bugs: This seems to be an awful generic function, should it be in idr.c with
+ *            the lock included in struct idr?
  */
 
 void p9_idpool_put(int id, struct p9_idpool *p)
@@ -132,10 +132,10 @@ void p9_idpool_put(int id, struct p9_idpool *p)
 }
 EXPORT_SYMBOL(p9_idpool_put);
 
-/* 
-                                                           
-                   
-                    
+/**
+ * p9_idpool_check - check if the specified id is available
+ * @id: id to check
+ * @p: pool to check
  */
 
 int p9_idpool_check(int id, struct p9_idpool *p)

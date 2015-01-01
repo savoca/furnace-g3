@@ -18,17 +18,17 @@
  */
 
 /*
-                               
-  
-                                                              
-                                                             
-                                                          
-                  
-  
-                                                                
-                                                                    
-                                                                     
-           
+ * BCM1250-specific PCI support
+ *
+ * This module provides the glue between Linux's PCI subsystem
+ * and the hardware.  We basically provide glue for accessing
+ * configuration space, and set up the translation for I/O
+ * space accesses.
+ *
+ * To access configuration space, we use ioremap.  In the 32-bit
+ * kernel, this consumes either 4 or 8 page table pages, and 16MB of
+ * kernel mapped memory.  Hopefully neither of these should be a huge
+ * problem.
  */
 #include <linux/types.h>
 #include <linux/pci.h>
@@ -47,8 +47,8 @@
 #include <asm/sibyte/board.h>
 
 /*
-                                                                  
-                           
+ * Macros for calculating offsets into config space given a device
+ * structure or dev/fun/reg
  */
 #define CFGOFFSET(bus, devfn, where) (((bus)<<16) + ((devfn)<<8) + (where))
 #define CFGADDR(bus, devfn, where)   CFGOFFSET((bus)->number, (devfn), where)
@@ -66,14 +66,14 @@ static int sb1250_bus_status;
 
 #ifdef CONFIG_SIBYTE_HAS_LDT
 /*
-                                                                  
-                                     
+ * HT's level-sensitive interrupts require EOI, which is generated
+ * through a 4MB memory-mapped region
  */
 unsigned long ldt_eoi_space;
 #endif
 
 /*
-                                            
+ * Read/write 32-bit values in config space.
  */
 static inline u32 READCFG32(u32 addr)
 {
@@ -90,16 +90,16 @@ int pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 	return dev->irq;
 }
 
-/*                                                                        */
+/* Do platform specific device initialization at pci_enable_device() time */
 int pcibios_plat_dev_init(struct pci_dev *dev)
 {
 	return 0;
 }
 
 /*
-                                          
-                                                                   
-                                                                    
+ * Some checks before doing config cycles:
+ * In PCI Device Mode, hide everything on bus 0 except the LDT host
+ * bridge.  Otherwise, access is controlled by bridge MasterEn bits.
  */
 static int sb1250_pci_can_access(struct pci_bus *bus, int devfn)
 {
@@ -121,9 +121,9 @@ static int sb1250_pci_can_access(struct pci_bus *bus, int devfn)
 }
 
 /*
-                                                          
-                                                           
-                                                         
+ * Read/write access functions for various sizes of values
+ * in config space.  Return all 1's for disallowed accesses
+ * for a kludgy but adequate simulation of master aborts.
  */
 
 static int sb1250_pcibios_read(struct pci_bus *bus, unsigned int devfn,
@@ -212,23 +212,23 @@ static int __init sb1250_pcibios_init(void)
 	uint32_t cmdreg;
 	uint64_t reg;
 
-	/*                               */
+	/* CFE will assign PCI resources */
 	pci_set_flags(PCI_PROBE_ONLY);
 
-	/*                           */
+	/* Avoid ISA compat ranges.  */
 	PCIBIOS_MIN_IO = 0x00008000UL;
 	PCIBIOS_MIN_MEM = 0x01000000UL;
 
-	/*                           */
-	ioport_resource.end = 0x01ffffffUL;	/*                           */
-	iomem_resource.end = 0xffffffffUL;	/*                   */
+	/* Set I/O resource limits.  */
+	ioport_resource.end = 0x01ffffffUL;	/* 32MB accessible by sb1250 */
+	iomem_resource.end = 0xffffffffUL;	/* no HT support yet */
 
 	cfg_space =
 	    ioremap(A_PHYS_LDTPCI_CFG_MATCH_BITS, 16 * 1024 * 1024);
 
 	/*
-                                                           
-  */
+	 * See if the PCI bus has been configured by the firmware.
+	 */
 	reg = __raw_readq(IOADDR(A_SCD_SYSTEM_CFG));
 	if (!(reg & M_SYS_PCI_HOST)) {
 		sb1250_bus_status |= PCI_DEVICE_MODE;
@@ -247,22 +247,22 @@ static int __init sb1250_pcibios_init(void)
 	}
 
 	/*
-                                                           
-                                                            
-                                            
-                                                          
-                                                 
-                                                   
-  */
+	 * Establish mappings in KSEG2 (kernel virtual) to PCI I/O
+	 * space.  Use "match bytes" policy to make everything look
+	 * little-endian.  So, you need to also set
+	 * CONFIG_SWAP_IO_SPACE, but this is the combination that
+	 * works correctly with most of Linux's drivers.
+	 * XXX ehs: Should this happen in PCI Device mode?
+	 */
 	io_map_base = ioremap(A_PHYS_LDTPCI_IO_MATCH_BYTES, 1024 * 1024);
 	sb1250_controller.io_map_base = (unsigned long)io_map_base;
 	set_io_port_base((unsigned long)io_map_base);
 
 #ifdef CONFIG_SIBYTE_HAS_LDT
 	/*
-                                                              
-                        
-  */
+	 * Also check the LDT bridge's enable, just in case we didn't
+	 * initialize that one.
+	 */
 
 	cmdreg = READCFG32(CFGOFFSET(0, PCI_DEVFN(LDT_BRIDGE_DEVICE, 0),
 				     PCI_COMMAND));
@@ -270,10 +270,10 @@ static int __init sb1250_pcibios_init(void)
 		sb1250_bus_status |= LDT_BUS_ENABLED;
 
 		/*
-                                                        
-                                              
-                                     
-   */
+		 * Need bits 23:16 to convey vector number.  Note that
+		 * this consumes 4MB of kernel-mapped memory
+		 * (Kseg2/Kseg3) for 32-bit kernel.
+		 */
 		ldt_eoi_space = (unsigned long)
 		    ioremap(A_PHYS_LDT_SPECIAL_MATCH_BYTES,
 			    4 * 1024 * 1024);

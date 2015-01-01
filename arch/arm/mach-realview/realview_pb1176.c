@@ -130,7 +130,7 @@ static struct pl022_ssp_controller ssp0_plat_data = {
 };
 
 /*
-                               
+ * RealView PB1176 AMBA devices
  */
 #define GPIO2_IRQ	{ IRQ_PB1176_GPIO2 }
 #define GPIO3_IRQ	{ IRQ_PB1176_GPIO3 }
@@ -154,14 +154,14 @@ static struct pl022_ssp_controller ssp0_plat_data = {
 #define PB1176_UART4_IRQ	{ IRQ_PB1176_UART4 }
 #define PB1176_SSP_IRQ		{ IRQ_DC1176_SSP }
 
-/*                 */
+/* FPGA Primecells */
 APB_DEVICE(aaci,	"fpga:aaci",	AACI,		NULL);
 APB_DEVICE(mmc0,	"fpga:mmc0",	MMCI0,		&realview_mmc0_plat_data);
 APB_DEVICE(kmi0,	"fpga:kmi0",	KMI0,		NULL);
 APB_DEVICE(kmi1,	"fpga:kmi1",	KMI1,		NULL);
 APB_DEVICE(uart4,	"fpga:uart4",	PB1176_UART4,	NULL);
 
-/*                    */
+/* DevChip Primecells */
 AHB_DEVICE(smc,		"dev:smc",	PB1176_SMC,	NULL);
 AHB_DEVICE(sctl,	"dev:sctl",	SCTL,		NULL);
 APB_DEVICE(wdog,	"dev:wdog",	PB1176_WATCHDOG,	NULL);
@@ -200,7 +200,7 @@ static struct amba_device *amba_devs[] __initdata = {
 };
 
 /*
-                                   
+ * RealView PB1176 platform devices
  */
 static struct resource realview_pb1176_flash_resources[] = {
 	{
@@ -225,10 +225,10 @@ static struct physmap_flash_data pb1176_rom_pdata = {
 
 static struct resource pb1176_rom_resources[] = {
 	/*
-                                                              
-                                                                  
-                        
-  */
+	 * This exposes the PB1176 DevChip ROM as an MTD ROM mapping.
+	 * The reference manual states that this is actually a pseudo-ROM
+	 * programmed in NVRAM.
+	 */
 	{
 		.start		= REALVIEW_DC1176_ROM_BASE,
 		.end		= REALVIEW_DC1176_ROM_BASE + SZ_16K - 1,
@@ -307,12 +307,12 @@ static struct platform_device char_lcd_device = {
 
 static void __init gic_init_irq(void)
 {
-	/*                              */
+	/* ARM1176 DevChip GIC, primary */
 	gic_init(0, IRQ_DC1176_GIC_START,
 		 __io_address(REALVIEW_DC1176_GIC_DIST_BASE),
 		 __io_address(REALVIEW_DC1176_GIC_CPU_BASE));
 
-	/*                      */
+	/* board GIC, secondary */
 	gic_init(1, IRQ_PB1176_GIC_START,
 		 __io_address(REALVIEW_PB1176_GIC_DIST_BASE),
 		 __io_address(REALVIEW_PB1176_GIC_CPU_BASE));
@@ -346,8 +346,8 @@ static void realview_pb1176_fixup(struct tag *tags, char **from,
 				  struct meminfo *meminfo)
 {
 	/*
-                                                      
-  */
+	 * RealView PB1176 only has 128MB of RAM mapped at 0.
+	 */
 	meminfo->bank[0].start = 0;
 	meminfo->bank[0].size = SZ_128M;
 	meminfo->nr_banks = 1;
@@ -358,7 +358,7 @@ static void __init realview_pb1176_init(void)
 	int i;
 
 #ifdef CONFIG_CACHE_L2X0
-	/*                                                                   */
+	/* 128Kb (16Kb/way) 8-way associativity. evmon/parity/share enabled. */
 	l2x0_init(__io_address(REALVIEW_PB1176_L220_BASE), 0x00730000, 0xfe000fff);
 #endif
 
@@ -382,7 +382,7 @@ static void __init realview_pb1176_init(void)
 }
 
 MACHINE_START(REALVIEW_PB1176, "ARM-RealView PB1176")
-	/*                                             */
+	/* Maintainer: ARM Ltd/Deep Blue Solutions Ltd */
 	.atag_offset	= 0x100,
 	.fixup		= realview_pb1176_fixup,
 	.map_io		= realview_pb1176_map_io,

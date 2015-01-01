@@ -16,12 +16,12 @@
  */
 
 /*
-                                                                        
-                                                                           
-                                                                           
-                                                                    
-                                                                        
-                                                               
+ * This file contains code to generate a firmware image for the GO7007SB
+ * encoder.  Much of the firmware is read verbatim from a file, but some of
+ * it concerning bitrate control and other things that can be configured at
+ * run-time are generated dynamically.  Note that the format headers
+ * generated here do not affect the functioning of the encoder; they are
+ * merely parroted back to the host at the start of each frame.
  */
 
 #include <linux/module.h>
@@ -36,7 +36,7 @@
 
 #include "go7007-priv.h"
 
-/*                                                                       */
+/* Constants used in the source firmware image to describe code segments */
 
 #define	FLAG_MODE_MJPEG		(1)
 #define	FLAG_MODE_MPEG1		(1<<1)
@@ -57,13 +57,13 @@
 #define SPECIAL_AUDIO		6
 #define SPECIAL_MODET		7
 
-/*                                                        */
+/* Little data class for creating MPEG headers bit-by-bit */
 
 struct code_gen {
-	unsigned char *p; /*             */
-	u32 a; /*                                          */
-	int b; /*                                           */
-	int len; /*                    */
+	unsigned char *p; /* destination */
+	u32 a; /* collects bits at the top of the variable */
+	int b; /* bit position of most recently-written bit */
+	int len; /* written out so far */
 };
 
 #define CODE_GEN(name, dest) struct code_gen name = { dest, 0, 32, 0 }
@@ -82,7 +82,7 @@ struct code_gen {
 
 #define CODE_LENGTH(name) (name.len + (32 - name.b))
 
-/*                                              */
+/* Tables for creating the bitrate control data */
 
 static const s16 converge_speed_ip[101] = {
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -166,7 +166,7 @@ static const s16 LAMBDA_table[4][101] = {
 	}
 };
 
-/*                                    */
+/* MPEG blank frame generation tables */
 
 enum mpeg_frame_type {
 	PFRAME,
@@ -188,7 +188,7 @@ static const u32 addrinctab[33][2] = {
 	{ 0x18, 11 }
 };
 
-/*                      */
+/* Standard JPEG tables */
 
 static const u8 default_intra_quant_table[] = {
 	 8, 16, 19, 22, 26, 27, 29, 34,
@@ -273,10 +273,10 @@ static const u8 val_ac_chrominance[] = {
 	0xf9, 0xfa
 };
 
-/*                                
-  
-                                                                         
-                         
+/* Zig-zag mapping for quant table
+ *
+ * OK, let's do this mapping on the actual table above so it doesn't have
+ * to be done on the fly.
  */
 static const int zz[64] = {
 	0,   1,  8, 16,  9,  2,  3, 10, 17, 24, 32, 25, 18, 11,  4,  5,
@@ -311,7 +311,7 @@ static int mjpeg_frame_header(struct go7007 *go, unsigned char *buf, int q)
 	buf[p++] = 0;
 	buf[p++] = default_intra_quant_table[0];
 	for (i = 1; i < 64; ++i)
-		/*                                                     */
+		/* buf[p++] = (default_intra_quant_table[i] * q) >> 3; */
 		buf[p++] = (default_intra_quant_table[zz[i]] * q) >> 3;
 	buf[p++] = 0xff;
 	buf[p++] = 0xc0;
@@ -451,7 +451,7 @@ static int mpeg1_frame_header(struct go7007 *go, unsigned char *buf,
 		mb_code = 0x2;
 		mb_len = 2;
 		break;
-	default: /*                         */
+	default: /* keep the compiler happy */
 		mb_code = mb_len = 0;
 		break;
 	}
@@ -462,9 +462,9 @@ static int mpeg1_frame_header(struct go7007 *go, unsigned char *buf,
 	if (frame != PFRAME)
 		CODE_ADD(c, go->format == GO7007_FORMAT_MPEG2 ? 0x7 : 0x4, 4);
 	else
-		CODE_ADD(c, 0, 4); /*                               */
-	CODE_ADD(c, 0, 3); /*                */
-	/*                       */
+		CODE_ADD(c, 0, 4); /* Is this supposed to be here?? */
+	CODE_ADD(c, 0, 3); /* What is this?? */
+	/* Byte-align with zeros */
 	j = 8 - (CODE_LENGTH(c) % 8);
 	if (j != 8)
 		CODE_ADD(c, 0, j);
@@ -484,7 +484,7 @@ static int mpeg1_frame_header(struct go7007 *go, unsigned char *buf,
 			CODE_ADD(c, 0x3, 4);
 			CODE_ADD(c, 0x20c, 11);
 		}
-		/*                       */
+		/* Byte-align with zeros */
 		j = 8 - (CODE_LENGTH(c) % 8);
 		if (j != 8)
 			CODE_ADD(c, 0, j);
@@ -521,7 +521,7 @@ static int mpeg1_frame_header(struct go7007 *go, unsigned char *buf,
 		}
 		CODE_ADD(c, 0x3, 2);
 
-		/*                       */
+		/* Byte-align with zeros */
 		j = 8 - (CODE_LENGTH(c) % 8);
 		if (j != 8)
 			CODE_ADD(c, 0, j);
@@ -582,7 +582,7 @@ static int mpeg1_sequence_header(struct go7007 *go, unsigned char *buf, int ext)
 		picture_rate = go->interlace_coding ? 8 : 5;
 		break;
 	default:
-		picture_rate = 5; /*                                        */
+		picture_rate = 5; /* 30 fps seems like a reasonable default */
 		break;
 	}
 
@@ -595,7 +595,7 @@ static int mpeg1_sequence_header(struct go7007 *go, unsigned char *buf, int ext)
 	CODE_ADD(c, go->format == GO7007_FORMAT_MPEG2 ? 112 : 20, 10);
 	CODE_ADD(c, 0, 3);
 
-	/*                       */
+	/* Byte-align with zeros */
 	i = 8 - (CODE_LENGTH(c) % 8);
 	if (i != 8)
 		CODE_ADD(c, 0, i);
@@ -610,7 +610,7 @@ static int mpeg1_sequence_header(struct go7007 *go, unsigned char *buf, int ext)
 			CODE_ADD(c, 0xa0001, 20);
 		CODE_ADD(c, 0, 16);
 
-		/*                       */
+		/* Byte-align with zeros */
 		i = 8 - (CODE_LENGTH(c) % 8);
 		if (i != 8)
 			CODE_ADD(c, 0, i);
@@ -625,7 +625,7 @@ static int mpeg1_sequence_header(struct go7007 *go, unsigned char *buf, int ext)
 			CODE_ADD(c, 1, 1);
 			CODE_ADD(c, go->height, 14);
 
-			/*                       */
+			/* Byte-align with zeros */
 			i = 8 - (CODE_LENGTH(c) % 8);
 			if (i != 8)
 				CODE_ADD(c, 0, i);
@@ -762,13 +762,13 @@ static int mpeg4_frame_header(struct go7007 *go, unsigned char *buf,
 			case BFRAME_BIDIR:
 				CODE_ADD(c, 0x5f, 8);
 				break;
-			case BFRAME_EMPTY: /*                     */
+			case BFRAME_EMPTY: /* keep compiler quiet */
 				break;
 			}
 		}
 	}
 
-	/*                                         */
+	/* Byte-align with a zero followed by ones */
 	i = 8 - (CODE_LENGTH(c) % 8);
 	CODE_ADD(c, 0, 1);
 	CODE_ADD(c, (1 << (i - 1)) - 1, i - 1);
@@ -818,7 +818,7 @@ static int mpeg4_sequence_header(struct go7007 *go, unsigned char *buf, int ext)
 	CODE_ADD(c, go->height, 13);
 	CODE_ADD(c, 0x2830, 14);
 
-	/*            */
+	/* Byte-align */
 	i = 8 - (CODE_LENGTH(c) % 8);
 	CODE_ADD(c, 0, 1);
 	CODE_ADD(c, (1 << (i - 1)) - 1, i - 1);
@@ -945,7 +945,7 @@ static int brctrl_to_package(struct go7007 *go,
 				(go->dvd_mode ? 900000 : peak_rate);
 	int fps = go->sensor_framerate / go->fps_scale;
 	int q = 0;
-	/*                                                           */
+	/* Bizarre math below depends on rounding errors in division */
 	u32 sgop_expt_addr = go->bitrate / 32 * (go->ipb ? 3 : 1) * 1001 / fps;
 	u32 sgop_peak_addr = peak_rate / 32 * 1001 / fps;
 	u32 total_expt_addr = go->bitrate / 32 * 1000 / fps * (fps / 1000);
@@ -1033,7 +1033,7 @@ static int brctrl_to_package(struct go7007 *go,
 		0,		0,
 
 #if 0
-		/*                                          */
+		/* Remove once we don't care about matching */
 		0x200e,		0x0000,
 		0xBF56,		4,
 		0xBF57,		0,
@@ -1359,7 +1359,7 @@ static int final_package(struct go7007 *go, __le16 *code, int space)
 		(1 << 15) | ((go->interlace_coding ? 1 : 0) << 13) |
 			((go->closed_gop ? 1 : 0) << 12) |
 			((go->format == GO7007_FORMAT_MPEG4 ? 1 : 0) << 11) |
-		/*              */
+		/*	(1 << 9) |   */
 			((go->ipb ? 3 : 0) << 7) |
 			((go->modet_enable ? 1 : 0) << 2) |
 			((go->dvd_mode ? 1 : 0) << 1) | 1,
@@ -1555,7 +1555,7 @@ int go7007_construct_fw_image(struct go7007 *go, u8 **fw, int *fwlen)
 {
 	const struct firmware *fw_entry;
 	__le16 *code, *src;
-	int framelen[8] = { }; /*                                            */
+	int framelen[8] = { }; /* holds the lengths of empty frame templates */
 	int codespace = 64 * 1024, i = 0, srclen, chunk_len, chunk_flags;
 	int mode_flag;
 	int ret;

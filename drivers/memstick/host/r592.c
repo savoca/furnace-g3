@@ -43,9 +43,9 @@ static const char *tpc_names[] = {
 	"MS_TPC_SET_CMD",
 };
 
-/* 
-                                                                     
-               
+/**
+ * memstick_debug_get_tpc_name - debug helper that returns string for
+ * a TPC number
  */
 const char *memstick_debug_get_tpc_name(int tpc)
 {
@@ -54,7 +54,7 @@ const char *memstick_debug_get_tpc_name(int tpc)
 EXPORT_SYMBOL(memstick_debug_get_tpc_name);
 
 
-/*                */
+/* Read a register*/
 static inline u32 r592_read_reg(struct r592_device *dev, int address)
 {
 	u32 value = readl(dev->mmio + address);
@@ -62,7 +62,7 @@ static inline u32 r592_read_reg(struct r592_device *dev, int address)
 	return value;
 }
 
-/*                  */
+/* Write a register */
 static inline void r592_write_reg(struct r592_device *dev,
 							int address, u32 value)
 {
@@ -70,7 +70,7 @@ static inline void r592_write_reg(struct r592_device *dev,
 	writel(value, dev->mmio + address);
 }
 
-/*                                   */
+/* Reads a big endian DWORD register */
 static inline u32 r592_read_reg_raw_be(struct r592_device *dev, int address)
 {
 	u32 value = __raw_readl(dev->mmio + address);
@@ -78,7 +78,7 @@ static inline u32 r592_read_reg_raw_be(struct r592_device *dev, int address)
 	return be32_to_cpu(value);
 }
 
-/*                                    */
+/* Writes a big endian DWORD register */
 static inline void r592_write_reg_raw_be(struct r592_device *dev,
 							int address, u32 value)
 {
@@ -86,7 +86,7 @@ static inline void r592_write_reg_raw_be(struct r592_device *dev,
 	__raw_writel(cpu_to_be32(value), dev->mmio + address);
 }
 
-/*                                                 */
+/* Set specific bits in a register (little endian) */
 static inline void r592_set_reg_mask(struct r592_device *dev,
 							int address, u32 mask)
 {
@@ -95,7 +95,7 @@ static inline void r592_set_reg_mask(struct r592_device *dev,
 	writel(reg | mask , dev->mmio + address);
 }
 
-/*                                                   */
+/* Clear specific bits in a register (little endian) */
 static inline void r592_clear_reg_mask(struct r592_device *dev,
 						int address, u32 mask)
 {
@@ -106,7 +106,7 @@ static inline void r592_clear_reg_mask(struct r592_device *dev,
 }
 
 
-/*                                                */
+/* Wait for status bits while checking for errors */
 static int r592_wait_status(struct r592_device *dev, u32 mask, u32 wanted_mask)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
@@ -131,34 +131,34 @@ static int r592_wait_status(struct r592_device *dev, u32 mask, u32 wanted_mask)
 }
 
 
-/*                       */
+/* Enable/disable device */
 static int r592_enable_device(struct r592_device *dev, bool enable)
 {
 	dbg("%sabling the device", enable ? "en" : "dis");
 
 	if (enable) {
 
-		/*                   */
+		/* Power up the card */
 		r592_write_reg(dev, R592_POWER, R592_POWER_0 | R592_POWER_1);
 
-		/*                 */
+		/* Perform a reset */
 		r592_set_reg_mask(dev, R592_IO, R592_IO_RESET);
 
 		msleep(100);
 	} else
-		/*                     */
+		/* Power down the card */
 		r592_write_reg(dev, R592_POWER, 0);
 
 	return 0;
 }
 
-/*                          */
+/* Set serial/parallel mode */
 static int r592_set_mode(struct r592_device *dev, bool parallel_mode)
 {
 	if (!parallel_mode) {
 		dbg("switching to serial mode");
 
-		/*                 */
+		/* Set serial mode */
 		r592_write_reg(dev, R592_IO_MODE, R592_IO_MODE_SERIAL);
 
 		r592_clear_reg_mask(dev, R592_POWER, R592_POWER_20);
@@ -166,13 +166,13 @@ static int r592_set_mode(struct r592_device *dev, bool parallel_mode)
 	} else {
 		dbg("switching to parallel mode");
 
-		/*                                                */
+		/* This setting should be set _before_ switch TPC */
 		r592_set_reg_mask(dev, R592_POWER, R592_POWER_20);
 
 		r592_clear_reg_mask(dev, R592_IO,
 			R592_IO_SERIAL1 | R592_IO_SERIAL2);
 
-		/*                           */
+		/* Set the parallel mode now */
 		r592_write_reg(dev, R592_IO_MODE, R592_IO_MODE_PARALLEL);
 	}
 
@@ -180,7 +180,7 @@ static int r592_set_mode(struct r592_device *dev, bool parallel_mode)
 	return 0;
 }
 
-/*                                                           */
+/* Perform a controller reset without powering down the card */
 static void r592_host_reset(struct r592_device *dev)
 {
 	r592_set_reg_mask(dev, R592_IO, R592_IO_RESET);
@@ -188,15 +188,15 @@ static void r592_host_reset(struct r592_device *dev)
 	r592_set_mode(dev, dev->parallel_mode);
 }
 
-/*                                 */
+/* Disable all hardware interrupts */
 static void r592_clear_interrupts(struct r592_device *dev)
 {
-	/*                              */
+	/* Disable & ACK all interrupts */
 	r592_clear_reg_mask(dev, R592_REG_MSC, IRQ_ALL_ACK_MASK);
 	r592_clear_reg_mask(dev, R592_REG_MSC, IRQ_ALL_EN_MASK);
 }
 
-/*                                */
+/* Tests if there is an CRC error */
 static int r592_test_io_error(struct r592_device *dev)
 {
 	if (!(r592_read_reg(dev, R592_STATUS) &
@@ -206,7 +206,7 @@ static int r592_test_io_error(struct r592_device *dev)
 	return -EIO;
 }
 
-/*                                   */
+/* Ensure that FIFO is ready for use */
 static int r592_test_fifo_empty(struct r592_device *dev)
 {
 	if (r592_read_reg(dev, R592_REG_MSC) & R592_REG_MSC_FIFO_EMPTY)
@@ -222,21 +222,21 @@ static int r592_test_fifo_empty(struct r592_device *dev)
 	return -EIO;
 }
 
-/*                                         */
+/* Activates the DMA transfer from to FIFO */
 static void r592_start_dma(struct r592_device *dev, bool is_write)
 {
 	unsigned long flags;
 	u32 reg;
 	spin_lock_irqsave(&dev->irq_lock, flags);
 
-	/*                                             */
+	/* Ack interrupts (just in case) + enable them */
 	r592_clear_reg_mask(dev, R592_REG_MSC, DMA_IRQ_ACK_MASK);
 	r592_set_reg_mask(dev, R592_REG_MSC, DMA_IRQ_EN_MASK);
 
-	/*                 */
+	/* Set DMA address */
 	r592_write_reg(dev, R592_FIFO_DMA, sg_dma_address(&dev->req->sg));
 
-	/*                */
+	/* Enable the DMA */
 	reg = r592_read_reg(dev, R592_FIFO_DMA_SETTINGS);
 	reg |= R592_FIFO_DMA_SETTINGS_EN;
 
@@ -249,13 +249,13 @@ static void r592_start_dma(struct r592_device *dev, bool is_write)
 	spin_unlock_irqrestore(&dev->irq_lock, flags);
 }
 
-/*                               */
+/* Cleanups DMA related settings */
 static void r592_stop_dma(struct r592_device *dev, int error)
 {
 	r592_clear_reg_mask(dev, R592_FIFO_DMA_SETTINGS,
 		R592_FIFO_DMA_SETTINGS_EN);
 
-	/*                          */
+	/* This is only a precation */
 	r592_write_reg(dev, R592_FIFO_DMA,
 			dev->dummy_dma_page_physical_address);
 
@@ -264,7 +264,7 @@ static void r592_stop_dma(struct r592_device *dev, int error)
 	dev->dma_error = error;
 }
 
-/*                               */
+/* Test if hardware supports DMA */
 static void r592_check_dma(struct r592_device *dev)
 {
 	dev->dma_capable = r592_enable_dma &&
@@ -272,7 +272,7 @@ static void r592_check_dma(struct r592_device *dev)
 			R592_FIFO_DMA_SETTINGS_CAP);
 }
 
-/*                                          */
+/* Transfers fifo contents in/out using DMA */
 static int r592_transfer_fifo_dma(struct r592_device *dev)
 {
 	int len, sg_count;
@@ -292,7 +292,7 @@ static int r592_transfer_fifo_dma(struct r592_device *dev)
 	dev->dma_error = 0;
 	INIT_COMPLETION(dev->dma_done);
 
-	/*                                                     */
+	/* TODO: hidden assumption about nenth beeing always 1 */
 	sg_count = dma_map_sg(&dev->pci_dev->dev, &dev->req->sg, 1, is_write ?
 		PCI_DMA_TODEVICE : PCI_DMA_FROMDEVICE);
 
@@ -304,7 +304,7 @@ static int r592_transfer_fifo_dma(struct r592_device *dev)
 
 	r592_start_dma(dev, is_write);
 
-	/*                         */
+	/* Wait for DMA completion */
 	if (!wait_for_completion_timeout(
 			&dev->dma_done, msecs_to_jiffies(1000))) {
 		message("DMA timeout");
@@ -319,16 +319,16 @@ static int r592_transfer_fifo_dma(struct r592_device *dev)
 }
 
 /*
-                                    
-                                                                    
-                      
-                                                                    
-            
+ * Writes the FIFO in 4 byte chunks.
+ * If length isn't 4 byte aligned, rest of the data if put to a fifo
+ * to be written later
+ * Use r592_flush_fifo_write to flush that fifo when writing for the
+ * last time
  */
 static void r592_write_fifo_pio(struct r592_device *dev,
 					unsigned char *buffer, int len)
 {
-	/*                               */
+	/* flush spill from former write */
 	if (!kfifo_is_empty(&dev->pio_fifo)) {
 
 		u8 tmp[4] = {0};
@@ -346,19 +346,19 @@ static void r592_write_fifo_pio(struct r592_device *dev,
 
 	WARN_ON(!kfifo_is_empty(&dev->pio_fifo));
 
-	/*                   */
+	/* write full dwords */
 	while (len >= 4) {
 		r592_write_reg_raw_be(dev, R592_FIFO_PIO, *(u32 *)buffer);
 		buffer += 4;
 		len -= 4;
 	}
 
-	/*                                  */
+	/* put remaining bytes to the spill */
 	if (len)
 		kfifo_in(&dev->pio_fifo, buffer, len);
 }
 
-/*                                                              */
+/* Flushes the temporary FIFO used to make aligned DWORD writes */
 static void r592_flush_fifo_write(struct r592_device *dev)
 {
 	u8 buffer[4] = { 0 };
@@ -372,16 +372,16 @@ static void r592_flush_fifo_write(struct r592_device *dev)
 }
 
 /*
-                                 
-                                                                          
-                                                                           
+ * Read a fifo in 4 bytes chunks.
+ * If input doesn't fit the buffer, it places bytes of last dword in spill
+ * buffer, so that they don't get lost on last read, just throw these away.
  */
 static void r592_read_fifo_pio(struct r592_device *dev,
 						unsigned char *buffer, int len)
 {
 	u8 tmp[4];
 
-	/*                      */
+	/* Read from last spill */
 	if (!kfifo_is_empty(&dev->pio_fifo)) {
 		int bytes_copied =
 			kfifo_out(&dev->pio_fifo, buffer, min(4, len));
@@ -392,7 +392,7 @@ static void r592_read_fifo_pio(struct r592_device *dev,
 			return;
 	}
 
-	/*                        */
+	/* Reads dwords from FIFO */
 	while (len >= 4) {
 		*(u32 *)buffer = r592_read_reg_raw_be(dev, R592_FIFO_PIO);
 		buffer += 4;
@@ -409,7 +409,7 @@ static void r592_read_fifo_pio(struct r592_device *dev,
 	return;
 }
 
-/*                                  */
+/* Transfers actual data using PIO. */
 static int r592_transfer_fifo_pio(struct r592_device *dev)
 {
 	unsigned long flags;
@@ -434,7 +434,7 @@ static int r592_transfer_fifo_pio(struct r592_device *dev)
 	sg_miter_start(&miter, &dev->req->sg, 1, SG_MITER_ATOMIC |
 		(is_write ? SG_MITER_FROM_SG : SG_MITER_TO_SG));
 
-	/*                              */
+	/* Do the transfer fifo<->memory*/
 	while (sg_miter_next(&miter))
 		if (is_write)
 			r592_write_fifo_pio(dev, miter.addr, miter.length);
@@ -442,7 +442,7 @@ static int r592_transfer_fifo_pio(struct r592_device *dev)
 			r592_read_fifo_pio(dev, miter.addr, miter.length);
 
 
-	/*                                 */
+	/* Write last few non aligned bytes*/
 	if (is_write)
 		r592_flush_fifo_write(dev);
 
@@ -451,7 +451,7 @@ static int r592_transfer_fifo_pio(struct r592_device *dev)
 	return 0;
 }
 
-/*                                                                  */
+/* Executes one TPC (data is read/written from small or large fifo) */
 static void r592_execute_tpc(struct r592_device *dev)
 {
 	bool is_write = dev->req->tpc >= MS_TPC_SET_RW_REG_ADRS;
@@ -466,7 +466,7 @@ static void r592_execute_tpc(struct r592_device *dev)
 	len = dev->req->long_data ?
 		dev->req->sg.length : dev->req->data_len;
 
-	/*                                          */
+	/* Ensure that FIFO can hold the input data */
 	if (len > R592_LFIFO_SIZE) {
 		message("IO: hardware doesn't support TPCs longer that 512");
 		error = -ENOSYS;
@@ -482,7 +482,7 @@ static void r592_execute_tpc(struct r592_device *dev)
 	dbg("IO: executing %s LEN=%d",
 			memstick_debug_get_tpc_name(dev->req->tpc), len);
 
-	/*                  */
+	/* Set IO direction */
 	if (is_write)
 		r592_set_reg_mask(dev, R592_IO, R592_IO_DIRECTION);
 	else
@@ -493,7 +493,7 @@ static void r592_execute_tpc(struct r592_device *dev)
 	if (error)
 		goto out;
 
-	/*                     */
+	/* Transfer write data */
 	if (is_write) {
 		error = r592_transfer_fifo_dma(dev);
 		if (error == -EINVAL)
@@ -503,14 +503,14 @@ static void r592_execute_tpc(struct r592_device *dev)
 	if (error)
 		goto out;
 
-	/*                 */
+	/* Trigger the TPC */
 	reg = (len << R592_TPC_EXEC_LEN_SHIFT) |
 		(dev->req->tpc << R592_TPC_EXEC_TPC_SHIFT) |
 			R592_TPC_EXEC_BIG_FIFO;
 
 	r592_write_reg(dev, R592_TPC_EXEC, reg);
 
-	/*                         */
+	/* Wait for TPC completion */
 	status = R592_STATUS_RDY;
 	if (dev->req->need_card_int)
 		status |= R592_STATUS_CED;
@@ -521,22 +521,22 @@ static void r592_execute_tpc(struct r592_device *dev)
 		goto out;
 	}
 
-	/*                */
+	/* Test IO errors */
 	error = r592_test_io_error(dev);
 	if (error) {
 		dbg("IO error");
 		goto out;
 	}
 
-	/*                     */
+	/* Read data from FIFO */
 	if (!is_write) {
 		error = r592_transfer_fifo_dma(dev);
 		if (error == -EINVAL)
 			error = r592_transfer_fifo_pio(dev);
 	}
 
-	/*                                                              
-                    */
+	/* read INT reg. This can be shortened with shifts, but that way
+		its more readable */
 	if (dev->parallel_mode && dev->req->need_card_int) {
 
 		dev->req->int_reg = 0;
@@ -560,7 +560,7 @@ out:
 	return;
 }
 
-/*                                */
+/* Main request processing thread */
 static int r592_process_thread(void *data)
 {
 	int error;
@@ -593,8 +593,8 @@ static int r592_process_thread(void *data)
 	return 0;
 }
 
-/*                                               */
-/*                                                                   */
+/* Reprogram chip to detect change in card state */
+/* eg, if card is detected, arm it to detect removal, and vice versa */
 static void r592_update_card_detect(struct r592_device *dev)
 {
 	u32 reg = r592_read_reg(dev, R592_REG_MSC);
@@ -613,7 +613,7 @@ static void r592_update_card_detect(struct r592_device *dev)
 	r592_write_reg(dev, R592_REG_MSC, reg);
 }
 
-/*                                                                    */
+/* Timer routine that fires 1 second after last card detection event, */
 static void r592_detect_timer(long unsigned int data)
 {
 	struct r592_device *dev = (struct r592_device *)data;
@@ -621,7 +621,7 @@ static void r592_detect_timer(long unsigned int data)
 	memstick_detect_change(dev->host);
 }
 
-/*                   */
+/* Interrupt handler */
 static irqreturn_t r592_irq(int irq, void *data)
 {
 	struct r592_device *dev = (struct r592_device *)data;
@@ -637,15 +637,15 @@ static irqreturn_t r592_irq(int irq, void *data)
 	irq_enable = reg >> 16;
 	irq_status = reg & 0xFFFF;
 
-	/*                    */
+	/* Ack the interrupts */
 	reg &= ~irq_status;
 	r592_write_reg(dev, R592_REG_MSC, reg);
 
-	/*                                                   */
+	/* Get the IRQ status minus bits that aren't enabled */
 	irq_status &= (irq_enable);
 
-	/*                                                               
-                                                         */
+	/* Due to limitation of memstick core, we don't look at bits that
+		indicate that card was removed/inserted and/or present */
 	if (irq_status & (R592_REG_MSC_IRQ_INSERT | R592_REG_MSC_IRQ_REMOVE)) {
 
 		bool card_was_added = irq_status & R592_REG_MSC_IRQ_INSERT;
@@ -677,7 +677,7 @@ static irqreturn_t r592_irq(int irq, void *data)
 	return ret;
 }
 
-/*                                 */
+/* External inteface: set settings */
 static int r592_set_param(struct memstick_host *host,
 			enum memstick_param param, int value)
 {
@@ -707,7 +707,7 @@ static int r592_set_param(struct memstick_host *host,
 	}
 }
 
-/*                                     */
+/* External interface: submit requests */
 static void r592_submit_req(struct memstick_host *host)
 {
 	struct r592_device *dev = memstick_priv(host);
@@ -728,14 +728,14 @@ static const struct pci_device_id r592_pci_id_tbl[] = {
 	{ },
 };
 
-/*            */
+/* Main entry */
 static int r592_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int error = -ENOMEM;
 	struct memstick_host *host;
 	struct r592_device *dev;
 
-	/*                 */
+	/* Allocate memory */
 	host = memstick_alloc_host(sizeof(struct r592_device), &pdev->dev);
 	if (!host)
 		goto error1;
@@ -745,7 +745,7 @@ static int r592_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	dev->pci_dev = pdev;
 	pci_set_drvdata(pdev, dev);
 
-	/*                    */
+	/* pci initialization */
 	error = pci_enable_device(pdev);
 	if (error)
 		goto error2;
@@ -771,7 +771,7 @@ static int r592_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	setup_timer(&dev->detect_timer,
 		r592_detect_timer, (long unsigned int)dev);
 
-	/*                     */
+	/* Host initialization */
 	host->caps = MEMSTICK_CAP_PAR4;
 	host->request = r592_submit_req;
 	host->set_param = r592_set_param;
@@ -783,7 +783,7 @@ static int r592_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto error5;
 	}
 
-	/*                                         */
+	/* This is just a precation, so don't fail */
 	dev->dummy_dma_page = pci_alloc_consistent(pdev, PAGE_SIZE,
 		&dev->dummy_dma_page_physical_address);
 	r592_stop_dma(dev , 0);
@@ -823,8 +823,8 @@ static void r592_remove(struct pci_dev *pdev)
 	int error = 0;
 	struct r592_device *dev = pci_get_drvdata(pdev);
 
-	/*                            
-                                                   */
+	/* Stop the processing thread.
+	That ensures that we won't take any more requests */
 	kthread_stop(dev->io_thread);
 
 	r592_enable_device(dev, false);

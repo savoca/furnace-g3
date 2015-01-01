@@ -22,9 +22,9 @@ static DEFINE_SPINLOCK(cxn_owners_lock);
 int __nongpreldata cxn_pinned = -1;
 
 
-/*                                                                           */
+/*****************************************************************************/
 /*
-                           
+ * initialise a new context
  */
 int init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 {
@@ -34,12 +34,12 @@ int init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 	mm->context.dtlb_cached_pge = 0xffffffffUL;
 
 	return 0;
-} /*                        */
+} /* end init_new_context() */
 
-/*                                                                           */
+/*****************************************************************************/
 /*
-                                                          
-                                   
+ * make sure a kernel MMU context has a CPU context number
+ * - call with cxn_owners_lock held
  */
 static unsigned get_cxn(mm_context_t *ctx)
 {
@@ -51,15 +51,15 @@ static unsigned get_cxn(mm_context_t *ctx)
 		list_move_tail(&ctx->id_link, &cxn_owners_lru);
 	}
 	else {
-		/*                                          
-                                   
-   */
+		/* find the first unallocated context number
+		 * - 0 is reserved for the kernel
+		 */
 		cxn = find_next_zero_bit(cxn_bitmap, NR_CXN, 1);
 		if (cxn < NR_CXN) {
 			set_bit(cxn, cxn_bitmap);
 		}
 		else {
-			/*                                                   */
+			/* none remaining - need to steal someone else's cxn */
 			p = NULL;
 			list_for_each(_p, &cxn_owners_lru) {
 				p = list_entry(_p, mm_context_t, id_link);
@@ -80,12 +80,12 @@ static unsigned get_cxn(mm_context_t *ctx)
 	}
 
 	return ctx->id;
-} /*               */
+} /* end get_cxn() */
 
-/*                                                                           */
+/*****************************************************************************/
 /*
-                                                                                            
-                                 
+ * restore the current TLB miss handler mapped page tables into the MMU context and set up a
+ * mapping for the page directory
  */
 void change_mm_context(mm_context_t *old, mm_context_t *ctx, pgd_t *pgd)
 {
@@ -93,7 +93,7 @@ void change_mm_context(mm_context_t *old, mm_context_t *ctx, pgd_t *pgd)
 
 	_pgd = virt_to_phys(pgd);
 
-	/*                                            */
+	/* save the state of the outgoing MMU context */
 	old->id_busy = 0;
 
 	asm volatile("movsg scr0,%0"   : "=r"(old->itlb_cached_pge));
@@ -101,7 +101,7 @@ void change_mm_context(mm_context_t *old, mm_context_t *ctx, pgd_t *pgd)
 	asm volatile("movsg scr1,%0"   : "=r"(old->dtlb_cached_pge));
 	asm volatile("movsg dampr5,%0" : "=r"(old->dtlb_ptd_mapping));
 
-	/*                              */
+	/* select an MMU context number */
 	spin_lock(&cxn_owners_lock);
 	get_cxn(ctx);
 	ctx->id_busy = 1;
@@ -109,23 +109,23 @@ void change_mm_context(mm_context_t *old, mm_context_t *ctx, pgd_t *pgd)
 
 	asm volatile("movgs %0,cxnr"   : : "r"(ctx->id));
 
-	/*                                               */
+	/* restore the state of the incoming MMU context */
 	asm volatile("movgs %0,scr0"   : : "r"(ctx->itlb_cached_pge));
 	asm volatile("movgs %0,dampr4" : : "r"(ctx->itlb_ptd_mapping));
 	asm volatile("movgs %0,scr1"   : : "r"(ctx->dtlb_cached_pge));
 	asm volatile("movgs %0,dampr5" : : "r"(ctx->dtlb_ptd_mapping));
 
-	/*                                          */
+	/* map the PGD into uncached virtual memory */
 	asm volatile("movgs %0,ttbr"   : : "r"(_pgd));
 	asm volatile("movgs %0,dampr3"
 		     :: "r"(_pgd | xAMPRx_L | xAMPRx_M | xAMPRx_SS_16Kb |
 			    xAMPRx_S | xAMPRx_C | xAMPRx_V));
 
-} /*                         */
+} /* end change_mm_context() */
 
-/*                                                                           */
+/*****************************************************************************/
 /*
-                                      
+ * finished with an MMU context number
  */
 void destroy_context(struct mm_struct *mm)
 {
@@ -144,11 +144,11 @@ void destroy_context(struct mm_struct *mm)
 	}
 
 	spin_unlock(&cxn_owners_lock);
-} /*                       */
+} /* end destroy_context() */
 
-/*                                                                           */
+/*****************************************************************************/
 /*
-                                                                 
+ * display the MMU context currently a process is currently using
  */
 #ifdef CONFIG_PROC_FS
 char *proc_pid_status_frv_cxnr(struct mm_struct *mm, char *buffer)
@@ -158,12 +158,12 @@ char *proc_pid_status_frv_cxnr(struct mm_struct *mm, char *buffer)
 	spin_unlock(&cxn_owners_lock);
 
 	return buffer;
-} /*                                */
+} /* end proc_pid_status_frv_cxnr() */
 #endif
 
-/*                                                                           */
+/*****************************************************************************/
 /*
-                                                 
+ * (un)pin a process's mm_struct's MMU context ID
  */
 int cxn_pin_by_pid(pid_t pid)
 {
@@ -171,7 +171,7 @@ int cxn_pin_by_pid(pid_t pid)
 	struct mm_struct *mm = NULL;
 	int ret;
 
-	/*                      */
+	/* unpin if pid is zero */
 	if (pid == 0) {
 		cxn_pinned = -1;
 		return 0;
@@ -179,7 +179,7 @@ int cxn_pin_by_pid(pid_t pid)
 
 	ret = -ESRCH;
 
-	/*                               */
+	/* get a handle on the mm_struct */
 	read_lock(&tasklist_lock);
 	tsk = find_task_by_vpid(pid);
 	if (tsk) {
@@ -198,11 +198,11 @@ int cxn_pin_by_pid(pid_t pid)
 	if (ret < 0)
 		return ret;
 
-	/*                                   */
+	/* make sure it has a CXN and pin it */
 	spin_lock(&cxn_owners_lock);
 	cxn_pinned = get_cxn(&mm->context);
 	spin_unlock(&cxn_owners_lock);
 
 	mmput(mm);
 	return 0;
-} /*                      */
+} /* end cxn_pin_by_pid() */

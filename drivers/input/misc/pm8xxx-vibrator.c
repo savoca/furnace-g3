@@ -31,15 +31,15 @@
 
 #define MAX_FF_SPEED		0xff
 
-/* 
-                                                      
-                                                         
-                                                        
-                                         
-                                               
-                             
-                                                
-                                       
+/**
+ * struct pm8xxx_vib - structure to hold vibrator data
+ * @vib_input_dev: input device supporting force feedback
+ * @work: work structure to set the vibration parameters
+ * @dev: device supporting force feedback
+ * @speed: speed of vibration set from userland
+ * @active: state of vibrator
+ * @level: level of vibration to set in the chip
+ * @reg_vib_drv: VIB_DRV register value
  */
 struct pm8xxx_vib {
 	struct input_dev *vib_input_dev;
@@ -51,11 +51,11 @@ struct pm8xxx_vib {
 	u8  reg_vib_drv;
 };
 
-/* 
-                                                            
-                                      
-                                         
-                         
+/**
+ * pm8xxx_vib_read_u8 - helper to read a byte from pmic chip
+ * @vib: pointer to vibrator structure
+ * @data: placeholder for data to be read
+ * @reg: register address
  */
 static int pm8xxx_vib_read_u8(struct pm8xxx_vib *vib,
 				 u8 *data, u16 reg)
@@ -69,11 +69,11 @@ static int pm8xxx_vib_read_u8(struct pm8xxx_vib *vib,
 	return rc;
 }
 
-/* 
-                                                            
-                                      
-                       
-                         
+/**
+ * pm8xxx_vib_write_u8 - helper to write a byte to pmic chip
+ * @vib: pointer to vibrator structure
+ * @data: data to write
+ * @reg: register address
  */
 static int pm8xxx_vib_write_u8(struct pm8xxx_vib *vib,
 				 u8 data, u16 reg)
@@ -87,10 +87,10 @@ static int pm8xxx_vib_write_u8(struct pm8xxx_vib *vib,
 	return rc;
 }
 
-/* 
-                                                   
-                                      
-                    
+/**
+ * pm8xxx_vib_set - handler to start/stop vibration
+ * @vib: pointer to vibrator structure
+ * @on: state to set
  */
 static int pm8xxx_vib_set(struct pm8xxx_vib *vib, bool on)
 {
@@ -110,9 +110,9 @@ static int pm8xxx_vib_set(struct pm8xxx_vib *vib, bool on)
 	return 0;
 }
 
-/* 
-                                                      
-                                
+/**
+ * pm8xxx_work_handler - worker to set vibration level
+ * @work: pointer to work_struct
  */
 static void pm8xxx_work_handler(struct work_struct *work)
 {
@@ -125,9 +125,9 @@ static void pm8xxx_work_handler(struct work_struct *work)
 		return;
 
 	/*
-                                                              
-                                             
-  */
+	 * pmic vibrator supports voltage ranges from 1.2 to 3.1V, so
+	 * scale the level to fit into these ranges.
+	 */
 	if (vib->speed) {
 		vib->active = true;
 		vib->level = ((VIB_MAX_LEVELS * vib->speed) / MAX_FF_SPEED) +
@@ -141,11 +141,11 @@ static void pm8xxx_work_handler(struct work_struct *work)
 	pm8xxx_vib_set(vib, vib->active);
 }
 
-/* 
-                                                      
-                             
-  
-                          
+/**
+ * pm8xxx_vib_close - callback of input close callback
+ * @dev: input device pointer
+ *
+ * Turns off the vibrator.
  */
 static void pm8xxx_vib_close(struct input_dev *dev)
 {
@@ -156,13 +156,13 @@ static void pm8xxx_vib_close(struct input_dev *dev)
 		pm8xxx_vib_set(vib, false);
 }
 
-/* 
-                                                           
-                             
-                        
-                          
-  
-                                                      
+/**
+ * pm8xxx_vib_play_effect - function to handle vib effects.
+ * @dev: input device pointer
+ * @data: data of effect
+ * @effect: effect to play
+ *
+ * Currently this driver supports only rumble effects.
  */
 static int pm8xxx_vib_play_effect(struct input_dev *dev, void *data,
 				  struct ff_effect *effect)
@@ -198,7 +198,7 @@ static int __devinit pm8xxx_vib_probe(struct platform_device *pdev)
 	vib->dev = &pdev->dev;
 	vib->vib_input_dev = input_dev;
 
-	/*                        */
+	/* operate in manual mode */
 	error = pm8xxx_vib_read_u8(vib, &val, VIB_DRV);
 	if (error < 0)
 		goto err_free_mem;
@@ -259,7 +259,7 @@ static int pm8xxx_vib_suspend(struct device *dev)
 {
 	struct pm8xxx_vib *vib = dev_get_drvdata(dev);
 
-	/*                       */
+	/* Turn off the vibrator */
 	pm8xxx_vib_set(vib, false);
 
 	return 0;

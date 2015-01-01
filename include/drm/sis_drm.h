@@ -1,4 +1,4 @@
-/*                                                            */
+/* sis_drv.h -- Private header for sis driver -*- linux-c -*- */
 /*
  * Copyright 2005 Eric Anholt
  * All Rights Reserved.
@@ -27,7 +27,7 @@
 #ifndef __SIS_DRM_H__
 #define __SIS_DRM_H__
 
-/*                     */
+/* SiS specific ioctls */
 #define NOT_USED_0_3
 #define DRM_SIS_FB_ALLOC	0x04
 #define DRM_SIS_FB_FREE	        0x05
@@ -44,9 +44,9 @@
 #define DRM_IOCTL_SIS_AGP_FREE		DRM_IOW( DRM_COMMAND_BASE + DRM_SIS_AGP_FREE, drm_sis_mem_t)
 #define DRM_IOCTL_SIS_FB_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_SIS_FB_INIT, drm_sis_fb_t)
 /*
-                                                          
-                                               
-                                               
+#define DRM_IOCTL_SIS_FLIP		DRM_IOW( 0x48, drm_sis_flip_t)
+#define DRM_IOCTL_SIS_FLIP_INIT		DRM_IO(  0x49)
+#define DRM_IOCTL_SIS_FLIP_FINAL	DRM_IO(  0x50)
 */
 
 typedef struct {
@@ -68,4 +68,4 @@ struct sis_file_private {
 	struct list_head obj_list;
 };
 
-#endif				/*               */
+#endif				/* __SIS_DRM_H__ */

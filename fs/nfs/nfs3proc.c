@@ -24,7 +24,7 @@
 
 #define NFSDBG_FACILITY		NFSDBG_PROC
 
-/*                                                                 */
+/* A wrapper to handle the EJUKEBOX and EKEYEXPIRED error messages */
 static int
 nfs3_rpc_wrapper(struct rpc_clnt *clnt, struct rpc_message *msg, int flags)
 {
@@ -79,7 +79,7 @@ do_proc_get_root(struct rpc_clnt *client, struct nfs_fh *fhandle,
 }
 
 /*
-                                                                    
+ * Bare-bones access to getattr: this is for nfs_get_root/nfs_get_sb
  */
 static int
 nfs3_proc_get_root(struct nfs_server *server, struct nfs_fh *fhandle,
@@ -94,7 +94,7 @@ nfs3_proc_get_root(struct nfs_server *server, struct nfs_fh *fhandle,
 }
 
 /*
-                                                       
+ * One function for each procedure in the NFS protocol.
  */
 static int
 nfs3_proc_getattr(struct nfs_server *server, struct nfs_fh *fhandle,
@@ -310,7 +310,7 @@ static void nfs3_free_createdata(struct nfs3_createdata *data)
 }
 
 /*
-                         
+ * Create a regular file.
  */
 static int
 nfs3_proc_create(struct inode *dir, struct dentry *dentry, struct iattr *sattr,
@@ -346,8 +346,8 @@ nfs3_proc_create(struct inode *dir, struct dentry *dentry, struct iattr *sattr,
 
 		if (status != -ENOTSUPP)
 			break;
-		/*                                                     
-                                                      */
+		/* If the server doesn't support the exclusive creation
+		 * semantics, try again with simple 'guarded' mode. */
 		switch (data->arg.create.createmode) {
 			case NFS3_CREATE_EXCLUSIVE:
 				data->arg.create.createmode = NFS3_CREATE_GUARDED;
@@ -367,8 +367,8 @@ nfs3_proc_create(struct inode *dir, struct dentry *dentry, struct iattr *sattr,
 	if (status != 0)
 		goto out;
 
-	/*                                                        
-                                           */
+	/* When we created the file with exclusive semantics, make
+	 * sure we set the attributes afterwards. */
 	if (data->arg.create.createmode == NFS3_CREATE_EXCLUSIVE) {
 		dprintk("NFS call  setattr (post-create)\n");
 
@@ -377,9 +377,9 @@ nfs3_proc_create(struct inode *dir, struct dentry *dentry, struct iattr *sattr,
 		if (!(sattr->ia_valid & ATTR_MTIME_SET))
 			sattr->ia_valid |= ATTR_MTIME;
 
-		/*                                                   
-                                                 
-                                   */
+		/* Note: we could use a guarded setattr here, but I'm
+		 * not sure this buys us anything (and I'd have
+		 * to revamp the NFSv3 XDR code) */
 		status = nfs3_proc_setattr(dentry, data->res.fattr, sattr);
 		nfs_post_op_update_inode(dentry->d_inode, data->res.fattr);
 		dprintk("NFS reply setattr (post-create): %d\n", status);
@@ -631,13 +631,13 @@ out:
 }
 
 /*
-                                                                           
-                                                                  
-                                                                         
-                                           
-  
-                                                                    
-               
+ * The READDIR implementation is somewhat hackish - we pass the user buffer
+ * to the encode function, which installs it in the receive iovec.
+ * The decode function itself doesn't perform any decoding, it just makes
+ * sure the reply is syntactically correct.
+ *
+ * Also note that this implementation handles both plain readdir and
+ * readdirplus.
  */
 static int
 nfs3_proc_readdir(struct dentry *dentry, struct rpc_cred *cred,
@@ -776,8 +776,8 @@ do_proc_fsinfo(struct rpc_clnt *client, struct nfs_fh *fhandle,
 }
 
 /*
-                                                                       
-                    
+ * Bare-bones access to fsinfo: this is for nfs_get_root/nfs_get_sb via
+ * nfs_create_server
  */
 static int
 nfs3_proc_fsinfo(struct nfs_server *server, struct nfs_fh *fhandle,
@@ -870,7 +870,7 @@ nfs3_proc_lock(struct file *filp, int cmd, struct file_lock *fl)
 }
 
 const struct nfs_rpc_ops nfs_v3_clientops = {
-	.version	= 3,			/*                  */
+	.version	= 3,			/* protocol version */
 	.dentry_ops	= &nfs_dentry_operations,
 	.dir_inode_ops	= &nfs3_dir_inode_operations,
 	.file_inode_ops	= &nfs3_file_inode_operations,

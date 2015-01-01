@@ -23,7 +23,7 @@
 #define _BIT(n)					_SBF(n, 1)
 
 /*
-                                
+ * AHB 0 physical base addresses
  */
 #define LPC32XX_SLC_BASE			0x20020000
 #define LPC32XX_SSP0_BASE			0x20084000
@@ -38,7 +38,7 @@
 #define LPC32XX_AHB0_SIZE			0x00089000
 
 /*
-                                
+ * AHB 1 physical base addresses
  */
 #define LPC32XX_DMA_BASE			0x31000000
 #define LPC32XX_USB_BASE			0x31020000
@@ -54,7 +54,7 @@
 #define LPC32XX_AHB1_SIZE			0x000E1000
 
 /*
-                              
+ * FAB physical base addresses
  */
 #define LPC32XX_CLK_PM_BASE			0x40004000
 #define LPC32XX_MIC_BASE			0x40008000
@@ -83,7 +83,7 @@
 #define LPC32XX_TIMER3_BASE			0x40060000
 
 /*
-                              
+ * APB physical base addresses
  */
 #define LPC32XX_UART3_BASE			0x40080000
 #define LPC32XX_UART4_BASE			0x40088000
@@ -93,19 +93,19 @@
 #define LPC32XX_I2C2_BASE			0x400A8000
 
 /*
-                              
+ * FAB and APB base and sizing
  */
 #define LPC32XX_FABAPB_START			LPC32XX_CLK_PM_BASE
 #define LPC32XX_FABAPB_SIZE			0x000A5000
 
 /*
-                                  
+ * Internal memory bases and sizes
  */
 #define LPC32XX_IRAM_BASE			0x08000000
 #define LPC32XX_IROM_BASE			0x0C000000
 
 /*
-                                                  
+ * External Static Memory Bank Address Space Bases
  */
 #define LPC32XX_EMC_CS0_BASE			0xE0000000
 #define LPC32XX_EMC_CS1_BASE			0xE1000000
@@ -113,19 +113,19 @@
 #define LPC32XX_EMC_CS3_BASE			0xE3000000
 
 /*
-                                                 
+ * External SDRAM Memory Bank Address Space Bases
  */
 #define LPC32XX_EMC_DYCS0_BASE			0x80000000
 #define LPC32XX_EMC_DYCS1_BASE			0xA0000000
 
 /*
-                                
+ * Clock and crystal information
  */
 #define LPC32XX_MAIN_OSC_FREQ			13000000
 #define LPC32XX_CLOCK_OSC_FREQ			32768
 
 /*
-                                           
+ * Clock and Power control register offsets
  */
 #define _PMREG(x)				io_p2v(LPC32XX_CLK_PM_BASE +\
 						(x))
@@ -179,17 +179,17 @@
 #define LPC32XX_CLKPWR_DEVID(x)			_PMREG(0x130 + (x))
 
 /*
-                                         
+ * clkpwr_debug_ctrl register definitions
 */
 #define LPC32XX_CLKPWR_VFP_CLOCK_ENABLE_BIT	_BIT(4)
 
 /*
-                                      
+ * clkpwr_bootmap register definitions
  */
 #define LPC32XX_CLKPWR_BOOTMAP_SEL_BIT		_BIT(1)
 
 /*
-                                             
+ * clkpwr_start_gpio register bit definitions
  */
 #define LPC32XX_CLKPWR_GPIOSRC_P1IO23_BIT	_BIT(31)
 #define LPC32XX_CLKPWR_GPIOSRC_P1IO22_BIT	_BIT(30)
@@ -225,13 +225,13 @@
 #define LPC32XX_CLKPWR_GPIOSRC_P0IO0_BIT	_BIT(0)
 
 /*
-                                          
+ * clkpwr_usbclk_pdiv register definitions
  */
 #define LPC32XX_CLKPWR_USBPDIV_PLL_MASK		0xF
 
 /*
-                                                                    
-                                                 
+ * clkpwr_start_int, clkpwr_start_raw_sts_int, clkpwr_start_sts_int,
+ * clkpwr_start_pol_int, register bit definitions
  */
 #define LPC32XX_CLKPWR_INTSRC_ADC_BIT		_BIT(31)
 #define LPC32XX_CLKPWR_INTSRC_TS_P_BIT		_BIT(30)
@@ -255,8 +255,8 @@
 #define LPC32XX_CLKPWR_INTSRC_GPIO_00_BIT	_BIT(0)
 
 /*
-                                                                    
-                                                
+ * clkpwr_start_pin, clkpwr_start_raw_sts_pin, clkpwr_start_sts_pin,
+ * clkpwr_start_pol_pin register bit definitions
  */
 #define LPC32XX_CLKPWR_EXTSRC_U7_RX_BIT		_BIT(31)
 #define LPC32XX_CLKPWR_EXTSRC_U7_HCTS_BIT	_BIT(30)
@@ -285,7 +285,7 @@
 #define LPC32XX_CLKPWR_EXTSRC_GPI_08_BIT	_BIT(3)
 
 /*
-                                       
+ * clkpwr_hclk_div register definitions
  */
 #define LPC32XX_CLKPWR_HCLKDIV_DDRCLK_STOP	(0x0 << 7)
 #define LPC32XX_CLKPWR_HCLKDIV_DDRCLK_NORM	(0x1 << 7)
@@ -294,7 +294,7 @@
 #define LPC32XX_CLKPWR_HCLKDIV_DIV_2POW(n)	((n) & 0x3)
 
 /*
-                                       
+ * clkpwr_pwr_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_CTRL_FORCE_PCLK		_BIT(10)
 #define LPC32XX_CLKPWR_SDRAM_SELF_RFSH		_BIT(9)
@@ -308,7 +308,7 @@
 #define LPC32XX_CLKPWR_STOP_MODE_CTRL		_BIT(0)
 
 /*
-                                          
+ * clkpwr_pll397_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_PLL397_MSLOCK_STS	_BIT(10)
 #define LPC32XX_CLKPWR_PLL397_BYPASS		_BIT(9)
@@ -325,7 +325,7 @@
 #define LPC32XX_CLKPWR_SYSCTRL_PLL397_STS	_BIT(0)
 
 /*
-                                            
+ * clkpwr_main_osc_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_MOSC_ADD_CAP(n)		(((n) & 0x7F) << 2)
 #define LPC32XX_CLKPWR_MOSC_CAP_MASK		(0x7F << 2)
@@ -333,7 +333,7 @@
 #define LPC32XX_CLKPWR_MOSC_DISABLE		_BIT(0)
 
 /*
-                                          
+ * clkpwr_sysclk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_SYSCTRL_BP_TRIG(n)	(((n) & 0x3FF) << 2)
 #define LPC32XX_CLKPWR_SYSCTRL_BP_MASK		(0x3FF << 2)
@@ -341,7 +341,7 @@
 #define LPC32XX_CLKPWR_SYSCTRL_SYSCLKMUX	_BIT(0)
 
 /*
-                                          
+ * clkpwr_lcdclk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_LCDCTRL_LCDTYPE_TFT12	0x000
 #define LPC32XX_CLKPWR_LCDCTRL_LCDTYPE_TFT16	0x040
@@ -357,7 +357,7 @@
 #define LPC32XX_CLKPWR_LCDCTRL_PSCALE_MSK	0x001F
 
 /*
-                                           
+ * clkpwr_hclkpll_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_HCLKPLL_POWER_UP		_BIT(16)
 #define LPC32XX_CLKPWR_HCLKPLL_CCO_BYPASS	_BIT(15)
@@ -369,13 +369,13 @@
 #define LPC32XX_CLKPWR_HCLKPLL_PLL_STS		_BIT(0)
 
 /*
-                                             
+ * clkpwr_adc_clk_ctrl_1 register definitions
  */
 #define LPC32XX_CLKPWR_ADCCTRL1_RTDIV(n)	(((n) & 0xFF) << 0)
 #define LPC32XX_CLKPWR_ADCCTRL1_PCLK_SEL	_BIT(8)
 
 /*
-                                       
+ * clkpwr_usb_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_USBCTRL_HCLK_EN		_BIT(24)
 #define LPC32XX_CLKPWR_USBCTRL_USBI2C_EN	_BIT(23)
@@ -396,7 +396,7 @@
 #define LPC32XX_CLKPWR_USBCTRL_PLL_STS		_BIT(0)
 
 /*
-                                            
+ * clkpwr_sdramclk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_SDRCLK_FASTSLEW_CLK	_BIT(22)
 #define LPC32XX_CLKPWR_SDRCLK_FASTSLEW		_BIT(21)
@@ -413,7 +413,7 @@
 #define LPC32XX_CLKPWR_SDRCLK_CLK_DIS		_BIT(0)
 
 /*
-                                           
+ * clkpwr_ssp_blk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_SSPCTRL_DMA_SSP1RX	_BIT(5)
 #define LPC32XX_CLKPWR_SSPCTRL_DMA_SSP1TX	_BIT(4)
@@ -423,7 +423,7 @@
 #define LPC32XX_CLKPWR_SSPCTRL_SSPCLK0_EN	_BIT(0)
 
 /*
-                                           
+ * clkpwr_i2s_clk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_I2SCTRL_I2S1_RX_FOR_TX	_BIT(6)
 #define LPC32XX_CLKPWR_I2SCTRL_I2S1_TX_FOR_RX	_BIT(5)
@@ -434,7 +434,7 @@
 #define LPC32XX_CLKPWR_I2SCTRL_I2SCLK0_EN	_BIT(0)
 
 /*
-                                      
+ * clkpwr_ms_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_MSCARD_MSDIO_PIN_DIS	_BIT(10)
 #define LPC32XX_CLKPWR_MSCARD_MSDIO_PU_EN	_BIT(9)
@@ -445,7 +445,7 @@
 #define LPC32XX_CLKPWR_MSCARD_SDCARD_DIV(n)	((n) & 0xF)
 
 /*
-                                          
+ * clkpwr_macclk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_MACCTRL_NO_ENET_PIS	0x00
 #define LPC32XX_CLKPWR_MACCTRL_USE_MII_PINS	0x08
@@ -456,7 +456,7 @@
 #define LPC32XX_CLKPWR_MACCTRL_HRCCLK_EN	_BIT(0)
 
 /*
-                                           
+ * clkpwr_test_clk_sel register definitions
  */
 #define LPC32XX_CLKPWR_TESTCLK1_SEL_PERCLK	(0x0 << 5)
 #define LPC32XX_CLKPWR_TESTCLK1_SEL_RTC		(0x1 << 5)
@@ -472,13 +472,13 @@
 #define LPC32XX_CLKPWR_TESTCLK_TESTCLK2_EN	_BIT(0)
 
 /*
-                                     
+ * clkpwr_sw_int register definitions
  */
 #define LPC32XX_CLKPWR_SW_INT(n)		(_BIT(0) | (((n) & 0x7F) << 1))
 #define LPC32XX_CLKPWR_SW_GET_ARG(n)		(((n) & 0xFE) >> 1)
 
 /*
-                                           
+ * clkpwr_i2c_clk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_I2CCLK_USBI2CHI_DRIVE	_BIT(4)
 #define LPC32XX_CLKPWR_I2CCLK_I2C2HI_DRIVE	_BIT(3)
@@ -487,17 +487,17 @@
 #define LPC32XX_CLKPWR_I2CCLK_I2C1CLK_EN	_BIT(0)
 
 /*
-                                           
+ * clkpwr_key_clk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_KEYCLKCTRL_CLK_EN	0x1
 
 /*
-                                           
+ * clkpwr_adc_clk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_ADC32CLKCTRL_CLK_EN	0x1
 
 /*
-                                           
+ * clkpwr_pwm_clk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_PWMCLK_PWM2_DIV(n)	(((n) & 0xF) << 8)
 #define LPC32XX_CLKPWR_PWMCLK_PWM1_DIV(n)	(((n) & 0xF) << 4)
@@ -507,13 +507,13 @@
 #define LPC32XX_CLKPWR_PWMCLK_PWM1CLK_EN	0x1
 
 /*
-                                             
+ * clkpwr_timer_clk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_PWMCLK_HSTIMER_EN	0x2
 #define LPC32XX_CLKPWR_PWMCLK_WDOG_EN		0x1
 
 /*
-                                                     
+ * clkpwr_timers_pwms_clk_ctrl_1 register definitions
  */
 #define LPC32XX_CLKPWR_TMRPWMCLK_TIMER3_EN	0x20
 #define LPC32XX_CLKPWR_TMRPWMCLK_TIMER2_EN	0x10
@@ -523,7 +523,7 @@
 #define LPC32XX_CLKPWR_TMRPWMCLK_PWM3_EN	0x01
 
 /*
-                                           
+ * clkpwr_spi_clk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_SPICLK_SET_SPI2DATIO	0x80
 #define LPC32XX_CLKPWR_SPICLK_SET_SPI2CLK	0x40
@@ -535,7 +535,7 @@
 #define LPC32XX_CLKPWR_SPICLK_SPI1CLK_EN	0x01
 
 /*
-                                            
+ * clkpwr_nand_clk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_NANDCLK_INTSEL_MLC	0x20
 #define LPC32XX_CLKPWR_NANDCLK_DMA_RNB		0x10
@@ -545,21 +545,21 @@
 #define LPC32XX_CLKPWR_NANDCLK_SLCCLK_EN	0x01
 
 /*
-                                                                      
-                                                 
+ * clkpwr_uart3_clk_ctrl, clkpwr_uart4_clk_ctrl, clkpwr_uart5_clk_ctrl
+ * and clkpwr_uart6_clk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_UART_Y_DIV(y)		((y) & 0xFF)
 #define LPC32XX_CLKPWR_UART_X_DIV(x)		(((x) & 0xFF) << 8)
 #define LPC32XX_CLKPWR_UART_USE_HCLK		_BIT(16)
 
 /*
-                                            
+ * clkpwr_irda_clk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_IRDA_Y_DIV(y)		((y) & 0xFF)
 #define LPC32XX_CLKPWR_IRDA_X_DIV(x)		(((x) & 0xFF) << 8)
 
 /*
-                                            
+ * clkpwr_uart_clk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_UARTCLKCTRL_UART6_EN	_BIT(3)
 #define LPC32XX_CLKPWR_UARTCLKCTRL_UART5_EN	_BIT(2)
@@ -567,19 +567,19 @@
 #define LPC32XX_CLKPWR_UARTCLKCTRL_UART3_EN	_BIT(0)
 
 /*
-                                          
+ * clkpwr_dmaclk_ctrl register definitions
  */
 #define LPC32XX_CLKPWR_DMACLKCTRL_CLK_EN	0x1
 
 /*
-                                        
+ * clkpwr_autoclock register definitions
  */
 #define LPC32XX_CLKPWR_AUTOCLK_USB_EN		0x40
 #define LPC32XX_CLKPWR_AUTOCLK_IRAM_EN		0x02
 #define LPC32XX_CLKPWR_AUTOCLK_IROM_EN		0x01
 
 /*
-                                        
+ * Interrupt controller register offsets
  */
 #define LPC32XX_INTC_MASK(x)			io_p2v((x) + 0x00)
 #define LPC32XX_INTC_RAW_STAT(x)		io_p2v((x) + 0x04)
@@ -589,7 +589,7 @@
 #define LPC32XX_INTC_TYPE(x)			io_p2v((x) + 0x14)
 
 /*
-                                 
+ * Timer/counter register offsets
  */
 #define LPC32XX_TIMER_IR(x)			io_p2v((x) + 0x00)
 #define LPC32XX_TIMER_TCR(x)			io_p2v((x) + 0x04)
@@ -610,26 +610,26 @@
 #define LPC32XX_TIMER_CTCR(x)			io_p2v((x) + 0x70)
 
 /*
-                          
+ * ir register definitions
  */
 #define LPC32XX_TIMER_CNTR_MTCH_BIT(n)		(1 << ((n) & 0x3))
 #define LPC32XX_TIMER_CNTR_CAPT_BIT(n)		(1 << (4 + ((n) & 0x3)))
 
 /*
-                           
+ * tcr register definitions
  */
 #define LPC32XX_TIMER_CNTR_TCR_EN		0x1
 #define LPC32XX_TIMER_CNTR_TCR_RESET		0x2
 
 /*
-                           
+ * mcr register definitions
  */
 #define LPC32XX_TIMER_CNTR_MCR_MTCH(n)		(0x1 << ((n) * 3))
 #define LPC32XX_TIMER_CNTR_MCR_RESET(n)		(0x1 << (((n) * 3) + 1))
 #define LPC32XX_TIMER_CNTR_MCR_STOP(n)		(0x1 << (((n) * 3) + 2))
 
 /*
-                                 
+ * Standard UART register offsets
  */
 #define LPC32XX_UART_DLL_FIFO(x)		io_p2v((x) + 0x00)
 #define LPC32XX_UART_DLM_IER(x)			io_p2v((x) + 0x04)
@@ -641,7 +641,7 @@
 #define LPC32XX_UART_RXLEV(x)			io_p2v((x) + 0x1C)
 
 /*
-                                 
+ * UART control structure offsets
  */
 #define _UCREG(x)				io_p2v(\
 						LPC32XX_UART_CTRL_BASE + (x))
@@ -650,7 +650,7 @@
 #define LPC32XX_UARTCTL_CLOOP			_UCREG(0x08)
 
 /*
-                            
+ * ctrl register definitions
  */
 #define LPC32XX_UART_U3_MD_CTRL_EN		_BIT(11)
 #define LPC32XX_UART_IRRX6_INV_EN		_BIT(10)
@@ -663,7 +663,7 @@
 #define LPC32XX_UART_U5_ROUTE_TO_USB		_BIT(0)
 
 /*
-                               
+ * clkmode register definitions
  */
 #define LPC32XX_UART_ENABLED_CLOCKS(n)		(((n) >> 16) & 0x7F)
 #define LPC32XX_UART_ENABLED_CLOCK(n, u)	(((n) >> (16 + (u))) & 0x1)
@@ -675,7 +675,7 @@
 #define LPC32XX_UART_CLKMODE_LOAD(m, u)		((m) << ((((u) - 3) * 2) + 4))
 
 /*
-                               
+ * GPIO Module Register offsets
  */
 #define _GPREG(x)				io_p2v(LPC32XX_GPIO_BASE + (x))
 #define LPC32XX_GPIO_P_MUX_SET			_GPREG(0x100)

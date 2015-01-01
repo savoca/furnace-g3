@@ -50,11 +50,11 @@ handle_signal(unsigned long sig, siginfo_t *info, struct k_sigaction *ka,
 static inline void
 handle_syscall_restart(struct pt_regs *regs, struct sigaction *sa)
 {
-	/*                                       */
+	/* If we're not from a syscall, bail out */
 	if (regs->syscall_nr < 0)
 		return;
 
-	/*                                 */
+	/* check for system call restart.. */
 	switch (regs->regs[REG_RET]) {
 		case -ERESTART_RESTARTBLOCK:
 		case -ERESTARTNOHAND:
@@ -65,9 +65,9 @@ handle_syscall_restart(struct pt_regs *regs, struct sigaction *sa)
 		case -ERESTARTSYS:
 			if (!(sa->sa_flags & SA_RESTART))
 				goto no_system_call_restart;
-		/*             */
+		/* fallthrough */
 		case -ERESTARTNOINTR:
-			/*                  */
+			/* Decode syscall # */
 			regs->regs[REG_RET] = regs->syscall_nr;
 			regs->pc -= 4;
 			break;
@@ -75,13 +75,13 @@ handle_syscall_restart(struct pt_regs *regs, struct sigaction *sa)
 }
 
 /*
-                                                                           
-                                                                        
-           
-  
-                                                                            
-                                                                              
-                                     
+ * Note that 'init' is a special process: it doesn't get signals it doesn't
+ * want to handle. Thus you cannot kill init even with a SIGKILL even by
+ * mistake.
+ *
+ * Note that we go through the signals twice: once to check the signals that
+ * the kernel can handle, and then we build all the user-level signal handling
+ * stack-frames in one go after that.
  */
 static int do_signal(struct pt_regs *regs, sigset_t *oldset)
 {
@@ -90,11 +90,11 @@ static int do_signal(struct pt_regs *regs, sigset_t *oldset)
 	struct k_sigaction ka;
 
 	/*
-                                             
-                                                
-                                                   
-          
-  */
+	 * We want the common case to go fast, which
+	 * is why we may in certain cases get here from
+	 * kernel mode. Just return without doing anything
+	 * if so.
+	 */
 	if (!user_mode(regs))
 		return 1;
 
@@ -107,13 +107,13 @@ static int do_signal(struct pt_regs *regs, sigset_t *oldset)
 	if (signr > 0) {
 		handle_syscall_restart(regs, &ka.sa);
 
-		/*                                      */
+		/* Whee!  Actually deliver the signal.  */
 		if (handle_signal(signr, &info, &ka, oldset, regs) == 0) {
 			/*
-                                                 
-                                               
-                                        
-    */
+			 * If a signal was successfully delivered, the
+			 * saved sigmask is in its frame, and we can
+			 * clear the TS_RESTORE_SIGMASK flag.
+			 */
 			current_thread_info()->status &= ~TS_RESTORE_SIGMASK;
 
 			tracehook_signal_handler(signr, &info, &ka, regs,
@@ -122,14 +122,14 @@ static int do_signal(struct pt_regs *regs, sigset_t *oldset)
 		}
 	}
 
-	/*                                 */
+	/* Did we come from a system call? */
 	if (regs->syscall_nr >= 0) {
-		/*                                               */
+		/* Restart the system call - no handlers present */
 		switch (regs->regs[REG_RET]) {
 		case -ERESTARTNOHAND:
 		case -ERESTARTSYS:
 		case -ERESTARTNOINTR:
-			/*                  */
+			/* Decode Syscall # */
 			regs->regs[REG_RET] = regs->syscall_nr;
 			regs->pc -= 4;
 			break;
@@ -141,7 +141,7 @@ static int do_signal(struct pt_regs *regs, sigset_t *oldset)
 		}
 	}
 
-	/*                                                    */
+	/* No signal to deliver -- put the saved sigmask back */
 	if (current_thread_info()->status & TS_RESTORE_SIGMASK) {
 		current_thread_info()->status &= ~TS_RESTORE_SIGMASK;
 		sigprocmask(SIG_SETMASK, &current->saved_sigmask, NULL);
@@ -151,7 +151,7 @@ static int do_signal(struct pt_regs *regs, sigset_t *oldset)
 }
 
 /*
-                                                                 
+ * Atomically swap in the new signal mask, and wait for a signal.
  */
 asmlinkage int
 sys_sigsuspend(old_sigset_t mask,
@@ -172,10 +172,10 @@ sys_sigsuspend(old_sigset_t mask,
 		current->state = TASK_INTERRUPTIBLE;
 		schedule();
 		set_restore_sigmask();
-		regs->pc += 4;    /*                                         */
+		regs->pc += 4;    /* because sys_sigreturn decrements the pc */
 		if (do_signal(regs, &saveset)) {
-			/*                                                   
-                                            */
+			/* pc now points at signal handler. Need to decrement
+			   it because entry.S will increment it. */
 			regs->pc -= 4;
 			return -EINTR;
 		}
@@ -190,7 +190,7 @@ sys_rt_sigsuspend(sigset_t *unewset, size_t sigsetsize,
 {
 	sigset_t saveset, newset;
 
-	/*                                                           */
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 
@@ -204,10 +204,10 @@ sys_rt_sigsuspend(sigset_t *unewset, size_t sigsetsize,
 	while (1) {
 		current->state = TASK_INTERRUPTIBLE;
 		schedule();
-		regs->pc += 4;    /*                                         */
+		regs->pc += 4;    /* because sys_sigreturn decrements the pc */
 		if (do_signal(regs, &saveset)) {
-			/*                                                   
-                                            */
+			/* pc now points at signal handler. Need to decrement
+			   it because entry.S will increment it. */
 			regs->pc -= 4;
 			return -EINTR;
 		}
@@ -256,7 +256,7 @@ sys_sigaltstack(const stack_t __user *uss, stack_t __user *uoss,
 }
 
 /*
-                                             
+ * Do a signal return; undo the signal stack.
  */
 struct sigframe {
 	struct sigcontext sc;
@@ -361,9 +361,9 @@ restore_sigcontext(struct pt_regs *regs, struct sigcontext __user *sc, long long
 	COPY(tregs[0]);	COPY(tregs[1]);	COPY(tregs[2]);	COPY(tregs[3]);
 	COPY(tregs[4]);	COPY(tregs[5]);	COPY(tregs[6]);	COPY(tregs[7]);
 
-        /*                                                             
-                                                                      
-                    */
+        /* Prevent the signal handler manipulating SR in a way that can
+           crash the kernel. i.e. only allow S, Q, M, PR, SZ, FR to be
+           modified */
         current_sr = regs->sr;
         err |= __get_user(new_sr, &sc->sc_sr);
         regs->sr &= SR_MASK;
@@ -373,11 +373,11 @@ restore_sigcontext(struct pt_regs *regs, struct sigcontext __user *sc, long long
 
 #undef COPY
 
-	/*                                                                     
-                              */
+	/* Must do this last in case it sets regs->sr.fd (i.e. after rest of sr
+	 * has been restored above.) */
 	err |= restore_sigcontext_fpu(regs, sc);
 
-	regs->syscall_nr = -1;		/*                        */
+	regs->syscall_nr = -1;		/* disable syscall checks */
 	err |= __get_user(*r2_p, &sc->sc_regs[REG_RET]);
 	return err;
 }
@@ -391,7 +391,7 @@ asmlinkage int sys_sigreturn(unsigned long r2, unsigned long r3,
 	sigset_t set;
 	long long ret;
 
-	/*                                                              */
+	/* Always make any pending restarted system calls return -EINTR */
 	current_thread_info()->restart_block.fn = do_no_restart_syscall;
 
 	if (!access_ok(VERIFY_READ, frame, sizeof(*frame)))
@@ -427,7 +427,7 @@ asmlinkage int sys_rt_sigreturn(unsigned long r2, unsigned long r3,
 	stack_t __user st;
 	long long ret;
 
-	/*                                                              */
+	/* Always make any pending restarted system calls return -EINTR */
 	current_thread_info()->restart_block.fn = do_no_restart_syscall;
 
 	if (!access_ok(VERIFY_READ, frame, sizeof(*frame)))
@@ -445,8 +445,8 @@ asmlinkage int sys_rt_sigreturn(unsigned long r2, unsigned long r3,
 
 	if (__copy_from_user(&st, &frame->uc.uc_stack, sizeof(st)))
 		goto badframe;
-	/*                                                            
-                                */
+	/* It is more difficult to avoid calling this function than to
+	   call it and ignore errors.  */
 	do_sigaltstack(&st, NULL, REF_REG_SP);
 
 	return (int) ret;
@@ -457,7 +457,7 @@ badframe:
 }
 
 /*
-                         
+ * Set up a signal frame.
  */
 static int
 setup_sigcontext(struct sigcontext __user *sc, struct pt_regs *regs,
@@ -465,7 +465,7 @@ setup_sigcontext(struct sigcontext __user *sc, struct pt_regs *regs,
 {
 	int err = 0;
 
-	/*                                                                           */
+	/* Do this first, otherwise is this sets sr->fd, that value isn't preserved. */
 	err |= setup_sigcontext_fpu(regs, sc);
 
 #define COPY(x)		err |= __put_user(regs->x, &sc->sc_##x)
@@ -498,7 +498,7 @@ setup_sigcontext(struct sigcontext __user *sc, struct pt_regs *regs,
 }
 
 /*
-                                 
+ * Determine which stack to use..
  */
 static inline void __user *
 get_sigframe(struct k_sigaction *ka, unsigned long sp, size_t frame_size)
@@ -509,8 +509,8 @@ get_sigframe(struct k_sigaction *ka, unsigned long sp, size_t frame_size)
 	return (void __user *)((sp - frame_size) & -8ul);
 }
 
-void sa_default_restorer(void);		/*                    */
-void sa_default_rt_restorer(void);	/*                    */
+void sa_default_restorer(void);		/* See comments below */
+void sa_default_rt_restorer(void);	/* See comments below */
 
 static int setup_frame(int sig, struct k_sigaction *ka,
 		       sigset_t *set, struct pt_regs *regs)
@@ -532,7 +532,7 @@ static int setup_frame(int sig, struct k_sigaction *ka,
 
 	err |= setup_sigcontext(&frame->sc, regs, set->sig[0]);
 
-	/*                                  */
+	/* Give up earlier as i386, in case */
 	if (err)
 		goto give_sigsegv;
 
@@ -540,30 +540,30 @@ static int setup_frame(int sig, struct k_sigaction *ka,
 		err |= __copy_to_user(frame->extramask, &set->sig[1],
 				      sizeof(frame->extramask)); }
 
-	/*                                  */
+	/* Give up earlier as i386, in case */
 	if (err)
 		goto give_sigsegv;
 
-	/*                                                          
-                           */
+	/* Set up to return from userspace.  If provided, use a stub
+	   already in userspace.  */
 	if (ka->sa.sa_flags & SA_RESTORER) {
 		/*
-                                                   
-   */
+		 * On SH5 all edited pointers are subject to NEFF
+		 */
 		DEREF_REG_PR = neff_sign_extend((unsigned long)
 			ka->sa.sa_restorer | 0x1);
 	} else {
 		/*
-                               
-                                                                      
-                                                             
-                                 
-                                                   
-                                                            
-                                              
-                                                      
-                            
-   */
+		 * Different approach on SH5.
+	         * . Endianness independent asm code gets placed in entry.S .
+		 *   This is limited to four ASM instructions corresponding
+		 *   to two long longs in size.
+		 * . err checking is done on the else branch only
+		 * . flush_icache_range() is called upon __put_user() only
+		 * . all edited pointers are subject to NEFF
+		 * . being code, linker turns ShMedia bit on, always
+		 *   dereference index -1.
+		 */
 		DEREF_REG_PR = neff_sign_extend((unsigned long)
 			frame->retcode | 0x01);
 
@@ -571,24 +571,24 @@ static int setup_frame(int sig, struct k_sigaction *ka,
 			(void *)((unsigned long)sa_default_restorer & (~1)), 16) != 0)
 			goto give_sigsegv;
 
-		/*                                         */
+		/* Cohere the trampoline with the I-cache. */
 		flush_cache_sigtramp(DEREF_REG_PR-1);
 	}
 
 	/*
-                                        
-                                            
-  */
+	 * Set up registers for signal handler.
+	 * All edited pointers are subject to NEFF.
+	 */
 	regs->regs[REG_SP] = neff_sign_extend((unsigned long)frame);
-	regs->regs[REG_ARG1] = signal; /*                        */
+	regs->regs[REG_ARG1] = signal; /* Arg for signal handler */
 
-        /*       
-                                                                               
-                                                                          
-                                                                        
-                                                                            
-                                                                              
-                                              
+        /* FIXME:
+           The glibc profiling support for SH-5 needs to be passed a sigcontext
+           so it can retrieve the PC.  At some point during 2003 the glibc
+           support was changed to receive the sigcontext through the 2nd
+           argument, but there are still versions of libc.so in use that use
+           the 3rd argument.  Until libc.so is stabilised, pass the sigcontext
+           through both 2nd and 3rd arguments.
         */
 
 	regs->regs[REG_ARG2] = (unsigned long long)(unsigned long)(signed long)&frame->sc;
@@ -598,7 +598,7 @@ static int setup_frame(int sig, struct k_sigaction *ka,
 
 	set_fs(USER_DS);
 
-	/*               */
+	/* Broken %016Lx */
 	pr_debug("SIG deliver (#%d,%s:%d): sp=%p pc=%08Lx%08Lx link=%08Lx%08Lx\n",
 		 signal, current->comm, current->pid, frame,
 		 regs->pc >> 32, regs->pc & 0xffffffff,
@@ -633,11 +633,11 @@ static int setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 	err |= __put_user(&frame->uc, &frame->puc);
 	err |= copy_siginfo_to_user(&frame->info, info);
 
-	/*                                  */
+	/* Give up earlier as i386, in case */
 	if (err)
 		goto give_sigsegv;
 
-	/*                       */
+	/* Create the ucontext.  */
 	err |= __put_user(0, &frame->uc.uc_flags);
 	err |= __put_user(0, &frame->uc.uc_link);
 	err |= __put_user((void *)current->sas_ss_sp,
@@ -649,30 +649,30 @@ static int setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 			        regs, set->sig[0]);
 	err |= __copy_to_user(&frame->uc.uc_sigmask, set, sizeof(*set));
 
-	/*                                  */
+	/* Give up earlier as i386, in case */
 	if (err)
 		goto give_sigsegv;
 
-	/*                                                          
-                           */
+	/* Set up to return from userspace.  If provided, use a stub
+	   already in userspace.  */
 	if (ka->sa.sa_flags & SA_RESTORER) {
 		/*
-                                                   
-   */
+		 * On SH5 all edited pointers are subject to NEFF
+		 */
 		DEREF_REG_PR = neff_sign_extend((unsigned long)
 			ka->sa.sa_restorer | 0x1);
 	} else {
 		/*
-                               
-                                                                      
-                                                             
-                                 
-                                                   
-                                                            
-                                              
-                                                      
-                            
-   */
+		 * Different approach on SH5.
+	         * . Endianness independent asm code gets placed in entry.S .
+		 *   This is limited to four ASM instructions corresponding
+		 *   to two long longs in size.
+		 * . err checking is done on the else branch only
+		 * . flush_icache_range() is called upon __put_user() only
+		 * . all edited pointers are subject to NEFF
+		 * . being code, linker turns ShMedia bit on, always
+		 *   dereference index -1.
+		 */
 		DEREF_REG_PR = neff_sign_extend((unsigned long)
 			frame->retcode | 0x01);
 
@@ -680,16 +680,16 @@ static int setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 			(void *)((unsigned long)sa_default_rt_restorer & (~1)), 16) != 0)
 			goto give_sigsegv;
 
-		/*                                         */
+		/* Cohere the trampoline with the I-cache. */
 		flush_icache_range(DEREF_REG_PR-1, DEREF_REG_PR-1+15);
 	}
 
 	/*
-                                        
-                                            
-  */
+	 * Set up registers for signal handler.
+	 * All edited pointers are subject to NEFF.
+	 */
 	regs->regs[REG_SP] = neff_sign_extend((unsigned long)frame);
-	regs->regs[REG_ARG1] = signal; /*                        */
+	regs->regs[REG_ARG1] = signal; /* Arg for signal handler */
 	regs->regs[REG_ARG2] = (unsigned long long)(unsigned long)(signed long)&frame->info;
 	regs->regs[REG_ARG3] = (unsigned long long)(unsigned long)(signed long)&frame->uc.uc_mcontext;
 	regs->pc = neff_sign_extend((unsigned long)ka->sa.sa_handler);
@@ -709,7 +709,7 @@ give_sigsegv:
 }
 
 /*
-                               
+ * OK, we're invoking a handler
  */
 static int
 handle_signal(unsigned long sig, siginfo_t *info, struct k_sigaction *ka,
@@ -717,7 +717,7 @@ handle_signal(unsigned long sig, siginfo_t *info, struct k_sigaction *ka,
 {
 	int ret;
 
-	/*                        */
+	/* Set up the stack frame */
 	if (ka->sa.sa_flags & SA_SIGINFO)
 		ret = setup_rt_frame(sig, ka, info, oldset, regs);
 	else

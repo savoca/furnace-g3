@@ -23,7 +23,7 @@
 #include "omap_voutlib.h"
 
 /*
-                                        
+ * Function for allocating video buffers
  */
 static int omap_vout_allocate_vrfb_buffers(struct omap_vout_device *vout,
 		unsigned int *count, int startindex)
@@ -58,7 +58,7 @@ static int omap_vout_allocate_vrfb_buffers(struct omap_vout_device *vout,
 }
 
 /*
-                                                                             
+ * Wakes up the application once the DMA transfer to VRFB space is completed.
  */
 static void omap_vout_vrfb_dma_tx_callback(int lch, u16 ch_status, void *data)
 {
@@ -69,7 +69,7 @@ static void omap_vout_vrfb_dma_tx_callback(int lch, u16 ch_status, void *data)
 }
 
 /*
-                    
+ * Free VRFB buffers
  */
 void omap_vout_free_vrfb_buffers(struct omap_vout_device *vout)
 {
@@ -108,8 +108,8 @@ int omap_vout_setup_vrfb_bufs(struct platform_device *pdev, int vid_num,
 		}
 	}
 
-	/*                            */
-	/*                              */
+	/* Calculate VRFB memory size */
+	/* allocate for worst case size */
 	image_width = VID_MAX_WIDTH / TILE_SIZE;
 	if (VID_MAX_WIDTH % TILE_SIZE)
 		image_width++;
@@ -124,8 +124,8 @@ int omap_vout_setup_vrfb_bufs(struct platform_device *pdev, int vid_num,
 	vout->smsshado_size = PAGE_ALIGN(image_width * image_height * 2 * 2);
 
 	/*
-                                                           
-  */
+	 * Request and Initialize DMA, for DMA based VRFB transfer
+	 */
 	vout->vrfb_dma_tx.dev_id = OMAP_DMA_NO_DEVICE;
 	vout->vrfb_dma_tx.dma_ch = -1;
 	vout->vrfb_dma_tx.req_status = DMA_CHAN_ALLOTED;
@@ -139,8 +139,8 @@ int omap_vout_setup_vrfb_bufs(struct platform_device *pdev, int vid_num,
 	}
 	init_waitqueue_head(&vout->vrfb_dma_tx.wait);
 
-	/*                                                     
-                           */
+	/* statically allocated the VRFB buffer is done through
+	   commands line aruments */
 	if (static_vrfb_allocation) {
 		if (omap_vout_allocate_vrfb_buffers(vout, &vrfb_num_bufs, -1)) {
 			ret =  -ENOMEM;
@@ -160,7 +160,7 @@ free_buffers:
 }
 
 /*
-                                                 
+ * Release the VRFB context once the module exits
  */
 void omap_vout_release_vrfb(struct omap_vout_device *vout)
 {
@@ -176,8 +176,8 @@ void omap_vout_release_vrfb(struct omap_vout_device *vout)
 }
 
 /*
-                                                                     
-                                                    
+ * Allocate the buffers for the VRFB space.  Data is copied from V4L2
+ * buffers to the VRFB buffers using the DMA engine.
  */
 int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
 			  unsigned int *count, unsigned int startindex)
@@ -188,12 +188,12 @@ int omap_vout_vrfb_buffer_setup(struct omap_vout_device *vout,
 	if (!is_rotation_enabled(vout))
 		return 0;
 
-	/*                                                             */
+	/* If rotation is enabled, allocate memory for VRFB space also */
 	*count = *count > VRFB_NUM_BUFS ? VRFB_NUM_BUFS : *count;
 
-	/*                                                      
-                               
-  */
+	/* Allocate the VRFB buffers only if the buffers are not
+	 * allocated during init time.
+	 */
 	if (!vout->vrfb_static_allocation)
 		if (omap_vout_allocate_vrfb_buffers(vout, count, startindex))
 			return -ENOMEM;
@@ -226,25 +226,25 @@ int omap_vout_prepare_vrfb(struct omap_vout_device *vout,
 		return 0;
 
 	dmabuf = vout->buf_phy_addr[vb->i];
-	/*                                                    
-                                                       
-                                                        
-                                             
-  */
+	/* If rotation is enabled, copy input buffer into VRFB
+	 * memory space using DMA. We are copying input buffer
+	 * into VRFB memory space of desired angle and DSS will
+	 * read image VRFB memory for 0 degree angle
+	 */
 	pixsize = vout->bpp * vout->vrfb_bpp;
 	/*
-                                     
-  */
+	 * DMA transfer in double index mode
+	 */
 
-	/*             */
+	/* Frame index */
 	dest_frame_index = ((MAX_PIXELS_PER_LINE * pixsize) -
 			(vout->pix.width * vout->bpp)) + 1;
 
-	/*                                   */
+	/* Source and destination parameters */
 	src_element_index = 0;
 	src_frame_index = 0;
 	dest_element_index = 1;
-	/*                              */
+	/* Number of elements per frame */
 	elem_count = vout->pix.width * vout->bpp;
 	frame_count = vout->pix.height;
 	tx = &vout->vrfb_dma_tx;
@@ -252,18 +252,18 @@ int omap_vout_prepare_vrfb(struct omap_vout_device *vout,
 	omap_set_dma_transfer_params(tx->dma_ch, OMAP_DMA_DATA_TYPE_S32,
 			(elem_count / 4), frame_count, OMAP_DMA_SYNC_ELEMENT,
 			tx->dev_id, 0x0);
-	/*                                  */
+	/* src_port required only for OMAP1 */
 	omap_set_dma_src_params(tx->dma_ch, 0, OMAP_DMA_AMODE_POST_INC,
 			dmabuf, src_element_index, src_frame_index);
-	/*                                   */
+	/*set dma source burst mode for VRFB */
 	omap_set_dma_src_burst_mode(tx->dma_ch, OMAP_DMA_DATA_BURST_16);
 	rotation = calc_rotation(vout);
 
-	/*                                   */
+	/* dest_port required only for OMAP1 */
 	omap_set_dma_dest_params(tx->dma_ch, 0, OMAP_DMA_AMODE_DOUBLE_IDX,
 			vout->vrfb_context[vb->i].paddr[0], dest_element_index,
 			dest_frame_index);
-	/*                                 */
+	/*set dma dest burst mode for VRFB */
 	omap_set_dma_dest_burst_mode(tx->dma_ch, OMAP_DMA_DATA_BURST_16);
 	omap_dma_set_global_params(DMA_DEFAULT_ARB_RATE, 0x20, 0);
 
@@ -274,17 +274,17 @@ int omap_vout_prepare_vrfb(struct omap_vout_device *vout,
 		omap_stop_dma(tx->dma_ch);
 		return -EINVAL;
 	}
-	/*                                                        
-                                                  */
+	/* Store buffers physical address into an array. Addresses
+	 * from this array will be used to configure DSS */
 	vout->queued_buf_addr[vb->i] = (u8 *)
 		vout->vrfb_context[vb->i].paddr[rotation];
 	return 0;
 }
 
 /*
-                                                               
-                                                               
-                                              
+ * Calculate the buffer offsets from which the streaming should
+ * start. This offset calculation is mainly required because of
+ * the VRFB 32 pixels alignment with rotation.
  */
 void omap_vout_calculate_vrfb_offset(struct omap_vout_device *vout)
 {
@@ -302,15 +302,15 @@ void omap_vout_calculate_vrfb_offset(struct omap_vout_device *vout)
 			V4L2_PIX_FMT_UYVY == pix->pixelformat) {
 		if (is_rotation_enabled(vout)) {
 			/*
-                                                 
-                                       
-                                                   
-                     
-    */
+			 * ps    - Actual pixel size for YUYV/UYVY for
+			 *         VRFB/Mirroring is 4 bytes
+			 * vr_ps - Virtually pixel size for YUYV/UYVY is
+			 *         2 bytes
+			 */
 			ps = 4;
 			vr_ps = 2;
 		} else {
-			ps = 2;	/*                                    */
+			ps = 2;	/* otherwise the pixel size is 2 byte */
 		}
 	} else if (V4L2_PIX_FMT_RGB32 == pix->pixelformat) {
 		ps = 4;

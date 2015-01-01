@@ -1,11 +1,11 @@
 /*
-                    
-    
+ *  snfc_intu_poll.c
+ *  
  */
 
 /*
-                        
-    
+ *  Include header files
+ *  
  */
 #include "snfc_intu_poll.h"
 #include <linux/delay.h>
@@ -18,25 +18,25 @@
 #include <linux/gpio.h>
 
 /*
-           
+ *  Defines
  */
 extern struct snfc_gp snfc_gpios;
  /*
-                          
+  *    Internal definition
   */
-//                                        
-static int isopen_snfcintu = 0; //                     
-//                            
+//static struct wake_lock snfc_intu_lock; 
+static int isopen_snfcintu = 0; // 0 : No open 1 : Open
+//static int suspend_flag = 0;
 wait_queue_head_t intuwq;
 int intu_sig;
 /*
-                         
+ *    Function definition
  */
 
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 
 static irqreturn_t snfc_int_low_isr(int irq, void *dev_id)
@@ -45,7 +45,7 @@ static irqreturn_t snfc_int_low_isr(int irq, void *dev_id)
 	disable_irq_nosync(gpio_to_irq(snfc_gpios.gpio_intu));
 	disable_irq_wake(gpio_to_irq(snfc_gpios.gpio_intu));  
 
-	/*                         */
+	/* Wake up waiting readers */
 	if(snfc_gpio_read(snfc_gpios.gpio_intu) != 1)
 	{
 		wake_up(&intuwq);
@@ -68,27 +68,27 @@ static int snfc_intu_poll_open (struct inode *inode, struct file *fp)
 }
 
 /*
-                                                                         
-          
-                                                                               
+ * Description: Notify a change in the device status. A blocking function
+ * Input: 
+ * Output: Intu changed form low to high - 1, Intu changed from high to low - 0
  */
 static ssize_t snfc_intu_read(struct file *pf, char *pbuf, size_t size, loff_t *pos)
 {
 	int rc = 0;
 	int current_intu_status = GPIO_LOW_VALUE;
-	//                                     
+	//int new_intu_status = GPIO_LOW_VALUE;
 	int return_val;
 
 	SNFC_DEBUG_MSG_LOW("[snfc_intu_poll] snfc_intu_read - start \n");
 
-	/*                 */
-	if(pf == NULL || pbuf == NULL || size == !1 /*              */) //                                               
+	/* Parameters check*/
+	if(pf == NULL || pbuf == NULL || size == !1 /*|| pos == NULL*/) //need to know meaning of pos, size is fixed to 1
 	{
 		SNFC_DEBUG_MSG("[snfc_intu_poll] ERROR pf = %p , buf = %p, size = %d, pos = %d\n",pf,pbuf,(int)size,(int)pos);
 		return -1;    
 	}
 
-	/*                 */
+	/* Get intu status */
 	current_intu_status = snfc_gpio_read(snfc_gpios.gpio_intu);
 	SNFC_DEBUG_MSG_LOW("[snfc_intu_poll] current intu value is %d\n",current_intu_status);
 
@@ -112,7 +112,7 @@ static ssize_t snfc_intu_read(struct file *pf, char *pbuf, size_t size, loff_t *
 	
 	SNFC_DEBUG_MSG_LOW("snfc_intu_poll] wait_event_interruptible(),rc =%d !!!\n",rc);
 
-	//                                                     
+	//current_intu_status = snfc_gpio_read(GPIO_SNFC_INTU);
 
 	rc = copy_to_user((void*)pbuf, (void*)&return_val, size);
 	if(rc)
@@ -127,9 +127,9 @@ static ssize_t snfc_intu_read(struct file *pf, char *pbuf, size_t size, loff_t *
 }
 
 /*
-                                 
-          
-           
+ * Description: snfc intu release
+ * Input: 
+ * Output: 
  */
 static int snfc_intu_release (struct inode *inode, struct file *fp)
 {
@@ -166,7 +166,7 @@ static struct miscdevice snfc_intu_device = {
 int snfc_intu_probe(struct device_node *np)
 {
     int rc;
-	/*                          */
+	/* register the device file */
 	rc = misc_register(&snfc_intu_device);
 	if (rc < 0)
 	{
@@ -190,7 +190,7 @@ int snfc_intu_probe(struct device_node *np)
 		return rc;
 	}
 
-//                                                       
+//	disable_irq_nosync(gpio_to_irq(snfc_gpios.gpio_intu));
 
        irq_set_irq_wake(gpio_to_irq(snfc_gpios.gpio_intu),1);
 
@@ -211,7 +211,7 @@ int snfc_intu_probe(struct device_node *np)
 
 void snfc_intu_remove(void)
 {
-	/*                            */
+	/* deregister the device file */
 	misc_deregister(&snfc_intu_device);    
 }
 

@@ -138,7 +138,7 @@ static pid_t perf_event__synthesize_comm(struct perf_tool *tool,
 		if (*end)
 			continue;
 
-		/*                                                */
+		/* already have tgid; jut want to update the comm */
 		(void) perf_event__get_comm_tgid(pid, event->comm.comm,
 					 sizeof(event->comm.comm));
 
@@ -173,16 +173,16 @@ static int perf_event__synthesize_mmap_events(struct perf_tool *tool,
 	fp = fopen(filename, "r");
 	if (fp == NULL) {
 		/*
-                                                
-   */
+		 * We raced with a task exiting - just return:
+		 */
 		pr_debug("couldn't open %s\n", filename);
 		return -1;
 	}
 
 	event->header.type = PERF_RECORD_MMAP;
 	/*
-                                                                      
-  */
+	 * Just like the kernel, see __perf_event_mmap in kernel/perf_event.c
+	 */
 	event->header.misc = PERF_RECORD_MISC_USER;
 
 	while (1) {
@@ -192,7 +192,7 @@ static int perf_event__synthesize_mmap_events(struct perf_tool *tool,
 		if (fgets(bf, sizeof(bf), fp) == NULL)
 			break;
 
-		/*                                                       */
+		/* 00400000-0040c000 r-xp 00000000 fd:01 41038  /bin/cat */
 		n = hex2u64(pbf, &event->mmap.start);
 		if (n < 0)
 			continue;
@@ -201,15 +201,15 @@ static int perf_event__synthesize_mmap_events(struct perf_tool *tool,
 		if (n < 0)
 			continue;
 		pbf += n + 3;
-		if (*pbf == 'x') { /*         */
+		if (*pbf == 'x') { /* vm_exec */
 			char anonstr[] = "//anon\n";
 			char *execname = strchr(bf, '/');
 
-			/*            */
+			/* Catch VDSO */
 			if (execname == NULL)
 				execname = strstr(bf, "[vdso]");
 
-			/*                       */
+			/* Catch anonymous mmaps */
 			if ((execname == NULL) && !strstr(bf, "["))
 				execname = anonstr;
 
@@ -220,7 +220,7 @@ static int perf_event__synthesize_mmap_events(struct perf_tool *tool,
 			n = hex2u64(pbf, &event->mmap.pgoff);
 
 			size = strlen(execname);
-			execname[size - 1] = '\0'; /*           */
+			execname[size - 1] = '\0'; /* Remove \n */
 			memcpy(event->mmap.filename, execname, size);
 			size = ALIGN(size, sizeof(u64));
 			event->mmap.len -= event->mmap.start;
@@ -256,9 +256,9 @@ int perf_event__synthesize_modules(struct perf_tool *tool,
 	event->header.type = PERF_RECORD_MMAP;
 
 	/*
-                                                              
-                     
-  */
+	 * kernel uses 0 for user space maps, see kernel/perf_event.c
+	 * __perf_event_mmap
+	 */
 	if (machine__is_host(machine))
 		event->header.misc = PERF_RECORD_MISC_KERNEL;
 	else
@@ -332,13 +332,13 @@ int perf_event__synthesize_thread_map(struct perf_tool *tool,
 		}
 
 		/*
-                                          
-                                
-   */
+		 * comm.pid is set to thread group id by
+		 * perf_event__synthesize_comm
+		 */
 		if ((int) comm_event->comm.pid != threads->map[thread]) {
 			bool need_leader = true;
 
-			/*                                       */
+			/* is thread group leader in thread_map? */
 			for (j = 0; j < threads->nr; ++j) {
 				if ((int) comm_event->comm.pid == threads->map[j]) {
 					need_leader = false;
@@ -346,7 +346,7 @@ int perf_event__synthesize_thread_map(struct perf_tool *tool,
 				}
 			}
 
-			/*                                */
+			/* if not, generate events for it */
 			if (need_leader &&
 			    __event__synthesize_thread(comm_event,
 						      mmap_event,
@@ -389,7 +389,7 @@ int perf_event__synthesize_threads(struct perf_tool *tool,
 		char *end;
 		pid_t pid = strtol(dirent.d_name, &end, 10);
 
-		if (*end) /*                                             */
+		if (*end) /* only interested in proper numerical dirents */
 			continue;
 
 		__event__synthesize_thread(comm_event, mmap_event, pid, 1,
@@ -417,9 +417,9 @@ static int find_symbol_cb(void *arg, const char *name, char type,
 	struct process_symbol_args *args = arg;
 
 	/*
-                                                                             
-                                           
-  */
+	 * Must be a function or at least an alias, as in PARISC64, where "_text" is
+	 * an 'A' to the same address as "_stext".
+	 */
 	if (!(symbol_type__is_a(type, MAP__FUNCTION) ||
 	      type == 'A') || strcmp(name, args->name))
 		return 0;
@@ -440,10 +440,10 @@ int perf_event__synthesize_kernel_mmap(struct perf_tool *tool,
 	struct map *map;
 	int err;
 	/*
-                                                                        
-                                                                        
-            
-  */
+	 * We should get this from /sys/kernel/sections/.text, but till that is
+	 * available use this, and after it is use this as a fallback for older
+	 * kernels.
+	 */
 	struct process_symbol_args args = { .name = symbol_name, };
 	union perf_event *event = zalloc((sizeof(event->mmap) +
 					  machine->id_hdr_size));
@@ -456,9 +456,9 @@ int perf_event__synthesize_kernel_mmap(struct perf_tool *tool,
 	mmap_name = machine__mmap_name(machine, name_buff, sizeof(name_buff));
 	if (machine__is_host(machine)) {
 		/*
-                                                           
-                                              
-   */
+		 * kernel uses PERF_RECORD_MISC_USER for user space maps,
+		 * see kernel/perf_event.c __perf_event_mmap
+		 */
 		event->header.misc = PERF_RECORD_MISC_KERNEL;
 		filename = "/proc/kallsyms";
 	} else {
@@ -531,9 +531,9 @@ static void perf_event__set_kernel_mmap_len(union perf_event *event,
 	maps[MAP__FUNCTION]->start = event->mmap.start;
 	maps[MAP__FUNCTION]->end   = event->mmap.start + event->mmap.len;
 	/*
-                                                         
-                                                       
-  */
+	 * Be a bit paranoid here, some perf.data file came with
+	 * a zero sized synthesized MMAP event for the kernel.
+	 */
 	if (maps[MAP__FUNCTION]->end == 0)
 		maps[MAP__FUNCTION]->end = ~0ULL;
 }
@@ -567,7 +567,7 @@ static int perf_event__process_kernel_mmap(struct perf_tool *tool __used,
 			if (name == NULL)
 				goto out_problem;
 
-			++name; /*        */
+			++name; /* skip / */
 			dot = strrchr(name, '.');
 			if (dot == NULL)
 				goto out_problem;
@@ -593,9 +593,9 @@ static int perf_event__process_kernel_mmap(struct perf_tool *tool __used,
 		const char *symbol_name = (event->mmap.filename +
 				strlen(kmmap_prefix));
 		/*
-                                                        
-                
-   */
+		 * Should be there already, from the build-id table in
+		 * the header.
+		 */
 		struct dso *kernel = __dsos__findnew(&machine->kernel_dsos,
 						     kmmap_prefix);
 		if (kernel == NULL)
@@ -608,10 +608,10 @@ static int perf_event__process_kernel_mmap(struct perf_tool *tool __used,
 		perf_event__set_kernel_mmap_len(event, machine->vmlinux_maps);
 
 		/*
-                                                                 
-                                                              
-                                                      
-   */
+		 * Avoid using a zero address (kptr_restrict) for the ref reloc
+		 * symbol. Effectively having zero here means that at record
+		 * time /proc/sys/kernel/kptr_restrict was non zero.
+		 */
 		if (event->mmap.pgoff != 0) {
 			maps__set_kallsyms_ref_reloc_sym(machine->vmlinux_maps,
 							 symbol_name,
@@ -620,8 +620,8 @@ static int perf_event__process_kernel_mmap(struct perf_tool *tool __used,
 
 		if (machine__is_default_guest(machine)) {
 			/*
-                                             
-    */
+			 * preload dso of guest kernel and modules
+			 */
 			dso__load(kernel, machine->vmlinux_maps[MAP__FUNCTION],
 				  NULL);
 		}
@@ -782,9 +782,9 @@ void thread__find_addr_map(struct thread *self,
 		mg = &machine->kmaps;
 	} else {
 		/*
-                                   
-                                                                 
-   */
+		 * 'u' means guest os user space.
+		 * TODO: We don't support guest user space. Might support late.
+		 */
 		if (cpumode == PERF_RECORD_MISC_GUEST_USER && perf_guest)
 			al->level = 'u';
 		else
@@ -806,14 +806,14 @@ try_again:
 	al->map = map_groups__find(mg, type, al->addr);
 	if (al->map == NULL) {
 		/*
-                                                            
-                                                                 
-                                                      
-    
-                                                           
-                                                                
-                                     
-   */
+		 * If this is outside of all known maps, and is a negative
+		 * address, try to look it up in the kernel dso, as it might be
+		 * a vsyscall or vdso (which executes in user-mode).
+		 *
+		 * XXX This is nasty, we should have a symbol list in the
+		 * "[vdso]" dso, but for now lets use the old trick of looking
+		 * in the whole kernel symbol list.
+		 */
 		if ((long long)al->addr < 0 &&
 		    cpumode == PERF_RECORD_MISC_USER &&
 		    machine && mg != &machine->kmaps) {
@@ -854,12 +854,12 @@ int perf_event__preprocess_sample(const union perf_event *event,
 
 	dump_printf(" ... thread: %s:%d\n", thread->comm, thread->pid);
 	/*
-                                                             
-   
-                                                                        
-                                                                        
-           
-  */
+	 * Have we already created the kernel maps for this machine?
+	 *
+	 * This should have happened earlier, when we processed the kernel MMAP
+	 * events, but for older perf.data files there was no such thing, so do
+	 * it now.
+	 */
 	if (cpumode == PERF_RECORD_MISC_KERNEL &&
 	    machine->vmlinux_maps[MAP__FUNCTION] == NULL)
 		machine__create_kernel_maps(machine);

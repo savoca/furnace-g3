@@ -89,8 +89,8 @@ extern int iscsi_allocate_thread_sets(u32 thread_pair_count)
 			return allocated_thread_pair_count;
 		}
 		/*
-                                                                
-   */
+		 * Locate the next available regision in the thread_set_bitmap
+		 */
 		spin_lock(&ts_bitmap_lock);
 		thread_id = bitmap_find_free_region(iscsit_global->ts_bitmap,
 				iscsit_global->ts_bitmap_count, get_order(1));
@@ -160,8 +160,8 @@ extern void iscsi_deallocate_thread_sets(void)
 			kthread_stop(ts->tx_thread);
 		}
 		/*
-                                                    
-   */
+		 * Release this thread_id in the thread_set_bitmap
+		 */
 		spin_lock(&ts_bitmap_lock);
 		bitmap_release_region(iscsit_global->ts_bitmap,
 				ts->thread_id, get_order(1));
@@ -201,8 +201,8 @@ static void iscsi_deallocate_extra_thread_sets(void)
 			kthread_stop(ts->tx_thread);
 		}
 		/*
-                                                    
-   */
+		 * Release this thread_id in the thread_set_bitmap
+		 */
 		spin_lock(&ts_bitmap_lock);
 		bitmap_release_region(iscsit_global->ts_bitmap,
 				ts->thread_id, get_order(1));
@@ -227,10 +227,10 @@ void iscsi_activate_thread_set(struct iscsi_conn *conn, struct iscsi_thread_set 
 	ts->conn = conn;
 	spin_unlock_bh(&ts->ts_state_lock);
 	/*
-                                                                  
-                                                     
-                                  
-  */
+	 * Start up the RX thread and wait on rx_post_start_comp.  The RX
+	 * Thread will then do the same for the TX Thread in
+	 * iscsi_rx_thread_pre_handler().
+	 */
 	complete(&ts->rx_start_comp);
 	wait_for_completion(&ts->rx_post_start_comp);
 }
@@ -241,11 +241,11 @@ struct iscsi_thread_set *iscsi_get_thread_set(void)
 	struct completion comp;
 	struct iscsi_thread_set *ts = NULL;
 	/*
-                                                               
-                                                             
-                                                               
-                             
-  */
+	 * If no inactive thread set is available on the first call to
+	 * iscsi_get_ts_from_inactive_list(), sleep for a second and
+	 * try again.  If still none are available after two attempts,
+	 * allocate a set ourselves.
+	 */
 get_set:
 	ts = iscsi_get_ts_from_inactive_list();
 	if (!ts) {
@@ -454,8 +454,8 @@ sleep:
 	}
 	iscsi_check_to_add_additional_sets();
 	/*
-                                                     
-  */
+	 * The RX Thread starts up the TX Thread and sleeps.
+	 */
 	ts->thread_clear |= ISCSI_CLEAR_RX_THREAD;
 	complete(&ts->tx_start_comp);
 	wait_for_completion(&ts->tx_post_start_comp);
@@ -508,10 +508,10 @@ sleep:
 
 	iscsi_check_to_add_additional_sets();
 	/*
-                                                                       
-                                                             
-                                                                       
-  */
+	 * From the TX thread, up the tx_post_start_comp that the RX Thread is
+	 * sleeping on in iscsi_rx_thread_pre_handler(), then up the
+	 * rx_post_start_comp that iscsi_activate_thread_set() is sleeping on.
+	 */
 	ts->thread_clear |= ISCSI_CLEAR_TX_THREAD;
 	complete(&ts->tx_post_start_comp);
 	complete(&ts->rx_post_start_comp);

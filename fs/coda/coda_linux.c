@@ -1,10 +1,10 @@
 /*
-                                       
-                                                      
-                                                               
-   
-                                                                 
-                                                           
+ * Inode operations for Coda filesystem
+ * Original version: (C) 1996 P. Braam and M. Callahan
+ * Rewritten for Linux 2.1. (C) 1997 Carnegie Mellon University
+ * 
+ * Carnegie Mellon encourages users to contribute improvements to
+ * the Coda project. Contact Peter Braam (coda@cs.cmu.edu).
  */
 
 #include <linux/types.h>
@@ -20,10 +20,10 @@
 #include <linux/coda_psdev.h>
 #include "coda_linux.h"
 
-/*                                    */
+/* initialize the debugging variables */
 int coda_fake_statfs;
 
-/*             */
+/* print a fid */
 char * coda_f2s(struct CodaFid *f)
 {
 	static char s[60];
@@ -33,14 +33,14 @@ char * coda_f2s(struct CodaFid *f)
 	return s;
 }
 
-/*                                 */
+/* recognize special .CONTROL name */
 int coda_iscontrol(const char *name, size_t length)
 {
 	return ((CODA_CONTROLLEN == length) && 
                 (strncmp(name, CODA_CONTROL, CODA_CONTROLLEN) == 0));
 }
 
-/*                       */
+/* recognize /coda inode */
 int coda_isroot(struct inode *i)
 {
     return ( i->i_sb->s_root->d_inode == i );
@@ -72,12 +72,12 @@ unsigned short coda_flags_to_cflags(unsigned short flags)
 }
 
 
-/*                         */
+/* utility functions below */
 void coda_vattr_to_iattr(struct inode *inode, struct coda_vattr *attr)
 {
         int inode_type;
-        /*                                        
-                                      
+        /* inode's i_flags, i_ino are set by iget 
+           XXX: is this all we need ??
            */
         switch (attr->va_type) {
         case C_VNON:
@@ -130,7 +130,7 @@ void coda_iattr_to_vattr(struct iattr *iattr, struct coda_vattr *vattr)
 {
         unsigned int valid;
 
-        /*           */        
+        /* clean out */        
 	vattr->va_mode = -1;
         vattr->va_uid = (vuid_t) -1; 
         vattr->va_gid = (vgid_t) -1;
@@ -150,7 +150,7 @@ void coda_iattr_to_vattr(struct iattr *iattr, struct coda_vattr *vattr)
 	vattr->va_rdev = -1;
         vattr->va_flags = 0;
 
-        /*                    */
+        /* determine the type */
 #if 0
         mode = iattr->ia_mode;
                 if ( S_ISDIR(mode) ) {
@@ -160,12 +160,12 @@ void coda_iattr_to_vattr(struct iattr *iattr, struct coda_vattr *vattr)
         } else if ( S_ISLNK(mode) ) {
                 vattr->va_type = C_VLNK;
         } else {
-                /*                 */
+                /* don't do others */
                 vattr->va_type = C_VNON;
         }
 #endif 
 
-        /*                                   */
+        /* set those vattrs that need change */
         valid = iattr->ia_valid;
         if ( valid & ATTR_MODE ) {
                 vattr->va_mode = iattr->ia_mode;

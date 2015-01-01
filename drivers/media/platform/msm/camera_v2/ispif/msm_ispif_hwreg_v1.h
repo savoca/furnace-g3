@@ -13,7 +13,7 @@
 #ifndef __MSM_ISPIF_HWREG_V1_H__
 #define __MSM_ISPIF_HWREG_V1_H__
 
-/*                  */
+/* common registers */
 #define ISPIF_RST_CMD_ADDR                       0x0000
 #define ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR          0x0124
 #define PIX0_LINE_BUF_EN_BIT                     0
@@ -41,7 +41,7 @@
 #define ISPIF_VFE_m_PIX_INTF_n_STATUS(m, n)      (0x0024 + ISPIF_VFE(m) + 4*(n))
 #define ISPIF_VFE_m_RDI_INTF_n_STATUS(m, n)      (0x0028 + ISPIF_VFE(m) + 4*(n))
 
-/*                                                     */
+/* Defines for compatibility with newer ISPIF versions */
 #define ISPIF_RST_CMD_1_ADDR                     (0x0000)
 #define ISPIF_VFE_m_PIX_INTF_n_CROP(m, n)        (0x0000 + ISPIF_VFE(m) + 4*(n))
 #define ISPIF_VFE_m_3D_THRESHOLD(m)              (0x0000 + ISPIF_VFE(m))
@@ -50,10 +50,10 @@
 
 
 
-/*                            */
+/* CSID CLK MUX SEL REGISTERS */
 #define ISPIF_RDI_CLK_MUX_SEL_ADDR              0x8
 
-/*                */
+/*ISPIF RESET BITS*/
 #define VFE_CLK_DOMAIN_RST                 BIT(31)
 #define RDI_CLK_DOMAIN_RST                 BIT(30)
 #define PIX_CLK_DOMAIN_RST                 BIT(29)
@@ -80,16 +80,16 @@
 #define STROBED_RST_EN                     BIT(0)
 
 #define ISPIF_RST_CMD_MASK              0xFE1C77FF
-#define ISPIF_RST_CMD_1_MASK            0xFFFFFFFF /*           */
+#define ISPIF_RST_CMD_1_MASK            0xFFFFFFFF /* undefined */
 
-/*            */
+/* irq_mask_0 */
 #define PIX_INTF_0_OVERFLOW_IRQ            BIT(12)
 #define RAW_INTF_0_OVERFLOW_IRQ            BIT(25)
 #define RESET_DONE_IRQ                     BIT(27)
-/*            */
+/* irq_mask_1 */
 #define PIX_INTF_1_OVERFLOW_IRQ            BIT(12)
 #define RAW_INTF_1_OVERFLOW_IRQ            BIT(25)
-/*            */
+/* irq_mask_2 */
 #define RAW_INTF_2_OVERFLOW_IRQ            BIT(12)
 
 #define ISPIF_IRQ_STATUS_MASK           0x0A493249
@@ -104,4 +104,4 @@
 #define ISPIF_IRQ_GLOBAL_CLEAR_CMD        0x000001
 
 #define ISPIF_STOP_INTF_IMMEDIATELY              0xAAAAAAAA
-#endif /*                          */
+#endif /* __MSM_ISPIF_HWREG_V1_H__ */

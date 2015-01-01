@@ -18,7 +18,7 @@
 #include <linux/elfcore.h>
 
 /*
-                                                    
+ * fill in the user structure for an a.out core dump
  */
 static inline void aout_dump_thread(struct pt_regs *regs, struct user *dump)
 {
@@ -41,5 +41,5 @@ static inline void aout_dump_thread(struct pt_regs *regs, struct user *dump)
 	dump->u_fpvalid = dump_fpu (regs, &dump->u_fp);
 }
 
-#endif /*            */
-#endif /*                   */
+#endif /* __KERNEL__ */
+#endif /* _ASM_A_OUT_CORE_H */

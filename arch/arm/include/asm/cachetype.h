@@ -20,10 +20,10 @@ extern unsigned int cacheid;
 #define icache_is_pipt()		cacheid_is(CACHEID_PIPT)
 
 /*
-                                                               
-                                                              
-                      
-                                     
+ * __LINUX_ARM_ARCH__ is the minimum supported CPU architecture
+ * Mask out support which will never be present on newer CPUs.
+ * - v6+ is never VIVT
+ * - v7+ VIPT never aliases on D-side
  */
 #if __LINUX_ARM_ARCH__ >= 7
 #define __CACHEID_ARCH_MIN	(CACHEID_VIPT_NONALIASING |\
@@ -37,7 +37,7 @@ extern unsigned int cacheid;
 #endif
 
 /*
-                                          
+ * Mask out support which isn't configured
  */
 #if defined(CONFIG_CPU_CACHE_VIVT) && !defined(CONFIG_CPU_CACHE_VIPT)
 #define __CACHEID_ALWAYS	(CACHEID_VIVT)

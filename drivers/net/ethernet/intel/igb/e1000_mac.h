@@ -35,8 +35,8 @@
 #include "e1000_defines.h"
 
 /*
-                                                                            
-                                       
+ * Functions that should not be called directly from drivers but can be used
+ * by other files in this 'shared code'
  */
 s32  igb_blink_led(struct e1000_hw *hw);
 s32  igb_check_for_copper_link(struct e1000_hw *hw);

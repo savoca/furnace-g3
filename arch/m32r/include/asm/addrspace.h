@@ -11,7 +11,7 @@
 #define __ASM_M32R_ADDRSPACE_H
 
 /*
-                                                
+ * Memory segments (32bit kernel mode addresses)
  */
 #define KUSEG                   0x00000000
 #define KSEG0                   0x80000000
@@ -22,7 +22,7 @@
 #define K0BASE  KSEG0
 
 /*
-                                                     
+ * Returns the kernel segment base of a given address
  */
 #ifndef __ASSEMBLY__
 #define KSEGX(a)                (((unsigned long)(a)) & 0xe0000000)
@@ -31,7 +31,7 @@
 #endif
 
 /*
-                                                        
+ * Returns the physical address of a KSEG0/KSEG1 address
  */
 #ifndef __ASSEMBLY__
 #define PHYSADDR(a)		(((unsigned long)(a)) & 0x1fffffff)
@@ -40,7 +40,7 @@
 #endif
 
 /*
-                                             
+ * Map an address to a certain kernel segment
  */
 #ifndef __ASSEMBLY__
 #define KSEG0ADDR(a)		((__typeof__(a))(((unsigned long)(a) & 0x1fffffff) | KSEG0))
@@ -54,4 +54,4 @@
 #define KSEG3ADDR(a)		(((a) & 0x1fffffff) | KSEG3)
 #endif
 
-#endif /*                        */
+#endif /* __ASM_M32R_ADDRSPACE_H */

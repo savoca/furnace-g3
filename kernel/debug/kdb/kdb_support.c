@@ -28,14 +28,14 @@
 #include "kdb_private.h"
 
 /*
-                                                         
-  
-              
-                                                  
-                                            
-           
-                                         
-                                                           
+ * kdbgetsymval - Return the address of the given symbol.
+ *
+ * Parameters:
+ *	symname	Character string containing symbol name
+ *      symtab  Structure to receive results
+ * Returns:
+ *	0	Symbol not found, symtab zero filled
+ *	1	Symbol mapped to module/symbol/section, data in symtab
  */
 int kdbgetsymval(const char *symname, kdb_symtab_t *symtab)
 {
@@ -57,34 +57,34 @@ int kdbgetsymval(const char *symname, kdb_symtab_t *symtab)
 }
 EXPORT_SYMBOL(kdbgetsymval);
 
-static char *kdb_name_table[100];	/*                */
+static char *kdb_name_table[100];	/* arbitrary size */
 
 /*
-                                                                      
-                    
-  
-              
-                                        
-                                       
-           
-                                                         
-                                                            
-           
-                                                                
-                                                                 
-                                                              
-                                                                 
-                                                                 
-                                                              
-                                                              
-                                                   
+ * kdbnearsym -	Return the name of the symbol with the nearest address
+ *	less than 'addr'.
+ *
+ * Parameters:
+ *	addr	Address to check for symbol near
+ *	symtab  Structure to receive results
+ * Returns:
+ *	0	No sections contain this address, symtab zero filled
+ *	1	Address mapped to module/symbol/section, data in symtab
+ * Remarks:
+ *	2.6 kallsyms has a "feature" where it unpacks the name into a
+ *	string.  If that string is reused before the caller expects it
+ *	then the caller sees its string change without warning.  To
+ *	avoid cluttering up the main kdb code with lots of kdb_strdup,
+ *	tests and kfree calls, kdbnearsym maintains an LRU list of the
+ *	last few unique strings.  The list is sized large enough to
+ *	hold active strings, no kdb caller of kdbnearsym makes more
+ *	than ~20 later calls before using a saved value.
  */
 int kdbnearsym(unsigned long addr, kdb_symtab_t *symtab)
 {
 	int ret = 0;
 	unsigned long symbolsize = 0;
 	unsigned long offset = 0;
-#define knt1_size 128		/*                                */
+#define knt1_size 128		/* must be >= kallsyms table size */
 	char *knt1 = NULL;
 
 	if (KDB_DEBUG(AR))
@@ -111,13 +111,13 @@ int kdbnearsym(unsigned long addr, kdb_symtab_t *symtab)
 
 	if (ret) {
 		int i;
-		/*                                                           
-                                                                
-                                                              
-                              
-    
-                                                    
-   */
+		/* Another 2.6 kallsyms "feature".  Sometimes the sym_name is
+		 * set but the buffer passed into kallsyms_lookup is not used,
+		 * so it contains garbage.  The caller has to work out which
+		 * buffer needs to be saved.
+		 *
+		 * What was Rusty smoking when he wrote that code?
+		 */
 		if (symtab->sym_name != knt1) {
 			strncpy(knt1, symtab->sym_name, knt1_size);
 			knt1[knt1_size-1] = '\0';
@@ -172,16 +172,16 @@ void kdbnearsym_cleanup(void)
 static char ks_namebuf[KSYM_NAME_LEN+1], ks_namebuf_prev[KSYM_NAME_LEN+1];
 
 /*
-                           
-  
-              
-                                                
-                                               
-           
-                                                  
-         
-                                                                   
-                                            
+ * kallsyms_symbol_complete
+ *
+ * Parameters:
+ *	prefix_name	prefix of a symbol name to lookup
+ *	max_len		maximum length that can be returned
+ * Returns:
+ *	Number of symbols which match the given prefix.
+ * Notes:
+ *	prefix_name is changed to contain the longest unique prefix that
+ *	starts with this prefix (tab completion).
  */
 int kallsyms_symbol_complete(char *prefix_name, int max_len)
 {
@@ -193,7 +193,7 @@ int kallsyms_symbol_complete(char *prefix_name, int max_len)
 	while ((name = kdb_walk_kallsyms(&pos))) {
 		if (strncmp(name, prefix_name, prefix_len) == 0) {
 			strcpy(ks_namebuf, name);
-			/*                                                   */
+			/* Work out the longest name that matches the prefix */
 			if (++number == 1) {
 				prev_len = min_t(int, max_len-1,
 						 strlen(ks_namebuf));
@@ -216,14 +216,14 @@ int kallsyms_symbol_complete(char *prefix_name, int max_len)
 }
 
 /*
-                       
-  
-              
-                                                
-                                                              
-           
-                                          
-                       
+ * kallsyms_symbol_next
+ *
+ * Parameters:
+ *	prefix_name	prefix of a symbol name to lookup
+ *	flag	0 means search from the head, 1 means continue search.
+ * Returns:
+ *	1 if a symbol matches the given prefix.
+ *	0 if no string found
  */
 int kallsyms_symbol_next(char *prefix_name, int flag)
 {
@@ -244,16 +244,16 @@ int kallsyms_symbol_next(char *prefix_name, int flag)
 }
 
 /*
-                                                                            
-          
-                              
-                                                               
-               
-                                          
-           
-                                                                
-                                                                
-                  
+ * kdb_symbol_print - Standard method for printing a symbol name and offset.
+ * Inputs:
+ *	addr	Address to be printed.
+ *	symtab	Address of symbol data, if NULL this routine does its
+ *		own lookup.
+ *	punc	Punctuation for string, bit field.
+ * Remarks:
+ *	The string and its punctuation is only printed if the address
+ *	is inside the kernel, except that the value is always printed
+ *	when requested.
  */
 void kdb_symbol_print(unsigned long addr, const kdb_symtab_t *symtab_p,
 		      unsigned int punc)
@@ -294,15 +294,15 @@ void kdb_symbol_print(unsigned long addr, const kdb_symtab_t *symtab_p,
 }
 
 /*
-                                                          
-          
-                               
-                                            
-           
-                                                                     
-           
-                                                                   
-                                                   
+ * kdb_strdup - kdb equivalent of strdup, for disasm code.
+ * Inputs:
+ *	str	The string to duplicate.
+ *	type	Flags to kmalloc for the new string.
+ * Returns:
+ *	Address of the new string, NULL if storage could not be allocated.
+ * Remarks:
+ *	This is not in lib/string.c because it uses kmalloc which is not
+ *	available when string.o is used in boot loaders.
  */
 char *kdb_strdup(const char *str, gfp_t type)
 {
@@ -314,14 +314,14 @@ char *kdb_strdup(const char *str, gfp_t type)
 }
 
 /*
-                                                                  
-                                                           
-          
-                                                 
-                                    
-                         
-           
-                                
+ * kdb_getarea_size - Read an area of data.  The kdb equivalent of
+ *	copy_from_user, with kdb messages for invalid addresses.
+ * Inputs:
+ *	res	Pointer to the area to receive the result.
+ *	addr	Address of the area to copy.
+ *	size	Size of the area.
+ * Returns:
+ *	0 for success, < 0 for error.
  */
 int kdb_getarea_size(void *res, unsigned long addr, size_t size)
 {
@@ -339,14 +339,14 @@ int kdb_getarea_size(void *res, unsigned long addr, size_t size)
 }
 
 /*
-                                                                   
-                                                         
-          
-                                        
-                                            
-                         
-           
-                                
+ * kdb_putarea_size - Write an area of data.  The kdb equivalent of
+ *	copy_to_user, with kdb messages for invalid addresses.
+ * Inputs:
+ *	addr	Address of the area to write to.
+ *	res	Pointer to the area holding the data.
+ *	size	Size of the area.
+ * Returns:
+ *	0 for success, < 0 for error.
  */
 int kdb_putarea_size(unsigned long addr, void *res, size_t size)
 {
@@ -364,15 +364,15 @@ int kdb_putarea_size(unsigned long addr, void *res, size_t size)
 }
 
 /*
-                                                                
-                                                      
-                                                     
-          
-                                                 
-                                             
-                         
-           
-                                
+ * kdb_getphys - Read data from a physical address. Validate the
+ * 	address is in range, use kmap_atomic() to get data
+ * 	similar to kdb_getarea() - but for phys addresses
+ * Inputs:
+ * 	res	Pointer to the word to receive the result
+ * 	addr	Physical address of the area to copy
+ * 	size	Size of the area
+ * Returns:
+ *	0 for success, < 0 for error.
  */
 static int kdb_getphys(void *res, unsigned long addr, size_t size)
 {
@@ -392,13 +392,13 @@ static int kdb_getphys(void *res, unsigned long addr, size_t size)
 }
 
 /*
-                  
-          
-                                                  
-                                    
-                         
-           
-                                
+ * kdb_getphysword
+ * Inputs:
+ *	word	Pointer to the word to receive the result.
+ *	addr	Address of the area to copy.
+ *	size	Size of the area.
+ * Returns:
+ *	0 for success, < 0 for error.
  */
 int kdb_getphysword(unsigned long *word, unsigned long addr, size_t size)
 {
@@ -407,7 +407,7 @@ int kdb_getphysword(unsigned long *word, unsigned long addr, size_t size)
 	__u16 w2;
 	__u32 w4;
 	__u64 w8;
-	*word = 0;	/*                                          */
+	*word = 0;	/* Default value if addr or size is invalid */
 
 	switch (size) {
 	case 1:
@@ -432,7 +432,7 @@ int kdb_getphysword(unsigned long *word, unsigned long addr, size_t size)
 				*word = w8;
 			break;
 		}
-		/*              */
+		/* drop through */
 	default:
 		diag = KDB_BADWIDTH;
 		kdb_printf("kdb_getphysword: bad width %ld\n", (long) size);
@@ -441,14 +441,14 @@ int kdb_getphysword(unsigned long *word, unsigned long addr, size_t size)
 }
 
 /*
-                                                                      
-                   
-          
-                                                  
-                                    
-                         
-           
-                                
+ * kdb_getword - Read a binary value.  Unlike kdb_getarea, this treats
+ *	data as numbers.
+ * Inputs:
+ *	word	Pointer to the word to receive the result.
+ *	addr	Address of the area to copy.
+ *	size	Size of the area.
+ * Returns:
+ *	0 for success, < 0 for error.
  */
 int kdb_getword(unsigned long *word, unsigned long addr, size_t size)
 {
@@ -457,7 +457,7 @@ int kdb_getword(unsigned long *word, unsigned long addr, size_t size)
 	__u16 w2;
 	__u32 w4;
 	__u64 w8;
-	*word = 0;	/*                                          */
+	*word = 0;	/* Default value if addr or size is invalid */
 	switch (size) {
 	case 1:
 		diag = kdb_getarea(w1, addr);
@@ -481,7 +481,7 @@ int kdb_getword(unsigned long *word, unsigned long addr, size_t size)
 				*word = w8;
 			break;
 		}
-		/*              */
+		/* drop through */
 	default:
 		diag = KDB_BADWIDTH;
 		kdb_printf("kdb_getword: bad width %ld\n", (long) size);
@@ -490,14 +490,14 @@ int kdb_getword(unsigned long *word, unsigned long addr, size_t size)
 }
 
 /*
-                                                                
-                          
-          
-                                         
-                         
-                         
-           
-                                
+ * kdb_putword - Write a binary value.  Unlike kdb_putarea, this
+ *	treats data as numbers.
+ * Inputs:
+ *	addr	Address of the area to write to..
+ *	word	The value to set.
+ *	size	Size of the area.
+ * Returns:
+ *	0 for success, < 0 for error.
  */
 int kdb_putword(unsigned long addr, unsigned long word, size_t size)
 {
@@ -525,7 +525,7 @@ int kdb_putword(unsigned long addr, unsigned long word, size_t size)
 			diag = kdb_putarea(addr, w8);
 			break;
 		}
-		/*              */
+		/* drop through */
 	default:
 		diag = KDB_BADWIDTH;
 		kdb_printf("kdb_putword: bad width %ld\n", (long) size);
@@ -534,25 +534,25 @@ int kdb_putword(unsigned long addr, unsigned long word, size_t size)
 }
 
 /*
-                                                                 
-                                                                
-                                                                 
-                                                           
-           
-          
-                      
-           
-                          
-         
-                                                                        
-                                                                   
-                                                                        
-                                                                     
-                                                                       
-            
+ * kdb_task_state_string - Convert a string containing any of the
+ *	letters DRSTCZEUIMA to a mask for the process state field and
+ *	return the value.  If no argument is supplied, return the mask
+ *	that corresponds to environment variable PS, DRSTCZEU by
+ *	default.
+ * Inputs:
+ *	s	String to convert
+ * Returns:
+ *	Mask for process state.
+ * Notes:
+ *	The mask folds data from several sources into a single long value, so
+ *	be careful not to overlap the bits.  TASK_* bits are in the LSB,
+ *	special cases like UNRUNNABLE are in the MSB.  As of 2.6.10-rc1 there
+ *	is no overlap between TASK_* and EXIT_* but that may not always be
+ *	true, so EXIT_* bits are shifted left 16 bits before being stored in
+ *	the mask.
  */
 
-/*                   */
+/* unrunnable is < 0 */
 #define UNRUNNABLE	(1UL << (8*sizeof(unsigned long) - 1))
 #define RUNNING		(1UL << (8*sizeof(unsigned long) - 2))
 #define IDLE		(1UL << (8*sizeof(unsigned long) - 3))
@@ -564,7 +564,7 @@ unsigned long kdb_task_state_string(const char *s)
 	if (!s) {
 		s = kdbgetenv("PS");
 		if (!s)
-			s = "DRSTCZEU";	/*                      */
+			s = "DRSTCZEU";	/* default value for ps */
 	}
 	while (*s) {
 		switch (*s) {
@@ -612,11 +612,11 @@ unsigned long kdb_task_state_string(const char *s)
 }
 
 /*
-                                                                             
-          
-                                
-           
-                                             
+ * kdb_task_state_char - Return the character that represents the task state.
+ * Inputs:
+ *	p	struct task for the process
+ * Returns:
+ *	One character to represent the task state.
  */
 char kdb_task_state_char (const struct task_struct *p)
 {
@@ -637,26 +637,26 @@ char kdb_task_state_char (const struct task_struct *p)
 		(p->exit_state & EXIT_DEAD) ? 'E' :
 		(p->state & TASK_INTERRUPTIBLE) ? 'S' : '?';
 	if (is_idle_task(p)) {
-		/*                                                  
-                */
+		/* Idle task.  Is it really idle, apart from the kdb
+		 * interrupt? */
 		if (!kdb_task_has_cpu(p) || kgdb_info[cpu].irq_depth == 1) {
 			if (cpu != kdb_initial_cpu)
-				state = 'I';	/*           */
+				state = 'I';	/* idle task */
 		}
 	} else if (!p->mm && state == 'S') {
-		state = 'M';	/*                        */
+		state = 'M';	/* sleeping system daemon */
 	}
 	return state;
 }
 
 /*
-                                                                  
-                     
-          
-                                
-                                                           
-           
-                                                                         
+ * kdb_task_state - Return true if a process has the desired state
+ *	given by the mask.
+ * Inputs:
+ *	p	struct task for the process
+ *	mask	mask from kdb_task_state_string to select processes
+ * Returns:
+ *	True if the process matches at least one criteria defined by the mask.
  */
 unsigned long kdb_task_state(const struct task_struct *p, unsigned long mask)
 {
@@ -665,11 +665,11 @@ unsigned long kdb_task_state(const struct task_struct *p, unsigned long mask)
 }
 
 /*
-                                                                 
-                                        
-          
-                           
-                     
+ * kdb_print_nameval - Print a name and its value, converting the
+ *	value to a symbol lookup if possible.
+ * Inputs:
+ *	name	field name to print
+ *	val	value of field
  */
 void kdb_print_nameval(const char *name, unsigned long val)
 {
@@ -682,41 +682,41 @@ void kdb_print_nameval(const char *name, unsigned long val)
 		kdb_printf("0x%lx\n", val);
 }
 
-/*                                                                    
-                                                                    
-                                                                      
-                                                                  
-                                                
+/* Last ditch allocator for debugging, so we can still debug even when
+ * the GFP_ATOMIC pool has been exhausted.  The algorithms are tuned
+ * for space usage, not for speed.  One smallish memory pool, the free
+ * chain is always in ascending address order to allow coalescing,
+ * allocations are done in brute force best fit.
  */
 
 struct debug_alloc_header {
-	u32 next;	/*                                          */
+	u32 next;	/* offset of next header from start of pool */
 	u32 size;
 	void *caller;
 };
 
-/*                                                                   
-                                                             
-                                                                 
-                                                                  
-                                                               
-                       
+/* The memory returned by this allocator must be aligned, which means
+ * so must the header size.  Do not assume that sizeof(struct
+ * debug_alloc_header) is a multiple of the alignment, explicitly
+ * calculate the overhead of this header, including the alignment.
+ * The rest of this code must not use sizeof() on any header or
+ * pointer to a header.
  */
 #define dah_align 8
 #define dah_overhead ALIGN(sizeof(struct debug_alloc_header), dah_align)
 
-static u64 debug_alloc_pool_aligned[256*1024/dah_align];	/*           */
+static u64 debug_alloc_pool_aligned[256*1024/dah_align];	/* 256K pool */
 static char *debug_alloc_pool = (char *)debug_alloc_pool_aligned;
 static u32 dah_first, dah_first_call = 1, dah_used, dah_used_max;
 
-/*                                                                 
-                                                                    
-                                                                     
-                                                                     
-                                                      
-  
-                                                                     
-                                                
+/* Locking is awkward.  The debug code is called from all contexts,
+ * including non maskable interrupts.  A normal spinlock is not safe
+ * in NMI context.  Try to get the debug allocator lock, if it cannot
+ * be obtained after a second then give up.  If the lock could not be
+ * previously obtained on this cpu then only try once.
+ *
+ * sparse has no annotation for "this function _sometimes_ acquires a
+ * lock", so fudge the acquire/release notation.
  */
 static DEFINE_SPINLOCK(dap_lock);
 static int get_dap_lock(void)
@@ -748,7 +748,7 @@ void *debug_kmalloc(size_t size, gfp_t flags)
 	struct debug_alloc_header *best, *bestprev, *prev, *h;
 	void *p = NULL;
 	if (!get_dap_lock()) {
-		__release(dap_lock);	/*                          */
+		__release(dap_lock);	/* we never actually got it */
 		return NULL;
 	}
 	h = (struct debug_alloc_header *)(debug_alloc_pool + dah_first);
@@ -773,7 +773,7 @@ void *debug_kmalloc(size_t size, gfp_t flags)
 	if (!best)
 		goto out;
 	rem = best->size - size;
-	/*                                                  */
+	/* The pool must always contain at least one header */
 	if (best->next == 0 && bestprev == NULL && rem < dah_overhead)
 		goto out;
 	if (rem >= dah_overhead) {
@@ -812,8 +812,8 @@ void debug_kfree(void *p)
 		return;
 	}
 	if (!get_dap_lock()) {
-		__release(dap_lock);	/*                          */
-		return;		/*                               */
+		__release(dap_lock);	/* we never actually got it */
+		return;		/* memory leak, cannot be helped */
 	}
 	h = (struct debug_alloc_header *)((char *)p - dah_overhead);
 	memset(p, POISON_FREE, h->size - 1);
@@ -863,16 +863,16 @@ void debug_kusage(void)
 {
 	struct debug_alloc_header *h_free, *h_used;
 #ifdef	CONFIG_IA64
-	/*                                                                  
-                                                                      
-                      
-  */
+	/* FIXME: using dah for ia64 unwind always results in a memory leak.
+	 * Fix that memory leak first, then set debug_kusage_one_time = 1 for
+	 * all architectures.
+	 */
 	static int debug_kusage_one_time;
 #else
 	static int debug_kusage_one_time = 1;
 #endif
 	if (!get_dap_lock()) {
-		__release(dap_lock);	/*                          */
+		__release(dap_lock);	/* we never actually got it */
 		return;
 	}
 	h_free = (struct debug_alloc_header *)(debug_alloc_pool + dah_first);
@@ -908,8 +908,8 @@ out:
 	spin_unlock(&dap_lock);
 }
 
-/*                                                                          
-                        
+/* Maintain a small stack of kdb_flags to allow recursion without disturbing
+ * the global kdb state.
  */
 
 static int kdb_flags_stack[4], kdb_flags_index;

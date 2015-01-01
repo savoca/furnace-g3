@@ -37,13 +37,13 @@
 #include <mach/autcpu12.h>
 
 /*
-                                   
+ * MTD structure for AUTCPU12 board
  */
 static struct mtd_info *autcpu12_mtd = NULL;
 static void __iomem *autcpu12_fio_base;
 
 /*
-                                      
+ * Define partitions for flash devices
  */
 static struct mtd_partition partition_info16k[] = {
 	{ .name		= "AUTCPU12 flash partition 1",
@@ -86,12 +86,12 @@ static struct mtd_partition partition_info128k[] = {
 #define NUM_PARTITIONS64K 2
 #define NUM_PARTITIONS128K 2
 /*
-                                            
-  
-                          
-                          
-                     
-  
+ *	hardware specific access to control-lines
+ *
+ *	ALE bit 4 autcpu12_pedr
+ *	CLE bit 5 autcpu12_pedr
+ *	NCE bit 0 fio_ctrl
+ *
  */
 static void autcpu12_hwcontrol(struct mtd_info *mtd, int cmd,
 			       unsigned int ctrl)
@@ -116,7 +116,7 @@ static void autcpu12_hwcontrol(struct mtd_info *mtd, int cmd,
 }
 
 /*
-                        
+ *	read device ready pin
  */
 int autcpu12_device_ready(struct mtd_info *mtd)
 {
@@ -126,14 +126,14 @@ int autcpu12_device_ready(struct mtd_info *mtd)
 }
 
 /*
-                              
+ * Main initialization routine
  */
 static int __init autcpu12_init(void)
 {
 	struct nand_chip *this;
 	int err = 0;
 
-	/*                                                           */
+	/* Allocate memory for MTD device structure and private data */
 	autcpu12_mtd = kmalloc(sizeof(struct mtd_info) + sizeof(struct nand_chip),
 			       GFP_KERNEL);
 	if (!autcpu12_mtd) {
@@ -142,7 +142,7 @@ static int __init autcpu12_init(void)
 		goto out;
 	}
 
-	/*                      */
+	/* map physical address */
 	autcpu12_fio_base = ioremap(AUTCPU12_PHYS_SMC, SZ_1K);
 	if (!autcpu12_fio_base) {
 		printk("Ioremap autcpu12 SmartMedia Card failed\n");
@@ -150,39 +150,39 @@ static int __init autcpu12_init(void)
 		goto out_mtd;
 	}
 
-	/*                             */
+	/* Get pointer to private data */
 	this = (struct nand_chip *)(&autcpu12_mtd[1]);
 
-	/*                       */
+	/* Initialize structures */
 	memset(autcpu12_mtd, 0, sizeof(struct mtd_info));
 	memset(this, 0, sizeof(struct nand_chip));
 
-	/*                                              */
+	/* Link the private data with the MTD structure */
 	autcpu12_mtd->priv = this;
 	autcpu12_mtd->owner = THIS_MODULE;
 
-	/*                              */
+	/* Set address of NAND IO lines */
 	this->IO_ADDR_R = autcpu12_fio_base;
 	this->IO_ADDR_W = autcpu12_fio_base;
 	this->cmd_ctrl = autcpu12_hwcontrol;
 	this->dev_ready = autcpu12_device_ready;
-	/*                          */
+	/* 20 us command delay time */
 	this->chip_delay = 20;
 	this->ecc.mode = NAND_ECC_SOFT;
 
-	/*                                                        */
+	/* Enable the following for a flash based bad block table */
 	/*
-                                           
-  */
+	   this->bbt_options = NAND_BBT_USE_FLASH;
+	 */
 	this->bbt_options = NAND_BBT_USE_FLASH;
 
-	/*                                      */
+	/* Scan to find existence of the device */
 	if (nand_scan(autcpu12_mtd, 1)) {
 		err = -ENXIO;
 		goto out_ior;
 	}
 
-	/*                         */
+	/* Register the partitions */
 	switch (autcpu12_mtd->size) {
 		case SZ_16M:
 			mtd_device_register(autcpu12_mtd, partition_info16k,
@@ -218,17 +218,17 @@ static int __init autcpu12_init(void)
 module_init(autcpu12_init);
 
 /*
-                   
+ * Clean up routine
  */
 static void __exit autcpu12_cleanup(void)
 {
-	/*                                      */
+	/* Release resources, unregister device */
 	nand_release(autcpu12_mtd);
 
-	/*                        */
+	/* unmap physical address */
 	iounmap(autcpu12_fio_base);
 
-	/*                               */
+	/* Free the MTD device structure */
 	kfree(autcpu12_mtd);
 }
 

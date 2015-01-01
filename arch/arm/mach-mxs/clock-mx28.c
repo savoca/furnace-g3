@@ -48,15 +48,15 @@ static struct clk clk32k_clk;
 static DEFINE_SPINLOCK(clkmux_lock);
 
 /*
-                      
-                                                                            
-                                               
-                                                                            
-                                                       
-                                                                          
-           
-                                                                          
-           
+ * HW_SAIF_CLKMUX_SEL:
+ *  DIRECT(0x0): SAIF0 clock pins selected for SAIF0 input clocks, and SAIF1
+ *		clock pins selected for SAIF1 input clocks.
+ *  CROSSINPUT(0x1): SAIF1 clock inputs selected for SAIF0 input clocks, and
+ *		SAIF0 clock inputs selected for SAIF1 input clocks.
+ *  EXTMSTR0(0x2): SAIF0 clock pin selected for both SAIF0 and SAIF1 input
+ *		clocks.
+ *  EXTMSTR1(0x3): SAIF1 clock pin selected for both SAIF0 and SAIF1 input
+ *		clocks.
  */
 int mxs_saif_clkmux_select(unsigned int clkmux)
 {
@@ -98,7 +98,7 @@ static void _raw_clk_disable(struct clk *clk)
 }
 
 /*
-               
+ * ref_xtal_clk
  */
 static unsigned long ref_xtal_clk_get_rate(struct clk *clk)
 {
@@ -110,7 +110,7 @@ static struct clk ref_xtal_clk = {
 };
 
 /*
-          
+ * pll_clk
  */
 static unsigned long pll0_clk_get_rate(struct clk *clk)
 {
@@ -180,7 +180,7 @@ _DEFINE_CLOCK_PLL(pll1_clk);
 _DEFINE_CLOCK_PLL(pll2_clk);
 
 /*
-          
+ * ref_clk
  */
 #define _CLK_GET_RATE_REF(name, sr, ss)					\
 static unsigned long name##_get_rate(struct clk *clk)			\
@@ -221,9 +221,9 @@ _DEFINE_CLOCK_REF(ref_pix_clk, FRAC1, PIX);
 _DEFINE_CLOCK_REF(ref_gpmi_clk, FRAC1, GPMI);
 
 /*
-                 
-  
-               
+ * General clocks
+ *
+ * clk_get_rate
  */
 static unsigned long lradc_clk_get_rate(struct clk *clk)
 {
@@ -232,7 +232,7 @@ static unsigned long lradc_clk_get_rate(struct clk *clk)
 
 static unsigned long rtc_clk_get_rate(struct clk *clk)
 {
-	/*                                                */
+	/* ref_xtal_clk is implemented as the only parent */
 	return clk_get_rate(clk->parent) / 768;
 }
 
@@ -310,9 +310,9 @@ _CLK_GET_RATE_STUB(can1_clk)
 _CLK_GET_RATE_STUB(fec_clk)
 
 /*
-               
+ * clk_set_rate
  */
-/*               */
+/* fool compiler */
 #define BM_CLKCTRL_CPU_DIV	0
 #define BP_CLKCTRL_CPU_DIV	0
 #define BM_CLKCTRL_CPU_BUSY	0
@@ -337,10 +337,10 @@ static int name##_set_rate(struct clk *clk, unsigned long rate)		\
 		if (div == 0 || div > div_max)				\
 			return -EINVAL;					\
 	} else {							\
-		/*        
-                                                        
-                                               
-   */							\
+		/*							\
+		 * hack alert: this block modifies clk->parent, too,	\
+		 * so the base to use it the grand parent.		\
+		 */							\
 		parent_rate = clk_get_rate(clk->parent->parent);	\
 		rate >>= PARENT_RATE_SHIFT;				\
 		parent_rate >>= PARENT_RATE_SHIFT;			\
@@ -433,7 +433,7 @@ static int name##_set_rate(struct clk *clk, unsigned long rate)		\
 
 _CLK_SET_RATE1(xbus_clk, XBUS)
 
-/*                                  */
+/* saif clock uses 16 bits frac div */
 #define _CLK_SET_RATE_SAIF(name, rs)					\
 static int name##_set_rate(struct clk *clk, unsigned long rate)		\
 {									\
@@ -484,7 +484,7 @@ _CLK_SET_RATE_STUB(can1_clk)
 _CLK_SET_RATE_STUB(fec_clk)
 
 /*
-                 
+ * clk_set_parent
  */
 #define _CLK_SET_PARENT(name, bit)					\
 static int name##_set_parent(struct clk *clk, struct clk *parent)	\
@@ -527,7 +527,7 @@ _CLK_SET_PARENT_STUB(can0_clk)
 _CLK_SET_PARENT_STUB(can1_clk)
 
 /*
-                 
+ * clk definition
  */
 static struct clk cpu_clk = {
 	.get_rate = cpu_clk_get_rate,
@@ -557,7 +557,7 @@ static struct clk rtc_clk = {
 	.parent = &ref_xtal_clk,
 };
 
-/*                                                          */
+/* usb_clk gate is controlled in DIGCTRL other than CLKCTRL */
 static struct clk usb0_clk = {
 	.enable_reg = DIGCTRL_BASE_ADDR,
 	.enable_shift = 2,
@@ -611,9 +611,9 @@ _DEFINE_CLOCK(fec_clk, ENET, DISABLE, &hbus_clk);
 	},
 
 static struct clk_lookup lookups[] = {
-	/*                     */
+	/* for amba bus driver */
 	_REGISTER_CLOCK("duart", "apb_pclk", xbus_clk)
-	/*                       */
+	/* for amba-pl011 driver */
 	_REGISTER_CLOCK("duart", NULL, uart_clk)
 	_REGISTER_CLOCK("imx28-fec.0", NULL, fec_clk)
 	_REGISTER_CLOCK("imx28-fec.1", NULL, fec_clk)
@@ -655,7 +655,7 @@ static int clk_misc_init(void)
 	u32 reg;
 	int ret;
 
-	/*                                    */
+	/* Fix up parent per register setting */
 	reg = __raw_readl(CLKCTRL_BASE_ADDR + HW_CLKCTRL_CLKSEQ);
 	cpu_clk.parent = (reg & BM_CLKCTRL_CLKSEQ_BYPASS_CPU) ?
 			&ref_xtal_clk : &ref_cpu_clk;
@@ -678,7 +678,7 @@ static int clk_misc_init(void)
 	saif1_clk.parent = (reg & BM_CLKCTRL_CLKSEQ_BYPASS_SAIF1) ?
 			&ref_xtal_clk : &pll0_clk;
 
-	/*                                               */
+	/* Use int div over frac when both are available */
 	__raw_writel(BM_CLKCTRL_CPU_DIV_XTAL_FRAC_EN,
 			CLKCTRL_BASE_ADDR + HW_CLKCTRL_CPU_CLR);
 	__raw_writel(BM_CLKCTRL_CPU_DIV_CPU_FRAC_EN,
@@ -714,7 +714,7 @@ static int clk_misc_init(void)
 	reg &= ~BM_CLKCTRL_DIS_LCDIF_DIV_FRAC_EN;
 	__raw_writel(reg, CLKCTRL_BASE_ADDR + HW_CLKCTRL_DIS_LCDIF);
 
-	/*                                                   */
+	/* SAIF has to use frac div for functional operation */
 	reg = __raw_readl(CLKCTRL_BASE_ADDR + HW_CLKCTRL_SAIF0);
 	reg |= BM_CLKCTRL_SAIF0_DIV_FRAC_EN;
 	__raw_writel(reg, CLKCTRL_BASE_ADDR + HW_CLKCTRL_SAIF0);
@@ -724,10 +724,10 @@ static int clk_misc_init(void)
 	__raw_writel(reg, CLKCTRL_BASE_ADDR + HW_CLKCTRL_SAIF1);
 
 	/*
-                                                           
-                                                               
-                            
-  */
+	 * Set safe hbus clock divider. A divider of 3 ensure that
+	 * the Vddd voltage required for the cpu clock is sufficiently
+	 * high for the hbus clock.
+	 */
 	reg = __raw_readl(CLKCTRL_BASE_ADDR + HW_CLKCTRL_HBUS);
 	reg &= BM_CLKCTRL_HBUS_DIV;
 	reg |= 3 << BP_CLKCTRL_HBUS_DIV;
@@ -735,15 +735,15 @@ static int clk_misc_init(void)
 
 	ret = mxs_clkctrl_timeout(HW_CLKCTRL_HBUS, BM_CLKCTRL_HBUS_ASM_BUSY);
 
-	/*                                            */
+	/* Gate off cpu clock in WFI for power saving */
 	__raw_writel(BM_CLKCTRL_CPU_INTERRUPT_WAIT,
 			CLKCTRL_BASE_ADDR + HW_CLKCTRL_CPU_SET);
 
 	/*
-                           
-                                              
-                                            
-  */
+	 * Extra fec clock setting
+	 * The DENX M28 uses an external clock source
+	 * and the clock output must not be enabled
+	 */
 	if (!machine_is_m28evk()) {
 		reg = __raw_readl(CLKCTRL_BASE_ADDR + HW_CLKCTRL_ENET);
 		reg &= ~BM_CLKCTRL_ENET_SLEEP;
@@ -752,9 +752,9 @@ static int clk_misc_init(void)
 	}
 
 	/*
-                                                           
-                                          
-  */
+	 * 480 MHz seems too high to be ssp clock source directly,
+	 * so set frac0 to get a 288 MHz ref_io0.
+	 */
 	reg = __raw_readl(CLKCTRL_BASE_ADDR + HW_CLKCTRL_FRAC0);
 	reg &= ~BM_CLKCTRL_FRAC0_IO0FRAC;
 	reg |= 30 << BP_CLKCTRL_FRAC0_IO0FRAC;
@@ -768,9 +768,9 @@ int __init mx28_clocks_init(void)
 	clk_misc_init();
 
 	/*
-                                                
-                                                
-  */
+	 * source ssp clock from ref_io0 than ref_xtal,
+	 * as ref_xtal only provides 24 MHz as maximum.
+	 */
 	clk_set_parent(&ssp0_clk, &ref_io0_clk);
 	clk_set_parent(&ssp1_clk, &ref_io0_clk);
 	clk_set_parent(&ssp2_clk, &ref_io1_clk);
@@ -787,11 +787,11 @@ int __init mx28_clocks_init(void)
 	clk_set_parent(&saif1_clk, &pll0_clk);
 
 	/*
-                                                                 
-                                                                   
-                                                                 
-                                                             
-  */
+	 * Set an initial clock rate for the saif internal logic to work
+	 * properly. This is important when working in EXTMASTER mode that
+	 * uses the other saif's BITCLK&LRCLK but it still needs a basic
+	 * clock which should be fast enough for the internal logic.
+	 */
 	clk_set_rate(&saif0_clk, 24000000);
 	clk_set_rate(&saif1_clk, 24000000);
 

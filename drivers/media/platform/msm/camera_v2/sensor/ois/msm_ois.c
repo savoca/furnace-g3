@@ -33,7 +33,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 	.i2c_read = msm_camera_cci_i2c_read,
 	.i2c_read_seq = msm_camera_cci_i2c_read_seq,
 	.i2c_write = msm_camera_cci_i2c_write,
-	.i2c_write_seq = msm_camera_cci_i2c_write_seq,	//                 
+	.i2c_write_seq = msm_camera_cci_i2c_write_seq,	//sungmin.woo added
 	.i2c_write_table = msm_camera_cci_i2c_write_table,
 	.i2c_write_seq_table = msm_camera_cci_i2c_write_seq_table,
 	.i2c_write_table_w_microdelay =
@@ -45,7 +45,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
 	.i2c_read = msm_camera_qup_i2c_read,
 	.i2c_read_seq = msm_camera_qup_i2c_read_seq,
 	.i2c_write = msm_camera_qup_i2c_write,
-	.i2c_write_seq = msm_camera_qup_i2c_write_seq,	//                 
+	.i2c_write_seq = msm_camera_qup_i2c_write_seq,	//sungmin.woo added
 	.i2c_write_table = msm_camera_qup_i2c_write_table,
 	.i2c_write_seq_table = msm_camera_qup_i2c_write_seq_table,
 	.i2c_write_table_w_microdelay =
@@ -53,8 +53,8 @@ static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
 };
 
 static const struct v4l2_subdev_internal_ops msm_ois_internal_ops = {
-//                      
-//                        
+//	.open = msm_ois_open,
+//	.close = msm_ois_close,
 };
 
 
@@ -153,15 +153,15 @@ static int32_t msm_ois_i2c_probe(struct i2c_client *client,
 	act_ctrl_t = (struct msm_ois_ctrl_t *)(id->driver_data);
 	CDBG("client = %x\n", (unsigned int) client);
 	act_ctrl_t->i2c_client.client = client;
-	/*                        */
+	/* Set device type as I2C */
 	act_ctrl_t->act_device_type = MSM_CAMERA_I2C_DEVICE;
 	act_ctrl_t->i2c_client.i2c_func_tbl = &msm_sensor_qup_func_tbl;
 
-	/*                            */
+	/* Assign name for sub device */
 	snprintf(act_ctrl_t->msm_sd.sd.name, sizeof(act_ctrl_t->msm_sd.sd.name),
 		"%s", act_ctrl_t->i2c_driver->driver.name);
 
-	/*                       */
+	/* Initialize sub device */
 	v4l2_i2c_subdev_init(&act_ctrl_t->msm_sd.sd,
 		act_ctrl_t->i2c_client.client,
 		act_ctrl_t->act_v4l2_subdev_ops);
@@ -205,9 +205,9 @@ static int32_t msm_ois_platform_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	/*                            */
+	/* Set platform device handle */
 	msm_ois_t.pdev = pdev;
-	/*                                    */
+	/* Set device type as platform device */
 	msm_ois_t.act_device_type = MSM_CAMERA_PLATFORM_DEVICE;
 	msm_ois_t.i2c_client.i2c_func_tbl = &msm_sensor_cci_func_tbl;
 	msm_ois_t.i2c_client.cci_client = kzalloc(sizeof(
@@ -217,12 +217,12 @@ static int32_t msm_ois_platform_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	/*                      */
-	msm_ois_t.i2c_client.cci_client->sid = 0x7C >> 1; //          
+	/* ois initial settings */
+	msm_ois_t.i2c_client.cci_client->sid = 0x7C >> 1; //0x48 >> 1;
 	msm_ois_t.i2c_client.cci_client->retries = 3;
 	msm_ois_t.i2c_client.cci_client->id_map = 0;
 	msm_ois_t.i2c_client.cci_client->cci_i2c_master = MASTER_0;
-	/*                            */
+	/* Update sensor address type */
 	msm_ois_t.i2c_client.addr_type = MSM_CAMERA_I2C_WORD_ADDR;
 
 	cci_client = msm_ois_t.i2c_client.cci_client;

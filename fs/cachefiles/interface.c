@@ -16,14 +16,14 @@
 #define list_to_page(head) (list_entry((head)->prev, struct page, lru))
 
 struct cachefiles_lookup_data {
-	struct cachefiles_xattr	*auxdata;	/*                */
-	char			*key;		/*          */
+	struct cachefiles_xattr	*auxdata;	/* auxiliary data */
+	char			*key;		/* key path */
 };
 
 static int cachefiles_attr_changed(struct fscache_object *_object);
 
 /*
-                                                                            
+ * allocate an object record for a cookie lookup and prepare the lookup data
  */
 static struct fscache_object *cachefiles_alloc_object(
 	struct fscache_cache *_cache,
@@ -45,7 +45,7 @@ static struct fscache_object *cachefiles_alloc_object(
 	if (!lookup_data)
 		goto nomem_lookup_data;
 
-	/*                                                       */
+	/* create a new object record and a temporary leaf image */
 	object = kmem_cache_alloc(cachefiles_object_jar, GFP_KERNEL);
 	if (!object)
 		goto nomem_object;
@@ -59,10 +59,10 @@ static struct fscache_object *cachefiles_alloc_object(
 
 	object->type = cookie->def->type;
 
-	/*                        
-                                                                       
-             
-  */
+	/* get hold of the raw key
+	 * - stick the length on the front and leave space on the back for the
+	 *   encoder
+	 */
 	buffer = kmalloc((2 + 512) + 3, GFP_KERNEL);
 	if (!buffer)
 		goto nomem_buffer;
@@ -75,12 +75,12 @@ static struct fscache_object *cachefiles_alloc_object(
 	((char *)buffer)[keylen + 3] = 0;
 	((char *)buffer)[keylen + 4] = 0;
 
-	/*                                                                  */
+	/* turn the raw key into something that can work with as a filename */
 	key = cachefiles_cook_key(buffer, keylen + 2, object->type);
 	if (!key)
 		goto nomem_key;
 
-	/*                                                            */
+	/* get hold of the auxiliary data and prepend the object type */
 	auxdata = buffer;
 	auxlen = 0;
 	if (cookie->def->get_aux) {
@@ -113,8 +113,8 @@ nomem_lookup_data:
 }
 
 /*
-                                                      
-                                            
+ * attempt to look up the nominated node in this cache
+ * - return -ETIMEDOUT to be scheduled again
  */
 static int cachefiles_lookup_object(struct fscache_object *_object)
 {
@@ -134,14 +134,14 @@ static int cachefiles_lookup_object(struct fscache_object *_object)
 
 	ASSERTCMP(lookup_data, !=, NULL);
 
-	/*                                            */
+	/* look up the key, creating any missing bits */
 	cachefiles_begin_secure(cache, &saved_cred);
 	ret = cachefiles_walk_to_object(parent, object,
 					lookup_data->key,
 					lookup_data->auxdata);
 	cachefiles_end_secure(cache, saved_cred);
 
-	/*                                                         */
+	/* polish off by setting the attributes of non-index files */
 	if (ret == 0 &&
 	    object->fscache.cookie->def->type != FSCACHE_COOKIE_TYPE_INDEX)
 		cachefiles_attr_changed(&object->fscache);
@@ -158,7 +158,7 @@ static int cachefiles_lookup_object(struct fscache_object *_object)
 }
 
 /*
-                                  
+ * indication of lookup completion
  */
 static void cachefiles_lookup_complete(struct fscache_object *_object)
 {
@@ -177,7 +177,7 @@ static void cachefiles_lookup_complete(struct fscache_object *_object)
 }
 
 /*
-                                                                        
+ * increment the usage count on an inode object (may fail if unmounting)
  */
 static
 struct fscache_object *cachefiles_grab_object(struct fscache_object *_object)
@@ -196,7 +196,7 @@ struct fscache_object *cachefiles_grab_object(struct fscache_object *_object)
 }
 
 /*
-                                                         
+ * update the auxiliary data for an object object on disk
  */
 static void cachefiles_update_object(struct fscache_object *_object)
 {
@@ -239,8 +239,8 @@ static void cachefiles_update_object(struct fscache_object *_object)
 }
 
 /*
-                                                                     
-            
+ * discard the resources pinned by an object and effect retirement if
+ * requested
  */
 static void cachefiles_drop_object(struct fscache_object *_object)
 {
@@ -262,7 +262,7 @@ static void cachefiles_drop_object(struct fscache_object *_object)
 	ASSERT((atomic_read(&object->usage) & 0xffff0000) != 0x6b6b0000);
 #endif
 
-	/*                        */
+	/* delete retired objects */
 	if (object->fscache.state == FSCACHE_OBJECT_RECYCLING &&
 	    _object != cache->cache.fsdef
 	    ) {
@@ -272,12 +272,12 @@ static void cachefiles_drop_object(struct fscache_object *_object)
 		cachefiles_end_secure(cache, saved_cred);
 	}
 
-	/*                                                   */
+	/* close the filesystem stuff attached to the object */
 	if (object->backer != object->dentry)
 		dput(object->backer);
 	object->backer = NULL;
 
-	/*                                      */
+	/* note that the object is now inactive */
 	if (test_bit(CACHEFILES_OBJECT_ACTIVE, &object->flags)) {
 		write_lock(&cache->active_lock);
 		if (!test_and_clear_bit(CACHEFILES_OBJECT_ACTIVE,
@@ -295,7 +295,7 @@ static void cachefiles_drop_object(struct fscache_object *_object)
 }
 
 /*
-                                      
+ * dispose of a reference to an object
  */
 static void cachefiles_put_object(struct fscache_object *_object)
 {
@@ -343,7 +343,7 @@ static void cachefiles_put_object(struct fscache_object *_object)
 }
 
 /*
-               
+ * sync a cache
  */
 static void cachefiles_sync_cache(struct fscache_cache *_cache)
 {
@@ -355,8 +355,8 @@ static void cachefiles_sync_cache(struct fscache_cache *_cache)
 
 	cache = container_of(_cache, struct cachefiles_cache, cache);
 
-	/*                                                                    
-                    */
+	/* make sure all pages pinned by operations on behalf of the netfs are
+	 * written to disc */
 	cachefiles_begin_secure(cache, &saved_cred);
 	down_read(&cache->mnt->mnt_sb->s_umount);
 	ret = sync_filesystem(cache->mnt->mnt_sb);
@@ -371,8 +371,8 @@ static void cachefiles_sync_cache(struct fscache_cache *_cache)
 }
 
 /*
-                                                        
-                                                  
+ * notification the attributes on an object have changed
+ * - called with reads/writes excluded by FS-Cache
  */
 static int cachefiles_attr_changed(struct fscache_object *_object)
 {
@@ -410,9 +410,9 @@ static int cachefiles_attr_changed(struct fscache_object *_object)
 	cachefiles_begin_secure(cache, &saved_cred);
 	mutex_lock(&object->backer->d_inode->i_mutex);
 
-	/*                                                                    
-                                                                    
-                  */
+	/* if there's an extension to a partial page at the end of the backing
+	 * file, we need to discard the partial page so that we pick up new
+	 * data after it */
 	if (oi_size & ~PAGE_MASK && ni_size > oi_size) {
 		_debug("discard tail %llx", oi_size);
 		newattrs.ia_valid = ATTR_SIZE;
@@ -441,7 +441,7 @@ truncate_failed:
 }
 
 /*
-                                                       
+ * dissociate a cache from all the pages it was backing
  */
 static void cachefiles_dissociate_pages(struct fscache_cache *cache)
 {

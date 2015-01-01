@@ -21,11 +21,11 @@
 #include "../inc/broadcast_fc8080.h"
 
 #include <linux/string.h>
-/*                                                            
-                      
+/*============================================================
+**    1.   DEFINITIONS
 
-                                                             */
-/*                         */
+*============================================================*/
+/* Example of Return value */
 #define FC8080_RESULT_ERROR		(int8) 0
 #define FC8080_RESULT_SUCCESS	(int8) 1
 
@@ -33,10 +33,10 @@
 #undef FEATURE_RSSI_DEBUG
 
 //        
-#define	FREQ_SEARCH_IN_TABLE		/*                                    */
-#define	CH_LOW_NUM		71		/*                    */
+#define	FREQ_SEARCH_IN_TABLE		/* Freq conversion in Table Searching */
+#define	CH_LOW_NUM		71		/* 7A index 71 for UI */
 
-#define	CH_UPPER_NUM		133		/*                     */
+#define	CH_UPPER_NUM		133		/* 13C index 131 for UI*/
 
 #ifdef FREQ_SEARCH_IN_TABLE
 
@@ -45,10 +45,10 @@
 #define	INDEX_KOR_CH_NUM_DEC			0
 #define	INDEX_KOR_FREQ_NUM				1
 #else
-#define	C7A_CEN_FREQ		175280	/*                     */
-#define	ENS_GAP_FREQ 		6000	/*                                               */
-#define	CH_GAP_FREQ 		1728	/*                                                          */
-#define	TDMB_ENS_NUM		7		/*                                   */
+#define	C7A_CEN_FREQ		175280	/* 7A Center Frequency */
+#define	ENS_GAP_FREQ 		6000	/* Frequency Gap-Interval between Other Ensemble */
+#define	CH_GAP_FREQ 		1728	/* Channel Center frequency interval between channel number */
+#define	TDMB_ENS_NUM		7		/* Korea TDMB Ensemble Number 7 ~ 13 */
 #endif
 //        
 
@@ -60,7 +60,7 @@
 #define DAT_SVC_ID 1
 #define FEATURE_GET_FIC_POLLING
 
-/*                                                                     */
+/* change memcpy mscBuffer -> msc_data -> buffer  to mscBuffer->buffer */
 #define NOT_MSCDATA_MULTIPLE_MEMCPY
 
 uint32 	tp_total_cnt=0;
@@ -69,20 +69,20 @@ uint32 	tp_total_cnt=0;
 #define START_SYNC_CNT 3
 #define MAX_ANT_BUFF_CNT 2
 /*                                                          */
-/*                                                                        
-                               
-                                                                           
-                                                                                 
-                                                                     
-                                                                            */
+/* -----------------------------------------------------------------------
+< HOST Interface FEATURE Usage>
+  1. STREAM_TS_UPLOAD  : HOST Interface between MSM and FC8080 is TSIF(I2C)
+  2. STREAM_SLAVE_PARALLEL_UPLOAD : HOST Interface between MSM and FC8080 is EBI2
+  3. STREAM_SPI_UPLOAD : HOST Interface between MSM and FC8080 is SPI
+  ------------------------------------------------------------------------- */
 
-/*                                                            
-                             
-                                                             */
+/*============================================================
+**    2.   External Variables
+*============================================================*/
 
-/*                                                            
-                             
-                                                             */
+/*============================================================
+**    3.   External Functions
+*============================================================*/
 
 
 #ifdef STREAM_SLAVE_PARALLEL_UPLOAD
@@ -93,14 +93,14 @@ extern int tunerbb_drv_fc8080_fic_cb(uint32 userdata, uint8 *data, int length);
 extern int tunerbb_drv_fc8080_msc_cb(uint32 userdata, uint8 subChId, uint8 *data, int length);
 
 
-/*                                                            
-                                   
-                                                             */
+/*============================================================
+**    4.   Local constant variables
+*============================================================*/
 
 
-/*                                                            
-                        
-                                                             */
+/*============================================================
+**    5.   Local Typedef
+*============================================================*/
 
 
 typedef struct _BUFFR_TAG
@@ -118,9 +118,9 @@ typedef struct _HEADER_TYPE
 	uint8	svc_id;
 }FCI_HEADER_TYPE;
 
-/*                                                            
-                           
-                                                             */
+/*============================================================
+**    6.   Global Variables
+*============================================================*/
 fc8080_service_type	serviceType[FC8080_SERVICE_MAX];
 fci_u8 tot_subch_cnt=0;
 #if !defined(STREAM_TS_UPLOAD)
@@ -135,9 +135,9 @@ fci_u8 msc_data[188*8*8];
 fci_u8 msc_multi_data[188*8*8];
 #endif
 
-/*                                                            
-                           
-                                                             */
+/*============================================================
+**    7.   Static Variables
+*============================================================*/
 //       
 #ifdef FREQ_SEARCH_IN_TABLE
 
@@ -152,7 +152,7 @@ fci_u8 msc_multi_data[188*8*8];
 
 static uint16 is_tdmb_probe = 0;
 
-//                                      
+//static uint16 data_sequence_count = 0;
 
 /*                                                          */
 static uint32	antBuffIdx = 0;
@@ -160,13 +160,13 @@ static uint16	antBuff[MAX_ANT_BUFF_CNT] = {0, };
 static uint8	calAntLevel = 0;
 static uint8	syncLockCnt = 0;
 /*                                                          */
-/*                                                            
-                                   
-                                                             */
+/*============================================================
+**    8.   Local Function Prototype
+*============================================================*/
 static int32 tunerbb_drv_convert_chnum_to_freq(uint32 ch_num);
 static uint32 tunerbb_drv_fc8080_get_viterbi_ber(void);
 static int8 tunerbb_drv_fc8080_get_sync_status(void);
-//                                                  
+//static uint32 tunerbb_drv_fc8080_get_rs_ber(void);
 static int8 tunerbb_drv_fc8080_check_overrun(uint8 op_mode);
 void tunerbb_drv_fc8080_isr_control(fci_u8 onoff);
 #ifdef FEATURE_RSSI_DEBUG
@@ -270,47 +270,47 @@ static int32	tunerbb_drv_convert_chnum_to_freq(uint32 ch_num)
 
 //        
 #if !defined(STREAM_TS_UPLOAD)
-/*                                                       
-                                          
-                                                       
-                
-                                     
-                                           
-                                       
-                  
-                         
-                                                                    
+/*=======================================================
+    Function 		: tunerbb_drv_fc8080_fic_cb
+    Description		: set fic data param after ISR process
+    Parameter		:
+           uint32 userdata : Not Used
+           uint8 *data : fic buffer address
+           int length : fic data length
+    Return Value	:
+			           SUCCESS : 1
+			           FAIL : 0 or negative interger (If there is error code)
 
-                               
-                                                         
-                                      
-                                                         */
+	when		model	who			edit history
+  -------------------------------------------------------
+	2010/08/17	MOBIT	somesoo		Code review
+======================================================== */
 int tunerbb_drv_fc8080_fic_cb(uint32 userdata, uint8 *data, int length)
 {
 	fic_buffer.address = (uint32)(data);
 	fic_buffer.length = length;
 	fic_buffer.valid = 1;
 
-	//                                                                                                                                                         
+	// FC8000 관련 code인 send_fic_int_sig_isr2task() in mbs_dshmain.c를 빼다 보니, 현재는 polling 방식이나 향후 ISR방식으로 적용시 필요하므로 feature를 추가함
 #ifndef FEATURE_GET_FIC_POLLING
 	send_fic_int_sig_isr2task();
-#endif //                        
+#endif // FEATURE_GET_FIC_POLLING
 
 	return FC8080_RESULT_SUCCESS;
 }
 
-/*                                                                          
-                                                                                      
-                                               
-                      
-                      
-                                                                 
-                  
-                                     
-                                        
-                                           
-                                       
-                                                                             */
+/*--------------------------------------------------------------------------
+int tunerbb_drv_fc8080_msc_cb(uint32 userdata, uint8 subChId, uint8 *data, int length)
+    (1)   set msc data param after ISR process.
+    (2)   Return Value
+           SUCCESS : 1
+           FAIL : 0 or negative interger (If there is error code)
+    (3)   Argument
+           uint32 userdata : Not Used
+           uint8 subChId : Subchannel ID
+           uint8 *data : msc buffer address
+           int length : msc data length
+---------------------------------------------------------------------------- */
 int tunerbb_drv_fc8080_msc_cb(uint32 userdata, uint8 subChId, uint8 *data, int length)
 {
 	TDMB_BB_HEADER_TYPE dmb_header;
@@ -319,13 +319,13 @@ int tunerbb_drv_fc8080_msc_cb(uint32 userdata, uint8 subChId, uint8 *data, int l
 	dmb_header.data_type = (serviceType[0] == FC8080_DAB?TDMB_BB_DATA_DAB:TDMB_BB_DATA_TS);
 	dmb_header.size = length;
 	dmb_header.subch_id = subChId;
-	dmb_header.reserved = 0;//                               
+	dmb_header.reserved = 0;//data_sequence_count++;//0xDEAD;
 	dmb_header.ack_bit = 0;
 	head_size = sizeof(TDMB_BB_HEADER_TYPE);
 
-	/*                           */
-	//                                                                                                                                 
-	memcpy(&msc_data[0/*                 */], &dmb_header, sizeof(TDMB_BB_HEADER_TYPE));
+	/* TEST FOR AV Check  110407 */
+	//printk("tunerbb_drv_fc8080_msc_cb data0[0x%x] data1[0x%x] data2[0x%x] data3[0x%x] \n", *(data), *(data+1), *(data+2), *(data+3));
+	memcpy(&msc_data[0/*msc_buffer.length*/], &dmb_header, sizeof(TDMB_BB_HEADER_TYPE));
 	memcpy(&msc_data[head_size], data, length);
 
 	msc_buffer.length = head_size + length;
@@ -334,47 +334,47 @@ int tunerbb_drv_fc8080_msc_cb(uint32 userdata, uint8 subChId, uint8 *data, int l
 	return FC8080_RESULT_SUCCESS;
 }
 #endif
-/*                                                       
-                                        
-                                                              
-                     
-                  
-                      
-                                                                 
+/*=======================================================
+    Function 		: tunerbb_drv_fc8080_init
+    Description		: Initializing the FC8080 Chip after power on
+    Parameter		: VOID
+    Return Value	:
+           SUCCESS : 1
+           FAIL : 0 or negative interger (If there is error code)
 
-                               
-                                                         
-                                             
-                                            
-                                                         
-                                              
-                                                                   
-                                           
-                                      
-                                             
-                                                         */
+	when		model	who			edit history
+  -------------------------------------------------------
+	2010/05/17	MOBIT	prajuna		EBI2 configuration
+	2010/05/31	MOBIT	prajuna		Removed test code
+	2010/06/09	MOBIT	prajuna		TDMB porting(KB3 Rev. A patch)
+	2010/07/15	MOBIT	prajuna		TDMB tuning for QSC
+	2010/07/16	MOBIT	somesoo		TDMB tuning for QSC with FCI 최규원 과장
+	2010/07/17	MOBIT	somesoo		TDMB porting(VG)
+	2010/08/19	MOBIT	prajuna		Code review
+	2010/09/10	MOBIT	prajuna		TDMB porting(Aloe)
+======================================================== */
 int8	tunerbb_drv_fc8080_init(void)
 {
 	uint8 res;
-	/*    */
+	/*test*/
 
 	/*
-          
-                  
-                  
-                 
-                 
- */
+	uint16 i;
+	uint32 wdata = 0;
+	uint32 ldata = 0;
+	uint32 data = 0;
+	uint32 temp = 0;
+	*/
 
-	/*             */
+	/* Common Code */
 #if defined(STREAM_SLAVE_PARALLEL_UPLOAD)
-	/*                    */
+	/* EBI2 Specific Code */
 	bbm_com_hostif_select(NULL, BBM_PPI);
 #elif defined(STREAM_TS_UPLOAD)
-	/*                    */
+	/* TSIF Specific Code */
 	bbm_com_hostif_select(NULL, BBM_I2C);
 #elif defined(STREAM_SPI_UPLOAD)
-	/*                    */
+	/* SPI Specific. Code */
 	bbm_com_hostif_select(NULL, BBM_SPI);
 #else
 #error code not present
@@ -413,11 +413,11 @@ int8	tunerbb_drv_fc8080_init(void)
 
 	res = bbm_com_tuner_select(0, FC8080_TUNER, BAND3_TYPE);
 
-#if 0      //                                                    
-/*      */
+#if 0      //fc8080 <-> Host(MSM) 간의 Interface TEST를 위한 code
+/* test */
 	for(i=0;i<5000;i++)
 	{
-//             
+//		dog_kick();
 		bbm_com_write(NULL, 0xa4, i & 0xff);
 		bbm_com_read(NULL, 0xa4, &data);
 		if((i & 0xff) != data)
@@ -448,7 +448,7 @@ int8	tunerbb_drv_fc8080_init(void)
 		if((i & 0xff) != data)
 			printk("FC8080 tuner test (0x%x,0x%x)\n", i & 0xff, data);
 	}
-/*      */
+/* test */
 #endif
 
 	if(res)
@@ -460,15 +460,15 @@ int8	tunerbb_drv_fc8080_init(void)
 		return FC8080_RESULT_SUCCESS;
 }
 
-/*                                                                          
-                                 
-                                            
-                      
-                     
-                                                                 
-                  
-               
-                                                                             */
+/*--------------------------------------------------------------------------
+int8 tunrbb_drv_fc8080_stop(void)
+    (1)   Stopping the FC8080 Chip Operation
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+           VOID
+---------------------------------------------------------------------------- */
 int8	tunerbb_drv_fc8080_stop(void)
 {
 	uint8 res;
@@ -491,15 +491,15 @@ int8	tunerbb_drv_fc8080_stop(void)
 		return FC8080_RESULT_SUCCESS;
 }
 
-/*                                                                          
-                                         
-                                      
-                      
-                     
-                                                                 
-                  
-                          
-                                                                             */
+/*--------------------------------------------------------------------------
+int8 tunerbb_drv_fc8080_control_fic(void)
+    (1)   fic interrupt control on/off
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+           enable : on/off
+---------------------------------------------------------------------------- */
 int8 tunerbb_drv_fc8080_control_fic(uint8 enable)
 {
 	unsigned short mask;
@@ -517,7 +517,7 @@ int8 tunerbb_drv_fc8080_control_fic(uint8 enable)
 }
 
 #if 0
-static fci_u16 tunerbb_drv_fc8080_rserror_count(fci_u16 *nframe)//                  
+static fci_u16 tunerbb_drv_fc8080_rserror_count(fci_u16 *nframe)//for dummy channel.
 {
 	fci_u16 rt_nframe, rt_rserror;
 
@@ -526,36 +526,36 @@ static fci_u16 tunerbb_drv_fc8080_rserror_count(fci_u16 *nframe)//
 	bbm_com_word_read(NULL, 0xe30, &rt_nframe);
 	bbm_com_word_read(NULL, 0xe32, &rt_rserror);
 
-	*nframe = rt_nframe; //                              
+	*nframe = rt_nframe; //실시간으로 count 되는 frame 수
 	return rt_rserror;
 }
 #endif
 
-/*                                                                          
-                                                                     
-                                       
-                      
-                     
-                                                                 
-                  
-                                                      
-                                                
-            
-                               
-                                
-                                  
-                               
-                            
-                                
-                                
-                                
-                                   
-                               
-                                       
-             
+/*--------------------------------------------------------------------------
+int8 tunerbb_drv_fc8080_get_bbinfo(tdmb_status_rsp_type* dmb_bb_info)
+    (1)   Getting the RF/BB Information
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+            tdmb_status_rsp_type* dmb_bb_info (IN/OUT)
+           typedef struct tdmb_status_rsp_status
+           {
+                 uint32 dab_ok;
+                 uint32 msc_ber;
+                 uint32 sync_lock;
+                 uint32 afc_ok;
+                 uint32 cir;
+                 uint32 fic_ber;
+                 uint32 tp_lock;
+                 uint32 sch_ber;
+                 uint32 tp_err_cnt;
+                 uint32 va_ber;
+                 byte   srv_state_flag;
+           };
 
-                                                                           
-                                                                             */
+           These paramters are dependent on Information supplied by Device.
+---------------------------------------------------------------------------- */
 
 int8	tunerbb_drv_fc8080_get_ber(struct broadcast_tdmb_sig_info *dmb_bb_info)
 {
@@ -598,7 +598,7 @@ int8	tunerbb_drv_fc8080_get_ber(struct broadcast_tdmb_sig_info *dmb_bb_info)
 	tunerbb_drv_fc8080_get_dm(&dmb_bb_info->msc_ber, &tp_err_cnt, &nframe, &dmb_bb_info->va_ber);
 #endif
 
-	//                                                            
+	//dmb_bb_info->msc_ber = tunerbb_drv_fc8080_get_viterbi_ber();
 
 	sync_status = tunerbb_drv_fc8080_get_sync_status();
 #ifdef FEATURE_RSSI_DEBUG
@@ -612,19 +612,19 @@ int8	tunerbb_drv_fc8080_get_ber(struct broadcast_tdmb_sig_info *dmb_bb_info)
 	if(dmb_bb_info->cir && dmb_bb_info->sync_lock)
 	{
 		dmb_bb_info->sch_ber = 1;
-		//                                  
+		// dab_ok : channel impulse response
 		dmb_bb_info->dab_ok 	= 1;
 	}
 	else
 	{
 		dmb_bb_info->sch_ber = 0;
-		//                                  
+		// dab_ok : channel impulse response
 		dmb_bb_info->dab_ok 	= 0;
 	}
 
 	if(serviceType[0] == FC8080_DMB || serviceType[0] == FC8080_VISUAL)
 	{
-		//                                                                             
+		//tp_err_cnt = tunerbb_drv_fc8080_rserror_count(&nframe); //실시간 frame수 체크
 
 		if((dmb_bb_info->sync_lock == 0) || (tp_total_cnt == 0))
 		{
@@ -636,15 +636,15 @@ int8	tunerbb_drv_fc8080_get_ber(struct broadcast_tdmb_sig_info *dmb_bb_info)
 			dmb_bb_info->tp_err_cnt = 0;
 			dmb_bb_info->tp_lock = 1;
 		}
-		else //                          
+		else //if(bb_info.tp_err_cnt > 0)
 		{
 			dmb_bb_info->tp_err_cnt = (uint32)((tp_err_cnt *1000)/(3*tp_total_cnt));
 			dmb_bb_info->tp_lock = 0;
 		}
 
-		//                       
+		// initialize information
 		tp_total_cnt = 0;
-		//                                                      
+		//dmb_bb_info->va_ber = tunerbb_drv_fc8080_get_rs_ber();
 	}
 	else
 	{
@@ -687,7 +687,7 @@ int8	tunerbb_drv_fc8080_get_ber(struct broadcast_tdmb_sig_info *dmb_bb_info)
 	}
 	else
 	{
-		if(syncLockCnt != START_SYNC_CNT) //                                   
+		if(syncLockCnt != START_SYNC_CNT) // draw after 1.5secs since sync lock
 		{
 			syncLockCnt++;
 			refAntLevel = 0;
@@ -706,10 +706,10 @@ int8	tunerbb_drv_fc8080_get_ber(struct broadcast_tdmb_sig_info *dmb_bb_info)
 	/*                                                          */
 
 #if 0
-	//                                                                                           
+	//채널은 잡았으나 (sync_status == 0x3f) frame이 들어오지 않는 경우(nframe == 0) - MBN V-Radio
 	if((sync_status==0x3f)&&(nframe==0))
 	{
-		//                           
+		//antenna level을 0으로 만듬.
 		dmb_bb_info->antenna_level = 0;
 	}
 #endif
@@ -717,15 +717,15 @@ int8	tunerbb_drv_fc8080_get_ber(struct broadcast_tdmb_sig_info *dmb_bb_info)
 	return FC8080_RESULT_SUCCESS;
 }
 
-/*                                                                          
-                                         
-                             
-                      
-                     
-                                                                 
-                  
-                                    
-                                                                             */
+/*--------------------------------------------------------------------------
+int8 tunerbb_drv_fc8080_get_msc_ber(void)
+    (1)   Getting the msc ber
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+           uint32* pmsc_ber (IN/OUT)
+---------------------------------------------------------------------------- */
 int8	tunerbb_drv_fc8080_get_msc_ber(uint32* pmsc_ber )
 {
 	*pmsc_ber = tunerbb_drv_fc8080_get_viterbi_ber();
@@ -733,32 +733,32 @@ int8	tunerbb_drv_fc8080_get_msc_ber(uint32* pmsc_ber )
 	return FC8080_RESULT_SUCCESS;
 }
 
-/*                                                                                     
-                                                                                                               
-                                                       
-                                                                         
-                      
-                     
-                                                                 
-                  
-                              
-                                                                                             
-                               
-                                                                                           
-                                 
-                                                 
-                                 
-                                        
-                         
-                        
-                           
-                         
-                         
-                            
+/*-------------------------------------------------------------------------------------
+int8 tunerbb_drv_fc8080_mulit_set_channel(int32 freq_num, uint8 subch_cnt, uint8 subch_id[ ], uint8 op_mode[ ])
+    (1)   Setting the frequency , subch_id and op_mode.
+            This function is used in Single Service and Mulitiple Service
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+           int32 freq_num (IN)
+                - TDMB Frequency index(e.g 7A(71), 13C(133) etc). Convert frequency if needed
+           uint8 subch_cnt (IN)
+                - The number of multiple service. This value is 1 in case of Single Service
+           uint8 subch_id[ ] (IN)
+                - Service Componet Sub-Channel ID
+           uint8  op_mode[ ] (IN)
+                - Service Operation Mode
+                DAB  = 1;
+                DMB = 2;
+                VISUAL = 3;
+                DATA = 4;
+                TPEG = 5;
+                ENSQUERY = 6
 
-                                                                                                           
-                                                                                        */
-//                                                             
+           <notice> The size of subch_cnt[ ] and op_mode[ ] is the maximum number being supported by FC8080
+--------------------------------------------------------------------------------------- */
+// Modified by somesoo 20100730 for removing green block effect
 int8	tunerbb_drv_fc8080_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8 subch_id[ ], uint8 op_mode[ ])
 {
 	int8 res = BBM_OK;
@@ -780,7 +780,7 @@ int8	tunerbb_drv_fc8080_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8
 	}
 
 	tunerbb_drv_fc8080_control_fic(0);
-	/*                                           */
+	/* Change freq_num(channel num) to frequency */
 	freq = tunerbb_drv_convert_chnum_to_freq(freq_num);
 
 	if(freq == 0)
@@ -838,7 +838,7 @@ int8	tunerbb_drv_fc8080_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8
 #else
 					g_chinfo[subch_id[i]]=dmb_cnt;
 #endif
-					//          
+					//dmb_cnt++;
 				}
 				else
 					res=BBM_NOK;
@@ -865,7 +865,7 @@ int8	tunerbb_drv_fc8080_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8
 	bbm_com_word_write(NULL, BBM_BUF_ENABLE, mask);
 	tot_subch_cnt = subch_cnt;
 
-	//                                                          
+	// Added by somesoo 20100730 for removing green block effect
 	if(svcType != FC8080_ENSQUERY)
 		tunerbb_drv_fc8080_isr_control(1);
 
@@ -875,24 +875,24 @@ int8	tunerbb_drv_fc8080_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8
 		return FC8080_RESULT_SUCCESS;
 }
 
-/*                                                                                     
-                                                                   
-                                                                                                            
-                                                                                         
-                                                        
-                      
-                     
-                                                                 
-                  
-                                 
-                                    
-                                        
-                             
+/*-------------------------------------------------------------------------------------
+int8 tunerbb_drv_fc8080_get_fic(uint8* buffer, uint32* buffer_size)
+    (1)   Getting the FIC data after calling tunerbb_drv_fc8080_multi_set_channel(freq, 1, ignore, ENSQUERY)
+            In case of ENSQUERY, set_channel function must return Channel LOCKING or Not.
+            Get_FIC is called in case of LOCKING Success
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+           uint8* buffer (IN/OUT)
+               - buffer for FIC data
+           uint32* buffer_size (IN /OUT)
+              - FIC Data Size
 
-                                                            
-                                                                                        */
+        <notice> This function is used in All HOST Interface
+--------------------------------------------------------------------------------------- */
 #ifdef FEATURE_GET_FIC_POLLING
-int8	tunerbb_drv_fc8080_get_fic(uint8* buffer, uint32* buffer_size  /*                   */)
+int8	tunerbb_drv_fc8080_get_fic(uint8* buffer, uint32* buffer_size  /*, uint8 crc_on_off */)
 {
 	HANDLE hDevice = NULL;
 	fci_u16      mfIntStatus = 0;
@@ -921,7 +921,7 @@ int8	tunerbb_drv_fc8080_get_fic(uint8* buffer, uint32* buffer_size  /*          
 }
 #else
 #if !defined(STREAM_TS_UPLOAD)
-int8	tunerbb_drv_fc8080_get_fic(uint8* buffer, uint32* buffer_size  /*                   */)
+int8	tunerbb_drv_fc8080_get_fic(uint8* buffer, uint32* buffer_size  /*, uint8 crc_on_off */)
 {
 	if(buffer==NULL)
 		return FC8080_RESULT_ERROR;
@@ -943,21 +943,21 @@ int8	tunerbb_drv_fc8080_get_fic(uint8* buffer, uint32* buffer_size  /*          
 #endif
 #endif
 #if !defined(STREAM_TS_UPLOAD)
-/*                                                                                     
-                                                                     
-                                            
-                                                        
-                      
-                     
-                                                                 
-                  
-                                 
-                                
-                                        
-                         
+/*-------------------------------------------------------------------------------------
+int8 tunerbb_drv_fc8080_read_data(uint8* buffer, uint32* buffer_size)
+    (1)   Reading MSC or MSC + FIC etc Data.
+            This function is used in EBI2 HOST Interface
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+           uint8* buffer (IN/OUT)
+               - buffer for Data
+           uint32* buffer_size (IN /OUT)
+              - Data Size
 
-                                                                  
-                                                                                        */
+        <notice> This function is used in only EBI2 HOST Interface
+--------------------------------------------------------------------------------------- */
 int8	tunerbb_drv_fc8080_read_data(uint8* buffer, uint32* buffer_size)
 {
 	int8 retval = FC8080_RESULT_ERROR;
@@ -967,7 +967,7 @@ int8	tunerbb_drv_fc8080_read_data(uint8* buffer, uint32* buffer_size)
 		return retval;
 	}
 		
-	/*                                                      */
+	/* initialize length and valid value before isr routine */
 	msc_buffer.valid = 0;
 	msc_buffer.length=0;
 #ifdef NOT_MSCDATA_MULTIPLE_MEMCPY
@@ -1064,8 +1064,8 @@ int8	tunerbb_drv_fc8080_process_multi_data(uint8 subch_cnt, uint8* input_buf, ui
 
 	(*read_size) = 0;
 
-	//                                                      
-	//                                                          
+	// Modified by FCI 20100309 for DAB error fatal(TD10172)
+	// Modified by somesoo 20100831 for DAB error fatal(TD10172)
 	for(ch_cnt = 0; ch_cnt<tot_subch_cnt; ch_cnt++)
 	{
 		memcpy(&header, &input_buf[i], sizeof(FCI_HEADER_TYPE));
@@ -1083,23 +1083,23 @@ int8	tunerbb_drv_fc8080_process_multi_data(uint8 subch_cnt, uint8* input_buf, ui
 #endif
 
 #ifdef STREAM_TS_UPLOAD
-/*                                                                                     
-                                                                                        
-                                     
-                      
-                     
-                                                                 
-                  
-                          
-                                  
-                                  
-                                
-                                  
-                         
+/*-------------------------------------------------------------------------------------
+int8 tunerbb_drv_fc8080_get_multi_data(uint8 subch_cnt, uint8* buf_ptr, uint32 buf_size)
+    (1)   Getting the processed data.
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+           uint8 subch_cnt
+               - Sub-Channel count
+           uint8* buf_ptr (IN/OUT)
+               - buffer for Data
+           uint32 buffer_size (IN)
+              - Data Size
 
-                
-                                                          
-                                                                                        */
+        <notice>
+             (1) format : dmb_header |data|dmb_header|data
+--------------------------------------------------------------------------------------- */
 int8	tunerbb_drv_fc8080_get_multi_data(uint8 subch_cnt, uint8* buf_ptr, uint32 buf_size)
 {
 	uint32 nDataSize;
@@ -1190,8 +1190,8 @@ int8	tunerbb_drv_fc8080_get_multi_data(uint8 subch_cnt, uint8* buf_ptr, uint32 b
 		return FC8080_RESULT_ERROR;
 	}
 
-	//                                                      
-	//                                                          
+	// Modified by FCI 20100309 for DAB error fatal(TD10172)
+	// Modified by somesoo 20100831 for DAB error fatal(TD10172)
 	for(ch_cnt = 0; ch_cnt<tot_subch_cnt; ch_cnt++)
 	{
 		memcpy(&header, &msc_multi_data[i], sizeof(FCI_HEADER_TYPE));
@@ -1230,46 +1230,46 @@ int8	tunerbb_drv_fc8080_get_multi_data(uint8 subch_cnt, uint8* buf_ptr, uint32 b
 }
 #endif
 
-/*                                                                                     
-                                       
-                      
-                      
-                     
-                                                                 
-                  
-               
-                                                                                        */
+/*-------------------------------------------------------------------------------------
+int8 tunerbb_drv_fc8080_start_tii(void)
+    (1)   Starting TII
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+           VOID
+--------------------------------------------------------------------------------------- */
 int8	tunerbb_drv_fc8080_start_tii(void)
 {
 	return FC8080_RESULT_ERROR;
 }
 
-/*                                                                                     
-                                      
-                      
-                      
-                     
-                                                                 
-                  
-               
-                                                                                        */
+/*-------------------------------------------------------------------------------------
+int8 tunerbb_drv_fc8080_stop_tii(void)
+    (1)   Stopping TII
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+           VOID
+--------------------------------------------------------------------------------------- */
 int8	tunerbb_drv_fc8080_stop_tii(void)
 {
 	return FC8080_RESULT_ERROR;
 }
 
-/*                                                                                     
-                                                                          
-                      
-                      
-                     
-                                                                 
-                  
-                              
-                              
-                             
-                             
-                                                                                        */
+/*-------------------------------------------------------------------------------------
+int8 tunerbb_drv_fc8080_check_tii(uint8* main_tii_ptr, uint8* sub_tii_ptr)
+    (1)   Stopping TII
+    (2)   Return Value
+           Sucess : 1
+           Fail : 0 or negative interger (If there is error code)
+    (3)   Argument
+           uint8* main_tii_ptr
+              - Main TII value
+           uint8* sub_tii_ptr
+              - SUB TII value
+--------------------------------------------------------------------------------------- */
 int8	tunerbb_drv_fc8080_check_tii(uint8* main_tii_ptr, uint8* sub_tii_ptr)
 {
 	if(( NULL == main_tii_ptr) ||( NULL == sub_tii_ptr))
@@ -1334,7 +1334,7 @@ void tunerbb_drv_fc8080_get_dm(fci_u32 *mscber, fci_u32 *tp_err, fci_u16 *tpcnt,
 
 	*mscber = (*mscber >= MAX_MSC_BER) ? MAX_MSC_BER : *mscber;
 
-	/*                                                  */
+	/* ber must bigger than 0 because FactoryTest issue */
 	if(*mscber == 0)
 	{
 		*mscber = 1;
@@ -1365,7 +1365,7 @@ void tunerbb_drv_fc8080_get_dm(fci_u32 *mscber, fci_u32 *tp_err, fci_u16 *tpcnt,
 }
 
 
-static uint32 tunerbb_drv_fc8080_get_viterbi_ber(void)	//       
+static uint32 tunerbb_drv_fc8080_get_viterbi_ber(void)	//msc_ber
 {
 	uint32 bper, tbe;
 	uint32 ber;
@@ -1393,7 +1393,7 @@ static uint32 tunerbb_drv_fc8080_get_viterbi_ber(void)	//
 
 	ber = (ber >= MAX_MSC_BER) ? MAX_MSC_BER : ber;
 
-	/*                                                  */
+	/* ber must bigger than 0 because FactoryTest issue */
 	if(ber == 0)
 	{
 		ber = 1;
@@ -1413,7 +1413,7 @@ static int8 tunerbb_drv_fc8080_get_sync_status(void)
 }
 
 #if 0
-static uint32 tunerbb_drv_fc8080_get_rs_ber(void)	//      
+static uint32 tunerbb_drv_fc8080_get_rs_ber(void)	//va_ber
 {
 	uint16 nframe, rserror;
 	uint32 esum;
@@ -1448,61 +1448,61 @@ static uint32 tunerbb_drv_fc8080_get_rs_ber(void)	//
 #endif
 
 /*
-                              
-                                                                       
-                            
+static fci_u8 ficBuffer[1024];
+extern int (*pFicCallback)(fci_u32 userdata, fci_u8 *data, int length);
+extern fci_u32 gFicUserData;
 
-                                              
- 
-                       
-                              
-                   
-       
+void tunerbb_drv_fc8080_process_polling_data()
+{
+	HANDLE hDevice = NULL;
+	fci_u16      mfIntStatus = 0;
+	fci_u16      size;
+	int i;
 
-                                                  
-                                                     
+	bbm_com_write(hDevice, BBM_COM_INT_ENABLE, 0x00);
+	bbm_com_write(hDevice, BBM_COM_STATUS_ENABLE, 0x00);
 
-                                                 
-                                                    
+	bbm_com_word_read(hDevice, BBM_BUF_INT, 0x01ff);
+	bbm_com_word_read(hDevice, BBM_BUF_ENABLE, 0x01ff);
 
-                           
-  
-                                                           
+	for(i = 0 ; i < 200 ; i++)
+	{
+		bbm_com_word_read(hDevice, BBM_BUF_STATUS, &mfIntStatus);
 
-                 
-         
-  
+		if(mfIntStatus)
+			break;
+	}
 
-                     
-  
-                                                  
-                                                     
-                                                              
-                                                                 
-         
-  
+	if(mfIntStatus == 0)
+	{
+		bbm_com_word_read(hDevice, BBM_BUF_INT, 0x00ff);
+		bbm_com_word_read(hDevice, BBM_BUF_ENABLE, 0x00ff);
+		bbm_com_write(hDevice, BBM_COM_INT_ENABLE, ENABLE_INT_MASK);
+		bbm_com_write(hDevice, BBM_COM_STATUS_ENABLE, ENABLE_INT_MASK);
+		return;
+	}
 
-                                                          
-                                                     
+	bbm_com_word_write(hDevice, BBM_BUF_STATUS, mfIntStatus);
+	bbm_com_word_write(hDevice, BBM_BUF_STATUS, 0x0000);
 
-                         
-  
-                                                     
-            
-            
-   
-                                                                
+	if(mfIntStatus & 0x0100)
+	{
+		bbm_com_word_read(hDevice, BBM_BUF_FIC_THR, &size);
+		size += 1;
+		if(size-1)
+		{
+			bbm_com_data(hDevice, BBM_COM_FIC_DATA, &ficBuffer[0], size);
 
-                   
-                                                            
-   
-  
-                                                 
-                                                    
+			if(pFicCallback)
+			      (*pFicCallback)(gFicUserData, &ficBuffer[0], size);
+		}
+	}
+	bbm_com_word_read(hDevice, BBM_BUF_INT, 0x00ff);
+	bbm_com_word_read(hDevice, BBM_BUF_ENABLE, 0x00ff);
 
-                                                             
-                                                                
- 
+	bbm_com_write(hDevice, BBM_COM_INT_ENABLE, ENABLE_INT_MASK);
+	bbm_com_write(hDevice, BBM_COM_STATUS_ENABLE, ENABLE_INT_MASK);
+}
 */
 
 static int8 tunerbb_drv_fc8080_check_overrun(uint8 op_mode)
@@ -1520,8 +1520,8 @@ static int8 tunerbb_drv_fc8080_check_overrun(uint8 op_mode)
 	}
 	else
 	{
-		//                                               
-		return FC8080_RESULT_ERROR; /*                 */
+		//printk("fc8080 invaild op_mode %d\n", op_mode);
+		return FC8080_RESULT_ERROR; /* invaild op_mode */
 	}
 
 	{

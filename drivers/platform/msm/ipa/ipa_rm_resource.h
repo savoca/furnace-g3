@@ -17,8 +17,8 @@
 #include <mach/ipa.h>
 #include "ipa_rm_peers_list.h"
 
-/* 
-                                              
+/**
+ * enum ipa_rm_resource_state - resource state
  */
 enum ipa_rm_resource_state {
 	IPA_RM_RELEASED,
@@ -27,20 +27,20 @@ enum ipa_rm_resource_state {
 	IPA_RM_RELEASE_IN_PROGRESS
 };
 
-/* 
-                                                                 
+/**
+ * enum ipa_rm_resource_type - IPA resource manager resource type
  */
 enum ipa_rm_resource_type {
 	IPA_RM_PRODUCER,
 	IPA_RM_CONSUMER
 };
 
-/* 
-                                                             
-                      
-                                       
-                                                        
-                                                                
+/**
+ * struct ipa_rm_notification_info - notification information
+ *				of IPA RM client
+ * @reg_params: registration parameters
+ * @explicit: registered explicitly by ipa_rm_register()
+ * @link: link to the list of all registered clients information
  */
 struct ipa_rm_notification_info {
 	struct ipa_rm_register_params	reg_params;
@@ -48,12 +48,12 @@ struct ipa_rm_notification_info {
 	struct list_head		link;
 };
 
-/* 
-                                           
-                                   
-                                
-                                                             
-                                                 
+/**
+ * struct ipa_rm_resource - IPA RM resource
+ * @name: name identifying resource
+ * @state: state of the resource
+ * @state_lock: lock for all resource state related variables
+ * @peers_list: list of the peers of the resource
  */
 struct ipa_rm_resource {
 	enum ipa_rm_resource_name	name;
@@ -63,16 +63,16 @@ struct ipa_rm_resource {
 	struct ipa_rm_peers_list	*peers_list;
 };
 
-/* 
-                                                
-                      
-                                                                 
-                       
-                                                                         
-                          
-                                                                         
-                          
-                                       
+/**
+ * struct ipa_rm_resource_cons - IPA RM consumer
+ * @resource: resource
+ * @usage_count: number of producers in GRANTED / REQUESTED state
+ *		using this consumer
+ * @request_resource: function which should be called to request resource
+ *			from resource manager
+ * @release_resource: function which should be called to release resource
+ *			from resource manager
+ * Add new fields after @resource only.
  */
 struct ipa_rm_resource_cons {
 	struct ipa_rm_resource resource;
@@ -81,13 +81,13 @@ struct ipa_rm_resource_cons {
 	int (*release_resource)(void);
 };
 
-/* 
-                                                
-                      
-                                                          
-                                       
-                                                                     
-                                       
+/**
+ * struct ipa_rm_resource_prod - IPA RM producer
+ * @resource: resource
+ * @event_listeners: clients registered with this producer
+ *		for notifications in resource state
+ * @event_listeners_lock: RW lock protecting the event listeners list
+ * Add new fields after @resource only.
  */
 struct ipa_rm_resource_prod {
 	struct ipa_rm_resource	resource;
@@ -133,4 +133,4 @@ int ipa_rm_resource_producer_print_stat(
 		char *buf,
 		int size);
 
-#endif /*                     */
+#endif /* _IPA_RM_RESOURCE_H_ */

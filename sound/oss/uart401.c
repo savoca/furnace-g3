@@ -123,7 +123,7 @@ uart401_open(int dev, int mode,
 	if (devc->opened)
 		return -EBUSY;
 
-	/*                */
+	/* Flush the UART */
 	
 	while (input_avail(devc))
 		uart401_read(devc);
@@ -153,8 +153,8 @@ static int uart401_out(int dev, unsigned char midi_byte)
 	if (devc->disabled)
 		return 1;
 	/*
-                                                                 
-  */
+	 * Test for input since pending input seems to block the output.
+	 */
 
 	spin_lock_irqsave(&devc->lock,flags);	
 	if (input_avail(devc))
@@ -163,9 +163,9 @@ static int uart401_out(int dev, unsigned char midi_byte)
 	spin_unlock_irqrestore(&devc->lock,flags);
 
 	/*
-                                                                        
-                                                         
-  */
+	 * Sometimes it takes about 13000 loops before the output becomes ready
+	 * (After reset). Normally it takes just about 10 loops.
+	 */
 
 	for (timeout = 30000; timeout > 0 && !output_ready(devc); timeout--);
 
@@ -246,8 +246,8 @@ static int reset_uart401(uart401_devc * devc)
 	int ok, timeout, n;
 
 	/*
-                                                                      
-  */
+	 * Send the RESET command. Try again if no success at the first time.
+	 */
 
 	ok = 0;
 
@@ -258,13 +258,13 @@ static int reset_uart401(uart401_devc * devc)
 		uart401_cmd(devc, MPU_RESET);
 
 		/*
-                                                                         
-                                                                    
-   */
+		 * Wait at least 25 msec. This method is not accurate so let's make the
+		 * loop bit longer. Cannot sleep since this is called during boot.
+		 */
 
 		for (timeout = 50000; timeout > 0 && !ok; timeout--)
 		{
-			if (devc->input_byte == MPU_ACK)	/*           */
+			if (devc->input_byte == MPU_ACK)	/* Interrupt */
 				ok = 1;
 			else if (input_avail(devc))
 			{
@@ -284,8 +284,8 @@ static int reset_uart401(uart401_devc * devc)
 
 	if (ok)
 		uart401_input_loop(devc);	/*
-                                               
-       */
+						 * Flush input before enabling interrupts
+						 */
 
 	return ok;
 }
@@ -299,7 +299,7 @@ int probe_uart401(struct address_info *hw_config, struct module *owner)
 
 	DDB(printk("Entered probe_uart401()\n"));
 
-	/*                        */
+	/* Default to "not found" */
 	hw_config->slots[4] = -1;
 
 	if (!request_region(hw_config->io_base, 4, "MPU-401 UART")) {
@@ -399,11 +399,11 @@ void unload_uart401(struct address_info *hw_config)
 	uart401_devc *devc;
 	int n=hw_config->slots[4];
 	
-	/*            */
+	/* Not set up */
 	if(n==-1 || midi_devs[n]==NULL)
 		return;
 		
-	/*                        */
+	/* Not allocated (erm ??) */
 	
 	devc = midi_devs[hw_config->slots[4]]->devc;
 	if (devc == NULL)
@@ -421,7 +421,7 @@ void unload_uart401(struct address_info *hw_config)
 		kfree(devc);
 		devc = NULL;
 	}
-	/*                         */
+	/* This kills midi_devs[x] */
 	sound_unload_mididev(hw_config->slots[4]);
 }
 
@@ -443,8 +443,8 @@ static int __init init_uart401(void)
 	cfg_mpu.irq = irq;
 	cfg_mpu.io_base = io;
 
-	/*                                                            
-              */
+	/* Can be loaded either for module use or to provide functions
+	   to others */
 	if (cfg_mpu.io_base != -1 && cfg_mpu.irq != -1) {
 		printk(KERN_INFO "MPU-401 UART driver Copyright (C) Hannu Savolainen 1993-1997");
 		if (!probe_uart401(&cfg_mpu, THIS_MODULE))
@@ -466,7 +466,7 @@ module_exit(cleanup_uart401);
 #ifndef MODULE
 static int __init setup_uart401(char *str)
 {
-	/*         */
+	/* io, irq */
 	int ints[3];
 	
 	str = get_options(str, ARRAY_SIZE(ints), ints);

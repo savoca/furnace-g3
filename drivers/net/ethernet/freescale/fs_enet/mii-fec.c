@@ -41,7 +41,7 @@
 #include "fs_enet.h"
 #include "fec.h"
 
-/*                                          
+/* Make MII read/write commands for the FEC.
 */
 #define mk_mii_read(REG)	(0x60020000 | ((REG & 0x1f) << 18))
 #define mk_mii_write(REG, VAL)	(0x50020000 | ((REG & 0x1f) << 18) | (VAL & 0xffff))
@@ -57,7 +57,7 @@ static int fs_enet_fec_mii_read(struct mii_bus *bus , int phy_id, int location)
 
 	BUG_ON((in_be32(&fecp->fec_r_cntrl) & FEC_RCNTRL_MII_MODE) == 0);
 
-	/*                                       */
+	/* Add PHY address to register command.  */
 	out_be32(&fecp->fec_mii_data, (phy_id << 23) | mk_mii_read(location));
 
 	for (i = 0; i < FEC_MII_LOOPS; i++)
@@ -78,10 +78,10 @@ static int fs_enet_fec_mii_write(struct mii_bus *bus, int phy_id, int location, 
 	struct fec __iomem *fecp = fec->fecp;
 	int i;
 
-	/*                        */
+	/* this must never happen */
 	BUG_ON((in_be32(&fecp->fec_r_cntrl) & FEC_RCNTRL_MII_MODE) == 0);
 
-	/*                                       */
+	/* Add PHY address to register command.  */
 	out_be32(&fecp->fec_mii_data, (phy_id << 23) | mk_mii_write(location, val));
 
 	for (i = 0; i < FEC_MII_LOOPS; i++)
@@ -97,7 +97,7 @@ static int fs_enet_fec_mii_write(struct mii_bus *bus, int phy_id, int location, 
 
 static int fs_enet_fec_mii_reset(struct mii_bus *bus)
 {
-	/*                        */
+	/* nothing here - for now */
 	return 0;
 }
 
@@ -143,7 +143,7 @@ static int __devinit fs_enet_mdio_probe(struct platform_device *ofdev)
 	if (get_bus_freq) {
 		clock = get_bus_freq(ofdev->dev.of_node);
 		if (!clock) {
-			/*                                         */
+			/* Use maximum divider if clock is unknown */
 			dev_warn(&ofdev->dev, "could not determine IPS clock\n");
 			clock = 0x3F * 5000000;
 		}
@@ -151,9 +151,9 @@ static int __devinit fs_enet_mdio_probe(struct platform_device *ofdev)
 		clock = ppc_proc_freq;
 
 	/*
-                                    
-                                                              
-  */
+	 * Scale for a MII clock <= 2.5 MHz
+	 * Note that only 6 bits (25:30) are available for MII speed.
+	 */
 	speed = (clock + 4999999) / 5000000;
 	if (speed > 0x3F) {
 		speed = 0x3F;

@@ -19,18 +19,18 @@
  */
 
 /*
-                    
-           
-           
-            
-            
-           
-           
-           
-               
-               
-              
-              
+ * Supported ioctls:
+ *   TCGETA
+ *   TCSETA
+ *   TCSETAW
+ *   TCSETAF
+ *   TCSBRK
+ *   TCXONC
+ *   TCFLSH
+ *   TIOCGWINSZ
+ *   TIOCSWINSZ
+ *   TIOCGPGRP
+ *   TIOCSPGRP
  */
 
 #include <linux/sched.h>
@@ -61,7 +61,7 @@ int hpux_ioctl(int fd, unsigned long cmd, unsigned long arg)
 	int type = _IOC_TYPE(cmd);
 	switch (type) {
 	case 'T':
-		/*                                               */
+		/* Our structures are now compatible with HPUX's */
 		result = sys_ioctl(fd, cmd, arg);
 		break;
 	case 't':

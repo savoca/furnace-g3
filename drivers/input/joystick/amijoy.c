@@ -3,7 +3,7 @@
  */
 
 /*
-                                            
+ * Driver for Amiga joysticks for Linux/m68k
  */
 
 /*

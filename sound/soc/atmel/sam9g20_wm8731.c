@@ -56,9 +56,9 @@
 #define MCLK_RATE 12000000
 
 /*
-                                                                        
-                                                                         
-                 
+ * As shipped the board does not have inputs.  However, it is relatively
+ * straightforward to modify the board to hook them up so support is left
+ * in the driver.
  */
 #undef ENABLE_MIC_INPUT
 
@@ -72,13 +72,13 @@ static int at91sam9g20ek_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	int ret;
 
-	/*                             */
+	/* set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_I2S |
 		SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0)
 		return ret;
 
-	/*                           */
+	/* set cpu DAI configuration */
 	ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_I2S |
 		SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBM_CFM);
 	if (ret < 0)
@@ -125,16 +125,16 @@ static const struct snd_soc_dapm_widget at91sam9g20ek_dapm_widgets[] = {
 
 static const struct snd_soc_dapm_route intercon[] = {
 
-	/*                             */
+	/* speaker connected to LHPOUT */
 	{"Ext Spk", NULL, "LHPOUT"},
 
-	/*                                                    */
+	/* mic is connected to Mic Jack, with WM8731 Mic Bias */
 	{"MICIN", NULL, "Mic Bias"},
 	{"Mic Bias", NULL, "Int Mic"},
 };
 
 /*
-                                                            
+ * Logic for a wm8731 as connected on a at91sam9g20ek board.
  */
 static int at91sam9g20ek_wm8731_init(struct snd_soc_pcm_runtime *rtd)
 {
@@ -154,13 +154,13 @@ static int at91sam9g20ek_wm8731_init(struct snd_soc_pcm_runtime *rtd)
 		return ret;
 	}
 
-	/*                      */
+	/* Add specific widgets */
 	snd_soc_dapm_new_controls(dapm, at91sam9g20ek_dapm_widgets,
 				  ARRAY_SIZE(at91sam9g20ek_dapm_widgets));
-	/*                                          */
+	/* Set up specific audio path interconnects */
 	snd_soc_dapm_add_routes(dapm, intercon, ARRAY_SIZE(intercon));
 
-	/*               */
+	/* not connected */
 	snd_soc_dapm_nc_pin(dapm, "RLINEIN");
 	snd_soc_dapm_nc_pin(dapm, "LLINEIN");
 
@@ -170,7 +170,7 @@ static int at91sam9g20ek_wm8731_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_nc_pin(dapm, "Int Mic");
 #endif
 
-	/*                  */
+	/* always connected */
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk");
 
 	return 0;
@@ -212,8 +212,8 @@ static int __init at91sam9g20ek_init(void)
 	}
 
 	/*
-                                               
-  */
+	 * Codec MCLK is supplied by PCK0 - set it up.
+	 */
 	mclk = clk_get(NULL, "pck0");
 	if (IS_ERR(mclk)) {
 		printk(KERN_ERR "ASoC: Failed to get MCLK\n");
@@ -274,7 +274,7 @@ static void __exit at91sam9g20ek_exit(void)
 module_init(at91sam9g20ek_init);
 module_exit(at91sam9g20ek_exit);
 
-/*                    */
+/* Module information */
 MODULE_AUTHOR("Sedji Gaouaou <sedji.gaouaou@atmel.com>");
 MODULE_DESCRIPTION("ALSA SoC AT91SAM9G20EK_WM8731");
 MODULE_LICENSE("GPL");

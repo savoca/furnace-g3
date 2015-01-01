@@ -1,7 +1,7 @@
 #ifndef _ASM_CRIS_IO_H
 #define _ASM_CRIS_IO_H
 
-#include <asm/page.h>   /*                */
+#include <asm/page.h>   /* for __va, __pa */
 #include <arch/io.h>
 #include <linux/kernel.h>
 
@@ -20,7 +20,7 @@ extern struct cris_io_operations *cris_iops;
 #endif
 
 /*
-                                                         
+ * Change virtual addresses to physical addresses and vv.
  */
 
 static inline unsigned long virt_to_phys(volatile void * address)
@@ -46,16 +46,16 @@ extern void iounmap(volatile void * __iomem addr);
 extern void __iomem * ioremap_nocache(unsigned long offset, unsigned long size);
 
 /*
-                                                                 
+ * IO bus memory addresses are also 1:1 with the physical address
  */
 #define virt_to_bus virt_to_phys
 #define bus_to_virt phys_to_virt
 
 /*
-                                                                   
-                                                                
-                                                                
-                            
+ * readX/writeX() are used to access memory mapped devices. On some
+ * architectures the memory mapped IO stuff needs to be accessed
+ * differently. On the CRIS architecture, we just read/write the
+ * memory location directly.
  */
 #ifdef CONFIG_PCI
 #define PCI_SPACE(x) ((((unsigned)(x)) & 0x10000000) == 0x10000000)
@@ -122,8 +122,8 @@ static inline void writel(unsigned int b, volatile void __iomem *addr)
 #define memcpy_toio(a,b,c)	memcpy((void *)(a),(b),(c))
 
 
-/*                                                                 
-                                                                   
+/* I/O port access. Normally there is no I/O space on CRIS but when
+ * Cardbus/PCI is enabled the request is passed through the bridge.
  */
 
 #define IO_SPACE_LIMIT 0xffff
@@ -141,13 +141,13 @@ static inline void writel(unsigned int b, volatile void __iomem *addr)
 #define outsl(port,addr,count) if(cris_iops) cris_iops->write_io(port,(void*)addr,3,count)
 
 /*
-                                                                      
-         
+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
+ * access
  */
 #define xlate_dev_mem_ptr(p)	__va(p)
 
 /*
-                                                          
+ * Convert a virtual cached pointer to an uncached pointer
  */
 #define xlate_dev_kmem_ptr(p)	p
 

@@ -23,10 +23,10 @@ static unsigned long se_half;
 static unsigned long se_word;
 static unsigned long se_dword;
 static unsigned long se_multi;
-/*                                                                          
-          */
+/* bitfield: 1: warn 2: fixup 4: signal -> combinations 2|4 && 1|2|4 are not
+   valid! */
 static int se_usermode = UM_WARN | UM_FIXUP;
-/*                                                               */
+/* 0: no warning 1: print a warning message, disabled by default */
 static int se_kernmode_warn;
 
 core_param(alignment, se_usermode, int, 0600);
@@ -62,8 +62,8 @@ void inc_unaligned_kernel_access(void)
 }
 
 /*
-                                                                       
-                                                                    
+ * This defaults to the global policy which can be set from the command
+ * line, while processes can overload their preferences via prctl().
  */
 unsigned int unaligned_user_action(void)
 {
@@ -162,10 +162,10 @@ static const struct file_operations alignment_proc_fops = {
 };
 
 /*
-                                                                  
-                                                                 
-                                                                
-                                                   
+ * This needs to be done after sysctl_init, otherwise sys/ will be
+ * overwritten.  Actually, this shouldn't be in sys/ at all since
+ * it isn't a sysctl, and it doesn't contain sysctl information.
+ * We now locate it in /proc/cpu/alignment instead.
  */
 static int __init alignment_init(void)
 {

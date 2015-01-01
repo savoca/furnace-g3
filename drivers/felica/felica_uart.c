@@ -1,10 +1,10 @@
 /*
-                
-  
+ *  felicauart.c
+ *
  */
 
 /*
-                              
+ *    INCLUDE FILES FOR MODULE
  */
 #include <linux/syscalls.h>
 #include <asm/termios.h>
@@ -14,9 +14,9 @@
 static struct file *uart_f = NULL;
 
 /*
-                          
-               
-                                     
+ * Description : open uart
+ * Input : None
+ * Output : success : 0 fail : others
  */
 int felica_uart_open(void)
 {
@@ -79,9 +79,9 @@ int felica_uart_open(void)
 }
 
 /*
-                           
-               
-                       
+ * Description : close uart
+ * Input : None
+ * Output : success : 0
  */
 int felica_uart_close(void)
 {
@@ -114,9 +114,9 @@ int felica_uart_close(void)
 }
 
 /*
-                                   
-                                         
-                                          
+ * Description : write data to uart
+ * Input : buf : data count : data length
+ * Output : success : data length fail : 0
  */
 int felica_uart_write(char *buf, size_t count)
 {
@@ -150,9 +150,9 @@ int felica_uart_write(char *buf, size_t count)
 }
 
 /*
-                                    
-                                         
-                                          
+ * Description : read data from uart
+ * Input : buf : data count : data length
+ * Output : success : data length fail : 0
  */
 int felica_uart_read(char *buf, size_t count)
 {
@@ -197,9 +197,9 @@ int felica_uart_read(char *buf, size_t count)
     return n;
 }
 /*
-                                         
-               
-                                          
+ * Description : get size of remaing data
+ * Input : none
+ * Output : success : data length fail : 0
  */
 int felica_uart_ioctrl(int *count)
 {

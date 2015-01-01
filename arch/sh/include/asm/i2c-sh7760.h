@@ -1,5 +1,5 @@
 /*
-                                                     
+ * MMIO/IRQ and platform data for SH7760 I2C channels
  */
 
 #ifndef _I2C_SH7760_H_

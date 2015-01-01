@@ -1,6 +1,6 @@
 /*
-             
- 
+* snfc_gpio.h
+*
 */
 
 
@@ -9,12 +9,12 @@
 
 
 /*
-                            
+ *  INCLUDE FILES FOR MODULE
  */
 #include <linux/gpio.h>
 #include "snfc_common.h"
 #include <mach/board_lge.h>
-/*      */
+/*DEFINE*/
 
 enum{
   GPIO_DIRECTION_IN = 0,
@@ -31,40 +31,40 @@ enum{
   GPIO_CONFIG_DISABLE,
 };
 
-/*          */
-#define GPIO_SNFC_PON           40      //       
+/* snfc_pon */
+#define GPIO_SNFC_PON           40      //IMA_PON
 
-/*          */
-#define GPIO_SNFC_RFS           94              //        
+/* snfc_rfs */
+#define GPIO_SNFC_RFS           94              //IMA_CDET
 
-/*          */
-#define GPIO_SNFC_RFS_REV_D     59              //              
+/* snfc_rfs */
+#define GPIO_SNFC_RFS_REV_D     59              //IMA_CDET_REV_D
 
-/*          */
-#define GPIO_SNFC_INT           38              //       
+/* snfc_int */
+#define GPIO_SNFC_INT           38              //IMA_INT
 
-/*          */
-#define GPIO_SNFC_INT_REV_D     37              //             
+/* snfc_int */
+#define GPIO_SNFC_INT_REV_D     37              //IMA_INT_REV_D
 
-/*               */
-#define GPIO_SNFC_INTU          36              //        
+/* snfc_lockcont */
+#define GPIO_SNFC_INTU          36              //IMA_INTU
 
-/*               */
-#define GPIO_SNFC_INTU_REV_D    35              //              
+/* snfc_lockcont */
+#define GPIO_SNFC_INTU_REV_D    35              //IMA_INTU_REV_D
 
-/*           */
-#define GPIO_SNFC_HSEL          59              //        
+/* snfc_hsel */
+#define GPIO_SNFC_HSEL          59              //NFC_HSEL
 
-/*           */
-#define GPIO_SNFC_HSEL_REV_D            94              //              
+/* snfc_hsel */
+#define GPIO_SNFC_HSEL_REV_D            94              //NFC_HSEL_REV_D
 
-/*           */
-#define GPIO_SNFC_HVDD          35      //        
+/* snfc_hvdd */
+#define GPIO_SNFC_HVDD          35      //NFC_HVDD
 
-/*           */
-#define GPIO_SNFC_HVDD_REV_D            36      //              
+/* snfc_hvdd */
+#define GPIO_SNFC_HVDD_REV_D            36      //NFC_HVDD_REV_D
 
-#define GPIO_SNFC_UICC_CON		39	//        
+#define GPIO_SNFC_UICC_CON		39	//UICC_CON
 
 #define SNFC_GPIO_CFG(gpio, func, dir, pull, drvstr) \
     ((((gpio) & 0x3FF) << 4)        |   \
@@ -76,7 +76,7 @@ enum{
 extern int gpio_rfs;
 
 /*
-                          
+ *      FUNCTION PROTOTYPE
  */
 int snfc_gpio_open(int gpionum, int direction, int value);
 void snfc_gpio_write(int gpionum, int value);
@@ -87,4 +87,4 @@ int snfc_get_intu_gpio_num(void);
 int snfc_get_hsel_gpio_num(void);
 int snfc_get_hvdd_gpio_num(void);
 
-#endif  //               
+#endif  //__SNFC_GPIO_H__

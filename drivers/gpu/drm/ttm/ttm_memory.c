@@ -203,11 +203,11 @@ static bool ttm_zones_above_swap_target(struct ttm_mem_global *glob,
 	return false;
 }
 
-/* 
-                                                          
-                                                                   
-                                        
-                                                      
+/**
+ * At this point we only support a single shrink callback.
+ * Extend this if needed, perhaps using a linked list of callbacks.
+ * Note that this function is reentrant:
+ * many threads may try to swap out at any given time.
  */
 
 static void ttm_shrink(struct ttm_mem_global *glob, bool from_wq,
@@ -322,9 +322,9 @@ static int ttm_mem_init_dma32_zone(struct ttm_mem_global *glob,
 	mem = si->totalram;
 	mem *= si->mem_unit;
 
-	/* 
-                                 
-  */
+	/**
+	 * No special dma32 zone needed.
+	 */
 
 	if (mem <= ((uint64_t) 1ULL << 32)) {
 		kfree(zone);
@@ -332,10 +332,10 @@ static int ttm_mem_init_dma32_zone(struct ttm_mem_global *glob,
 	}
 
 	/*
-                                         
-                                        
-                   
-  */
+	 * Limit max dma32 memory to 4GB for now
+	 * until we can figure out how big this
+	 * zone really is.
+	 */
 
 	mem = ((uint64_t) 1ULL << 32);
 	zone->name = "dma32";
@@ -408,7 +408,7 @@ void ttm_mem_global_release(struct ttm_mem_global *glob)
 	unsigned int i;
 	struct ttm_mem_zone *zone;
 
-	/*                                                    */
+	/* let the page allocator first stop the shrink work. */
 	ttm_page_alloc_fini();
 	ttm_dma_page_alloc_fini();
 
@@ -535,10 +535,10 @@ static int ttm_mem_global_alloc_zone(struct ttm_mem_global *glob,
 int ttm_mem_global_alloc(struct ttm_mem_global *glob, uint64_t memory,
 			 bool no_wait, bool interruptible)
 {
-	/* 
-                                                         
-              
-  */
+	/**
+	 * Normal allocations of kernel memory are registered in
+	 * all zones.
+	 */
 
 	return ttm_mem_global_alloc_zone(glob, NULL, memory, no_wait,
 					 interruptible);
@@ -552,10 +552,10 @@ int ttm_mem_global_alloc_page(struct ttm_mem_global *glob,
 
 	struct ttm_mem_zone *zone = NULL;
 
-	/* 
-                                                     
-                              
-  */
+	/**
+	 * Page allocations may be registed in a single zone
+	 * only if highmem or !dma32.
+	 */
 
 #ifdef CONFIG_HIGHMEM
 	if (PageHighMem(page) && glob->zone_highmem != NULL)

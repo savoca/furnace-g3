@@ -19,11 +19,11 @@
 #define __ASM_OPENRISC_IO_H
 
 /*
-                                                      
+ * PCI: can we really do 0 here if we have no port IO?
  */
 #define IO_SPACE_LIMIT		0
 
-/*                         */
+/* OpenRISC has no port IO */
 #define HAVE_ARCH_PIO_SIZE	1
 #define PIO_RESERVED		0X0UL
 #define PIO_OFFSET		0
@@ -39,7 +39,7 @@ static inline void __iomem *ioremap(phys_addr_t offset, unsigned long size)
 	return __ioremap(offset, size, PAGE_KERNEL);
 }
 
-/*                              */
+/* #define _PAGE_CI       0x002 */
 static inline void __iomem *ioremap_nocache(phys_addr_t offset,
 					     unsigned long size)
 {

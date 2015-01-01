@@ -27,8 +27,8 @@
 #define IOADDR(x)		(XCHAL_KIO_BYPASS_VADDR + (x))
 
 /*
-                                                                           
-              
+ * swap functions to change byte order from little-endian to big-endian and
+ * vice versa.
  */
 
 static inline unsigned short _swapw (unsigned short v)
@@ -42,8 +42,8 @@ static inline unsigned int _swapl (unsigned int v)
 }
 
 /*
-                                                         
-                                                    
+ * Change virtual addresses to physical addresses and vv.
+ * These are trivial on the 1:1 Linux/Xtensa mapping
  */
 
 static inline unsigned long virt_to_phys(volatile void * address)
@@ -57,15 +57,15 @@ static inline void * phys_to_virt(unsigned long address)
 }
 
 /*
-                                              
+ * virt_to_bus and bus_to_virt are deprecated.
  */
 
 #define virt_to_bus(x)	virt_to_phys(x)
 #define bus_to_virt(x)	phys_to_virt(x)
 
 /*
-                                                                    
-                                                                            
+ * Return the virtual (cached) address for the specified bus memory.
+ * Note that we currently don't support any address outside the KIO segment.
  */
 
 static inline void *ioremap(unsigned long offset, unsigned long size)
@@ -99,7 +99,7 @@ static inline void iounmap(void *addr)
 }
 
 /*
-              
+ * Generic I/O
  */
 
 #define readb(addr) \
@@ -137,11 +137,11 @@ static inline void __raw_writel(__u32 b, volatile void __iomem *addr)
           *(__force volatile __u32 *)(addr) = b;
 }
 
-/*                                                      
-                                                    
-                                                               
-                  
-                                     
+/* These are the definitions for the x86 IO instructions
+ * inb/inw/inl/outb/outw/outl, the "string" versions
+ * insb/insw/insl/outsb/outsw/outsl, and the "pausing" versions
+ * inb_p/inw_p/...
+ * The macros don't do byte-swapping.
  */
 
 #define inb(port)		readb((u8 *)((port)))
@@ -171,7 +171,7 @@ extern void outsl (unsigned long port, const void *src, unsigned long count);
 #define memcpy_fromio(a,b,c)   memcpy((a),(void *)(b),(c))
 #define memcpy_toio(a,b,c)      memcpy((void *)(a),(b),(c))
 
-/*                                                                 */
+/* At this point the Xtensa doesn't provide byte swap instructions */
 
 #ifdef __XTENSA_EB__
 # define in_8(addr) (*(u8*)(addr))
@@ -193,16 +193,16 @@ extern void outsl (unsigned long port, const void *src, unsigned long count);
 
 
 /*
-                                                                             
+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem access
  */
 #define xlate_dev_mem_ptr(p)    __va(p)
 
 /*
-                                                          
+ * Convert a virtual cached pointer to an uncached pointer
  */
 #define xlate_dev_kmem_ptr(p)   p
 
 
-#endif	/*            */
+#endif	/* __KERNEL__ */
 
-#endif	/*              */
+#endif	/* _XTENSA_IO_H */

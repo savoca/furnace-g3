@@ -28,17 +28,17 @@
  *		2 of the License, or (at your option) any later version.
  */
  
-/*                                                                                            
-                              */
+/* Revised by Kenneth Albanowski for m68knommu. Basic problem: unaligned access kills, so most
+   of the assembly has to go. */
 
 #include <net/checksum.h>
 #include <linux/module.h>
 
 static inline unsigned short from32to16(unsigned long x)
 {
-	/*                                       */
+	/* add up 16-bit and 16-bit for 16+c bit */
 	x = (x & 0xffff) + (x >> 16);
-	/*                */
+	/* add up carry.. */
 	x = (x & 0xffff) + (x >> 16);
 	return x;
 }
@@ -56,7 +56,7 @@ static unsigned long do_csum(const unsigned char * buff, int len)
 		len--;
 		buff++;
 	}
-	count = len >> 1;		/*                      */
+	count = len >> 1;		/* nr of 16-bit words.. */
 	if (count) {
 		if (2 & (unsigned long) buff) {
 			result += *(unsigned short *) buff;
@@ -64,7 +64,7 @@ static unsigned long do_csum(const unsigned char * buff, int len)
 			len -= 2;
 			buff += 2;
 		}
-		count >>= 1;		/*                      */
+		count >>= 1;		/* nr of 32-bit words.. */
 		if (count) {
 		        unsigned long carry = 0;
 			do {
@@ -93,8 +93,8 @@ out:
 }
 
 /*
-                                                                   
-                                               
+ *	This is a version of ip_compute_csum() optimized for IP headers,
+ *	which always checksum on 4 octet boundaries.
  */
 __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
 {
@@ -102,28 +102,28 @@ __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
 }
 
 /*
-                                                               
-                             
-  
-                                                           
-                       
-  
-                                                         
-                                          
-  
-                                                      
+ * computes the checksum of a memory block at buff, length len,
+ * and adds in "sum" (32-bit)
+ *
+ * returns a 32-bit number suitable for feeding into itself
+ * or csum_tcpudp_magic
+ *
+ * this function must be called with even lengths, except
+ * for the last fragment, which may be odd
+ *
+ * it's best to have buff aligned on a 32-bit boundary
  */
 /*
-                                                                                 
-                                 
+ * Egads...  That thing apparently assumes that *all* checksums it ever sees will
+ * be folded.  Very likely a bug.
  */
 __wsum csum_partial(const void *buff, int len, __wsum sum)
 {
 	unsigned int result = do_csum(buff, len);
 
-	/*                             */
+	/* add in old sum, and carry.. */
 	result += (__force u32)sum;
-	/*                      */
+	/* 16+c bits -> 16 bits */
 	result = (result & 0xffff) + (result >> 16);
 	return (__force __wsum)result;
 }
@@ -131,8 +131,8 @@ __wsum csum_partial(const void *buff, int len, __wsum sum)
 EXPORT_SYMBOL(csum_partial);
 
 /*
-                                                                   
-            
+ * this routine is used for miscellaneous IP-like checksums, mainly
+ * in icmp.c
  */
 __sum16 ip_compute_csum(const void *buff, int len)
 {
@@ -140,7 +140,7 @@ __sum16 ip_compute_csum(const void *buff, int len)
 }
 
 /*
-                                                               
+ * copy from fs while checksumming, otherwise like csum_partial
  */
 
 __wsum
@@ -153,7 +153,7 @@ csum_partial_copy_from_user(const void __user *src, void *dst, int len,
 }
 
 /*
-                                                               
+ * copy from ds while checksumming, otherwise like csum_partial
  */
 
 __wsum

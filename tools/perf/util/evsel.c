@@ -67,7 +67,7 @@ void perf_evsel__config(struct perf_evsel *evsel, struct perf_record_opts *opts,
 			struct perf_evsel *first)
 {
 	struct perf_event_attr *attr = &evsel->attr;
-	int track = !evsel->idx; /*                                    */
+	int track = !evsel->idx; /* only the first counter needs these */
 
 	attr->sample_id_all = opts->sample_id_all_missing ? 0 : 1;
 	attr->inherit	    = !opts->no_inherit;
@@ -78,9 +78,9 @@ void perf_evsel__config(struct perf_evsel *evsel, struct perf_record_opts *opts,
 	attr->sample_type  |= PERF_SAMPLE_IP | PERF_SAMPLE_TID;
 
 	/*
-                                                            
-                                                 
-  */
+	 * We default some events to a 1 default interval. But keep
+	 * it a weak assumption overridable by the user.
+	 */
 	if (!attr->sample_period || (opts->user_freq != UINT_MAX &&
 				     opts->user_interval != ULLONG_MAX)) {
 		if (opts->freq) {
@@ -376,7 +376,7 @@ int perf_evsel__open(struct perf_evsel *evsel, struct cpu_map *cpus,
 		     struct xyarray *group_fd)
 {
 	if (cpus == NULL) {
-		/*                                                         */
+		/* Work around old compiler warnings about strict aliasing */
 		cpus = &empty_cpu_map.map;
 	}
 
@@ -458,9 +458,9 @@ int perf_event__parse_sample(const union perf_event *event, u64 type,
 	const u64 *array;
 
 	/*
-                                                           
-                                     
-  */
+	 * used for cross-endian analysis. See git commit 65014ab3
+	 * for why this goofiness is needed.
+	 */
 	union {
 		u64 val64;
 		u32 val32[2];
@@ -490,7 +490,7 @@ int perf_event__parse_sample(const union perf_event *event, u64 type,
 	if (type & PERF_SAMPLE_TID) {
 		u.val64 = *array;
 		if (swapped) {
-			/*                                                */
+			/* undo swap of u64, then swap on individual u32s */
 			u.val64 = bswap_64(u.val64);
 			u.val32[0] = bswap_32(u.val32[0]);
 			u.val32[1] = bswap_32(u.val32[1]);
@@ -527,7 +527,7 @@ int perf_event__parse_sample(const union perf_event *event, u64 type,
 
 		u.val64 = *array;
 		if (swapped) {
-			/*                                                */
+			/* undo swap of u64, then swap on individual u32s */
 			u.val64 = bswap_64(u.val64);
 			u.val32[0] = bswap_32(u.val32[0]);
 		}
@@ -564,7 +564,7 @@ int perf_event__parse_sample(const union perf_event *event, u64 type,
 		u.val64 = *array;
 		if (WARN_ONCE(swapped,
 			      "Endianness of raw data not corrected!\n")) {
-			/*                                                */
+			/* undo swap of u64, then swap on individual u32s */
 			u.val64 = bswap_64(u.val64);
 			u.val32[0] = bswap_32(u.val32[0]);
 			u.val32[1] = bswap_32(u.val32[1]);
@@ -588,7 +588,7 @@ int perf_event__parse_sample(const union perf_event *event, u64 type,
 		u64 sz;
 
 		data->branch_stack = (struct branch_stack *)array;
-		array++; /*    */
+		array++; /* nr */
 
 		sz = data->branch_stack->nr * sizeof(struct branch_entry);
 		sz /= sizeof(u64);
@@ -604,9 +604,9 @@ int perf_event__synthesize_sample(union perf_event *event, u64 type,
 	u64 *array;
 
 	/*
-                                                           
-                                     
-  */
+	 * used for cross-endian analysis. See git commit 65014ab3
+	 * for why this goofiness is needed.
+	 */
 	union {
 		u64 val64;
 		u32 val32[2];
@@ -624,8 +624,8 @@ int perf_event__synthesize_sample(union perf_event *event, u64 type,
 		u.val32[1] = sample->tid;
 		if (swapped) {
 			/*
-                                                         
-    */
+			 * Inverse of what is done in perf_event__parse_sample
+			 */
 			u.val32[0] = bswap_32(u.val32[0]);
 			u.val32[1] = bswap_32(u.val32[1]);
 			u.val64 = bswap_64(u.val64);
@@ -659,8 +659,8 @@ int perf_event__synthesize_sample(union perf_event *event, u64 type,
 		u.val32[0] = sample->cpu;
 		if (swapped) {
 			/*
-                                                         
-    */
+			 * Inverse of what is done in perf_event__parse_sample
+			 */
 			u.val32[0] = bswap_32(u.val32[0]);
 			u.val64 = bswap_64(u.val64);
 		}

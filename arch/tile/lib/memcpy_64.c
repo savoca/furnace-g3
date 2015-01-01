@@ -16,21 +16,21 @@
 #include <linux/string.h>
 #include <linux/module.h>
 #define __memcpy memcpy
-/*                                                                         */
+/* EXPORT_SYMBOL() is in arch/tile/lib/exports.c since this should be asm. */
 
-/*                          */
+/* Must be 8 bytes in size. */
 #define word_t uint64_t
 
 #if CHIP_L2_LINE_SIZE() != 64 && CHIP_L2_LINE_SIZE() != 128
 #error "Assumes 64 or 128 byte line size"
 #endif
 
-/*                                                */
+/* How many cache lines ahead should we prefetch? */
 #define PREFETCH_LINES_AHEAD 3
 
 /*
-                                                                      
-                                                           
+ * Provide "base versions" of load and store for the normal code path.
+ * The kernel provides other versions for userspace copies.
  */
 #define ST(p, v) (*(p) = (v))
 #define LD(p) (*(p))
@@ -48,8 +48,8 @@
 void *memcpy(void *__restrict dstv, const void *__restrict srcv, size_t n)
 #else
 /*
-                                                                    
-                                                              
+ * Special kernel version will provide implementation of the LDn/STn
+ * macros to return a count of uncopied bytes due to mm fault.
  */
 #define RETVAL 0
 int USERCOPY_FUNC(void *__restrict dstv, const void *__restrict srcv, size_t n)
@@ -59,8 +59,8 @@ int USERCOPY_FUNC(void *__restrict dstv, const void *__restrict srcv, size_t n)
 	const char *__restrict src1 = (const char *)srcv;
 	const char *__restrict src1_end;
 	const char *__restrict prefetch;
-	word_t *__restrict dst8;    /*                                       */
-	word_t final; /*                                               */
+	word_t *__restrict dst8;    /* 8-byte pointer to destination memory. */
+	word_t final; /* Final bytes to write to trailing word, if any */
 	long i;
 
 	if (n < 16) {
@@ -70,12 +70,12 @@ int USERCOPY_FUNC(void *__restrict dstv, const void *__restrict srcv, size_t n)
 	}
 
 	/*
-                                                        
-                       
-  */
+	 * Locate the end of source memory we will copy.  Don't
+	 * prefetch past this.
+	 */
 	src1_end = src1 + n - 1;
 
-	/*                                                         */
+	/* Prefetch ahead a few cache lines, but not past the end. */
 	prefetch = src1;
 	for (i = 0; i < PREFETCH_LINES_AHEAD; i++) {
 		__insn_prefetch(prefetch);
@@ -83,22 +83,22 @@ int USERCOPY_FUNC(void *__restrict dstv, const void *__restrict srcv, size_t n)
 		prefetch = (prefetch > src1_end) ? prefetch : src1;
 	}
 
-	/*                                       */
+	/* Copy bytes until dst is word-aligned. */
 	for (; (uintptr_t)dst1 & (sizeof(word_t) - 1); n--)
 		ST1(dst1++, LD1(src1++));
 
-	/*                                       */
+	/* 8-byte pointer to destination memory. */
 	dst8 = (word_t *)dst1;
 
 	if (__builtin_expect((uintptr_t)src1 & (sizeof(word_t) - 1), 0)) {
 		/*
-                                                        
-                                 
-    
-                                                       
-   */
+		 * Misaligned copy.  Copy 8 bytes at a time, but don't
+		 * bother with other fanciness.
+		 *
+		 * TODO: Consider prefetching and using wh64 as well.
+		 */
 
-		/*                         */
+		/* Create an aligned src8. */
 		const word_t *__restrict src8 =
 			(const word_t *)((uintptr_t)src1 & -sizeof(word_t));
 		word_t b;
@@ -117,18 +117,18 @@ int USERCOPY_FUNC(void *__restrict dstv, const void *__restrict srcv, size_t n)
 		b = ((const char *)src8 <= src1_end) ? *src8 : 0;
 
 		/*
-                                                    
-                  
-   */
+		 * Final source bytes to write to trailing partial
+		 * word, if any.
+		 */
 		final = __insn_dblalign(a, b, src1);
 	} else {
-		/*               */
+		/* Aligned copy. */
 
 		const word_t* __restrict src8 = (const word_t *)src1;
 
-		/*                                      */
+		/* src8 and dst8 are both word-aligned. */
 		if (n >= CHIP_L2_LINE_SIZE()) {
-			/*                                         */
+			/* Copy until 'dst' is cache-line-aligned. */
 			for (; (uintptr_t)dst8 & (CHIP_L2_LINE_SIZE() - 1);
 			     n -= sizeof(word_t))
 				ST8(dst8++, LD8(src8++));
@@ -137,19 +137,19 @@ int USERCOPY_FUNC(void *__restrict dstv, const void *__restrict srcv, size_t n)
 				__insn_wh64(dst8);
 
 				/*
-                                        
-                                             
-     */
+				 * Prefetch and advance to next line
+				 * to prefetch, but don't go past the end
+				 */
 				__insn_prefetch(prefetch);
 				prefetch += CHIP_L2_LINE_SIZE();
 				prefetch = (prefetch > src1_end) ? prefetch :
 					(const char *)src8;
 
 				/*
-                                           
-                                          
-                          
-     */
+				 * Copy an entire cache line.  Manually
+				 * unrolled to avoid idiosyncracies of
+				 * compiler unrolling.
+				 */
 #define COPY_WORD(offset) ({ ST8(dst8+offset, LD8(src8+offset)); n -= 8; })
 				COPY_WORD(0);
 				COPY_WORD(1);
@@ -186,7 +186,7 @@ int USERCOPY_FUNC(void *__restrict dstv, const void *__restrict srcv, size_t n)
 		final = LD8(src8);
 	}
 
-	/*                                                       */
+	/* n != 0 if we get here.  Write out any trailing bytes. */
 	dst1 = (char *)dst8;
 	if (n & 4) {
 		ST4((uint32_t *)dst1, final);

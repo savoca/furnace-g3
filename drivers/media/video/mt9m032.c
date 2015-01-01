@@ -39,18 +39,18 @@
 #include "aptina-pll.h"
 
 /*
-                                                           
-  
-                                   
-                         
-                                   
-                         
-  
-                         
-                                   
-                         
-                                   
-                         
+ * width and height include active boundary and black parts
+ *
+ * column    0-  15 active boundary
+ * column   16-1455 image
+ * column 1456-1471 active boundary
+ * column 1472-1599 black
+ *
+ * row       0-  51 black
+ * row      53-  59 active boundary
+ * row      60-1139 image
+ * row    1140-1147 active boundary
+ * row    1148-1151 black
  */
 
 #define MT9M032_PIXEL_ARRAY_WIDTH			1600
@@ -99,7 +99,7 @@
 #define MT9M032_GAIN_RED				0x2d
 #define MT9M032_GAIN_GREEN2				0x2e
 
-/*            */
+/* write only */
 #define MT9M032_GAIN_ALL				0x35
 #define		MT9M032_GAIN_DIGITAL_MASK		0x7f
 #define		MT9M032_GAIN_DIGITAL_SHIFT		8
@@ -111,11 +111,11 @@
 #define		MT9M032_FORMATTER2_PIXCLK_EN		0x2000
 
 /*
-                                                                             
-                                                                             
-       
-                                                                           
-                   
+ * The available MT9M032 datasheet is missing documentation for register 0x10
+ * MT9P031 seems to be close enough, so use constants from that datasheet for
+ * now.
+ * But keep the name MT9P031 to remind us, that this isn't really confirmed
+ * for this sensor.
  */
 #define MT9P031_PLL_CONTROL				0x10
 #define		MT9P031_PLL_CONTROL_PWROFF		0x0050
@@ -137,7 +137,7 @@ struct mt9m032 {
 		struct v4l2_ctrl *vflip;
 	};
 
-	struct mutex lock; /*                                               */
+	struct mutex lock; /* Protects streaming, format, interval and crop */
 
 	bool streaming;
 
@@ -165,7 +165,7 @@ static u32 mt9m032_row_time(struct mt9m032 *sensor, unsigned int width)
 	unsigned int effective_width;
 	u32 ns;
 
-	effective_width = width + 716; /*                 */
+	effective_width = width + 716; /* empirical value */
 	ns = div_u64(1000000000ULL * effective_width, sensor->pix_clock);
 	dev_dbg(to_dev(sensor),	"MT9M032 line time: %u ns\n", ns);
 	return ns;
@@ -190,7 +190,7 @@ static int mt9m032_update_timing(struct mt9m032 *sensor,
 	       - crop->height;
 
 	if (vblank > MT9M032_VBLANK_MAX) {
-		/*                                  */
+		/* hardware limits to 11 bit values */
 		interval->denominator = 1000;
 		interval->numerator =
 			div_u64((crop->height + MT9M032_VBLANK_MAX) *
@@ -200,7 +200,7 @@ static int mt9m032_update_timing(struct mt9m032 *sensor,
 				 (u64)row_time * interval->denominator)
 		       - crop->height;
 	}
-	/*                                      */
+	/* enforce minimal 1.6ms blanking time. */
 	min_vblank = 1600000 / row_time;
 	vblank = clamp_t(unsigned int, vblank, min_vblank, MT9M032_VBLANK_MAX);
 
@@ -232,11 +232,11 @@ static int update_formatter2(struct mt9m032 *sensor, bool streaming)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&sensor->subdev);
 	u16 reg_val =   MT9M032_FORMATTER2_DOUT_EN
-		      | 0x0070;  /*                 */
-				 /*                                      */
+		      | 0x0070;  /* parts reserved! */
+				 /* possibly for changing to 14-bit mode */
 
 	if (streaming)
-		reg_val |= MT9M032_FORMATTER2_PIXCLK_EN;   /*                 */
+		reg_val |= MT9M032_FORMATTER2_PIXCLK_EN;   /* pixclock enable */
 
 	return mt9m032_write(client, MT9M032_FORMATTER2, reg_val);
 }
@@ -282,16 +282,16 @@ static int mt9m032_setup_pll(struct mt9m032 *sensor)
 		ret = mt9m032_write(client, MT9P031_PLL_CONTROL,
 				    MT9P031_PLL_CONTROL_PWRON |
 				    MT9P031_PLL_CONTROL_USEPLL);
-	if (!ret)		/*                                        */
+	if (!ret)		/* more reserved, Continuous, Master Mode */
 		ret = mt9m032_write(client, MT9M032_READ_MODE1, 0x8006);
-	if (!ret)		/*                                   */
+	if (!ret)		/* Set 14-bit mode, select 7 divider */
 		ret = mt9m032_write(client, MT9M032_FORMATTER1, 0x111e);
 
 	return ret;
 }
 
-/*                                                                              
-                        
+/* -----------------------------------------------------------------------------
+ * Subdev pad operations
  */
 
 static int mt9m032_enum_mbus_code(struct v4l2_subdev *subdev,
@@ -320,13 +320,13 @@ static int mt9m032_enum_frame_size(struct v4l2_subdev *subdev,
 	return 0;
 }
 
-/* 
-                                           
-                                        
-                                                      
-                                         
-  
-                                                                    
+/**
+ * __mt9m032_get_pad_crop() - get crop rect
+ * @sensor: pointer to the sensor struct
+ * @fh: file handle for getting the try crop rect from
+ * @which: select try or active crop rect
+ *
+ * Returns a pointer the current active or fh relative try crop rect
  */
 static struct v4l2_rect *
 __mt9m032_get_pad_crop(struct mt9m032 *sensor, struct v4l2_subdev_fh *fh,
@@ -342,13 +342,13 @@ __mt9m032_get_pad_crop(struct mt9m032 *sensor, struct v4l2_subdev_fh *fh,
 	}
 }
 
-/* 
-                                          
-                                        
-                                                   
-                                      
-  
-                                                                 
+/**
+ * __mt9m032_get_pad_format() - get format
+ * @sensor: pointer to the sensor struct
+ * @fh: file handle for getting the try format from
+ * @which: select try or active format
+ *
+ * Returns a pointer the current active or fh relative try format
  */
 static struct v4l2_mbus_framefmt *
 __mt9m032_get_pad_format(struct mt9m032 *sensor, struct v4l2_subdev_fh *fh,
@@ -391,7 +391,7 @@ static int mt9m032_set_pad_format(struct v4l2_subdev *subdev,
 		goto done;
 	}
 
-	/*                                                     */
+	/* Scaling is not supported, the format is thus fixed. */
 	fmt->format = *__mt9m032_get_pad_format(sensor, fh, fmt->which);
 	ret = 0;
 
@@ -430,9 +430,9 @@ static int mt9m032_set_pad_crop(struct v4l2_subdev *subdev,
 		goto done;
 	}
 
-	/*                                                                      
-                                          
-  */
+	/* Clamp the crop rectangle boundaries and align them to a multiple of 2
+	 * pixels to ensure a GRBG Bayer pattern.
+	 */
 	rect.left = clamp(ALIGN(crop->rect.left, 2), MT9M032_COLUMN_START_MIN,
 			  MT9M032_COLUMN_START_MAX);
 	rect.top = clamp(ALIGN(crop->rect.top, 2), MT9M032_ROW_START_MIN,
@@ -448,9 +448,9 @@ static int mt9m032_set_pad_crop(struct v4l2_subdev *subdev,
 	__crop = __mt9m032_get_pad_crop(sensor, fh, crop->which);
 
 	if (rect.width != __crop->width || rect.height != __crop->height) {
-		/*                                                           
-                   
-   */
+		/* Reset the output image size if the crop rectangle size has
+		 * been modified.
+		 */
 		format = __mt9m032_get_pad_format(sensor, fh, crop->which);
 		format->width = rect.width;
 		format->height = rect.height;
@@ -493,7 +493,7 @@ static int mt9m032_set_frame_interval(struct v4l2_subdev *subdev,
 		goto done;
 	}
 
-	/*                       */
+	/* Avoid divisions by 0. */
 	if (fi->interval.denominator == 0)
 		fi->interval.denominator = 1;
 
@@ -520,8 +520,8 @@ static int mt9m032_s_stream(struct v4l2_subdev *subdev, int streaming)
 	return ret;
 }
 
-/*                                                                              
-                              
+/* -----------------------------------------------------------------------------
+ * V4L2 subdev core operations
  */
 
 #ifdef CONFIG_VIDEO_ADV_DEBUG
@@ -563,8 +563,8 @@ static int mt9m032_s_register(struct v4l2_subdev *sd,
 }
 #endif
 
-/*                                                                              
-                                 
+/* -----------------------------------------------------------------------------
+ * V4L2 subdev control operations
  */
 
 static int update_read_mode2(struct mt9m032 *sensor, bool vflip, bool hflip)
@@ -581,12 +581,12 @@ static int update_read_mode2(struct mt9m032 *sensor, bool vflip, bool hflip)
 static int mt9m032_set_gain(struct mt9m032 *sensor, s32 val)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&sensor->subdev);
-	int digital_gain_val;	/*                   */
-	int analog_mul;		/*        */
-	int analog_gain_val;	/*                    */
+	int digital_gain_val;	/* in 1/8th (0..127) */
+	int analog_mul;		/* 0 or 1 */
+	int analog_gain_val;	/* in 1/16th. (0..63) */
 	u16 reg_val;
 
-	digital_gain_val = 51; /*                    */
+	digital_gain_val = 51; /* from setup example */
 
 	if (val < 63) {
 		analog_mul = 0;
@@ -596,8 +596,8 @@ static int mt9m032_set_gain(struct mt9m032 *sensor, s32 val)
 		analog_gain_val = val / 2;
 	}
 
-	/*                                                        */
-	/*                                                    */
+	/* a_gain = (1 + analog_mul) + (analog_gain_val + 1) / 16 */
+	/* overall_gain = a_gain * (1 + digital_gain_val / 8) */
 
 	reg_val = ((digital_gain_val & MT9M032_GAIN_DIGITAL_MASK)
 		   << MT9M032_GAIN_DIGITAL_SHIFT)
@@ -610,7 +610,7 @@ static int mt9m032_set_gain(struct mt9m032 *sensor, s32 val)
 static int mt9m032_try_ctrl(struct v4l2_ctrl *ctrl)
 {
 	if (ctrl->id == V4L2_CID_GAIN && ctrl->val >= 63) {
-		/*                                                   */
+		/* round because of multiplier used for values >= 63 */
 		ctrl->val &= ~1;
 	}
 
@@ -629,7 +629,7 @@ static int mt9m032_set_ctrl(struct v4l2_ctrl *ctrl)
 		return mt9m032_set_gain(sensor, ctrl->val);
 
 	case V4L2_CID_HFLIP:
-	/*                                             */
+	/* case V4L2_CID_VFLIP: -- In the same cluster */
 		return update_read_mode2(sensor, sensor->vflip->val,
 					 sensor->hflip->val);
 
@@ -651,7 +651,7 @@ static struct v4l2_ctrl_ops mt9m032_ctrl_ops = {
 	.try_ctrl = mt9m032_try_ctrl,
 };
 
-/*                                                                            */
+/* -------------------------------------------------------------------------- */
 
 static const struct v4l2_subdev_core_ops mt9m032_core_ops = {
 #ifdef CONFIG_VIDEO_ADV_DEBUG
@@ -681,8 +681,8 @@ static const struct v4l2_subdev_ops mt9m032_ops = {
 	.pad = &mt9m032_pad_ops,
 };
 
-/*                                                                              
-                                    
+/* -----------------------------------------------------------------------------
+ * Driver initialization and probing
  */
 
 static int mt9m032_probe(struct i2c_client *client,
@@ -769,10 +769,10 @@ static int mt9m032_probe(struct i2c_client *client,
 	if (ret < 0)
 		goto error_ctrl;
 
-	ret = mt9m032_write(client, MT9M032_RESET, 1);	/*          */
+	ret = mt9m032_write(client, MT9M032_RESET, 1);	/* reset on */
 	if (ret < 0)
 		goto error_entity;
-	mt9m032_write(client, MT9M032_RESET, 0);	/*           */
+	mt9m032_write(client, MT9M032_RESET, 0);	/* reset off */
 	if (ret < 0)
 		goto error_entity;
 
@@ -785,21 +785,21 @@ static int mt9m032_probe(struct i2c_client *client,
 	if (ret < 0)
 		goto error_entity;
 
-	/*      */
+	/* SIZE */
 	ret = mt9m032_update_geom_timing(sensor);
 	if (ret < 0)
 		goto error_entity;
 
-	ret = mt9m032_write(client, 0x41, 0x0000);	/*              */
+	ret = mt9m032_write(client, 0x41, 0x0000);	/* reserved !!! */
 	if (ret < 0)
 		goto error_entity;
-	ret = mt9m032_write(client, 0x42, 0x0003);	/*              */
+	ret = mt9m032_write(client, 0x42, 0x0003);	/* reserved !!! */
 	if (ret < 0)
 		goto error_entity;
-	ret = mt9m032_write(client, 0x43, 0x0003);	/*              */
+	ret = mt9m032_write(client, 0x43, 0x0003);	/* reserved !!! */
 	if (ret < 0)
 		goto error_entity;
-	ret = mt9m032_write(client, 0x7f, 0x0000);	/*              */
+	ret = mt9m032_write(client, 0x7f, 0x0000);	/* reserved !!! */
 	if (ret < 0)
 		goto error_entity;
 	if (sensor->pdata->invert_pixclock) {
@@ -809,11 +809,11 @@ static int mt9m032_probe(struct i2c_client *client,
 			goto error_entity;
 	}
 
-	ret = mt9m032_write(client, MT9M032_RESTART, 1); /*            */
+	ret = mt9m032_write(client, MT9M032_RESTART, 1); /* Restart on */
 	if (ret < 0)
 		goto error_entity;
 	msleep(100);
-	ret = mt9m032_write(client, MT9M032_RESTART, 0); /*             */
+	ret = mt9m032_write(client, MT9M032_RESTART, 0); /* Restart off */
 	if (ret < 0)
 		goto error_entity;
 	msleep(100);

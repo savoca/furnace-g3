@@ -18,13 +18,13 @@
  */
 #line 5
 
-/* 
-         
-  
-                                                                   
-  
-                                                                
-                                                                         
+/**
+ *  @file
+ *
+ *  @brief Macro definitions meta-ops to be used in assembler files
+ *
+ *  This header contains asm macro definitions to be used in asm
+ *  files only. This is intended to be the equivalent of arm_gcc_inline.h
  */
 
 #ifndef _ARM_AS_MACROS_H_
@@ -40,15 +40,15 @@
 
 #include "coproc_defs.h"
 
-/* 
-                                                                          
-                                                                         
-  
-                   
-                                
-                
-                               
-     
+/**
+ * @name The following macros re-arrange the order of the mcr/mrc operands
+ * making it suitable to be used with the macros defined in coproc_defs.h
+ *
+ * @par For example
+ *    mcr_p15 DOMAIN_CONTROL, r3
+ * @par replaces
+ *    mcr p15, 0, r3, c3, c0, 0
+ * @{
  */
 .macro mcr_p15 op1, op2, op3, op4, reg, cond = al
 	mcr\cond p15, \op1, \reg, \op2, \op3, \op4
@@ -65,11 +65,11 @@
 .macro mrrc_p15 op1, op2, reg1, reg2
 	mrrc p15, \op1, \reg1, \reg2, \op2
 .endm
-/*  */
+/*@}*/
 
-/* 
-                                                                            
-     
+/**
+ * @name Our toolchain does not include support for the VE instructions yet.
+ * @{
  */
 .macro hvc imm16
 	.word ARM_INSTR_HVC_A1_ENC(\imm16)
@@ -86,6 +86,6 @@
 .macro mrs_ext rd, rm
 	.word ARM_INSTR_MRS_EXT_A1_ENC(ARM_INSTR_COND_AL, \rd, \rm)
 .endm
-/*  */
+/*@}*/
 
-#endif /*                          */
+#endif /* ifndef _ARM_AS_MACROS_H_ */

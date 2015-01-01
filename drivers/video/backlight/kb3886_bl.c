@@ -68,7 +68,7 @@ static struct platform_device *devices[] __initdata = {
 };
 
 /*
-                 
+ * Back to driver
  */
 
 static int kb3886bl_intensity;

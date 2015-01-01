@@ -1,7 +1,7 @@
 /*
-           
-  
-                                                                            
+ * libusual
+ *
+ * The libusual contains the table of devices common for ub and usb-storage.
  */
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -13,8 +13,8 @@
 
 /*
  */
-#define USU_MOD_FL_THREAD   1	/*                   */
-#define USU_MOD_FL_PRESENT  2	/*                      */
+#define USU_MOD_FL_THREAD   1	/* Thread is running */
+#define USU_MOD_FL_PRESENT  2	/* The module is loaded */
 
 struct mod_status {
 	unsigned long fls;
@@ -38,7 +38,7 @@ static atomic_t total_threads = ATOMIC_INIT(0);
 static int usu_probe_thread(void *arg);
 
 /*
-                                       
+ * @type: the module type as an integer
  */
 void usb_usual_set_present(int type)
 {
@@ -69,8 +69,8 @@ void usb_usual_clear_present(int type)
 EXPORT_SYMBOL_GPL(usb_usual_clear_present);
 
 /*
-                                                   
-                                    
+ * Match the calling driver type against the table.
+ * Returns: 0 if the device matches.
  */
 int usb_usual_check_type(const struct usb_device_id *id, int caller_type)
 {
@@ -79,10 +79,10 @@ int usb_usual_check_type(const struct usb_device_id *id, int caller_type)
 	if (caller_type <= 0 || caller_type >= 3)
 		return -EINVAL;
 
-	/*                                       */
+	/* Drivers grab fixed assignment devices */
 	if (id_type == caller_type)
 		return 0;
-	/*                                     */
+	/* Drivers grab devices biased to them */
 	if (id_type == USB_US_TYPE_NONE && caller_type == atomic_read(&usu_bias))
 		return 0;
 	return -ENODEV;
@@ -120,7 +120,7 @@ static int usu_probe(struct usb_interface *intf,
 		spin_lock_irqsave(&usu_lock, flags);
 		stat[type].fls &= ~USU_MOD_FL_THREAD;
 		spin_unlock_irqrestore(&usu_lock, flags);
-		return rc;	/*                                           */
+		return rc;	/* Not being -ENXIO causes a message printed */
 	}
 	atomic_inc(&total_threads);
 
@@ -129,7 +129,7 @@ static int usu_probe(struct usb_interface *intf,
 
 static void usu_disconnect(struct usb_interface *intf)
 {
-	;	/*                        */
+	;	/* We should not be here. */
 }
 
 static struct usb_driver usu_driver = {
@@ -140,13 +140,13 @@ static struct usb_driver usu_driver = {
 };
 
 /*
-                                                                         
-                                                                     
-                                                                     
-                                                                       
-                                                                             
-                                                        
-                                                              
+ * A whole new thread for a purpose of request_module seems quite stupid.
+ * The request_module forks once inside again. However, if we attempt
+ * to load a storage module from our own modprobe thread, that module
+ * references our symbols, which cannot be resolved until our module is
+ * initialized. I wish there was a way to wait for the end of initialization.
+ * The module notifier reports MODULE_STATE_COMING only.
+ * So, we wait until module->init ends as the next best thing.
  */
 static int usu_probe_thread(void *arg)
 {
@@ -160,8 +160,8 @@ static int usu_probe_thread(void *arg)
 	spin_lock_irqsave(&usu_lock, flags);
 	if (rc == 0 && (st->fls & USU_MOD_FL_PRESENT) == 0) {
 		/*
-                                                        
-   */
+		 * This should not happen, but let us keep tabs on it.
+		 */
 		printk(KERN_NOTICE "libusual: "
 		    "modprobe for %s succeeded, but module is not present\n",
 		    bias_names[type]);
@@ -188,9 +188,9 @@ static int __init usb_usual_init(void)
 static void __exit usb_usual_exit(void)
 {
 	/*
-                                                    
-                                               
-  */
+	 * We do not check for any drivers present, because
+	 * they keep us pinned with symbol references.
+	 */
 
 	usb_deregister(&usu_driver);
 
@@ -201,7 +201,7 @@ static void __exit usb_usual_exit(void)
 }
 
 /*
-                                          
+ * Validate and accept the bias parameter.
  */
 static int usu_set_bias(const char *bias_s, struct kernel_param *kp)
 {

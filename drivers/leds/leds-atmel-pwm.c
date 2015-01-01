@@ -17,23 +17,23 @@ struct pwmled {
 
 
 /*
-                                                                      
-                                                                       
-                                                                          
-                                                
+ * For simplicity, we use "brightness" as if it were a linear function
+ * of PWM duty cycle.  However, a logarithmic function of duty cycle is
+ * probably a better match for perceived brightness: two is half as bright
+ * as four, four is half as bright as eight, etc
  */
 static void pwmled_brightness(struct led_classdev *cdev, enum led_brightness b)
 {
 	struct pwmled		 *led;
 
-	/*                                             */
+	/* update the duty cycle for the *next* period */
 	led = container_of(cdev, struct pwmled, cdev);
 	pwm_channel_writel(&led->pwmc, PWM_CUPD, led->mult * (unsigned) b);
 }
 
 /*
-                                                            
-                                                           
+ * NOTE:  we reuse the platform_data structure of GPIO leds,
+ * but repurpose its "gpio" number as a PWM channel number.
  */
 static int __devinit pwmled_probe(struct platform_device *pdev)
 {
@@ -67,19 +67,19 @@ static int __devinit pwmled_probe(struct platform_device *pdev)
 			goto err;
 
 		/*
-                                                     
-                                                        
-                                                        
-   */
+		 * Prescale clock by 2^x, so PWM counts in low MHz.
+		 * Start each cycle with the LED active, so increasing
+		 * the duty cycle gives us more time on (== brighter).
+		 */
 		tmp = 5;
 		if (!led->active_low)
 			tmp |= PWM_CPR_CPOL;
 		pwm_channel_writel(&led->pwmc, PWM_CMR, tmp);
 
 		/*
-                                                             
-                                                
-   */
+		 * Pick a period so PWM cycles at 100+ Hz; and a multiplier
+		 * for scaling duty cycle:  brightness * mult.
+		 */
 		tmp = (led->pwmc.mck / (1 << 5)) / 100;
 		tmp /= 255;
 		led->mult = tmp;
@@ -90,7 +90,7 @@ static int __devinit pwmled_probe(struct platform_device *pdev)
 
 		pwm_channel_enable(&led->pwmc);
 
-		/*                                   */
+		/* Hand it over to the LED framework */
 		status = led_classdev_register(&pdev->dev, &led->cdev);
 		if (status < 0) {
 			pwm_channel_free(&led->pwmc);
@@ -139,7 +139,7 @@ static struct platform_driver pwmled_driver = {
 		.name =		"leds-atmel-pwm",
 		.owner =	THIS_MODULE,
 	},
-	/*                                            */
+	/* REVISIT add suspend() and resume() methods */
 	.probe =	pwmled_probe,
 	.remove =	__exit_p(pwmled_remove),
 };

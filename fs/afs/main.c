@@ -33,7 +33,7 @@ struct afs_uuid afs_uuid;
 struct workqueue_struct *afs_wq;
 
 /*
-                    
+ * get a client UUID
  */
 static int __init afs_get_client_UUID(void)
 {
@@ -42,8 +42,8 @@ static int __init afs_get_client_UUID(void)
 	u16 clockseq;
 	int ret;
 
-	/*                                                                     
-                   */
+	/* read the MAC address of one of the external interfaces and construct
+	 * a UUID from it */
 	ret = afs_get_MAC_address(afs_uuid.node, sizeof(afs_uuid.node));
 	if (ret < 0)
 		return ret;
@@ -76,7 +76,7 @@ static int __init afs_get_client_UUID(void)
 }
 
 /*
-                                      
+ * initialise the AFS client FS module
  */
 static int __init afs_init(void)
 {
@@ -88,45 +88,45 @@ static int __init afs_init(void)
 	if (ret < 0)
 		return ret;
 
-	/*                  */
+	/* create workqueue */
 	ret = -ENOMEM;
 	afs_wq = alloc_workqueue("afs", 0, 0);
 	if (!afs_wq)
 		return ret;
 
-	/*                          */
+	/* register the /proc stuff */
 	ret = afs_proc_init();
 	if (ret < 0)
 		goto error_proc;
 
 #ifdef CONFIG_AFS_FSCACHE
-	/*                             */
+	/* we want to be able to cache */
 	ret = fscache_register_netfs(&afs_cache_netfs);
 	if (ret < 0)
 		goto error_cache;
 #endif
 
-	/*                        */
+	/* initialise the cell DB */
 	ret = afs_cell_init(rootcell);
 	if (ret < 0)
 		goto error_cell_init;
 
-	/*                                  */
+	/* initialise the VL update process */
 	ret = afs_vlocation_update_init();
 	if (ret < 0)
 		goto error_vl_update_init;
 
-	/*                                        */
+	/* initialise the callback update process */
 	ret = afs_callback_update_init();
 	if (ret < 0)
 		goto error_callback_update_init;
 
-	/*                            */
+	/* create the RxRPC transport */
 	ret = afs_open_socket();
 	if (ret < 0)
 		goto error_open_socket;
 
-	/*                          */
+	/* register the filesystems */
 	ret = afs_fs_init();
 	if (ret < 0)
 		goto error_fs;
@@ -154,13 +154,13 @@ error_proc:
 	return ret;
 }
 
-/*                                                                      
-                                                              
+/* XXX late_initcall is kludgy, but the only alternative seems to create
+ * a transport upon the first mount, which is worse. Or is it?
  */
-late_initcall(afs_init);	/*                                            */
+late_initcall(afs_init);	/* must be called after net/ to create socket */
 
 /*
-                             
+ * clean up on module removal
  */
 static void __exit afs_exit(void)
 {

@@ -14,11 +14,11 @@
 #define _ASM_MACHW_H_
 
 /*
-                                           
+ * head.S maps the videomem to VIDEOMEMBASE
  */
 
 #define VIDEOMEMBASE	0xf0000000
 #define VIDEOMEMSIZE	(4096*1024)
 #define VIDEOMEMMASK	(-4096*1024)
 
-#endif /*               */
+#endif /* linux/machw.h */

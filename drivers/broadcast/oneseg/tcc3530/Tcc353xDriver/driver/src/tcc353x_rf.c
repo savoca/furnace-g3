@@ -1,19 +1,19 @@
+/*--------------------------------------------------------------------------*/
+/*    FileName    : Tcc353x_rf.c                                            */
+/*    Description : Rf Function                                             */
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*   TCC Version : 1.0.0                                                    */
 /*   Copyright (c) Telechips, Inc.                                          */
+/*   ALL RIGHTS RESERVED                                                    */
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #include "tcc353x_rf.h"
 #include "tcc353x_command_control.h"
 #include "tcpal_os.h"
 
-/*                 */
+/* extern function */
 I64U Tcc353xDiv64(I64U x, I64U y);
 
 #define SCALE       22
@@ -75,7 +75,7 @@ I64U Tcc353xDiv64(I64U x, I64U y);
 
 extern Tcc353xHandle_t Tcc353xHandle[TCC353X_MAX][TCC353X_DIVERSITY_MAX];
 I32U Tcc353xRfRegSRVersion[_RFREG_CNT_][_RFREG_FORM_] = {
-	/*                                                                         */
+	/* TCC353XRFREGSRVERSION[ADDRESSINDEX][ADDRESS, ACCESS_ABLE, FM, VHF, UHF] */
 	{0x00, 0, 0x35300000, 0x35300000, 0x35300000},
 	{0x01, 1, 0x80000000, 0x80000000, 0x80000000},
 	{0x02, 0, 0x00020000, 0x00020000, 0x00020000},
@@ -112,8 +112,8 @@ static I32S Tcc353xRfBandChange(I32S _moduleIndex, I32S _diversityIndex,
 		return TCC353X_RETURN_FAIL;
 	}
 
-	/*                      */
-	/*               */
+	/* check old band index */
+	/* if same, skip */
 	if (_bandIndex == Tcc353xRfBandIndex[_moduleIndex][_diversityIndex])
 		return TCC353X_RETURN_SUCCESS;
 
@@ -147,7 +147,7 @@ I32S Tcc353xRfInit(I32S _moduleIndex, I32S _diversityIndex)
 {
 	I32U RfId = 0x00;
 
-	/*                     */
+	/* set rf band unknown */
 	Tcc353xRfBandIndex[_moduleIndex][_diversityIndex] = -1;
 
 	Tcc353xRfRead(_moduleIndex, _diversityIndex, 0x00, &RfId);
@@ -162,7 +162,7 @@ I32S Tcc353xRfInit(I32S _moduleIndex, I32S _diversityIndex)
 			      _moduleIndex, _diversityIndex, RfId);
 	}
 
-	/*                     */
+	/* default rf band UHF */
 	Tcc353xRfBandChange(_moduleIndex, _diversityIndex, _IDX_UHF_);
 	return TCC353X_RETURN_SUCCESS;
 }
@@ -199,16 +199,16 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 	TcpalMemcpy(&tcc353xRfReg, &Tcc353xRfRegSRVersion,
 		    sizeof(tcc353xRfReg));
 
-	if ((I32U)(_freq_khz) < maxFmFreq)	/*    */
+	if ((I32U)(_freq_khz) < maxFmFreq)	/* fm */
 		bandIdx = _IDX_FM_;
-	else if ((I32U)(_freq_khz) < maxVhfFreq)	/*     */
+	else if ((I32U)(_freq_khz) < maxVhfFreq)	/* vhf */
 		bandIdx = _IDX_VHF_;
-	else			/*     */
+	else			/* uhf */
 		bandIdx = _IDX_UHF_;
 
 	Tcc353xRfBandChange(_moduleIndex, _diversityIndex, bandIdx);
 
-	/*                 */
+	/* copy to sub reg */
 	for (i = 0; i < _RFREG_CNT_; i++)
 		rfReg[i] = tcc353xRfReg[i][bandIdx];
 
@@ -232,7 +232,7 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 		segmentsNum = 13;
 		break;
 	case TCC353X_ISDBTMM:
-		/*          */
+		/* reserved */
 		if (_tuneOption->rfIfType != TCC353X_ZERO_IF) {
 			if(_tuneOption->tmmSet != A_1st_13Seg &&
 			_tuneOption->tmmSet != A_2nd_13Seg &&
@@ -241,12 +241,12 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 			_tuneOption->tmmSet != C_1st_13Seg &&
 			_tuneOption->tmmSet != C_2nd_13Seg &&
 			_tuneOption->tmmSet != UserDefine_Tmm13Seg)
-			/*                                  */
+			/* 1seg : + 500khz, 3seg : +1000khz */
 				_freq_khz += 1000;
 		}
 		break;
 	default:
-		/*                      */
+		/* default full segment */
 		segmentsNum = 13;
 		break;
 	}
@@ -255,7 +255,7 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 	fXtal = OSCCLK;
 	f_freq_khz = _freq_khz;
 
-	/*               */
+	/* Calculate PLL */
 	if (f_freq_khz < 65000) {
 		VCO_DIV = 48;
 		REG_VCO_DIV = 0x07;
@@ -306,18 +306,18 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 
 	FOffset = 0;
 	FR = 1;
-	/*                 */
+	/* fdfd = fxtal/FR */
 	fpfd = DIV(fXtal, FR);
 	fpfd = (fpfd >> SCALE);
 
 	Flo = f_freq_khz - FOffset;
 	Fvco = Flo * VCO_DIV;
 
-	/*                            */
+	/* N = Fvco / (pllMode*fpfd); */
 	N = DIV(Fvco, pllMode * fpfd);
 	N_int = (N >> SCALE) << SCALE;
 
-	/*                                                       */
+	/* F = ((Fvco / 2) / fpfd - (double) N_int) * (2 << 21); */
 	F = ((N - N_int) * (2 << 21)) >> SCALE;
 	N_int = (N_int >> SCALE);
 
@@ -325,7 +325,7 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 	RCNT_RDC = (I08U) (FR);
 	Icp = 4 << 24;
 
-	/*                       */
+	/* also disable auto rst */
 	BITCLR(tcc353xRfReg[0x05][bandIdx], 0x07000001);
 	BITCLR(tcc353xRfReg[0x07][bandIdx], 0x0000007F);
 	BITCLR(tcc353xRfReg[0x08][bandIdx], 0x3FFFFFFF);
@@ -343,7 +343,7 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 	    (tcc353xRfReg[0x08][bandIdx] | (N_int & 0xFF) |
 	     ((intF & 0x3FFFFF) << 8));
 
-	/*                  */
+	/* setting 0x04 Reg */
 	if(bandIdx == _IDX_UHF_)
 		rfReg[0x04] = ((rfReg[0x04] & 0xFFFFFFF8) | 0x06);
 	else if(bandIdx == _IDX_VHF_)
@@ -399,11 +399,11 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 	else
 		rfReg[0x04] = (rfReg[0x04] & 0xFFFFF9FF);
 
-	/*                  */
+	/* setting 0x0C Reg */
 	BITCLR(rfReg[0x0C], 0x3F00);
 	if (use_seg==13)
 		BITSET(rfReg[0x0C], 0x400);
-	else if (use_seg==1)	/*             */
+	else if (use_seg==1)	/* rcv as 3seg */
 		BITSET(rfReg[0x0C], 0x200);
 	else
 		BITSET(rfReg[0x0C], 0x200);
@@ -418,7 +418,7 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 	if((use_lowif==1)||(use_seg==13))
 		BITSET(rfReg[0x0C], 0x80);
 
-	/*                               */
+	/* tunning 0x09 register address */
 	if(_tuneOption->segmentType == TCC353X_ISDBTMM) {
 		rfReg[0x09] = 0x00861989;
 	}
@@ -453,10 +453,10 @@ void Tcc353xRfTune(I32S _moduleIndex, I32S _diversityIndex, I32S _freq_khz,
 		}
 	}
 
-	/*                                       */
-	/*                   
-                        
-  */
+	/* caution!! set 0x08 reg after set 0x05 */
+	/* 0x05 Auto Rst -> 0
+	 * 0x08 RST PLL -> 1->0
+	 */
 	addressArray[0] = 0x04;
 	addressArray[1] = 0x05;
 	addressArray[2] = 0x07;

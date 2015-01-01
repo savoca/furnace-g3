@@ -25,16 +25,16 @@
 
 #define valid_port(idx) ((idx) == 1 || (idx) == 2)
 
-/*                                      */
+/* clock device associated with the hcd */
 
 static struct clk *clk;
 static struct clk *usb_clk;
 
-/*                     */
+/* forward definitions */
 
 static void s3c2410_hcd_oc(struct s3c2410_hcd_info *info, int port_oc);
 
-/*                      */
+/* conversion functions */
 
 static struct s3c2410_hcd_info *to_s3c2410_info(struct usb_hcd *hcd)
 {
@@ -48,7 +48,7 @@ static void s3c2410_start_hc(struct platform_device *dev, struct usb_hcd *hcd)
 	dev_dbg(&dev->dev, "s3c2410_start_hc:\n");
 
 	clk_enable(usb_clk);
-	mdelay(2);			/*                             */
+	mdelay(2);			/* let the bus clock stabilise */
 
 	clk_enable(clk);
 
@@ -79,10 +79,10 @@ static void s3c2410_stop_hc(struct platform_device *dev)
 	clk_disable(usb_clk);
 }
 
-/*                             
-  
-                                                         
-                                  
+/* ohci_s3c2410_hub_status_data
+ *
+ * update the status data from the hub with anything that
+ * has been detected by our system
 */
 
 static int
@@ -100,7 +100,7 @@ ohci_s3c2410_hub_status_data(struct usb_hcd *hcd, char *buf)
 
 	port = &info->port[0];
 
-	/*                                  */
+	/* mark any changed port as changed */
 
 	for (portno = 0; portno < 2; port++, portno++) {
 		if (port->oc_changed == 1 &&
@@ -118,10 +118,10 @@ ohci_s3c2410_hub_status_data(struct usb_hcd *hcd, char *buf)
 	return orig;
 }
 
-/*                      
-  
-                                                                
-                                              
+/* s3c2410_usb_set_power
+ *
+ * configure the power on a port, by calling the platform device
+ * routine registered with the platform device
 */
 
 static void s3c2410_usb_set_power(struct s3c2410_hcd_info *info,
@@ -136,11 +136,11 @@ static void s3c2410_usb_set_power(struct s3c2410_hcd_info *info,
 	}
 }
 
-/*                         
-  
-                                                          
-                                                       
-           
+/* ohci_s3c2410_hub_control
+ *
+ * look at control requests to the hub, and see if we need
+ * to take any action or over-ride the results from the
+ * request.
 */
 
 static int ohci_s3c2410_hub_control(
@@ -160,8 +160,8 @@ static int ohci_s3c2410_hub_control(
 		"s3c2410_hub_control(%p,0x%04x,0x%04x,0x%04x,%p,%04x)\n",
 		hcd, typeReq, wValue, wIndex, buf, wLength);
 
-	/*                                                               
-                                               */
+	/* if we are only an humble host without any special capabilities
+	 * process the request straight away and exit */
 
 	if (info == NULL) {
 		ret = ohci_hub_control(hcd, typeReq, wValue,
@@ -169,7 +169,7 @@ static int ohci_s3c2410_hub_control(
 		goto out;
 	}
 
-	/*                                               */
+	/* check the request to see if it needs handling */
 
 	switch (typeReq) {
 	case SetPortFeature:
@@ -221,7 +221,7 @@ static int ohci_s3c2410_hub_control(
 	switch (typeReq) {
 	case GetHubDescriptor:
 
-		/*                             */
+		/* update the hub's descriptor */
 
 		desc = (struct usb_hub_descriptor *)buf;
 
@@ -231,9 +231,9 @@ static int ohci_s3c2410_hub_control(
 		dev_dbg(hcd->self.controller, "wHubCharacteristics 0x%04x\n",
 			desc->wHubCharacteristics);
 
-		/*                                                       
-                                                              
-   */
+		/* remove the old configurations for power-switching, and
+		 * over-current protection, and insert our new configuration
+		 */
 
 		desc->wHubCharacteristics &= ~cpu_to_le16(HUB_CHAR_LPSM);
 		desc->wHubCharacteristics |= cpu_to_le16(0x0001);
@@ -252,7 +252,7 @@ static int ohci_s3c2410_hub_control(
 		return ret;
 
 	case GetPortStatus:
-		/*                   */
+		/* check port status */
 
 		dev_dbg(hcd->self.controller, "GetPortStatus(%d)\n", wIndex);
 
@@ -269,9 +269,9 @@ static int ohci_s3c2410_hub_control(
 	return ret;
 }
 
-/*               
-  
-                                
+/* s3c2410_hcd_oc
+ *
+ * handle an over-current report
 */
 
 static void s3c2410_hcd_oc(struct s3c2410_hcd_info *info, int port_oc)
@@ -295,8 +295,8 @@ static void s3c2410_hcd_oc(struct s3c2410_hcd_info *info, int port_oc)
 			port->oc_status = 1;
 			port->oc_changed = 1;
 
-			/*                                   
-                                        */
+			/* ok, once over-current is detected,
+			   the port needs to be powered down */
 			s3c2410_usb_set_power(info, portno+1, 0);
 		}
 	}
@@ -304,18 +304,18 @@ static void s3c2410_hcd_oc(struct s3c2410_hcd_info *info, int port_oc)
 	local_irq_restore(flags);
 }
 
-/*                                                       */
-/*                                                        */
+/* may be called without controller electrically present */
+/* may be called with controller, bus, and devices active */
 
 /*
-                                                       
-                                          
-                           
-  
-                                                                
-                                                              
-                                                           
-  
+ * usb_hcd_s3c2410_remove - shutdown processing for HCD
+ * @dev: USB Host Controller being removed
+ * Context: !in_interrupt()
+ *
+ * Reverses the effect of usb_hcd_3c2410_probe(), first invoking
+ * the HCD's stop() method.  It is always called from a thread
+ * context, normally "rmmod", "apmd", or something similar.
+ *
 */
 
 static void
@@ -328,14 +328,14 @@ usb_hcd_s3c2410_remove(struct usb_hcd *hcd, struct platform_device *dev)
 	usb_put_hcd(hcd);
 }
 
-/* 
-                                                        
-                           
-  
-                                                              
-                                                                 
-                                           
-  
+/**
+ * usb_hcd_s3c2410_probe - initialize S3C2410-based HCDs
+ * Context: !in_interrupt()
+ *
+ * Allocates basic resources for this USB host controller, and
+ * then invokes the start() method for the HCD associated with it
+ * through the hotplug entry's driver_data.
+ *
  */
 static int usb_hcd_s3c2410_probe(const struct hc_driver *driver,
 				  struct platform_device *dev)
@@ -406,7 +406,7 @@ static int usb_hcd_s3c2410_probe(const struct hc_driver *driver,
 	return retval;
 }
 
-/*                                                                         */
+/*-------------------------------------------------------------------------*/
 
 static int
 ohci_s3c2410_start(struct usb_hcd *hcd)
@@ -435,33 +435,33 @@ static const struct hc_driver ohci_s3c2410_hc_driver = {
 	.hcd_priv_size =	sizeof(struct ohci_hcd),
 
 	/*
-                            
-  */
+	 * generic hardware linkage
+	 */
 	.irq =			ohci_irq,
 	.flags =		HCD_USB11 | HCD_MEMORY,
 
 	/*
-                              
-  */
+	 * basic lifecycle operations
+	 */
 	.start =		ohci_s3c2410_start,
 	.stop =			ohci_stop,
 	.shutdown =		ohci_shutdown,
 
 	/*
-                                                         
-  */
+	 * managing i/o requests and associated device resources
+	 */
 	.urb_enqueue =		ohci_urb_enqueue,
 	.urb_dequeue =		ohci_urb_dequeue,
 	.endpoint_disable =	ohci_endpoint_disable,
 
 	/*
-                      
-  */
+	 * scheduling support
+	 */
 	.get_frame_number =	ohci_get_frame,
 
 	/*
-                    
-  */
+	 * root hub support
+	 */
 	.hub_status_data =	ohci_s3c2410_hub_status_data,
 	.hub_control =		ohci_s3c2410_hub_control,
 #ifdef	CONFIG_PM
@@ -471,7 +471,7 @@ static const struct hc_driver ohci_s3c2410_hc_driver = {
 	.start_port_reset =	ohci_start_port_reset,
 };
 
-/*               */
+/* device driver */
 
 static int __devinit ohci_hcd_s3c2410_drv_probe(struct platform_device *pdev)
 {
@@ -496,11 +496,11 @@ static int ohci_hcd_s3c2410_drv_suspend(struct device *dev)
 	int rc = 0;
 
 	/*
-                                                            
-                                                              
-                                                              
-                                  
-  */
+	 * Root hub was already suspended. Disable irq emission and
+	 * mark HW unaccessible, bail out if RH has been resumed. Use
+	 * the spinlock to properly synchronize with possible pending
+	 * RH suspend or resume activity.
+	 */
 	spin_lock_irqsave(&ohci->lock, flags);
 	if (ohci->rh_state != OHCI_RH_SUSPENDED) {
 		rc = -EINVAL;

@@ -24,12 +24,12 @@
 #include <linux/hardirq.h>
 
 /*
-                                      
-                            
-  
-                                                          
-  
-                                                
+ * show_regs - print pt_regs structure
+ * @regs: pointer to pt_regs
+ *
+ * To-do:  add all the accessor definitions to registers.h
+ *
+ * Will make this routine a lot easier to write.
  */
 void show_regs(struct pt_regs *regs)
 {

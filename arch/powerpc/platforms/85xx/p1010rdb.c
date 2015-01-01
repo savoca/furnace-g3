@@ -42,7 +42,7 @@ void __init p1010_rdb_pic_init(void)
 
 
 /*
-                         
+ * Setup the architecture
  */
 static void __init p1010_rdb_setup_arch(void)
 {
@@ -68,7 +68,7 @@ machine_device_initcall(p1010_rdb, mpc85xx_common_publish_devices);
 machine_arch_initcall(p1010_rdb, swiotlb_setup_bus_notifier);
 
 /*
-                                                   
+ * Called very early, device-tree isn't unflattened
  */
 static int __init p1010_rdb_probe(void)
 {

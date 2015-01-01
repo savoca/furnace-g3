@@ -11,15 +11,15 @@
   * GNU General Public License for more details.
   */
 
-/*                                */
+/* android vibrator platform data */
 struct android_irrc_platform_data {
     int enable_status;
     int (*irrc_init)(void);
-    int (*pwm_set)(int enable, int gain, int n_value); /*                  */
+    int (*pwm_set)(int enable, int gain, int n_value); /* PWM Set Function */
 };
 
 
-/*                    */
+/* Debug Mask setting */
 #define IRRC_DEBUG_PRINT   (0)
 #define IRRC_ERROR_PRINT   (1)
 #define IRRC_INFO_PRINT    (1)
@@ -55,4 +55,4 @@ struct android_irrc_platform_data {
 
 #define IRRC_START        _IOW(IRRC_IOCTL_MAGIC, 0, int)
 #define IRRC_STOP         _IOW(IRRC_IOCTL_MAGIC, 1, int)
-//      
+//#endif

@@ -42,10 +42,10 @@ static inline struct dmaengine_pcm_runtime_data *substream_to_prtd(
 	return substream->runtime->private_data;
 }
 
-/* 
-                                                                    
-                            
-                     
+/**
+ * snd_dmaengine_pcm_set_data - Set dmaengine substream private data
+ * @substream: PCM substream
+ * @data: Data to set
  */
 void snd_dmaengine_pcm_set_data(struct snd_pcm_substream *substream, void *data)
 {
@@ -55,11 +55,11 @@ void snd_dmaengine_pcm_set_data(struct snd_pcm_substream *substream, void *data)
 }
 EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_set_data);
 
-/* 
-                                                                   
-                            
-  
-                                                                  
+/**
+ * snd_dmaengine_pcm_get_data - Get dmaeinge substream private data
+ * @substream: PCM substream
+ *
+ * Returns the data previously set with snd_dmaengine_pcm_set_data
  */
 void *snd_dmaengine_pcm_get_data(struct snd_pcm_substream *substream)
 {
@@ -77,14 +77,14 @@ struct dma_chan *snd_dmaengine_pcm_get_chan(struct snd_pcm_substream *substream)
 }
 EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_get_chan);
 
-/* 
-                                                                           
-                            
-                     
-                                  
-  
-                                                                              
-                                                                
+/**
+ * snd_hwparams_to_dma_slave_config - Convert hw_params to dma_slave_config
+ * @substream: PCM substream
+ * @params: hw_params
+ * @slave_config: DMA slave config
+ *
+ * This function can be used to initialize a dma_slave_config from a substream
+ * and hw_params in a dmaengine based PCM driver implementation.
  */
 int snd_hwparams_to_dma_slave_config(const struct snd_pcm_substream *substream,
 	const struct snd_pcm_hw_params *params,
@@ -158,15 +158,15 @@ static int dmaengine_pcm_prepare_and_submit(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-/* 
-                                                                         
-                            
-                        
-  
-                                                         
-  
-                                                                                
-                          
+/**
+ * snd_dmaengine_pcm_trigger - dmaengine based PCM trigger implementation
+ * @substream: PCM substream
+ * @cmd: Trigger command
+ *
+ * Returns 0 on success, a negative error code otherwise.
+ *
+ * This function can be used as the PCM trigger callback for dmaengine based PCM
+ * driver implementations.
  */
 int snd_dmaengine_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
@@ -199,12 +199,12 @@ int snd_dmaengine_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 }
 EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_trigger);
 
-/* 
-                                                                         
-                            
-  
-                                                                                
-                          
+/**
+ * snd_dmaengine_pcm_pointer - dmaengine based PCM pointer implementation
+ * @substream: PCM substream
+ *
+ * This function can be used as the PCM pointer callback for dmaengine based PCM
+ * driver implementations.
  */
 snd_pcm_uframes_t snd_dmaengine_pcm_pointer(struct snd_pcm_substream *substream)
 {
@@ -229,21 +229,21 @@ static int dmaengine_pcm_request_channel(struct dmaengine_pcm_runtime_data *prtd
 	return 0;
 }
 
-/* 
-                                                                
-                            
-                                                              
-                                                       
-  
-                                                         
-  
-                                                                                
-                                                                          
-  
-                                                                         
-                                                                                
-                                                      
-                                   
+/**
+ * snd_dmaengine_pcm_open - Open a dmaengine based PCM substream
+ * @substream: PCM substream
+ * @filter_fn: Filter function used to request the DMA channel
+ * @filter_data: Data passed to the DMA filter function
+ *
+ * Returns 0 on success, a negative error code otherwise.
+ *
+ * This function will request a DMA channel using the passed filter function and
+ * data. The function should usually be called from the pcm open callback.
+ *
+ * Note that this function will use private_data field of the substream's
+ * runtime. So it is not availabe to your pcm driver implementation. If you need
+ * to keep additional data attached to a substream use
+ * snd_dmaeinge_pcm_{set,get}_data.
  */
 int snd_dmaengine_pcm_open(struct snd_pcm_substream *substream,
 	dma_filter_fn filter_fn, void *filter_data)
@@ -272,9 +272,9 @@ int snd_dmaengine_pcm_open(struct snd_pcm_substream *substream,
 }
 EXPORT_SYMBOL_GPL(snd_dmaengine_pcm_open);
 
-/* 
-                                                                  
-                            
+/**
+ * snd_dmaengine_pcm_close - Close a dmaengine based PCM substream
+ * @substream: PCM substream
  */
 int snd_dmaengine_pcm_close(struct snd_pcm_substream *substream)
 {

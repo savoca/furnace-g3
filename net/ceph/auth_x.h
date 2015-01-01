@@ -9,7 +9,7 @@
 #include "auth_x_protocol.h"
 
 /*
-                                      
+ * Handle ticket for a single service.
  */
 struct ceph_x_ticket_handler {
 	struct rb_node node;
@@ -29,7 +29,7 @@ struct ceph_x_authorizer {
 	struct ceph_buffer *buf;
 	unsigned service;
 	u64 nonce;
-	char reply_buf[128];  /*                               */
+	char reply_buf[128];  /* big enough for encrypted blob */
 };
 
 struct ceph_x_info {

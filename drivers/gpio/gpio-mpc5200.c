@@ -39,20 +39,20 @@ struct mpc52xx_gpiochip {
 };
 
 /*
-                                                
-  
-                                                                    
-                                       
-  
-                   
-                   
-              
-              
-              
-              
-              
-              
-  
+ * GPIO LIB API implementation for wakeup GPIOs.
+ *
+ * There's a maximum of 8 wakeup GPIOs. Which of these are available
+ * for use depends on your board setup.
+ *
+ * 0 -> GPIO_WKUP_7
+ * 1 -> GPIO_WKUP_6
+ * 2 -> PSC6_1
+ * 3 -> PSC6_0
+ * 4 -> ETH_17
+ * 5 -> PSC3_9
+ * 6 -> PSC2_4
+ * 7 -> PSC1_4
+ *
  */
 static int mpc52xx_wkup_gpio_get(struct gpio_chip *gc, unsigned int gpio)
 {
@@ -107,11 +107,11 @@ static int mpc52xx_wkup_gpio_dir_in(struct gpio_chip *gc, unsigned int gpio)
 
 	spin_lock_irqsave(&gpio_lock, flags);
 
-	/*                   */
+	/* set the direction */
 	chip->shadow_ddr &= ~(1 << (7 - gpio));
 	out_8(&regs->wkup_ddr, chip->shadow_ddr);
 
-	/*                    */
+	/* and enable the pin */
 	chip->shadow_gpioe |= 1 << (7 - gpio);
 	out_8(&regs->wkup_gpioe, chip->shadow_gpioe);
 
@@ -133,11 +133,11 @@ mpc52xx_wkup_gpio_dir_out(struct gpio_chip *gc, unsigned int gpio, int val)
 
 	__mpc52xx_wkup_gpio_set(gc, gpio, val);
 
-	/*                    */
+	/* Then set direction */
 	chip->shadow_ddr |= 1 << (7 - gpio);
 	out_8(&regs->wkup_ddr, chip->shadow_ddr);
 
-	/*                        */
+	/* Finally enable the pin */
 	chip->shadow_gpioe |= 1 << (7 - gpio);
 	out_8(&regs->wkup_gpioe, chip->shadow_gpioe);
 
@@ -200,21 +200,21 @@ static struct platform_driver mpc52xx_wkup_gpiochip_driver = {
 };
 
 /*
-                                               
-  
-                                                                     
-                                       
-                                                                  
-  
-                    
-                
-                
-                    
-               
-                    
-                
-                
-                
+ * GPIO LIB API implementation for simple GPIOs
+ *
+ * There's a maximum of 32 simple GPIOs. Which of these are available
+ * for use depends on your board setup.
+ * The numbering reflects the bit numbering in the port registers:
+ *
+ *  0..1  > reserved
+ *  2..3  > IRDA
+ *  4..7  > ETHR
+ *  8..11 > reserved
+ * 12..15 > USB
+ * 16..17 > reserved
+ * 18..23 > PSC3
+ * 24..27 > PSC2
+ * 28..31 > PSC1
  */
 static int mpc52xx_simple_gpio_get(struct gpio_chip *gc, unsigned int gpio)
 {
@@ -266,11 +266,11 @@ static int mpc52xx_simple_gpio_dir_in(struct gpio_chip *gc, unsigned int gpio)
 
 	spin_lock_irqsave(&gpio_lock, flags);
 
-	/*                   */
+	/* set the direction */
 	chip->shadow_ddr &= ~(1 << (31 - gpio));
 	out_be32(&regs->simple_ddr, chip->shadow_ddr);
 
-	/*                    */
+	/* and enable the pin */
 	chip->shadow_gpioe |= 1 << (31 - gpio);
 	out_be32(&regs->simple_gpioe, chip->shadow_gpioe);
 
@@ -290,14 +290,14 @@ mpc52xx_simple_gpio_dir_out(struct gpio_chip *gc, unsigned int gpio, int val)
 
 	spin_lock_irqsave(&gpio_lock, flags);
 
-	/*                         */
+	/* First set initial value */
 	__mpc52xx_simple_gpio_set(gc, gpio, val);
 
-	/*                    */
+	/* Then set direction */
 	chip->shadow_ddr |= 1 << (31 - gpio);
 	out_be32(&regs->simple_ddr, chip->shadow_ddr);
 
-	/*                        */
+	/* Finally enable the pin */
 	chip->shadow_gpioe |= 1 << (31 - gpio);
 	out_be32(&regs->simple_gpioe, chip->shadow_gpioe);
 
@@ -366,10 +366,10 @@ static int __init mpc52xx_gpio_init(void)
 }
 
 
-/*                                                                 */
+/* Make sure we get initialised before anyone else tries to use us */
 subsys_initcall(mpc52xx_gpio_init);
 
-/*                                                                  */
+/* No exit call at the moment as we cannot unregister of gpio chips */
 
 MODULE_DESCRIPTION("Freescale MPC52xx gpio driver");
 MODULE_AUTHOR("Sascha Hauer <s.hauer@pengutronix.de");

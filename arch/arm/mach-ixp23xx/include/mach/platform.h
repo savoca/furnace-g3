@@ -46,7 +46,7 @@ extern struct sys_timer ixp23xx_timer;
 
 #ifndef __ASSEMBLY__
 /*
-                                          
+ * Is system memory on the XSI or CPP bus?
  */
 static inline unsigned ixp23xx_cpp_boot(void)
 {

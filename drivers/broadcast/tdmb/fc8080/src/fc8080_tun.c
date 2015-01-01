@@ -57,14 +57,14 @@ static fci_s32 fc8080_read(HANDLE handle, fci_u8 addr, fci_u8 *data)
 	return res;
 }
 
-/*                                                                        
- 
-             
+/*static fci_s32 fc8080_bb_write(HANDLE handle, fci_u16 addr, fci_u8 data)
+{
+	fci_s32 res;
 
-                                     
+	res = bbm_write(handle, addr, data);
 
-            
- */
+	return res;
+}*/
 
 static fci_s32 fc8080_bb_read(HANDLE handle, fci_u16 addr, fci_u8 *data)
 {

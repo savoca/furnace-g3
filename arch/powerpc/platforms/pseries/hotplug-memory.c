@@ -34,7 +34,7 @@ static unsigned long get_memblock_size(void)
 			memblock_size = be64_to_cpup(size);
 		of_node_put(np);
 	} else  if (machine_is(pseries)) {
-		/*                                              */
+		/* This fallback really only applies to pseries */
 		unsigned int memzero_size = 0;
 
 		np = of_find_node_by_path("/memory@0");
@@ -45,9 +45,9 @@ static unsigned long get_memblock_size(void)
 		}
 
 		if (memzero_size) {
-			/*                                                   
-                                             
-    */
+			/* We now know the size of memory@0, use this to find
+			 * the first memoryblock and get its size.
+			 */
 			char buf[64];
 
 			sprintf(buf, "/memory@%x", memzero_size);
@@ -62,11 +62,11 @@ static unsigned long get_memblock_size(void)
 	return memblock_size;
 }
 
-/*                                                                   
-                                                                    
-                                                                 
-                                                                 
-                   
+/* WARNING: This is going to override the generic definition whenever
+ * pseries is built-in regardless of what platform is active at boot
+ * time. This is fine for now as this is the only "option" and it
+ * should work everywhere. If not, we'll have to turn this into a
+ * ppc_md. callback
  */
 unsigned long memory_block_size_bytes(void)
 {
@@ -89,32 +89,32 @@ static int pseries_remove_memblock(unsigned long base, unsigned int memblock_siz
 	zone = page_zone(pfn_to_page(start_pfn));
 
 	/*
-                                                     
-                                          
-   
-                                                           
-                                                               
-                                                           
-                                                        
-  */
+	 * Remove section mappings and sysfs entries for the
+	 * section of the memory we are removing.
+	 *
+	 * NOTE: Ideally, this should be done in generic code like
+	 * remove_memory(). But remove_memory() gets called by writing
+	 * to sysfs "state" file and we can't remove sysfs entries
+	 * while writing to it. So we have to defer it to here.
+	 */
 	ret = __remove_pages(zone, start_pfn, memblock_size >> PAGE_SHIFT);
 	if (ret)
 		return ret;
 
 	/*
-                                           
-  */
+	 * Update memory regions for memory remove
+	 */
 	memblock_remove(base, memblock_size);
 
 	/*
-                                                          
-  */
+	 * Remove htab bolted mappings for this section of memory
+	 */
 	start = (unsigned long)__va(base);
 	ret = remove_section_mapping(start, start + memblock_size);
 
-	/*                                                          
-                              
-  */
+	/* Ensure all vmalloc mappings are flushed in case they also
+	 * hit that section of memory
+	 */
 	vm_unmap_aliases();
 
 	return ret;
@@ -129,15 +129,15 @@ static int pseries_remove_memory(struct device_node *np)
 	int ret = -EINVAL;
 
 	/*
-                                                   
-  */
+	 * Check to see if we are actually removing memory
+	 */
 	type = of_get_property(np, "device_type", NULL);
 	if (type == NULL || strcmp(type, "memory") != 0)
 		return 0;
 
 	/*
-                                                 
-  */
+	 * Find the bae address and size of the memblock
+	 */
 	regs = of_get_property(np, "reg", NULL);
 	if (!regs)
 		return ret;
@@ -158,15 +158,15 @@ static int pseries_add_memory(struct device_node *np)
 	int ret = -EINVAL;
 
 	/*
-                                                 
-  */
+	 * Check to see if we are actually adding memory
+	 */
 	type = of_get_property(np, "device_type", NULL);
 	if (type == NULL || strcmp(type, "memory") != 0)
 		return 0;
 
 	/*
-                                          
-  */
+	 * Find the base and size of the memblock
+	 */
 	regs = of_get_property(np, "reg", NULL);
 	if (!regs)
 		return ret;
@@ -175,8 +175,8 @@ static int pseries_add_memory(struct device_node *np)
 	lmb_size = regs[3];
 
 	/*
-                                                    
-  */
+	 * Update memory region to represent the memory add
+	 */
 	ret = memblock_add(base, lmb_size);
 	return (ret < 0) ? -EINVAL : 0;
 }

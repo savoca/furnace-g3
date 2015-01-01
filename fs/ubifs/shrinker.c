@@ -21,51 +21,51 @@
  */
 
 /*
-                                                                             
-                                     
-  
-                                                                             
-                                                                               
-                                                             
-  
-                                                                               
-                                                                              
-                          
-  
-                                                                          
-                                                                         
-  
-                                                                        
-                                                                            
+ * This file implements UBIFS shrinker which evicts clean znodes from the TNC
+ * tree when Linux VM needs more RAM.
+ *
+ * We do not implement any LRU lists to find oldest znodes to free because it
+ * would add additional overhead to the file system fast paths. So the shrinker
+ * just walks the TNC tree when searching for znodes to free.
+ *
+ * If the root of a TNC sub-tree is clean and old enough, then the children are
+ * also clean and old enough. So the shrinker walks the TNC in level order and
+ * dumps entire sub-trees.
+ *
+ * The age of znodes is just the time-stamp when they were last looked at.
+ * The current shrinker first tries to evict old znodes, then young ones.
+ *
+ * Since the shrinker is global, it has to protect against races with FS
+ * un-mounts, which is done by the 'ubifs_infos_lock' and 'c->umount_mutex'.
  */
 
 #include "ubifs.h"
 
-/*                                         */
+/* List of all UBIFS file-system instances */
 LIST_HEAD(ubifs_infos);
 
 /*
-                                                                                
-                                                                               
-                           
+ * We number each shrinker run and record the number on the ubifs_info structure
+ * so that we can easily work out which ubifs_info structures have already been
+ * done by the current run.
  */
 static unsigned int shrinker_run_no;
 
-/*                             */
+/* Protects 'ubifs_infos' list */
 DEFINE_SPINLOCK(ubifs_infos_lock);
 
-/*                                                              */
+/* Global clean znode counter (for all mounted UBIFS instances) */
 atomic_long_t ubifs_clean_zn_cnt;
 
-/* 
-                                
-                                           
-                                
-                                  
-                                                    
-  
-                                                                            
-                                                                        
+/**
+ * shrink_tnc - shrink TNC tree.
+ * @c: UBIFS file-system description object
+ * @nr: number of znodes to free
+ * @age: the age of znodes to free
+ * @contention: if any contention, this is set to %1
+ *
+ * This function traverses TNC tree and frees clean znodes. It does not free
+ * clean znodes which younger then @age. Returns number of freed znodes.
  */
 static int shrink_tnc(struct ubifs_info *c, int nr, int age, int *contention)
 {
@@ -80,14 +80,14 @@ static int shrink_tnc(struct ubifs_info *c, int nr, int age, int *contention)
 		return 0;
 
 	/*
-                                                                      
-                                                                       
-                                          
-   
-                                                                      
-                                                                   
-                                                 
-  */
+	 * Traverse the TNC tree in levelorder manner, so that it is possible
+	 * to destroy large sub-trees. Indeed, if a znode is old, then all its
+	 * children are older or of the same age.
+	 *
+	 * Note, we are holding 'c->tnc_mutex', so we do not have to lock the
+	 * 'c->space_lock' when _reading_ 'c->clean_zn_cnt', because it is
+	 * changed only when the 'c->tnc_mutex' is held.
+	 */
 	zprev = NULL;
 	znode = ubifs_tnc_levelorder_next(c->zroot.znode, NULL);
 	while (znode && total_freed < nr &&
@@ -95,28 +95,28 @@ static int shrink_tnc(struct ubifs_info *c, int nr, int age, int *contention)
 		int freed;
 
 		/*
-                                                                  
-                                                              
-                                                              
-                                                            
-                                                                 
-                                                                 
-                               
-    
-                                                            
-                                                            
-                                                             
-    
-                                                               
-                                                                
-                                    
-   */
+		 * If the znode is clean, but it is in the 'c->cnext' list, this
+		 * means that this znode has just been written to flash as a
+		 * part of commit and was marked clean. They will be removed
+		 * from the list at end commit. We cannot change the list,
+		 * because it is not protected by any mutex (design decision to
+		 * make commit really independent and parallel to main I/O). So
+		 * we just skip these znodes.
+		 *
+		 * Note, the 'clean_zn_cnt' counters are not updated until
+		 * after the commit, so the UBIFS shrinker does not report
+		 * the znodes which are in the 'c->cnext' list as freeable.
+		 *
+		 * Also note, if the root of a sub-tree is not in 'c->cnext',
+		 * then the whole sub-tree is not in 'c->cnext' as well, so it
+		 * is safe to dump whole sub-tree.
+		 */
 
 		if (znode->cnext) {
 			/*
-                                                          
-                          
-    */
+			 * Very soon these znodes will be removed from the list
+			 * and become freeable.
+			 */
 			*contention = 1;
 		} else if (!ubifs_zn_dirty(znode) &&
 			   abs(time - znode->time) >= age) {
@@ -144,15 +144,15 @@ static int shrink_tnc(struct ubifs_info *c, int nr, int age, int *contention)
 	return total_freed;
 }
 
-/* 
-                                             
-                                
-                                  
-                                                    
-  
-                                                                             
-                                                                         
-                                      
+/**
+ * shrink_tnc_trees - shrink UBIFS TNC trees.
+ * @nr: number of znodes to free
+ * @age: the age of znodes to free
+ * @contention: if any contention, this is set to %1
+ *
+ * This function walks the list of mounted UBIFS file-systems and frees clean
+ * znodes which are older than @age, until at least @nr znodes are freed.
+ * Returns the number of freed znodes.
  */
 static int shrink_tnc_trees(int nr, int age, int *contention)
 {
@@ -165,26 +165,26 @@ static int shrink_tnc_trees(int nr, int age, int *contention)
 	do {
 		run_no = ++shrinker_run_no;
 	} while (run_no == 0);
-	/*                                                                    */
+	/* Iterate over all mounted UBIFS file-systems and try to shrink them */
 	p = ubifs_infos.next;
 	while (p != &ubifs_infos) {
 		c = list_entry(p, struct ubifs_info, infos_list);
 		/*
-                                                              
-                                          
-   */
+		 * We move the ones we do to the end of the list, so we stop
+		 * when we see one we have already done.
+		 */
 		if (c->shrinker_run_no == run_no)
 			break;
 		if (!mutex_trylock(&c->umount_mutex)) {
-			/*                                           */
+			/* Some un-mount is in progress, try next FS */
 			*contention = 1;
 			p = p->next;
 			continue;
 		}
 		/*
-                                                                 
-          
-   */
+		 * We're holding 'c->umount_mutex', so the file-system won't go
+		 * away.
+		 */
 		if (!mutex_trylock(&c->tnc_mutex)) {
 			mutex_unlock(&c->umount_mutex);
 			*contention = 1;
@@ -193,19 +193,19 @@ static int shrink_tnc_trees(int nr, int age, int *contention)
 		}
 		spin_unlock(&ubifs_infos_lock);
 		/*
-                                                                 
-                                  
-   */
+		 * OK, now we have TNC locked, the file-system cannot go away -
+		 * it is safe to reap the cache.
+		 */
 		c->shrinker_run_no = run_no;
 		freed += shrink_tnc(c, nr, age, contention);
 		mutex_unlock(&c->tnc_mutex);
 		spin_lock(&ubifs_infos_lock);
-		/*                                                   */
+		/* Get the next list element before we move this one */
 		p = p->next;
 		/*
-                                                         
-              
-   */
+		 * Move this one to the end of the list to provide some
+		 * fairness.
+		 */
 		list_move_tail(&c->infos_list, &ubifs_infos);
 		mutex_unlock(&c->umount_mutex);
 		if (freed >= nr)
@@ -215,13 +215,13 @@ static int shrink_tnc_trees(int nr, int age, int *contention)
 	return freed;
 }
 
-/* 
-                                                            
-  
-                                                                              
-                                                                             
-                                                                               
-      
+/**
+ * kick_a_thread - kick a background thread to start commit.
+ *
+ * This function kicks a background thread to start background commit. Returns
+ * %-1 if a thread was kicked or there is another reason to assume the memory
+ * will soon be freed or become freeable. If there are no dirty znodes, returns
+ * %0.
  */
 static int kick_a_thread(void)
 {
@@ -229,10 +229,10 @@ static int kick_a_thread(void)
 	struct ubifs_info *c;
 
 	/*
-                                                                        
-                                                                      
-                                                   
-  */
+	 * Iterate over all mounted UBIFS file-systems and find out if there is
+	 * already an ongoing commit operation there. If no, then iterate for
+	 * the second time and initiate background commit.
+	 */
 	spin_lock(&ubifs_infos_lock);
 	for (i = 0; i < 2; i++) {
 		list_for_each_entry(c, &ubifs_infos, infos_list) {
@@ -240,9 +240,9 @@ static int kick_a_thread(void)
 
 			if (!mutex_trylock(&c->umount_mutex)) {
 				/*
-                                            
-                                             
-     */
+				 * Some un-mount is in progress, it will
+				 * certainly free memory, so just return.
+				 */
 				spin_unlock(&ubifs_infos_lock);
 				return -1;
 			}
@@ -285,19 +285,19 @@ int ubifs_shrinker(struct shrinker *shrink, struct shrink_control *sc)
 
 	if (nr == 0)
 		/*
-                                                                
-                             
-   */
+		 * Due to the way UBIFS updates the clean znode counter it may
+		 * temporarily be negative.
+		 */
 		return clean_zn_cnt >= 0 ? clean_zn_cnt : 1;
 
 	if (!clean_zn_cnt) {
 		/*
-                                                                 
-                                                              
-                                                                 
-                                                            
-           
-   */
+		 * No clean znodes, nothing to reap. All we can do in this case
+		 * is to kick background threads to start commit, which will
+		 * probably make clean znodes which, in turn, will be freeable.
+		 * And we return -1 which means will make VM call us again
+		 * later.
+		 */
 		dbg_tnc("no clean znodes, kick a thread");
 		return kick_a_thread();
 	}

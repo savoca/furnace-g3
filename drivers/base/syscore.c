@@ -14,9 +14,9 @@
 static LIST_HEAD(syscore_ops_list);
 static DEFINE_MUTEX(syscore_ops_lock);
 
-/* 
-                                                                   
-                                            
+/**
+ * register_syscore_ops - Register a set of system core operations.
+ * @ops: System core operations to register.
  */
 void register_syscore_ops(struct syscore_ops *ops)
 {
@@ -26,9 +26,9 @@ void register_syscore_ops(struct syscore_ops *ops)
 }
 EXPORT_SYMBOL_GPL(register_syscore_ops);
 
-/* 
-                                                                       
-                                              
+/**
+ * unregister_syscore_ops - Unregister a set of system core operations.
+ * @ops: System core operations to unregister.
  */
 void unregister_syscore_ops(struct syscore_ops *ops)
 {
@@ -39,10 +39,10 @@ void unregister_syscore_ops(struct syscore_ops *ops)
 EXPORT_SYMBOL_GPL(unregister_syscore_ops);
 
 #ifdef CONFIG_PM_SLEEP
-/* 
-                                                                              
-  
-                                                                          
+/**
+ * syscore_suspend - Execute all the registered system core suspend callbacks.
+ *
+ * This function is executed with one CPU on-line and disabled interrupts.
  */
 int syscore_suspend(void)
 {
@@ -51,7 +51,7 @@ int syscore_suspend(void)
 
 	pr_debug("Checking wakeup interrupts\n");
 
-	/*                                                               */
+	/* Return error code if there are any wakeup interrupts pending. */
 	ret = check_wakeup_irqs();
 	if (ret)
 		return ret;
@@ -83,10 +83,10 @@ int syscore_suspend(void)
 }
 EXPORT_SYMBOL_GPL(syscore_suspend);
 
-/* 
-                                                                            
-  
-                                                                          
+/**
+ * syscore_resume - Execute all the registered system core resume callbacks.
+ *
+ * This function is executed with one CPU on-line and disabled interrupts.
  */
 void syscore_resume(void)
 {
@@ -105,10 +105,10 @@ void syscore_resume(void)
 		}
 }
 EXPORT_SYMBOL_GPL(syscore_resume);
-#endif /*                 */
+#endif /* CONFIG_PM_SLEEP */
 
-/* 
-                                                                                
+/**
+ * syscore_shutdown - Execute all the registered system core shutdown callbacks.
  */
 void syscore_shutdown(void)
 {

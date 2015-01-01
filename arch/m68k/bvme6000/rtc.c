@@ -1,7 +1,7 @@
 /*
-                                                      
-  
-                                            
+ *	Real Time Clock interface for Linux on the BVME6000
+ *
+ * Based on the PC driver by Paul Gortmaker.
  */
 
 #define RTC_VERSION		"1.00"
@@ -15,7 +15,7 @@
 #include <linux/init.h>
 #include <linux/poll.h>
 #include <linux/module.h>
-#include <linux/mc146818rtc.h>	/*                                     */
+#include <linux/mc146818rtc.h>	/* For struct rtc_time and ioctls, etc */
 #include <linux/bcd.h>
 #include <asm/bvme6000hw.h>
 
@@ -24,10 +24,10 @@
 #include <asm/setup.h>
 
 /*
-                                                            
-                                                            
-                                                          
-          
+ *	We sponge a minor off of the misc major. No need slurping
+ *	up another valuable major dev number for this. If you add
+ *	an ioctl, make sure you don't conflict with SPARC's RTC
+ *	ioctls.
  */
 
 static unsigned char days_in_mo[] =
@@ -44,10 +44,10 @@ static long rtc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	void __user *argp = (void __user *)arg;
 
 	switch (cmd) {
-	case RTC_RD_TIME:	/*                             */
+	case RTC_RD_TIME:	/* Read the time/date from RTC	*/
 	{
 		local_irq_save(flags);
-		/*                                                         */
+		/* Ensure clock and real-time-mode-register are accessible */
 		msr = rtc->msr & 0xc0;
 		rtc->msr = 0x40;
 		memset(&wtime, 0, sizeof(struct rtc_time));
@@ -67,7 +67,7 @@ static long rtc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return copy_to_user(argp, &wtime, sizeof wtime) ?
 								-EFAULT : 0;
 	}
-	case RTC_SET_TIME:	/*             */
+	case RTC_SET_TIME:	/* Set the RTC */
 	{
 		struct rtc_time rtc_tm;
 		unsigned char mon, day, hrs, min, sec, leap_yr;
@@ -82,7 +82,7 @@ static long rtc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		yrs = rtc_tm.tm_year;
 		if (yrs < 1900)
 			yrs += 1900;
-		mon = rtc_tm.tm_mon + 1;   /*                       */
+		mon = rtc_tm.tm_mon + 1;   /* tm_mon starts at zero */
 		day = rtc_tm.tm_mday;
 		hrs = rtc_tm.tm_hour;
 		min = rtc_tm.tm_min;
@@ -103,7 +103,7 @@ static long rtc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EINVAL;
 
 		local_irq_save(flags);
-		/*                                                         */
+		/* Ensure clock and real-time-mode-register are accessible */
 		msr = rtc->msr & 0xc0;
 		rtc->msr = 0x40;
 
@@ -129,7 +129,7 @@ static long rtc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 
 /*
-                                                               
+ * We enforce only one user at a time here with the open/close.
  */
 static int rtc_open(struct inode *inode, struct file *file)
 {
@@ -147,7 +147,7 @@ static int rtc_release(struct inode *inode, struct file *file)
 }
 
 /*
-                                          
+ *	The various file operations we support.
  */
 
 static const struct file_operations rtc_fops = {

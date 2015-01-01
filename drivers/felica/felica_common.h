@@ -1,6 +1,6 @@
 /*
-                  
-  
+ *  felicacommon.h
+ *
  */
 
 #ifndef __FELICACOMMON_H__
@@ -11,27 +11,27 @@ extern "C" {
 #endif
 
 /*
-                            
+ *  INCLUDE FILES FOR MODULE
  */
-#include <linux/module.h>/*           */
+#include <linux/module.h>/*THIS_MODULE*/
 #include <linux/moduleparam.h>
 #include <linux/init.h>
-#include <linux/kernel.h>/*          */
-#include <linux/types.h>/*        */
-#include <linux/miscdevice.h>/*                              */
+#include <linux/kernel.h>/* printk() */
+#include <linux/types.h>/* size_t */
+#include <linux/miscdevice.h>/*misc_register, misc_deregister*/
 #include <linux/vmalloc.h>
-#include <linux/fs.h>/*               */
-#include <linux/delay.h>/*      */
+#include <linux/fs.h>/*file_operations*/
+#include <linux/delay.h>/*mdelay*/
 #include <linux/irq.h>
 
-#include <asm/uaccess.h>/*              */
-#include <asm/io.h>/*      */
+#include <asm/uaccess.h>/*copy_from_user*/
+#include <asm/io.h>/*static*/
 #include <linux/gpio.h>
 #include <mach/socinfo.h>
-#include <mach/board_lge.h>/*                   */
+#include <mach/board_lge.h>/*lge_get_board_revno*/
 
 /*
-          
+ *  DEFINE
  */
 
 enum{
@@ -39,7 +39,7 @@ enum{
   FELICA_UART_AVAILABLE,
 };
 
-/*                                   */
+/* Check NFC code - drivers/nfc/snfc */
 typedef enum _e_snfc_uart_status {
 	UART_STATUS_KOTO_OFF = 0,
 	UART_STATUS_READY,
@@ -57,40 +57,40 @@ typedef enum _e_snfc_i2c_status {
 } _e_snfc_i2c_status;
 
 
-/*                  */
-//                          
-//                            
+/* function feature */
+//#define FELICA_LED_SUPPORT
+//#define FELICA_NFC_INTERFACE
 
-/*               */
+/* debug message */
 #define FEATURE_DEBUG_HIGH
 #define FEATURE_DEBUG_MED
 #define FEATURE_DEBUG_LOW
 #define RXTX_LOG_ENABLE
 #define FELICA_DEBUG_MSG pr_debug
 
-/*        */
+/* felica */
 #define FELICA_NAME    "felica"
 
-/*            */
+/* felica_pon */
 #define FELICA_PON_NAME    "felica_pon"
 
-/*            */
+/* felica_cen */
 #define FELICA_CEN_NAME    "felica_cen"
 
-/*            */
+/* felica_rfs */
 #define FELICA_RFS_NAME    "felica_rfs"
 
-/*            */
+/* felica_cal */
 #define FELICA_CAL_NAME    "felica_cal"
 
-/*            */
+/* felica I2C */
 #define FELICA_I2C_NAME    "felica_i2c"
 
-/*            */
+/* felica_int */
 #define FELICA_RWS_NAME    "felica_rws"
 
 
-/*              */
+/* minor number */
 #define MINOR_NUM_FELICA_PON 250
 #define MINOR_NUM_FELICA     251
 #define MINOR_NUM_FELICA_CEN 252
@@ -98,21 +98,21 @@ typedef enum _e_snfc_i2c_status {
 #define MINOR_NUM_FELICA_RWS 254
 
 /*
-                     
+ *  EXTERNAL VARIABLE
 */
-/*                                                                           */
+/* Must check each model's path in 'android/system/core/rootdir/init.rc'file */
 #define FELICA_LD_LIBRARY_PATH "LD_LIBRARY_PATH=/vendor/lib:/system/lib"
 
 #define FELICA_PATH "PATH=/sbin:/vendor/bin:/system/sbin:/system/bin:/system/xbin"
 
 #define FELICA_BOOTCLASSPATH "BOOTCLASSPATH=/system/framework/core.jar:/system/framework/conscrypt.jar:/system/framework/okhttp.jar:/system/framework/core-junit.jar:/system/framework/bouncycastle.jar:/system/framework/ext.jar:/system/framework/framework.jar:/system/framework/framework2.jar:/system/framework/telephony-common.jar:/system/framework/voip-common.jar:/system/framework/mms-common.jar:/system/framework/android.policy.jar:/system/framework/services.jar:/system/framework/apache-xml.jar:/system/framework/webviewchromium.jar:/system/framework/com.lge.frameworks.jar:/system/framework/WfdCommon.jar:/system/framework/org.codeaurora.Performance.jar"
 
-/*                                                   */
-#define FELICA_IC2_NAME "/dev/i2c-0"  //           
-#define FELICA_UART_NAME "/dev/ttyHSL2" //            
+/* Must check each model's VALUE from UART developer */
+#define FELICA_IC2_NAME "/dev/i2c-0"  // dev/i2c-84
+#define FELICA_UART_NAME "/dev/ttyHSL2" // dev/ttyHSL1
 
 /*
-                    
+ *  DEFINE FUNCTIONS
  */
 void lock_felica_wake_lock(void);
 void unlock_felica_wake_lock(void);
@@ -143,4 +143,4 @@ void destroy_felica_rfs_wake_lock(void);
 }
 #endif
 
-#endif //                   
+#endif // __FELICACOMMON_H__

@@ -16,9 +16,9 @@
 struct unified_wlc_platform_data {
 	unsigned int wlc_int_gpio;
 	unsigned int wlc_full_chg;
-	//                               
-	//                            
-	//                            
+	//unsigned int wireless_charging;
+	//unsigned int chg_state_gpio;
+	//int (*wlc_is_plugged)(void);
 };
 #ifdef CONFIG_CHARGER_UNIFIED_WLC_ALIGNMENT
 #ifdef CONFIG_CHARGER_FACTORY_MODE

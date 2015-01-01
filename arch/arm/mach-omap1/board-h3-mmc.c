@@ -30,9 +30,9 @@ static int mmc_set_power(struct device *dev, int slot, int power_on,
 }
 
 /*
-                                               
-                                                
-                                             
+ * H3 could use the following functions tested:
+ * - mmc_get_cover_state that uses OMAP_MPUIO(1)
+ * - mmc_get_wp that maybe uses OMAP_MPUIO(3)
  */
 static struct omap_mmc_platform_data mmc1_data = {
 	.nr_slots                       = 1,

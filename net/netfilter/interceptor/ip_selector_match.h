@@ -46,4 +46,4 @@ ip_selector_match_debug_log_group(const struct IPSelectorGroup *selector_group);
 
 void ip_selector_match_debug_log_selector(const struct IPSelector *selector);
 
-#endif				/*                     */
+#endif				/* IP_SELECTOR_MATCH_H */

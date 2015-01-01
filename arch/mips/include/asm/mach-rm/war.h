@@ -9,7 +9,7 @@
 #define __ASM_MIPS_MACH_RM_WAR_H
 
 /*
-                                                              
+ * The RM200C seems to have been shipped only with V2.0 R4600s
  */
 
 #define R4600_V1_INDEX_ICACHEOP_WAR	0
@@ -26,4 +26,4 @@
 #define R10000_LLSC_WAR			0
 #define MIPS34K_MISSED_ITLB_WAR		0
 
-#endif /*                          */
+#endif /* __ASM_MIPS_MACH_RM_WAR_H */

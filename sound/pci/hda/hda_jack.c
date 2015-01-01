@@ -35,14 +35,14 @@ bool is_jack_detectable(struct hda_codec *codec, hda_nid_t nid)
 }
 EXPORT_SYMBOL_HDA(is_jack_detectable);
 
-/*                               */
+/* execute pin sense measurement */
 static u32 read_pin_sense(struct hda_codec *codec, hda_nid_t nid)
 {
 	u32 pincap;
 
 	if (!codec->no_trigger_sense) {
 		pincap = snd_hda_query_pin_caps(codec, nid);
-		if (pincap & AC_PINCAP_TRIG_REQ) /*               */
+		if (pincap & AC_PINCAP_TRIG_REQ) /* need trigger? */
 			snd_hda_codec_read(codec, nid, 0,
 					AC_VERB_SET_PIN_SENSE, 0);
 	}
@@ -50,8 +50,8 @@ static u32 read_pin_sense(struct hda_codec *codec, hda_nid_t nid)
 				  AC_VERB_GET_PIN_SENSE, 0);
 }
 
-/* 
-                                                                      
+/**
+ * snd_hda_jack_tbl_get - query the jack-table entry for the given NID
  */
 struct hda_jack_tbl *
 snd_hda_jack_tbl_get(struct hda_codec *codec, hda_nid_t nid)
@@ -68,8 +68,8 @@ snd_hda_jack_tbl_get(struct hda_codec *codec, hda_nid_t nid)
 }
 EXPORT_SYMBOL_HDA(snd_hda_jack_tbl_get);
 
-/* 
-                                                                               
+/**
+ * snd_hda_jack_tbl_get_from_tag - query the jack-table entry for the given tag
  */
 struct hda_jack_tbl *
 snd_hda_jack_tbl_get_from_tag(struct hda_codec *codec, unsigned char tag)
@@ -86,8 +86,8 @@ snd_hda_jack_tbl_get_from_tag(struct hda_codec *codec, unsigned char tag)
 }
 EXPORT_SYMBOL_HDA(snd_hda_jack_tbl_get_from_tag);
 
-/* 
-                                                                     
+/**
+ * snd_hda_jack_tbl_new - create a jack-table entry for the given NID
  */
 struct hda_jack_tbl *
 snd_hda_jack_tbl_new(struct hda_codec *codec, hda_nid_t nid)
@@ -109,7 +109,7 @@ EXPORT_SYMBOL_HDA(snd_hda_jack_tbl_new);
 void snd_hda_jack_tbl_clear(struct hda_codec *codec)
 {
 #ifdef CONFIG_SND_HDA_INPUT_JACK
-	/*                                                          */
+	/* free jack instances manually when clearing/reconfiguring */
 	if (!codec->bus->shutdown && codec->jacktbl.list) {
 		struct hda_jack_tbl *jack = codec->jacktbl.list;
 		int i;
@@ -122,7 +122,7 @@ void snd_hda_jack_tbl_clear(struct hda_codec *codec)
 	snd_array_free(&codec->jacktbl);
 }
 
-/*                                                         */
+/* update the cached value and notification flag if needed */
 static void jack_detect_update(struct hda_codec *codec,
 			       struct hda_jack_tbl *jack)
 {
@@ -132,11 +132,11 @@ static void jack_detect_update(struct hda_codec *codec,
 	}
 }
 
-/* 
-                                                       
-  
-                                                                  
-                                                   
+/**
+ * snd_hda_set_dirty_all - Mark all the cached as dirty
+ *
+ * This function sets the dirty flag to all entries of jack table.
+ * It's called from the resume path in hda_codec.c.
  */
 void snd_hda_jack_set_dirty_all(struct hda_codec *codec)
 {
@@ -149,13 +149,13 @@ void snd_hda_jack_set_dirty_all(struct hda_codec *codec)
 }
 EXPORT_SYMBOL_HDA(snd_hda_jack_set_dirty_all);
 
-/* 
-                                                    
-                             
-                             
-  
-                                                                          
-                                         
+/**
+ * snd_hda_pin_sense - execute pin sense measurement
+ * @codec: the CODEC to sense
+ * @nid: the pin NID to sense
+ *
+ * Execute necessary pin sense measurement and return its Presence Detect,
+ * Impedance, ELD Valid etc. status bits.
  */
 u32 snd_hda_pin_sense(struct hda_codec *codec, hda_nid_t nid)
 {
@@ -170,12 +170,12 @@ EXPORT_SYMBOL_HDA(snd_hda_pin_sense);
 
 #define get_jack_plug_state(sense) !!(sense & AC_PINSENSE_PRESENCE)
 
-/* 
-                                                         
-                             
-                             
-  
-                                                     
+/**
+ * snd_hda_jack_detect - query pin Presence Detect status
+ * @codec: the CODEC to sense
+ * @nid: the pin NID to sense
+ *
+ * Query and return the pin's Presence Detect status.
  */
 int snd_hda_jack_detect(struct hda_codec *codec, hda_nid_t nid)
 {
@@ -184,8 +184,8 @@ int snd_hda_jack_detect(struct hda_codec *codec, hda_nid_t nid)
 }
 EXPORT_SYMBOL_HDA(snd_hda_jack_detect);
 
-/* 
-                                                         
+/**
+ * snd_hda_jack_detect_enable - enable the jack-detection
  */
 int snd_hda_jack_detect_enable(struct hda_codec *codec, hda_nid_t nid,
 			       unsigned char action)
@@ -194,7 +194,7 @@ int snd_hda_jack_detect_enable(struct hda_codec *codec, hda_nid_t nid,
 	if (!jack)
 		return -ENOMEM;
 	if (jack->jack_detect)
-		return 0; /*                    */
+		return 0; /* already registered */
 	jack->jack_detect = 1;
 	if (action)
 		jack->action = action;
@@ -204,8 +204,8 @@ int snd_hda_jack_detect_enable(struct hda_codec *codec, hda_nid_t nid,
 }
 EXPORT_SYMBOL_HDA(snd_hda_jack_detect_enable);
 
-/* 
-                                                                                
+/**
+ * snd_hda_jack_report_sync - sync the states of all jacks and report if changed
  */
 void snd_hda_jack_report_sync(struct hda_codec *codec)
 {
@@ -229,7 +229,7 @@ void snd_hda_jack_report_sync(struct hda_codec *codec)
 EXPORT_SYMBOL_HDA(snd_hda_jack_report_sync);
 
 #ifdef CONFIG_SND_HDA_INPUT_JACK
-/*                                         */
+/* guess the jack type from the pin-config */
 static int get_input_jack_type(struct hda_codec *codec, hda_nid_t nid)
 {
 	unsigned int def_conf = snd_hda_codec_get_pincfg(codec, nid);
@@ -257,11 +257,11 @@ static void hda_free_jack_priv(struct snd_jack *jack)
 }
 #endif
 
-/* 
-                                                       
-  
-                                                                     
-                                      
+/**
+ * snd_hda_jack_add_kctl - Add a kctl for the given pin
+ *
+ * This assigns a jack-detection kctl to the given pin.  The kcontrol
+ * will have the given name and index.
  */
 int snd_hda_jack_add_kctl(struct hda_codec *codec, hda_nid_t nid,
 			  const char *name, int idx)
@@ -274,7 +274,7 @@ int snd_hda_jack_add_kctl(struct hda_codec *codec, hda_nid_t nid,
 	if (!jack)
 		return 0;
 	if (jack->kctl)
-		return 0; /*                 */
+		return 0; /* already created */
 	kctl = snd_kctl_jack_new(name, idx, codec);
 	if (!kctl)
 		return -ENOMEM;
@@ -325,8 +325,8 @@ static int add_jack_kctl(struct hda_codec *codec, hda_nid_t nid,
 	return snd_hda_jack_detect_enable(codec, nid, 0);
 }
 
-/* 
-                                                                               
+/**
+ * snd_hda_jack_add_kctls - Add kctls for all pins included in the given pincfg
  */
 int snd_hda_jack_add_kctls(struct hda_codec *codec,
 			   const struct auto_pin_cfg *cfg)
@@ -341,14 +341,14 @@ int snd_hda_jack_add_kctls(struct hda_codec *codec,
 			return err;
 	}
 	for (i = 0, p = cfg->hp_pins; i < cfg->hp_outs; i++, p++) {
-		if (*p == *cfg->line_out_pins) /*                     */
+		if (*p == *cfg->line_out_pins) /* might be duplicated */
 			break;
 		err = add_jack_kctl(codec, *p, cfg, lastname, &lastidx);
 		if (err < 0)
 			return err;
 	}
 	for (i = 0, p = cfg->speaker_pins; i < cfg->speaker_outs; i++, p++) {
-		if (*p == *cfg->line_out_pins) /*                     */
+		if (*p == *cfg->line_out_pins) /* might be duplicated */
 			break;
 		err = add_jack_kctl(codec, *p, cfg, lastname, &lastidx);
 		if (err < 0)

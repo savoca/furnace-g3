@@ -1,6 +1,6 @@
-/*                                     */
+/* net/atm/signaling.h - ATM signaling */
 
-/*                                                       */
+/* Written 1995-2000 by Werner Almesberger, EPFL LRC/ICA */
 
 
 #ifndef NET_ATM_SIGNALING_H
@@ -11,12 +11,12 @@
 #include <linux/atmsvc.h>
 
 
-extern struct atm_vcc *sigd; /*                       */
+extern struct atm_vcc *sigd; /* needed in svc_release */
 
 
 /*
-                                                                           
-                                      
+ * sigd_enq is a wrapper for sigd_enq2, covering the more common cases, and
+ * avoiding huge lists of null values.
  */
 
 void sigd_enq2(struct atm_vcc *vcc,enum atmsvc_msg_type type,

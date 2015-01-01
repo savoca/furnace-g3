@@ -1,10 +1,10 @@
 /*
-                
-  
+ *  felica_rws.c
+ *
  */
 
 /*
-                              
+ *    INCLUDE FILES FOR MODULE
  */
 #include "felica_rws.h"
 #include "felica_gpio.h"
@@ -12,31 +12,31 @@
 #include "felica_test.h"
 
 /*
-          
+ *  DEFINE
  */
 enum{
   RWS_AVAILABLE = 0,
   RWS_NOT_AVAILABLE,
 };
 
-/*              */
-/*                                                */
+/* Debug intent */
+/* #define FELICA_INTENT "my.andr.u5/.FeliCaTest" */
 #define FELICA_INTENT "com.felicanetworks.mfc/com.felicanetworks.adhoc.AdhocReceiver"
 
 /*
-                         
+ *    INTERNAL DEFINITION
  */
-static int isopen = 0; //                     
+static int isopen = 0; // 0 : No open 1 : Open
 
 
 /*
-                        
+ *    FUNCTION PROTOTYPE
  */
 static void felica_int_low_work(struct work_struct *data);
 static DECLARE_DELAYED_WORK(felica_int_work, felica_int_low_work);
 
 /*
-                         
+ *    FUNCTION DEFINITION
  */
 static int invoke_felica_apk(void)
 {
@@ -95,10 +95,10 @@ static irqreturn_t felica_int_low_isr(int irq, void *dev_id)
   return IRQ_HANDLED;
 }
 /*
-                                                                                                 
-                                                             
-              
-                                   
+* Description : MFC calls this function using close method(void open()) of FileOutputStream class
+*               When this fuction is excuted, set PON to Low.
+* Input : None
+* Output : Success : 0 Fail : Other
 */
 static int felica_rws_open (struct inode *inode, struct file *fp)
 {
@@ -134,20 +134,20 @@ static int felica_rws_open (struct inode *inode, struct file *fp)
 }
 
 /*
-                                                                                              
-              
-                                                           
+ * Description: MFC calls this function using read method(int read()) of FileInputStream class
+ * Input: None
+ * Output: INT low : RWS not available INT high : available
  */
 static ssize_t felica_rws_read(struct file *fp, char *buf, size_t count, loff_t *pos)
 {
   int rc = 0;
-  int getvalue = GPIO_HIGH_VALUE;    /*               */
+  int getvalue = GPIO_HIGH_VALUE;    /* Default status*/
 
   #ifdef FEATURE_DEBUG_LOW
   FELICA_DEBUG_MSG("[FELICA_RWS] felica_rws_read - start \n");
   #endif
 
-  /*             */
+  /* Check error */
   if(NULL == fp)
 	{
 	#ifdef FEATURE_DEBUG_HIGH
@@ -181,7 +181,7 @@ static ssize_t felica_rws_read(struct file *fp, char *buf, size_t count, loff_t 
 	}
 
 
-/*                */
+/* Get GPIO value */
   getvalue = felica_gpio_read(felica_get_int_gpio_num());
 
   if((GPIO_LOW_VALUE != getvalue)&&(GPIO_HIGH_VALUE != getvalue))
@@ -192,14 +192,14 @@ static ssize_t felica_rws_read(struct file *fp, char *buf, size_t count, loff_t 
     return -1;
   }
 
-/*                                */
+/* Change GPIO value to RWS value */
   getvalue = getvalue ? RWS_AVAILABLE : RWS_NOT_AVAILABLE;
 
   #ifdef FEATURE_DEBUG_MED
   FELICA_DEBUG_MSG("[FELICA_RWS] RWS status : %d \n", getvalue);
   #endif
 
-/*                           */
+/* Copy value to user memory */
   rc = copy_to_user((void *)buf, (void *)&getvalue, count);
   if(rc)
   {
@@ -224,10 +224,10 @@ static ssize_t felica_rws_read(struct file *fp, char *buf, size_t count, loff_t 
 }
 
 /*
-                                                                                                  
-                                                             
-              
-                                   
+* Description : MFC calls this function using close method(void close()) of FileOutputStream class
+*               When this fuction is excuted, set PON to Low.
+* Input : None
+* Output : Success : 0 Fail : Other
 */
 static int felica_rws_release (struct inode *inode, struct file *fp)
 {
@@ -261,7 +261,7 @@ static int felica_rws_release (struct inode *inode, struct file *fp)
 }
 
 /*
-                       
+ *    STRUCT DEFINITION
  */
 
 
@@ -288,7 +288,7 @@ static int felica_rws_init(void)
   FELICA_DEBUG_MSG("[FELICA_RWS] felica_rws_init - start \n");
   #endif
 
-  /*                          */
+  /* register the device file */
   rc = misc_register(&felica_rws_device);
   if (rc)
   {
@@ -308,7 +308,7 @@ static int felica_rws_init(void)
     return rc;
   }
 
-/*                                                               */
+/* wake up a device from sleep mode by coming up this interrupts */
   irq_set_irq_wake(gpio_to_irq(felica_get_int_gpio_num()),1);
 
   #ifdef FEATURE_DEBUG_LOW

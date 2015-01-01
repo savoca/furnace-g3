@@ -65,18 +65,18 @@
 #define CINTEGRATOR_FLASHPROG_FLWREN	(1 << 1)
 
 /*
-                        
-                                          
-                                                
-                                  
-                                  
-                                         
-                           
-                           
-                               
-                         
-                        
-                                      
+ * Logical      Physical
+ * f1000000	10000000	Core module registers
+ * f1100000	11000000	System controller registers
+ * f1200000	12000000	EBI registers
+ * f1300000	13000000	Counter/Timer
+ * f1400000	14000000	Interrupt controller
+ * f1600000	16000000	UART 0
+ * f1700000	17000000	UART 1
+ * f1a00000	1a000000	Debug LEDs
+ * fc900000	c9000000	GPIO
+ * fca00000	ca000000	SIC
+ * fcb00000	cb000000	CP system control
  */
 
 static struct map_desc intcp_io_desc[] __initdata = {
@@ -170,8 +170,8 @@ static void __init intcp_init_irq(void)
 	sic_mask = ~((~0u) << (1 + IRQ_SIC_END - IRQ_SIC_START));
 
 	/*
-                                 
-  */
+	 * Disable all interrupt sources
+	 */
 	writel(0xffffffff, INTCP_VA_PIC_BASE + IRQ_ENABLE_CLEAR);
 	writel(0xffffffff, INTCP_VA_PIC_BASE + FIQ_ENABLE_CLEAR);
 	writel(0xffffffff, INTCP_VA_CIC_BASE + IRQ_ENABLE_CLEAR);
@@ -188,7 +188,7 @@ static void __init intcp_init_irq(void)
 }
 
 /*
-                 
+ * Clock handling
  */
 #define CM_LOCK		(__io_address(INTEGRATOR_HDR_BASE)+INTEGRATOR_HDR_LOCK_OFFSET)
 #define CM_AUXOSC	(__io_address(INTEGRATOR_HDR_BASE)+0x1c)
@@ -234,17 +234,17 @@ static struct clk sp804_clk = {
 };
 
 static struct clk_lookup cp_lookups[] = {
-	{	/*      */
+	{	/* CLCD */
 		.dev_id		= "mb:c0",
 		.clk		= &cp_auxclk,
-	}, {	/*              */
+	}, {	/* SP804 timers */
 		.dev_id		= "sp804",
 		.clk		= &sp804_clk,
 	},
 };
 
 /*
-                  
+ * Flash handling.
  */
 static int intcp_flash_init(struct platform_device *dev)
 {
@@ -327,10 +327,10 @@ static struct platform_device *intcp_devs[] __initdata = {
 };
 
 /*
-                                                                  
-                                                                 
-                                                                 
-                               
+ * It seems that the card insertion interrupt remains active after
+ * we've acknowledged it.  We therefore ignore the interrupt, and
+ * rely on reading it from the SIC.  This also means that we must
+ * clear the latched interrupt.
  */
 static unsigned int mmc_status(struct device *dev)
 {
@@ -358,10 +358,10 @@ static AMBA_APB_DEVICE(aaci, "mb:1d", 0, INTEGRATOR_CP_AACI_BASE,
 
 
 /*
-               
+ * CLCD support
  */
 /*
-                          
+ * Ensure VGA is selected.
  */
 static void cp_clcd_enable(struct clcd_fb *fb)
 {
@@ -370,13 +370,13 @@ static void cp_clcd_enable(struct clcd_fb *fb)
 
 	if (var->bits_per_pixel <= 8 ||
 	    (var->bits_per_pixel == 16 && var->green.length == 5))
-		/*                             */
+		/* Pseudocolor, RGB555, BGR555 */
 		val |= CM_CTRL_LCDMUXSEL_VGA555_TFT555;
 	else if (fb->fb.var.bits_per_pixel <= 16)
-		/*                  */
+		/* truecolor RGB565 */
 		val |= CM_CTRL_LCDMUXSEL_VGA565_TFT555;
 	else
-		val = 0; /*                                        */
+		val = 0; /* no idea for this, don't trust the docs */
 
 	cm_control(CM_CTRL_LCDMUXSEL_MASK|
 		   CM_CTRL_LCDEN0|
@@ -460,7 +460,7 @@ static struct sys_timer cp_timer = {
 };
 
 MACHINE_START(CINTEGRATOR, "ARM-IntegratorCP")
-	/*                                             */
+	/* Maintainer: ARM Ltd/Deep Blue Solutions Ltd */
 	.atag_offset	= 0x100,
 	.reserve	= integrator_reserve,
 	.map_io		= intcp_map_io,

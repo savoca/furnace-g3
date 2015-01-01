@@ -1,5 +1,5 @@
-/*                      
-  
+/* fortunet.c memory map
+ *
  */
 
 #include <linux/module.h>
@@ -18,7 +18,7 @@
 #define MAX_NUM_PARTITIONS	8
 
 #define DEF_WINDOW_ADDR_PHY	0x00000000
-#define DEF_WINDOW_SIZE		0x00800000		//             
+#define DEF_WINDOW_SIZE		0x00800000		// 8 Mega Bytes
 
 #define MTD_FORTUNET_PK		"MTD FortuNet: "
 
@@ -178,7 +178,7 @@ static int __init MTD_New_Partition(char *line)
 __setup("MTD_Region=", MTD_New_Region);
 __setup("MTD_Partition=", MTD_New_Partition);
 
-/*                                  */
+/* Backwards-spelling-compatibility */
 __setup("MTD_Partion=", MTD_New_Partition);
 
 static int __init init_fortunet(void)

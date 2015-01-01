@@ -29,10 +29,10 @@
  *
  */
 /*
-                             
-  
-                                                                        
-                
+ * AU1100 MMC/SD definitions.
+ *
+ * From "AMD Alchemy Solutions Au1100 Processor Data Book - Preliminary"
+ *    June, 2003
  */
 
 #ifndef __ASM_AU1100_MMC_H
@@ -54,7 +54,7 @@ struct au1xmmc_platform_data {
 
 
 /*
-                     
+ *  Register offsets.
  */
 #define SD_TXPORT	(0x0000)
 #define SD_RXPORT	(0x0004)
@@ -74,19 +74,19 @@ struct au1xmmc_platform_data {
 
 
 /*
-                              
+ *  SD_TXPORT bit definitions.
  */
 #define SD_TXPORT_TXD	(0x000000ff)
 
 
 /*
-                              
+ *  SD_RXPORT bit definitions.
  */
 #define SD_RXPORT_RXD	(0x000000ff)
 
 
 /*
-                              
+ *  SD_CONFIG bit definitions.
  */
 #define SD_CONFIG_DIV	(0x000001ff)
 #define SD_CONFIG_DE	(0x00000200)
@@ -115,14 +115,14 @@ struct au1xmmc_platform_data {
 
 
 /*
-                              
+ *  SD_ENABLE bit definitions.
  */
 #define SD_ENABLE_CE	(0x00000001)
 #define SD_ENABLE_R	(0x00000002)
 
 
 /*
-                               
+ *  SD_CONFIG2 bit definitions.
  */
 #define SD_CONFIG2_EN	(0x00000001)
 #define SD_CONFIG2_FF	(0x00000002)
@@ -137,7 +137,7 @@ struct au1xmmc_platform_data {
 
 
 /*
-                               
+ *  SD_BLKSIZE bit definitions.
  */
 #define SD_BLKSIZE_BS	(0x000007ff)
 #define SD_BLKSIZE_BS_SHIFT	 (0)
@@ -146,7 +146,7 @@ struct au1xmmc_platform_data {
 
 
 /*
-                              
+ *  SD_STATUS bit definitions.
  */
 #define SD_STATUS_DCRCW	(0x00000007)
 #define SD_STATUS_xx1	(0x00000008)
@@ -180,7 +180,7 @@ struct au1xmmc_platform_data {
 
 
 /*
-                           
+ *  SD_CMD bit definitions.
  */
 #define SD_CMD_GO	(0x00000001)
 #define SD_CMD_RY	(0x00000002)
@@ -207,4 +207,4 @@ struct au1xmmc_platform_data {
 #define SD_CMD_RT_1B	(0x00810000)
 
 
-#endif /*                    */
+#endif /* __ASM_AU1100_MMC_H */

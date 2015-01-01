@@ -56,8 +56,8 @@ static __init int cobalt_uart_add(void)
 	int retval;
 
 	/*
-                             
-  */
+	 * Cobalt Qube1 has no UART.
+	 */
 	if (cobalt_board_id == COBALT_BRD_ID_QUBE1)
 		return 0;
 

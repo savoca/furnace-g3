@@ -23,7 +23,7 @@
 #include "drm_crtc_helper.h"
 
 /*
-                
+ * encoder funcs
  */
 
 #define to_omap_encoder(x) container_of(x, struct omap_encoder, base)
@@ -116,7 +116,7 @@ struct omap_overlay_manager *omap_encoder_get_manager(
 	return omap_encoder->mgr;
 }
 
-/*                    */
+/* initialize encoder */
 struct drm_encoder *omap_encoder_init(struct drm_device *dev,
 		struct omap_overlay_manager *mgr)
 {
@@ -142,7 +142,7 @@ struct drm_encoder *omap_encoder_init(struct drm_device *dev,
 
 	mgr->get_manager_info(mgr, &info);
 
-	/*                              */
+	/* TODO: fix hard-coded setup.. */
 	info.default_color = 0x00000000;
 	info.trans_key = 0x00000000;
 	info.trans_key_type = OMAP_DSS_COLOR_KEY_GFX_DST;

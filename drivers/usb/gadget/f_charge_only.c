@@ -63,7 +63,7 @@ static inline struct charge_only_dev *func_to_codev(struct usb_function *f)
 	return container_of(f, struct charge_only_dev, function);
 }
 
-/*                                               */
+/* this is baed on qct's charger function driver */
 static const u8 the_report_descriptor[] = {
 	0x06, 0xA0, 0xFF, 0x09, 0xA5, 0xA1, 0x01, 0x09,
 	0xA6, 0x09, 0xA7, 0x15, 0x80, 0x25, 0x7F, 0x75,
@@ -75,13 +75,13 @@ static const u8 the_report_descriptor[] = {
 static struct usb_interface_descriptor charge_only_interface_desc = {
 	.bLength                = sizeof charge_only_interface_desc,
 	.bDescriptorType        = USB_DT_INTERFACE,
-	/*                                */
+	/* .bInterfaceNumber    = DYNAMIC */
 	.bAlternateSetting      = 0,
 	.bNumEndpoints          = 0,
 	.bInterfaceClass        = USB_CLASS_HID,
 	.bInterfaceSubClass     = 0,
 	.bInterfaceProtocol     = 0,
-	/*                            */
+	/* .iInterface      = DYNAMIC */
 };
 
 static struct hid_descriptor charge_only_desc = {
@@ -120,11 +120,11 @@ static struct usb_descriptor_header *charge_only_fs_descriptors[] = {
 
 static struct usb_string charge_only_func_string_defs[] = {
 	[charge_only_FUNC_IDX].s = "USB Charger only Interface",
-	{},         /*             */
+	{},         /* end of list */
 };
 
 static struct usb_gadget_strings charge_only_func_string_table = {
-	.language   = 0x0409,   /*       */
+	.language   = 0x0409,   /* en-US */
 	.strings    = charge_only_func_string_defs,
 };
 
@@ -136,7 +136,7 @@ static struct usb_gadget_strings *charge_only_func_strings[] = {
 static int charge_only_function_setup(struct usb_function *f,
 		const struct usb_ctrlrequest *ctrl)
 {
-	/*                                                 */
+	/* struct charge_only_dev	*dev = func_to_codev(f); */
 	struct usb_composite_dev  *cdev = f->config->cdev;
 	struct usb_request      *req  = cdev->req;
 	int status = 0;
@@ -197,13 +197,13 @@ charge_only_function_bind(struct usb_configuration *c, struct usb_function *f)
 	dev->cdev = cdev;
 	pr_debug("charge_only_function_bind dev: %p\n", dev);
 
-	/*                                                                 */
+	/* allocate instance-specific interface IDs, and patch descriptors */
 	status = usb_interface_id(c, f);
 	if (status < 0)
 		goto fail;
 	charge_only_interface_desc.bInterfaceNumber = status;
 
-	/*                  */
+	/* copy descriptors */
 	f->descriptors = usb_copy_descriptors(charge_only_fs_descriptors);
 	if (!f->descriptors)
 		goto fail;
@@ -239,7 +239,7 @@ fail:
 static void
 charge_only_function_unbind(struct usb_configuration *c, struct usb_function *f)
 {
-	/*                         */
+	/* free descriptors copies */
     if (gadget_is_superspeed(c->cdev->gadget))
 		usb_free_descriptors(f->ss_descriptors);
 	if (gadget_is_dualspeed(c->cdev->gadget))
@@ -251,13 +251,13 @@ charge_only_function_unbind(struct usb_configuration *c, struct usb_function *f)
 static int charge_only_function_set_alt(struct usb_function *f,
 		unsigned intf, unsigned alt)
 {
-    /*                                        */
+    /* Do nothing, but need for gadget driver */
     return 0;
 }
 
 static void charge_only_function_disable(struct usb_function *f)
 {
-    /*                                        */
+    /* Do nothing, but need for gadget driver */
     return;
 }
 
@@ -268,7 +268,7 @@ static int charge_only_bind_config(struct usb_configuration *c)
 
 	pr_debug("charge_only_bind_config\n");
 
-	/*                                                                */
+	/* maybe allocate device-global string IDs, and patch descriptors */
 	if (charge_only_func_string_defs[charge_only_FUNC_IDX].id == 0) {
 		status = usb_string_id(c->cdev);
 		if (status < 0)
@@ -277,9 +277,9 @@ static int charge_only_bind_config(struct usb_configuration *c)
 		charge_only_interface_desc.iInterface = status;
 	}
 
-	/*                                           
-                                     
-  */
+	/* As this function is just pseudo interface,
+	 * It does not have any descriptors.
+	 */
 	dev->cdev = c->cdev;
 	dev->function.name = f_name;
 	dev->function.strings = charge_only_func_strings;
@@ -311,7 +311,7 @@ static void charge_only_cleanup(void)
 	_charge_only_dev = NULL;
 }
 
-#if 0 /*                */
+#if 0 /* old gb version */
 static struct android_usb_function charge_only_function = {
 	.name = "charge_only",
 	.bind_config = charge_only_bind_config,

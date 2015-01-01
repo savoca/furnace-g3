@@ -22,15 +22,15 @@
 
 #include "mach/pm.h"
 
-/*                                             */
+/* Pointer to the temporary resume page tables */
 pgd_t *resume_pg_dir;
 
 struct swsusp_arch_regs swsusp_arch_regs_cpu0;
 
 /*
-                                                                              
-                                                                    
-                                                                 
+ * Create a middle page table on a resume-safe page and put a pointer to it in
+ * the given global directory entry.  This only returns the gd entry
+ * in non-PAE compilation mode, since the middle layer is folded.
  */
 static pmd_t *resume_one_md_table_init(pgd_t *pgd)
 {
@@ -44,8 +44,8 @@ static pmd_t *resume_one_md_table_init(pgd_t *pgd)
 }
 
 /*
-                                                                         
-                                 
+ * Create a page table on a resume-safe page and place a pointer to it in
+ * a middle page directory entry.
  */
 static pte_t *resume_one_page_table_init(pmd_t *pmd)
 {
@@ -65,9 +65,9 @@ static pte_t *resume_one_page_table_init(pmd_t *pmd)
 }
 
 /*
-                                                                         
-                                                                      
-                                                                        
+ * This maps the physical memory to kernel virtual address space, a total
+ * of max_low_pfn pages, by creating page tables starting from address
+ * PAGE_OFFSET.  The page tables are allocated out of resume-safe pages.
  */
 static int resume_physical_mapping_init(pgd_t *pgd_base)
 {
@@ -95,9 +95,9 @@ static int resume_physical_mapping_init(pgd_t *pgd_base)
 			if (pfn >= max_low_pfn)
 				break;
 
-			/*                             
-                                                     
-    */
+			/* Map with normal page tables.
+			 * NOTE: We can mark everything as executable here
+			 */
 			pte = resume_one_page_table_init(pmd);
 			if (!pte)
 				return -ENOMEM;
@@ -132,13 +132,13 @@ int swsusp_arch_resume(void)
 	if (error)
 		return error;
 
-	/*                                                             */
+	/* We have got enough memory and from now on we cannot recover */
 	restore_image(resume_pg_dir, restore_pblist);
 	return 0;
 }
 
 /*
-                                                                
+ *	pfn_is_nosave - check if given pfn is in the 'nosave' section
  */
 
 int pfn_is_nosave(unsigned long pfn)

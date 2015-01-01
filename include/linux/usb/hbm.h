@@ -15,10 +15,10 @@
 
 #include <linux/kernel.h>
 
-/* 
-                    
-                                 
-                                    
+/**
+ * usb_host_bam_type
+ * @pipe_num: usb bam pipe number
+ * @dir: direction (to/from usb bam)
  */
 struct usb_host_bam_type {
 	u32 pipe_num;

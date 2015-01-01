@@ -50,37 +50,37 @@ static struct gpiomux_setting gpio_spi_config = {
 
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
-		.gpio      = 8,	       /*               */
+		.gpio      = 8,	       /* BLSP1 UART TX */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
 		},
 	},
 	{
-		.gpio      = 9,	       /*               */
+		.gpio      = 9,	       /* BLSP1 UART RX */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
 		},
 	},
 	{
-		.gpio      = 20,		/*                          */
+		.gpio      = 20,		/* BLSP1 QUP6 SPI_DATA_MOSI */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
 	},
 	{
-		.gpio      = 21,		/*                          */
+		.gpio      = 21,		/* BLSP1 QUP6 SPI_DATA_MISO */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
 	},
 	{
-		.gpio      = 23,		/*                    */
+		.gpio      = 23,		/* BLSP1 QUP6 SPI_CLK */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
 	},
 	{
-		.gpio      = 22,		/*                   */
+		.gpio      = 22,		/* BLSP1 QUP6 SPI_CS */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},

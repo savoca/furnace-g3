@@ -1,8 +1,8 @@
 /*
-                            
-  
-                
-  
+ *  include/asm-s390/errno.h
+ *
+ *  S390 version
+ *
  */
 
 #ifndef _S390_ERRNO_H

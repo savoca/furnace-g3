@@ -23,7 +23,7 @@
 
 #include "mv64x60.h"
 
-/*                                          */
+/* Interrupt Controller Interface Registers */
 #define MV64X60_IC_MAIN_CAUSE_LO	0x0004
 #define MV64X60_IC_MAIN_CAUSE_HI	0x000c
 #define MV64X60_IC_CPU0_INTR_MASK_LO	0x0014
@@ -33,7 +33,7 @@
 #define MV64X60_HIGH_GPP_GROUPS		0x0f000000
 #define MV64X60_SELECT_CAUSE_HIGH	0x40000000
 
-/*                                                     */
+/* General Purpose Pins Controller Interface Registers */
 #define MV64x60_GPP_INTR_CAUSE		0x0008
 #define MV64x60_GPP_INTR_MASK		0x000c
 
@@ -54,16 +54,16 @@ static void __iomem *mv64x60_irq_reg_base;
 static void __iomem *mv64x60_gpp_reg_base;
 
 /*
-                                
-  
-                                                               
-                         
-                           
-                     
-  
-                                                                   
-                                                                 
-                                             
+ * Interrupt Controller Handling
+ *
+ * The interrupt controller handles three groups of interrupts:
+ *   main low:	IRQ0-IRQ31
+ *   main high:	IRQ32-IRQ63
+ *   gpp:	IRQ64-IRQ95
+ *
+ * This code handles interrupts in two levels.  Level 1 selects the
+ * interrupt group, and level 2 selects an IRQ within that group.
+ * Each group has its own irq_chip structure.
  */
 
 static u32 mv64x60_cached_low_mask;
@@ -73,7 +73,7 @@ static u32 mv64x60_cached_gpp_mask;
 static struct irq_domain *mv64x60_irq_host;
 
 /*
-                             
+ * mv64x60_chip_low functions
  */
 
 static void mv64x60_mask_low(struct irq_data *d)
@@ -110,7 +110,7 @@ static struct irq_chip mv64x60_chip_low = {
 };
 
 /*
-                              
+ * mv64x60_chip_high functions
  */
 
 static void mv64x60_mask_high(struct irq_data *d)
@@ -147,7 +147,7 @@ static struct irq_chip mv64x60_chip_high = {
 };
 
 /*
-                             
+ * mv64x60_chip_gpp functions
  */
 
 static void mv64x60_mask_gpp(struct irq_data *d)
@@ -199,7 +199,7 @@ static struct irq_chip mv64x60_chip_gpp = {
 };
 
 /*
-                             
+ * mv64x60_host_ops functions
  */
 
 static struct irq_chip *mv64x60_chips[] = {
@@ -228,7 +228,7 @@ static struct irq_domain_ops mv64x60_host_ops = {
 };
 
 /*
-                   
+ * Global functions
  */
 
 void __init mv64x60_init_irq(void)

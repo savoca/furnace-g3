@@ -1,28 +1,28 @@
 /*
-                                                
-             
-                                              
-                                       
-                                  
-  
-                                                     
-                                                       
-                                                               
-  
-                       
-                               
-                                             
-                                    
-                     
-                    
-  
-                         
-                                                                   
-                                                             
-                                                                 
-  
-                                 
-                                                             
+ * Xpram.c -- the S/390 expanded memory RAM-disk
+ *           
+ * significant parts of this code are based on
+ * the sbull device driver presented in
+ * A. Rubini: Linux Device Drivers
+ *
+ * Author of XPRAM specific coding: Reinhard Buendgen
+ *                                  buendgen@de.ibm.com
+ * Rewrite for 2.5: Martin Schwidefsky <schwidefsky@de.ibm.com>
+ *
+ * External interfaces:
+ *   Interfaces to linux kernel
+ *        xpram_setup: read kernel parameters
+ *   Device specific file operations
+ *        xpram_iotcl
+ *        xpram_open
+ *
+ * "ad-hoc" partitioning:
+ *    the expanded memory can be partitioned among several devices 
+ *    (with different minors). The partitioning set up can be
+ *    set by kernel or module parameters (int devs & int sizes[])
+ *
+ * Potential future improvements:
+ *   generic hard disk support to replace ad-hoc partitioning
  */
 
 #define KMSG_COMPONENT "xpram"
@@ -30,12 +30,12 @@
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
-#include <linux/ctype.h>  /*                   */
+#include <linux/ctype.h>  /* isdigit, isxdigit */
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/blkdev.h>
 #include <linux/blkpg.h>
-#include <linux/hdreg.h>  /*             */
+#include <linux/hdreg.h>  /* HDIO_GETGEO */
 #include <linux/device.h>
 #include <linux/bio.h>
 #include <linux/suspend.h>
@@ -44,12 +44,12 @@
 #include <asm/uaccess.h>
 
 #define XPRAM_NAME	"xpram"
-#define XPRAM_DEVS	1	/*               */
-#define XPRAM_MAX_DEVS	32	/*                                        */
+#define XPRAM_DEVS	1	/* one partition */
+#define XPRAM_MAX_DEVS	32	/* maximal number of devices (partitions) */
 
 typedef struct {
-	unsigned int	size;		/*                                */
-	unsigned int	offset;		/*                             */
+	unsigned int	size;		/* size of xpram segment in pages */
+	unsigned int	offset;		/* start page of xpram segment */
 } xpram_device_t;
 
 static xpram_device_t xpram_devices[XPRAM_MAX_DEVS];
@@ -60,7 +60,7 @@ static unsigned int xpram_pages;
 static int xpram_devs;
 
 /*
-                               
+ * Parameter parsing functions.
  */
 static int devs = XPRAM_DEVS;
 static char *sizes[XPRAM_MAX_DEVS];
@@ -78,21 +78,21 @@ MODULE_PARM_DESC(sizes, "list of device (partition) sizes " \
 MODULE_LICENSE("GPL");
 
 /*
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                                     
-                                                
-                                         
-                                                
+ * Copy expanded memory page (4kB) into main memory                  
+ * Arguments                                                         
+ *           page_addr:    address of target page                    
+ *           xpage_index:  index of expandeded memory page           
+ * Return value                                                      
+ *           0:            if operation succeeds
+ *           -EIO:         if pgin failed
+ *           -ENXIO:       if xpram has vanished
  */
 static int xpram_page_in (unsigned long page_addr, unsigned int xpage_index)
 {
-	int cc = 2;	/*                                  */
+	int cc = 2;	/* return unused cc 2 if pgin traps */
 
 	asm volatile(
-		"	.insn	rre,0xb22e0000,%1,%2\n"  /*            */
+		"	.insn	rre,0xb22e0000,%1,%2\n"  /* pgin %1,%2 */
 		"0:	ipm	%0\n"
 		"	srl	%0,28\n"
 		"1:\n"
@@ -108,21 +108,21 @@ static int xpram_page_in (unsigned long page_addr, unsigned int xpage_index)
 }
 
 /*
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                                      
-                                                
-                                          
-                                                
+ * Copy a 4kB page of main memory to an expanded memory page          
+ * Arguments                                                          
+ *           page_addr:    address of source page                     
+ *           xpage_index:  index of expandeded memory page            
+ * Return value                                                       
+ *           0:            if operation succeeds
+ *           -EIO:         if pgout failed
+ *           -ENXIO:       if xpram has vanished
  */
 static long xpram_page_out (unsigned long page_addr, unsigned int xpage_index)
 {
-	int cc = 2;	/*                                  */
+	int cc = 2;	/* return unused cc 2 if pgin traps */
 
 	asm volatile(
-		"	.insn	rre,0xb22f0000,%1,%2\n"  /*             */
+		"	.insn	rre,0xb22f0000,%1,%2\n"  /* pgout %1,%2 */
 		"0:	ipm	%0\n"
 		"	srl	%0,28\n"
 		"1:\n"
@@ -138,7 +138,7 @@ static long xpram_page_out (unsigned long page_addr, unsigned int xpage_index)
 }
 
 /*
-                               
+ * Check if xpram is available.
  */
 static int xpram_present(void)
 {
@@ -154,7 +154,7 @@ static int xpram_present(void)
 }
 
 /*
-                                                 
+ * Return index of the last available xpram page.
  */
 static unsigned long xpram_highest_page_index(void)
 {
@@ -179,7 +179,7 @@ static unsigned long xpram_highest_page_index(void)
 }
 
 /*
-                                      
+ * Block device make request function.
  */
 static void xpram_make_request(struct request_queue *q, struct bio *bio)
 {
@@ -191,10 +191,10 @@ static void xpram_make_request(struct request_queue *q, struct bio *bio)
 	int i;
 
 	if ((bio->bi_sector & 7) != 0 || (bio->bi_size & 4095) != 0)
-		/*                              */
+		/* Request is not page-aligned. */
 		goto fail;
 	if ((bio->bi_size >> 12) > xdev->size)
-		/*                                  */
+		/* Request size is no page-aligned. */
 		goto fail;
 	if ((bio->bi_sector >> 3) > 0xffffffffU - xdev->offset)
 		goto fail;
@@ -204,7 +204,7 @@ static void xpram_make_request(struct request_queue *q, struct bio *bio)
 			kmap(bvec->bv_page) + bvec->bv_offset;
 		bytes = bvec->bv_len;
 		if ((page_addr & 4095) != 0 || (bytes & 4095) != 0)
-			/*                */
+			/* More paranoia. */
 			goto fail;
 		while (bytes > 0) {
 			if (bio_data_dir(bio) == READ) {
@@ -231,10 +231,10 @@ static int xpram_getgeo(struct block_device *bdev, struct hd_geometry *geo)
 	unsigned long size;
 
 	/*
-                                                            
-                                                           
-                                                                
-  */
+	 * get geometry: we have to fake one...  trim the size to a
+	 * multiple of 64 (32k): tell we have 16 sectors, 4 heads,
+	 * whatever cylinders. Tell also that data starts at sector. 4.
+	 */
 	size = (xpram_pages * 8) & ~0x3f;
 	geo->cylinders = size >> 6;
 	geo->heads = 4;
@@ -250,7 +250,7 @@ static const struct block_device_operations xpram_devops =
 };
 
 /*
-                           
+ * Setup xpram_sizes array.
  */
 static int __init xpram_setup_sizes(unsigned long pages)
 {
@@ -260,7 +260,7 @@ static int __init xpram_setup_sizes(unsigned long pages)
 	int mem_auto_no;
 	int i;
 
-	/*                          */
+	/* Check number of devices. */
 	if (devs <= 0 || devs > XPRAM_MAX_DEVS) {
 		pr_err("%d is not a valid number of XPRAM devices\n",devs);
 		return -EINVAL;
@@ -268,9 +268,9 @@ static int __init xpram_setup_sizes(unsigned long pages)
 	xpram_devs = devs;
 
 	/*
-                                                       
-                           
-  */
+	 * Copy sizes array to xpram_sizes and align partition
+	 * sizes to page boundary.
+	 */
 	mem_needed = 0;
 	mem_auto_no = 0;
 	for (i = 0; i < xpram_devs; i++) {
@@ -313,11 +313,11 @@ static int __init xpram_setup_sizes(unsigned long pages)
 	}
 
 	/*
-                 
-                                                               
-                                                               
-                                                             
-  */
+	 * partitioning:
+	 * xpram_sizes[i] != 0; partition i has size xpram_sizes[i] kB
+	 * else:             ; all partitions with zero xpram_sizes[i]
+	 *                     partition equally the remaining space
+	 */
 	if (mem_auto_no) {
 		mem_auto = ((pages - mem_needed / 4) / mem_auto_no) * 4;
 		pr_info("  automatically determined "
@@ -348,15 +348,15 @@ static int __init xpram_setup_blkdev(void)
 	}
 
 	/*
-                         
-  */
+	 * Register xpram major.
+	 */
 	rc = register_blkdev(XPRAM_MAJOR, XPRAM_NAME);
 	if (rc < 0)
 		goto out;
 
 	/*
-                            
-  */
+	 * Setup device structures.
+	 */
 	offset = 0;
 	for (i = 0; i < xpram_devs; i++) {
 		struct gendisk *disk = xpram_disks[i];
@@ -384,7 +384,7 @@ out:
 }
 
 /*
-                                                     
+ * Resume failed: Print error message and call panic.
  */
 static void xpram_resume_error(const char *message)
 {
@@ -393,7 +393,7 @@ static void xpram_resume_error(const char *message)
 }
 
 /*
-                                                           
+ * Check if xpram setup changed between suspend and resume.
  */
 static int xpram_restore(struct device *dev)
 {
@@ -421,7 +421,7 @@ static struct platform_driver xpram_pdrv = {
 static struct platform_device *xpram_pdev;
 
 /*
-                                    
+ * Finally, the init/exit functions.
  */
 static void __exit xpram_exit(void)
 {
@@ -440,7 +440,7 @@ static int __init xpram_init(void)
 {
 	int rc;
 
-	/*                                   */
+	/* Find out size of expanded memory. */
 	if (xpram_present() != 0) {
 		pr_err("No expanded memory available\n");
 		return -ENODEV;

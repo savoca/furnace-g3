@@ -14,9 +14,9 @@
 
 #include	<linux/types.h>
 /*
-                       
-                       
-                       
+	----------------------
+	Basic SMT system types
+	----------------------
 */
 #ifndef _TYPES_
 #define	_TYPES_
@@ -36,4 +36,4 @@
 #define outpw(p,s) iowrite16(s,p)
 #define outpd(p,l) iowrite32(l,p)
 
-#endif	/*         */
+#endif	/* _TYPES_ */

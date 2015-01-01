@@ -143,7 +143,7 @@ struct kcal_platform_data {
 	int (*get_values) (int *r, int *g, int *b);
 	int (*refresh_display) (void);
 };
-#endif /*                 */
+#endif /* CONFIG_LCD_KCAL */
 
 enum lge_laf_mode_type {
 	LGE_LAF_MODE_NORMAL = 0,

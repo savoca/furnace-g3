@@ -13,7 +13,7 @@
 
 
 /*
-                       
+ * get protocol handler
  */
 static u32 supported_protocols[] = {
 	CEPH_AUTH_NONE,
@@ -33,7 +33,7 @@ static int ceph_auth_init_protocol(struct ceph_auth_client *ac, int protocol)
 }
 
 /*
-                   
+ * setup, teardown.
  */
 struct ceph_auth_client *ceph_auth_init(const char *name, const struct ceph_crypto_key *key)
 {
@@ -69,7 +69,7 @@ void ceph_auth_destroy(struct ceph_auth_client *ac)
 }
 
 /*
-                                                 
+ * Reset occurs when reconnecting to the monitor.
  */
 void ceph_auth_reset(struct ceph_auth_client *ac)
 {
@@ -92,8 +92,8 @@ int ceph_entity_name_encode(const char *name, void **p, void *end)
 }
 
 /*
-                                                                   
-                                
+ * Initiate protocol negotiation with monitor.  Include entity name
+ * and list supported protocols.
  */
 int ceph_auth_build_hello(struct ceph_auth_client *ac, void *buf, size_t len)
 {
@@ -107,7 +107,7 @@ int ceph_auth_build_hello(struct ceph_auth_client *ac, void *buf, size_t len)
 	monhdr->session_mon = cpu_to_le16(-1);
 	monhdr->session_mon_tid = 0;
 
-	ceph_encode_32(&p, 0);  /*                  */
+	ceph_encode_32(&p, 0);  /* no protocol, yet */
 
 	lenp = p;
 	p += sizeof(u32);
@@ -159,7 +159,7 @@ static int ceph_build_auth_request(struct ceph_auth_client *ac,
 }
 
 /*
-                                    
+ * Handle auth message from monitor.
  */
 int ceph_handle_auth_reply(struct ceph_auth_client *ac,
 			   void *buf, size_t len,
@@ -202,12 +202,12 @@ int ceph_handle_auth_reply(struct ceph_auth_client *ac,
 	}
 
 	if (ac->negotiating) {
-		/*                                        */
+		/* server does not support our protocols? */
 		if (!protocol && result < 0) {
 			ret = result;
 			goto out;
 		}
-		/*                                */
+		/* set up (new) protocol handler? */
 		if (ac->protocol && ac->protocol != protocol) {
 			ac->ops->destroy(ac);
 			ac->protocol = 0;

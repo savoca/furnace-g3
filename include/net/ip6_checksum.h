@@ -17,10 +17,10 @@
  */
 
 /*
-         
-  
-                                         
-                         
+ *	Fixes:
+ *
+ *	Ralf Baechle			:	generic ipv6 checksum
+ *	<ralf@waldorf-gmbh.de>
  */
 
 #ifndef _CHECKSUM_IPV6_H

@@ -34,28 +34,28 @@
 #define DEVICE_NAME		"bq5102x"
 #define _SMBUS_SUPPORT_
 
-/*                        */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
+/* <OUTPUT VOLTAGE VALUE> */
+/* 0x0				4.5 V */
+/* 0x1				5.0 V */
+/* 0x2				5.5 V */
+/* 0x3				6.0 V */
+/* 0x4				6.5 V */
+/* 0x5				7.0 V */
+/* 0x6				7.5 V */
+/* 0x7				8.0 V */
 #define BQ5102X_CURRENT_REGISTER1_REG (0x01)
 #define BQ5102X_OUTPUT_VOLTAGE_VALUE (0x2 << 0)
 #define BQ5102X_OUTPUT_VOLTAGE_MASK (BIT(2) | BIT(1) | BIT(0))
 
-/*                        */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
+/* <OUTPUT CURRENT VALUE> */
+/* 0x0				10 %  */
+/* 0x1				20 %  */
+/* 0x2				30 %  */
+/* 0x3				40 %  */
+/* 0x4				50 %  */
+/* 0x5				60 %  */
+/* 0x6				90 %  */
+/* 0x7				100 % */
 #define BQ5102X_CURRENT_REGISTER2_REG (0x02)
 #define BQ5102X_OUTPUT_CURRENT_VALUE (0x6 << 0)
 #define BQ5102X_OUTPUT_CURRENT_MASK (BIT(2) | BIT(1) | BIT(0))
@@ -63,15 +63,15 @@
 #define BQ5102X_MAILBOX (0xE0)
 #define BQ5102X_MAILBOX_ALIGN_AID_MODE (0x08)
 
-/*                     */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
-/*              */
+/* <FOD OFFSET VALUE>  */
+/* 0x0			0 mW   */
+/* 0x1			39 mW  */
+/* 0x2			78 mW  */
+/* 0x3			117 mW */
+/* 0x4			156 mW */
+/* 0x5			195 mW */
+/* 0x6			234 mW */
+/* 0x7			273 mW */
 #define BQ5102X_FOD_RAM_REG (0xE1)
 #define BQ5102X_FOD_OFFSET_ENABLE (0x1 << 6)
 #define BQ5102X_FOD_OFFSET_VALUE (0x4 << 3)
@@ -262,7 +262,7 @@ int bq5102x_align_start(void)
 {
 	last_vrect = 0;
 	last_alignment = 0;
-#if 0 //                                                     
+#if 0 // don't use ALIGN Mailer (I2C Mailbox Regisger B3 BIT)
 	bq5102x_write_byte(bq5102x_client, BQ5102X_MAILBOX, BQ5102X_MAILBOX_ALIGN_AID_MODE);
 #endif
 
@@ -461,7 +461,7 @@ static int __devinit bq5102x_probe(struct i2c_client *client, const struct i2c_d
 		return -EIO;
 	}
 	bq5102x_client = client;
-	/*                 */
+	/* need dts parser */
 	if (dev_node) {
 		ret = bq5102x_parse_dt(dev_node);
 	}

@@ -15,7 +15,7 @@
 
 #define IRQ_TIMEOUT (1 * HZ)
 
-/*                         */
+/* CSR register definition */
 #define MEMCTRLSTATUS_MAGIC	0x00
 #define  MM_MAGIC_VALUE		(unsigned char)0x59
 
@@ -88,13 +88,13 @@
 #define  DMASCR_CHAIN_COMPLETE	0x80000
 
 /*
-                                                                     
-                                                                   
-                                                                          
-                                                                      
-                                                                          
-                                                                          
-                    
+3.SOME PCs HAVE HOST BRIDGES WHICH APPARENTLY DO NOT CORRECTLY HANDLE
+READ-LINE (0xE) OR READ-MULTIPLE (0xC) PCI COMMAND CODES DURING DMA
+TRANSFERS. IN OTHER SYSTEMS THESE COMMAND CODES WILL CAUSE THE HOST BRIDGE
+TO ALLOW LONGER BURSTS DURING DMA READ OPERATIONS. THE UPPER FOUR BITS
+(31..28) OF THE DMA CSR HAVE BEEN MADE PROGRAMMABLE, SO THAT EITHER A 0x6,
+AN 0xE OR A 0xC CAN BE WRITTEN TO THEM TO SET THE COMMAND CODE USED DURING
+DMA READ OPERATIONS.
 */
 #define        DMASCR_READ   0x60000000
 #define        DMASCR_READLINE   0xE0000000
@@ -121,11 +121,11 @@ struct mm_dma_desc {
 
 	dma_addr_t data_dma_handle;
 
-	/*                  */
+	/* Copy of the bits */
 	__le64	sem_control_bits;
 } __attribute__((aligned(8)));
 
-/*                      */
+/* bits for card->flags */
 #define UM_FLAG_DMA_IN_REGS		1
 #define UM_FLAG_NO_BYTE_STATUS		2
 #define UM_FLAG_NO_BATTREG		4

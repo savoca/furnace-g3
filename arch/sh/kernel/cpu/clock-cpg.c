@@ -26,7 +26,7 @@ static struct clk cpu_clk = {
 };
 
 /*
-                                                          
+ * The ordering of these clocks matters, do not change it.
  */
 static struct clk *onchip_clocks[] = {
 	&master_clk,
@@ -36,7 +36,7 @@ static struct clk *onchip_clocks[] = {
 };
 
 static struct clk_lookup lookups[] = {
-	/*             */
+	/* main clocks */
 	CLKDEV_CON_ID("master_clk", &master_clk),
 	CLKDEV_CON_ID("peripheral_clk", &peripheral_clk),
 	CLKDEV_CON_ID("bus_clk", &bus_clk),
@@ -65,8 +65,8 @@ int __init __deprecated cpg_clk_init(void)
 }
 
 /*
-                                                             
-                
+ * Placeholder for compatibility, until the lazy CPUs do this
+ * on their own.
  */
 int __init __weak arch_clk_init(void)
 {

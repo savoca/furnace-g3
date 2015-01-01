@@ -54,8 +54,8 @@ static irqreturn_t fnic_isr_legacy(int irq, void *data)
 
 		vnic_intr_return_credits(&fnic->intr[FNIC_INTX_WQ_RQ_COPYWQ],
 					 work_done,
-					 1 /*             */,
-					 1 /*                  */);
+					 1 /* unmask intr */,
+					 1 /* reset intr timer */);
 	}
 
 	return IRQ_HANDLED;
@@ -72,8 +72,8 @@ static irqreturn_t fnic_isr_msi(int irq, void *data)
 
 	vnic_intr_return_credits(&fnic->intr[0],
 				 work_done,
-				 1 /*             */,
-				 1 /*                  */);
+				 1 /* unmask intr */,
+				 1 /* reset intr timer */);
 
 	return IRQ_HANDLED;
 }
@@ -86,8 +86,8 @@ static irqreturn_t fnic_isr_msix_rq(int irq, void *data)
 	rq_work_done = fnic_rq_cmpl_handler(fnic, -1);
 	vnic_intr_return_credits(&fnic->intr[FNIC_MSIX_RQ],
 				 rq_work_done,
-				 1 /*             */,
-				 1 /*                  */);
+				 1 /* unmask intr */,
+				 1 /* reset intr timer */);
 
 	return IRQ_HANDLED;
 }
@@ -100,8 +100,8 @@ static irqreturn_t fnic_isr_msix_wq(int irq, void *data)
 	wq_work_done = fnic_wq_cmpl_handler(fnic, -1);
 	vnic_intr_return_credits(&fnic->intr[FNIC_MSIX_WQ],
 				 wq_work_done,
-				 1 /*             */,
-				 1 /*                  */);
+				 1 /* unmask intr */,
+				 1 /* reset intr timer */);
 	return IRQ_HANDLED;
 }
 
@@ -113,8 +113,8 @@ static irqreturn_t fnic_isr_msix_wq_copy(int irq, void *data)
 	wq_copy_work_done = fnic_wq_copy_cmpl_handler(fnic, -1);
 	vnic_intr_return_credits(&fnic->intr[FNIC_MSIX_WQ_COPY],
 				 wq_copy_work_done,
-				 1 /*             */,
-				 1 /*                  */);
+				 1 /* unmask intr */,
+				 1 /* reset intr timer */);
 	return IRQ_HANDLED;
 }
 
@@ -222,14 +222,14 @@ int fnic_set_intr_mode(struct fnic *fnic)
 	unsigned int i;
 
 	/*
-                                                   
-                        
-   
-                   
-   
-                                                                  
-                                                              
-  */
+	 * Set interrupt mode (INTx, MSI, MSI-X) depending
+	 * system capabilities.
+	 *
+	 * Try MSI-X first
+	 *
+	 * We need n RQs, m WQs, o Copy WQs, n+m+o CQs, and n+m+o+1 INTRs
+	 * (last INTR is used for WQ/RQ errors and notification area)
+	 */
 
 	BUG_ON(ARRAY_SIZE(fnic->msix_entry) < n + m + o + 1);
 	for (i = 0; i < n + m + o + 1; i++)
@@ -258,9 +258,9 @@ int fnic_set_intr_mode(struct fnic *fnic)
 	}
 
 	/*
-                
-                                                    
-  */
+	 * Next try MSI
+	 * We need 1 RQ, 1 WQ, 1 WQ_COPY, 3 CQs, and 1 INTR
+	 */
 	if (fnic->rq_count >= 1 &&
 	    fnic->raw_wq_count >= 1 &&
 	    fnic->wq_copy_count >= 1 &&
@@ -284,11 +284,11 @@ int fnic_set_intr_mode(struct fnic *fnic)
 	}
 
 	/*
-                 
-                                                     
-                                                            
-                                
-  */
+	 * Next try INTx
+	 * We need 1 RQ, 1 WQ, 1 WQ_COPY, 3 CQs, and 3 INTRs
+	 * 1 INTR is used for all 3 queues, 1 INTR for queue errors
+	 * 1 INTR for notification area
+	 */
 
 	if (fnic->rq_count >= 1 &&
 	    fnic->raw_wq_count >= 1 &&

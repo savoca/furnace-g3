@@ -17,7 +17,7 @@ static inline int __debug_locks_off(void)
 }
 
 /*
-                                                  
+ * Generic 'turn off all lock debugging' function:
  */
 extern int debug_locks_off(void);
 

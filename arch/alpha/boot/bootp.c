@@ -32,9 +32,9 @@ struct hwrpb_struct *hwrpb = INIT_HWRPB;
 static struct pcb_struct pcb_va[1];
 
 /*
-                                                
-  
-                                                     
+ * Find a physical address of a virtual object..
+ *
+ * This is easy using the virtual page table address.
  */
 
 static inline void *
@@ -51,14 +51,14 @@ find_pa(unsigned long *vptb, void *ptr)
 }	
 
 /*
-                                                               
-                                                               
-                                    
-  
-                                                                   
-                                                                   
-                                                                  
-                                                                
+ * This function moves into OSF/1 pal-code, and has a temporary
+ * PCB for that. The kernel proper should replace this PCB with
+ * the real one as soon as possible.
+ *
+ * The page table muckery in here depends on the fact that the boot
+ * code has the L1 page table identity-map itself in the second PTE
+ * in the L1 page table. Thus the L1-page is virtually addressable
+ * itself (through three levels) at virtual address 0x200802000.
  */
 
 #define VPTB	((unsigned long *) 0x200000000)
@@ -71,7 +71,7 @@ pal_init(void)
 	struct percpu_struct * percpu;
 	struct pcb_struct * pcb_pa;
 
-	/*                        */
+	/* Create the dummy PCB.  */
 	pcb_va->ksp = 0;
 	pcb_va->usp = 0;
 	pcb_va->ptbr = L1[1] >> 32;
@@ -84,12 +84,12 @@ pal_init(void)
 	pcb_pa = find_pa(VPTB, pcb_va);
 
 	/*
-                
-                                                                 
-                             
-                                       
-                                  
-  */
+	 * a0 = 2 (OSF)
+	 * a1 = return address, but we give the asm the vaddr of the PCB
+	 * a2 = physical addr of PCB
+	 * a3 = new virtual page table pointer
+	 * a4 = KSP (but the asm sets it)
+	 */
 	srm_printk("Switching to OSF PAL-code .. ");
 
 	i = switch_to_osf_pal(2, pcb_va, pcb_pa, VPTB);
@@ -104,7 +104,7 @@ pal_init(void)
 
 	srm_printk("Ok (rev %lx)\n", rev);
 
-	tbia(); /*                                   */
+	tbia(); /* do it directly in case we are SMP */
 }
 
 static inline void
@@ -114,7 +114,7 @@ load(unsigned long dst, unsigned long src, unsigned long count)
 }
 
 /*
-                    
+ * Start the kernel.
  */
 static inline void
 runkernel(void)
@@ -122,7 +122,7 @@ runkernel(void)
 	__asm__ __volatile__(
 		"bis %0,%0,$27\n\t"
 		"jmp ($27)"
-		: /*                                    */
+		: /* no outputs: it doesn't even return */
 		: "r" (START_ADDR));
 }
 
@@ -134,17 +134,17 @@ void
 start_kernel(void)
 {
 	/*
-                                                      
-                          
-   
-                                                                    
-                                                                        
-                                                                  
-                                                                    
-                                                                    
-                                                                  
-                                
-  */
+	 * Note that this crufty stuff with static and envval
+	 * and envbuf is because:
+	 *
+	 * 1. Frequently, the stack is short, and we don't want to overrun;
+	 * 2. Frequently the stack is where we are going to copy the kernel to;
+	 * 3. A certain SRM console required the GET_ENV output to stack.
+	 *    ??? A comment in the aboot sources indicates that the GET_ENV
+	 *    destination must be quadword aligned.  Might this explain the
+	 *    behaviour, rather than requiring output to the stack, which
+	 *    seems rather far-fetched.
+	 */
 	static long nbytes;
 	static char envval[256] __attribute__((aligned(8)));
 	static unsigned long initrd_start;
@@ -162,8 +162,8 @@ start_kernel(void)
 	}
 	pal_init();
 
-	/*                                                     
-                                  */
+	/* The initrd must be page-aligned.  See below for the 
+	   cause of the magic number 5.  */
 	initrd_start = ((START_ADDR + 5*KERNEL_SIZE + PAGE_SIZE) |
 			(PAGE_SIZE-1)) + 1;
 #ifdef INITRD_IMAGE_SIZE
@@ -171,9 +171,9 @@ start_kernel(void)
 #endif
 
 	/*
-                                                        
-                                
-  */
+	 * Move the stack to a safe place to ensure it won't be
+	 * overwritten by kernel image.
+	 */
 	move_stack(initrd_start - PAGE_SIZE);
 
 	nbytes = callback_getenv(ENV_BOOTED_OSFLAGS, envval, sizeof(envval));
@@ -183,19 +183,19 @@ start_kernel(void)
 	envval[nbytes] = '\0';
 	srm_printk("Loading the kernel...'%s'\n", envval);
 
-	/*                                                       */
+	/* NOTE: *no* callbacks or printouts from here on out!!! */
 
-	/*                                                                  
-                                                             
-                                                                 
-                                                                    
-                     
-   
-                                                                    
-                                                                    
-                                     
-   
-             */
+	/* This is a hack, as some consoles seem to get virtual 20000000 (ie
+	 * where the SRM console puts the kernel bootp image) memory
+	 * overlapping physical memory where the kernel wants to be put,
+	 * which causes real problems when attempting to copy the former to
+	 * the latter... :-(
+	 *
+	 * So, we first move the kernel virtual-to-physical way above where
+	 * we physically want the kernel to end up, then copy it from there
+	 * to its final resting place... ;-}
+	 *
+	 * Sigh...  */
 
 #ifdef INITRD_IMAGE_SIZE
 	load(initrd_start, KERNEL_ORIGIN+KERNEL_SIZE, INITRD_IMAGE_SIZE);

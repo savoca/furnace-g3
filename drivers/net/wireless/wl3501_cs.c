@@ -1,30 +1,30 @@
 /*
-                                                   
-                                                                               
-                                                                               
-                                                                          
-  
-                                                                            
-  
-                                          
-                                                                           
-                   
-                                                         
-                                
-                                                 
-                                                      
-  
-                                                                      
-                                                                     
-                                                                      
-                                                                                
-                                                               
-  
-                                                                               
-                       
-  
-                                                                          
-                                                                               
+ * WL3501 Wireless LAN PCMCIA Card Driver for Linux
+ * Written originally for Linux 2.0.30 by Fox Chen, mhchen@golf.ccl.itri.org.tw
+ * Ported to 2.2, 2.4 & 2.5 by Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+ * Wireless extensions in 2.4 by Gustavo Niemeyer <niemeyer@conectiva.com>
+ *
+ * References used by Fox Chen while writing the original driver for 2.0.30:
+ *
+ *   1. WL24xx packet drivers (tooasm.asm)
+ *   2. Access Point Firmware Interface Specification for IEEE 802.11 SUTRO
+ *   3. IEEE 802.11
+ *   4. Linux network driver (/usr/src/linux/drivers/net)
+ *   5. ISA card driver - wl24.c
+ *   6. Linux PCMCIA skeleton driver - skeleton.c
+ *   7. Linux PCMCIA 3c589 network driver - 3c589_cs.c
+ *
+ * Tested with WL2400 firmware 1.2, Linux 2.0.30, and pcmcia-cs-2.9.12
+ *   1. Performance: about 165 Kbytes/sec in TCP/IP with Ad-Hoc mode.
+ *      rsh 192.168.1.3 "dd if=/dev/zero bs=1k count=1000" > /dev/null
+ *      (Specification 2M bits/sec. is about 250 Kbytes/sec., but we must deduct
+ *       ETHER/IP/UDP/TCP header, and acknowledgement overhead)
+ *
+ * Tested with Planet AP in 2.4.17, 184 Kbytes/s in UDP in Infrastructure mode,
+ * 173 Kbytes/s in TCP.
+ *
+ * Tested with Planet AP in 2.5.73-bk, 216 Kbytes/s in Infrastructure mode
+ * with a SMP machine (dual pentium 100), using pktgen, 432 pps (pkt_size = 60)
  */
 
 #include <linux/delay.h>
@@ -60,7 +60,7 @@
 #define slow_down_io()
 #endif
 
-/*                          */
+/* For rough constant delay */
 #define WL3501_NOPLOOP(n) { int x = 0; while (x++ < n) slow_down_io(); }
 
 
@@ -132,12 +132,12 @@ static const struct {
 	},
 };
 
-/* 
-                                                           
-                                  
-                                 
-  
-                                                                              
+/**
+ * iw_valid_channel - validate channel in regulatory domain
+ * @reg_comain - regulatory domain
+ * @channel - channel to validate
+ *
+ * Returns 0 if invalid in the specified regulatory domain, non-zero if valid.
  */
 static int iw_valid_channel(int reg_domain, int channel)
 {
@@ -152,11 +152,11 @@ static int iw_valid_channel(int reg_domain, int channel)
 	return rc;
 }
 
-/* 
-                                                                   
-                                  
-  
-                                                      
+/**
+ * iw_default_channel - get default channel for a regulatory domain
+ * @reg_comain - regulatory domain
+ *
+ * Returns the default channel for a regulatory domain
  */
 static int iw_default_channel(int reg_domain)
 {
@@ -191,21 +191,21 @@ static inline void wl3501_switch_page(struct wl3501_card *this, u8 page)
 }
 
 /*
-                            
-  
-                                                     
-                                                                            
+ * Get Ethernet MAC address.
+ *
+ * WARNING: We switch to FPAGE0 and switc back again.
+ *          Making sure there is no other WL function beening called by ISR.
  */
 static int wl3501_get_flash_mac_addr(struct wl3501_card *this)
 {
 	int base_addr = this->base_addr;
 
-	/*              */
-	wl3501_outb(WL3501_BSS_FPAGE3, base_addr + WL3501_NIC_BSS); /*     */
-	wl3501_outb(0x00, base_addr + WL3501_NIC_LMAL);	/*      */
-	wl3501_outb(0x40, base_addr + WL3501_NIC_LMAH);	/*      */
+	/* get MAC addr */
+	wl3501_outb(WL3501_BSS_FPAGE3, base_addr + WL3501_NIC_BSS); /* BSS */
+	wl3501_outb(0x00, base_addr + WL3501_NIC_LMAL);	/* LMAL */
+	wl3501_outb(0x40, base_addr + WL3501_NIC_LMAH);	/* LMAH */
 
-	/*                         */
+	/* wait for reading EEPROM */
 	WL3501_NOPLOOP(100);
 	this->mac_addr[0] = inb(base_addr + WL3501_NIC_IODPA);
 	WL3501_NOPLOOP(100);
@@ -228,68 +228,68 @@ static int wl3501_get_flash_mac_addr(struct wl3501_card *this)
 	this->version[0] = inb(base_addr + WL3501_NIC_IODPA);
 	WL3501_NOPLOOP(100);
 	this->version[1] = inb(base_addr + WL3501_NIC_IODPA);
-	/*                                    */
+	/* switch to SRAM Page 0 (for safety) */
 	wl3501_switch_page(this, WL3501_BSS_SPAGE0);
 
-	/*                                  */
+	/* The MAC addr should be 00:60:... */
 	return this->mac_addr[0] == 0x00 && this->mac_addr[1] == 0x60;
 }
 
-/* 
-                                                        
-                               
-                            
-                       
-  
-                                                                
+/**
+ * wl3501_set_to_wla - Move 'size' bytes from PC to card
+ * @dest: Card addressing space
+ * @src: PC addressing space
+ * @size: Bytes to move
+ *
+ * Move 'size' bytes from PC to card. (Shouldn't be interrupted)
  */
 static void wl3501_set_to_wla(struct wl3501_card *this, u16 dest, void *src,
 			      int size)
 {
-	/*                       */
+	/* switch to SRAM Page 0 */
 	wl3501_switch_page(this, (dest & 0x8000) ? WL3501_BSS_SPAGE1 :
 						   WL3501_BSS_SPAGE0);
-	/*                   */
+	/* set LMAL and LMAH */
 	wl3501_outb(dest & 0xff, this->base_addr + WL3501_NIC_LMAL);
 	wl3501_outb(((dest >> 8) & 0x7f), this->base_addr + WL3501_NIC_LMAH);
 
-	/*                   */
+	/* rep out to Port A */
 	wl3501_outsb(this->base_addr + WL3501_NIC_IODPA, src, size);
 }
 
-/* 
-                                                          
-                              
-                             
-                       
-  
-                                                                
+/**
+ * wl3501_get_from_wla - Move 'size' bytes from card to PC
+ * @src: Card addressing space
+ * @dest: PC addressing space
+ * @size: Bytes to move
+ *
+ * Move 'size' bytes from card to PC. (Shouldn't be interrupted)
  */
 static void wl3501_get_from_wla(struct wl3501_card *this, u16 src, void *dest,
 				int size)
 {
-	/*                       */
+	/* switch to SRAM Page 0 */
 	wl3501_switch_page(this, (src & 0x8000) ? WL3501_BSS_SPAGE1 :
 						  WL3501_BSS_SPAGE0);
-	/*                   */
+	/* set LMAL and LMAH */
 	wl3501_outb(src & 0xff, this->base_addr + WL3501_NIC_LMAL);
 	wl3501_outb((src >> 8) & 0x7f, this->base_addr + WL3501_NIC_LMAH);
 
-	/*                     */
+	/* rep get from Port A */
 	insb(this->base_addr + WL3501_NIC_IODPA, dest, size);
 }
 
 /*
-                                     
-  
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                         
-                                                                        
-  
-                            
+ * Get/Allocate a free Tx Data Buffer
+ *
+ *  *--------------*-----------------*----------------------------------*
+ *  |    PLCP      |    MAC Header   |  DST  SRC         Data ...       |
+ *  |  (24 bytes)  |    (30 bytes)   |  (6)  (6)  (Ethernet Row Data)   |
+ *  *--------------*-----------------*----------------------------------*
+ *  \               \- IEEE 802.11 -/ \-------------- len --------------/
+ *   \-struct wl3501_80211_tx_hdr--/   \-------- Ethernet Frame -------/
+ *
+ * Return = Position in Card
  */
 static u16 wl3501_get_tx_buffer(struct wl3501_card *this, u16 len)
 {
@@ -312,7 +312,7 @@ static u16 wl3501_get_tx_buffer(struct wl3501_card *this, u16 len)
 					  sizeof(zero));
 		this->tx_buffer_head = next;
 		blk_cnt++;
-		/*                         */
+		/* if buffer is not enough */
 		if (!next && full_len) {
 			this->tx_buffer_head = ret;
 			ret = 0;
@@ -325,11 +325,11 @@ out:
 }
 
 /*
-                                                             
+ * Free an allocated Tx Buffer. ptr must be correct position.
  */
 static void wl3501_free_tx_buffer(struct wl3501_card *this, u16 ptr)
 {
-	/*                                */
+	/* check if all space is not free */
 	if (!this->tx_buffer_head)
 		this->tx_buffer_head = ptr;
 	else
@@ -442,15 +442,15 @@ out:
 	return rc;
 }
 
-/* 
-                                   
-               
-  
-                 
-  
-                                                                        
-                                                                        
-                   
+/**
+ * wl3501_send_pkt - Send a packet.
+ * @this - card
+ *
+ * Send a packet.
+ *
+ * data = Ethernet raw frame.  (e.g. data[0] - data[5] is Dest MAC Addr,
+ *                                   data[6] - data[11] is Src MAC Addr)
+ * Ref: IEEE 802.11
  */
 static int wl3501_send_pkt(struct wl3501_card *this, u8 *data, u16 len)
 {
@@ -464,11 +464,11 @@ static int wl3501_send_pkt(struct wl3501_card *this, u8 *data, u16 len)
 	if (wl3501_esbq_req_test(this)) {
 		sig_bf = wl3501_get_tx_buffer(this, sizeof(sig));
 		rc = -ENOMEM;
-		if (!sig_bf)	/*                          */
+		if (!sig_bf)	/* No free buffer available */
 			goto out;
 		bf = wl3501_get_tx_buffer(this, len + 26 + 24);
 		if (!bf) {
-			/*                          */
+			/* No free buffer available */
 			wl3501_free_tx_buffer(this, sig_bf);
 			goto out;
 		}
@@ -708,12 +708,12 @@ static void wl3501_mgmt_scan_confirm(struct wl3501_card *this, u16 addr)
 	}
 }
 
-/* 
-                                                     
-               
-  
-                                                                    
-                                               
+/**
+ * wl3501_block_interrupt - Mask interrupt from SUTRO
+ * @this - card
+ *
+ * Mask interrupt from SUTRO. (i.e. SUTRO cannot interrupt the HOST)
+ * Return: 1 if interrupt is originally enabled
  */
 static int wl3501_block_interrupt(struct wl3501_card *this)
 {
@@ -725,12 +725,12 @@ static int wl3501_block_interrupt(struct wl3501_card *this)
 	return old & WL3501_GCR_ENECINT;
 }
 
-/* 
-                                                         
-               
-  
-                                                                   
-                                               
+/**
+ * wl3501_unblock_interrupt - Enable interrupt from SUTRO
+ * @this - card
+ *
+ * Enable interrupt from SUTRO. (i.e. SUTRO can interrupt the HOST)
+ * Return: 1 if interrupt is originally enabled
  */
 static int wl3501_unblock_interrupt(struct wl3501_card *this)
 {
@@ -742,14 +742,14 @@ static int wl3501_unblock_interrupt(struct wl3501_card *this)
 	return old & WL3501_GCR_ENECINT;
 }
 
-/* 
-                                                    
-  
-                                   
-  
-              
-                       
-                         
+/**
+ * wl3501_receive - Receive data from Receive Queue.
+ *
+ * Receive data from Receive Queue.
+ *
+ * @this: card
+ * @bf: address of host
+ * @size: size of buffer.
  */
 static u16 wl3501_receive(struct wl3501_card *this, u8 *bf, u16 size)
 {
@@ -969,7 +969,7 @@ static inline void wl3501_md_ind_interrupt(struct net_device *dev,
 		dev->stats.rx_dropped++;
 	} else {
 		skb->dev = dev;
-		skb_reserve(skb, 2); /*                                   */
+		skb_reserve(skb, 2); /* IP headers on 16 bytes boundaries */
 		skb_copy_to_linear_data(skb, (unsigned char *)&sig.daddr, 12);
 		wl3501_receive(this, skb->data, pkt_len);
 		skb_put(skb, pkt_len);
@@ -1081,12 +1081,12 @@ loop:
 		wl3501_auth_confirm_interrupt(this, addr);
 		break;
 	case WL3501_SIG_RESYNC_CONFIRM:
-		wl3501_mgmt_resync(this); /*                                 */
+		wl3501_mgmt_resync(this); /* FIXME: should be resync_confirm */
 		break;
 	}
 	wl3501_esbq_confirm_done(this);
 	morepkts = 1;
-	/*                           */
+	/* free request if necessary */
 free:
 	wl3501_esbq_req_free(this);
 	if (morepkts)
@@ -1098,17 +1098,17 @@ static inline void wl3501_ack_interrupt(struct wl3501_card *this)
 	wl3501_outb(WL3501_GCR_ECINT, this->base_addr + WL3501_NIC_GCR);
 }
 
-/* 
-                                                   
-                          
-                       
-  
-                                                                       
-                                                                
-  
-                                                                       
-                                                                   
-                                        
+/**
+ * wl3501_interrupt - Hardware interrupt from card.
+ * @irq - Interrupt number
+ * @dev_id - net_device
+ *
+ * We must acknowledge the interrupt as soon as possible, and block the
+ * interrupt from the same card immediately to prevent re-entry.
+ *
+ * Before accessing the Control_Status_Block, we must lock SUTRO first.
+ * On the other hand, to prevent SUTRO from malfunctioning, we must
+ * unlock the SUTRO as soon as possible.
  */
 static irqreturn_t wl3501_interrupt(int irq, void *dev_id)
 {
@@ -1131,27 +1131,27 @@ static int wl3501_reset_board(struct wl3501_card *this)
 	u8 tmp = 0;
 	int i, rc = 0;
 
-	/*         */
+	/* Coreset */
 	wl3501_outb_p(WL3501_GCR_CORESET, this->base_addr + WL3501_NIC_GCR);
 	wl3501_outb_p(0, this->base_addr + WL3501_NIC_GCR);
 	wl3501_outb_p(WL3501_GCR_CORESET, this->base_addr + WL3501_NIC_GCR);
 
-	/*                          */
+	/* Reset SRAM 0x480 to zero */
 	wl3501_set_to_wla(this, 0x480, &tmp, sizeof(tmp));
 
-	/*          */
+	/* Start up */
 	wl3501_outb_p(0, this->base_addr + WL3501_NIC_GCR);
 
 	WL3501_NOPLOOP(1024 * 50);
 
-	wl3501_unblock_interrupt(this);	/*                     */
+	wl3501_unblock_interrupt(this);	/* acme: was commented */
 
-	/*                          */
+	/* Polling Self_Test_Status */
 	for (i = 0; i < 10000; i++) {
 		wl3501_get_from_wla(this, 0x480, &tmp, sizeof(tmp));
 
 		if (tmp == 'W') {
-			/*                                         */
+			/* firmware complete all test successfully */
 			tmp = 'A';
 			wl3501_set_to_wla(this, 0x480, &tmp, sizeof(tmp));
 			goto out;
@@ -1179,9 +1179,9 @@ static int wl3501_init_firmware(struct wl3501_card *this)
 	wl3501_get_from_wla(this, 0x1a40,
 			    this->firmware_date, sizeof(this->firmware_date));
 	this->firmware_date[sizeof(this->firmware_date) - 1] = '\0';
-	/*                       */
+	/* Switch to SRAM Page 0 */
 	wl3501_switch_page(this, WL3501_BSS_SPAGE0);
-	/*                          */
+	/* Read parameter from card */
 	wl3501_get_from_wla(this, 0x482, &this->esbq_req_start, 2);
 	wl3501_get_from_wla(this, 0x486, &this->esbq_req_end, 2);
 	wl3501_get_from_wla(this, 0x488, &this->esbq_confirm_start, 2);
@@ -1192,7 +1192,7 @@ static int wl3501_init_firmware(struct wl3501_card *this)
 	this->esbq_req_end     += this->esbq_req_start;
 	this->esbq_confirm	= this->esbq_confirm_start;
 	this->esbq_confirm_end += this->esbq_confirm_start;
-	/*                   */
+	/* Initial Tx Buffer */
 	this->tx_buffer_cnt = 1;
 	ptr = this->tx_buffer_head;
 	next = ptr + WL3501_BLKSZ;
@@ -1224,11 +1224,11 @@ static int wl3501_close(struct net_device *dev)
 	spin_lock_irqsave(&this->lock, flags);
 	link->open--;
 
-	/*                                           */
+	/* Stop wl3501_hard_start_xmit() from now on */
 	netif_stop_queue(dev);
 	wl3501_ack_interrupt(this);
 
-	/*                                */
+	/* Mask interrupts from the SUTRO */
 	wl3501_block_interrupt(this);
 
 	rc = 0;
@@ -1237,13 +1237,13 @@ static int wl3501_close(struct net_device *dev)
 	return rc;
 }
 
-/* 
-                                  
-                        
-  
-                                                                              
-                                                                             
-                                        
+/**
+ * wl3501_reset - Reset the SUTRO.
+ * @dev - network device
+ *
+ * It is almost the same as wl3501_open(). In fact, we may just wl3501_close()
+ * and wl3501_open() again, but I wouldn't like to free_irq() when the driver
+ * is running. It seems to be dangerous.
  */
 static int wl3501_reset(struct net_device *dev)
 {
@@ -1255,14 +1255,14 @@ static int wl3501_reset(struct net_device *dev)
 	if (wl3501_init_firmware(this)) {
 		printk(KERN_WARNING "%s: Can't initialize Firmware!\n",
 		       dev->name);
-		/*                                  */
+		/* Free IRQ, and mark IRQ as unused */
 		free_irq(dev->irq, dev);
 		goto out;
 	}
 
 	/*
-                                                         
-  */
+	 * Queue has to be started only when the Card is Started
+	 */
 	netif_stop_queue(dev);
 	this->adhoc_times = 0;
 	wl3501_ack_interrupt(this);
@@ -1289,15 +1289,15 @@ static void wl3501_tx_timeout(struct net_device *dev)
 		printk(KERN_ERR "%s: Error %d resetting card on Tx timeout!\n",
 		       dev->name, rc);
 	else {
-		dev->trans_start = jiffies; /*                    */
+		dev->trans_start = jiffies; /* prevent tx timeout */
 		netif_wake_queue(dev);
 	}
 }
 
 /*
-                  
-                                                            
-                            
+ * Return : 0 - OK
+ *	    1 - Could not transmit (dev_queue_xmit will queue it)
+ *		and try to sent it later
  */
 static netdev_tx_t wl3501_hard_start_xmit(struct sk_buff *skb,
 						struct net_device *dev)
@@ -1340,16 +1340,16 @@ static int wl3501_open(struct net_device *dev)
 	netif_device_attach(dev);
 	link->open++;
 
-	/*                         */
+	/* Initial WL3501 firmware */
 	pr_debug("%s: Initialize WL3501 firmware...", dev->name);
 	if (wl3501_init_firmware(this))
 		goto fail;
-	/*                          */
+	/* Initial device variables */
 	this->adhoc_times = 0;
-	/*                                                */
+	/* Acknowledge Interrupt, for cleaning last state */
 	wl3501_ack_interrupt(this);
 
-	/*                                      */
+	/* Enable interrupt from card after all */
 	wl3501_unblock_interrupt(this);
 	wl3501_mgmt_scan(this, 100);
 	rc = 0;
@@ -1370,7 +1370,7 @@ static struct iw_statistics *wl3501_get_wireless_stats(struct net_device *dev)
 {
 	struct wl3501_card *this = netdev_priv(dev);
 	struct iw_statistics *wstats = &this->wstats;
-	u32 value; /*                         */
+	u32 value; /* size checked: it is u32 */
 
 	memset(wstats, 0, sizeof(*wstats));
 	wstats->status = netif_running(dev);
@@ -1401,21 +1401,21 @@ static struct iw_statistics *wl3501_get_wireless_stats(struct net_device *dev)
 	return wstats;
 }
 
-/* 
-                                              
-                  
-  
-                                                                          
-                                                                          
-                                                                       
+/**
+ * wl3501_detach - deletes a driver "instance"
+ * @link - FILL_IN
+ *
+ * This deletes a driver "instance". The device is de-registered with Card
+ * Services. If it has been released, all local data structures are freed.
+ * Otherwise, the structures will be freed when the device is released.
  */
 static void wl3501_detach(struct pcmcia_device *link)
 {
 	struct net_device *dev = link->priv;
 
-	/*                                                                    
-                                                                    
-                                                             */
+	/* If the device is currently configured and active, we won't actually
+	 * delete it yet.  Instead, it is marked so that when the release()
+	 * function is called, that will trigger a proper detach(). */
 
 	while (link->open > 0)
 		wl3501_close(dev);
@@ -1502,17 +1502,17 @@ static int wl3501_get_range(struct net_device *dev,
 {
 	struct iw_range *range = (struct iw_range *)extra;
 
-	/*                                                            */
+	/* Set the length (very important for backward compatibility) */
 	wrqu->data.length = sizeof(*range);
 
-	/*                                                            */
+	/* Set all the info we don't care or don't know about to zero */
 	memset(range, 0, sizeof(*range));
 
-	/*                                     */
+	/* Set the Wireless Extension versions */
 	range->we_version_compiled	= WIRELESS_EXT;
 	range->we_version_source	= 1;
-	range->throughput		= 2 * 1000 * 1000;     /*         */
-	/*                                                 */
+	range->throughput		= 2 * 1000 * 1000;     /* ~2 Mb/s */
+	/* FIXME: study the code to fill in more fields... */
 	return 0;
 }
 
@@ -1523,14 +1523,14 @@ static int wl3501_set_wap(struct net_device *dev, struct iw_request_info *info,
 	static const u8 bcast[ETH_ALEN] = { 255, 255, 255, 255, 255, 255 };
 	int rc = -EINVAL;
 
-	/*                                   */
+	/* FIXME: we support other ARPHRDs...*/
 	if (wrqu->ap_addr.sa_family != ARPHRD_ETHER)
 		goto out;
 	if (!memcmp(bcast, wrqu->ap_addr.sa_data, ETH_ALEN)) {
-		/*                */
+		/* FIXME: rescan? */
 	} else
 		memcpy(this->bssid, wrqu->ap_addr.sa_data, ETH_ALEN);
-		/*                                */
+		/* FIXME: rescan? deassoc & scan? */
 	rc = 0;
 out:
 	return rc;
@@ -1550,8 +1550,8 @@ static int wl3501_set_scan(struct net_device *dev, struct iw_request_info *info,
 			   union iwreq_data *wrqu, char *extra)
 {
 	/*
-                                                       
-  */
+	 * FIXME: trigger scanning with a reset, yes, I'm lazy
+	 */
 	return wl3501_reset(dev);
 }
 
@@ -1598,9 +1598,9 @@ static int wl3501_get_scan(struct net_device *dev, struct iw_request_info *info,
 						  extra + IW_SCAN_MAX_DATA,
 						  &iwe, NULL);
 	}
-	/*                */
+	/* Length of data */
 	wrqu->data.length = (current_ev - extra);
-	wrqu->data.flags = 0; /*                                 */
+	wrqu->data.flags = 0; /* FIXME: set properly these flags */
 	return 0;
 }
 
@@ -1614,7 +1614,7 @@ static int wl3501_set_essid(struct net_device *dev,
 		iw_set_mgmt_info_element(IW_MGMT_INFO_ELEMENT_SSID,
 					 &this->essid.el,
 					 extra, wrqu->data.length);
-	} else { /*                     */
+	} else { /* We accept any ESSID */
 		iw_set_mgmt_info_element(IW_MGMT_INFO_ELEMENT_SSID,
 					 &this->essid.el, "ANY", 3);
 	}
@@ -1661,10 +1661,10 @@ static int wl3501_get_rate(struct net_device *dev, struct iw_request_info *info,
 			   union iwreq_data *wrqu, char *extra)
 {
 	/*
-                                                                     
-                                                                       
-                                               
-  */
+	 * FIXME: have to see from where to get this info, perhaps this card
+	 * works at 1 Mbit/s too... for now leave at 2 Mbit/s that is the most
+	 * common with the Planet Access Points. -acme
+	 */
 	wrqu->bitrate.value = 2000000;
 	wrqu->bitrate.fixed = 1;
 	return 0;
@@ -1674,7 +1674,7 @@ static int wl3501_get_rts_threshold(struct net_device *dev,
 				    struct iw_request_info *info,
 				    union iwreq_data *wrqu, char *extra)
 {
-	u16 threshold; /*                         */
+	u16 threshold; /* size checked: it is u16 */
 	struct wl3501_card *this = netdev_priv(dev);
 	int rc = wl3501_get_mib_value(this, WL3501_MIB_ATTR_RTS_THRESHOLD,
 				      &threshold, sizeof(threshold));
@@ -1690,7 +1690,7 @@ static int wl3501_get_frag_threshold(struct net_device *dev,
 				     struct iw_request_info *info,
 				     union iwreq_data *wrqu, char *extra)
 {
-	u16 threshold; /*                         */
+	u16 threshold; /* size checked: it is u16 */
 	struct wl3501_card *this = netdev_priv(dev);
 	int rc = wl3501_get_mib_value(this, WL3501_MIB_ATTR_FRAG_THRESHOLD,
 				      &threshold, sizeof(threshold));
@@ -1715,9 +1715,9 @@ static int wl3501_get_txpow(struct net_device *dev,
 		wrqu->txpower.value = txpow;
 		wrqu->txpower.disabled = 0;
 		/*
-                                                          
-                                              
-   */
+		 * From the MIB values I think this can be configurable,
+		 * as it lists several tx power levels -acme
+		 */
 		wrqu->txpower.fixed = 0;
 		wrqu->txpower.flags = IW_TXPOW_MWATT;
 	}
@@ -1728,7 +1728,7 @@ static int wl3501_get_retry(struct net_device *dev,
 			    struct iw_request_info *info,
 			    union iwreq_data *wrqu, char *extra)
 {
-	u8 retry; /*                        */
+	u8 retry; /* size checked: it is u8 */
 	struct wl3501_card *this = netdev_priv(dev);
 	int rc = wl3501_get_mib_value(this,
 				      WL3501_MIB_ATTR_LONG_RETRY_LIMIT,
@@ -1855,11 +1855,11 @@ static int wl3501_probe(struct pcmcia_device *p_dev)
 	struct net_device *dev;
 	struct wl3501_card *this;
 
-	/*                                            */
+	/* The io structure describes IO port mapping */
 	p_dev->resource[0]->end	= 16;
 	p_dev->resource[0]->flags	= IO_DATA_PATH_WIDTH_8;
 
-	/*                              */
+	/* General socket configuration */
 	p_dev->config_flags	= CONF_ENABLE_IRQ;
 	p_dev->config_index	= 1;
 
@@ -1890,14 +1890,14 @@ static int wl3501_config(struct pcmcia_device *link)
 	int i = 0, j, ret;
 	struct wl3501_card *this;
 
-	/*                                                                    
-                                                                        
-                                          */
+	/* Try allocating IO ports.  This tries a few fixed addresses.  If you
+	 * want, you can also read the card's config table to pick addresses --
+	 * see the serial driver for an example. */
 	link->io_lines = 5;
 
 	for (j = 0x280; j < 0x400; j += 0x20) {
-		/*                                                         
-                                                      */
+		/* The '^0x300' is so that we probe 0x300-0x3ff first, then
+		 * 0x200-0x2ff, and so on, because this seems safer */
 		link->resource[0]->start = j;
 		link->resource[1]->start = link->resource[0]->start + 0x10;
 		i = pcmcia_request_io(link);
@@ -1907,8 +1907,8 @@ static int wl3501_config(struct pcmcia_device *link)
 	if (i != 0)
 		goto failed;
 
-	/*                                                                 
-                                       */
+	/* Now allocate an interrupt line. Note that this does not actually
+	 * assign a handler to the interrupt. */
 
 	ret = pcmcia_request_irq(link, wl3501_interrupt);
 	if (ret)
@@ -1940,14 +1940,14 @@ static int wl3501_config(struct pcmcia_device *link)
 	for (i = 0; i < 6; i++)
 		dev->dev_addr[i] = ((char *)&this->mac_addr)[i];
 
-	/*                         */
+	/* print probe information */
 	printk(KERN_INFO "%s: wl3501 @ 0x%3.3x, IRQ %d, "
 	       "MAC addr in flash ROM:%pM\n",
 	       dev->name, this->base_addr, (int)dev->irq,
 	       dev->dev_addr);
 	/*
-                                             
-  */
+	 * Initialize card parameters - added by jss
+	 */
 	this->net_type		= IW_MODE_INFRA;
 	this->bss_cnt		= 0;
 	this->join_sta_bss	= 0;

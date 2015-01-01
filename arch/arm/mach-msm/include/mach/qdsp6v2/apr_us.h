@@ -15,8 +15,8 @@
 
 #include <mach/qdsp6v2/apr.h>
 
-/*                                                                         */
-/*                         */
+/* ======================================================================= */
+/*  Session Level commands */
 
 #define USM_SESSION_CMD_RUN				0x00012306
 struct usm_stream_cmd_run {
@@ -26,7 +26,7 @@ struct usm_stream_cmd_run {
 	u32            lsw_ts;
 } __packed;
 
-/*                       */
+/* Stream level commands */
 #define USM_STREAM_CMD_OPEN_READ			0x00012309
 struct usm_stream_cmd_open_read {
 	struct apr_hdr hdr;
@@ -45,22 +45,22 @@ struct usm_stream_cmd_open_write {
 
 #define USM_STREAM_CMD_CLOSE				0x0001230A
 
-/*                                   */
+/* Encoder configuration definitions */
 #define USM_STREAM_CMD_SET_ENC_PARAM			0x0001230B
-/*                                   */
+/* Decoder configuration definitions */
 #define USM_DATA_CMD_MEDIA_FORMAT_UPDATE		0x00011272
 
-/*                                     */
+/* Encoder/decoder configuration block */
 #define USM_PARAM_ID_ENCDEC_ENC_CFG_BLK			0x0001230D
 
-/*                                            */
+/* Max number of static located ports (bytes) */
 #define USM_MAX_PORT_NUMBER 8
 
-/*                                                       */
+/* Max number of static located transparent data (bytes) */
 #define USM_MAX_CFG_DATA_SIZE 100
 
-/*                                                                       */
-/*                     */
+/* Parameter structures used in  USM_STREAM_CMD_SET_ENCDEC_PARAM command */
+/* common declarations */
 struct usm_cfg_common {
 	u16 ch_cfg;
 	u16 bits_per_sample;
@@ -76,7 +76,7 @@ struct us_encdec_cfg {
 	u8 *params;
 } __packed;
 
-/*                                */
+/* Start/stop US signal detection */
 #define USM_SESSION_CMD_SIGNAL_DETECT_MODE		0x00012719
 
 struct usm_session_cmd_detect_info {
@@ -86,7 +86,7 @@ struct usm_session_cmd_detect_info {
 	u32 algorithm_cfg_size;
 } __packed;
 
-/*                            */
+/* US signal detection result */
 #define USM_SESSION_EVENT_SIGNAL_DETECT_RESULT		0x00012720
 
-#endif /*              */
+#endif /* __APR_US_H__ */

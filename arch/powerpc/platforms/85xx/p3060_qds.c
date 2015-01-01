@@ -22,7 +22,7 @@
 #include "corenet_ds.h"
 
 /*
-                                                   
+ * Called very early, device-tree isn't unflattened
  */
 static int __init p3060_qds_probe(void)
 {
@@ -34,7 +34,7 @@ static int __init p3060_qds_probe(void)
 	if (of_flat_dt_is_compatible(root, "fsl,P3060QDS"))
 		return 1;
 
-	/*                                                       */
+	/* Check if we're running under the Freescale hypervisor */
 	if (of_flat_dt_is_compatible(root, "fsl,P3060QDS-hv")) {
 		ppc_md.init_IRQ = ehv_pic_init;
 		ppc_md.get_irq = ehv_pic_get_irq;
@@ -43,9 +43,9 @@ static int __init p3060_qds_probe(void)
 		ppc_md.halt = fsl_hv_halt;
 #ifdef CONFIG_SMP
 		/*
-                                                                
-                                                    
-   */
+		 * Disable the timebase sync operations because we can't write
+		 * to the timebase registers under the hypervisor.
+		 */
 		smp_85xx_ops.give_timebase = NULL;
 		smp_85xx_ops.take_timebase = NULL;
 #endif

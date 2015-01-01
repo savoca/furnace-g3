@@ -42,7 +42,7 @@ struct cmpc_accel {
 #define CMPC_KEYS_HID		"FnBT0000"
 
 /*
-                             
+ * Generic input device code.
  */
 
 typedef void (*input_device_init)(struct input_dev *dev);
@@ -76,7 +76,7 @@ static int cmpc_remove_acpi_notify_device(struct acpi_device *acpi)
 }
 
 /*
-                      
+ * Accelerometer code.
  */
 static acpi_status cmpc_start_accel(acpi_handle handle)
 {
@@ -307,7 +307,7 @@ static struct acpi_driver cmpc_accel_acpi_driver = {
 
 
 /*
-                    
+ * Tablet mode code.
  */
 static acpi_status cmpc_get_tablet(acpi_handle handle,
 				   unsigned long long *value)
@@ -391,7 +391,7 @@ static struct acpi_driver cmpc_tablet_acpi_driver = {
 
 
 /*
-                  
+ * Backlight code.
  */
 
 static acpi_status cmpc_get_brightness(acpi_handle handle,
@@ -463,7 +463,7 @@ static const struct backlight_ops cmpc_bl_ops = {
 };
 
 /*
-               
+ * RFKILL code.
  */
 
 static acpi_status cmpc_get_rfkill_wlan(acpi_handle handle,
@@ -528,7 +528,7 @@ static int cmpc_rfkill_block(void *data, bool blocked)
 	status = cmpc_get_rfkill_wlan(handle, &state);
 	if (ACPI_FAILURE(status))
 		return -ENODEV;
-	/*                                                      */
+	/* Check if we really need to call cmpc_set_rfkill_wlan */
 	is_blocked = state & 1 ? false : true;
 	if (is_blocked != blocked) {
 		state = blocked ? 0 : 1;
@@ -545,7 +545,7 @@ static const struct rfkill_ops cmpc_rfkill_ops = {
 };
 
 /*
-                                    
+ * Common backlight and rfkill code.
  */
 
 struct ipml200_dev {
@@ -577,10 +577,10 @@ static int cmpc_ipml_add(struct acpi_device *acpi)
 	ipml->rf = rfkill_alloc("cmpc_rfkill", &acpi->dev, RFKILL_TYPE_WLAN,
 				&cmpc_rfkill_ops, acpi->handle);
 	/*
-                                                                     
-                                                                    
-                 
-  */
+	 * If RFKILL is disabled, rfkill_alloc will return ERR_PTR(-ENODEV).
+	 * This is OK, however, since all other uses of the device will not
+	 * derefence it.
+	 */
 	if (ipml->rf) {
 		retval = rfkill_register(ipml->rf);
 		if (retval) {
@@ -633,7 +633,7 @@ static struct acpi_driver cmpc_ipml_acpi_driver = {
 
 
 /*
-                   
+ * Extra keys code.
  */
 static int cmpc_keys_codes[] = {
 	KEY_UNKNOWN,
@@ -700,7 +700,7 @@ static struct acpi_driver cmpc_keys_acpi_driver = {
 
 
 /*
-                          
+ * General init/exit code.
  */
 
 static int cmpc_init(void)

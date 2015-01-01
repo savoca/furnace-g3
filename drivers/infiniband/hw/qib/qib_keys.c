@@ -33,12 +33,12 @@
 
 #include "qib.h"
 
-/* 
-                                    
-                                                 
-                                             
-  
-                                                
+/**
+ * qib_alloc_lkey - allocate an lkey
+ * @rkt: lkey table in which to allocate the lkey
+ * @mr: memory region that this lkey protects
+ *
+ * Returns 1 if successful, otherwise returns 0.
  */
 
 int qib_alloc_lkey(struct qib_lkey_table *rkt, struct qib_mregion *mr)
@@ -50,7 +50,7 @@ int qib_alloc_lkey(struct qib_lkey_table *rkt, struct qib_mregion *mr)
 
 	spin_lock_irqsave(&rkt->lock, flags);
 
-	/*                              */
+	/* Find the next available LKEY */
 	r = rkt->next;
 	n = r;
 	for (;;) {
@@ -65,9 +65,9 @@ int qib_alloc_lkey(struct qib_lkey_table *rkt, struct qib_mregion *mr)
 	}
 	rkt->next = (r + 1) & (rkt->max - 1);
 	/*
-                                                                 
-                      
-  */
+	 * Make sure lkey is never zero which is reserved to indicate an
+	 * unrestricted LKEY.
+	 */
 	rkt->gen++;
 	mr->lkey = (r << (32 - ib_qib_lkey_table_size)) |
 		((((1 << (24 - ib_qib_lkey_table_size)) - 1) & rkt->gen)
@@ -85,10 +85,10 @@ bail:
 	return ret;
 }
 
-/* 
-                               
-                                          
-                         
+/**
+ * qib_free_lkey - free an lkey
+ * @rkt: table from which to free the lkey
+ * @lkey: lkey id to free
  */
 int qib_free_lkey(struct qib_ibdev *dev, struct qib_mregion *mr)
 {
@@ -118,17 +118,17 @@ int qib_free_lkey(struct qib_ibdev *dev, struct qib_mregion *mr)
 	return ret;
 }
 
-/* 
-                                                         
-                                                   
-                               
-                     
-                     
-  
-                                                         
-  
-                                                                    
-         
+/**
+ * qib_lkey_ok - check IB SGE for validity and initialize
+ * @rkt: table containing lkey to check SGE against
+ * @isge: outgoing internal SGE
+ * @sge: SGE to check
+ * @acc: access flags
+ *
+ * Return 1 if valid and successful, otherwise returns 0.
+ *
+ * Check the IB SGE for validity and initialize our internal version
+ * of it.
  */
 int qib_lkey_ok(struct qib_lkey_table *rkt, struct qib_pd *pd,
 		struct qib_sge *isge, struct ib_sge *sge, int acc)
@@ -139,9 +139,9 @@ int qib_lkey_ok(struct qib_lkey_table *rkt, struct qib_pd *pd,
 	unsigned long flags;
 
 	/*
-                                                    
-                                       
-  */
+	 * We use LKEY == zero for kernel virtual addresses
+	 * (see qib_get_dma_mr and qib_dma.c).
+	 */
 	spin_lock_irqsave(&rkt->lock, flags);
 	if (sge->lkey == 0) {
 		struct qib_ibdev *dev = to_idev(pd->ibpd.device);
@@ -177,10 +177,10 @@ int qib_lkey_ok(struct qib_lkey_table *rkt, struct qib_pd *pd,
 	off += mr->offset;
 	if (mr->page_shift) {
 		/*
-                                                           
-                                                              
-                      
-  */
+		page sizes are uniform power of 2 so no loop is necessary
+		entries_spanned_by_off is the number of times the loop below
+		would have executed.
+		*/
 		size_t entries_spanned_by_off;
 
 		entries_spanned_by_off = off >> mr->page_shift;
@@ -212,16 +212,16 @@ bail:
 	return 0;
 }
 
-/* 
-                                                               
-                          
-                 
-                       
-                                        
-                       
-                     
-  
-                                       
+/**
+ * qib_rkey_ok - check the IB virtual address, length, and RKEY
+ * @dev: infiniband device
+ * @ss: SGE state
+ * @len: length of data
+ * @vaddr: virtual address to place data
+ * @rkey: rkey to check
+ * @acc: access flags
+ *
+ * Return 1 if successful, otherwise 0.
  */
 int qib_rkey_ok(struct qib_qp *qp, struct qib_sge *sge,
 		u32 len, u64 vaddr, u32 rkey, int acc)
@@ -233,9 +233,9 @@ int qib_rkey_ok(struct qib_qp *qp, struct qib_sge *sge,
 	unsigned long flags;
 
 	/*
-                                                    
-                                       
-  */
+	 * We use RKEY == zero for kernel virtual addresses
+	 * (see qib_get_dma_mr and qib_dma.c).
+	 */
 	spin_lock_irqsave(&rkt->lock, flags);
 	if (rkey == 0) {
 		struct qib_pd *pd = to_ipd(qp->ibqp.pd);
@@ -271,10 +271,10 @@ int qib_rkey_ok(struct qib_qp *qp, struct qib_sge *sge,
 	off += mr->offset;
 	if (mr->page_shift) {
 		/*
-                                                           
-                                                              
-                      
-  */
+		page sizes are uniform power of 2 so no loop is necessary
+		entries_spanned_by_off is the number of times the loop below
+		would have executed.
+		*/
 		size_t entries_spanned_by_off;
 
 		entries_spanned_by_off = off >> mr->page_shift;
@@ -307,7 +307,7 @@ bail:
 }
 
 /*
-                                                              
+ * Initialize the memory region specified by the work reqeust.
  */
 int qib_fast_reg_mr(struct qib_qp *qp, struct ib_send_wr *wr)
 {

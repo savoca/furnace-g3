@@ -18,8 +18,8 @@ static struct platform_device eth1_device = {
 };
 
 /*
-                                                              
-                                       
+ * Create a platform device for the GPI port that receives the
+ * image data from the embedded camera.
  */
 static int __init mipsnet_devinit(void)
 {

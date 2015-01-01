@@ -9,11 +9,11 @@
 #define IIO_DAC_MAX517_H_
 
 /*
-                                                                       
+ * TODO: struct max517_platform_data needs to go into include/linux/iio
  */
 
 struct max517_platform_data {
 	u16				vref_mv[2];
 };
 
-#endif /*                   */
+#endif /* IIO_DAC_MAX517_H_ */

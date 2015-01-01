@@ -61,40 +61,40 @@ static inline unsigned find_next_offset(struct qib_qpn_table *qpt,
 }
 
 /*
-                                                           
+ * Convert the AETH credit code into the number of credits.
  */
 static u32 credit_table[31] = {
-	0,                      /*   */
-	1,                      /*   */
-	2,                      /*   */
-	3,                      /*   */
-	4,                      /*   */
-	6,                      /*   */
-	8,                      /*   */
-	12,                     /*   */
-	16,                     /*   */
-	24,                     /*   */
-	32,                     /*   */
-	48,                     /*   */
-	64,                     /*   */
-	96,                     /*   */
-	128,                    /*   */
-	192,                    /*   */
-	256,                    /*    */
-	384,                    /*    */
-	512,                    /*    */
-	768,                    /*    */
-	1024,                   /*    */
-	1536,                   /*    */
-	2048,                   /*    */
-	3072,                   /*    */
-	4096,                   /*    */
-	6144,                   /*    */
-	8192,                   /*    */
-	12288,                  /*    */
-	16384,                  /*    */
-	24576,                  /*    */
-	32768                   /*    */
+	0,                      /* 0 */
+	1,                      /* 1 */
+	2,                      /* 2 */
+	3,                      /* 3 */
+	4,                      /* 4 */
+	6,                      /* 5 */
+	8,                      /* 6 */
+	12,                     /* 7 */
+	16,                     /* 8 */
+	24,                     /* 9 */
+	32,                     /* A */
+	48,                     /* B */
+	64,                     /* C */
+	96,                     /* D */
+	128,                    /* E */
+	192,                    /* F */
+	256,                    /* 10 */
+	384,                    /* 11 */
+	512,                    /* 12 */
+	768,                    /* 13 */
+	1024,                   /* 14 */
+	1536,                   /* 15 */
+	2048,                   /* 16 */
+	3072,                   /* 17 */
+	4096,                   /* 18 */
+	6144,                   /* 19 */
+	8192,                   /* 1A */
+	12288,                  /* 1B */
+	16384,                  /* 1C */
+	24576,                  /* 1D */
+	32768                   /* 1E */
 };
 
 static void get_map_page(struct qib_qpn_table *qpt, struct qpn_map *map)
@@ -102,8 +102,8 @@ static void get_map_page(struct qib_qpn_table *qpt, struct qpn_map *map)
 	unsigned long page = get_zeroed_page(GFP_KERNEL);
 
 	/*
-                                                         
-  */
+	 * Free the page if someone raced with us installing it.
+	 */
 
 	spin_lock(&qpt->lock);
 	if (map->page)
@@ -114,8 +114,8 @@ static void get_map_page(struct qib_qpn_table *qpt, struct qpn_map *map)
 }
 
 /*
-                                     
-                                              
+ * Allocate the next available QPN or
+ * zero/one for QP type IB_QPT_SMI/IB_QPT_GSI.
  */
 static int alloc_qpn(struct qib_devdata *dd, struct qib_qpn_table *qpt,
 		     enum ib_qp_type type, u8 port)
@@ -162,19 +162,19 @@ static int alloc_qpn(struct qib_devdata *dd, struct qib_qpn_table *qpt,
 				dd->n_krcv_queues);
 			qpn = mk_qpn(qpt, map, offset);
 			/*
-                                            
-                                            
-                                         
-                                            
-                                           
-              
-    */
+			 * This test differs from alloc_pidmap().
+			 * If find_next_offset() does find a zero
+			 * bit, we don't need to check for QPN
+			 * wrapping around past our starting QPN.
+			 * We just need to be sure we don't loop
+			 * forever.
+			 */
 		} while (offset < BITS_PER_PAGE && qpn < QPN_MAX);
 		/*
-                                                        
-                                                              
-                                  
-   */
+		 * In order to keep the number of pages allocated to a
+		 * minimum, we scan the all existing pages before increasing
+		 * the size of the bitmap table.
+		 */
 		if (++i > max_scan) {
 			if (qpt->nmaps == QPNMAP_ENTRIES)
 				break;
@@ -213,8 +213,8 @@ static inline unsigned qpn_hash(struct qib_ibdev *dev, u32 qpn)
 
 
 /*
-                                  
-                                              
+ * Put the QP into the hash table.
+ * The hash table holds a reference to the QP.
  */
 static void insert_qp(struct qib_ibdev *dev, struct qib_qp *qp)
 {
@@ -239,8 +239,8 @@ static void insert_qp(struct qib_ibdev *dev, struct qib_qp *qp)
 }
 
 /*
-                                                                      
-                                 
+ * Remove the QP from the table so it can't be found asynchronously by
+ * the receive interrupt routine.
  */
 static void remove_qp(struct qib_ibdev *dev, struct qib_qp *qp)
 {
@@ -273,12 +273,12 @@ static void remove_qp(struct qib_ibdev *dev, struct qib_qp *qp)
 	synchronize_rcu();
 }
 
-/* 
-                                                
-                              
-  
-                                            
-                         
+/**
+ * qib_free_all_qps - check for QPs still in use
+ * @qpt: the QP table to empty
+ *
+ * There should not be any QPs still in use.
+ * Free memory for table.
  */
 unsigned qib_free_all_qps(struct qib_devdata *dd)
 {
@@ -314,13 +314,13 @@ unsigned qib_free_all_qps(struct qib_devdata *dd)
 	return qp_inuse;
 }
 
-/* 
-                                                    
-                     
-                                 
-  
-                                                                    
-             
+/**
+ * qib_lookup_qpn - return the QP with the given QPN
+ * @qpt: the QP table
+ * @qpn: the QP number to look up
+ *
+ * The caller is responsible for decrementing the QP reference count
+ * when done.
  */
 struct qib_qp *qib_lookup_qpn(struct qib_ibport *ibp, u32 qpn)
 {
@@ -349,10 +349,10 @@ struct qib_qp *qib_lookup_qpn(struct qib_ibport *ibp, u32 qpn)
 	return qp;
 }
 
-/* 
-                                                            
-                       
-                     
+/**
+ * qib_reset_qp - initialize the QP state to the reset state
+ * @qp: the QP to reset
+ * @type: the QP type
  */
 static void qib_reset_qp(struct qib_qp *qp, enum ib_qp_type type)
 {
@@ -456,15 +456,15 @@ static void clear_mr_refs(struct qib_qp *qp, int clr_sends)
 	}
 }
 
-/* 
-                                               
-                                          
-                                                                   
-  
-                                             
-                                                      
-                                                                   
-                                                 
+/**
+ * qib_error_qp - put a QP into the error state
+ * @qp: the QP to put into the error state
+ * @err: the receive completion error to signal if a RWQE is active
+ *
+ * Flushes both send and receive work queues.
+ * Returns true if last WQE event should be generated.
+ * The QP r_lock and s_lock should be held and interrupts disabled.
+ * If we are already in error state, just return.
  */
 int qib_error_qp(struct qib_qp *qp, enum ib_wc_status err)
 {
@@ -504,7 +504,7 @@ int qib_error_qp(struct qib_qp *qp, enum ib_wc_status err)
 		}
 	}
 
-	/*                                                            */
+	/* Schedule the sending tasklet to drain the send work queue. */
 	if (qp->s_last != qp->s_head)
 		qib_schedule_send(qp);
 
@@ -528,7 +528,7 @@ int qib_error_qp(struct qib_qp *qp, enum ib_wc_status err)
 
 		spin_lock(&qp->r_rq.lock);
 
-		/*                                            */
+		/* sanity check pointers before trusting them */
 		wq = qp->r_rq.wq;
 		head = wq->head;
 		if (head >= qp->r_rq.size)
@@ -552,14 +552,14 @@ bail:
 	return ret;
 }
 
-/* 
-                                                        
-                                                         
-                            
-                                               
-                                      
-  
-                                                    
+/**
+ * qib_modify_qp - modify the attributes of a queue pair
+ * @ibqp: the queue pair who's attributes we're modifying
+ * @attr: the new attributes
+ * @attr_mask: the mask of attributes to modify
+ * @udata: user data for libibverbs.so
+ *
+ * Returns 0 on success, otherwise returns an errno.
  */
 int qib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 		  int attr_mask, struct ib_udata *udata)
@@ -571,7 +571,7 @@ int qib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	int lastwqe = 0;
 	int mig = 0;
 	int ret;
-	u32 pmtu = 0; /*                      */
+	u32 pmtu = 0; /* for gcc warning only */
 
 	spin_lock_irq(&qp->r_lock);
 	spin_lock(&qp->s_lock);
@@ -628,13 +628,13 @@ int qib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 			goto inval;
 
 	/*
-                                                           
-                                                              
-                                                
-                                                        
-                             
-                                                               
-  */
+	 * Don't allow invalid path_mtu values.  OK to set greater
+	 * than the active mtu (or even the max_cap, if we have tuned
+	 * that to a small mtu.  We'll set qp->path_mtu
+	 * to the lesser of requested attribute mtu and active,
+	 * for packetizing messages.
+	 * Note that the QP port has to be set in INIT and MTU in RTR.
+	 */
 	if (attr_mask & IB_QP_PATH_MTU) {
 		struct qib_devdata *dd = dd_from_dev(dev);
 		int mtu, pidx = qp->port_num - 1;
@@ -698,7 +698,7 @@ int qib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 			qp->s_flags &= ~(QIB_S_TIMER | QIB_S_ANY_WAIT);
 			spin_unlock(&qp->s_lock);
 			spin_unlock_irq(&qp->r_lock);
-			/*                                             */
+			/* Stop the sending work queue and retry timer */
 			cancel_work_sync(&qp->s_work);
 			del_timer_sync(&qp->s_timer);
 			wait_event(qp->wait_dma, !atomic_read(&qp->s_dma_busy));
@@ -716,7 +716,7 @@ int qib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 		break;
 
 	case IB_QPS_RTR:
-		/*                                                          */
+		/* Allow event to retrigger if QP set to RTR more than once */
 		qp->r_flags &= ~QIB_R_COMM_EST;
 		qp->state = new_state;
 		break;
@@ -897,11 +897,11 @@ int qib_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	return 0;
 }
 
-/* 
-                                                       
-                                              
-  
-                    
+/**
+ * qib_compute_aeth - compute the AETH (syndrome + MSN)
+ * @qp: the queue pair to compute the AETH for
+ *
+ * Returns the AETH.
  */
 __be32 qib_compute_aeth(struct qib_qp *qp)
 {
@@ -909,9 +909,9 @@ __be32 qib_compute_aeth(struct qib_qp *qp)
 
 	if (qp->ibqp.srq) {
 		/*
-                                                  
-                                               
-   */
+		 * Shared receive queues don't generate credits.
+		 * Set the credit field to the invalid value.
+		 */
 		aeth |= QIB_AETH_CREDIT_INVAL << QIB_AETH_CREDIT_SHIFT;
 	} else {
 		u32 min, max, x;
@@ -920,7 +920,7 @@ __be32 qib_compute_aeth(struct qib_qp *qp)
 		u32 head;
 		u32 tail;
 
-		/*                                            */
+		/* sanity check pointers before trusting them */
 		head = wq->head;
 		if (head >= qp->r_rq.size)
 			head = 0;
@@ -928,17 +928,17 @@ __be32 qib_compute_aeth(struct qib_qp *qp)
 		if (tail >= qp->r_rq.size)
 			tail = 0;
 		/*
-                                                     
-                                                           
-                                                  
-   */
+		 * Compute the number of credits available (RWQEs).
+		 * XXX Not holding the r_rq.lock here so there is a small
+		 * chance that the pair of reads are not atomic.
+		 */
 		credits = head - tail;
 		if ((int)credits < 0)
 			credits += qp->r_rq.size;
 		/*
-                                                       
-         
-   */
+		 * Binary search the credit table to find the code to
+		 * use.
+		 */
 		min = 0;
 		max = 31;
 		for (;;) {
@@ -957,15 +957,15 @@ __be32 qib_compute_aeth(struct qib_qp *qp)
 	return cpu_to_be32(aeth);
 }
 
-/* 
-                                                   
-                                                                         
-                                               
-                                      
-  
-                                                                 
-  
-                                                    
+/**
+ * qib_create_qp - create a queue pair for a device
+ * @ibpd: the protection domain who's device we create the queue pair for
+ * @init_attr: the attributes of the queue pair
+ * @udata: user data for libibverbs.so
+ *
+ * Returns the queue pair on success, otherwise returns an errno.
+ *
+ * Called by the ib_create_qp() core verbs function.
  */
 struct ib_qp *qib_create_qp(struct ib_pd *ibpd,
 			    struct ib_qp_init_attr *init_attr,
@@ -986,7 +986,7 @@ struct ib_qp *qib_create_qp(struct ib_pd *ibpd,
 		goto bail;
 	}
 
-	/*                                                        */
+	/* Check receive queue parameters if no SRQ is specified. */
 	if (!init_attr->srq) {
 		if (init_attr->cap.max_recv_sge > ib_qib_max_sges ||
 		    init_attr->cap.max_recv_wr > ib_qib_max_qp_wrs) {
@@ -1057,9 +1057,9 @@ struct ib_qp *qib_create_qp(struct ib_pd *ibpd,
 		}
 
 		/*
-                                            
-                                
-   */
+		 * ib_create_qp() will initialize qp->ibqp
+		 * except for qp->ibqp.qp_num.
+		 */
 		spin_lock_init(&qp->r_lock);
 		spin_lock_init(&qp->s_lock);
 		spin_lock_init(&qp->r_rq.lock);
@@ -1092,7 +1092,7 @@ struct ib_qp *qib_create_qp(struct ib_pd *ibpd,
 		break;
 
 	default:
-		/*                       */
+		/* Don't support raw QPs */
 		ret = ERR_PTR(-ENOSYS);
 		goto bail;
 	}
@@ -1100,9 +1100,9 @@ struct ib_qp *qib_create_qp(struct ib_pd *ibpd,
 	init_attr->cap.max_inline_data = 0;
 
 	/*
-                                                        
-                               
-  */
+	 * Return the address of the RWQ as the offset to mmap.
+	 * See qib_mmap() for details.
+	 */
 	if (udata && udata->outlen >= sizeof(__u64)) {
 		if (!qp->r_rq.wq) {
 			__u64 offset = 0;
@@ -1166,21 +1166,21 @@ bail:
 	return ret;
 }
 
-/* 
-                                        
-                                   
-  
-                        
-  
-                                                                   
-             
+/**
+ * qib_destroy_qp - destroy a queue pair
+ * @ibqp: the queue pair to destroy
+ *
+ * Returns 0 on success.
+ *
+ * Note that this can be called while the QP is actively sending or
+ * receiving!
  */
 int qib_destroy_qp(struct ib_qp *ibqp)
 {
 	struct qib_qp *qp = to_iqp(ibqp);
 	struct qib_ibdev *dev = to_idev(ibqp->device);
 
-	/*                                              */
+	/* Make sure HW and driver activity is stopped. */
 	spin_lock_irq(&qp->s_lock);
 	if (qp->state != IB_QPS_RESET) {
 		qp->state = IB_QPS_RESET;
@@ -1203,7 +1203,7 @@ int qib_destroy_qp(struct ib_qp *ibqp)
 	} else
 		spin_unlock_irq(&qp->s_lock);
 
-	/*                                          */
+	/* all user's cleaned up, mark it available */
 	free_qpn(&dev->qpn_table, qp->ibqp.qp_num);
 	spin_lock(&dev->n_qps_lock);
 	dev->n_qps_allocated--;
@@ -1218,21 +1218,21 @@ int qib_destroy_qp(struct ib_qp *ibqp)
 	return 0;
 }
 
-/* 
-                                                                   
-                      
+/**
+ * qib_init_qpn_table - initialize the QP number table for a device
+ * @qpt: the QPN table
  */
 void qib_init_qpn_table(struct qib_devdata *dd, struct qib_qpn_table *qpt)
 {
 	spin_lock_init(&qpt->lock);
-	qpt->last = 1;          /*                  */
+	qpt->last = 1;          /* start with QPN 2 */
 	qpt->nmaps = 1;
 	qpt->mask = dd->qpn_mask;
 }
 
-/* 
-                                                             
-                      
+/**
+ * qib_free_qpn_table - free the QP number table for a device
+ * @qpt: the QPN table
  */
 void qib_free_qpn_table(struct qib_qpn_table *qpt)
 {
@@ -1243,22 +1243,22 @@ void qib_free_qpn_table(struct qib_qpn_table *qpt)
 			free_page((unsigned long) qpt->map[i].page);
 }
 
-/* 
-                                                     
-                                             
-                                                   
-  
-                                
+/**
+ * qib_get_credit - flush the send work queue of a QP
+ * @qp: the qp who's send work queue to flush
+ * @aeth: the Acknowledge Extended Transport Header
+ *
+ * The QP s_lock should be held.
  */
 void qib_get_credit(struct qib_qp *qp, u32 aeth)
 {
 	u32 credit = (aeth >> QIB_AETH_CREDIT_SHIFT) & QIB_AETH_CREDIT_MASK;
 
 	/*
-                                         
-                                                      
-                           
-  */
+	 * If the credit is invalid, we can send
+	 * as many packets as we like.  Otherwise, we have to
+	 * honor the credit field.
+	 */
 	if (credit == QIB_AETH_CREDIT_INVAL) {
 		if (!(qp->s_flags & QIB_S_UNLIMITED_CREDIT)) {
 			qp->s_flags |= QIB_S_UNLIMITED_CREDIT;
@@ -1268,7 +1268,7 @@ void qib_get_credit(struct qib_qp *qp, u32 aeth)
 			}
 		}
 	} else if (!(qp->s_flags & QIB_S_UNLIMITED_CREDIT)) {
-		/*                                      */
+		/* Compute new LSN (i.e., MSN + credit) */
 		credit = (aeth + credit_table[credit]) & QIB_MSN_MASK;
 		if (qib_cmp24(credit, qp->s_lsn) > 0) {
 			qp->s_lsn = credit;

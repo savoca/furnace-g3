@@ -9,7 +9,7 @@
  */
 
 /*
-                                                          
+ * Inport (ATI XL and Microsoft) busmouse driver for Linux
  */
 
 /*

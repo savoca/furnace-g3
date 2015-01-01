@@ -22,7 +22,7 @@
 
 #define MFPR_SIZE	(PAGE_SIZE)
 
-/*                               */
+/* MFPR register bit definitions */
 #define MFPR_PULL_SEL		(0x1 << 15)
 #define MFPR_PULLUP_EN		(0x1 << 14)
 #define MFPR_PULLDOWN_EN	(0x1 << 13)
@@ -42,20 +42,20 @@
 #define MFPR_EDGE_BOTH		(MFPR_EDGE_RISE | MFPR_EDGE_FALL)
 
 /*
-                                                                          
-                                                                          
-                                                                           
-                                                                        
-  
-                                                                         
-                                                                         
-  
-                                                                   
-                                                                   
-                                                            
-                                                            
-                                                            
-                                                            
+ * Table that determines the low power modes outputs, with actual settings
+ * used in parentheses for don't-care values. Except for the float output,
+ * the configured driven and pulled levels match, so if there is a need for
+ * non-LPM pulled output, the same configuration could probably be used.
+ *
+ * Output value  sleep_oe_n  sleep_data  pullup_en  pulldown_en  pull_sel
+ *                 (bit 7)    (bit 8)    (bit 14)     (bit 13)   (bit 15)
+ *
+ * Input            0          X(0)        X(0)        X(0)       0
+ * Drive 0          0          0           0           X(1)       0
+ * Drive 1          0          1           X(1)        0	  0
+ * Pull hi (1)      1          X(1)        1           0	  0
+ * Pull lo (0)      1          X(0)        0           1	  0
+ * Z (float)        1          X(0)        0           0	  0
  */
 #define MFPR_LPM_INPUT		(0)
 #define MFPR_LPM_DRIVE_LOW	(MFPR_SLEEP_DATA(0) | MFPR_PULLDOWN_EN)
@@ -66,17 +66,17 @@
 #define MFPR_LPM_MASK		(0xe080)
 
 /*
-                                                                         
-                                                                         
-                                                                         
-                                                   
-  
-                                                    
-                                            
-                                            
-                                            
-                                            
-                                       
+ * The pullup and pulldown state of the MFP pin at run mode is by default
+ * determined by the selected alternate function. In case that some buggy
+ * devices need to override this default behavior,  the definitions below
+ * indicates the setting of corresponding MFPR bits
+ *
+ * Definition       pull_sel  pullup_en  pulldown_en
+ * MFPR_PULL_NONE       0         0        0
+ * MFPR_PULL_LOW        1         0        1
+ * MFPR_PULL_HIGH       1         1        0
+ * MFPR_PULL_BOTH       1         1        1
+ * MFPR_PULL_FLOAT	1         0        0
  */
 #define MFPR_PULL_NONE		(0)
 #define MFPR_PULL_LOW		(MFPR_PULL_SEL | MFPR_PULLDOWN_EN)
@@ -84,24 +84,24 @@
 #define MFPR_PULL_HIGH		(MFPR_PULL_SEL | MFPR_PULLUP_EN)
 #define MFPR_PULL_FLOAT		(MFPR_PULL_SEL)
 
-/*                                                                
-                                                                  
-                            
+/* mfp_spin_lock is used to ensure that MFP register configuration
+ * (most likely a read-modify-write operation) is atomic, and that
+ * mfp_table[] is consistent
  */
 static DEFINE_SPINLOCK(mfp_spin_lock);
 
 static void __iomem *mfpr_mmio_base;
 
 struct mfp_pin {
-	unsigned long	config;		/*                       */
-	unsigned long	mfpr_off;	/*                        */
-	unsigned long	mfpr_run;	/*                         */
-	unsigned long	mfpr_lpm;	/*                               */
+	unsigned long	config;		/* -1 for not configured */
+	unsigned long	mfpr_off;	/* MFPRxx Register offset */
+	unsigned long	mfpr_run;	/* Run-Mode Register Value */
+	unsigned long	mfpr_lpm;	/* Low Power Mode Register Value */
 };
 
 static struct mfp_pin mfp_table[MFP_PIN_MAX];
 
-/*                                                              */
+/* mapping of MFP_LPM_* definitions to MFPR_LPM_* register bits */
 static const unsigned long mfpr_lpm[] = {
 	MFPR_LPM_INPUT,
 	MFPR_LPM_DRIVE_LOW,
@@ -112,7 +112,7 @@ static const unsigned long mfpr_lpm[] = {
 	MFPR_LPM_INPUT,
 };
 
-/*                                                                */
+/* mapping of MFP_PULL_* definitions to MFPR_PULL_* register bits */
 static const unsigned long mfpr_pull[] = {
 	MFPR_PULL_NONE,
 	MFPR_PULL_LOW,
@@ -121,7 +121,7 @@ static const unsigned long mfpr_pull[] = {
 	MFPR_PULL_FLOAT,
 };
 
-/*                                                                    */
+/* mapping of MFP_LPM_EDGE_* definitions to MFPR_EDGE_* register bits */
 static const unsigned long mfpr_edge[] = {
 	MFPR_EDGE_NONE,
 	MFPR_EDGE_RISE,
@@ -138,8 +138,8 @@ static const unsigned long mfpr_edge[] = {
 #define mfp_configured(p)	((p)->config != -1)
 
 /*
-                                                                  
-                                 
+ * perform a read-back of any valid MFPR register to make sure the
+ * previous writings are finished
  */
 static unsigned long mfpr_off_readback;
 #define mfpr_sync()	(void)__raw_readl(mfpr_mmio_base + mfpr_off_readback)
@@ -183,10 +183,10 @@ void mfp_config(unsigned long *mfp_cfgs, int num)
 		edge = MFP_LPM_EDGE(c);
 		pull = MFP_PULL(c);
 
-		/*                                                       
-                                                           
-                                          
-   */
+		/* run-mode pull settings will conflict with MFPR bits of
+		 * low power mode state,  calculate mfpr_run and mfpr_lpm
+		 * individually if pull != MFP_PULL_NONE
+		 */
 		tmp = MFPR_AF_SEL(af) | MFPR_DRIVE(drv);
 
 		if (likely(pull == MFP_PULL_NONE)) {
@@ -233,7 +233,7 @@ void __init mfp_init_base(void __iomem *mfpr_base)
 {
 	int i;
 
-	/*                                                  */
+	/* initialize the table with default - unconfigured */
 	for (i = 0; i < ARRAY_SIZE(mfp_table); i++)
 		mfp_table[i].config = -1;
 
@@ -248,7 +248,7 @@ void __init mfp_init_addr(struct mfp_addr_map *map)
 
 	spin_lock_irqsave(&mfp_spin_lock, flags);
 
-	/*                         */
+	/* mfp offset for readback */
 	mfpr_off_readback = map[0].offset;
 
 	for (p = map; p->start != MFP_PIN_INVALID; p++) {

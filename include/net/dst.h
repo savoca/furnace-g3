@@ -1,8 +1,8 @@
 /*
-                                                                
-  
-                                                    
-  
+ * net/dst.h	Protocol independent destination cache definitions.
+ *
+ * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
+ *
  */
 
 #ifndef _NET_DST_H
@@ -21,11 +21,11 @@
 #define DST_GC_INC	(HZ/2)
 #define DST_GC_MAX	(120*HZ)
 
-/*                                                                    
-                                                                 
-                                                                        
-                                                                  
-                                                                   
+/* Each dst_entry has reference count and sits in some parent list(s).
+ * When it is removed from parent list, it is "freed" (dst_free).
+ * After this it enters dead state (dst->obsolete > 0) and if its refcnt
+ * is zero, it can be destroyed immediately, otherwise it is added
+ * to gc list and garbage collector periodically checks the refcnt.
  */
 
 struct sk_buff;
@@ -38,7 +38,7 @@ struct dst_entry {
 	unsigned long		_metrics;
 	union {
 		unsigned long           expires;
-		/*                                          */
+		/* point to where the dst_entry copied from */
 		struct dst_entry        *from;
 	};
 	struct dst_entry	*path;
@@ -63,8 +63,8 @@ struct dst_entry {
 
 	short			error;
 	short			obsolete;
-	unsigned short		header_len;	/*                             */
-	unsigned short		trailer_len;	/*                          */
+	unsigned short		header_len;	/* more space at head required */
+	unsigned short		trailer_len;	/* space to reserve at tail */
 #ifdef CONFIG_IP_ROUTE_CLASSID
 	__u32			tclassid;
 #else
@@ -72,17 +72,17 @@ struct dst_entry {
 #endif
 
 	/*
-                                          
-                                     
-  */
+	 * Align __refcnt to a 64 bytes alignment
+	 * (L1_CACHE_SIZE would be too much)
+	 */
 #ifdef CONFIG_64BIT
 	long			__pad_to_align_refcnt[2];
 #endif
 	/*
-                                                       
-                                               
-  */
-	atomic_t		__refcnt;	/*                   */
+	 * __refcnt wants to be on a different cache line from
+	 * input/output/ops or performance tanks badly
+	 */
+	atomic_t		__refcnt;	/* client references	*/
 	int			__use;
 	unsigned long		lastuse;
 	union {
@@ -141,8 +141,8 @@ static inline u32 *dst_metrics_write_ptr(struct dst_entry *dst)
 	return __DST_METRICS_PTR(p);
 }
 
-/*                                                             
-              
+/* This may only be invoked before the entry has reached global
+ * visibility.
  */
 static inline void dst_init_metrics(struct dst_entry *dst,
 				    const u32 *src_metrics,
@@ -215,7 +215,7 @@ static inline u32 dst_mtu(const struct dst_entry *dst)
 	return dst->ops->mtu(dst);
 }
 
-/*                                                                          */
+/* RTT metrics are stored in milliseconds for user ABI, but used as jiffies */
 static inline unsigned long dst_metric_rtt(const struct dst_entry *dst, int metric)
 {
 	return msecs_to_jiffies(dst_metric(dst, metric));
@@ -243,9 +243,9 @@ dst_metric_locked(const struct dst_entry *dst, int metric)
 static inline void dst_hold(struct dst_entry * dst)
 {
 	/*
-                                                       
-                                                         
-  */
+	 * If your kernel compilation stops here, please check
+	 * __pad_to_align_refcnt declaration in struct dst_entry
+	 */
 	BUILD_BUG_ON(offsetof(struct dst_entry, __refcnt) & 63);
 	atomic_inc(&dst->__refcnt);
 }
@@ -279,11 +279,11 @@ static inline void refdst_drop(unsigned long refdst)
 		dst_release((struct dst_entry *)(refdst & SKB_DST_PTRMASK));
 }
 
-/* 
-                               
-               
-  
-                                                      
+/**
+ * skb_dst_drop - drops skb dst
+ * @skb: buffer
+ *
+ * Drops dst reference count if a reference was taken.
  */
 static inline void skb_dst_drop(struct sk_buff *skb)
 {
@@ -300,11 +300,11 @@ static inline void skb_dst_copy(struct sk_buff *nskb, const struct sk_buff *oskb
 		dst_clone(skb_dst(nskb));
 }
 
-/* 
-                                                   
-               
-  
-                                            
+/**
+ * skb_dst_force - makes sure skb dst is refcounted
+ * @skb: buffer
+ *
+ * If dst is not yet refcounted, let's do it
  */
 static inline void skb_dst_force(struct sk_buff *skb)
 {
@@ -316,23 +316,23 @@ static inline void skb_dst_force(struct sk_buff *skb)
 }
 
 
-/* 
-                                                
-               
-                      
-  
-                                                                           
-                                              
+/**
+ *	__skb_tunnel_rx - prepare skb for rx reinsert
+ *	@skb: buffer
+ *	@dev: tunnel device
+ *
+ *	After decapsulation, packet is going to re-enter (netif_rx()) our stack,
+ *	so make some cleanups. (no accounting done)
  */
 static inline void __skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev)
 {
 	skb->dev = dev;
 
 	/*
-                                                           
-                                                                  
-                        
-  */
+	 * Clear rxhash so that we can recalulate the hash for the
+	 * encapsulated packet, unless we have already determine the hash
+	 * over the L4 4-tuple.
+	 */
 	if (!skb->l4_rxhash)
 		skb->rxhash = 0;
 	skb_set_queue_mapping(skb, 0);
@@ -340,25 +340,25 @@ static inline void __skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev)
 	nf_reset(skb);
 }
 
-/* 
-                                              
-               
-                      
-  
-                                                                           
-                                                 
-                                         
+/**
+ *	skb_tunnel_rx - prepare skb for rx reinsert
+ *	@skb: buffer
+ *	@dev: tunnel device
+ *
+ *	After decapsulation, packet is going to re-enter (netif_rx()) our stack,
+ *	so make some cleanups, and perform accounting.
+ *	Note: this accounting is not SMP safe.
  */
 static inline void skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev)
 {
-	/*                                 */
+	/* TODO : stats should be SMP safe */
 	dev->stats.rx_packets++;
 	dev->stats.rx_bytes += skb->len;
 	__skb_tunnel_rx(skb, dev);
 }
 
-/*                                                   
-                                                       
+/* Children define the path of the packet through the
+ * Linux networking.  Thus, destinations are stackable.
  */
 
 static inline struct dst_entry *skb_dst_pop(struct sk_buff *skb)
@@ -428,13 +428,13 @@ static inline void dst_set_expires(struct dst_entry *dst, int timeout)
 		dst->expires = expires;
 }
 
-/*                                           */
+/* Output packet to network from transport.  */
 static inline int dst_output(struct sk_buff *skb)
 {
 	return skb_dst(skb)->output(skb);
 }
 
-/*                                          */
+/* Input packet from network to transport.  */
 static inline int dst_input(struct sk_buff *skb)
 {
 	return skb_dst(skb)->input(skb);
@@ -449,7 +449,7 @@ static inline struct dst_entry *dst_check(struct dst_entry *dst, u32 cookie)
 
 extern void		dst_init(void);
 
-/*                                       */
+/* Flags for xfrm_lookup flags argument. */
 enum {
 	XFRM_LOOKUP_ICMP = 1 << 0,
 };
@@ -469,4 +469,4 @@ extern struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig
 				     int flags);
 #endif
 
-#endif /*            */
+#endif /* _NET_DST_H */

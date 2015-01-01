@@ -1,4 +1,4 @@
-/*                                                                         */
+/***************************************************************************/
 
 /*
  *	linux/arch/m68knommu/platform/coldfire/vectors.c
@@ -6,7 +6,7 @@
  *	Copyright (C) 1999-2007, Greg Ungerer <gerg@snapgear.com>
  */
 
-/*                                                                         */
+/***************************************************************************/
 
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -17,7 +17,7 @@
 #include <asm/mcfsim.h>
 #include <asm/mcfwdebug.h>
 
-/*                                                                         */
+/***************************************************************************/
 
 #ifdef TRAP_DBG_INTERRUPT
 
@@ -31,9 +31,9 @@ asmlinkage void dbginterrupt_c(struct frame *fp)
 
 #endif
 
-/*                                                                         */
+/***************************************************************************/
 
-/*                    */
+/* Assembler routines */
 asmlinkage void buserr(void);
 asmlinkage void trap(void);
 asmlinkage void system_call(void);
@@ -44,11 +44,11 @@ void __init trap_init(void)
 	int i;
 
 	/*
-                                                       
-                                                     
-                                                         
-                             
-  */
+	 *	There is a common trap handler and common interrupt
+	 *	handler that handle almost every vector. We treat
+	 *	the system call and bus error special, they get their
+	 *	own first level handlers.
+	 */
 	for (i = 3; (i <= 23); i++)
 		_ramvec[i] = trap;
 	for (i = 33; (i <= 63); i++)
@@ -67,4 +67,4 @@ void __init trap_init(void)
 #endif
 }
 
-/*                                                                         */
+/***************************************************************************/

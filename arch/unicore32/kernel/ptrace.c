@@ -17,10 +17,10 @@
 #include <linux/uaccess.h>
 
 /*
-                                                                      
-                                                                    
-                                                                 
-              
+ * this routine will get a word off of the processes privileged stack.
+ * the offset is how far from the base addr as stored in the THREAD.
+ * this routine assumes that all the privileged stacks are in our
+ * data space.
  */
 static inline long get_user_reg(struct task_struct *task, int offset)
 {
@@ -28,10 +28,10 @@ static inline long get_user_reg(struct task_struct *task, int offset)
 }
 
 /*
-                                                                  
-                                                                    
-                                                                 
-              
+ * this routine will put a word on the processes privileged stack.
+ * the offset is how far from the base addr as stored in the THREAD.
+ * this routine assumes that all the privileged stacks are in our
+ * data space.
  */
 static inline int
 put_user_reg(struct task_struct *task, int offset, long data)
@@ -51,14 +51,14 @@ put_user_reg(struct task_struct *task, int offset, long data)
 }
 
 /*
-                                             
+ * Called by kernel/ptrace.c when detaching..
  */
 void ptrace_disable(struct task_struct *child)
 {
 }
 
 /*
-                                                             
+ * We actually access the pt_regs stored on the kernel stack.
  */
 static int ptrace_read_user(struct task_struct *tsk, unsigned long off,
 			    unsigned long __user *ret)
@@ -73,7 +73,7 @@ static int ptrace_read_user(struct task_struct *tsk, unsigned long off,
 }
 
 /*
-                                                             
+ * We actually access the pt_regs stored on the kernel stack.
  */
 static int ptrace_write_user(struct task_struct *tsk, unsigned long off,
 			     unsigned long val)
@@ -122,23 +122,23 @@ asmlinkage int syscall_trace(int why, struct pt_regs *regs, int scno)
 		return scno;
 
 	/*
-                                                      
-                                 
-  */
+	 * Save IP.  IP is used to denote syscall entry/exit:
+	 *  IP = 0 -> entry, = 1 -> exit
+	 */
 	ip = regs->UCreg_ip;
 	regs->UCreg_ip = why;
 
 	current_thread_info()->syscall = scno;
 
-	/*                                                              
-                                                */
+	/* the 0x80 provides a way for the tracing parent to distinguish
+	   between a syscall stop and SIGTRAP delivery */
 	ptrace_notify(SIGTRAP | ((current->ptrace & PT_TRACESYSGOOD)
 				 ? 0x80 : 0));
 	/*
-                                                                   
-                                                               
-                                         
-  */
+	 * this isn't the same as continuing with a signal, but it will do
+	 * for normal use.  strace only continues with a signal if the
+	 * stopping signal is not SIGTRAP.  -brl
+	 */
 	if (current->exit_code) {
 		send_sig(current->exit_code, current, 1);
 		current->exit_code = 0;

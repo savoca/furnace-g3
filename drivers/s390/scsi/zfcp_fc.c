@@ -26,9 +26,9 @@ static u32 zfcp_fc_rscn_range_mask[] = {
 	[ELS_ADDR_FMT_FAB]		= 0x000000,
 };
 
-/* 
-                                                                
-                                          
+/**
+ * zfcp_fc_post_event - post event to userspace via fc_transport
+ * @work: work struct with enqueued events
  */
 void zfcp_fc_post_event(struct work_struct *work)
 {
@@ -52,12 +52,12 @@ void zfcp_fc_post_event(struct work_struct *work)
 
 }
 
-/* 
-                                                                           
-                                                   
-                                                                   
-                        
-                                                                
+/**
+ * zfcp_fc_enqueue_event - safely enqueue FC HBA API event from irq context
+ * @adapter: The adapter where to enqueue the event
+ * @event_code: The event code (as defined in fc_host_event_code in
+ *		scsi_transport_fc.h)
+ * @event_data: The event data (e.g. n_port page in case of els)
  */
 void zfcp_fc_enqueue_event(struct zfcp_adapter *adapter,
 			enum fc_host_event_code event_code, u32 event_data)
@@ -127,7 +127,7 @@ static void zfcp_fc_wka_port_put(struct zfcp_fc_wka_port *wka_port)
 {
 	if (atomic_dec_return(&wka_port->refcount) != 0)
 		return;
-	/*                                               */
+	/* wait 10 milliseconds, other reqs might pop in */
 	schedule_delayed_work(&wka_port->work, HZ / 100);
 }
 
@@ -194,11 +194,11 @@ static void zfcp_fc_incoming_rscn(struct zfcp_fsf_req *fsf_req)
 	head = (struct fc_els_rscn *) status_buffer->payload.data;
 	page = (struct fc_els_rscn_page *) head;
 
-	/*           */
+	/* see FC-FS */
 	no_entries = head->rscn_plen / sizeof(struct fc_els_rscn_page);
 
 	for (i = 1; i < no_entries; i++) {
-		/*                                      */
+		/* skip head and start with 1st element */
 		page++;
 		afmt = page->rscn_page_flags & ELS_RSCN_ADDR_FMT_MASK;
 		_zfcp_fc_incoming_rscn(fsf_req, zfcp_fc_rscn_range_mask[afmt],
@@ -244,9 +244,9 @@ static void zfcp_fc_incoming_logo(struct zfcp_fsf_req *req)
 	zfcp_fc_incoming_wwpn(req, logo->fl_n_port_wwn);
 }
 
-/* 
-                                             
-                                                 
+/**
+ * zfcp_fc_incoming_els - handle incoming ELS
+ * @fsf_req - request which contains incoming ELS
  */
 void zfcp_fc_incoming_els(struct zfcp_fsf_req *fsf_req)
 {
@@ -273,7 +273,7 @@ static void zfcp_fc_ns_gid_pn_eval(struct zfcp_fc_req *fc_req)
 	if (gid_pn_rsp->ct_hdr.ct_cmd != FC_FS_ACC)
 		return;
 
-	/*                         */
+	/* looks like a valid d_id */
 	ct_els->port->d_id = ntoh24(gid_pn_rsp->gid_pn.fp_fid);
 }
 
@@ -300,7 +300,7 @@ static int zfcp_fc_ns_gid_pn_request(struct zfcp_port *port,
 	struct zfcp_fc_gid_pn_rsp *gid_pn_rsp = &fc_req->u.gid_pn.rsp;
 	int ret;
 
-	/*                                           */
+	/* setup parameters for send generic command */
 	fc_req->ct_els.port = port;
 	fc_req->ct_els.handler = zfcp_fc_complete;
 	fc_req->ct_els.handler_data = &completion;
@@ -323,10 +323,10 @@ static int zfcp_fc_ns_gid_pn_request(struct zfcp_port *port,
 	return ret;
 }
 
-/* 
-                                                         
-                                             
-                                        
+/**
+ * zfcp_fc_ns_gid_pn - initiate GID_PN nameserver request
+ * @port: port where GID_PN request is needed
+ * return: -ENOMEM on error, 0 otherwise
  */
 static int zfcp_fc_ns_gid_pn(struct zfcp_port *port)
 {
@@ -360,7 +360,7 @@ void zfcp_fc_port_did_lookup(struct work_struct *work)
 
 	ret = zfcp_fc_ns_gid_pn(port);
 	if (ret) {
-		/*                                        */
+		/* could not issue gid_pn for some reason */
 		zfcp_erp_adapter_reopen(port->adapter, 0, "fcgpn_1");
 		goto out;
 	}
@@ -375,9 +375,9 @@ out:
 	put_device(&port->dev);
 }
 
-/* 
-                                                                              
-                                               
+/**
+ * zfcp_fc_trigger_did_lookup - trigger the d_id lookup using a GID_PN request
+ * @port: The zfcp_port to lookup the d_id for.
  */
 void zfcp_fc_trigger_did_lookup(struct zfcp_port *port)
 {
@@ -386,12 +386,12 @@ void zfcp_fc_trigger_did_lookup(struct zfcp_port *port)
 		put_device(&port->dev);
 }
 
-/* 
-                                                   
-                             
-                        
-  
-                                                                             
+/**
+ * zfcp_fc_plogi_evaluate - evaluate PLOGI playload
+ * @port: zfcp_port structure
+ * @plogi: plogi payload
+ *
+ * Evaluate PLOGI playload and copy important fields into zfcp_port structure
  */
 void zfcp_fc_plogi_evaluate(struct zfcp_port *port, struct fc_els_flogi *plogi)
 {
@@ -425,7 +425,7 @@ static void zfcp_fc_adisc_handler(void *data)
 	struct fc_els_adisc *adisc_resp = &fc_req->u.adisc.rsp;
 
 	if (fc_req->ct_els.status) {
-		/*                               */
+		/* request rejected or timed out */
 		zfcp_erp_port_forced_reopen(port, ZFCP_STATUS_COMMON_ERP_FAILED,
 					    "fcadh_1");
 		goto out;
@@ -441,7 +441,7 @@ static void zfcp_fc_adisc_handler(void *data)
 		goto out;
 	}
 
-	/*                                                       */
+	/* port is good, unblock rport without going through erp */
 	zfcp_scsi_schedule_rport_register(port);
  out:
 	atomic_clear_mask(ZFCP_STATUS_PORT_LINK_TEST, &port->status);
@@ -471,8 +471,8 @@ static int zfcp_fc_adisc(struct zfcp_port *port)
 	fc_req->ct_els.handler = zfcp_fc_adisc_handler;
 	fc_req->ct_els.handler_data = fc_req;
 
-	/*                                                                  
-                                                   */
+	/* acc. to FC-FS, hard_nport_id in ADISC should not be set for ports
+	   without FC-AL-2 capability, so we don't set it */
 	fc_req->u.adisc.req.adisc_wwpn = fc_host_port_name(shost);
 	fc_req->u.adisc.req.adisc_wwnn = fc_host_node_name(shost);
 	fc_req->u.adisc.req.adisc_cmd = ELS_ADISC;
@@ -496,7 +496,7 @@ void zfcp_fc_link_test_work(struct work_struct *work)
 	port->rport_task = RPORT_DEL;
 	zfcp_scsi_rport_work(&port->rport_work);
 
-	/*                                                  */
+	/* only issue one test command at one time per port */
 	if (atomic_read(&port->status) & ZFCP_STATUS_PORT_LINK_TEST)
 		goto out;
 
@@ -506,7 +506,7 @@ void zfcp_fc_link_test_work(struct work_struct *work)
 	if (retval == 0)
 		return;
 
-	/*                                */
+	/* send of ADISC was not possible */
 	atomic_clear_mask(ZFCP_STATUS_PORT_LINK_TEST, &port->status);
 	zfcp_erp_port_forced_reopen(port, 0, "fcltwk1");
 
@@ -514,13 +514,13 @@ out:
 	put_device(&port->dev);
 }
 
-/* 
-                                                      
-                           
-  
-                                                                      
-                                                                   
-                     
+/**
+ * zfcp_fc_test_link - lightweight link test procedure
+ * @port: port to be tested
+ *
+ * Test status of a link to a remote port using the ELS command ADISC.
+ * If there is a problem with the remote port, error recovery steps
+ * will be triggered.
  */
 void zfcp_fc_test_link(struct zfcp_port *port)
 {
@@ -603,7 +603,7 @@ static int zfcp_fc_eval_gpn_ft(struct zfcp_fc_req *fc_req,
 
 	if (hdr->ct_cmd != FC_FS_ACC) {
 		if (hdr->ct_reason == FC_BA_RJT_UNABLE)
-			return -EAGAIN; /*                                */
+			return -EAGAIN; /* might be a temporary condition */
 		return -EIO;
 	}
 
@@ -614,7 +614,7 @@ static int zfcp_fc_eval_gpn_ft(struct zfcp_fc_req *fc_req,
 		return -E2BIG;
 	}
 
-	/*                           */
+	/* first entry is the header */
 	for (x = 1; x < max_entries && !last; x++) {
 		if (x % (ZFCP_FC_GPN_FT_ENT_PAGE + 1))
 			acc++;
@@ -624,10 +624,10 @@ static int zfcp_fc_eval_gpn_ft(struct zfcp_fc_req *fc_req,
 		last = acc->fp_flags & FC_NS_FID_LAST;
 		d_id = ntoh24(acc->fp_fid);
 
-		/*                                              */
+		/* don't attach ports with a well known address */
 		if (d_id >= FC_FID_WELL_KNOWN_BASE)
 			continue;
-		/*                                                */
+		/* skip the adapter's port and known remote ports */
 		if (acc->fp_wwpn == fc_host_port_name(adapter->scsi_host))
 			continue;
 
@@ -653,9 +653,9 @@ static int zfcp_fc_eval_gpn_ft(struct zfcp_fc_req *fc_req,
 	return ret;
 }
 
-/* 
-                                                              
-                                     
+/**
+ * zfcp_fc_scan_ports - scan remote ports and attach new ports
+ * @work: reference to scheduled work
  */
 void zfcp_fc_scan_ports(struct work_struct *work)
 {
@@ -773,16 +773,16 @@ static void zfcp_fc_rspn(struct zfcp_adapter *adapter,
 		wait_for_completion(&completion);
 }
 
-/* 
-                                                                       
-                                                                          
-  
-                                                                    
-                                                             
-                                                                      
-                                                                     
-                                                                      
-                          
+/**
+ * zfcp_fc_sym_name_update - Retrieve and update the symbolic port name
+ * @work: ns_up_work of the adapter where to update the symbolic port name
+ *
+ * Retrieve the current symbolic port name that may have been set by
+ * the hardware using the GSPN request and update the fc_host
+ * symbolic_name sysfs attribute. When running in NPIV mode (and hence
+ * the port name is unique for this system), update the symbolic port
+ * name to add Linux specific information and update the FC nameserver
+ * using the RSPN request.
  */
 void zfcp_fc_sym_name_update(struct work_struct *work)
 {
@@ -941,7 +941,7 @@ int zfcp_fc_exec_bsg_job(struct fc_bsg_job *job)
 
 int zfcp_fc_timeout_bsg_job(struct fc_bsg_job *job)
 {
-	/*                                                             */
+	/* hardware tracks timeout, reset bsg timeout to not interfere */
 	return -EAGAIN;
 }
 

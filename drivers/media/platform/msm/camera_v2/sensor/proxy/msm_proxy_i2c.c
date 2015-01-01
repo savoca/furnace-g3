@@ -63,47 +63,47 @@ int32_t ProxyRead8bit(uint32_t RegAddr, uint8_t *RegData)
 }
 
 /*
-                                                            
- 
-                 
-                                   
-                                             
-            
- 
-                                                            
- 
-                 
-                   
+int32_t ProxyE2PRegWriteA(uint16_t RegAddr, uint8_t RegData)
+{
+	int32_t ret = 0;
+	uint16_t data = (uint16_t)RegData;
+	ret = proxy_i2c_e2p_write(RegAddr, data, 1);
+	return ret;
+}
+int32_t ProxyE2PRegReadA(uint16_t RegAddr, uint8_t *RegData)
+{
+	int32_t ret = 0;
+	uint16_t data = 0;
 
-                                             
-                          
-            
- 
-                                                                    
- 
-                
-                 
+	ret = proxy_i2c_e2p_read(RegAddr, &data, 1);
+	*RegData = (uint8_t)data;
+	return ret;
+}
+int32_t ProxyE2pRed( uint16_t UsAdr, uint8_t UcLen, uint8_t *UcPtr )
+{
+	uint16_t UcCnt;
+	int32_t ret = 0;
 
-            
-  
-                    
-                                                  
-    
-                                        
-    
-  
-            
- 
+	if(UcLen>0)
+	{
+		UcPtr += UcLen-1 ;
+		for( UcCnt = 0; UcCnt < UcLen;  UcCnt++,UcPtr--)
+	 	{
+			ProxyE2PRegReadA(UsAdr+UcCnt, UcPtr);
+	 	}
+	}
+	return ret;
+}
 
-                                                                    
- 
-                 
-                
+int32_t ProxyE2pWrt( uint16_t UsAdr, uint8_t UcLen, uint8_t *UcPtr )
+{
+	int32_t ret = 0;
+	uint8_t UcCnt ;
 
-                                             
-                                                                                      
-  
+	for( UcCnt = 0 ; UcCnt < UcLen;  UcCnt++ ) {
+		ProxyE2PRegWriteA( UsAdr + UcCnt , (uint8_t) UcPtr[ abs(( UcLen - 1 ) - UcCnt) ] ) ;
+	}
 
-            
- 
+	return ret;
+}
 */

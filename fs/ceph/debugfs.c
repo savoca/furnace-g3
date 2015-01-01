@@ -44,7 +44,7 @@ static int mdsmap_show(struct seq_file *s, void *p)
 }
 
 /*
-               
+ * mdsc debugfs
  */
 static int mdsc_show(struct seq_file *s, void *p)
 {
@@ -162,7 +162,7 @@ CEPH_DEFINE_SHOW_FUNC(dentry_lru_show)
 
 
 /*
-          
+ * debugfs
  */
 static int congestion_kb_set(void *data, u64 val)
 {
@@ -259,7 +259,7 @@ out:
 }
 
 
-#else  /*                 */
+#else  /* CONFIG_DEBUG_FS */
 
 int ceph_fs_debugfs_init(struct ceph_fs_client *fsc)
 {
@@ -270,4 +270,4 @@ void ceph_fs_debugfs_cleanup(struct ceph_fs_client *fsc)
 {
 }
 
-#endif  /*                 */
+#endif  /* CONFIG_DEBUG_FS */

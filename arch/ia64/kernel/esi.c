@@ -27,8 +27,8 @@ enum esi_systab_entry_type {
 };
 
 /*
-                    
-       
+ * Entry type:	Size:
+ *	0	48
  */
 #define ESI_DESC_SIZE(type)	"\060"[(unsigned) (type)]
 
@@ -77,9 +77,9 @@ static int __init esi_init (void)
 	p = (char *) (systab + 1);
 	for (i = 0; i < systab->entry_count; i++) {
 		/*
-                                                        
-                
-   */
+		 * The first byte of each entry type contains the type
+		 * descriptor.
+		 */
 		switch (*p) {
 		      case ESI_DESC_ENTRY_POINT:
 			break;
@@ -202,4 +202,4 @@ static void __exit esi_exit (void)
 }
 
 module_init(esi_init);
-module_exit(esi_exit);	/*                           */
+module_exit(esi_exit);	/* makes module removable... */

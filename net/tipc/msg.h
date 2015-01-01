@@ -40,23 +40,23 @@
 #include "bearer.h"
 
 /*
-                                                                             
-  
-                                                                    
+ * Constants and routines used to read and write TIPC payload message headers
+ *
+ * Note: Some items are also used with TIPC internal message headers
  */
 
 #define TIPC_VERSION              2
 
 /*
-                                                          
-                        
-                           
-                         
-                             
+ * Payload message users are defined in TIPC's public API:
+ * - TIPC_LOW_IMPORTANCE
+ * - TIPC_MEDIUM_IMPORTANCE
+ * - TIPC_HIGH_IMPORTANCE
+ * - TIPC_CRITICAL_IMPORTANCE
  */
 
 /*
-                        
+ * Payload message types
  */
 
 #define TIPC_CONN_MSG		0
@@ -65,16 +65,16 @@
 #define TIPC_DIRECT_MSG		3
 
 /*
-                       
+ * Message header sizes
  */
 
-#define SHORT_H_SIZE              24	/*                                  */
-#define BASIC_H_SIZE              32	/*                       */
-#define NAMED_H_SIZE              40	/*                       */
-#define MCAST_H_SIZE              44	/*                           */
-#define INT_H_SIZE                40	/*                   */
-#define MIN_H_SIZE                24	/*                                 */
-#define MAX_H_SIZE                60	/*                                   */
+#define SHORT_H_SIZE              24	/* In-cluster basic payload message */
+#define BASIC_H_SIZE              32	/* Basic payload message */
+#define NAMED_H_SIZE              40	/* Named payload message */
+#define MCAST_H_SIZE              44	/* Multicast payload message */
+#define INT_H_SIZE                40	/* Internal messages */
+#define MIN_H_SIZE                24	/* Smallest legal TIPC header size */
+#define MAX_H_SIZE                60	/* Largest possible TIPC header size */
 
 #define MAX_MSG_SIZE (MAX_H_SIZE + TIPC_MAX_USER_MSG_SIZE)
 
@@ -119,7 +119,7 @@ static inline void msg_swap_words(struct tipc_msg *msg, u32 a, u32 b)
 }
 
 /*
-         
+ * Word 0
  */
 
 static inline u32 msg_version(struct tipc_msg *m)
@@ -214,7 +214,7 @@ static inline void msg_set_size(struct tipc_msg *m, u32 sz)
 
 
 /*
-         
+ * Word 1
  */
 
 static inline u32 msg_type(struct tipc_msg *m)
@@ -289,7 +289,7 @@ static inline void msg_set_bcast_ack(struct tipc_msg *m, u32 n)
 
 
 /*
-         
+ * Word 2
  */
 
 static inline u32 msg_ack(struct tipc_msg *m)
@@ -313,7 +313,7 @@ static inline void msg_set_seqno(struct tipc_msg *m, u32 n)
 }
 
 /*
-             
+ * Words 3-10
  */
 
 
@@ -436,25 +436,25 @@ static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
 
 
 /*
-                                                                              
+ * Constants and routines used to read and write TIPC internal message headers
  */
 
 /*
-                         
+ * Internal message users
  */
 
 #define  BCAST_PROTOCOL       5
 #define  MSG_BUNDLER          6
 #define  LINK_PROTOCOL        7
 #define  CONN_MANAGER         8
-#define  ROUTE_DISTRIBUTOR    9		/*           */
+#define  ROUTE_DISTRIBUTOR    9		/* obsoleted */
 #define  CHANGEOVER_PROTOCOL  10
 #define  NAME_DISTRIBUTOR     11
 #define  MSG_FRAGMENTER       12
 #define  LINK_CONFIG          13
 
 /*
-                                                
+ *  Connection management protocol message types
  */
 
 #define CONN_PROBE        0
@@ -462,14 +462,14 @@ static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
 #define CONN_ACK          2
 
 /*
-                                 
+ * Name distributor message types
  */
 
 #define PUBLICATION       0
 #define WITHDRAWAL        1
 
 /*
-                             
+ * Segmentation message types
  */
 
 #define FIRST_FRAGMENT		0
@@ -477,7 +477,7 @@ static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
 #define LAST_FRAGMENT		2
 
 /*
-                                         
+ * Link management protocol message types
  */
 
 #define STATE_MSG		0
@@ -485,13 +485,13 @@ static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
 #define ACTIVATE_MSG		2
 
 /*
-                                  
+ * Changeover tunnel message types
  */
 #define DUPLICATE_MSG		0
 #define ORIGINAL_MSG		1
 
 /*
-                                
+ * Config protocol message types
  */
 
 #define DSC_REQ_MSG		0
@@ -499,7 +499,7 @@ static inline struct tipc_msg *msg_get_wrapped(struct tipc_msg *m)
 
 
 /*
-         
+ * Word 1
  */
 
 static inline u32 msg_seq_gap(struct tipc_msg *m)
@@ -524,7 +524,7 @@ static inline void msg_set_node_sig(struct tipc_msg *m, u32 n)
 
 
 /*
-         
+ * Word 2
  */
 
 static inline u32 msg_dest_domain(struct tipc_msg *m)
@@ -559,7 +559,7 @@ static inline void msg_set_bcgap_to(struct tipc_msg *m, u32 n)
 
 
 /*
-         
+ * Word 4
  */
 
 static inline u32 msg_last_bcast(struct tipc_msg *m)
@@ -626,7 +626,7 @@ static inline void msg_set_link_selector(struct tipc_msg *m, u32 n)
 }
 
 /*
-         
+ * Word 5
  */
 
 static inline u32 msg_session(struct tipc_msg *m)
@@ -695,7 +695,7 @@ static inline char *msg_media_addr(struct tipc_msg *m)
 }
 
 /*
-         
+ * Word 9
  */
 
 static inline u32 msg_msgcnt(struct tipc_msg *m)

@@ -1,5 +1,5 @@
-/*                                  
-                   
+/* IEEE754 floating point arithmetic
+ * single precision
  */
 /*
  * MIPS floating point support
@@ -35,7 +35,7 @@ int ieee754sp_cmp(ieee754sp x, ieee754sp y, int cmp, int sig)
 	EXPLODEYSP;
 	FLUSHXSP;
 	FLUSHYSP;
-	CLEARCX;	/*                              */
+	CLEARCX;	/* Even clear inexact flag here */
 
 	if (ieee754sp_isnan(x) || ieee754sp_isnan(y)) {
 		if (sig || xc == IEEE754_CLASS_SNAN || yc == IEEE754_CLASS_SNAN)

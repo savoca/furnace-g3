@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-         
-  
-                                                           
+/**
+ *  @file
+ *
+ *  @brief Exception-related types. See A2.6 ARM DDI 0100I.
  */
 
 #ifndef _EXC_TYPES_H_
@@ -35,9 +35,9 @@
 #define INCLUDE_ALLOW_GPL
 #include "include_check.h"
 
-/* 
-                                                                          
-                                                             
+/**
+ * @brief ARM hardware exception enumeration. EXC_NONE is added to provide
+ *        a distinguished value to flag non-exception states.
  */
 enum ARM_Exception {
 	EXC_NONE,
@@ -51,4 +51,4 @@ enum ARM_Exception {
 };
 typedef enum ARM_Exception ARM_Exception;
 
-#endif /*               */
+#endif /* _EXC_TYPES_H_ */

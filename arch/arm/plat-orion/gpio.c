@@ -18,7 +18,7 @@
 #include <linux/gpio.h>
 
 /*
-                              
+ * GPIO unit register offsets.
  */
 #define GPIO_OUT_OFF		0x0000
 #define GPIO_IO_CONF_OFF	0x0004
@@ -141,7 +141,7 @@ err_out:
 }
 
 /*
-                           
+ * GENERIC_GPIO primitives.
  */
 static int orion_gpio_request(struct gpio_chip *chip, unsigned pin)
 {
@@ -226,7 +226,7 @@ static int orion_gpio_to_irq(struct gpio_chip *chip, unsigned pin)
 
 
 /*
-                                      
+ * Orion-specific GPIO API extensions.
  */
 static struct orion_gpio_chip *orion_gpio_chip_find(int pin)
 {
@@ -252,7 +252,7 @@ void __init orion_gpio_set_unused(unsigned pin)
 
 	pin -= ochip->chip.base;
 
-	/*                                 */
+	/* Configure as output, drive low. */
 	__set_level(ochip, pin, 0);
 	__set_direction(ochip, pin, 0);
 }
@@ -296,31 +296,31 @@ void orion_gpio_set_blink(unsigned pin, int blink)
 EXPORT_SYMBOL(orion_gpio_set_blink);
 
 
-/*                                                                            
-                 
-  
-                                                                        
-                                           
-  
-                                                                  
-                                                                    
-                                                                   
-                                                                   
-                                                                       
-                                                                       
-                                                                        
-                                              
-  
-                                                                     
-                  
-  
-                                         
-                                             
-                                                                   
-                                             
-                                         
-  
-                                                                            */
+/*****************************************************************************
+ * Orion GPIO IRQ
+ *
+ * GPIO_IN_POL register controls whether GPIO_DATA_IN will hold the same
+ * value of the line or the opposite value.
+ *
+ * Level IRQ handlers: DATA_IN is used directly as cause register.
+ *                     Interrupt are masked by LEVEL_MASK registers.
+ * Edge IRQ handlers:  Change in DATA_IN are latched in EDGE_CAUSE.
+ *                     Interrupt are masked by EDGE_MASK registers.
+ * Both-edge handlers: Similar to regular Edge handlers, but also swaps
+ *                     the polarity to catch the next line transaction.
+ *                     This is a race condition that might not perfectly
+ *                     work on some use cases.
+ *
+ * Every eight GPIO lines are grouped (OR'ed) before going up to main
+ * cause register.
+ *
+ *                    EDGE  cause    mask
+ *        data-in   /--------| |-----| |----\
+ *     -----| |-----                         ---- to main cause reg
+ *           X      \----------------| |----/
+ *        polarity    LEVEL          mask
+ *
+ ****************************************************************************/
 
 static int gpio_irq_set_type(struct irq_data *d, u32 type)
 {
@@ -343,14 +343,14 @@ static int gpio_irq_set_type(struct irq_data *d, u32 type)
 	if (type == IRQ_TYPE_NONE)
 		return -EINVAL;
 
-	/*                                             */
+	/* Check if we need to change chip and handler */
 	if (!(ct->type & type))
 		if (irq_setup_alt_chip(d, type))
 			return -EINVAL;
 
 	/*
-                                 
-  */
+	 * Configure interrupt polarity.
+	 */
 	if (type == IRQ_TYPE_EDGE_RISING || type == IRQ_TYPE_LEVEL_HIGH) {
 		u = readl(GPIO_IN_POL(ochip));
 		u &= ~(1 << pin);
@@ -365,13 +365,13 @@ static int gpio_irq_set_type(struct irq_data *d, u32 type)
 		v = readl(GPIO_IN_POL(ochip)) ^ readl(GPIO_DATA_IN(ochip));
 
 		/*
-                                                      
-   */
+		 * set initial polarity based on current input level
+		 */
 		u = readl(GPIO_IN_POL(ochip));
 		if (v & (1 << pin))
-			u |= 1 << pin;		/*         */
+			u |= 1 << pin;		/* falling */
 		else
-			u &= ~(1 << pin);	/*        */
+			u &= ~(1 << pin);	/* rising */
 		writel(u, GPIO_IN_POL(ochip));
 	}
 
@@ -415,8 +415,8 @@ void __init orion_gpio_init(int gpio_base, int ngpio,
 	orion_gpio_chip_count++;
 
 	/*
-                                   
-  */
+	 * Mask and clear GPIO interrupts.
+	 */
 	writel(0, GPIO_EDGE_CAUSE(ochip));
 	writel(0, GPIO_EDGE_MASK(ochip));
 	writel(0, GPIO_LEVEL_MASK(ochip));
@@ -469,7 +469,7 @@ void orion_gpio_irq_handler(int pinoff)
 
 		type = irqd_get_trigger_type(irq_get_irq_data(irq));
 		if ((type & IRQ_TYPE_SENSE_MASK) == IRQ_TYPE_EDGE_BOTH) {
-			/*                                     */
+			/* Swap polarity (race with GPIO line) */
 			u32 polarity;
 
 			polarity = readl(GPIO_IN_POL(ochip));

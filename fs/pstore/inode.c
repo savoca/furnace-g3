@@ -67,8 +67,8 @@ static const struct file_operations pstore_file_operations = {
 };
 
 /*
-                                                           
-                                                             
+ * When a file is unlinked from our file system we call the
+ * platform driver to erase the record from persistent store.
  */
 static int pstore_unlink(struct inode *dir, struct dentry *dentry)
 {
@@ -166,9 +166,9 @@ int pstore_is_mounted(void)
 }
 
 /*
-                                                                
-                                                   
-                                                                            
+ * Make a regular file in the root directory of our file system.
+ * Load it up with "size" bytes of data from "buf".
+ * Set the mtime & ctime to the date that this record was originally stored.
  */
 int pstore_mkfile(enum pstore_type_id type, char *psname, u64 id,
 		  char *data, size_t size, struct timespec time,

@@ -158,7 +158,7 @@ static void sa1100_irda_dma_start(struct sa1100_buf *buf,
 }
 
 /*
-                                                                       
+ * Allocate and map the receive buffer, unless it is already allocated.
  */
 static int sa1100_irda_rx_alloc(struct sa1100_irda *si)
 {
@@ -172,9 +172,9 @@ static int sa1100_irda_rx_alloc(struct sa1100_irda *si)
 	}
 
 	/*
-                                              
-                     
-  */
+	 * Align any IP headers that may be contained
+	 * within the frame.
+	 */
 	skb_reserve(si->dma_rx.skb, 1);
 
 	sg_set_buf(&si->dma_rx.sg, si->dma_rx.skb->data, HPSIR_MAX_RXLEN);
@@ -187,8 +187,8 @@ static int sa1100_irda_rx_alloc(struct sa1100_irda *si)
 }
 
 /*
-                                                                       
-                              
+ * We want to get here as soon as possible, and get the receiver setup.
+ * We use the existing buffer.
  */
 static void sa1100_irda_rx_dma_start(struct sa1100_irda *si)
 {
@@ -198,13 +198,13 @@ static void sa1100_irda_rx_dma_start(struct sa1100_irda *si)
 	}
 
 	/*
-                            
-  */
+	 * First empty receive FIFO
+	 */
 	Ser2HSCR0 = HSCR0_HSSP;
 
 	/*
-                                                   
-  */
+	 * Enable the DMA, receiver and receive interrupt.
+	 */
 	dmaengine_terminate_all(si->dma_rx.chan);
 	sa1100_irda_dma_start(&si->dma_rx, DMA_DEV_TO_MEM, NULL, NULL);
 
@@ -220,7 +220,7 @@ static void sa1100_irda_check_speed(struct sa1100_irda *si)
 }
 
 /*
-                         
+ * HP-SIR format support.
  */
 static void sa1100_irda_sirtxdma_irq(void *id)
 {
@@ -234,21 +234,21 @@ static void sa1100_irda_sirtxdma_irq(void *id)
 	dev->stats.tx_packets++;
 	dev->stats.tx_bytes += sg_dma_len(&si->dma_tx.sg);
 
-	/*                                                      */
+	/* We need to ensure that the transmitter has finished. */
 	do
 		rmb();
 	while (Ser2UTSR1 & UTSR1_TBY);
 
 	/*
-                                                              
-                                                                  
-  */
+	 * Ok, we've finished transmitting.  Now enable the receiver.
+	 * Sometimes we get a receive IRQ immediately after a transmit...
+	 */
 	Ser2UTSR0 = UTSR0_REB | UTSR0_RBB | UTSR0_RID;
 	Ser2UTCR3 = UTCR3_RIE | UTCR3_RXE | UTCR3_TXE;
 
 	sa1100_irda_check_speed(si);
 
-	/*             */
+	/* I'm hungry! */
 	netif_wake_queue(dev);
 }
 
@@ -271,9 +271,9 @@ static int sa1100_irda_sir_tx_start(struct sk_buff *skb, struct net_device *dev,
 	sa1100_irda_dma_start(&si->dma_tx, DMA_MEM_TO_DEV, sa1100_irda_sirtxdma_irq, dev);
 
 	/*
-                                                          
-                                                 
-  */
+	 * The mean turn-around time is enforced by XBOF padding,
+	 * so we don't have to do anything special here.
+	 */
 	Ser2UTCR3 = UTCR3_TXE;
 
 	return NETDEV_TX_OK;
@@ -286,9 +286,9 @@ static irqreturn_t sa1100_irda_sir_irq(struct net_device *dev, struct sa1100_ird
 	status = Ser2UTSR0;
 
 	/*
-                                                                  
-                                                            
-  */
+	 * Deal with any receive errors first.  The bytes in error may be
+	 * the only bytes in the receive FIFO, so we do this first.
+	 */
 	while (status & UTSR0_EIF) {
 		int stat, data;
 
@@ -308,15 +308,15 @@ static irqreturn_t sa1100_irda_sir_irq(struct net_device *dev, struct sa1100_ird
 	}
 
 	/*
-                               
-  */
+	 * We must clear certain bits.
+	 */
 	Ser2UTSR0 = status & (UTSR0_RID | UTSR0_RBB | UTSR0_REB);
 
 	if (status & UTSR0_RFS) {
 		/*
-                                                          
-                                           
-   */
+		 * There are at least 4 bytes in the FIFO.  Read 3 bytes
+		 * and leave the rest to the block below.
+		 */
 		async_unwrap_char(dev, &dev->stats, &si->rx_buff, Ser2UTDR);
 		async_unwrap_char(dev, &dev->stats, &si->rx_buff, Ser2UTDR);
 		async_unwrap_char(dev, &dev->stats, &si->rx_buff, Ser2UTDR);
@@ -324,8 +324,8 @@ static irqreturn_t sa1100_irda_sir_irq(struct net_device *dev, struct sa1100_ird
 
 	if (status & (UTSR0_RFS | UTSR0_RID)) {
 		/*
-                                         
-   */
+		 * Fifo contains more than 1 character.
+		 */
 		do {
 			async_unwrap_char(dev, &dev->stats, &si->rx_buff,
 					  Ser2UTDR);
@@ -337,7 +337,7 @@ static irqreturn_t sa1100_irda_sir_irq(struct net_device *dev, struct sa1100_ird
 }
 
 /*
-                      
+ * FIR format support.
  */
 static void sa1100_irda_firtxdma_irq(void *id)
 {
@@ -346,33 +346,33 @@ static void sa1100_irda_firtxdma_irq(void *id)
 	struct sk_buff *skb;
 
 	/*
-                                                          
-                                                         
-                   
-  */
+	 * Wait for the transmission to complete.  Unfortunately,
+	 * the hardware doesn't give us an interrupt to indicate
+	 * "end of frame".
+	 */
 	do
 		rmb();
 	while (!(Ser2HSSR0 & HSSR0_TUR) || Ser2HSSR1 & HSSR1_TBY);
 
 	/*
-                                    
-  */
+	 * Clear the transmit underrun bit.
+	 */
 	Ser2HSSR0 = HSSR0_TUR;
 
 	/*
-                                                     
-                                                           
-                                
-  */
+	 * Do we need to change speed?  Note that we're lazy
+	 * here - we don't free the old dma_rx.skb.  We don't need
+	 * to allocate a buffer either.
+	 */
 	sa1100_irda_check_speed(si);
 
 	/*
-                                                       
-                                                   
-  */
+	 * Start reception.  This disables the transmitter for
+	 * us.  This will be using the existing RX buffer.
+	 */
 	sa1100_irda_rx_dma_start(si);
 
-	/*                              */
+	/* Account and free the packet. */
 	skb = si->dma_tx.skb;
 	if (skb) {
 		dma_unmap_sg(si->dma_tx.dev, &si->dma_tx.sg, 1,
@@ -384,9 +384,9 @@ static void sa1100_irda_firtxdma_irq(void *id)
 	}
 
 	/*
-                                                        
-                                                         
-  */
+	 * Make sure that the TX queue is available for sending
+	 * (for retries).  TX has priority over RX at all times.
+	 */
 	netif_wake_queue(dev);
 }
 
@@ -408,10 +408,10 @@ static int sa1100_irda_fir_tx_start(struct sk_buff *skb, struct net_device *dev,
 	sa1100_irda_dma_start(&si->dma_tx, DMA_MEM_TO_DEV, sa1100_irda_firtxdma_irq, dev);
 
 	/*
-                                                            
-                                                          
-                                     
-  */
+	 * If we have a mean turn-around time, impose the specified
+	 * specified delay.  We could shorten this by timing from
+	 * the point we received the packet.
+	 */
 	if (mtt)
 		udelay(mtt);
 
@@ -431,8 +431,8 @@ static void sa1100_irda_fir_error(struct sa1100_irda *si, struct net_device *dev
 	}
 
 	/*
-                                  
-  */
+	 * Get the current data position.
+	 */
 	len = sa1100_irda_dma_xferred(&si->dma_rx);
 	if (len > HPSIR_MAX_RXLEN)
 		len = HPSIR_MAX_RXLEN;
@@ -440,8 +440,8 @@ static void sa1100_irda_fir_error(struct sa1100_irda *si, struct net_device *dev
 
 	do {
 		/*
-                                
-   */
+		 * Read Status, and then Data.
+		 */
 		stat = Ser2HSSR1;
 		rmb();
 		data = Ser2HSDR;
@@ -456,9 +456,9 @@ static void sa1100_irda_fir_error(struct sa1100_irda *si, struct net_device *dev
 			skb->data[len++] = data;
 
 		/*
-                                        
-                            
-   */
+		 * If we hit the end of frame, there's
+		 * no point in continuing.
+		 */
 		if (stat & HSSR1_EOF)
 			break;
 	} while (Ser2HSSR0 & HSSR0_EIF);
@@ -474,36 +474,36 @@ static void sa1100_irda_fir_error(struct sa1100_irda *si, struct net_device *dev
 		dev->stats.rx_bytes += len;
 
 		/*
-                                                      
-   */
+		 * Before we pass the buffer up, allocate a new one.
+		 */
 		sa1100_irda_rx_alloc(si);
 
 		netif_rx(skb);
 	} else {
 		/*
-                                                        
-                             
-   */
+		 * Remap the buffer - it was previously mapped, and we
+		 * hope that this succeeds.
+		 */
 		dma_map_sg(si->dma_rx.dev, &si->dma_rx.sg, 1, DMA_FROM_DEVICE);
 	}
 }
 
 /*
-                                                                       
-                                                           
+ * We only have to handle RX events here; transmit events go via the TX
+ * DMA handler. We disable RX, process, and the restart RX.
  */
 static irqreturn_t sa1100_irda_fir_irq(struct net_device *dev, struct sa1100_irda *si)
 {
 	/*
-               
-  */
+	 * Stop RX DMA
+	 */
 	dmaengine_pause(si->dma_rx.chan);
 
 	/*
-                                                        
-                                                      
-                  
-  */
+	 * Framing error - we throw away the packet completely.
+	 * Clearing RXE flushes the error conditions and data
+	 * from the fifo.
+	 */
 	if (Ser2HSSR0 & (HSSR0_FRE | HSSR0_RAB)) {
 		dev->stats.rx_errors++;
 
@@ -511,36 +511,36 @@ static irqreturn_t sa1100_irda_fir_irq(struct net_device *dev, struct sa1100_ird
 			dev->stats.rx_frame_errors++;
 
 		/*
-                         
-   */
+		 * Clear out the DMA...
+		 */
 		Ser2HSCR0 = HSCR0_HSSP;
 
 		/*
-                                          
-                                      
-   */
+		 * Clear selected status bits now, so we
+		 * don't miss them next time around.
+		 */
 		Ser2HSSR0 = HSSR0_FRE | HSSR0_RAB;
 	}
 
 	/*
-                                                        
-                                                           
-                                                          
-           
-  */
+	 * Deal with any receive errors.  The any of the lowest
+	 * 8 bytes in the FIFO may contain an error.  We must read
+	 * them one by one.  The "error" could even be the end of
+	 * packet!
+	 */
 	if (Ser2HSSR0 & HSSR0_EIF)
 		sa1100_irda_fir_error(si, dev);
 
 	/*
-                                                      
-  */
+	 * No matter what happens, we must restart reception.
+	 */
 	sa1100_irda_rx_dma_start(si);
 
 	return IRQ_HANDLED;
 }
 
 /*
-                                     
+ * Set the IrDA communications speed.
  */
 static int sa1100_irda_set_speed(struct sa1100_irda *si, int speed)
 {
@@ -552,7 +552,7 @@ static int sa1100_irda_set_speed(struct sa1100_irda *si, int speed)
 	case 57600:	case 115200:
 		brd = 3686400 / (16 * speed) - 1;
 
-		/*                                               */
+		/* Stop the receive DMA, and configure transmit. */
 		if (IS_FIR(si)) {
 			dmaengine_terminate_all(si->dma_rx.chan);
 			dmaengine_slave_config(si->dma_tx.chan,
@@ -568,8 +568,8 @@ static int sa1100_irda_set_speed(struct sa1100_irda *si, int speed)
 		Ser2UTCR2 = brd;
 
 		/*
-                          
-   */
+		 * Clear status register
+		 */
 		Ser2UTSR0 = UTSR0_REB | UTSR0_RBB | UTSR0_RID;
 		Ser2UTCR3 = UTCR3_RIE | UTCR3_RXE | UTCR3_TXE;
 
@@ -617,14 +617,14 @@ static int sa1100_irda_set_speed(struct sa1100_irda *si, int speed)
 }
 
 /*
-                                                   
-         
-           
-                                 
-                                  
-                                 
-  
-                                                    
+ * Control the power state of the IrDA transmitter.
+ * State:
+ *  0 - off
+ *  1 - short range, lowest power
+ *  2 - medium range, medium power
+ *  3 - maximum range, high power
+ *
+ * Currently, only assabet is known to support this.
  */
 static int
 __sa1100_irda_set_power(struct sa1100_irda *si, unsigned int state)
@@ -661,14 +661,14 @@ static int sa1100_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 	int speed = irda_get_next_speed(skb);
 
 	/*
-                                                              
-                                                                 
-                  
-  */
+	 * Does this packet contain a request to change the interface
+	 * speed?  If so, remember it until we complete the transmission
+	 * of this frame.
+	 */
 	if (speed != si->speed && speed != -1)
 		si->newspeed = speed;
 
-	/*                                                 */
+	/* If this is an empty frame, we can bypass a lot. */
 	if (skb->len == 0) {
 		sa1100_irda_check_speed(si);
 		dev_kfree_skb(skb);
@@ -677,7 +677,7 @@ static int sa1100_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	netif_stop_queue(dev);
 
-	/*                                               */
+	/* We must not already have a skb to transmit... */
 	BUG_ON(si->dma_tx.skb);
 
 	return si->tx_start(skb, dev, si);
@@ -694,9 +694,9 @@ sa1100_irda_ioctl(struct net_device *dev, struct ifreq *ifreq, int cmd)
 	case SIOCSBANDWIDTH:
 		if (capable(CAP_NET_ADMIN)) {
 			/*
-                                           
-                            
-    */
+			 * We are unable to set the speed if the
+			 * device is not running.
+			 */
 			if (si->open) {
 				ret = sa1100_irda_set_speed(si,
 						rq->ifr_baudrate);
@@ -732,8 +732,8 @@ static int sa1100_irda_startup(struct sa1100_irda *si)
 	int ret;
 
 	/*
-                                                              
-  */
+	 * Ensure that the ports for this device are setup correctly.
+	 */
 	if (si->pdata->startup)	{
 		ret = si->pdata->startup(si->dev);
 		if (ret)
@@ -741,16 +741,16 @@ static int sa1100_irda_startup(struct sa1100_irda *si)
 	}
 
 	/*
-                                                       
-                                                    
-  */
+	 * Configure PPC for IRDA - we want to drive TXD2 low.
+	 * We also want to drive this pin low during sleep.
+	 */
 	PPSR &= ~PPC_TXD2;
 	PSDR &= ~PPC_TXD2;
 	PPDR |= PPC_TXD2;
 
 	/*
-                                                                   
-  */
+	 * Enable HP-SIR modulation, and ensure that the port is disabled.
+	 */
 	Ser2UTCR3 = 0;
 	Ser2HSCR0 = HSCR0_UART;
 	Ser2UTCR4 = si->utcr4;
@@ -758,8 +758,8 @@ static int sa1100_irda_startup(struct sa1100_irda *si)
 	Ser2HSCR2 = HSCR2_TrDataH | HSCR2_RcDataL;
 
 	/*
-                         
-  */
+	 * Clear status register
+	 */
 	Ser2UTSR0 = UTSR0_REB | UTSR0_RBB | UTSR0_RID;
 
 	ret = sa1100_irda_set_speed(si, si->speed = 9600);
@@ -777,12 +777,12 @@ static int sa1100_irda_startup(struct sa1100_irda *si)
 static void sa1100_irda_shutdown(struct sa1100_irda *si)
 {
 	/*
-                          
-  */
+	 * Stop all DMA activity.
+	 */
 	dmaengine_terminate_all(si->dma_rx.chan);
 	dmaengine_terminate_all(si->dma_tx.chan);
 
-	/*                   */
+	/* Disable the port. */
 	Ser2UTCR3 = 0;
 	Ser2HSCR0 = 0;
 
@@ -808,15 +808,15 @@ static int sa1100_irda_start(struct net_device *dev)
 		goto err_tx_dma;
 
 	/*
-                                                  
-  */
+	 * Setup the serial port for the specified speed.
+	 */
 	err = sa1100_irda_startup(si);
 	if (err)
 		goto err_startup;
 
 	/*
-                                    
-  */
+	 * Open a new IrLAP layer instance.
+	 */
 	si->irlap = irlap_open(dev, &si->qos, "sa1100");
 	err = -ENOMEM;
 	if (!si->irlap)
@@ -827,10 +827,10 @@ static int sa1100_irda_start(struct net_device *dev)
 		goto err_irq;
 
 	/*
-                                                
-  */
+	 * Now enable the interrupt and start the queue
+	 */
 	si->open = 1;
-	sa1100_set_power(si, power_level); /*                */
+	sa1100_set_power(si, power_level); /* low power mode */
 
 	netif_start_queue(dev);
 	return 0;
@@ -859,9 +859,9 @@ static int sa1100_irda_stop(struct net_device *dev)
 	sa1100_irda_shutdown(si);
 
 	/*
-                                                        
-                         
-  */
+	 * If we have been doing any DMA activity, make sure we
+	 * tidy that up cleanly.
+	 */
 	skb = si->dma_rx.skb;
 	if (skb) {
 		dma_unmap_sg(si->dma_rx.dev, &si->dma_rx.sg, 1,
@@ -878,15 +878,15 @@ static int sa1100_irda_stop(struct net_device *dev)
 		si->dma_tx.skb = NULL;
 	}
 
-	/*            */
+	/* Stop IrLAP */
 	if (si->irlap) {
 		irlap_close(si->irlap);
 		si->irlap = NULL;
 	}
 
 	/*
-                  
-  */
+	 * Free resources
+	 */
 	dma_release_channel(si->dma_tx.chan);
 	dma_release_channel(si->dma_rx.chan);
 	free_irq(dev->irq, dev);
@@ -953,8 +953,8 @@ static int sa1100_irda_probe(struct platform_device *pdev)
 	sg_init_table(&si->dma_tx.sg, 1);
 
 	/*
-                                 
-  */
+	 * Initialise the HP-SIR buffers
+	 */
 	err = sa1100_irda_init_iobuf(&si->rx_buff, 14384);
 	if (err)
 		goto err_mem_5;
@@ -968,9 +968,9 @@ static int sa1100_irda_probe(struct platform_device *pdev)
 	irda_init_max_qos_capabilies(&si->qos);
 
 	/*
-                                                             
-                                                         
-  */
+	 * We support original IRDA up to 115k2. (we don't currently
+	 * support 4Mbps).  Min Turn Time set to 1ms or greater.
+	 */
 	baudrate_mask = IR_9600;
 
 	switch (max_rate) {
@@ -991,9 +991,9 @@ static int sa1100_irda_probe(struct platform_device *pdev)
 		si->utcr4 |= UTCR4_Z1_6us;
 
 	/*
-                                                                
-                
-  */
+	 * Initially enable HP-SIR modulation, and ensure that the port
+	 * is disabled.
+	 */
 	Ser2UTCR3 = 0;
 	Ser2UTCR4 = si->utcr4;
 	Ser2HSCR0 = HSCR0_UART;
@@ -1039,7 +1039,7 @@ static int sa1100_irda_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_PM
 /*
-                              
+ * Suspend the IrDA interface.
  */
 static int sa1100_irda_suspend(struct platform_device *pdev, pm_message_t state)
 {
@@ -1052,8 +1052,8 @@ static int sa1100_irda_suspend(struct platform_device *pdev, pm_message_t state)
 	si = netdev_priv(dev);
 	if (si->open) {
 		/*
-                            
-   */
+		 * Stop the transmit queue
+		 */
 		netif_device_detach(dev);
 		disable_irq(dev->irq);
 		sa1100_irda_shutdown(si);
@@ -1064,7 +1064,7 @@ static int sa1100_irda_suspend(struct platform_device *pdev, pm_message_t state)
 }
 
 /*
-                             
+ * Resume the IrDA interface.
  */
 static int sa1100_irda_resume(struct platform_device *pdev)
 {
@@ -1077,12 +1077,12 @@ static int sa1100_irda_resume(struct platform_device *pdev)
 	si = netdev_priv(dev);
 	if (si->open) {
 		/*
-                                                             
-                                                        
-                                                            
-                                                           
-                                                    
-   */
+		 * If we missed a speed change, initialise at the new speed
+		 * directly.  It is debatable whether this is actually
+		 * required, but in the interests of continuing from where
+		 * we left off it is desirable.  The converse argument is
+		 * that we should re-negotiate at 9600 baud again.
+		 */
 		if (si->newspeed) {
 			si->speed = si->newspeed;
 			si->newspeed = 0;
@@ -1093,8 +1093,8 @@ static int sa1100_irda_resume(struct platform_device *pdev)
 		enable_irq(dev->irq);
 
 		/*
-                                          
-   */
+		 * This automatically wakes up the queue
+		 */
 		netif_device_attach(dev);
 	}
 
@@ -1119,8 +1119,8 @@ static struct platform_driver sa1100ir_driver = {
 static int __init sa1100_irda_init(void)
 {
 	/*
-                                       
-  */
+	 * Limit power level a sensible range.
+	 */
 	if (power_level < 1)
 		power_level = 1;
 	if (power_level > 3)

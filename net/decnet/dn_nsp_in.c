@@ -90,9 +90,9 @@ static void dn_log_martian(struct sk_buff *skb, const char *msg)
 }
 
 /*
-                                                           
-                                                              
-                                            
+ * For this function we've flipped the cross-subchannel bit
+ * if the message is an otherdata or linkservice message. Thus
+ * we can use it to work out what to update.
  */
 static void dn_ack(struct sock *sk, struct sk_buff *skb, unsigned short ack)
 {
@@ -101,7 +101,7 @@ static void dn_ack(struct sock *sk, struct sk_buff *skb, unsigned short ack)
 	int wakeup = 0;
 
 	switch (type) {
-	case 0: /*            */
+	case 0: /* ACK - Data */
 		if (dn_after(ack, scp->ackrcv_dat)) {
 			scp->ackrcv_dat = ack & 0x0fff;
 			wakeup |= dn_nsp_check_xmit_queue(sk, skb,
@@ -109,9 +109,9 @@ static void dn_ack(struct sock *sk, struct sk_buff *skb, unsigned short ack)
 							  ack);
 		}
 		break;
-	case 1: /*            */
+	case 1: /* NAK - Data */
 		break;
-	case 2: /*                 */
+	case 2: /* ACK - OtherData */
 		if (dn_after(ack, scp->ackrcv_oth)) {
 			scp->ackrcv_oth = ack & 0x0fff;
 			wakeup |= dn_nsp_check_xmit_queue(sk, skb,
@@ -119,7 +119,7 @@ static void dn_ack(struct sock *sk, struct sk_buff *skb, unsigned short ack)
 							  ack);
 		}
 		break;
-	case 3: /*                 */
+	case 3: /* NAK - OtherData */
 		break;
 	}
 
@@ -128,7 +128,7 @@ static void dn_ack(struct sock *sk, struct sk_buff *skb, unsigned short ack)
 }
 
 /*
-                                              
+ * This function is a universal ack processor.
  */
 static int dn_process_ack(struct sock *sk, struct sk_buff *skb, int oth)
 {
@@ -167,14 +167,14 @@ static int dn_process_ack(struct sock *sk, struct sk_buff *skb, int oth)
 }
 
 
-/* 
-                                                              
-                                          
-                                        
-                                                                       
-                                                                                
-  
-                                
+/**
+ * dn_check_idf - Check an image data field format is correct.
+ * @pptr: Pointer to pointer to image data
+ * @len: Pointer to length of image data
+ * @max: The maximum allowed length of the data in the image data field
+ * @follow_on: Check that this many bytes exist beyond the end of the image data
+ *
+ * Returns: 0 if ok, -1 on error
  */
 static inline int dn_check_idf(unsigned char **pptr, int *len, unsigned char max, unsigned char follow_on)
 {
@@ -193,10 +193,10 @@ static inline int dn_check_idf(unsigned char **pptr, int *len, unsigned char max
 }
 
 /*
-                                                                   
-                                                                  
-                                                                          
-                             
+ * Table of reason codes to pass back to node which sent us a badly
+ * formed message, plus text messages for the log. A zero entry in
+ * the reason field means "don't reply" otherwise a disc init is sent with
+ * the specified reason code.
  */
 static struct {
 	unsigned short reason;
@@ -213,11 +213,11 @@ static struct {
 };
 
 /*
-                                                        
-                                                               
-                                                                  
-                                                                    
-            
+ * This function uses a slightly different lookup method
+ * to find its sockets, since it searches on object name/number
+ * rather than port numbers. Various tests are done to ensure that
+ * the incoming data is in the correct format before it is queued to
+ * a socket.
  */
 static struct sock *dn_find_listener(struct sk_buff *skb, unsigned short *reason)
 {
@@ -237,8 +237,8 @@ static struct sock *dn_find_listener(struct sk_buff *skb, unsigned short *reason
 	memset(&srcaddr, 0, sizeof(struct sockaddr_dn));
 
 	/*
-                                     
-  */
+	 * 1. Decode & remove message header
+	 */
 	cb->src_port = msg->srcaddr;
 	cb->dst_port = msg->dstaddr;
 	cb->services = msg->services;
@@ -254,8 +254,8 @@ static struct sock *dn_find_listener(struct sk_buff *skb, unsigned short *reason
 	ptr = skb->data;
 
 	/*
-                                            
-  */
+	 * 2. Check destination end username format
+	 */
 	dstlen = dn_username2sockaddr(ptr, len, &dstaddr, &type);
 	err++;
 	if (dstlen < 0)
@@ -269,8 +269,8 @@ static struct sock *dn_find_listener(struct sk_buff *skb, unsigned short *reason
 	ptr += dstlen;
 
 	/*
-                                       
-  */
+	 * 3. Check source end username format
+	 */
 	srclen = dn_username2sockaddr(ptr, len, &srcaddr, &type);
 	err++;
 	if (srclen < 0)
@@ -287,15 +287,15 @@ static struct sock *dn_find_listener(struct sk_buff *skb, unsigned short *reason
 	len--;
 
 	/*
-                                                                       
-  */
+	 * 4. Check that optional data actually exists if menuver says it does
+	 */
 	err++;
 	if ((menuver & (DN_MENUVER_ACC | DN_MENUVER_USR)) && (len < 1))
 		goto err_out;
 
 	/*
-                                        
-  */
+	 * 5. Check optional access data format
+	 */
 	err++;
 	if (menuver & DN_MENUVER_ACC) {
 		if (dn_check_idf(&ptr, &len, 39, 1))
@@ -307,8 +307,8 @@ static struct sock *dn_find_listener(struct sk_buff *skb, unsigned short *reason
 	}
 
 	/*
-                                      
-  */
+	 * 6. Check optional user data format
+	 */
 	err++;
 	if (menuver & DN_MENUVER_USR) {
 		if (dn_check_idf(&ptr, &len, 16, 0))
@@ -316,8 +316,8 @@ static struct sock *dn_find_listener(struct sk_buff *skb, unsigned short *reason
 	}
 
 	/*
-                                                       
-  */
+	 * 7. Look up socket based on destination end username
+	 */
 	return dn_sklist_find_listener(&dstaddr);
 err_out:
 	dn_log_martian(skb, ci_err_table[err].text);
@@ -442,11 +442,11 @@ static void dn_nsp_disc_init(struct sock *sk, struct sk_buff *skb)
 	}
 
 	/*
-                                                                 
-                                                                 
-                                                                 
-                                                     
-  */
+	 * It appears that its possible for remote machines to send disc
+	 * init messages with no port identifier if we are in the CI and
+	 * possibly also the CD state. Obviously we shouldn't reply with
+	 * a message if we don't know what the end point is.
+	 */
 	if (scp->addrrem) {
 		dn_nsp_send_disc(sk, NSP_DISCCONF, NSP_REASON_DC, GFP_ATOMIC);
 	}
@@ -458,8 +458,8 @@ out:
 }
 
 /*
-                                                             
-                                              
+ * disc_conf messages are also called no_resources or no_link
+ * messages depending upon the "reason" field.
  */
 static void dn_nsp_disc_conf(struct sock *sk, struct sk_buff *skb)
 {
@@ -524,19 +524,19 @@ static void dn_nsp_linkservice(struct sock *sk, struct sk_buff *skb)
 	fcval = *ptr;
 
 	/*
-                                                       
-                                                       
-                   
-  */
+	 * Here we ignore erronous packets which should really
+	 * should cause a connection abort. It is not critical
+	 * for now though.
+	 */
 	if (lsflags & 0xf8)
 		goto out;
 
 	if (seq_next(scp->numoth_rcv, segnum)) {
 		seq_add(&scp->numoth_rcv, 1);
-		switch(lsflags & 0x04) { /*           */
-		case 0x00: /*                */
-			switch(lsflags & 0x03) { /*           */
-			case 0x00: /*               */
+		switch(lsflags & 0x04) { /* FCVAL INT */
+		case 0x00: /* Normal Request */
+			switch(lsflags & 0x03) { /* FCVAL MOD */
+			case 0x00: /* Request count */
 				if (fcval < 0) {
 					unsigned char p_fcval = -fcval;
 					if ((scp->flowrem_dat > p_fcval) &&
@@ -548,16 +548,16 @@ static void dn_nsp_linkservice(struct sock *sk, struct sk_buff *skb)
 					wake_up = 1;
 				}
 				break;
-			case 0x01: /*                    */
+			case 0x01: /* Stop outgoing data */
 				scp->flowrem_sw = DN_DONTSEND;
 				break;
-			case 0x02: /*                   */
+			case 0x02: /* Ok to start again */
 				scp->flowrem_sw = DN_SEND;
 				dn_nsp_output(sk);
 				wake_up = 1;
 			}
 			break;
-		case 0x04: /*                   */
+		case 0x04: /* Interrupt Request */
 			if (fcval > 0) {
 				scp->flowrem_oth += fcval;
 				wake_up = 1;
@@ -575,18 +575,18 @@ out:
 }
 
 /*
-                                                   
-                                                              
-                                                            
+ * Copy of sock_queue_rcv_skb (from sock.h) without
+ * bh_lock_sock() (its already held when this is called) which
+ * also allows data and other data to be queued to a socket.
  */
 static __inline__ int dn_queue_skb(struct sock *sk, struct sk_buff *skb, int sig, struct sk_buff_head *queue)
 {
 	int err;
 	int skb_len;
 
-	/*                                                            
-                                                   
-  */
+	/* Cast skb->rcvbuf to unsigned... It's pointless, but reduces
+	   number of warnings when compiling with -W --ANK
+	 */
 	if (atomic_read(&sk->sk_rmem_alloc) + skb->truesize >=
 	    (unsigned)sk->sk_rcvbuf) {
 		err = -ENOMEM;
@@ -667,9 +667,9 @@ out:
 }
 
 /*
-                                                             
-                                                              
-         
+ * If one of our conninit messages is returned, this function
+ * deals with it. It puts the socket into the NO_COMMUNICATION
+ * state.
  */
 static void dn_returned_conn_init(struct sock *sk, struct sk_buff *skb)
 {
@@ -690,18 +690,18 @@ static int dn_nsp_no_socket(struct sk_buff *skb, unsigned short reason)
 	struct dn_skb_cb *cb = DN_SKB_CB(skb);
 	int ret = NET_RX_DROP;
 
-	/*                                    */
+	/* Must not reply to returned packets */
 	if (cb->rt_flags & DN_RT_F_RTS)
 		goto out;
 
 	if ((reason != NSP_REASON_OK) && ((cb->nsp_flags & 0x0c) == 0x08)) {
 		switch (cb->nsp_flags & 0x70) {
 		case 0x10:
-		case 0x60: /*                              */
+		case 0x60: /* (Retransmitted) Connect Init */
 			dn_nsp_return_disc(skb, NSP_DISCINIT, reason);
 			ret = NET_RX_SUCCESS;
 			break;
-		case 0x20: /*                 */
+		case 0x20: /* Connect Confirm */
 			dn_nsp_return_disc(skb, NSP_DISCCONF, reason);
 			ret = NET_RX_SUCCESS;
 			break;
@@ -733,13 +733,13 @@ static int dn_nsp_rx_packet(struct sk_buff *skb)
 		goto free_out;
 
 	/*
-                                                 
-  */
+	 * Filter out conninits and useless packet types
+	 */
 	if ((cb->nsp_flags & 0x0c) == 0x08) {
 		switch (cb->nsp_flags & 0x70) {
-		case 0x00: /*     */
-		case 0x70: /*          */
-		case 0x50: /*                              */
+		case 0x00: /* NOP */
+		case 0x70: /* Reserved */
+		case 0x50: /* Reserved, Phase II node init */
 			goto free_out;
 		case 0x10:
 		case 0x60:
@@ -754,15 +754,15 @@ static int dn_nsp_rx_packet(struct sk_buff *skb)
 		goto free_out;
 
 	/*
-                                 
-  */
+	 * Grab the destination address.
+	 */
 	cb->dst_port = *(__le16 *)ptr;
 	cb->src_port = 0;
 	ptr += 2;
 
 	/*
-                                                  
-  */
+	 * If not a connack, grab the source address too.
+	 */
 	if (pskb_may_pull(skb, 5)) {
 		cb->src_port = *(__le16 *)ptr;
 		ptr += 2;
@@ -770,9 +770,9 @@ static int dn_nsp_rx_packet(struct sk_buff *skb)
 	}
 
 	/*
-                       
-                                                 
-  */
+	 * Returned packets...
+	 * Swap src & dst and look up in the normal way.
+	 */
 	if (unlikely(cb->rt_flags & DN_RT_F_RTS)) {
 		__le16 tmp = cb->dst_port;
 		cb->dst_port = cb->src_port;
@@ -783,19 +783,19 @@ static int dn_nsp_rx_packet(struct sk_buff *skb)
 	}
 
 	/*
-                                                  
-  */
+	 * Find the socket to which this skb is destined.
+	 */
 	sk = dn_find_by_skb(skb);
 got_it:
 	if (sk != NULL) {
 		struct dn_scp *scp = DN_SK(sk);
 
-		/*               */
+		/* Reset backoff */
 		scp->nsp_rxtshift = 0;
 
 		/*
-                                                       
-   */
+		 * We linearize everything except data segments here.
+		 */
 		if (cb->nsp_flags & ~0x60) {
 			if (unlikely(skb_linearize(skb)))
 				goto free_out;
@@ -818,9 +818,9 @@ int dn_nsp_rx(struct sk_buff *skb)
 }
 
 /*
-                                                             
-                                                            
-                                                    
+ * This is the main receive routine for sockets. It is called
+ * from the above when the socket is not busy, and also from
+ * sock_release() when there is a backlog queued up.
  */
 int dn_nsp_backlog_rcv(struct sock *sk, struct sk_buff *skb)
 {
@@ -836,8 +836,8 @@ int dn_nsp_backlog_rcv(struct sock *sk, struct sk_buff *skb)
 	}
 
 	/*
-                   
-  */
+	 * Control packet.
+	 */
 	if ((cb->nsp_flags & 0x0c) == 0x08) {
 		switch (cb->nsp_flags & 0x70) {
 		case 0x10:
@@ -857,14 +857,14 @@ int dn_nsp_backlog_rcv(struct sock *sk, struct sk_buff *skb)
 
 	} else if (cb->nsp_flags == 0x24) {
 		/*
-                                               
-                                    
-   */
+		 * Special for connacks, 'cos they don't have
+		 * ack data or ack otherdata info.
+		 */
 		dn_nsp_conn_ack(sk, skb);
 	} else {
 		int other = 1;
 
-		/*                                                        */
+		/* both data and ack frames can kick a CC socket into RUN */
 		if ((scp->state == DN_CC) && !sock_flag(sk, SOCK_DEAD)) {
 			scp->state = DN_RUN;
 			sk->sk_state = TCP_ESTABLISHED;
@@ -877,34 +877,34 @@ int dn_nsp_backlog_rcv(struct sock *sk, struct sk_buff *skb)
 			other = 0;
 
 		/*
-                                                 
-                                               
-                                
-   */
+		 * Read out ack data here, this applies equally
+		 * to data, other data, link serivce and both
+		 * ack data and ack otherdata.
+		 */
 		dn_process_ack(sk, skb, other);
 
 		/*
-                                                
-                                                    
-                                               
-   */
+		 * If we've some sort of data here then call a
+		 * suitable routine for dealing with it, otherwise
+		 * the packet is an ack and can be discarded.
+		 */
 		if ((cb->nsp_flags & 0x0c) == 0) {
 
 			if (scp->state != DN_RUN)
 				goto free_out;
 
 			switch (cb->nsp_flags) {
-			case 0x10: /*    */
+			case 0x10: /* LS */
 				dn_nsp_linkservice(sk, skb);
 				break;
-			case 0x30: /*    */
+			case 0x30: /* OD */
 				dn_nsp_otherdata(sk, skb);
 				break;
 			default:
 				dn_nsp_data(sk, skb);
 			}
 
-		} else { /*                        */
+		} else { /* Ack, chuck it out here */
 free_out:
 			kfree_skb(skb);
 		}

@@ -70,10 +70,10 @@ struct map *map__new(struct list_head *dsos__list, u64 start, u64 len,
 			self->map_ip = self->unmap_ip = identity__map_ip;
 
 			/*
-                                                       
-                                                   
-                                    
-    */
+			 * Set memory without DSO as loaded. All map__find_*
+			 * functions still return NULL, and we avoid the
+			 * unnecessary map__load warning.
+			 */
 			if (no_dso)
 				dso__set_loaded(dso, self->type);
 		}
@@ -151,9 +151,9 @@ int map__load(struct map *self, symbol_filter_t filter)
 		return -1;
 	}
 	/*
-                                                                       
-                
-  */
+	 * Only applies to the kernel, as its symtabs aren't relative like the
+	 * module ones.
+	 */
 	if (self->dso->kernel)
 		map__reloc_vmlinux(self);
 
@@ -229,13 +229,13 @@ size_t map__fprintf_dsoname(struct map *map, FILE *fp)
 }
 
 /*
-                                                                       
-                                                      
+ * objdump wants/reports absolute IPs for ET_EXEC, and RIPs for ET_DYN.
+ * map->dso->adjust_symbols==1 for ET_EXEC-like cases.
  */
 u64 map__rip_2objdump(struct map *map, u64 rip)
 {
 	u64 addr = map->dso->adjust_symbols ?
-			map->unmap_ip(map, rip) :	/*           */
+			map->unmap_ip(map, rip) :	/* RIP -> IP */
 			rip;
 	return addr;
 }
@@ -244,7 +244,7 @@ u64 map__objdump_2ip(struct map *map, u64 addr)
 {
 	u64 ip = map->dso->adjust_symbols ?
 			addr :
-			map->unmap_ip(map, addr);	/*           */
+			map->unmap_ip(map, addr);	/* RIP -> IP */
 	return ip;
 }
 
@@ -304,10 +304,10 @@ void map_groups__flush(struct map_groups *mg)
 			next = rb_next(&pos->rb_node);
 			rb_erase(&pos->rb_node, root);
 			/*
-                                             
-                                               
-                                        
-    */
+			 * We may have references to this map, for
+			 * instance in some hist_entry instances, so
+			 * just move them to a separate list.
+			 */
 			list_add_tail(&pos->node, &mg->removed_maps[pos->type]);
 		}
 	}
@@ -434,9 +434,9 @@ int map_groups__fixup_overlappings(struct map_groups *mg, struct map *map,
 
 		rb_erase(&pos->rb_node, root);
 		/*
-                                                          
-                               
-   */
+		 * Now check if we need to create new maps for areas not
+		 * overlapped by the new map:
+		 */
 		if (map->start > pos->start) {
 			struct map *before = map__clone(pos);
 
@@ -466,8 +466,8 @@ int map_groups__fixup_overlappings(struct map_groups *mg, struct map *map,
 		}
 move_map:
 		/*
-                                                              
-   */
+		 * If we have references, just move them to a separate list.
+		 */
 		if (pos->referenced)
 			list_add_tail(&pos->node, &mg->removed_maps[map->type]);
 		else
@@ -481,7 +481,7 @@ move_map:
 }
 
 /*
-                                                                
+ * XXX This should not really _copy_ te maps, but refcount them.
  */
 int map_groups__clone(struct map_groups *mg,
 		      struct map_groups *parent, enum map_type type)

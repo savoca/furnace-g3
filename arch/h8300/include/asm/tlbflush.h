@@ -9,7 +9,7 @@
 #include <asm/setup.h>
 
 /*
-                                    
+ * flush all user-space atc entries.
  */
 static inline void __flush_tlb(void)
 {
@@ -24,7 +24,7 @@ static inline void __flush_tlb_one(unsigned long addr)
 #define flush_tlb() __flush_tlb()
 
 /*
-                                                              
+ * flush all atc entries (both kernel and user-space entries).
  */
 static inline void flush_tlb_all(void)
 {
@@ -52,4 +52,4 @@ static inline void flush_tlb_kernel_page(unsigned long addr)
 	BUG();
 }
 
-#endif /*                   */
+#endif /* _H8300_TLBFLUSH_H */

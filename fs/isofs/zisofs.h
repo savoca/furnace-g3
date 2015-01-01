@@ -11,7 +11,7 @@
  * ----------------------------------------------------------------------- */
 
 /*
-                                                                        
+ * Prototypes for functions exported from the compressed isofs subsystem
  */
 
 #ifdef CONFIG_ZISOFS

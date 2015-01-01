@@ -38,7 +38,7 @@
 #include "device.h"
 #include "tmacro.h"
 
-/*                                                                   */
+/*---------------------  Export Definitions -------------------------*/
 
 #define REV_ID_VT3253_A0    0x00
 #define REV_ID_VT3253_A1    0x01
@@ -46,7 +46,7 @@
 #define REV_ID_VT3253_B1    0x09
 
 //
-//                     
+// Registers in the MAC
 //
 #define MAC_REG_BISTCMD     0x04
 #define MAC_REG_BISTSR0     0x05
@@ -70,7 +70,7 @@
 #define MAC_REG_TMDATA2     0x1E
 #define MAC_REG_TMDATA3     0x1F
 
-//                      
+// MAC Parameter related
 #define MAC_REG_LRT         0x20        //
 #define MAC_REG_SRT         0x21        //
 #define MAC_REG_SIFS        0x22        //
@@ -85,12 +85,12 @@
 #define MAC_REG_RTSFAILCNT  0x2D
 #define MAC_REG_ACKFAILCNT  0x2E
 #define MAC_REG_FCSERRCNT   0x2F
-//            
+// TSF Related
 #define MAC_REG_TSFCNTR     0x30        //
 #define MAC_REG_NEXTTBTT    0x38        //
 #define MAC_REG_TSFOFST     0x40        //
 #define MAC_REG_TFTCTL      0x48        //
-//                            
+// WMAC Control/Status Related
 #define MAC_REG_ENCFG0      0x4C        //
 #define MAC_REG_ENCFG1      0x4D        //
 #define MAC_REG_ENCFG2      0x4E        //
@@ -104,7 +104,7 @@
 #define MAC_REG_IMR         0x58        //
 #define MAC_REG_ISR         0x5C
 #define MAC_REG_ISR1        0x5D
-//                     
+// Power Saving Related
 #define MAC_REG_PSCFG       0x60        //
 #define MAC_REG_PSCTL       0x61        //
 #define MAC_REG_PSPWRSIG    0x62        //
@@ -115,7 +115,7 @@
 #define MAC_REG_CALTMR      0x69
 #define MAC_REG_SYNSPACCNT  0x6A
 #define MAC_REG_WAKSYNOPT   0x6B
-//                          
+// Baseband/IF Control Group
 #define MAC_REG_BBREGCTL    0x6C        //
 #define MAC_REG_CHANNEL     0x6D
 #define MAC_REG_BBREGADR    0x6E
@@ -129,19 +129,19 @@
 #define MAC_REG_GPIOCTL0    0x7A        //
 #define MAC_REG_GPIOCTL1    0x7B        //
 
-//                   
+// MiscFF PIO related
 #define MAC_REG_MISCFFNDEX  0xBC
 #define MAC_REG_MISCFFCTL   0xBE
 #define MAC_REG_MISCFFDATA  0xC0
 
-//                        
+// MAC Configuration Group
 #define MAC_REG_PAR0        0xC4
 #define MAC_REG_PAR4        0xC8
 #define MAC_REG_BSSID0      0xCC
 #define MAC_REG_BSSID4      0xD0
 #define MAC_REG_MAR0        0xD4
 #define MAC_REG_MAR4        0xD8
-//                      
+// MAC RSPPKT INFO Group
 #define MAC_REG_RSPINF_B_1  0xDC
 #define MAC_REG_RSPINF_B_2  0xE0
 #define MAC_REG_RSPINF_B_5  0xE4
@@ -158,7 +158,7 @@
 
 
 //
-//                                   
+// Bits in the I2MCFG EEPROM register
 //
 #define I2MCFG_BOUNDCTL     0x80
 #define I2MCFG_WAITCTL      0x20
@@ -169,7 +169,7 @@
 #define I2MCFG_I2CMFAST     0x01
 
 //
-//                                   
+// Bits in the I2MCSR EEPROM register
 //
 #define I2MCSR_EEMW         0x80
 #define I2MCSR_EEMR         0x40
@@ -178,14 +178,14 @@
 #define I2MCSR_DONE         0x01
 
 //
-//                           
+// Bits in the TMCTL register
 //
 #define TMCTL_TSUSP         0x04
 #define TMCTL_TMD           0x02
 #define TMCTL_TE            0x01
 
 //
-//                            
+// Bits in the TFTCTL register
 //
 #define TFTCTL_HWUTSF       0x80        //
 #define TFTCTL_TBTTSYNC     0x40
@@ -197,7 +197,7 @@
 #define TFTCTL_TSFCNTREN    0x01        //
 
 //
-//                                  
+// Bits in the EnhanceCFG_0 register
 //
 #define EnCFG_BBType_a      0x00
 #define EnCFG_BBType_b      0x01
@@ -206,20 +206,20 @@
 #define EnCFG_ProtectMd     0x20
 
 //
-//                                  
+// Bits in the EnhanceCFG_1 register
 //
 #define EnCFG_BcnSusInd     0x01
 #define EnCFG_BcnSusClr     0x02
 
 //
-//                                  
+// Bits in the EnhanceCFG_2 register
 //
 #define EnCFG_NXTBTTCFPSTR  0x01
 #define EnCFG_BarkerPream   0x02
 #define EnCFG_PktBurstMode  0x04
 
 //
-//                         
+// Bits in the CFG register
 //
 #define CFG_TKIPOPT         0x80
 #define CFG_RXDMAOPT        0x40
@@ -232,7 +232,7 @@
 #define CFG_NOBUFOPT        0x01
 
 //
-//                          
+// Bits in the TEST register
 //
 #define TEST_LBEXT          0x80        //
 #define TEST_LBINT          0x40        //
@@ -245,26 +245,26 @@
 #define TEST_NOACK          0x01        //
 
 //
-//                            
+// Bits in the HOSTCR register
 //
 #define HOSTCR_TXONST       0x80        //
 #define HOSTCR_RXONST       0x40        //
-#define HOSTCR_ADHOC        0x20        //                        
-#define HOSTCR_AP           0x10        //                 
-#define HOSTCR_TXON         0x08        //         
-#define HOSTCR_RXON         0x04        //         
-#define HOSTCR_MACEN        0x02        //         
-#define HOSTCR_SOFTRST      0x01        //         
+#define HOSTCR_ADHOC        0x20        // Network Type 1 = Ad-hoc
+#define HOSTCR_AP           0x10        // Port Type 1 = AP
+#define HOSTCR_TXON         0x08        //0000 1000
+#define HOSTCR_RXON         0x04        //0000 0100
+#define HOSTCR_MACEN        0x02        //0000 0010
+#define HOSTCR_SOFTRST      0x01        //0000 0001
 
 //
-//                           
+// Bits in the MACCR register
 //
 #define MACCR_SYNCFLUSHOK   0x04        //
 #define MACCR_SYNCFLUSH     0x02        //
 #define MACCR_CLRNAV        0x01        //
 
 //
-//                         
+// Bits in the RCR register
 //
 #define RCR_SSID            0x80
 #define RCR_RXALLTYPE       0x40        //
@@ -276,13 +276,13 @@
 #define RCR_BSSID           0x01        //
 
 //
-//                         
+// Bits in the TCR register
 //
 #define TCR_SYNCDCFOPT      0x02        //
-#define TCR_AUTOBCNTX       0x01        //                                     
+#define TCR_AUTOBCNTX       0x01        // Beacon automatically transmit enable
 
 
-//    
+//ISR1
 #define ISR_GPIO3           0x40
 #define ISR_RXNOBUF         0x08
 #define ISR_MIBNEARFULL     0x04
@@ -296,7 +296,7 @@
 #define LEDSTS_SLOW         0x04
 #define LEDSTS_INTER        0x06
 
-//    
+//ISR0
 #define ISR_WATCHDOG        0x80
 #define ISR_SOFTTIMER       0x40
 #define ISR_GPIO0           0x20
@@ -306,7 +306,7 @@
 #define ISR_ACTX            0x01
 
 //
-//                           
+// Bits in the PSCFG register
 //
 #define PSCFG_PHILIPMD      0x40        //
 #define PSCFG_WAKECALEN     0x20        //
@@ -317,7 +317,7 @@
 #define PSCFG_AUTOSLEEP     0x01        //
 
 //
-//                           
+// Bits in the PSCTL register
 //
 #define PSCTL_WAKEDONE      0x20        //
 #define PSCTL_PS            0x10        //
@@ -327,7 +327,7 @@
 #define PSCTL_PSEN          0x01        //
 
 //
-//                             
+// Bits in the PSPWSIG register
 //
 #define PSSIG_WPE3          0x80        //
 #define PSSIG_WPE2          0x40        //
@@ -339,21 +339,21 @@
 #define PSSIG_SRADIOPE      0x01        //
 
 //
-//                              
+// Bits in the BBREGCTL register
 //
 #define BBREGCTL_DONE       0x04        //
 #define BBREGCTL_REGR       0x02        //
 #define BBREGCTL_REGW       0x01        //
 
 //
-//                              
+// Bits in the IFREGCTL register
 //
 #define IFREGCTL_DONE       0x04        //
 #define IFREGCTL_IFRF       0x02        //
 #define IFREGCTL_REGW       0x01        //
 
 //
-//                                
+// Bits in the SOFTPWRCTL register
 //
 #define SOFTPWRCTL_RFLEOPT      0x08  //
 #define SOFTPWRCTL_TXPEINV      0x02  //
@@ -366,28 +366,28 @@
 #define SOFTPWRCTL_SWPE3        0x01  //
 
 //
-//                              
+// Bits in the GPIOCTL1 register
 //
 #define GPIO3_MD                0x20    //
 #define GPIO3_DATA              0x40    //
 #define GPIO3_INTMD             0x80    //
 
 //
-//                               
+// Bits in the MISCFFCTL register
 //
 #define MISCFFCTL_WRITE     0x0001      //
 
 
-//              
+// Loopback mode
 #define MAC_LB_EXT          0x02        //
 #define MAC_LB_INTERNAL     0x01        //
 #define MAC_LB_NONE         0x00        //
 
-//                             
-#define PKT_TYPE_NONE           0x00    //                  
+// Ethernet address filter type
+#define PKT_TYPE_NONE           0x00    // turn off receiver
 #define PKT_TYPE_ALL_MULTICAST  0x80
 #define PKT_TYPE_PROMISCUOUS    0x40
-#define PKT_TYPE_DIRECTED       0x20    //                                              
+#define PKT_TYPE_DIRECTED       0x20    // obselete, directed address is always accepted
 #define PKT_TYPE_BROADCAST      0x10
 #define PKT_TYPE_MULTICAST      0x08
 #define PKT_TYPE_ERROR_WPA      0x04
@@ -396,29 +396,29 @@
 
 #define Default_BI              0x200
 
-//                
+// MiscFIFO Offset
 #define MISCFIFO_KEYETRY0       32
 #define MISCFIFO_KEYENTRYSIZE   22
 
-//                        
+// max time out delay time
 #define W_MAX_TIMEOUT       0xFFF0U     //
 
-//                      
-#define CB_DELAY_LOOP_WAIT  10          //     
+// wait time within loop
+#define CB_DELAY_LOOP_WAIT  10          // 10ms
 
 #define MAC_REVISION_A0     0x00
 #define MAC_REVISION_A1     0x01
 
 
-/*                                                                   */
+/*---------------------  Export Types  ------------------------------*/
 
-/*                                                                   */
+/*---------------------  Export Macros ------------------------------*/
 
-/*                                                                   */
+/*---------------------  Export Classes  ----------------------------*/
 
-/*                                                                   */
+/*---------------------  Export Variables  --------------------------*/
 
-/*                                                                   */
+/*---------------------  Export Functions  --------------------------*/
 
 void MACvSetMultiAddrByHash(PSDevice pDevice, BYTE byHashIdx);
 void MACvWriteMultiAddr(PSDevice pDevice, unsigned int uByteIdx, BYTE byData);
@@ -440,4 +440,4 @@ void MACvEnableBarkerPreambleMd(PSDevice pDevice);
 void MACvDisableBarkerPreambleMd(PSDevice pDevice);
 void MACvWriteBeaconInterval(PSDevice pDevice, WORD wInterval);
 
-#endif /*           */
+#endif /* __MAC_H__ */

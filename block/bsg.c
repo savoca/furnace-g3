@@ -75,7 +75,7 @@ static int bsg_major;
 static struct kmem_cache *bsg_cmd_cachep;
 
 /*
-                            
+ * our internal command type
  */
 struct bsg_command {
 	struct bsg_device *bd;
@@ -146,11 +146,11 @@ static int bsg_io_schedule(struct bsg_device *bd)
 	BUG_ON(bd->done_cmds > bd->queued_cmds);
 
 	/*
-                                                                    
-                                                                   
-                                                                    
-                                                     
-  */
+	 * -ENOSPC or -ENODATA?  I'm going for -ENODATA, meaning "I have no
+	 * work to do", even though we return -ENOSPC after this same test
+	 * during bsg_write() -- there, it means our buffer can't have more
+	 * bsg_commands added to it, thus has no space left.
+	 */
 	if (bd->done_cmds == bd->queued_cmds) {
 		ret = -ENODATA;
 		goto unlock;
@@ -193,8 +193,8 @@ static int blk_fill_sgv4_hdr_rq(struct request_queue *q, struct request *rq,
 		return -EPERM;
 
 	/*
-                             
-  */
+	 * fill in request structure
+	 */
 	rq->cmd_len = hdr->request_len;
 	rq->cmd_type = REQ_TYPE_BLOCK_PC;
 
@@ -210,7 +210,7 @@ static int blk_fill_sgv4_hdr_rq(struct request_queue *q, struct request *rq,
 }
 
 /*
-                                                   
+ * Check if sg_io_v4 from user is allowed and valid
  */
 static int
 bsg_validate_sgv4_hdr(struct request_queue *q, struct sg_io_v4 *hdr, int *rw)
@@ -239,7 +239,7 @@ bsg_validate_sgv4_hdr(struct request_queue *q, struct sg_io_v4 *hdr, int *rw)
 }
 
 /*
-                             
+ * map sg_io_v4 to a request.
  */
 static struct request *
 bsg_map_hdr(struct bsg_device *bd, struct sg_io_v4 *hdr, fmode_t has_write_perm,
@@ -252,10 +252,10 @@ bsg_map_hdr(struct bsg_device *bd, struct sg_io_v4 *hdr, fmode_t has_write_perm,
 	void __user *dxferp = NULL;
 	struct bsg_class_device *bcd = &q->bsg_dev;
 
-	/*                                                               
-                                                                  
-                                                          
-  */
+	/* if the LLD has been removed then the bsg_unregister_queue will
+	 * eventually be called and the class_dev was freed, so we can no
+	 * longer use this request_queue. Return no such address.
+	 */
 	if (!bcd->class_dev)
 		return ERR_PTR(-ENXIO);
 
@@ -268,8 +268,8 @@ bsg_map_hdr(struct bsg_device *bd, struct sg_io_v4 *hdr, fmode_t has_write_perm,
 		return ERR_PTR(ret);
 
 	/*
-                                                                     
-  */
+	 * map scatter-gather elements separately and string them to request
+	 */
 	rq = blk_get_request(q, rw, GFP_KERNEL);
 	if (!rq)
 		return ERR_PTR(-ENOMEM);
@@ -330,8 +330,8 @@ out:
 }
 
 /*
-                                                                          
-                                             
+ * async completion call-back from the block layer, when scsi/ide/whatever
+ * calls end_that_request_last() on a request
  */
 static void bsg_rq_end_io(struct request *rq, int uptodate)
 {
@@ -353,8 +353,8 @@ static void bsg_rq_end_io(struct request *rq, int uptodate)
 }
 
 /*
-                                                                     
-               
+ * do final setup of a 'bc' and submit the matching 'rq' to the block
+ * layer for io
  */
 static void bsg_add_command(struct bsg_device *bd, struct request_queue *q,
 			    struct bsg_command *bc, struct request *rq)
@@ -362,8 +362,8 @@ static void bsg_add_command(struct bsg_device *bd, struct request_queue *q,
 	int at_head = (0 == (bc->hdr.flags & BSG_FLAG_Q_AT_TAIL));
 
 	/*
-                                                     
-  */
+	 * add bc command to busy queue and submit rq for io
+	 */
 	bc->rq = rq;
 	bc->bio = rq->bio;
 	if (rq->next_rq)
@@ -395,7 +395,7 @@ static struct bsg_command *bsg_next_done_cmd(struct bsg_device *bd)
 }
 
 /*
-                                            
+ * Get a finished command from the done list
  */
 static struct bsg_command *bsg_get_done_cmd(struct bsg_device *bd)
 {
@@ -431,8 +431,8 @@ static int blk_complete_sgv4_hdr_rq(struct request *rq, struct sg_io_v4 *hdr,
 
 	dprintk("rq %p bio %p 0x%x\n", rq, bio, rq->errors);
 	/*
-                                  
-  */
+	 * fill in all the output members
+	 */
 	hdr->device_status = rq->errors & 0xff;
 	hdr->transport_status = host_byte(rq->errors);
 	hdr->driver_status = driver_byte(rq->errors);
@@ -464,11 +464,11 @@ static int blk_complete_sgv4_hdr_rq(struct request *rq, struct sg_io_v4 *hdr,
 		hdr->dout_resid = rq->resid_len;
 
 	/*
-                                                               
-                                                             
-                                                           
-                    
-  */
+	 * If the request generated a negative error number, return it
+	 * (providing we aren't already returning an error); if it's
+	 * just a protocol response (i.e. non negative), that gets
+	 * processed above.
+	 */
 	if (!ret && rq->errors < 0)
 		ret = rq->errors;
 
@@ -488,23 +488,23 @@ static int bsg_complete_all_commands(struct bsg_device *bd)
 	dprintk("%s: entered\n", bd->name);
 
 	/*
-                                     
-  */
+	 * wait for all commands to complete
+	 */
 	ret = 0;
 	do {
 		ret = bsg_io_schedule(bd);
 		/*
-                                                          
-                                                         
-                                                         
-                                                             
-                    
-   */
+		 * look for -ENODATA specifically -- we'll sometimes get
+		 * -ERESTARTSYS when we've taken a signal, but we can't
+		 * return until we're done freeing the queue, so ignore
+		 * it.  The signal will get handled when we're done freeing
+		 * the bsg_device.
+		 */
 	} while (ret != -ENODATA);
 
 	/*
-                         
-  */
+	 * discard done commands
+	 */
 	ret = 0;
 	do {
 		spin_lock_irq(&bd->lock);
@@ -549,10 +549,10 @@ __bsg_read(char __user *buf, size_t count, struct bsg_device *bd,
 		}
 
 		/*
-                                                          
-                                                   
-                                              
-   */
+		 * this is the only case where we need to copy data back
+		 * after completing the request. so do that here,
+		 * bsg_complete_work() cannot do that for us
+		 */
 		ret = blk_complete_sgv4_hdr_rq(bc->rq, &bc->hdr, bc->bio,
 					       bc->bidi_bio);
 
@@ -581,7 +581,7 @@ static inline void bsg_set_block(struct bsg_device *bd, struct file *file)
 }
 
 /*
-                                                              
+ * Check if the error is a "real" error that we should return.
  */
 static inline int err_block_err(int ret)
 {
@@ -643,8 +643,8 @@ static int __bsg_write(struct bsg_device *bd, const char __user *buf,
 		}
 
 		/*
-                                                                
-   */
+		 * get a request, fill in the blanks, and add to request queue
+		 */
 		rq = bsg_map_hdr(bd, &bc->hdr, has_write_perm, bc->sense);
 		if (IS_ERR(rq)) {
 			ret = PTR_ERR(rq);
@@ -684,8 +684,8 @@ bsg_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 	*ppos = bytes_written;
 
 	/*
-                                            
-  */
+	 * return bytes written on non-fatal errors
+	 */
 	if (!bytes_written || err_block_err(ret))
 		bytes_written = ret;
 
@@ -745,15 +745,15 @@ static int bsg_put_device(struct bsg_device *bd)
 	dprintk("%s: tearing down\n", bd->name);
 
 	/*
-                          
-  */
+	 * close can always block
+	 */
 	set_bit(BSG_F_BLOCK, &bd->flags);
 
 	/*
-                                                                       
-                                                                   
-                              
-  */
+	 * correct error detection baddies here again. it's the responsibility
+	 * of the app to properly reap commands before close() if it wants
+	 * fool-proof error detection
+	 */
 	ret = bsg_complete_all_commands(bd);
 
 	kfree(bd);
@@ -822,8 +822,8 @@ static struct bsg_device *bsg_get_device(struct inode *inode, struct file *file)
 	struct bsg_class_device *bcd;
 
 	/*
-                         
-  */
+	 * find the class device
+	 */
 	mutex_lock(&bsg_mutex);
 	bcd = idr_find(&bsg_minor_idr, iminor(inode));
 	if (bcd)
@@ -891,8 +891,8 @@ static long bsg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 		/*
-                   
-   */
+		 * our own ioctls
+		 */
 	case SG_GET_COMMAND_Q:
 		return put_user(bd->max_queue, uarg);
 	case SG_SET_COMMAND_Q: {
@@ -910,8 +910,8 @@ static long bsg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 
 	/*
-                  
-  */
+	 * SCSI/sg ioctls
+	 */
 	case SG_GET_VERSION_NUM:
 	case SCSI_IOCTL_GET_IDLUN:
 	case SCSI_IOCTL_GET_BUS_NUMBER:
@@ -952,8 +952,8 @@ static long bsg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return ret;
 	}
 	/*
-                       
-  */
+	 * block device ioctls
+	 */
 	default:
 #if 0
 		return ioctl_by_bdev(bd->bdev, cmd, arg);
@@ -1007,8 +1007,8 @@ int bsg_register_queue(struct request_queue *q, struct device *parent,
 		devname = dev_name(parent);
 
 	/*
-                                                                     
-  */
+	 * we need a proper transport to send commands, not a stacked device
+	 */
 	if (!q->request_fn)
 		return 0;
 

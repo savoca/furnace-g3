@@ -27,7 +27,7 @@ TcpalSemaphore_t Tcc353xStreamSema;
 static const char *id = "TCC";
 static struct msm_xo_voter *xo_handle_tcc;
 
-/*                           */
+/*#define _NOT_USE_WAKE_LOCK_*/
 
 struct broadcast_tcc3530_ctrl_data
 {
@@ -37,8 +37,8 @@ struct broadcast_tcc3530_ctrl_data
 };
 
 static struct broadcast_tcc3530_ctrl_data  IsdbCtrlInfo;
-//                                      
-//                                      
+//static unsigned int user_stop_flg = 0;
+//static unsigned int mdelay_in_flg = 0;
 int broadcast_dmb_drv_start(void);
 
 struct spi_device *TCC_GET_SPI_DRIVER(void)
@@ -120,7 +120,7 @@ static int broadcast_Isdb_spi_probe(struct spi_device *spi_dev)
 
 	spi_dev->mode = SPI_MODE_0;
 	spi_dev->bits_per_word = 8;
-	spi_dev->max_speed_hz = 32*1000*1000;	/*        */
+	spi_dev->max_speed_hz = 32*1000*1000;	/* 32 MHz	*/
 	rc = spi_setup(spi_dev);
 
 	IsdbCtrlInfo.spi_dev = spi_dev;

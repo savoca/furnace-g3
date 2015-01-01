@@ -45,4 +45,4 @@ struct IPSelectorDbEntry *ip_selector_db_entry_remove(struct IPSelectorDb *db,
 struct IPSelectorDbEntry *ip_selector_db_entry_remove_next(struct IPSelectorDb
 							   *db);
 
-#endif				/*                  */
+#endif				/* IP_SELECTOR_DB_H */

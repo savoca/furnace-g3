@@ -6,7 +6,7 @@
  */
 
 /*
-                                      
+ * IBM PC110 touchpad driver for Linux
  */
 
 /*
@@ -101,10 +101,10 @@ static int pc110pad_open(struct input_dev *dev)
 }
 
 /*
-                                                    
-                                                       
-                                                        
-                                                     
+ * We try to avoid enabling the hardware if it's not
+ * there, but we don't know how to test. But we do know
+ * that the PC110 is not a PCI system. So if we find any
+ * PCI devices in the machine, we don't have a PC110.
  */
 static int __init pc110pad_init(void)
 {

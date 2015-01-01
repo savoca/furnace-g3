@@ -29,7 +29,7 @@
 #define VIF_PR_ARG	__get_str(vif_name), __entry->vif_type, __entry->p2p ? "/p2p" : ""
 
 /*
-                                
+ * Tracing for driver callbacks.
  */
 
 DECLARE_EVENT_CLASS(local_only_evt,
@@ -1163,7 +1163,7 @@ DEFINE_EVENT(release_evt, drv_allow_buffered_frames,
 );
 
 /*
-                                           
+ * Tracing for API calls that drivers call.
  */
 
 TRACE_EVENT(api_start_tx_ba_session,
@@ -1499,8 +1499,8 @@ TRACE_EVENT(api_eosp,
 );
 
 /*
-                                 
-                                                         
+ * Tracing for internal functions
+ * (which may also be called in response to driver calls)
  */
 
 TRACE_EVENT(wake_queue,
@@ -1550,7 +1550,7 @@ TRACE_EVENT(stop_queue,
 		LOCAL_PR_ARG, __entry->queue, __entry->reason
 	)
 );
-#endif /*                                                     */
+#endif /* !__MAC80211_DRIVER_TRACE || TRACE_HEADER_MULTI_READ */
 
 #undef TRACE_INCLUDE_PATH
 #define TRACE_INCLUDE_PATH .

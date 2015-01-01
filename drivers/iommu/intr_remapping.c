@@ -93,8 +93,8 @@ int alloc_irte(struct intel_iommu *iommu, int irq, u16 count)
 		return -1;
 
 	/*
-                                       
-  */
+	 * start the IRTE search from index 0.
+	 */
 	index = start_index = 0;
 
 	if (count > 1) {
@@ -115,7 +115,7 @@ int alloc_irte(struct intel_iommu *iommu, int irq, u16 count)
 		for (i = index; i < index + count; i++)
 			if  (table->base[i].present)
 				break;
-		/*                   */
+		/* empty index found */
 		if (i == index + count)
 			break;
 
@@ -294,29 +294,29 @@ int free_irte(int irq)
 }
 
 /*
-                         
+ * source validation type
  */
-#define SVT_NO_VERIFY		0x0  /*                             */
-#define SVT_VERIFY_SID_SQ	0x1  /*                                */
-#define SVT_VERIFY_BUS		0x2  /*                          */
+#define SVT_NO_VERIFY		0x0  /* no verification is required */
+#define SVT_VERIFY_SID_SQ	0x1  /* verify using SID and SQ fields */
+#define SVT_VERIFY_BUS		0x2  /* verify bus of request-id */
 
 /*
-                      
+ * source-id qualifier
  */
-#define SQ_ALL_16	0x0  /*                                  */
-#define SQ_13_IGNORE_1	0x1  /*                                        
-                                          
-         */
-#define SQ_13_IGNORE_2	0x2  /*                                        
-                                                      
-         */
-#define SQ_13_IGNORE_3	0x3  /*                                        
-                                           
-         */
+#define SQ_ALL_16	0x0  /* verify all 16 bits of request-id */
+#define SQ_13_IGNORE_1	0x1  /* verify most significant 13 bits, ignore
+			      * the third least significant bit
+			      */
+#define SQ_13_IGNORE_2	0x2  /* verify most significant 13 bits, ignore
+			      * the second and third least significant bits
+			      */
+#define SQ_13_IGNORE_3	0x3  /* verify most significant 13 bits, ignore
+			      * the least three significant bits
+			      */
 
 /*
-                                               
-                                   
+ * set SVT, SQ and SID fields of irte to verify
+ * source ids of interrupt requests
  */
 static void set_irte_sid(struct irte *irte, unsigned int svt,
 			 unsigned int sq, unsigned int sid)
@@ -374,10 +374,10 @@ int set_hpet_sid(struct irte *irte, u8 id)
 	}
 
 	/*
-                                                           
-                                                                        
-                           
-  */
+	 * Should really use SQ_ALL_16. Some platforms are broken.
+	 * While we figure out the right quirks for these broken platforms, use
+	 * SQ_13_IGNORE_3 for now.
+	 */
 	set_irte_sid(irte, SVT_VERIFY_SID_SQ, SQ_13_IGNORE_3, sid);
 
 	return 0;
@@ -390,7 +390,7 @@ int set_msi_sid(struct irte *irte, struct pci_dev *dev)
 	if (!irte || !dev)
 		return -1;
 
-	/*                                                   */
+	/* PCIe device or Root Complex integrated PCI device */
 	if (pci_is_pcie(dev) || !dev->bus->parent) {
 		set_irte_sid(irte, SVT_VERIFY_SID_SQ, SQ_ALL_16,
 			     (dev->bus->number << 8) | dev->devfn);
@@ -399,10 +399,10 @@ int set_msi_sid(struct irte *irte, struct pci_dev *dev)
 
 	bridge = pci_find_upstream_pcie_bridge(dev);
 	if (bridge) {
-		if (pci_is_pcie(bridge))/*                                   */
+		if (pci_is_pcie(bridge))/* this is a PCIe-to-PCI/PCIX bridge */
 			set_irte_sid(irte, SVT_VERIFY_BUS, SQ_ALL_16,
 				(bridge->bus->number << 8) | dev->bus->number);
-		else /*                             */
+		else /* this is a legacy PCI bridge */
 			set_irte_sid(irte, SVT_VERIFY_SID_SQ, SQ_ALL_16,
 				(bridge->bus->number << 8) | bridge->devfn);
 	}
@@ -423,7 +423,7 @@ static void iommu_set_intr_remapping(struct intel_iommu *iommu, int mode)
 	dmar_writeq(iommu->reg + DMAR_IRTA_REG,
 		    (addr) | IR_X2APIC_MODE(mode) | INTR_REMAP_TABLE_REG_SIZE);
 
-	/*                                       */
+	/* Set interrupt-remapping table pointer */
 	iommu->gcmd |= DMA_GCMD_SIRTP;
 	writel(iommu->gcmd, iommu->reg + DMAR_GCMD_REG);
 
@@ -432,14 +432,14 @@ static void iommu_set_intr_remapping(struct intel_iommu *iommu, int mode)
 	raw_spin_unlock_irqrestore(&iommu->register_lock, flags);
 
 	/*
-                                                                
-                        
-  */
+	 * global invalidation of interrupt entry cache before enabling
+	 * interrupt-remapping.
+	 */
 	qi_global_iec(iommu);
 
 	raw_spin_lock_irqsave(&iommu->register_lock, flags);
 
-	/*                            */
+	/* Enable interrupt-remapping */
 	iommu->gcmd |= DMA_GCMD_IRE;
 	writel(iommu->gcmd, iommu->reg + DMAR_GCMD_REG);
 
@@ -478,7 +478,7 @@ static int setup_intr_remapping(struct intel_iommu *iommu, int mode)
 }
 
 /*
-                               
+ * Disable Interrupt Remapping.
  */
 static void iommu_disable_intr_remapping(struct intel_iommu *iommu)
 {
@@ -489,9 +489,9 @@ static void iommu_disable_intr_remapping(struct intel_iommu *iommu)
 		return;
 
 	/*
-                                                                 
-                        
-  */
+	 * global invalidation of interrupt entry cache before disabling
+	 * interrupt-remapping.
+	 */
 	qi_global_iec(iommu);
 
 	raw_spin_lock_irqsave(&iommu->register_lock, flags);
@@ -562,29 +562,29 @@ int __init enable_intr_remapping(void)
 		struct intel_iommu *iommu = drhd->iommu;
 
 		/*
-                                                       
-                          
-   */
+		 * If the queued invalidation is already initialized,
+		 * shouldn't disable it.
+		 */
 		if (iommu->qi)
 			continue;
 
 		/*
-                           
-   */
+		 * Clear previous faults.
+		 */
 		dmar_fault(-1, iommu);
 
 		/*
-                                                               
-                                  
-   */
+		 * Disable intr remapping and queued invalidation, if already
+		 * enabled prior to OS handover.
+		 */
 		iommu_disable_intr_remapping(iommu);
 
 		dmar_disable_qi(iommu);
 	}
 
 	/*
-                                             
-  */
+	 * check for the Interrupt-remapping support
+	 */
 	for_each_drhd_unit(drhd) {
 		struct intel_iommu *iommu = drhd->iommu;
 
@@ -599,8 +599,8 @@ int __init enable_intr_remapping(void)
 	}
 
 	/*
-                                                  
-  */
+	 * Enable queued invalidation for all the DRHD's.
+	 */
 	for_each_drhd_unit(drhd) {
 		int ret;
 		struct intel_iommu *iommu = drhd->iommu;
@@ -615,8 +615,8 @@ int __init enable_intr_remapping(void)
 	}
 
 	/*
-                                                     
-  */
+	 * Setup Interrupt-remapping for all the DRHD's now.
+	 */
 	for_each_drhd_unit(drhd) {
 		struct intel_iommu *iommu = drhd->iommu;
 
@@ -639,8 +639,8 @@ int __init enable_intr_remapping(void)
 
 error:
 	/*
-                                           
-  */
+	 * handle error condition gracefully here!
+	 */
 	return -1;
 }
 
@@ -658,9 +658,9 @@ static void ir_parse_one_hpet_scope(struct acpi_dmar_device_scope *scope,
 
 	while (--count > 0) {
 		/*
-                                       
-                                     
-   */
+		 * Access PCI directly due to the PCI
+		 * subsystem isn't initialized yet.
+		 */
 		bus = read_pci_config_byte(bus, path->dev, path->fn,
 					   PCI_SECONDARY_BUS);
 		path++;
@@ -686,9 +686,9 @@ static void ir_parse_one_ioapic_scope(struct acpi_dmar_device_scope *scope,
 
 	while (--count > 0) {
 		/*
-                                       
-                                     
-   */
+		 * Access PCI directly due to the PCI
+		 * subsystem isn't initialized yet.
+		 */
 		bus = read_pci_config_byte(bus, path->dev, path->fn,
 					   PCI_SECONDARY_BUS);
 		path++;
@@ -745,8 +745,8 @@ static int ir_parse_ioapic_hpet_scope(struct acpi_dmar_header *header,
 }
 
 /*
-                                                                     
-                 
+ * Finds the assocaition between IOAPIC's and its Interrupt-remapping
+ * hardware unit.
  */
 int __init parse_ioapics_under_ir(void)
 {
@@ -788,8 +788,8 @@ void disable_intr_remapping(void)
 	struct intel_iommu *iommu = NULL;
 
 	/*
-                                                       
-  */
+	 * Disable Interrupt-remapping for all the DRHD's now.
+	 */
 	for_each_iommu(iommu, drhd) {
 		if (!ecap_ir_support(iommu->ecap))
 			continue;
@@ -809,13 +809,13 @@ int reenable_intr_remapping(int eim)
 			dmar_reenable_qi(iommu);
 
 	/*
-                                                     
-  */
+	 * Setup Interrupt-remapping for all the DRHD's now.
+	 */
 	for_each_iommu(iommu, drhd) {
 		if (!ecap_ir_support(iommu->ecap))
 			continue;
 
-		/*                                      */
+		/* Set up interrupt remapping for iommu.*/
 		iommu_set_intr_remapping(iommu, eim);
 		setup = 1;
 	}
@@ -827,8 +827,8 @@ int reenable_intr_remapping(int eim)
 
 error:
 	/*
-                                           
-  */
+	 * handle error condition gracefully here!
+	 */
 	return -1;
 }
 

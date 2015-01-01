@@ -34,7 +34,7 @@
 #include "tvenc.h"
 #include "msm_fb.h"
 #include "mdp4.h"
-/*                 */
+/* AXI rate in KHz */
 #define MSM_SYSTEM_BUS_RATE	128000000
 
 static int tvenc_probe(struct platform_device *pdev);
@@ -92,8 +92,8 @@ int tvenc_set_encoder_clock(boolean clock_on)
 	int ret = 0;
 	if (clock_on) {
 #ifdef CONFIG_FB_MSM_MDP40
-		/*                                                   
-                                                      */
+		/* Consolidated clock used by both HDMI & TV encoder.
+		Clock exists only in MDP4 and not in older versions */
 		ret = clk_set_rate(tv_src_clk, 27000000);
 		if (ret) {
 			pr_err("%s: tvsrc_clk set rate failed! %d\n",
@@ -260,24 +260,24 @@ void tvenc_gen_test_pattern(struct msm_fb_data_type *mfd)
 	reg |= TVENC_CTL_TEST_PATT_EN;
 
 	for (i = 0; i < 3; i++) {
-		TV_OUT(TV_ENC_CTL, 0);	/*                    */
+		TV_OUT(TV_ENC_CTL, 0);	/* disable TV encoder */
 
 		switch (i) {
 			/*
-                                         
-    */
+			 * TV Encoder - Color Bar Test Pattern
+			 */
 		case 0:
 			reg |= TVENC_CTL_TPG_CLRBAR;
 			break;
 			/*
-                                         
-    */
+			 * TV Encoder - Red Frame Test Pattern
+			 */
 		case 1:
 			reg |= TVENC_CTL_TPG_REDCLR;
 			break;
 			/*
-                                              
-    */
+			 * TV Encoder - Modulated Ramp Test Pattern
+			 */
 		default:
 			reg |= TVENC_CTL_TPG_MODRAMP;
 			break;
@@ -288,20 +288,20 @@ void tvenc_gen_test_pattern(struct msm_fb_data_type *mfd)
 
 		switch (i) {
 			/*
-                                         
-    */
+			 * TV Encoder - Color Bar Test Pattern
+			 */
 		case 0:
 			reg &= ~TVENC_CTL_TPG_CLRBAR;
 			break;
 			/*
-                                         
-    */
+			 * TV Encoder - Red Frame Test Pattern
+			 */
 		case 1:
 			reg &= ~TVENC_CTL_TPG_REDCLR;
 			break;
 			/*
-                                              
-    */
+			 * TV Encoder - Modulated Ramp Test Pattern
+			 */
 		default:
 			reg &= ~TVENC_CTL_TPG_MODRAMP;
 			break;
@@ -345,7 +345,7 @@ static int tvenc_probe(struct platform_device *pdev)
 #ifdef CONFIG_FB_MSM_MDP40
 		tv_src_clk = clk_get(&pdev->dev, "src_clk");
 		if (IS_ERR(tv_src_clk))
-			tv_src_clk = tvenc_clk; /*                   */
+			tv_src_clk = tvenc_clk; /* Fallback to slave */
 #endif
 
 		if (IS_ERR(tvenc_clk)) {
@@ -410,14 +410,14 @@ static int tvenc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	/*
-                           
-  */
+	 * link to the latest pdev
+	 */
 	mfd->pdev = mdp_dev;
 	mfd->dest = DISPLAY_TV;
 
 	/*
-                           
-  */
+	 * alloc panel device data
+	 */
 	if (platform_device_add_data
 	    (mdp_dev, pdev->dev.platform_data,
 	     sizeof(struct msm_fb_panel_data))) {
@@ -426,19 +426,19 @@ static int tvenc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	/*
-              
-  */
+	 * data chain
+	 */
 	pdata = mdp_dev->dev.platform_data;
 	pdata->on = tvenc_on;
 	pdata->off = tvenc_off;
 	pdata->next = pdev;
 
 	/*
-                                  
-  */
+	 * get/set panel specific fb info
+	 */
 	mfd->panel_info = pdata->panel_info;
 #ifdef CONFIG_FB_MSM_MDP40
-	mfd->fb_imgType = MDP_RGB_565;  /*            */
+	mfd->fb_imgType = MDP_RGB_565;  /* base layer */
 #else
 	mfd->fb_imgType = MDP_YCRYCB_H2V1;
 #endif
@@ -457,13 +457,13 @@ static int tvenc_probe(struct platform_device *pdev)
 #endif
 
 	/*
-                   
-  */
+	 * set driver data
+	 */
 	platform_set_drvdata(mdp_dev, mfd);
 
 	/*
-                          
-  */
+	 * register in mdp driver
+	 */
 	rc = platform_device_add(mdp_dev);
 	if (rc)
 		goto tvenc_probe_err;

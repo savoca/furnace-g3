@@ -24,8 +24,8 @@
 #define DESCRIPTION_TABLE_START			0xe9
 #define EXIST_OFFSET	0xEE
 
-#define PAGE_SELECT_REG				0xFF		/*                       */
-#define PAGE_MAX_NUM				5		/*                         */
+#define PAGE_SELECT_REG				0xFF		/* Button exists Page 02 */
+#define PAGE_MAX_NUM				5		/* number of page register */
 
 #define F12_NO_OBJECT_STATUS		(0x00)
 #define F12_FINGER_STATUS			(0x01)
@@ -62,7 +62,7 @@ struct button_data {
 };
 
 struct cur_touch_data {
-	u8	device_status_reg;		/*                   */
+	u8	device_status_reg;		/* DEVICE_STATUS_REG */
 	u8	interrupt_status_reg;
 	u8	button_data_reg;
 	struct finger_data	finger;
@@ -132,7 +132,7 @@ struct synaptics_ts_data {
 	struct cur_touch_data	ts_data;
 	struct synaptics_ts_fw_info	fw_info;
 	struct delayed_work	work_timer;
-	struct delayed_work	diff_node_timer;  //         
+	struct delayed_work	diff_node_timer;  //test code
 	struct delayed_work	cap_diff;
 	struct delayed_work	work_palm;
 	struct wake_lock	timer_wake_lock;
@@ -258,7 +258,7 @@ enum{
 };
 void synaptics_ts_new_function(struct synaptics_ts_proximity_fn *prox_fn, bool insert);
 
-/*                 */
+/* extern function */
 extern int FirmwareUpgrade(struct synaptics_ts_data *ts, const char* fw_path);
 int synaptics_ts_page_data_read(struct i2c_client *client, u8 page, u8 reg, int size, u8 *data);
 int synaptics_ts_page_data_write(struct i2c_client *client, u8 page, u8 reg, int size, u8 *data);

@@ -36,10 +36,10 @@ module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug,"enable debug messages [alsa]");
 
 /*
-                       
+ * Configuration macros
  */
 
-/*          */
+/* defaults */
 #define MIXER_ADDR_UNSELECTED	-1
 #define MIXER_ADDR_TVTUNER	0
 #define MIXER_ADDR_LINE1	1
@@ -47,8 +47,8 @@ MODULE_PARM_DESC(debug,"enable debug messages [alsa]");
 #define MIXER_ADDR_LAST		2
 
 
-static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;	/*             */
-static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;	/*                  */
+static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;	/* Index 0-MAX */
+static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;	/* ID for this card */
 static int enable[SNDRV_CARDS] = {1, [1 ... (SNDRV_CARDS - 1)] = 1};
 
 module_param_array(index, int, NULL, 0444);
@@ -62,7 +62,7 @@ MODULE_PARM_DESC(enable, "Enable (or not) the SAA7134 capture interface(s).");
 
 
 /*
-                      
+ * Main chip structure
  */
 
 typedef struct snd_card_saa7134 {
@@ -84,7 +84,7 @@ typedef struct snd_card_saa7134 {
 
 
 /*
-                
+ * PCM structure
  */
 
 typedef struct snd_card_saa7134_pcm {
@@ -99,12 +99,12 @@ static struct snd_card *snd_saa7134_cards[SNDRV_CARDS];
 
 
 /*
-                         
-  
-                                                                       
-  
-                                                       
-  
+ * saa7134 DMA audio stop
+ *
+ *   Called when the capture device is released or the buffer overflows
+ *
+ *   - Copied verbatim from saa7134-oss's dsp_dma_stop.
+ *
  */
 
 static void saa7134_dma_stop(struct saa7134_dev *dev)
@@ -115,12 +115,12 @@ static void saa7134_dma_stop(struct saa7134_dev *dev)
 }
 
 /*
-                          
-  
-                                                     
-  
-                                                        
-  
+ * saa7134 DMA audio start
+ *
+ *   Called when preparing the capture device for use
+ *
+ *   - Copied verbatim from saa7134-oss's dsp_dma_start.
+ *
  */
 
 static void saa7134_dma_start(struct saa7134_dev *dev)
@@ -131,14 +131,14 @@ static void saa7134_dma_start(struct saa7134_dev *dev)
 }
 
 /*
-                                
-  
-                                                                    
-                                                                       
-                                         
-  
-                                                             
-  
+ * saa7134 audio DMA IRQ handler
+ *
+ *   Called whenever we get an SAA7134_IRQ_REPORT_DONE_RA3 interrupt
+ *   Handles shifting between the 2 buffers, manages the read counters,
+ *  and notifies ALSA when periods elapse
+ *
+ *   - Mostly copied from saa7134-oss's saa7134_irq_oss_done.
+ *
  */
 
 static void saa7134_irq_alsa_done(struct saa7134_dev *dev,
@@ -154,11 +154,11 @@ static void saa7134_irq_alsa_done(struct saa7134_dev *dev,
 	if (0 != (status & 0x0f000000))
 		dprintk("irq: lost %ld\n", (status >> 24) & 0x0f);
 	if (0 == (status & 0x10000000)) {
-		/*     */
+		/* odd */
 		if (0 == (dev->dmasound.dma_blk & 0x01))
 			reg = SAA7134_RS_BA1(6);
 	} else {
-		/*      */
+		/* even */
 		if (1 == (dev->dmasound.dma_blk & 0x01))
 			reg = SAA7134_RS_BA2(6);
 	}
@@ -176,7 +176,7 @@ static void saa7134_irq_alsa_done(struct saa7134_dev *dev,
 		return;
 	}
 
-	/*                 */
+	/* next block addr */
 	next_blk = (dev->dmasound.dma_blk + 2) % dev->dmasound.blocks;
 	saa_writel(reg,next_blk * dev->dmasound.blksize);
 	if (debug > 2)
@@ -184,7 +184,7 @@ static void saa7134_irq_alsa_done(struct saa7134_dev *dev,
 			(status & 0x10000000) ? "even" : "odd ", next_blk,
 			next_blk * dev->dmasound.blksize, dev->dmasound.blocks, dev->dmasound.blksize, dev->dmasound.read_count);
 
-	/*                                      */
+	/* update status & wake waiting readers */
 	dev->dmasound.dma_blk = (dev->dmasound.dma_blk + 1) % dev->dmasound.blocks;
 	dev->dmasound.read_count += dev->dmasound.blksize;
 
@@ -202,11 +202,11 @@ static void saa7134_irq_alsa_done(struct saa7134_dev *dev,
 }
 
 /*
-                      
-  
-                                                                        
-              
-  
+ * IRQ request handler
+ *
+ *   Runs along with saa7134's IRQ handler, discards anything that isn't
+ *   DMA sound
+ *
  */
 
 static irqreturn_t saa7134_alsa_irq(int irq, void *dev_id)
@@ -240,13 +240,13 @@ out:
 }
 
 /*
-                       
-  
-                                         
-  
-                                                                      
-                                           
-  
+ * ALSA capture trigger
+ *
+ *   - One of the ALSA capture callbacks.
+ *
+ *   Called whenever a capture is started or stopped. Must be defined,
+ *   but there's nothing we want to do here
+ *
  */
 
 static int snd_card_saa7134_capture_trigger(struct snd_pcm_substream * substream,
@@ -259,10 +259,10 @@ static int snd_card_saa7134_capture_trigger(struct snd_pcm_substream * substream
 
 	spin_lock(&dev->slock);
 	if (cmd == SNDRV_PCM_TRIGGER_START) {
-		/*           */
+		/* start dma */
 		saa7134_dma_start(dev);
 	} else if (cmd == SNDRV_PCM_TRIGGER_STOP) {
-		/*          */
+		/* stop dma */
 		saa7134_dma_stop(dev);
 	} else {
 		err = -EINVAL;
@@ -273,14 +273,14 @@ static int snd_card_saa7134_capture_trigger(struct snd_pcm_substream * substream
 }
 
 /*
-                            
-  
-                                                                        
-                                                                      
-                  
-  
-                                        
-  
+ * DMA buffer initialization
+ *
+ *   Uses V4L functions to initialize the DMA. Shouldn't be necessary in
+ *  ALSA, but I was unable to use ALSA's own DMA, and had to force the
+ *  usage of V4L's
+ *
+ *   - Copied verbatim from saa7134-oss.
+ *
  */
 
 static int dsp_buffer_init(struct saa7134_dev *dev)
@@ -298,10 +298,10 @@ static int dsp_buffer_init(struct saa7134_dev *dev)
 }
 
 /*
-                     
-  
-                                                                           
-  
+ * DMA buffer release
+ *
+ *   Called after closing the device, during snd_card_saa7134_capture_close
+ *
  */
 
 static int dsp_buffer_free(struct saa7134_dev *dev)
@@ -318,7 +318,7 @@ static int dsp_buffer_free(struct saa7134_dev *dev)
 }
 
 /*
-                                                            
+ * Setting the capture source and updating the ALSA controls
  */
 static int snd_saa7134_capsrc_set(struct snd_kcontrol *kcontrol,
 				  int left, int right, bool force_notify)
@@ -337,7 +337,7 @@ static int snd_saa7134_capsrc_set(struct snd_kcontrol *kcontrol,
 	active = left != 0 || right != 0;
 	old_addr = chip->capture_source_addr;
 
-	/*                                                 */
+	/* The active capture source cannot be deactivated */
 	if (active) {
 		change = old_addr != addr ||
 			 chip->capture_source[0] != left ||
@@ -379,27 +379,27 @@ static int snd_saa7134_capsrc_set(struct snd_kcontrol *kcontrol,
 			break;
 		case PCI_DEVICE_ID_PHILIPS_SAA7133:
 		case PCI_DEVICE_ID_PHILIPS_SAA7135:
-			xbarin = 0x03; /*     */
+			xbarin = 0x03; /* adc */
 			anabar = 0;
 			switch (addr) {
 			case MIXER_ADDR_TVTUNER:
-				xbarin = 0; /*             */
-				anabar = 2; /*      */
+				xbarin = 0; /* Demodulator */
+				anabar = 2; /* DACs */
 				break;
 			case MIXER_ADDR_LINE1:
-				anabar = 0;  /*            */
+				anabar = 0;  /* aux1, aux1 */
 				break;
 			case MIXER_ADDR_LINE2:
-				anabar = 9;  /*            */
+				anabar = 9;  /* aux2, aux2 */
 				break;
 			}
 
-			/*                                 */
+			/* output xbar always main channel */
 			saa_dsp_writel(dev, SAA7133_DIGITAL_OUTPUT_SEL1,
 				       0xbbbb10);
 
 			if (left || right) {
-				/*                                   */
+				/* We've got data, turn the input on */
 				saa_dsp_writel(dev, SAA7133_DIGITAL_INPUT_XBAR1,
 					       xbarin);
 				saa_writel(SAA7133_ANALOG_IO_SELECT, anabar);
@@ -428,15 +428,15 @@ static int snd_saa7134_capsrc_set(struct snd_kcontrol *kcontrol,
 }
 
 /*
-                       
-  
-                                         
-  
-                                                                              
-                                                                            
-                                                                               
-                                         
-  
+ * ALSA PCM preparation
+ *
+ *   - One of the ALSA capture callbacks.
+ *
+ *   Called right after the capture device is opened, this function configures
+ *  the buffer using the previously defined functions, allocates the memory,
+ *  sets up the hardware registers, and then starts the DMA. When this function
+ *  returns, the audio should be flowing.
+ *
  */
 
 static int snd_card_saa7134_capture_prepare(struct snd_pcm_substream * substream)
@@ -499,7 +499,7 @@ static int snd_card_saa7134_capture_prepare(struct snd_pcm_substream * substream
 	dprintk("rec_start: afmt=%d ch=%d  =>  fmt=0x%x swap=%c\n",
 		runtime->format, runtime->channels, fmt,
 		bswap ? 'b' : '-');
-	/*                                */
+	/* dma: setup channel 6 (= AUDIO) */
 	control = SAA7134_RS_CONTROL_BURST_16 |
 		SAA7134_RS_CONTROL_ME |
 		(dev->dmasound.pt.dma >> 12);
@@ -513,7 +513,7 @@ static int snd_card_saa7134_capture_prepare(struct snd_pcm_substream * substream
 
 	dev->dmasound.rate = runtime->rate;
 
-	/*                                         */
+	/* Setup and update the card/ALSA controls */
 	snd_saa7134_capsrc_set(saa7134->capture_ctl[dev->dmasound.input], 1, 1,
 			       true);
 
@@ -522,14 +522,14 @@ static int snd_card_saa7134_capture_prepare(struct snd_pcm_substream * substream
 }
 
 /*
-                        
-  
-                                         
-  
-                                                                          
-                           
-                                                          
-  
+ * ALSA pointer fetching
+ *
+ *   - One of the ALSA capture callbacks.
+ *
+ *   Called whenever a period elapses, it must return the current hardware
+ *  position of the buffer.
+ *   Also resets the read counter used to prevent overruns
+ *
  */
 
 static snd_pcm_uframes_t
@@ -550,17 +550,17 @@ snd_card_saa7134_capture_pointer(struct snd_pcm_substream * substream)
 }
 
 /*
-                                        
-  
-                               
-  
-                                                                               
-          
-                                                  
-                               
-                                                                              
-           
-                                                          
+ * ALSA hardware capabilities definition
+ *
+ *  Report only 32kHz for ALSA:
+ *
+ *  - SAA7133/35 uses DDEP (DemDec Easy Programming mode), which works in 32kHz
+ *    only
+ *  - SAA7134 for TV mode uses DemDec mode (32kHz)
+ *  - Radio works in 32kHz only
+ *  - When recording 48kHz from Line1/Line2, switching of capture source to TV
+ *    means
+ *    switching to 32kHz without any frequency translation
  */
 
 static struct snd_pcm_hardware snd_card_saa7134_capture =
@@ -595,12 +595,12 @@ static void snd_card_saa7134_runtime_free(struct snd_pcm_runtime *runtime)
 
 
 /*
-                       
-  
-                                         
-  
-                                                               
-  
+ * ALSA hardware params
+ *
+ *   - One of the ALSA capture callbacks.
+ *
+ *   Called on initialization, right before the PCM preparation
+ *
  */
 
 static int snd_card_saa7134_hw_params(struct snd_pcm_substream * substream,
@@ -627,7 +627,7 @@ static int snd_card_saa7134_hw_params(struct snd_pcm_substream * substream,
 	    dev->dmasound.blksize == period_size)
 		return 0;
 
-	/*                        */
+	/* release the old buffer */
 	if (substream->runtime->dma_area) {
 		saa7134_pgtable_free(dev->pci, &dev->dmasound.pt);
 		videobuf_dma_unmap(&dev->pci->dev, &dev->dmasound.dma);
@@ -665,9 +665,9 @@ static int snd_card_saa7134_hw_params(struct snd_pcm_substream * substream,
 		return err;
 	}
 
-	/*                                                         
-                                                              
-                                                              */
+	/* I should be able to use runtime->dma_addr in the control
+	   byte, but it doesn't work. So I allocate the DMA using the
+	   V4L functions, and force ALSA to use that as the DMA area */
 
 	substream->runtime->dma_area = dev->dmasound.dma.vaddr;
 	substream->runtime->dma_bytes = dev->dmasound.bufsize;
@@ -678,13 +678,13 @@ static int snd_card_saa7134_hw_params(struct snd_pcm_substream * substream,
 }
 
 /*
-                        
-  
-                                         
-  
-                                                                               
-                                                     
-  
+ * ALSA hardware release
+ *
+ *   - One of the ALSA capture callbacks.
+ *
+ *   Called after closing the device, but before snd_card_saa7134_capture_close
+ *   It stops the DMA audio and releases the buffers.
+ *
  */
 
 static int snd_card_saa7134_hw_free(struct snd_pcm_substream * substream)
@@ -705,12 +705,12 @@ static int snd_card_saa7134_hw_free(struct snd_pcm_substream * substream)
 }
 
 /*
-                      
-  
-                                         
-  
-                                     
-  
+ * ALSA capture finish
+ *
+ *   - One of the ALSA capture callbacks.
+ *
+ *   Called after closing the device.
+ *
  */
 
 static int snd_card_saa7134_capture_close(struct snd_pcm_substream * substream)
@@ -726,13 +726,13 @@ static int snd_card_saa7134_capture_close(struct snd_pcm_substream * substream)
 }
 
 /*
-                     
-  
-                                         
-  
-                                                                     
-             
-  
+ * ALSA capture start
+ *
+ *   - One of the ALSA capture callbacks.
+ *
+ *   Called when opening the device. It creates and populates the PCM
+ *  structure
+ *
  */
 
 static int snd_card_saa7134_capture_open(struct snd_pcm_substream * substream)
@@ -794,7 +794,7 @@ static int snd_card_saa7134_capture_open(struct snd_pcm_substream * substream)
 }
 
 /*
-                                  
+ * page callback (needed for mmap)
  */
 
 static struct page *snd_card_saa7134_page(struct snd_pcm_substream *substream,
@@ -805,7 +805,7 @@ static struct page *snd_card_saa7134_page(struct snd_pcm_substream *substream,
 }
 
 /*
-                                    
+ * ALSA capture callbacks definition
  */
 
 static struct snd_pcm_ops snd_card_saa7134_capture_ops = {
@@ -821,11 +821,11 @@ static struct snd_pcm_ops snd_card_saa7134_capture_ops = {
 };
 
 /*
-                 
-  
-                                                                      
-                 
-  
+ * ALSA PCM setup
+ *
+ *   Called when initializing the board. Sets up the name and hooks up
+ *  the callbacks
+ *
  */
 
 static int snd_card_saa7134_pcm(snd_card_saa7134_t *saa7134, int device)
@@ -997,11 +997,11 @@ SAA713x_CAPSRC("Line Capture Switch", 2, MIXER_ADDR_LINE2),
 };
 
 /*
-                   
-  
-                                                                      
-                 
-  
+ * ALSA mixer setup
+ *
+ *   Called when initializing the board. Sets up the name and hooks up
+ *  the callbacks
+ *
  */
 
 static int snd_card_saa7134_new_mixer(snd_card_saa7134_t * chip)
@@ -1050,11 +1050,11 @@ static void snd_saa7134_free(struct snd_card * card)
 }
 
 /*
-                      
-  
-                                                                      
-                                                                  
-  
+ * ALSA initialization
+ *
+ *   Called by the init routine, once for each saa7134 device present,
+ *  it creates the basic structures and registers the ALSA devices
+ *
  */
 
 static int alsa_card_saa7134_create(struct saa7134_dev *dev, int devnum)
@@ -1077,7 +1077,7 @@ static int alsa_card_saa7134_create(struct saa7134_dev *dev, int devnum)
 
 	strcpy(card->driver, "SAA7134");
 
-	/*                 */
+	/* Card "creation" */
 
 	card->private_free = snd_saa7134_free;
 	chip = card->private_data;
@@ -1115,7 +1115,7 @@ static int alsa_card_saa7134_create(struct saa7134_dev *dev, int devnum)
 
 	snd_card_set_dev(card, &chip->pci->dev);
 
-	/*                   */
+	/* End of "creation" */
 
 	strcpy(card->shortname, "SAA7134");
 	sprintf(card->longname, "%s at 0x%lx irq %d",
@@ -1150,11 +1150,11 @@ static int alsa_device_exit(struct saa7134_dev *dev)
 }
 
 /*
-                     
-  
-                                                                  
-              
-  
+ * Module initializer
+ *
+ * Loops through present saa7134 cards, and assigns an ALSA device
+ * to each one
+ *
  */
 
 static int saa7134_alsa_init(void)
@@ -1184,7 +1184,7 @@ static int saa7134_alsa_init(void)
 }
 
 /*
-                    
+ * Module destructor
  */
 
 static void saa7134_alsa_exit(void)
@@ -1202,7 +1202,7 @@ static void saa7134_alsa_exit(void)
 	return;
 }
 
-/*                                                                          */
+/* We initialize this late, to make sure the sound system is up and running */
 late_initcall(saa7134_alsa_init);
 module_exit(saa7134_alsa_exit);
 MODULE_LICENSE("GPL");

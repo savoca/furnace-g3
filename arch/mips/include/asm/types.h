@@ -12,8 +12,8 @@
 #define _ASM_TYPES_H
 
 /*
-                                                                     
-                                   
+ * We don't use int-l64.h for the kernel anymore but still use it for
+ * userspace to avoid code changes.
  */
 #ifdef __KERNEL__
 # include <asm-generic/int-ll64.h>
@@ -26,13 +26,13 @@
 #endif
 
 /*
-                                                                       
+ * These aren't exported outside the kernel to avoid name space clashes
  */
 #ifdef __KERNEL__
 #ifndef __ASSEMBLY__
 
 /*
-                                         
+ * Don't use phys_t.  You've been warned.
  */
 #ifdef CONFIG_64BIT_PHYS_ADDR
 typedef unsigned long long phys_t;
@@ -40,8 +40,8 @@ typedef unsigned long long phys_t;
 typedef unsigned long phys_t;
 #endif
 
-#endif /*              */
+#endif /* __ASSEMBLY__ */
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*              */
+#endif /* _ASM_TYPES_H */

@@ -1,10 +1,10 @@
 /*
-                
-  
+ *  felica_cen.c
+ *
  */
 
 /*
-                              
+ *    INCLUDE FILES FOR MODULE
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -15,28 +15,28 @@
 #include "felica_test.h"
 
 /*
-                         
+ *    INTERNAL DEFINITION
  */
 
 
 
 
-//                         
+//#define FEATURE_DEBUG_LOW
 #define FELICA_I2C_SLAVE_ADDRESS  0x56
 #define FELICA_I2C_REG_ADDRSS_01  0x01
 #define FELICA_I2C_REG_ADDRSS_02  0x02
 
 static DEFINE_MUTEX(felica_cen_mutex);
 
-static int isopen = 0; //                     
+static int isopen = 0; // 0 : No open 1 : Open
 /*
-                         
+ *    FUNCTION DEFINITION
  */
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int felica_cen_open (struct inode *inode, struct file *fp)
 {
@@ -57,7 +57,7 @@ static int felica_cen_open (struct inode *inode, struct file *fp)
     isopen = 1;
   }
 
-//                                                                                     
+//  FELICA_DEBUG_MSG("[FELICA_PON] felica_cen_open current_uid : %d \n",current_uid());
 
 #ifdef FELICA_FN_DEVICE_TEST
 	FELICA_DEBUG_MSG("[FELICA_CEN] felica_cen_open - result_open(%d) \n",result_open_cen);
@@ -68,9 +68,9 @@ static int felica_cen_open (struct inode *inode, struct file *fp)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int felica_cen_release (struct inode *inode, struct file *fp)
 {
@@ -102,9 +102,9 @@ static int felica_cen_release (struct inode *inode, struct file *fp)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static ssize_t felica_cen_read(struct file *fp, char *buf, size_t count, loff_t *pos)
 {
@@ -116,7 +116,7 @@ static ssize_t felica_cen_read(struct file *fp, char *buf, size_t count, loff_t 
   FELICA_DEBUG_MSG("[FELICA_CEN] felica_cen_read - start \n");
 #endif
 
-/*             */
+/* Check error */
   if(NULL == fp)
   {
     #ifdef FEATURE_DEBUG_HIGH
@@ -159,15 +159,15 @@ static ssize_t felica_cen_read(struct file *fp, char *buf, size_t count, loff_t 
     return -1;
   }
 
-  //                    
-  if(read_buf&0x01)  //       
+  // check bit 7(locken)
+  if(read_buf&0x01)  // unlock
   {
     #ifdef FEATURE_DEBUG_MED
     FELICA_DEBUG_MSG("[FELICA_CEN] CEN = High (UNLOCK) \n");
     #endif
     felica_cen = GPIO_HIGH_VALUE;
   }
-  else  //     
+  else  // lock
   {
     #ifdef FEATURE_DEBUG_MED
     FELICA_DEBUG_MSG("[FELICA_CEN] CEN = Low (LOCK) \n");
@@ -197,9 +197,9 @@ static ssize_t felica_cen_read(struct file *fp, char *buf, size_t count, loff_t 
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static ssize_t felica_cen_write(struct file *fp, const char *buf, size_t count, loff_t *pos)
 {
@@ -211,7 +211,7 @@ static ssize_t felica_cen_write(struct file *fp, const char *buf, size_t count, 
   FELICA_DEBUG_MSG("[FELICA_CEN] felica_cen_write - start \n");
   #endif
 
-/*             */
+/* Check error */
   if(NULL == fp)
   {
     #ifdef FEATURE_DEBUG_HIGH
@@ -244,7 +244,7 @@ static ssize_t felica_cen_write(struct file *fp, const char *buf, size_t count, 
     return -1;
   }
 
-  /*                     */
+  /* copy from user data */
   rc = copy_from_user(&write_buf, buf, count);
   if(rc)
   {
@@ -258,29 +258,29 @@ static ssize_t felica_cen_write(struct file *fp, const char *buf, size_t count, 
 	FELICA_DEBUG_MSG("[FELICA_CEN] copy_from_user(%d) \n",*buf);
     #endif
 
-  /*                 */
+  /* check user data */
   if(*buf == 1)
   {
     #ifdef FEATURE_DEBUG_MED
     FELICA_DEBUG_MSG("[FELICA_CEN] CEN = High (UNLOCK) \n");
     #endif
-    write_buf = 0x81; //           
+    write_buf = 0x81; // set unlock
   }
   else
   {
     #ifdef FEATURE_DEBUG_MED
     FELICA_DEBUG_MSG("[FELICA_CEN] CEN = Low (LOCK) \n");
     #endif
-    write_buf = 0x80; //         
+    write_buf = 0x80; // set lock
   }
 
-  /*                 */
+  /* write new value */
   mutex_lock(&felica_cen_mutex);
   rc = felica_i2c_write(0x02, &write_buf, 1);
   mutex_unlock(&felica_cen_mutex);
   mdelay(2);
 
-//                               
+//20121112 do not need below code
 #if 0
 	if(*buf == 1)
 	{
@@ -304,7 +304,7 @@ static ssize_t felica_cen_write(struct file *fp, const char *buf, size_t count, 
 }
 
 /*
-                       
+ *    STRUCT DEFINITION
  */
 
 static struct file_operations felica_cen_fops =
@@ -324,9 +324,9 @@ static struct miscdevice felica_cen_device =
 };
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int felica_cen_init(void)
 {
@@ -336,7 +336,7 @@ static int felica_cen_init(void)
   FELICA_DEBUG_MSG("[FELICA_CEN] felica_cen_init - start \n");
   #endif
 
-  /*                          */
+  /* register the device file */
   rc = misc_register(&felica_cen_device);
   if (rc < 0)
   {
@@ -354,9 +354,9 @@ static int felica_cen_init(void)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static void felica_cen_exit(void)
 {
@@ -364,7 +364,7 @@ static void felica_cen_exit(void)
   FELICA_DEBUG_MSG("[FELICA_CEN] felica_cen_exit - start \n");
   #endif
 
-  /*                            */
+  /* deregister the device file */
   misc_deregister(&felica_cen_device);
 
   #ifdef FEATURE_DEBUG_LOW

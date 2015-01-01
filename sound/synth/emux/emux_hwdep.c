@@ -28,7 +28,7 @@
 #define TMP_CLIENT_ID	0x1001
 
 /*
-             
+ * load patch
  */
 static int
 snd_emux_hwdep_load_patch(struct snd_emux *emu, void __user *arg)
@@ -54,7 +54,7 @@ snd_emux_hwdep_load_patch(struct snd_emux *emu, void __user *arg)
 }
 
 /*
-                
+ * set misc mode
  */
 static int
 snd_emux_hwdep_misc_mode(struct snd_emux *emu, void __user *arg)
@@ -79,7 +79,7 @@ snd_emux_hwdep_misc_mode(struct snd_emux *emu, void __user *arg)
 
 
 /*
-        
+ * ioctl
  */
 static int
 snd_emux_hwdep_ioctl(struct snd_hwdep * hw, struct file *file,
@@ -113,7 +113,7 @@ snd_emux_hwdep_ioctl(struct snd_hwdep * hw, struct file *file,
 
 
 /*
-                        
+ * register hwdep device
  */
 
 int
@@ -128,8 +128,8 @@ snd_emux_init_hwdep(struct snd_emux *emu)
 	strcpy(hw->name, SNDRV_EMUX_HWDEP_NAME);
 	hw->iface = SNDRV_HWDEP_IFACE_EMUX_WAVETABLE;
 	hw->ops.ioctl = snd_emux_hwdep_ioctl;
-	/*                                                         
-                                                    */
+	/* The ioctl parameter types are compatible between 32- and
+	 * 64-bit architectures, so use the same function. */
 	hw->ops.ioctl_compat = snd_emux_hwdep_ioctl;
 	hw->exclusive = 1;
 	hw->private_data = emu;
@@ -141,7 +141,7 @@ snd_emux_init_hwdep(struct snd_emux *emu)
 
 
 /*
-             
+ * unregister
  */
 void
 snd_emux_delete_hwdep(struct snd_emux *emu)

@@ -30,30 +30,30 @@ static struct kmem_cache *hfs_inode_cachep;
 MODULE_LICENSE("GPL");
 
 /*
-                    
-  
-               
-                                                                 
-                                               
-                     
-                                                          
-                      
-         
-           
-         
-                 
-                                                   
-                  
-                                                                             
-                                                                       
-                                                                       
+ * hfs_write_super()
+ *
+ * Description:
+ *   This function is called by the VFS only. When the filesystem
+ *   is mounted r/w it updates the MDB on disk.
+ * Input Variable(s):
+ *   struct super_block *sb: Pointer to the hfs superblock
+ * Output Variable(s):
+ *   NONE
+ * Returns:
+ *   void
+ * Preconditions:
+ *   'sb' points to a "valid" (struct super_block).
+ * Postconditions:
+ *   The MDB is marked 'unsuccessfully unmounted' by clearing bit 8 of drAtrb
+ *   (hfs_put_super() must set this flag!). Some MDB fields are updated
+ *   and the MDB buffer is written to disk by calling hfs_mdb_commit().
  */
 static void hfs_write_super(struct super_block *sb)
 {
 	lock_super(sb);
 	sb->s_dirt = 0;
 
-	/*                                */
+	/* sync everything to the buffers */
 	if (!(sb->s_flags & MS_RDONLY))
 		hfs_mdb_commit(sb);
 	unlock_super(sb);
@@ -70,29 +70,29 @@ static int hfs_sync_fs(struct super_block *sb, int wait)
 }
 
 /*
-                  
-  
-                                                                      
-                                                            
-                                     
+ * hfs_put_super()
+ *
+ * This is the put_super() entry in the super_operations structure for
+ * HFS filesystems.  The purpose is to release the resources
+ * associated with the superblock sb.
  */
 static void hfs_put_super(struct super_block *sb)
 {
 	if (sb->s_dirt)
 		hfs_write_super(sb);
 	hfs_mdb_close(sb);
-	/*                             */
+	/* release the MDB's resources */
 	hfs_mdb_put(sb);
 }
 
 /*
-               
-  
-                                                                   
-                                                                    
-              
-  
-                                                                 
+ * hfs_statfs()
+ *
+ * This is the statfs() entry in the super_operations structure for
+ * HFS filesystems.  The purpose is to return various data about the
+ * filesystem.
+ *
+ * changed f_files/f_ffree to reflect the fs_ablock/free_ablocks.
  */
 static int hfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 {
@@ -223,10 +223,10 @@ static inline int match_fourchar(substring_t *arg, u32 *result)
 }
 
 /*
-                  
-  
-                                                                            
-                                                                          
+ * parse_options()
+ *
+ * adapted from linux/fs/msdos/inode.c written 1992,93 by Werner Almesberger
+ * This function is called by hfs_read_super() to parse the mount options.
  */
 static int parse_options(char *options, struct hfs_sb_info *hsb)
 {
@@ -234,12 +234,12 @@ static int parse_options(char *options, struct hfs_sb_info *hsb)
 	substring_t args[MAX_OPT_ARGS];
 	int tmp, token;
 
-	/*                                 */
+	/* initialize the sb with defaults */
 	hsb->s_uid = current_uid();
 	hsb->s_gid = current_gid();
 	hsb->s_file_umask = 0133;
 	hsb->s_dir_umask = 0022;
-	hsb->s_type = hsb->s_creator = cpu_to_be32(0x3f3f3f3f);	/*           */
+	hsb->s_type = hsb->s_creator = cpu_to_be32(0x3f3f3f3f);	/* == '????' */
 	hsb->s_quiet = 0;
 	hsb->part = -1;
 	hsb->session = -1;
@@ -365,15 +365,15 @@ static int parse_options(char *options, struct hfs_sb_info *hsb)
 }
 
 /*
-                   
-  
-                                                               
-                                                                     
-                                                                   
-                                                                
-                                                       
-                                                                   
-                                                                    
+ * hfs_read_super()
+ *
+ * This is the function that is responsible for mounting an HFS
+ * filesystem.	It performs all the tasks necessary to get enough data
+ * from the disk to read the root inode.  This includes parsing the
+ * mount options, dealing with Macintosh partitions, reading the
+ * superblock and the allocation bitmap blocks, calling
+ * hfs_btree_init() to get the necessary data about the extents and
+ * catalog B-trees and, finally, reading the root inode into memory.
  */
 static int hfs_fill_super(struct super_block *sb, void *data, int silent)
 {
@@ -408,7 +408,7 @@ static int hfs_fill_super(struct super_block *sb, void *data, int silent)
 		goto bail;
 	}
 
-	/*                           */
+	/* try to get the root inode */
 	hfs_find_init(HFS_SB(sb)->cat_tree, &fd);
 	res = hfs_cat_find_brec(sb, HFS_ROOT_CNID, &fd);
 	if (!res) {
@@ -434,7 +434,7 @@ static int hfs_fill_super(struct super_block *sb, void *data, int silent)
 	if (!sb->s_root)
 		goto bail_no_root;
 
-	/*                   */
+	/* everything's okay */
 	return 0;
 
 bail_no_root:
@@ -485,9 +485,9 @@ static void __exit exit_hfs_fs(void)
 	unregister_filesystem(&hfs_fs_type);
 
 	/*
-                                                               
-                  
-  */
+	 * Make sure all delayed rcu free inodes are flushed before we
+	 * destroy cache.
+	 */
 	rcu_barrier();
 	kmem_cache_destroy(hfs_inode_cachep);
 }

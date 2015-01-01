@@ -1,6 +1,6 @@
 /*
-                 
-  
+ *  felica_test.h
+ *
  */
 
 
@@ -11,8 +11,8 @@
 extern "C" {
 #endif
 /*
-                            
-  
+ *  INCLUDE FILES FOR MODULE
+ *
  */
 #include <linux/list.h>
 
@@ -24,14 +24,14 @@ extern "C" {
 #include "felica_rws.h"
 
 /*
-          
+ *  DEFINE
  */
 
-/*                  */
+/* FUNCTION FEATURE */
 #define FELICA_FN_DEVICE_TEST
 
 /*
-        
+ *  ENUM
  */
 enum{
   FFI = 0,
@@ -78,37 +78,37 @@ enum{
 };
 
 /*
-          
+ *  DEFINE
  */
 #define FN_DEVICE_TEST_ON  1
 #define FN_DEVICE_TEST_OFF  0
 
-//    
+//UART
 extern int result_open_uart;
 extern int result_close_uart;
 extern int result_available_uart;
 extern int result_read_uart;
 extern int result_write_uart;
-//   
+//PON
 extern int result_open_pon;
 extern int result_close_pon;
 extern int result_write_pon;
-//   
+//RWS
 extern int result_open_rws;
 extern int result_close_rws;
 extern int result_read_rws;
-//   
+//RFS
 extern int result_open_rfs;
 extern int result_close_rfs;
 extern int result_read_rfs;
 
-//   
+//CEN
 extern int result_open_cen;
 extern int result_close_cen;
 extern int result_read_cen;
 
 /*
-                               
+ *  EXTERNAL FUNCTION PROTOTYPE
  */
 void disable_open_uart(bool val);
 void disable_close_uart(bool val);
@@ -136,4 +136,4 @@ void disable_read_rws(bool val);
 }
 #endif
 
-#endif //                  
+#endif // __FELICA_TEST_H__

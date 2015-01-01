@@ -46,14 +46,14 @@ enum usb_config_state {
 
 struct dwc3_charger;
 
-/* 
-                                                           
-                                       
-                                                  
-                                           
-                                    
-                                           
-                                    
+/**
+ * struct dwc3_otg: OTG driver data. Shared by HCD and DCD.
+ * @otg: USB OTG Transceiver structure.
+ * @irq: IRQ number assigned for HSUSB controller.
+ * @regs: ioremapped register base address.
+ * @sm_work: OTG state machine work.
+ * @charger: DWC3 external charger detector
+ * @inputs: OTG state machine inputs
  */
 struct dwc3_otg {
 	struct usb_otg		otg;
@@ -74,18 +74,18 @@ struct dwc3_otg {
 	int			vbus_retry_count;
 };
 
-/* 
-                    
-  
-                                            
-                                                                         
-                                                  
-                                                                      
-                                                                        
-                                                                            
-                                                                            
-                                                                    
-                                                                           
+/**
+ * USB charger types
+ *
+ * DWC3_INVALID_CHARGER	Invalid USB charger.
+ * DWC3_SDP_CHARGER	Standard downstream port. Refers to a downstream port
+ *                      on USB compliant host/hub.
+ * DWC3_DCP_CHARGER	Dedicated charger port (AC charger/ Wall charger).
+ * DWC3_CDP_CHARGER	Charging downstream port. Enumeration can happen and
+ *                      IDEV_CHG_MAX can be drawn irrespective of USB state.
+ * DWC3_PROPRIETARY_CHARGER A proprietary charger pull DP and DM to specific
+ *                     voltages between 2.0-3.3v for identification.
+ * DWC3_FLOATED_CHARGER Non standard charger whose data lines are floating.
  */
 enum dwc3_chg_type {
 	DWC3_INVALID_CHARGER = 0,
@@ -103,10 +103,10 @@ struct dwc3_charger {
 
 	bool			skip_chg_detect;
 
-	/*                                                                   */
+	/* start/stop charger detection, provided by external charger module */
 	void	(*start_detection)(struct dwc3_charger *charger, bool start);
 
-	/*                                                                   */
+	/* to notify OTG about charger detection completion, provided by OTG */
 	void	(*notify_detection_complete)(struct usb_otg *otg,
 						struct dwc3_charger *charger);
 #ifdef CONFIG_DWC3_MSM_BC_12_VZW_SUPPORT
@@ -115,13 +115,13 @@ struct dwc3_charger {
 #endif
 };
 
-/*                             */
+/* for external charger driver */
 extern int dwc3_set_charger(struct usb_otg *otg, struct dwc3_charger *charger);
 
 enum dwc3_ext_events {
-	DWC3_EVENT_NONE = 0,		/*                 */
-	DWC3_EVENT_PHY_RESUME,		/*                         */
-	DWC3_EVENT_XCEIV_STATE,		/*                                  */
+	DWC3_EVENT_NONE = 0,		/* no change event */
+	DWC3_EVENT_PHY_RESUME,		/* PHY has come out of LPM */
+	DWC3_EVENT_XCEIV_STATE,		/* XCEIV state (id/bsv) has changed */
 };
 
 enum dwc3_id_state {
@@ -129,22 +129,22 @@ enum dwc3_id_state {
 	DWC3_ID_FLOAT,
 };
 
-/*                                                                            */
+/* external transceiver that can perform connect/disconnect monitoring in LPM */
 struct dwc3_ext_xceiv {
 	enum dwc3_id_state	id;
 	bool			bsv;
 	bool			otg_capability;
 
-	/*                                                     */
+	/* to notify OTG about LPM exit event, provided by OTG */
 	void	(*notify_ext_events)(struct usb_otg *otg,
 					enum dwc3_ext_events ext_event);
-	/*                          */
+	/* for block reset USB core */
 	void	(*ext_block_reset)(struct dwc3_ext_xceiv *ext_xceiv,
 					bool core_reset);
 };
 
-/*                                 */
+/* for external transceiver driver */
 extern int dwc3_set_ext_xceiv(struct usb_otg *otg,
 				struct dwc3_ext_xceiv *ext_xceiv);
 
-#endif /*                        */
+#endif /* __LINUX_USB_DWC3_OTG_H */

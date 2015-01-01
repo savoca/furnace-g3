@@ -27,13 +27,13 @@
 
 #define j44(a,b)                (((a>>4)&0x0f)|(b&0xf0))
 
-/*                                         
-                                         
+/* cont = 0 - access the IDE register file 
+   cont = 1 - access the IDE command set 
 
-                                                                  
-                                                              
-                                                                   
-        
+NB:  The FIT adapter does not appear to use the control registers.
+So, we map ALT_STATUS to STATUS and NO-OP writes to the device
+control register - this means that IDE reset will not work on these
+devices.
 
 */
 

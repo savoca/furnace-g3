@@ -62,15 +62,15 @@ static int snfc_driver_init(void)
 }
 
 /*
-                
-          
-           
+* Description : 
+* Input : 
+* Output : 
 */
 static void snfc_driver_exit(void)
 {
   SNFC_DEBUG_MSG_LOW("[snfc_driver] snfc_uart_control_exit - start \n");
 
-  /*                            */
+  /* deregister the device file */
   platform_driver_unregister(&snfc_driver);
   
   SNFC_DEBUG_MSG_LOW("[snfc_driver] snfc_uart_control_exit - end \n");

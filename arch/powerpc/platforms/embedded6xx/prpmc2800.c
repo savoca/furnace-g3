@@ -44,9 +44,9 @@ static void __init prpmc2800_setup_arch(void)
 	const unsigned int *reg;
 
 	/*
-                                                        
-                                      
-  */
+	 * ioremap mpp and gpp registers in case they are later
+	 * needed by prpmc2800_reset_board().
+	 */
 	np = of_find_compatible_node(NULL, NULL, "marvell,mv64360-mpp");
 	reg = of_get_property(np, "reg", NULL);
 	paddr = of_translate_address(np, reg);
@@ -122,7 +122,7 @@ void prpmc2800_show_cpuinfo(struct seq_file *m)
 }
 
 /*
-                                                   
+ * Called very early, device-tree isn't unflattened
  */
 static int __init prpmc2800_probe(void)
 {
@@ -133,7 +133,7 @@ static int __init prpmc2800_probe(void)
 	if (!of_flat_dt_is_compatible(root, "motorola,PrPMC2800"))
 		return 0;
 
-	/*                                      */
+	/* Update ppc_md.name with name from dt */
 	m = of_get_flat_dt_prop(root, "model", &len);
 	if (m)
 		strncpy(prpmc2800_platform_name, m,

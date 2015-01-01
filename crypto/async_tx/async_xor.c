@@ -31,7 +31,7 @@
 #include <linux/raid/xor.h>
 #include <linux/async_tx.h>
 
-/*                                                                     */
+/* do_async_xor - dma map the pages and perform the xor with an engine */
 static __async_inline struct dma_async_tx_descriptor *
 do_async_xor(struct dma_chan *chan, struct page *dest, struct page **src_list,
 	     unsigned int offset, int src_cnt, size_t len, dma_addr_t *dma_src,
@@ -48,10 +48,10 @@ do_async_xor(struct dma_chan *chan, struct page *dest, struct page **src_list,
 	int xor_src_cnt = 0;
 	dma_addr_t dma_dest;
 
-	/*                                                             */
+	/* map the dest bidrectional in case it is re-used as a source */
 	dma_dest = dma_map_page(dma->dev, dest, offset, len, DMA_BIDIRECTIONAL);
 	for (i = 0; i < src_cnt; i++) {
-		/*                        */
+		/* only map the dest once */
 		if (!src_list[i])
 			continue;
 		if (unlikely(src_list[i] == dest)) {
@@ -67,10 +67,10 @@ do_async_xor(struct dma_chan *chan, struct page *dest, struct page **src_list,
 		submit->flags = flags_orig;
 		dma_flags = 0;
 		xor_src_cnt = min(src_cnt, (int)dma->max_xor);
-		/*                                                            
-                                                             
-                  
-   */
+		/* if we are submitting additional xors, leave the chain open,
+		 * clear the callback parameters, and leave the destination
+		 * buffer mapped
+		 */
 		if (src_cnt > xor_src_cnt) {
 			submit->flags &= ~ASYNC_TX_ACK;
 			submit->flags |= ASYNC_TX_FENCE;
@@ -85,17 +85,17 @@ do_async_xor(struct dma_chan *chan, struct page *dest, struct page **src_list,
 			dma_flags |= DMA_PREP_INTERRUPT;
 		if (submit->flags & ASYNC_TX_FENCE)
 			dma_flags |= DMA_PREP_FENCE;
-		/*                                                      
-                                                                  
-                                              
-   */
+		/* Since we have clobbered the src_list we are committed
+		 * to doing this asynchronously.  Drivers force forward progress
+		 * in case they can not provide a descriptor
+		 */
 		tx = dma->device_prep_dma_xor(chan, dma_dest, &dma_src[src_off],
 					      xor_src_cnt, len, dma_flags);
 
 		if (unlikely(!tx))
 			async_tx_quiesce(&submit->depend_tx);
 
-		/*                                                      */
+		/* spin wait for the preceding transactions to complete */
 		while (unlikely(!tx)) {
 			dma_async_issue_pending(chan);
 			tx = dma->device_prep_dma_xor(chan, dma_dest,
@@ -108,11 +108,11 @@ do_async_xor(struct dma_chan *chan, struct page *dest, struct page **src_list,
 		submit->depend_tx = tx;
 
 		if (src_cnt > xor_src_cnt) {
-			/*                        */
+			/* drop completed sources */
 			src_cnt -= xor_src_cnt;
 			src_off += xor_src_cnt;
 
-			/*                                      */
+			/* use the intermediate result a source */
 			dma_src[--src_off] = dma_dest;
 			src_cnt++;
 		} else
@@ -137,23 +137,23 @@ do_sync_xor(struct page *dest, struct page **src_list, unsigned int offset,
 	else
 		srcs = (void **) src_list;
 
-	/*                            */
+	/* convert to buffer pointers */
 	for (i = 0; i < src_cnt; i++)
 		if (src_list[i])
 			srcs[xor_src_cnt++] = page_address(src_list[i]) + offset;
 	src_cnt = xor_src_cnt;
-	/*                         */
+	/* set destination address */
 	dest_buf = page_address(dest) + offset;
 
 	if (submit->flags & ASYNC_TX_XOR_ZERO_DST)
 		memset(dest_buf, 0, len);
 
 	while (src_cnt > 0) {
-		/*                                        */
+		/* process up to 'MAX_XOR_BLOCKS' sources */
 		xor_src_cnt = min(src_cnt, MAX_XOR_BLOCKS);
 		xor_blocks(xor_src_cnt, len, dest_buf, &srcs[src_off]);
 
-		/*                        */
+		/* drop completed sources */
 		src_cnt -= xor_src_cnt;
 		src_off += xor_src_cnt;
 	}
@@ -161,26 +161,26 @@ do_sync_xor(struct page *dest, struct page **src_list, unsigned int offset,
 	async_tx_sync_epilog(submit);
 }
 
-/* 
-                                                                
-                          
-                                   
-                                                      
-                                   
-                        
-                                             
-  
-                                                                            
-  
-                                                     
-                                                                     
-                                                                      
-                                                                        
-                      
-  
-                                                                        
-                                                                      
-                    
+/**
+ * async_xor - attempt to xor a set of blocks with a dma engine.
+ * @dest: destination page
+ * @src_list: array of source pages
+ * @offset: common src/dst offset to start transaction
+ * @src_cnt: number of source pages
+ * @len: length in bytes
+ * @submit: submission / completion modifiers
+ *
+ * honored flags: ASYNC_TX_ACK, ASYNC_TX_XOR_ZERO_DST, ASYNC_TX_XOR_DROP_DST
+ *
+ * xor_blocks always uses the dest as a source so the
+ * ASYNC_TX_XOR_ZERO_DST flag must be set to not include dest data in
+ * the calculation.  The assumption with dma eninges is that they only
+ * use the destination buffer as a source when it is explicity specified
+ * in the source list.
+ *
+ * src_list note: if the dest is also a source it must be at index zero.
+ * The contents of this array will be overwritten if a scribble region
+ * is not specified.
  */
 struct dma_async_tx_descriptor *
 async_xor(struct page *dest, struct page **src_list, unsigned int offset,
@@ -199,26 +199,26 @@ async_xor(struct page *dest, struct page **src_list, unsigned int offset,
 		dma_src = (dma_addr_t *) src_list;
 
 	if (dma_src && chan && is_dma_xor_aligned(chan->device, offset, 0, len)) {
-		/*                            */
+		/* run the xor asynchronously */
 		pr_debug("%s (async): len: %zu\n", __func__, len);
 
 		return do_async_xor(chan, dest, src_list, offset, src_cnt, len,
 				    dma_src, submit);
 	} else {
-		/*                           */
+		/* run the xor synchronously */
 		pr_debug("%s (sync): len: %zu\n", __func__, len);
 		WARN_ONCE(chan, "%s: no space for dma address conversion\n",
 			  __func__);
 
-		/*                                               
-                                           
-   */
+		/* in the sync case the dest is an implied source
+		 * (assumes the dest is the first source)
+		 */
 		if (submit->flags & ASYNC_TX_XOR_DROP_DST) {
 			src_cnt--;
 			src_list++;
 		}
 
-		/*                                      */
+		/* wait for any prerequisite operations */
 		async_tx_quiesce(&submit->depend_tx);
 
 		do_sync_xor(dest, src_list, offset, src_cnt, len, submit);
@@ -246,21 +246,21 @@ xor_val_chan(struct async_submit_ctl *submit, struct page *dest,
 				     src_cnt, len);
 }
 
-/* 
-                                                                
-                                                                     
-                                   
-                                                
-                                   
-                        
-                                       
-                                             
-  
-                              
-  
-                                                                        
-                                                                      
-                    
+/**
+ * async_xor_val - attempt a xor parity check with a dma engine.
+ * @dest: destination page used if the xor is performed synchronously
+ * @src_list: array of source pages
+ * @offset: offset in pages to start transaction
+ * @src_cnt: number of source pages
+ * @len: length in bytes
+ * @result: 0 if sum == 0 else non-zero
+ * @submit: submission / completion modifiers
+ *
+ * honored flags: ASYNC_TX_ACK
+ *
+ * src_list note: if the dest is also a source it must be at index zero.
+ * The contents of this array will be overwritten if a scribble region
+ * is not specified.
  */
 struct dma_async_tx_descriptor *
 async_xor_val(struct page *dest, struct page **src_list, unsigned int offset,

@@ -17,8 +17,8 @@
 #define __ARCH_ARM_MACH_MSM_ACPUCLOCK_8625Q_H
 
 # include "acpuclock.h"
-/* 
-                                                         
+/**
+ * struct acpuclk_pdata_8625q - Platform data for acpuclk
  */
 struct acpuclk_pdata_8625q {
 	struct acpuclk_pdata *acpu_clk_data;
@@ -26,4 +26,4 @@ struct acpuclk_pdata_8625q {
 	bool flag;
 };
 
-#endif /*                                       */
+#endif /* __ARCH_ARM_MACH_MSM_ACPUCLOCK_8625Q_H */

@@ -10,7 +10,7 @@
 #include <asm/byteorder.h>
 
 /*
-                                                               
+ * copy from fs while checksumming, otherwise like csum_partial
  */
 __wsum
 csum_partial_copy_from_user(const void __user *src, void *dst, int len,
@@ -29,7 +29,7 @@ csum_partial_copy_from_user(const void __user *src, void *dst, int len,
 }
 EXPORT_SYMBOL(csum_partial_copy_from_user);
 
-/*                              */
+/* These are from csum_64plus.S */
 EXPORT_SYMBOL(csum_partial);
 EXPORT_SYMBOL(csum_partial_copy);
 EXPORT_SYMBOL(ip_compute_csum);

@@ -19,8 +19,8 @@ void __raw_spin_lock_init(raw_spinlock_t *lock, const char *name,
 {
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	/*
-                                                    
-  */
+	 * Make sure we are not reinitializing a held lock:
+	 */
 	debug_check_no_locks_freed((void *)lock, sizeof(*lock));
 	lockdep_init_map(&lock->dep_map, name, key, 0);
 #endif
@@ -37,8 +37,8 @@ void __rwlock_init(rwlock_t *lock, const char *name,
 {
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	/*
-                                                    
-  */
+	 * Make sure we are not reinitializing a held lock:
+	 */
 	debug_check_no_locks_freed((void *)lock, sizeof(*lock));
 	lockdep_init_map(&lock->dep_map, name, key, 0);
 #endif
@@ -115,20 +115,20 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 			return;
 		__delay(1);
 	}
-	/*                   */
+	/* lockup suspected: */
 	spin_dump(lock, "lockup");
 #ifdef CONFIG_SMP
 	trigger_all_cpu_backtrace();
 #endif
 
 	/*
-                                                                        
-                                                                    
-                                                                 
-                                                                         
-                                                                    
-             
-  */
+	 * The trylock above was causing a livelock.  Give the lower level arch
+	 * specific lock code a chance to acquire the lock. We have already
+	 * printed a warning/backtrace at this point. The non-debug arch
+	 * specific code might actually succeed in acquiring the lock.  If it is
+	 * not successful, the end-result is the same - there is no forward
+	 * progress.
+	 */
 	arch_spin_lock(&lock->raw_lock);
 }
 
@@ -148,8 +148,8 @@ int do_raw_spin_trylock(raw_spinlock_t *lock)
 		debug_spin_lock_after(lock);
 #ifndef CONFIG_SMP
 	/*
-                          
-  */
+	 * Must not happen on UP:
+	 */
 	SPIN_BUG_ON(!ret, lock, "trylock failure on UP");
 #endif
 	return ret;
@@ -174,7 +174,7 @@ static void rwlock_bug(rwlock_t *lock, const char *msg)
 
 #define RWLOCK_BUG_ON(cond, lock, msg) if (unlikely(cond)) rwlock_bug(lock, msg)
 
-#if 0		/*                                                        */
+#if 0		/* __write_lock_debug() can lock up - maybe this can too? */
 static void __read_lock_debug(rwlock_t *lock)
 {
 	u64 i;
@@ -187,7 +187,7 @@ static void __read_lock_debug(rwlock_t *lock)
 				return;
 			__delay(1);
 		}
-		/*                   */
+		/* lockup suspected: */
 		if (print_once) {
 			print_once = 0;
 			printk(KERN_EMERG "BUG: read-lock lockup on CPU#%d, "
@@ -212,8 +212,8 @@ int do_raw_read_trylock(rwlock_t *lock)
 
 #ifndef CONFIG_SMP
 	/*
-                          
-  */
+	 * Must not happen on UP:
+	 */
 	RWLOCK_BUG_ON(!ret, lock, "trylock failure on UP");
 #endif
 	return ret;
@@ -249,7 +249,7 @@ static inline void debug_write_unlock(rwlock_t *lock)
 	lock->owner_cpu = -1;
 }
 
-#if 0		/*                        */
+#if 0		/* This can cause lockups */
 static void __write_lock_debug(rwlock_t *lock)
 {
 	u64 i;
@@ -262,7 +262,7 @@ static void __write_lock_debug(rwlock_t *lock)
 				return;
 			__delay(1);
 		}
-		/*                   */
+		/* lockup suspected: */
 		if (print_once) {
 			print_once = 0;
 			printk(KERN_EMERG "BUG: write-lock lockup on CPU#%d, "
@@ -290,8 +290,8 @@ int do_raw_write_trylock(rwlock_t *lock)
 		debug_write_lock_after(lock);
 #ifndef CONFIG_SMP
 	/*
-                          
-  */
+	 * Must not happen on UP:
+	 */
 	RWLOCK_BUG_ON(!ret, lock, "trylock failure on UP");
 #endif
 	return ret;

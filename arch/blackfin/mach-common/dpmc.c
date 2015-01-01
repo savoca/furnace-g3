@@ -21,9 +21,9 @@
 
 struct bfin_dpmc_platform_data *pdata;
 
-/* 
-                                                   
-                          
+/**
+ *	bfin_set_vlev - Update VLEV field in VR_CTL Reg.
+ *			Avoid BYPASS sequence
  */
 static void bfin_set_vlev(unsigned int vlev)
 {
@@ -36,8 +36,8 @@ static void bfin_set_vlev(unsigned int vlev)
 	bfin_write_PLL_LOCKCNT(pll_lcnt);
 }
 
-/* 
-                                                                  
+/**
+ *	bfin_get_vlev - Get CPU specific VLEV from platform device data
  */
 static unsigned int bfin_get_vlev(unsigned int freq)
 {
@@ -109,7 +109,7 @@ vreg_cpufreq_notifier(struct notifier_block *nb, unsigned long val, void *data)
 	if (val == CPUFREQ_PRECHANGE && freq->old < freq->new) {
 		bfin_idle_cpu();
 		bfin_set_vlev(bfin_get_vlev(freq->new));
-		udelay(pdata->vr_settling_time); /*                            */
+		udelay(pdata->vr_settling_time); /* Wait until Volatge settled */
 		bfin_wakeup_cpu();
 	} else if (val == CPUFREQ_POSTCHANGE && freq->old > freq->new) {
 		bfin_idle_cpu();
@@ -123,11 +123,11 @@ vreg_cpufreq_notifier(struct notifier_block *nb, unsigned long val, void *data)
 static struct notifier_block vreg_cpufreq_notifier_block = {
 	.notifier_call	= vreg_cpufreq_notifier
 };
-#endif /*                 */
+#endif /* CONFIG_CPU_FREQ */
 
-/* 
-                    
-  
+/**
+ *	bfin_dpmc_probe -
+ *
  */
 static int __devinit bfin_dpmc_probe(struct platform_device *pdev)
 {
@@ -140,8 +140,8 @@ static int __devinit bfin_dpmc_probe(struct platform_device *pdev)
 					 CPUFREQ_TRANSITION_NOTIFIER);
 }
 
-/* 
-                     
+/**
+ *	bfin_dpmc_remove -
  */
 static int __devexit bfin_dpmc_remove(struct platform_device *pdev)
 {
@@ -158,8 +158,8 @@ struct platform_driver bfin_dpmc_device_driver = {
 	}
 };
 
-/* 
-                               
+/**
+ *	bfin_dpmc_init - Init driver
  */
 static int __init bfin_dpmc_init(void)
 {
@@ -167,8 +167,8 @@ static int __init bfin_dpmc_init(void)
 }
 module_init(bfin_dpmc_init);
 
-/* 
-                                     
+/**
+ *	bfin_dpmc_exit - break down driver
  */
 static void __exit bfin_dpmc_exit(void)
 {

@@ -62,7 +62,7 @@ static struct amba_device *amba_devs[] __initdata = {
 };
 
 /*
-                          
+ * These are fixed clocks.
  */
 static struct clk clk24mhz = {
 	.rate	= 24000000,
@@ -75,26 +75,26 @@ static struct clk uartclk = {
 static struct clk dummy_apb_pclk;
 
 static struct clk_lookup lookups[] = {
-	{	/*           */
+	{	/* Bus clock */
 		.con_id		= "apb_pclk",
 		.clk		= &dummy_apb_pclk,
 	}, {
-		/*                               */
+		/* Integrator/AP timer frequency */
 		.dev_id		= "ap_timer",
 		.clk		= &clk24mhz,
-	}, {	/*       */
+	}, {	/* UART0 */
 		.dev_id		= "mb:16",
 		.clk		= &uartclk,
-	}, {	/*       */
+	}, {	/* UART1 */
 		.dev_id		= "mb:17",
 		.clk		= &uartclk,
-	}, {	/*      */
+	}, {	/* KMI0 */
 		.dev_id		= "mb:18",
 		.clk		= &clk24mhz,
-	}, {	/*      */
+	}, {	/* KMI1 */
 		.dev_id		= "mb:19",
 		.clk		= &clk24mhz,
-	}, {	/*                     */
+	}, {	/* MMCI - IntegratorCP */
 		.dev_id		= "mb:1c",
 		.clk		= &uartclk,
 	}
@@ -110,10 +110,10 @@ static int __init integrator_init(void)
 	int i;
 
 	/*
-                                                                       
-                                                                      
-                                                                      
-  */
+	 * The Integrator/AP lacks necessary AMBA PrimeCell IDs, so we need to
+	 * hard-code them. The Integator/CP and forward have proper cell IDs.
+	 * Else we leave them undefined to the bus driver can autoprobe them.
+	 */
 	if (machine_is_integrator()) {
 		rtc_device.periphid	= 0x00041030;
 		uart0_device.periphid	= 0x00041010;
@@ -133,11 +133,11 @@ static int __init integrator_init(void)
 arch_initcall(integrator_init);
 
 /*
-                                                                   
-                                                
-                  
-                 
-                 
+ * On the Integrator platform, the port RTS and DTR are provided by
+ * bits in the following SC_CTRLS register bits:
+ *        RTS  DTR
+ *  UART0  7    6
+ *  UART1  5    4
  */
 #define SC_CTRLC	IO_ADDRESS(INTEGRATOR_SC_CTRLC)
 #define SC_CTRLS	IO_ADDRESS(INTEGRATOR_SC_CTRLS)
@@ -176,10 +176,10 @@ static struct amba_pl010_data integrator_uart_data = {
 
 static DEFINE_RAW_SPINLOCK(cm_lock);
 
-/* 
-                                            
-                        
-                    
+/**
+ * cm_control - update the CM_CTRL register.
+ * @mask: bits to change
+ * @set: bits to set
  */
 void cm_control(u32 mask, u32 set)
 {
@@ -195,9 +195,9 @@ void cm_control(u32 mask, u32 set)
 EXPORT_SYMBOL(cm_control);
 
 /*
-                                                                      
-                                                                       
-                         
+ * We need to stop things allocating the low memory; ideally we need a
+ * better implementation of GFP_DMA which does not assume that DMA-able
+ * memory starts at zero.
  */
 void __init integrator_reserve(void)
 {
@@ -205,7 +205,7 @@ void __init integrator_reserve(void)
 }
 
 /*
-                                                                  
+ * To reset, we hit the on-board reset register in the system FPGA
  */
 void integrator_restart(char mode, const char *cmd)
 {

@@ -21,10 +21,10 @@
 #include "leds.h"
 
 /*
-                                             
-  
-                                                                          
-                                           
+ * 8 discrete leds available for general use:
+ *
+ * Note: bits [15-8] are used to enable/blank the 8 7 segment hex displays
+ * so be sure to not monkey with them here.
  */
 
 #define D28			(1 << 0)

@@ -2,11 +2,11 @@
 #define _ASM_X86_MSIDEF_H
 
 /*
-                                               
+ * Constants for Intel APIC based MSI messages.
  */
 
 /*
-                      
+ * Shifts for MSI data
  */
 
 #define MSI_DATA_VECTOR_SHIFT		0
@@ -27,7 +27,7 @@
 #define  MSI_DATA_TRIGGER_LEVEL		(1 << MSI_DATA_TRIGGER_SHIFT)
 
 /*
-                                    
+ * Shift/mask fields for msi address
  */
 
 #define MSI_ADDR_BASE_HI		0
@@ -39,9 +39,9 @@
 
 #define MSI_ADDR_REDIRECTION_SHIFT	3
 #define  MSI_ADDR_REDIRECTION_CPU	(0 << MSI_ADDR_REDIRECTION_SHIFT)
-					/*               */
+					/* dedicated cpu */
 #define  MSI_ADDR_REDIRECTION_LOWPRI	(1 << MSI_ADDR_REDIRECTION_SHIFT)
-					/*                 */
+					/* lowest priority */
 
 #define MSI_ADDR_DEST_ID_SHIFT		12
 #define	 MSI_ADDR_DEST_ID_MASK		0x00ffff0
@@ -53,4 +53,4 @@
 #define MSI_ADDR_IR_SHV			(1 << 3)
 #define MSI_ADDR_IR_INDEX1(index)	((index & 0x8000) >> 13)
 #define MSI_ADDR_IR_INDEX2(index)	((index & 0x7fff) << 5)
-#endif /*                   */
+#endif /* _ASM_X86_MSIDEF_H */

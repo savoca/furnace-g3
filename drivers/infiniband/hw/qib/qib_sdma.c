@@ -37,13 +37,13 @@
 #include "qib.h"
 #include "qib_common.h"
 
-/*                          */
+/* default pio off, sdma on */
 static ushort sdma_descq_cnt = 256;
 module_param_named(sdma_descq_cnt, sdma_descq_cnt, ushort, S_IRUGO);
 MODULE_PARM_DESC(sdma_descq_cnt, "Number of SDMA descq entries");
 
 /*
-                                           
+ * Bits defined in the send DMA descriptor.
  */
 #define SDMA_DESC_LAST          (1ULL << 11)
 #define SDMA_DESC_FIRST         (1ULL << 12)
@@ -77,7 +77,7 @@ char *qib_sdma_event_names[] = {
 	[qib_sdma_event_e90_timer_tick]   = "e90_TimerTick",
 };
 
-/*                                                   */
+/* declare all statics here rather than keep sorting */
 static int alloc_sdma(struct qib_pportdata *);
 static void sdma_complete(struct kref *);
 static void sdma_finalput(struct qib_sdma_state *);
@@ -113,13 +113,13 @@ static void sdma_finalput(struct qib_sdma_state *ss)
 }
 
 /*
-                                                                    
-                                                                    
-                                                                    
-                                                                
-                                                   
-  
-                                     
+ * Complete all the sdma requests on the active list, in the correct
+ * order, and with appropriate processing.   Called when cleaning up
+ * after sdma shutdown, and when new sdma requests are submitted for
+ * a link that is down.   This matches what is done for requests
+ * that complete normally, it's just the full list.
+ *
+ * Must be called with sdma_lock held
  */
 static void clear_sdma_activelist(struct qib_pportdata *ppd)
 {
@@ -150,30 +150,30 @@ static void sdma_sw_clean_up_task(unsigned long opaque)
 	spin_lock_irqsave(&ppd->sdma_lock, flags);
 
 	/*
-                                                       
-                                                                
-                                                           
-                                                            
-                                                             
-                                  
-  */
+	 * At this point, the following should always be true:
+	 * - We are halted, so no more descriptors are getting retired.
+	 * - We are not running, so no one is submitting new work.
+	 * - Only we can send the e40_sw_cleaned, so we can't start
+	 *   running again until we say so.  So, the active list and
+	 *   descq are ours to play with.
+	 */
 
-	/*                               */
+	/* Process all retired requests. */
 	qib_sdma_make_progress(ppd);
 
 	clear_sdma_activelist(ppd);
 
 	/*
-                                                                 
-                                                                 
-  */
+	 * Resync count of added and removed.  It is VERY important that
+	 * sdma_descq_removed NEVER decrement - user_sdma depends on it.
+	 */
 	ppd->sdma_descq_removed = ppd->sdma_descq_added;
 
 	/*
-                                      
-                                                                  
-                                                    
-  */
+	 * Reset our notion of head and tail.
+	 * Note that the HW registers will be reset when switching states
+	 * due to calling __qib_sdma_process_event() below.
+	 */
 	ppd->sdma_descq_tail = 0;
 	ppd->sdma_descq_head = 0;
 	ppd->sdma_head_dma[0] = 0;
@@ -185,9 +185,9 @@ static void sdma_sw_clean_up_task(unsigned long opaque)
 }
 
 /*
-                                                                            
-                                                                   
-                                                
+ * This is called when changing to state qib_sdma_state_s10_hw_start_up_wait
+ * as a result of send buffer errors or send DMA descriptor errors.
+ * We want to disarm the buffers in these cases.
  */
 static void sdma_hw_start_up(struct qib_pportdata *ppd)
 {
@@ -204,7 +204,7 @@ static void sdma_sw_tear_down(struct qib_pportdata *ppd)
 {
 	struct qib_sdma_state *ss = &ppd->sdma_state;
 
-	/*                                                               */
+	/* Releasing this reference means the state machine has stopped. */
 	sdma_put(ss);
 }
 
@@ -220,7 +220,7 @@ static void sdma_set_state(struct qib_pportdata *ppd,
 	struct sdma_set_state_action *action = ss->set_state_action;
 	unsigned op = 0;
 
-	/*                       */
+	/* debugging bookkeeping */
 	ss->previous_state = ss->current_state;
 	ss->previous_op = ss->current_op;
 
@@ -270,7 +270,7 @@ static int alloc_sdma(struct qib_pportdata *ppd)
 	if (!ppd->sdma_descq_cnt)
 		ppd->sdma_descq_cnt = 256;
 
-	/*                                             */
+	/* Allocate memory for SendDMA descriptor FIFO */
 	ppd->sdma_descq = dma_alloc_coherent(&ppd->dd->pcidev->dev,
 		ppd->sdma_descq_cnt * sizeof(u64[2]), &ppd->sdma_descq_phys,
 		GFP_KERNEL);
@@ -281,7 +281,7 @@ static int alloc_sdma(struct qib_pportdata *ppd)
 		goto bail;
 	}
 
-	/*                                                    */
+	/* Allocate memory for DMA of head register to memory */
 	ppd->sdma_head_dma = dma_alloc_coherent(&ppd->dd->pcidev->dev,
 		PAGE_SIZE, &ppd->sdma_head_phys, GFP_KERNEL);
 	if (!ppd->sdma_head_dma) {
@@ -330,20 +330,20 @@ static inline void make_sdma_desc(struct qib_pportdata *ppd,
 {
 
 	WARN_ON(addr & 3);
-	/*                    */
+	/* SDmaPhyAddr[47:32] */
 	sdmadesc[1] = addr >> 32;
-	/*                   */
+	/* SDmaPhyAddr[31:0] */
 	sdmadesc[0] = (addr & 0xfffffffcULL) << 32;
-	/*                     */
+	/* SDmaGeneration[1:0] */
 	sdmadesc[0] |= (ppd->sdma_generation & 3ULL) <<
 		SDMA_DESC_GEN_LSB;
-	/*                      */
+	/* SDmaDwordCount[10:0] */
 	sdmadesc[0] |= (dwlen & 0x7ffULL) << SDMA_DESC_COUNT_LSB;
-	/*                     */
+	/* SDmaBufOffset[12:2] */
 	sdmadesc[0] |= dwoffset & 0x7ffULL;
 }
 
-/*                        */
+/* sdma_lock must be held */
 int qib_sdma_make_progress(struct qib_pportdata *ppd)
 {
 	struct list_head *lp = NULL;
@@ -355,11 +355,11 @@ int qib_sdma_make_progress(struct qib_pportdata *ppd)
 
 	hwhead = dd->f_sdma_gethead(ppd);
 
-	/*                                                           
-                                                                
-                                                                
-                             
-  */
+	/* The reason for some of the complexity of this code is that
+	 * not all descriptors have corresponding txps.  So, we have to
+	 * be able to skip over descs until we wander into the range of
+	 * the next txp on the list.
+	 */
 
 	if (!list_empty(&ppd->sdma_activelist)) {
 		lp = ppd->sdma_activelist.next;
@@ -368,7 +368,7 @@ int qib_sdma_make_progress(struct qib_pportdata *ppd)
 	}
 
 	while (ppd->sdma_descq_head != hwhead) {
-		/*                                              */
+		/* if desc is part of this txp, unmap if needed */
 		if (txp && (txp->flags & QIB_SDMA_TXREQ_F_FREEDESC) &&
 		    (idx == ppd->sdma_descq_head)) {
 			unmap_desc(ppd, ppd->sdma_descq_head);
@@ -376,20 +376,20 @@ int qib_sdma_make_progress(struct qib_pportdata *ppd)
 				idx = 0;
 		}
 
-		/*                             */
+		/* increment dequed desc count */
 		ppd->sdma_descq_removed++;
 
-		/*                              */
+		/* advance head, wrap if needed */
 		if (++ppd->sdma_descq_head == ppd->sdma_descq_cnt)
 			ppd->sdma_descq_head = 0;
 
-		/*                                               */
+		/* if now past this txp's descs, do the callback */
 		if (txp && txp->next_descq_idx == ppd->sdma_descq_head) {
-			/*                         */
+			/* remove from active list */
 			list_del_init(&txp->list);
 			if (txp->callback)
 				(*txp->callback)(txp, QIB_SDMA_TXREQ_S_OK);
-			/*                             */
+			/* see if there is another txp */
 			if (list_empty(&ppd->sdma_activelist))
 				txp = NULL;
 			else {
@@ -407,7 +407,7 @@ int qib_sdma_make_progress(struct qib_pportdata *ppd)
 }
 
 /*
-                                         
+ * This is called from interrupt context.
  */
 void qib_sdma_intr(struct qib_pportdata *ppd)
 {
@@ -436,13 +436,13 @@ int qib_setup_sdma(struct qib_pportdata *ppd)
 	if (ret)
 		goto bail;
 
-	/*                           */
+	/* set consistent sdma state */
 	ppd->dd->f_sdma_init_early(ppd);
 	spin_lock_irqsave(&ppd->sdma_lock, flags);
 	sdma_set_state(ppd, qib_sdma_state_s00_hw_down);
 	spin_unlock_irqrestore(&ppd->sdma_lock, flags);
 
-	/*                           */
+	/* set up reference counting */
 	kref_init(&ppd->sdma_state.kref);
 	init_completion(&ppd->sdma_state.comp);
 
@@ -475,10 +475,10 @@ void qib_teardown_sdma(struct qib_pportdata *ppd)
 	qib_sdma_process_event(ppd, qib_sdma_event_e00_go_hw_down);
 
 	/*
-                                                         
-                                                            
-                      
-  */
+	 * This waits for the state machine to exit so it is not
+	 * necessary to kill the sdma_sw_clean_up_task to make sure
+	 * it is not running.
+	 */
 	sdma_finalput(&ppd->sdma_state);
 
 	free_sdma(ppd);
@@ -497,17 +497,17 @@ int qib_sdma_running(struct qib_pportdata *ppd)
 }
 
 /*
-                                                                
-                                                                   
-                                                                         
-                                                            
-                                     
+ * Complete a request when sdma not running; likely only request
+ * but to simplify the code, always queue it, then process the full
+ * activelist.  We process the entire list to ensure that this particular
+ * request does get it's callback, but in the correct order.
+ * Must be called with sdma_lock held
  */
 static void complete_sdma_err_req(struct qib_pportdata *ppd,
 				  struct qib_verbs_txreq *tx)
 {
 	atomic_inc(&tx->qp->s_dma_busy);
-	/*                                       */
+	/* no sdma descriptors, so no unmap_desc */
 	tx->txreq.start_idx = 0;
 	tx->txreq.next_descq_idx = 0;
 	list_add_tail(&tx->txreq.list, &ppd->sdma_activelist);
@@ -515,13 +515,13 @@ static void complete_sdma_err_req(struct qib_pportdata *ppd,
 }
 
 /*
-                                                                       
-                                          
-                                                                        
-                           
-                                                         
-                                             
-                                                                     
+ * This function queues one IB packet onto the send DMA queue per call.
+ * The caller is responsible for checking:
+ * 1) The number of send DMA descriptor entries is less than the size of
+ *    the descriptor queue.
+ * 2) The IB SGE addresses and lengths are 32-bit aligned
+ *    (except possibly the last SGE's length)
+ * 3) The SGE addresses are suitable for passing to dma_map_single().
  */
 int qib_sdma_verbs_send(struct qib_pportdata *ppd,
 			struct qib_sge_state *ss, u32 dwords,
@@ -561,13 +561,13 @@ retry:
 	if (tx->txreq.flags & QIB_SDMA_TXREQ_F_USELARGEBUF)
 		sdmadesc[0] |= SDMA_DESC_USE_LARGE_BUF;
 
-	/*                    */
+	/* write to the descq */
 	tail = ppd->sdma_descq_tail;
 	descqp = &ppd->sdma_descq[tail].qw[0];
 	*descqp++ = cpu_to_le64(sdmadesc[0]);
 	*descqp++ = cpu_to_le64(sdmadesc[1]);
 
-	/*                    */
+	/* increment the tail */
 	if (++tail == ppd->sdma_descq_cnt) {
 		tail = 0;
 		descqp = &ppd->sdma_descq[0].qw[0];
@@ -594,14 +594,14 @@ retry:
 			goto unmap;
 		sdmadesc[0] = 0;
 		make_sdma_desc(ppd, sdmadesc, (u64) addr, dw, dwoffset);
-		/*                                                   */
+		/* SDmaUseLargeBuf has to be set in every descriptor */
 		if (tx->txreq.flags & QIB_SDMA_TXREQ_F_USELARGEBUF)
 			sdmadesc[0] |= SDMA_DESC_USE_LARGE_BUF;
-		/*                    */
+		/* write to the descq */
 		*descqp++ = cpu_to_le64(sdmadesc[0]);
 		*descqp++ = cpu_to_le64(sdmadesc[1]);
 
-		/*                    */
+		/* increment the tail */
 		if (++tail == ppd->sdma_descq_cnt) {
 			tail = 0;
 			descqp = &ppd->sdma_descq[0].qw[0];
@@ -660,14 +660,14 @@ unmap:
 	spin_lock(&qp->r_lock);
 	spin_lock(&qp->s_lock);
 	if (qp->ibqp.qp_type == IB_QPT_RC) {
-		/*                                                   */
+		/* XXX what about error sending RDMA read responses? */
 		if (ib_qib_state_ops[qp->state] & QIB_PROCESS_RECV_OK)
 			qib_error_qp(qp, IB_WC_GENERAL_ERR);
 	} else if (qp->s_wqe)
 		qib_send_complete(qp, qp->s_wqe, IB_WC_GENERAL_ERR);
 	spin_unlock(&qp->s_lock);
 	spin_unlock(&qp->r_lock);
-	/*                                                   */
+	/* return zero to process the next send work request */
 	goto unlock;
 
 busy:
@@ -677,10 +677,10 @@ busy:
 		struct qib_ibdev *dev;
 
 		/*
-                                                        
-                                                   
-                                                     
-   */
+		 * If we couldn't queue the DMA request, save the info
+		 * and try again later rather than destroying the
+		 * buffer and undoing the side effects of the copy.
+		 */
 		tx->ss = ss;
 		tx->dwords = dwords;
 		qp->s_tx = tx;
@@ -734,15 +734,15 @@ void __qib_sdma_process_event(struct qib_pportdata *ppd,
 			break;
 		case qib_sdma_event_e30_go_running:
 			/*
-                                                    
-                                           
-                                                     
-                                                 
-                 */
+			 * If down, but running requested (usually result
+			 * of link up, then we need to start up.
+			 * This can happen when hw down is requested while
+			 * bringing the link up with traffic active on
+			 * 7220, e.g. */
 			ss->go_s99_running = 1;
-			/*                                   */
+			/* fall through and start dma engine */
 		case qib_sdma_event_e10_go_hw_start:
-			/*                                                   */
+			/* This reference means the state machine is started */
 			sdma_get(&ppd->sdma_state);
 			sdma_set_state(ppd,
 				       qib_sdma_state_s10_hw_start_up_wait);

@@ -14,7 +14,7 @@
  */
 
 /*
-                             
+ * Chunk bitmap manipulations
  */
 
 #ifndef __YAFFS_BITMAP_H__

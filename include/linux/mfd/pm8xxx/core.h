@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 /*
-                                        
-  
+ * Qualcomm PMIC 8xxx driver header file
+ *
  */
 
 #ifndef __MFD_PM8XXX_CORE_H
@@ -31,7 +31,7 @@ enum pm8xxx_version {
 	PM8XXX_VERSION_8917,
 };
 
-/*                                         */
+/* PMIC version specific silicon revisions */
 #define PM8XXX_REVISION_8058_TEST	0
 #define PM8XXX_REVISION_8058_1p0	1
 #define PM8XXX_REVISION_8058_2p0	2

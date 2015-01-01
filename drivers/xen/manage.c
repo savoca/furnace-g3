@@ -1,5 +1,5 @@
 /*
-                                                        
+ * Handle extern requests for shutdown, reboot and sysrq
  */
 #include <linux/kernel.h>
 #include <linux/err.h>
@@ -26,19 +26,19 @@ enum shutdown_state {
 	SHUTDOWN_INVALID = -1,
 	SHUTDOWN_POWEROFF = 0,
 	SHUTDOWN_SUSPEND = 2,
-	/*                                                                         
-                                               
-                                                                           
-                                                             */
+	/* Code 3 is SHUTDOWN_CRASH, which we don't use because the domain can only
+	   report a crash, not be instructed to crash!
+	   HALT is the same as POWEROFF, as far as we're concerned.  The tools use
+	   the distinction when we return the reason code to them.  */
 	 SHUTDOWN_HALT = 4,
 };
 
-/*                                    */
+/* Ignore multiple shutdown requests. */
 static enum shutdown_state shutting_down = SHUTDOWN_INVALID;
 
 struct suspend_info {
 	int cancelled;
-	unsigned long arg; /*                          */
+	unsigned long arg; /* extra hypercall argument */
 	void (*pre)(void);
 	void (*post)(int cancelled);
 };
@@ -82,10 +82,10 @@ static int xen_suspend(void *data)
 		si->pre();
 
 	/*
-                                                     
-                                                      
-                                
-  */
+	 * This hypercall returns 1 if suspend was cancelled
+	 * or the domain was merely checkpointed, and 0 if it
+	 * is resuming in a new domain.
+	 */
 	si->cancelled = HYPERVISOR_suspend(si->arg);
 
 	if (si->post)
@@ -110,9 +110,9 @@ static void do_suspend(void)
 	shutting_down = SHUTDOWN_SUSPEND;
 
 #ifdef CONFIG_PREEMPT
-	/*                                                                  
-                                                                  
-                    */
+	/* If the kernel is preemptible, we need to freeze all the processes
+	   to prevent them from being in the middle of a pagetable update
+	   during suspend. */
 	err = freeze_processes();
 	if (err) {
 		printk(KERN_ERR "xen suspend: freeze failed %d\n", err);
@@ -166,7 +166,7 @@ out_resume:
 
 	dpm_resume_end(si.cancelled ? PMSG_THAW : PMSG_RESTORE);
 
-	/*                                                    */
+	/* Make sure timer events get retriggered on all CPUs */
 	clock_was_set();
 
 out_thaw:
@@ -176,7 +176,7 @@ out:
 #endif
 	shutting_down = SHUTDOWN_INVALID;
 }
-#endif	/*                            */
+#endif	/* CONFIG_HIBERNATE_CALLBACKS */
 
 struct shutdown_handler {
 	const char *command;
@@ -191,7 +191,7 @@ static void do_poweroff(void)
 
 static void do_reboot(void)
 {
-	shutting_down = SHUTDOWN_POWEROFF; /*   */
+	shutting_down = SHUTDOWN_POWEROFF; /* ? */
 	ctrl_alt_del();
 }
 
@@ -221,7 +221,7 @@ static void shutdown_handler(struct xenbus_watch *watch,
 		return;
 
 	str = (char *)xenbus_read(xbt, "control", "shutdown", NULL);
-	/*                                     */
+	/* Ignore read errors and empty reads. */
 	if (XENBUS_IS_ERR_READ(str)) {
 		xenbus_transaction_end(xbt, 1);
 		return;
@@ -232,7 +232,7 @@ static void shutdown_handler(struct xenbus_watch *watch,
 			break;
 	}
 
-	/*                                                            */
+	/* Only acknowledge commands which we are prepared to handle. */
 	if (handler->cb)
 		xenbus_write(xbt, "control", "shutdown", "");
 

@@ -50,10 +50,10 @@ static int __init mpc834x_itx_declare_of_platform_devices(void)
 }
 machine_device_initcall(mpc834x_itx, mpc834x_itx_declare_of_platform_devices);
 
-/*                                                                         
-  
-                         
-  
+/* ************************************************************************
+ *
+ * Setup the architecture
+ *
  */
 static void __init mpc834x_itx_setup_arch(void)
 {
@@ -66,7 +66,7 @@ static void __init mpc834x_itx_setup_arch(void)
 }
 
 /*
-                                                               
+ * Called very early, MMU is off, device-tree isn't unflattened
  */
 static int __init mpc834x_itx_probe(void)
 {

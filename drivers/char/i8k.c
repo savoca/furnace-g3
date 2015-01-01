@@ -118,7 +118,7 @@ static inline const char *i8k_get_dmi_data(int field)
 }
 
 /*
-                                                                           
+ * Call the System Management Mode BIOS. Code provided by Jonathan Buzzard.
  */
 static int i8k_smm(struct smm_regs *regs)
 {
@@ -185,8 +185,8 @@ static int i8k_smm(struct smm_regs *regs)
 }
 
 /*
-                                                                        
-                                                                   
+ * Read the bios version. Return the version as an integer corresponding
+ * to the ascii value, for example "A17" is returned as 0x00413137.
  */
 static int i8k_get_bios_version(void)
 {
@@ -196,7 +196,7 @@ static int i8k_get_bios_version(void)
 }
 
 /*
-                          
+ * Read the Fn key status.
  */
 static int i8k_get_fn_status(void)
 {
@@ -219,7 +219,7 @@ static int i8k_get_fn_status(void)
 }
 
 /*
-                         
+ * Read the power status.
  */
 static int i8k_get_power_status(void)
 {
@@ -233,7 +233,7 @@ static int i8k_get_power_status(void)
 }
 
 /*
-                       
+ * Read the fan status.
  */
 static int i8k_get_fan_status(int fan)
 {
@@ -244,7 +244,7 @@ static int i8k_get_fan_status(int fan)
 }
 
 /*
-                             
+ * Read the fan speed in RPM.
  */
 static int i8k_get_fan_speed(int fan)
 {
@@ -255,7 +255,7 @@ static int i8k_get_fan_speed(int fan)
 }
 
 /*
-                                                                  
+ * Set the fan speed (off, low, high). Returns the new fan status.
  */
 static int i8k_set_fan(int fan, int speed)
 {
@@ -268,7 +268,7 @@ static int i8k_set_fan(int fan, int speed)
 }
 
 /*
-                            
+ * Read the cpu temperature.
  */
 static int i8k_get_temp(int sensor)
 {
@@ -287,12 +287,12 @@ static int i8k_get_temp(int sensor)
 
 #ifdef I8K_TEMPERATURE_BUG
 	/*
-                                                                         
-                                                                         
-                                
-                                                        
-                                
-  */
+	 * Sometimes the temperature sensor returns 0x99, which is out of range.
+	 * In this case we return (once) the previous cached value. For example:
+	 # 1003655137 00000058 00005a4b
+	 # 1003655138 00000099 00003a80 <--- 0x99 = 153 degrees
+	 # 1003655139 00000054 00005c52
+	 */
 	if (temp > I8K_MAX_TEMP) {
 		temp = prev;
 		prev = I8K_MAX_TEMP;
@@ -415,38 +415,38 @@ static long i8k_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 }
 
 /*
-                                       
+ * Print the information for /proc/i8k.
  */
 static int i8k_proc_show(struct seq_file *seq, void *offset)
 {
 	int fn_key, cpu_temp, ac_power;
 	int left_fan, right_fan, left_speed, right_speed;
 
-	cpu_temp	= i8k_get_temp(0);			/*           */
-	left_fan	= i8k_get_fan_status(I8K_FAN_LEFT);	/*           */
-	right_fan	= i8k_get_fan_status(I8K_FAN_RIGHT);	/*           */
-	left_speed	= i8k_get_fan_speed(I8K_FAN_LEFT);	/*           */
-	right_speed	= i8k_get_fan_speed(I8K_FAN_RIGHT);	/*           */
-	fn_key		= i8k_get_fn_status();			/*           */
+	cpu_temp	= i8k_get_temp(0);			/* 11100 µs */
+	left_fan	= i8k_get_fan_status(I8K_FAN_LEFT);	/*   580 µs */
+	right_fan	= i8k_get_fan_status(I8K_FAN_RIGHT);	/*   580 µs */
+	left_speed	= i8k_get_fan_speed(I8K_FAN_LEFT);	/*   580 µs */
+	right_speed	= i8k_get_fan_speed(I8K_FAN_RIGHT);	/*   580 µs */
+	fn_key		= i8k_get_fn_status();			/*   750 µs */
 	if (power_status)
-		ac_power = i8k_get_power_status();		/*           */
+		ac_power = i8k_get_power_status();		/* 14700 µs */
 	else
 		ac_power = -1;
 
 	/*
-         
-   
-                                                           
-                    
-                       
-                       
-                       
-                        
-                      
-                       
-                
-                     
-  */
+	 * Info:
+	 *
+	 * 1)  Format version (this will change if format changes)
+	 * 2)  BIOS version
+	 * 3)  BIOS machine ID
+	 * 4)  Cpu temperature
+	 * 5)  Left fan status
+	 * 6)  Right fan status
+	 * 7)  Left fan speed
+	 * 8)  Right fan speed
+	 * 9)  AC power
+	 * 10) Fn Key status
+	 */
 	return seq_printf(seq, "%s %s %s %d %d %d %d %d %d %d\n",
 			  I8K_PROC_FMT,
 			  bios_version,
@@ -463,7 +463,7 @@ static int i8k_open_fs(struct inode *inode, struct file *file)
 
 
 /*
-                  
+ * Hwmon interface
  */
 
 static ssize_t i8k_hwmon_show_temp(struct device *dev,
@@ -539,13 +539,13 @@ static int __init i8k_init_hwmon(void)
 		return err;
 	}
 
-	/*                         */
+	/* Required name attribute */
 	err = device_create_file(i8k_hwmon_dev,
 				 &sensor_dev_attr_name.dev_attr);
 	if (err)
 		goto exit_unregister;
 
-	/*                                                          */
+	/* CPU temperature attributes, if temperature reading is OK */
 	err = i8k_get_temp(0);
 	if (err < 0) {
 		dev_dbg(i8k_hwmon_dev,
@@ -560,7 +560,7 @@ static int __init i8k_init_hwmon(void)
 			goto exit_remove_files;
 	}
 
-	/*                                             */
+	/* Left fan attributes, if left fan is present */
 	err = i8k_get_fan_status(I8K_FAN_LEFT);
 	if (err < 0) {
 		dev_dbg(i8k_hwmon_dev,
@@ -576,7 +576,7 @@ static int __init i8k_init_hwmon(void)
 			goto exit_remove_files;
 	}
 
-	/*                                               */
+	/* Right fan attributes, if right fan is present */
 	err = i8k_get_fan_status(I8K_FAN_RIGHT);
 	if (err < 0) {
 		dev_dbg(i8k_hwmon_dev,
@@ -636,7 +636,7 @@ static struct dmi_system_id __initdata i8k_dmi_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "Latitude"),
 		},
 	},
-	{	/*                   */
+	{	/* UK Inspiron 6400  */
 		.ident = "Dell Inspiron 3",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
@@ -668,7 +668,7 @@ static struct dmi_system_id __initdata i8k_dmi_table[] = {
 };
 
 /*
-                                                
+ * Probe for the presence of a supported laptop.
  */
 static int __init i8k_probe(void)
 {
@@ -676,8 +676,8 @@ static int __init i8k_probe(void)
 	int version;
 
 	/*
-                       
-  */
+	 * Get DMI information
+	 */
 	if (!dmi_check_system(i8k_dmi_table)) {
 		if (!ignore_dmi && !force)
 			return -ENODEV;
@@ -692,8 +692,8 @@ static int __init i8k_probe(void)
 	strlcpy(bios_version, i8k_get_dmi_data(DMI_BIOS_VERSION), sizeof(bios_version));
 
 	/*
-                          
-  */
+	 * Get SMM Dell signature
+	 */
 	if (i8k_get_dell_signature(I8K_SMM_GET_DELL_SIG1) &&
 	    i8k_get_dell_signature(I8K_SMM_GET_DELL_SIG2)) {
 		printk(KERN_ERR "i8k: unable to get SMM Dell signature\n");
@@ -702,8 +702,8 @@ static int __init i8k_probe(void)
 	}
 
 	/*
-                         
-  */
+	 * Get SMM BIOS version.
+	 */
 	version = i8k_get_bios_version();
 	if (version <= 0) {
 		printk(KERN_WARNING "i8k: unable to get SMM BIOS version\n");
@@ -713,14 +713,14 @@ static int __init i8k_probe(void)
 		buff[2] = (version) & 0xff;
 		buff[3] = '\0';
 		/*
-                                                         
-   */
+		 * If DMI BIOS version is unknown use SMM BIOS version.
+		 */
 		if (!dmi_get_system_info(DMI_BIOS_VERSION))
 			strlcpy(bios_version, buff, sizeof(bios_version));
 
 		/*
-                                     
-   */
+		 * Check if the two versions match.
+		 */
 		if (strncmp(buff, bios_version, sizeof(bios_version)) != 0)
 			printk(KERN_WARNING "i8k: BIOS version mismatch: %s != %s\n",
 				buff, bios_version);
@@ -734,11 +734,11 @@ static int __init i8k_init(void)
 	struct proc_dir_entry *proc_i8k;
 	int err;
 
-	/*                                        */
+	/* Are we running on an supported laptop? */
 	if (i8k_probe())
 		return -ENODEV;
 
-	/*                         */
+	/* Register the proc entry */
 	proc_i8k = proc_create("i8k", 0, NULL, &i8k_fops);
 	if (!proc_i8k)
 		return -ENOENT;

@@ -26,10 +26,10 @@
 #define PTRTREESIZE	(256*1024)
 
 /*
-                                                                           
-                                                                          
-                                                                            
-                                                          
+ * For 040/060 we can use the virtual memory area like other architectures,
+ * but for 020/030 we want to use early termination page descriptor and we
+ * can't mix this with normal page descriptors, so we have to copy that code
+ * (mm/vmalloc.c) and return appriorate aligned addresses.
  */
 
 #ifdef CPU_M68040_OR_M68060_ONLY
@@ -98,9 +98,9 @@ static inline void free_io_area(void *addr)
 #endif
 
 /*
-                                                                 
+ * Map some physical address range into the kernel address space.
  */
-/*                                                  */
+/* Rewritten by Andreas Schwab to remove all races. */
 
 void __iomem *__ioremap(unsigned long physaddr, unsigned long size, int cacheflag)
 {
@@ -112,8 +112,8 @@ void __iomem *__ioremap(unsigned long physaddr, unsigned long size, int cachefla
 	pte_t *pte_dir;
 
 	/*
-                                    
-  */
+	 * Don't allow mappings that wrap..
+	 */
 	if (!size || physaddr > (unsigned long)(-size))
 		return NULL;
 
@@ -129,15 +129,15 @@ void __iomem *__ioremap(unsigned long physaddr, unsigned long size, int cachefla
 	printk("ioremap: 0x%lx,0x%lx(%d) - ", physaddr, size, cacheflag);
 #endif
 	/*
-                               
-  */
+	 * Mappings have to be aligned
+	 */
 	offset = physaddr & (IO_SIZE - 1);
 	physaddr &= -IO_SIZE;
 	size = (size + offset + IO_SIZE - 1) & -IO_SIZE;
 
 	/*
-                   
-  */
+	 * Ok, go for it..
+	 */
 	area = get_io_area(size);
 	if (!area)
 		return NULL;
@@ -149,8 +149,8 @@ void __iomem *__ioremap(unsigned long physaddr, unsigned long size, int cachefla
 #endif
 
 	/*
-                                                 
-  */
+	 * add cache and table flags to physical address
+	 */
 	if (CPU_IS_040_OR_060) {
 		physaddr |= (_PAGE_PRESENT | _PAGE_GLOBAL040 |
 			     _PAGE_ACCESSED | _PAGE_DIRTY);
@@ -224,7 +224,7 @@ void __iomem *__ioremap(unsigned long physaddr, unsigned long size, int cachefla
 EXPORT_SYMBOL(__ioremap);
 
 /*
-                                   
+ * Unmap a ioremap()ed region again
  */
 void iounmap(void __iomem *addr)
 {
@@ -240,9 +240,9 @@ void iounmap(void __iomem *addr)
 EXPORT_SYMBOL(iounmap);
 
 /*
-                                                    
-                                                               
-                                               
+ * __iounmap unmaps nearly everything, so be careful
+ * it doesn't free currently pointer/page tables anymore but it
+ * wans't used anyway and might be added later.
  */
 void __iounmap(void *addr, unsigned long size)
 {
@@ -289,9 +289,9 @@ void __iounmap(void *addr, unsigned long size)
 }
 
 /*
-                                                    
-                                                                            
-                   
+ * Set new cache mode for some kernel address space.
+ * The caller must push data for that range itself, if such data may already
+ * be in the cache.
  */
 void kernel_set_cachemode(void *addr, unsigned long size, int cmode)
 {

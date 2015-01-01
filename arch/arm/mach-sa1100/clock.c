@@ -1,5 +1,5 @@
 /*
-                                      
+ *  linux/arch/arm/mach-sa1100/clock.c
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -36,9 +36,9 @@ static DEFINE_SPINLOCK(clocks_lock);
 static void clk_gpio27_enable(struct clk *clk)
 {
 	/*
-                                                                 
-                                                 
-  */
+	 * First, set up the 3.6864MHz clock on GPIO 27 for the SA-1111:
+	 * (SA-1110 Developer's Manual, section 9.1.2.1)
+	 */
 	GAFR |= GPIO_32_768kHz;
 	GPDR |= GPIO_32_768kHz;
 	TUCR = TUCR_3_6864MHz;

@@ -30,6 +30,6 @@ Abstract:
 
 
 
-//                     
+//#include "common.ver"
 
-#endif 	//         
+#endif 	//VERSION_H

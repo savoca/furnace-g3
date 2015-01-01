@@ -23,11 +23,11 @@
 #define atomic_set(v, i)	(((v)->counter) = i)
 
 /*
-                                                   
-                                
-                               
-  
-                                                                
+ * atomic_sub_return - subtract the atomic variable
+ * @i: integer value to subtract
+ * @v: pointer of type atomic_t
+ *
+ * Atomically subtracts @i from @v. Returns the resulting value.
  */
 static inline int atomic_sub_return(int i, atomic_t *v)
 {
@@ -48,11 +48,11 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 }
 
 /*
-                                                     
-                           
-                               
-  
-                                                         
+ * atomic_add_return - add integer to atomic variable
+ * @i: integer value to add
+ * @v: pointer of type atomic_t
+ *
+ * Atomically adds @i to @v. Returns the resulting value.
  */
 static inline int atomic_add_return(int i, atomic_t *v)
 {
@@ -76,13 +76,13 @@ static inline int atomic_add_return(int i, atomic_t *v)
 }
 
 /*
-                                                             
-                               
-                                       
-                                 
-  
-                                                            
-                               
+ * atomic_sub_unless - sub unless the number is a given value
+ * @v: pointer of type atomic_t
+ * @a: the amount to subtract from v...
+ * @u: ...unless v is equal to u.
+ *
+ * Atomically subtract @a from @v, so long as it was not @u.
+ * Returns the old value of @v.
 */
 static inline void atomic_sub_unless(atomic_t *v, int a, int u)
 {
@@ -104,13 +104,13 @@ static inline void atomic_sub_unless(atomic_t *v, int a, int u)
 }
 
 /*
-                                                               
-                               
-                                
-                                 
-  
-                                                      
-                               
+ * __atomic_add_unless - add unless the number is a given value
+ * @v: pointer of type atomic_t
+ * @a: the amount to add to v...
+ * @u: ...unless v is equal to u.
+ *
+ * Atomically adds @a to @v, so long as it was not @u.
+ * Returns the old value of @v.
 */
 static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 {
@@ -138,12 +138,12 @@ static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 }
 
 /*
-                                                                               
-                                
-                               
-  
-                                                                        
-                                                     
+ * atomic_sub_if_positive - conditionally subtract integer from atomic variable
+ * @i: integer value to subtract
+ * @v: pointer of type atomic_t
+ *
+ * Atomically test @v and subtract @i if @v is greater or equal than @i.
+ * The function returns the old value of @v minus @i.
  */
 static inline int atomic_sub_if_positive(int i, atomic_t *v)
 {
@@ -188,4 +188,4 @@ static inline int atomic_sub_if_positive(int i, atomic_t *v)
 #define smp_mb__before_atomic_inc()	barrier()
 #define smp_mb__after_atomic_inc()	barrier()
 
-#endif /*                       */
+#endif /*  __ASM_AVR32_ATOMIC_H */

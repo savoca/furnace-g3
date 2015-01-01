@@ -39,4 +39,4 @@ typedef enum pkt_frag
 
 extern pkt_frag_t pkt_frag_info(osl_t *osh, void *p);
 
-#endif /*            */
+#endif /* _dhd_ip_h_ */

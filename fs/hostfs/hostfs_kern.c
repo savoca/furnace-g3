@@ -41,7 +41,7 @@ static const struct dentry_operations hostfs_dentry_ops = {
 	.d_delete		= hostfs_d_delete,
 };
 
-/*                                                         */
+/* Changed in hostfs_args before the kernel starts running */
 static char *root_ino = "";
 static int append = 0;
 
@@ -121,7 +121,7 @@ static char *dentry_name(struct dentry *dentry)
 	if (!name)
 		return NULL;
 
-	return __dentry_name(dentry, name); /*             */
+	return __dentry_name(dentry, name); /* will unlock */
 }
 
 static char *inode_name(struct inode *ino)
@@ -199,10 +199,10 @@ static struct inode *hostfs_iget(struct super_block *sb)
 int hostfs_statfs(struct dentry *dentry, struct kstatfs *sf)
 {
 	/*
-                                                                   
-                                                                     
-                           
-  */
+	 * do_statfs uses struct statfs64 internally, but the linux kernel
+	 * struct statfs still has 32-bit versions for most of these fields,
+	 * so we convert them here
+	 */
 	int err;
 	long long f_blocks;
 	long long f_bfree;
@@ -335,7 +335,7 @@ retry:
 		return fd;
 
 	mutex_lock(&open_mutex);
-	/*                                     */
+	/* somebody else had handled it first? */
 	if ((mode & HOSTFS_I(ino)->mode) == mode) {
 		mutex_unlock(&open_mutex);
 		return 0;
@@ -487,9 +487,9 @@ int hostfs_write_end(struct file *file, struct address_space *mapping,
 		SetPageUptodate(page);
 
 	/*
-                                                                    
-                                         
-  */
+	 * If err > 0, write_file has added err to pos, so we are comparing
+	 * i_size against the last byte written.
+	 */
 	if (err > 0 && (pos > inode->i_size))
 		inode->i_size = pos;
 	unlock_page(page);
@@ -514,7 +514,7 @@ static int read_name(struct inode *ino, char *name)
 	if (err)
 		return err;
 
-	/*                                               */
+	/* Reencode maj and min with the kernel encoding.*/
 	rdev = MKDEV(st.maj, st.min);
 
 	switch (st.mode & S_IFMT) {
@@ -935,7 +935,7 @@ static int hostfs_fill_sb_common(struct super_block *sb, void *d, int silent)
 	sb->s_d_op = &hostfs_dentry_ops;
 	sb->s_maxbytes = MAX_LFS_FILESIZE;
 
-	/*                                                   */
+	/* NULL is printed as <NULL> by sprintf: avoid that. */
 	if (req_root == NULL)
 		req_root = "";
 

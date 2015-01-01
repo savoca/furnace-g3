@@ -32,11 +32,11 @@
 #include "device.h"
 #include "ttype.h"
 
-/*                                                                   */
+/*---------------------  Export Definitions -------------------------*/
 
 
 //
-//               
+//  For IO mapped
 //
 
 #ifdef IO_MAP
@@ -71,7 +71,7 @@
 #else
 
 //
-//                      
+//  For memory mapped IO
 //
 
 
@@ -112,7 +112,7 @@
 
 
 //
-//                                                      
+// ALWAYS IO-Mapped IO when in 16-bit/32-bit environment
 //
 #define PCBvInPortB(dwIOAddress, pbyData) {     \
 	    *(pbyData) = inb(dwIOAddress);          \
@@ -153,14 +153,14 @@
 }
 
 
-/*                                                                   */
+/*---------------------  Export Classes  ----------------------------*/
 
-/*                                                                   */
+/*---------------------  Export Variables  --------------------------*/
 
-/*                                                                   */
-
-
+/*---------------------  Export Functions  --------------------------*/
 
 
-#endif //          
+
+
+#endif // __UPC_H__
 

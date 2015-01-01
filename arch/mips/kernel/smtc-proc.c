@@ -20,11 +20,11 @@
 #include <asm/smtc_proc.h>
 
 /*
-                                        
+ * /proc diagnostic and statistics hooks
  */
 
 /*
-                      
+ * Statistics gathered
  */
 unsigned long selfipis[NR_CPUS];
 

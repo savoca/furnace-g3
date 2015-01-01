@@ -1,93 +1,93 @@
-/*                                              
-  
-                                 
-                                                            
-                                   
-  
-                                                                     
-  
-                                                   
-                                   
-                                                            
-                                  
-  
-                                                                       
-                                                                          
-                
+/* Intel EtherExpress 16 device driver for Linux
+ *
+ * Written by John Sullivan, 1995
+ *  based on original code by Donald Becker, with changes by
+ *  Alan Cox and Pauline Middelink.
+ *
+ * Support for 8-bit mode by Zoltan Szilagyi <zoltans@cs.arizona.edu>
+ *
+ * Many modifications, and currently maintained, by
+ *  Philip Blundell <philb@gnu.org>
+ * Added the Compaq LTE  Alan Cox <alan@lxorguk.ukuu.org.uk>
+ * Added MCA support Adam Fritzler
+ *
+ * Note - this driver is experimental still - it has problems on faster
+ * machines. Someone needs to sit down and go through it line by line with
+ * a databook...
  */
 
-/*                                                                      
-                                                                           
-                                                                     
-  
-                                                                           
-                                           
+/* The EtherExpress 16 is a fairly simple card, based on a shared-memory
+ * design using the i82586 Ethernet coprocessor.  It bears no relationship,
+ * as far as I know, to the similarly-named "EtherExpress Pro" range.
+ *
+ * Historically, Linux support for these cards has been very bad.  However,
+ * things seem to be getting better slowly.
  */
 
-/*                                                                    
-                                                                               
-                                             
+/* If your card is confused about what sort of interface it has (eg it
+ * persistently reports "10baseT" when none is fitted), running 'SOFTSET /BART'
+ * or 'SOFTSET /LISA' from DOS seems to help.
  */
 
-/*                                    
-  
-                                                                            
-                                                                         
-                                     
-  
-                                                                           
-              
-  
-                                               
-  
-                                                
-                                                 
-                                                                            
-                                                   
-  
-                                                                        
-                                                                             
-                                                                             
-                                                                            
-  
-                                                                          
-                                                                              
-                                                                          
-                          
-  
-                                                                             
-                                                                          
-                          
+/* Here's the scoop on memory mapping.
+ *
+ * There are three ways to access EtherExpress card memory: either using the
+ * shared-memory mapping, or using PIO through the dataport, or using PIO
+ * through the "shadow memory" ports.
+ *
+ * The shadow memory system works by having the card map some of its memory
+ * as follows:
+ *
+ * (the low five bits of the SMPTR are ignored)
+ *
+ *  base+0x4000..400f      memory at SMPTR+0..15
+ *  base+0x8000..800f      memory at SMPTR+16..31
+ *  base+0xc000..c007      dubious stuff (memory at SMPTR+16..23 apparently)
+ *  base+0xc008..c00f      memory at 0x0008..0x000f
+ *
+ * This last set (the one at c008) is particularly handy because the SCB
+ * lives at 0x0008.  So that set of ports gives us easy random access to data
+ * in the SCB without having to mess around setting up pointers and the like.
+ * We always use this method to access the SCB (via the scb_xx() functions).
+ *
+ * Dataport access works by aiming the appropriate (read or write) pointer
+ * at the first address you're interested in, and then reading or writing from
+ * the dataport.  The pointers auto-increment after each transfer.  We use
+ * this for data transfer.
+ *
+ * We don't use the shared-memory system because it allegedly doesn't work on
+ * all cards, and because it's a bit more prone to go wrong (it's one more
+ * thing to configure...).
  */
 
-/*            
-  
-                                                                          
-                                             
+/* Known bugs:
+ *
+ * - The card seems to want to give us two interrupts every time something
+ *   happens, where just one would be better.
  */
 
 /*
-  
-                                    
-  
-                                                                        
-                                                                              
-                                                                           
-                                                                          
-                                                                               
-                                                                          
-                                                                            
-                                                                      
-                                                                            
-                                                                             
-                                                                          
-            
-  
-                                     
-  
-                                                                            
-                                                                            
-                  
+ *
+ * Note by Zoltan Szilagyi 10-12-96:
+ *
+ * I've succeeded in eliminating the "CU wedged" messages, and hence the
+ * lockups, which were only occurring with cards running in 8-bit mode ("force
+ * 8-bit operation" in Intel's SoftSet utility). This version of the driver
+ * sets the 82586 and the ASIC to 8-bit mode at startup; it also stops the
+ * CU before submitting a packet for transmission, and then restarts it as soon
+ * as the process of handing the packet is complete. This is definitely an
+ * unnecessary slowdown if the card is running in 16-bit mode; therefore one
+ * should detect 16-bit vs 8-bit mode from the EEPROM settings and act
+ * accordingly. In 8-bit mode with this bugfix I'm getting about 150 K/s for
+ * ftp's, which is significantly better than I get in DOS, so the overhead of
+ * stopping and restarting the CU with each transmit is not prohibitive in
+ * practice.
+ *
+ * Update by David Woodhouse 11/5/99:
+ *
+ * I've seen "CU wedged" messages in 16-bit mode, on the Alpha architecture.
+ * I assume that this is because 16-bit accesses are actually handled as two
+ * 8-bit accesses.
  */
 
 #ifdef __alpha__
@@ -128,81 +128,81 @@
 #define EEXP_IO_EXTENT  16
 
 /*
-                            
+ * Private data declarations
  */
 
 struct net_local
 {
-	unsigned long last_tx;       /*                                    */
-	unsigned long init_time;     /*                                     */
-	unsigned short rx_first;     /*                                    */
-	unsigned short rx_last;      /*             */
-	unsigned short rx_ptr;       /*                         */
-	unsigned short tx_head;      /*                  */
-	unsigned short tx_reap;      /*                     */
-	unsigned short tx_tail;      /*                            */
-	unsigned short tx_link;      /*                             */
-	unsigned short last_tx_restart;   /*                       
-                         */
+	unsigned long last_tx;       /* jiffies when last transmit started */
+	unsigned long init_time;     /* jiffies when eexp_hw_init586 called */
+	unsigned short rx_first;     /* first rx buf, same as RX_BUF_START */
+	unsigned short rx_last;      /* last rx buf */
+	unsigned short rx_ptr;       /* first rx buf to look at */
+	unsigned short tx_head;      /* next free tx buf */
+	unsigned short tx_reap;      /* first in-use tx buf */
+	unsigned short tx_tail;      /* previous tx buf to tx_head */
+	unsigned short tx_link;      /* last known-executing tx buf */
+	unsigned short last_tx_restart;   /* set to tx_link when we
+					     restart the CU */
 	unsigned char started;
 	unsigned short rx_buf_start;
 	unsigned short rx_buf_end;
 	unsigned short num_tx_bufs;
 	unsigned short num_rx_bufs;
-	unsigned char width;         /*                         */
+	unsigned char width;         /* 0 for 16bit, 1 for 8bit */
 	unsigned char was_promisc;
 	unsigned char old_mc_count;
 	spinlock_t lock;
 };
 
-/*                                                                        
-                       
+/* This is the code and data that is downloaded to the EtherExpress card's
+ * memory at boot time.
  */
 
 static unsigned short start_code[] = {
-/*        */
-	0x0001,                 /*                                  */
-	0x0008,0x0000,0x0000,   /*                               */
+/* 0x0000 */
+	0x0001,                 /* ISCP: busy - cleared after reset */
+	0x0008,0x0000,0x0000,   /* offset,address (lo,hi) of SCB */
 
-	0x0000,0x0000,          /*                       */
-	0x0000,0x0000,          /*                              
-                                */
-	0x0000,0x0000,          /*                                   */
-	0x0000,0x0000,          /*                                        */
+	0x0000,0x0000,          /* SCB: status, commands */
+	0x0000,0x0000,          /* links to first command block,
+				   first receive descriptor */
+	0x0000,0x0000,          /* CRC error, alignment error counts */
+	0x0000,0x0000,          /* out of resources, overrun error counts */
 
-	0x0000,0x0000,          /*     */
+	0x0000,0x0000,          /* pad */
 	0x0000,0x0000,
 
-/*                                   */
+/* 0x20 -- start of 82586 CU program */
 #define CONF_LINK 0x20
 	0x0000,Cmd_Config,
-	0x0032,                 /*                      */
-	0x080c,                 /*                                    */
-	0x2e40,                 /*                    
-                                               
-                                                            
-                      
-     */
-	0x6000,                 /*                                  
-                                 */
-	0xf200,                 /*                
-                                 */
+	0x0032,                 /* link to next command */
+	0x080c,                 /* 12 bytes follow : fifo threshold=8 */
+	0x2e40,                 /* don't rx bad frames
+				 * SRDY/ARDY => ext. sync. : preamble len=8
+	                         * take addresses from data buffers
+				 * 6 bytes/address
+				 */
+	0x6000,                 /* default backoff method & priority
+				 * interframe spacing = 0x60 */
+	0xf200,                 /* slot time=0x200
+				 * max collision retry = 0xf */
 #define CONF_PROMISC  0x2e
-	0x0000,                 /*                                        
-                                           */
-	0x003c,                 /*                                   */
+	0x0000,                 /* no HDLC : normal CRC : enable broadcast
+				 * disable promiscuous/multicast modes */
+	0x003c,                 /* minimum frame length = 60 octets) */
 
 	0x0000,Cmd_SetAddr,
-	0x003e,                 /*                      */
+	0x003e,                 /* link to next command */
 #define CONF_HWADDR  0x38
-	0x0000,0x0000,0x0000,   /*                              */
+	0x0000,0x0000,0x0000,   /* hardware address placed here */
 
 	0x0000,Cmd_MCast,
-	0x0076,                 /*                      */
+	0x0076,                 /* link to next command */
 #define CONF_NR_MULTICAST 0x44
-	0x0000,                 /*                                          */
+	0x0000,                 /* number of bytes in multicast address(es) */
 #define CONF_MULTICAST 0x46
-	0x0000, 0x0000, 0x0000, /*                */
+	0x0000, 0x0000, 0x0000, /* some addresses */
 	0x0000, 0x0000, 0x0000,
 	0x0000, 0x0000, 0x0000,
 	0x0000, 0x0000, 0x0000,
@@ -213,32 +213,32 @@ static unsigned short start_code[] = {
 
 #define CONF_DIAG_RESULT  0x76
 	0x0000, Cmd_Diag,
-	0x007c,                 /*                      */
+	0x007c,                 /* link to next command */
 
 	0x0000,Cmd_TDR|Cmd_INT,
 	0x0084,
 #define CONF_TDR_RESULT  0x82
 	0x0000,
 
-	0x0000,Cmd_END|Cmd_Nop, /*                           */
-	0x0084                  /*            */
+	0x0000,Cmd_END|Cmd_Nop, /* end of configure sequence */
+	0x0084                  /* dummy link */
 };
 
-/*                                             */
+/* maps irq number to EtherExpress magic value */
 static char irqrmap[] = { 0,0,1,2,3,4,0,0,0,1,5,6,0,0,0,0 };
 
 #ifdef CONFIG_MCA_LEGACY
-/*                                                           */
+/* mapping of the first four bits of the second POS register */
 static unsigned short mca_iomap[] = {
 	0x270, 0x260, 0x250, 0x240, 0x230, 0x220, 0x210, 0x200,
 	0x370, 0x360, 0x350, 0x340, 0x330, 0x320, 0x310, 0x300
 };
-/*                                     */
+/* bits 5-7 of the second POS register */
 static char mca_irqmap[] = { 12, 9, 3, 4, 5, 10, 11, 15 };
 #endif
 
 /*
-                                 
+ * Prototypes for Linux interface
  */
 
 static int eexp_open(struct net_device *dev);
@@ -251,7 +251,7 @@ static irqreturn_t eexp_irq(int irq, void *dev_addr);
 static void eexp_set_multicast(struct net_device *dev);
 
 /*
-                                           
+ * Prototypes for hardware access functions
  */
 
 static void eexp_hw_rx_pio(struct net_device *dev);
@@ -277,7 +277,7 @@ enum eexp_iftype {AUI=0, BNC=1, TPE=2};
 #define STARTED_CU      1
 
 /*
-                                       
+ * Primitive hardware access functions.
  */
 
 static inline unsigned short scb_status(struct net_device *dev)
@@ -323,11 +323,11 @@ static inline unsigned short int SHADOW(short int addr)
 }
 
 /*
-                  
+ * Linux interface
  */
 
 /*
-                                           
+ * checks for presence of EtherExpress card
  */
 
 static int __init do_express_probe(struct net_device *dev)
@@ -338,18 +338,18 @@ static int __init do_express_probe(struct net_device *dev)
 	int dev_irq = dev->irq;
 	int err;
 
-	dev->if_port = 0xff; /*         */
+	dev->if_port = 0xff; /* not set */
 
 #ifdef CONFIG_MCA_LEGACY
 	if (MCA_bus) {
 		int slot = 0;
 
 		/*
-                                                    
-                                                    
-                                             
-                                             
-   */
+		 * Only find one card at a time.  Subsequent calls
+		 * will find others, however, proper multicard MCA
+		 * probing and setup can't be done with the
+		 * old-style Space.c init routines.  -- ASF
+		 */
 		while (slot != MCA_NOTFOUND) {
 			int pos0, pos1;
 
@@ -364,12 +364,12 @@ static int __init do_express_probe(struct net_device *dev)
 			dev->irq = mca_irqmap[(pos1>>4)&0x7];
 
 			/*
-                                        
-                                     
-                                       
-                                          
-                                                   
-    */
+			 * XXX: Transceiver selection is done
+			 * differently on the MCA version.
+			 * How to get it to select something
+			 * other than external/AUI is currently
+			 * unknown.  This code is just for looks. -- ASF
+			 */
 			if ((pos0 & 0x7) == 0x1)
 				dev->if_port = AUI;
 			else if ((pos0 & 0x7) == 0x5) {
@@ -439,7 +439,7 @@ struct net_device * __init express_probe(int unit)
 #endif
 
 /*
-                                                 
+ * open and initialize the adapter, ready for use
  */
 
 static int eexp_open(struct net_device *dev)
@@ -504,7 +504,7 @@ static int eexp_open(struct net_device *dev)
 }
 
 /*
-                                                             
+ * close and disable the interface, leaving the 586 in reset.
  */
 
 static int eexp_close(struct net_device *dev)
@@ -531,8 +531,8 @@ static int eexp_close(struct net_device *dev)
 }
 
 /*
-                                                                         
-                                       
+ * This gets called when a higher level thinks we are broken.  Check that
+ * nothing has become jammed in the CU.
  */
 
 static void unstick_cu(struct net_device *dev)
@@ -620,9 +620,9 @@ static void eexp_timeout(struct net_device *dev)
 	disable_irq(dev->irq);
 
 	/*
-                                                            
-                             
-  */
+	 *	Best would be to use synchronize_irq(); spin_lock() here
+	 *	lets make it work first..
+	 */
 
 #ifdef CONFIG_SMP
 	spin_lock_irqsave(&lp->lock, flags);
@@ -646,8 +646,8 @@ static void eexp_timeout(struct net_device *dev)
 }
 
 /*
-                                                                 
-                                   
+ * Called to transmit a packet, or to allow us to right ourselves
+ * if the kernel thinks we've died.
  */
 static netdev_tx_t eexp_xmit(struct sk_buff *buf, struct net_device *dev)
 {
@@ -670,9 +670,9 @@ static netdev_tx_t eexp_xmit(struct sk_buff *buf, struct net_device *dev)
 	disable_irq(dev->irq);
 
 	/*
-                                                            
-                             
-  */
+	 *	Best would be to use synchronize_irq(); spin_lock() here
+	 *	lets make it work first..
+	 */
 
 #ifdef CONFIG_SMP
 	spin_lock_irqsave(&lp->lock, flags);
@@ -694,10 +694,10 @@ static netdev_tx_t eexp_xmit(struct sk_buff *buf, struct net_device *dev)
 }
 
 /*
-                                   
-                                                          
-                                                                          
-                                              
+ * Handle an EtherExpress interrupt
+ * If we've finished initializing, start the RU and CU up.
+ * If we've already started, reap tx buffers, handle any received packets,
+ * check to make sure we've not become wedged.
  */
 
 static unsigned short eexp_start_irq(struct net_device *dev,
@@ -743,7 +743,7 @@ static unsigned short eexp_start_irq(struct net_device *dev,
 
 		lp->started |= STARTED_CU;
 		scb_wrcbl(dev, lp->tx_link);
-		/*                                       */
+		/* if the RU isn't running, start it now */
 		if (!(lp->started & STARTED_RU)) {
 			ack_cmd |= SCB_RUstart;
 			scb_wrrfa(dev, lp->rx_buf_start);
@@ -863,11 +863,11 @@ static irqreturn_t eexp_irq(int dummy, void *dev_info)
 }
 
 /*
-                            
+ * Hardware access functions
  */
 
 /*
-                             
+ * Set the cable type to use.
  */
 
 static void eexp_hw_set_interface(struct net_device *dev)
@@ -886,9 +886,9 @@ static void eexp_hw_set_interface(struct net_device *dev)
 }
 
 /*
-                                                               
-                                                        
-                                                                
+ * Check all the receive buffers, and hand any received packets
+ * to the upper levels. Basic sanity check on each frame
+ * descriptor, though we don't bother trying to fix broken ones.
  */
 
 static void eexp_hw_rx_pio(struct net_device *dev)
@@ -979,10 +979,10 @@ static void eexp_hw_rx_pio(struct net_device *dev)
 }
 
 /*
-                                             
-                                               
-                                             
-                 
+ * Hand a packet to the card for transmission
+ * If we get here, we MUST have already checked
+ * to make sure there is room in the transmit
+ * buffer region.
  */
 
 static void eexp_hw_tx_pio(struct net_device *dev, unsigned short *buf,
@@ -992,11 +992,11 @@ static void eexp_hw_tx_pio(struct net_device *dev, unsigned short *buf,
 	unsigned short ioaddr = dev->base_addr;
 
 	if (LOCKUP16 || lp->width) {
-		/*                                               
-                                                          
-                                                         
-                                                          
-                                */
+		/* Stop the CU so that there is no chance that it
+		   jumps off to a bogus address while we are writing the
+		   pointer to the next transmit packet in 8-bit mode --
+		   this eliminates the "CU wedged" errors in 8-bit mode.
+		   (Zoltan Szilagyi 10-12-96) */
 		scb_command(dev, SCB_CUsuspend);
 		outw(0xFFFF, ioaddr+SIGNAL_CA);
 	}
@@ -1032,8 +1032,8 @@ static void eexp_hw_tx_pio(struct net_device *dev, unsigned short *buf,
 		netif_wake_queue(dev);
 
 	if (LOCKUP16 || lp->width) {
-		/*                                               
-                                                */
+		/* Restart the CU so that the packet can actually
+		   be transmitted. (Zoltan Szilagyi 10-12-96) */
 		scb_command(dev, SCB_CUresume);
 		outw(0xFFFF, ioaddr+SIGNAL_CA);
 	}
@@ -1054,10 +1054,10 @@ static const struct net_device_ops eexp_netdev_ops = {
 };
 
 /*
-                                               
-                                                                       
-                                                                             
-                              
+ * Sanity check the suspected EtherExpress card
+ * Read hardware address, reset card, size memory and initialize buffer
+ * memory pointers. These are held in netdev_priv(), in case someone has more
+ * than one card in a machine.
  */
 
 static int __init eexp_hw_probe(struct net_device *dev, unsigned short ioaddr)
@@ -1080,7 +1080,7 @@ static int __init eexp_hw_probe(struct net_device *dev, unsigned short ioaddr)
 	hw_addr[1] = eexp_hw_readeeprom(ioaddr,3);
 	hw_addr[2] = eexp_hw_readeeprom(ioaddr,4);
 
-	/*                                        */
+	/* Standard Address or Compaq LTE Address */
 	if (!((hw_addr[2]==0x00aa && ((hw_addr[1] & 0xff00)==0x0000)) ||
 	      (hw_addr[2]==0x0080 && ((hw_addr[1] & 0xff00)==0x5F00))))
 	{
@@ -1089,9 +1089,9 @@ static int __init eexp_hw_probe(struct net_device *dev, unsigned short ioaddr)
 		return -ENODEV;
 	}
 
-	/*                                                             
-           
-  */
+	/* Calculate the EEPROM checksum.  Carry on anyway if it's bad,
+	 * though.
+	 */
 	for (i = 0; i < 64; i++)
 		xsum += eexp_hw_readeeprom(ioaddr, i);
 	if (xsum != 0xbaba)
@@ -1105,7 +1105,7 @@ static int __init eexp_hw_probe(struct net_device *dev, unsigned short ioaddr)
 		static const char irqmap[] = { 0, 9, 3, 4, 5, 10, 11, 0 };
 		unsigned short setupval = eexp_hw_readeeprom(ioaddr,0);
 
-		/*                                           */
+		/* Use the IRQ from EEPROM if none was given */
 		if (!dev->irq)
 			dev->irq = irqmap[setupval>>13];
 
@@ -1130,7 +1130,7 @@ static int __init eexp_hw_probe(struct net_device *dev, unsigned short ioaddr)
 
 	release_region(dev->base_addr + 0x300e, 1);
 
-	/*                                           */
+	/* Find out how much RAM we have on the card */
 	outw(0, dev->base_addr + WRITE_PTR);
 	for (i = 0; i < 32768; i++)
 		outw(0, dev->base_addr + DATAPORT);
@@ -1147,9 +1147,9 @@ static int __init eexp_hw_probe(struct net_device *dev, unsigned short ioaddr)
 			break;
 	}
 
-	/*                                                               
-                        
-  */
+	/* Sort out the number of buffers.  We may have 16, 32, 48 or 64k
+	 * of RAM to play with.
+	 */
 	lp->num_tx_bufs = 4;
 	lp->rx_buf_end = 0x3ff6;
 	switch (memory_size)
@@ -1180,8 +1180,8 @@ static int __init eexp_hw_probe(struct net_device *dev, unsigned short ioaddr)
 }
 
 /*
-                                                            
-                                           
+ * Read a word from the EtherExpress on-board serial EEPROM.
+ * The EEPROM contains 64 words of 16 bits.
  */
 static unsigned short __init eexp_hw_readeeprom(unsigned short ioaddr,
 						    unsigned char location)
@@ -1224,13 +1224,13 @@ static unsigned short __init eexp_hw_readeeprom(unsigned short ioaddr,
 }
 
 /*
-                                                   
-                      
-                                                             
-                    
-                                                                  
-                                                                   
-        
+ * Reap tx buffers and return last transmit status.
+ * if ==0 then either:
+ *    a) we're not transmitting anything, so why are we here?
+ *    b) we've died.
+ * otherwise, Stat_Busy(return) means we've still got some packets
+ * to transmit, Stat_Done(return) means our buffers should be empty
+ * again
  */
 
 static unsigned short eexp_hw_lasttxstat(struct net_device *dev)
@@ -1298,9 +1298,9 @@ static unsigned short eexp_hw_lasttxstat(struct net_device *dev)
 }
 
 /*
-                                                                          
-                                                                             
-                                                                        
+ * This should never happen. It is called when some higher routine detects
+ * that the CU has stopped, to try to restart it from the last packet we knew
+ * we were working on, or the idle loop if we had finished for the time.
  */
 
 static void eexp_hw_txrestart(struct net_device *dev)
@@ -1340,12 +1340,12 @@ static void eexp_hw_txrestart(struct net_device *dev)
 }
 
 /*
-                                                                   
-                                                                  
-                                                                   
-                                                                    
-                                                                        
-                                               
+ * Writes down the list of transmit buffers into card memory.  Each
+ * entry consists of an 82586 transmit command, followed by a jump
+ * pointing to itself.  When we want to transmit a packet, we write
+ * the data into the appropriate transmit buffer and then modify the
+ * preceding jump to point at the new transmit command.  This means that
+ * the 586 command unit is continuously active.
  */
 
 static void eexp_hw_txinit(struct net_device *dev)
@@ -1384,10 +1384,10 @@ static void eexp_hw_txinit(struct net_device *dev)
 }
 
 /*
-                                                                        
-                                                                       
-                                                                          
-                                
+ * Write the circular list of receive buffer descriptors to card memory.
+ * The end of the list isn't marked, which means that the 82586 receive
+ * unit will loop until buffers become available (this avoids it giving us
+ * "out of resources" messages).
  */
 
 static void eexp_hw_rxinit(struct net_device *dev)
@@ -1427,26 +1427,26 @@ static void eexp_hw_rxinit(struct net_device *dev)
 	} while (rx_block <= lp->rx_buf_end-RX_BUF_SIZE);
 
 
-	/*                                                        
-                      */
+	/* Make first Rx frame descriptor point to first Rx buffer
+           descriptor */
 	outw(lp->rx_first + 6, ioaddr+WRITE_PTR);
 	outw(lp->rx_first + 0x16, ioaddr+DATAPORT);
 
-	/*                                */
+	/* Close Rx frame descriptor ring */
   	outw(lp->rx_last + 4, ioaddr+WRITE_PTR);
   	outw(lp->rx_first, ioaddr+DATAPORT);
 
-	/*                                 */
+	/* Close Rx buffer descriptor ring */
 	outw(lp->rx_last + 0x16 + 2, ioaddr+WRITE_PTR);
 	outw(lp->rx_first + 0x16, ioaddr+DATAPORT);
 
 }
 
 /*
-                                                                            
-                                                                             
-                                                                             
-                                        
+ * Un-reset the 586, and start the configuration sequence. We don't wait for
+ * this to finish, but allow the interrupt handler to start the CU and RU for
+ * us.  We can't start the receive/transmission system up before we know that
+ * the hardware is configured correctly.
  */
 
 static void eexp_hw_init586(struct net_device *dev)
@@ -1465,7 +1465,7 @@ static void eexp_hw_init586(struct net_device *dev)
 
 	outb(SIRQ_dis|irqrmap[dev->irq],ioaddr+SET_IRQ);
 
-	/*                           */
+	/* Download the startup code */
 	outw(lp->rx_buf_end & ~31, ioaddr + SM_PTR);
 	outw(lp->width?0x0001:0x0000, ioaddr + 0x8006);
 	outw(0x0000, ioaddr + 0x8008);
@@ -1484,7 +1484,7 @@ static void eexp_hw_init586(struct net_device *dev)
 			     ioaddr+0x8000+j);
 	}
 
-	/*                                           */
+	/* Do we want promiscuous mode or multicast? */
 	outw(CONF_PROMISC & ~31, ioaddr+SM_PTR);
 	i = inw(ioaddr+SHADOW(CONF_PROMISC));
 	outw((dev->flags & IFF_PROMISC)?(i|1):(i & ~1),
@@ -1494,7 +1494,7 @@ static void eexp_hw_init586(struct net_device *dev)
 	eexp_setup_filter(dev);
 #endif
 
-	/*                            */
+	/* Write our hardware address */
 	outw(CONF_HWADDR & ~31, ioaddr+SM_PTR);
 	outw(((unsigned short *)dev->dev_addr)[0], ioaddr+SHADOW(CONF_HWADDR));
 	outw(((unsigned short *)dev->dev_addr)[1],
@@ -1602,7 +1602,7 @@ static void eexp_setup_filter(struct net_device *dev)
 }
 
 /*
-                                                      
+ * Set or clear the multicast filter for this adaptor.
  */
 static void
 eexp_set_multicast(struct net_device *dev)
@@ -1647,12 +1647,12 @@ eexp_set_multicast(struct net_device *dev)
 
 
 /*
-               
+ * MODULE stuff
  */
 
 #ifdef MODULE
 
-#define EEXP_MAX_CARDS     4    /*                                */
+#define EEXP_MAX_CARDS     4    /* max number of cards to support */
 
 static struct net_device *dev_eexp[EEXP_MAX_CARDS];
 static int irq[EEXP_MAX_CARDS];
@@ -1665,9 +1665,9 @@ MODULE_PARM_DESC(irq, "EtherExpress 16 IRQ number(s)");
 MODULE_LICENSE("GPL");
 
 
-/*                                                                            
-                                                                              
-                               
+/* Ideally the user would give us io=, irq= for every card.  If any parameters
+ * are specified, we verify and then use them.  If no parameters are given, we
+ * autoprobe for one card only.
  */
 int __init init_module(void)
 {
@@ -1712,8 +1712,8 @@ void __exit cleanup_module(void)
 #endif
 
 /*
-                   
-                         
-                
-       
+ * Local Variables:
+ *  c-file-style: "linux"
+ *  tab-width: 8
+ * End:
  */

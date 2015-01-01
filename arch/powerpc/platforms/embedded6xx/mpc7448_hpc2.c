@@ -70,7 +70,7 @@ static void __init mpc7448_hpc2_setup_arch(void)
 
 	tsi108_csr_vir_base = get_vir_csrbase();
 
-	/*                       */
+	/* setup PCI host bridge */
 #ifdef CONFIG_PCI
 	for_each_compatible_node(np, "pci", "tsi108-pci")
 		tsi108_setup_pci(np, MPC7448HPC2_PCI_CFG_PHYS, 0);
@@ -88,15 +88,15 @@ static void __init mpc7448_hpc2_setup_arch(void)
 }
 
 /*
-                                                                    
-                                                                 
-                                                               
-  
-                                        
-                                
-                                
-                          
-                          
+ * Interrupt setup and service.  Interrupts on the mpc7448_hpc2 come
+ * from the four external INT pins, PCI interrupts are routed via
+ * PCI interrupt control registers, it generates internal IRQ23
+ *
+ * Interrupt routing on the Taiga Board:
+ * TSI108:PB_INT[0] -> CPU0:INT#
+ * TSI108:PB_INT[1] -> CPU0:MCP#
+ * TSI108:PB_INT[2] -> N/C
+ * TSI108:PB_INT[3] -> N/C
  */
 static void __init mpc7448_hpc2_init_IRQ(void)
 {
@@ -137,7 +137,7 @@ static void __init mpc7448_hpc2_init_IRQ(void)
 	irq_set_handler_data(cascade_pci_irq, mpic);
 	irq_set_chained_handler(cascade_pci_irq, tsi108_irq_cascade);
 #endif
-	/*                                */
+	/* Configure MPIC outputs to CPU0 */
 	tsi108_write_reg(TSI108_MPIC_OFFSET + 0x30c, 0);
 }
 
@@ -150,16 +150,16 @@ void mpc7448_hpc2_restart(char *cmd)
 {
 	local_irq_disable();
 
-	/*                                             */
+	/* Set exception prefix high - to the firmware */
 	_nmask_and_or_msr(0, MSR_IP);
 
-	for (;;) ;		/*                          */
+	for (;;) ;		/* Spin until reset happens */
 }
 
 void mpc7448_hpc2_power_off(void)
 {
 	local_irq_disable();
-	for (;;) ;		/*                                        */
+	for (;;) ;		/* No way to shut power off with software */
 }
 
 void mpc7448_hpc2_halt(void)
@@ -168,7 +168,7 @@ void mpc7448_hpc2_halt(void)
 }
 
 /*
-                                                   
+ * Called very early, device-tree isn't unflattened
  */
 static int __init mpc7448_hpc2_probe(void)
 {
@@ -183,7 +183,7 @@ static int mpc7448_machine_check_exception(struct pt_regs *regs)
 {
 	const struct exception_table_entry *entry;
 
-	/*                                      */
+	/* Are we prepared to handle this fault */
 	if ((entry = search_exception_tables(regs->nip)) != NULL) {
 		tsi108_clear_pci_cfg_error();
 		regs->msr |= MSR_RI;

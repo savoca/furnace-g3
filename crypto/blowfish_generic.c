@@ -25,8 +25,8 @@
 #include <crypto/blowfish.h>
 
 /*
-                                                               
-                                          
+ * Round loop unrolling macros, S is a pointer to a S-Box array
+ * organized in 4 unsigned longs at a row.
  */
 #define GET32_3(x) (((x) & 0xff))
 #define GET32_2(x) (((x) >> (8)) & (0xff))

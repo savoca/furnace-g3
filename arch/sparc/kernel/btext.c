@@ -1,7 +1,7 @@
 /*
-                                                                     
-  
-                                                    
+ * Procedures for drawing on the screen early on in the boot process.
+ *
+ * Benjamin Herrenschmidt <benh@kernel.crashing.org>
  */
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -63,9 +63,9 @@ static int __init btext_initialize(phandle node)
 	if (prom_getproperty(node, "address", (char *)&prop, 4) >= 0)
 		address = prop;
 
-	/*                                                           
-                    
-  */
+	/* FIXME: Add support for PCI reg properties. Right now, only
+	 * reliable on macs
+	 */
 	if (address == 0)
 		return -EINVAL;
 
@@ -83,7 +83,7 @@ static int __init btext_initialize(phandle node)
 	return 0;
 }
 
-/*                                              */
+/* Calc the base address of a given point (x,y) */
 static unsigned char * calc_base(int x, int y)
 {
 	unsigned char *base = dispDeviceBase;
@@ -135,7 +135,7 @@ static void scrollscreen(void)
 		dst += (dispDeviceRowBytes >> 2);
 	}
 }
-#endif /*                */
+#endif /* ndef NO_SCROLL */
 
 void btext_drawchar(char c)
 {
@@ -173,8 +173,8 @@ void btext_drawchar(char c)
 		g_loc_Y--;
 	}
 #else
-	/*                                                     
-                                                */
+	/* wrap around from bottom to top of screen so we don't
+	   waste time scrolling each line.  -- paulus. */
 	if (g_loc_Y >= g_max_loc_Y)
 		g_loc_Y = 0;
 	if (cline) {

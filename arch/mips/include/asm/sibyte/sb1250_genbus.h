@@ -37,7 +37,7 @@
 #include "sb1250_defs.h"
 
 /*
-                                                          
+ * Generic Bus Region Configuration Registers (Table 11-4)
  */
 
 #define S_IO_RDY_ACTIVE         0
@@ -53,7 +53,7 @@
 #if SIBYTE_HDR_FEATURE(1250, PASS2) || SIBYTE_HDR_FEATURE(112x, PASS1) \
     || SIBYTE_HDR_FEATURE_CHIP(1480)
 #define K_IO_WIDTH_SEL_1L       2
-#endif /*                                  */
+#endif /* 1250 PASS2 || 112x PASS1 || 1480 */
 #define K_IO_WIDTH_SEL_4	3
 #define V_IO_WIDTH_SEL(x)	_SB_MAKEVALUE(x, S_IO_WIDTH_SEL)
 #define G_IO_WIDTH_SEL(x)	_SB_GETVALUE(x, S_IO_WIDTH_SEL, M_IO_WIDTH_SEL)
@@ -64,7 +64,7 @@
     || SIBYTE_HDR_FEATURE_CHIP(1480)
 #define S_IO_BURST_EN		5
 #define M_IO_BURST_EN		_SB_MAKEMASK1(S_IO_BURST_EN)
-#endif /*                                  */
+#endif /* 1250 PASS2 || 112x PASS1 || 1480 */
 #define S_IO_PARITY_ODD		6
 #define M_IO_PARITY_ODD		_SB_MAKEMASK1(S_IO_PARITY_ODD)
 #define S_IO_NONMUX		7
@@ -76,7 +76,7 @@
 #define G_IO_TIMEOUT(x)		_SB_GETVALUE(x, S_IO_TIMEOUT, M_IO_TIMEOUT)
 
 /*
-                                                
+ * Generic Bus Region Size register (Table 11-5)
  */
 
 #define S_IO_MULT_SIZE		0
@@ -84,10 +84,10 @@
 #define V_IO_MULT_SIZE(x)	_SB_MAKEVALUE(x, S_IO_MULT_SIZE)
 #define G_IO_MULT_SIZE(x)	_SB_GETVALUE(x, S_IO_MULT_SIZE, M_IO_MULT_SIZE)
 
-#define S_IO_REGSIZE		16	 /*                                   */
+#define S_IO_REGSIZE		16	 /* # bits to shift size for this reg */
 
 /*
-                                          
+ * Generic Bus Region Address (Table 11-6)
  */
 
 #define S_IO_START_ADDR		0
@@ -95,13 +95,13 @@
 #define V_IO_START_ADDR(x)	_SB_MAKEVALUE(x, S_IO_START_ADDR)
 #define G_IO_START_ADDR(x)	_SB_GETVALUE(x, S_IO_START_ADDR, M_IO_START_ADDR)
 
-#define S_IO_ADDRBASE		16	 /*                                   */
+#define S_IO_ADDRBASE		16	 /* # bits to shift addr for this reg */
 
 #define M_IO_BLK_CACHE		_SB_MAKEMASK1(15)
 
 
 /*
-                                              
+ * Generic Bus Timing 0 Registers (Table 11-7)
  */
 
 #define S_IO_ALE_WIDTH		0
@@ -112,7 +112,7 @@
 #if SIBYTE_HDR_FEATURE(1250, PASS2) || SIBYTE_HDR_FEATURE(112x, PASS1) \
     || SIBYTE_HDR_FEATURE_CHIP(1480)
 #define M_IO_EARLY_CS	        _SB_MAKEMASK1(3)
-#endif /*                                  */
+#endif /* 1250 PASS2 || 112x PASS1 || 1480 */
 
 #define S_IO_ALE_TO_CS		4
 #define M_IO_ALE_TO_CS		_SB_MAKEMASK(2, S_IO_ALE_TO_CS)
@@ -125,7 +125,7 @@
 #define M_IO_BURST_WIDTH           _SB_MAKEMASK(2, S_IO_BURST_WIDTH)
 #define V_IO_BURST_WIDTH(x)        _SB_MAKEVALUE(x, S_IO_BURST_WIDTH)
 #define G_IO_BURST_WIDTH(x)        _SB_GETVALUE(x, S_IO_BURST_WIDTH, M_IO_BURST_WIDTH)
-#endif /*                                  */
+#endif /* 1250 PASS2 || 112x PASS1 || 1480 */
 
 #define S_IO_CS_WIDTH		8
 #define M_IO_CS_WIDTH		_SB_MAKEMASK(5, S_IO_CS_WIDTH)
@@ -139,7 +139,7 @@
 
 
 /*
-                                              
+ * Generic Bus Timing 1 Registers (Table 11-8)
  */
 
 #define S_IO_ALE_TO_WRITE	0
@@ -150,7 +150,7 @@
 #if SIBYTE_HDR_FEATURE(1250, PASS2) || SIBYTE_HDR_FEATURE(112x, PASS1) \
     || SIBYTE_HDR_FEATURE_CHIP(1480)
 #define M_IO_RDY_SYNC	        _SB_MAKEMASK1(3)
-#endif /*                                  */
+#endif /* 1250 PASS2 || 112x PASS1 || 1480 */
 
 #define S_IO_WRITE_WIDTH	4
 #define M_IO_WRITE_WIDTH	_SB_MAKEMASK(4, S_IO_WRITE_WIDTH)
@@ -173,7 +173,7 @@
 #define G_IO_CS_TO_OE(x)	_SB_GETVALUE(x, S_IO_CS_TO_OE, M_IO_CS_TO_OE)
 
 /*
-                                                     
+ * Generic Bus Interrupt Status Register (Table 11-9)
  */
 
 #define M_IO_CS_ERR_INT		_SB_MAKEMASK(0, 8)
@@ -192,11 +192,11 @@
 #define M_IO_MULT_CS_INT	_SB_MAKEMASK1(12)
 #if SIBYTE_HDR_FEATURE(1250, PASS2) || SIBYTE_HDR_FEATURE(112x, PASS1) || SIBYTE_HDR_FEATURE_CHIP(1480)
 #define M_IO_COH_ERR	        _SB_MAKEMASK1(14)
-#endif /*                                  */
+#endif /* 1250 PASS2 || 112x PASS1 || 1480 */
 
 
 /*
-                                                            
+ * Generic Bus Output Drive Control Register 0 (Table 14-18)
  */
 
 #define S_IO_SLEW0		0
@@ -225,7 +225,7 @@
 #define G_IO_DRV_D(x)		_SB_GETVALUE(x, S_IO_DRV_D, M_IO_DRV_D)
 
 /*
-                                                            
+ * Generic Bus Output Drive Control Register 1 (Table 14-19)
  */
 
 #define S_IO_DRV_E		2
@@ -259,7 +259,7 @@
 #define G_IO_DRV_H(x)		_SB_GETVALUE(x, S_IO_DRV_H, M_IO_DRV_H)
 
 /*
-                                                            
+ * Generic Bus Output Drive Control Register 2 (Table 14-20)
  */
 
 #define S_IO_DRV_J		2
@@ -283,7 +283,7 @@
 #define G_IO_DRV_M(x)		_SB_GETVALUE(x, S_IO_DRV_M, M_IO_DRV_M)
 
 /*
-                                                            
+ * Generic Bus Output Drive Control Register 3 (Table 14-21)
  */
 
 #define S_IO_SLEW3		0
@@ -313,7 +313,7 @@
 
 
 /*
-                                             
+ * PCMCIA configuration register (Table 12-6)
  */
 
 #define M_PCMCIA_CFG_ATTRMEM	_SB_MAKEMASK1(0)
@@ -333,18 +333,18 @@
 #define V_PCMCIA_MODE(x)	_SB_MAKEVALUE(x, S_PCMCIA_MODE)
 #define G_PCMCIA_MODE(x)	_SB_GETVALUE(x, S_PCMCIA_MODE, M_PCMCIA_MODE)
 
-#define K_PCMCIA_MODE_PCMA_NOB	0	/*                             */
-#define K_PCMCIA_MODE_IDEA_NOB	1	/*                 */
-#define K_PCMCIA_MODE_PCMIOA_NOB 2	/*                             */
-#define K_PCMCIA_MODE_PCMA_PCMB 4	/*                                          */
-#define K_PCMCIA_MODE_IDEA_PCMB 5	/*                              */
-#define K_PCMCIA_MODE_PCMA_IDEB 6	/*                              */
-#define K_PCMCIA_MODE_IDEA_IDEB 7	/*                  */
+#define K_PCMCIA_MODE_PCMA_NOB	0	/* standard PCMCIA "A", no "B" */
+#define K_PCMCIA_MODE_IDEA_NOB	1	/* IDE "A", no "B" */
+#define K_PCMCIA_MODE_PCMIOA_NOB 2	/* PCMCIA with I/O "A", no "B" */
+#define K_PCMCIA_MODE_PCMA_PCMB 4	/* standard PCMCIA "A", standard PCMCIA "B" */
+#define K_PCMCIA_MODE_IDEA_PCMB 5	/* IDE "A", standard PCMCIA "B" */
+#define K_PCMCIA_MODE_PCMA_IDEB 6	/* standard PCMCIA "A", IDE "B" */
+#define K_PCMCIA_MODE_IDEA_IDEB 7	/* IDE "A", IDE "B" */
 #endif
 
 
 /*
-                                      
+ * PCMCIA status register (Table 12-7)
  */
 
 #define M_PCMCIA_STATUS_CD1	_SB_MAKEMASK1(0)
@@ -360,7 +360,7 @@
 #define M_PCMCIA_STATUS_RDYCHG	_SB_MAKEMASK1(10)
 
 /*
-                                            
+ * GPIO Interrupt Type Register (table 13-3)
  */
 
 #define K_GPIO_INTR_DISABLE	0
@@ -416,7 +416,7 @@
 #if SIBYTE_HDR_FEATURE_CHIP(1480)
 
 /*
-                                          
+ * GPIO Interrupt Additional Type Register
  */
 
 #define K_GPIO_INTR_BOTHEDGE	0

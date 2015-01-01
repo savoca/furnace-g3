@@ -23,7 +23,7 @@
 #define __PNX8550_USB_H
 
 /*
-                      
+ * USB Host controller
  */
 
 #define PNX8550_USB_OHCI_OP_BASE	0x1be48000

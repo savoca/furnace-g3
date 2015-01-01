@@ -105,12 +105,12 @@ static int dtv_off(struct platform_device *pdev)
 
 	dtv_pdev = pdev;
 	/*
-                                                      
-                             
-                                                             
-                                                             
-                                                        
-  */
+	 * If it's a suspend operation then handle the device
+	 * power down synchronously.
+	 * Otherwise, queue work item to handle power down sequence.
+	 * This is needed since we need to wait for the audio engine
+	 * to shutdown first before we turn off the DTV device.
+	 */
 	if (!mfd->suspend.op_suspend) {
 		pr_debug("%s: Queuing work to turn off HDMI core\n", __func__);
 		queue_work(dtv_work_queue, &dtv_off_work);
@@ -167,14 +167,14 @@ static int dtv_on(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	unsigned long panel_pixclock_freq , pm_qos_rate;
 
-	/*                                                            */
+	/* If a power down is already underway, wait for it to finish */
 	flush_work_sync(&dtv_off_work);
 
 	mfd = platform_get_drvdata(pdev);
 	panel_pixclock_freq = mfd->fbi->var.pixclock;
 
 	if (panel_pixclock_freq > 58000000)
-		/*                              */
+		/* pm_qos_rate should be in Khz */
 		pm_qos_rate = panel_pixclock_freq / 1000 ;
 	else
 		pm_qos_rate = 58000;
@@ -285,14 +285,14 @@ static int dtv_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	/*
-                           
-  */
+	 * link to the latest pdev
+	 */
 	mfd->pdev = mdp_dev;
 	mfd->dest = DISPLAY_LCDC;
 
 	/*
-                           
-  */
+	 * alloc panel device data
+	 */
 	if (platform_device_add_data
 	    (mdp_dev, pdev->dev.platform_data,
 	     sizeof(struct msm_fb_panel_data))) {
@@ -301,16 +301,16 @@ static int dtv_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	/*
-              
-  */
+	 * data chain
+	 */
 	pdata = (struct msm_fb_panel_data *)mdp_dev->dev.platform_data;
 	pdata->on = dtv_on;
 	pdata->off = dtv_off;
 	pdata->next = pdev;
 
 	/*
-                                  
-  */
+	 * get/set panel specific fb info
+	 */
 	mfd->panel_info = pdata->panel_info;
 	if (hdmi_prim_display)
 		mfd->fb_imgType = MSMFB_DEFAULT_TYPE;
@@ -327,13 +327,13 @@ static int dtv_probe(struct platform_device *pdev)
 	fbi->var.vsync_len = mfd->panel_info.lcdc.v_pulse_width;
 
 	/*
-                   
-  */
+	 * set driver data
+	 */
 	platform_set_drvdata(mdp_dev, mfd);
 
 	/*
-                          
-  */
+	 * register in mdp driver
+	 */
 	rc = platform_device_add(mdp_dev);
 	if (rc)
 		goto dtv_probe_err;

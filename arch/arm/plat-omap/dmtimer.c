@@ -48,14 +48,14 @@
 static LIST_HEAD(omap_timer_list);
 static DEFINE_SPINLOCK(dm_timer_lock);
 
-/* 
-                                                                              
-                                                                  
-                                                     
-  
-                                                                        
-                                                                         
-                         
+/**
+ * omap_dm_timer_read_reg - read timer registers in posted and non-posted mode
+ * @timer:      timer pointer over which read operation to perform
+ * @reg:        lowest byte holds the register offset
+ *
+ * The posted mode bit is encoded in reg. Note that in posted mode write
+ * pending bit must be checked. Otherwise a read of a non completed write
+ * will produce an error.
  */
 static inline u32 omap_dm_timer_read_reg(struct omap_dm_timer *timer, u32 reg)
 {
@@ -63,15 +63,15 @@ static inline u32 omap_dm_timer_read_reg(struct omap_dm_timer *timer, u32 reg)
 	return __omap_dm_timer_read(timer, reg, timer->posted);
 }
 
-/* 
-                                                                                
-                                                                      
-                                                     
-                                               
-  
-                                                                            
-                                                                           
-                              
+/**
+ * omap_dm_timer_write_reg - write timer registers in posted and non-posted mode
+ * @timer:      timer pointer over which write operation is to perform
+ * @reg:        lowest byte holds the register offset
+ * @value:      data to write into the register
+ *
+ * The posted mode bit is encoded in reg. Note that in posted mode the write
+ * pending bit must be checked. Otherwise a write on a register which has a
+ * pending write will be lost.
  */
 static void omap_dm_timer_write_reg(struct omap_dm_timer *timer, u32 reg,
 						u32 value)
@@ -252,9 +252,9 @@ EXPORT_SYMBOL_GPL(omap_dm_timer_get_irq);
 
 #if defined(CONFIG_ARCH_OMAP1)
 
-/* 
-                                                                            
-                                           
+/**
+ * omap_dm_timer_modify_idlect_mask - Check if any running timers use ARMXOR
+ * @inputmask: current value of idlect mask
  */
 __u32 omap_dm_timer_modify_idlect_mask(__u32 inputmask)
 {
@@ -262,11 +262,11 @@ __u32 omap_dm_timer_modify_idlect_mask(__u32 inputmask)
 	struct omap_dm_timer *timer = NULL;
 	unsigned long flags;
 
-	/*                                                             */
+	/* If ARMXOR cannot be idled this function call is unnecessary */
 	if (!(inputmask & (1 << 1)))
 		return inputmask;
 
-	/*                                                          */
+	/* If any active timer is using ARMXOR return modified mask */
 	spin_lock_irqsave(&dm_timer_lock, flags);
 	list_for_each_entry(timer, &omap_timer_list, node) {
 		u32 l;
@@ -340,7 +340,7 @@ int omap_dm_timer_start(struct omap_dm_timer *timer)
 		omap_dm_timer_write_reg(timer, OMAP_TIMER_CTRL_REG, l);
 	}
 
-	/*                  */
+	/* Save the context */
 	timer->context.tclr = l;
 	return 0;
 }
@@ -364,10 +364,10 @@ int omap_dm_timer_stop(struct omap_dm_timer *timer)
 			timer->get_context_loss_count(&timer->pdev->dev);
 
 	/*
-                                                             
-                                                             
-            
-  */
+	 * Since the register values are computed and written within
+	 * __omap_dm_timer_stop, we need to use read to retrieve the
+	 * context.
+	 */
 	timer->context.tclr =
 			omap_dm_timer_read_reg(timer, OMAP_TIMER_CTRL_REG);
 	timer->context.tisr = __raw_readl(timer->irq_stat);
@@ -413,7 +413,7 @@ int omap_dm_timer_set_load(struct omap_dm_timer *timer, int autoreload,
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_LOAD_REG, load);
 
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_TRIGGER_REG, 0);
-	/*                  */
+	/* Save the context */
 	timer->context.tclr = l;
 	timer->context.tldr = load;
 	omap_dm_timer_disable(timer);
@@ -421,7 +421,7 @@ int omap_dm_timer_set_load(struct omap_dm_timer *timer, int autoreload,
 }
 EXPORT_SYMBOL_GPL(omap_dm_timer_set_load);
 
-/*                                                                  */
+/* Optimized set_load which removes costly spin wait in timer_start */
 int omap_dm_timer_set_load_start(struct omap_dm_timer *timer, int autoreload,
                             unsigned int load)
 {
@@ -450,7 +450,7 @@ int omap_dm_timer_set_load_start(struct omap_dm_timer *timer, int autoreload,
 
 	__omap_dm_timer_load_start(timer, l, load, timer->posted);
 
-	/*                  */
+	/* Save the context */
 	timer->context.tclr = l;
 	timer->context.tldr = load;
 	timer->context.tcrr = load;
@@ -475,7 +475,7 @@ int omap_dm_timer_set_match(struct omap_dm_timer *timer, int enable,
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_CTRL_REG, l);
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_MATCH_REG, match);
 
-	/*                  */
+	/* Save the context */
 	timer->context.tclr = l;
 	timer->context.tmar = match;
 	omap_dm_timer_disable(timer);
@@ -502,7 +502,7 @@ int omap_dm_timer_set_pwm(struct omap_dm_timer *timer, int def_on,
 	l |= trigger << 10;
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_CTRL_REG, l);
 
-	/*                  */
+	/* Save the context */
 	timer->context.tclr = l;
 	omap_dm_timer_disable(timer);
 	return 0;
@@ -525,7 +525,7 @@ int omap_dm_timer_set_prescaler(struct omap_dm_timer *timer, int prescaler)
 	}
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_CTRL_REG, l);
 
-	/*                  */
+	/* Save the context */
 	timer->context.tclr = l;
 	omap_dm_timer_disable(timer);
 	return 0;
@@ -541,7 +541,7 @@ int omap_dm_timer_set_int_enable(struct omap_dm_timer *timer,
 	omap_dm_timer_enable(timer);
 	__omap_dm_timer_int_enable(timer, value);
 
-	/*                  */
+	/* Save the context */
 	timer->context.tier = value;
 	timer->context.twer = value;
 	omap_dm_timer_disable(timer);
@@ -570,7 +570,7 @@ int omap_dm_timer_write_status(struct omap_dm_timer *timer, unsigned int value)
 		return -EINVAL;
 
 	__omap_dm_timer_write_status(timer, value);
-	/*                  */
+	/* Save the context */
 	timer->context.tisr = value;
 	return 0;
 }
@@ -596,7 +596,7 @@ int omap_dm_timer_write_counter(struct omap_dm_timer *timer, unsigned int value)
 
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_COUNTER_REG, value);
 
-	/*                  */
+	/* Save the context */
 	timer->context.tcrr = value;
 	return 0;
 }
@@ -619,12 +619,12 @@ int omap_dm_timers_active(void)
 }
 EXPORT_SYMBOL_GPL(omap_dm_timers_active);
 
-/* 
-                                                                          
-                                                  
-  
-                                                                       
-                 
+/**
+ * omap_dm_timer_probe - probe function called for every registered device
+ * @pdev:	pointer to current timer platform device
+ *
+ * Called by driver framework at the end of device registration for all
+ * timer devices.
  */
 static int __devinit omap_dm_timer_probe(struct platform_device *pdev)
 {
@@ -680,7 +680,7 @@ static int __devinit omap_dm_timer_probe(struct platform_device *pdev)
 	timer->loses_context = pdata->loses_context;
 	timer->get_context_loss_count = pdata->get_context_loss_count;
 
-	/*                                  */
+	/* Skip pm_runtime_enable for OMAP1 */
 	if (!pdata->needs_manual_reset) {
 		pm_runtime_enable(&pdev->dev);
 		pm_runtime_irq_safe(&pdev->dev);
@@ -692,7 +692,7 @@ static int __devinit omap_dm_timer_probe(struct platform_device *pdev)
 		pm_runtime_put(&pdev->dev);
 	}
 
-	/*                                   */
+	/* add the timer element to the list */
 	spin_lock_irqsave(&dm_timer_lock, flags);
 	list_add_tail(&timer->node, &omap_timer_list);
 	spin_unlock_irqrestore(&dm_timer_lock, flags);
@@ -710,13 +710,13 @@ err_free_ioregion:
 	return ret;
 }
 
-/* 
-                                                           
-                                                  
-  
-                                                                      
-                                                                      
-                             
+/**
+ * omap_dm_timer_remove - cleanup a registered timer device
+ * @pdev:	pointer to current timer platform device
+ *
+ * Called by driver framework whenever a timer device is unregistered.
+ * In addition to freeing platform resources it also deletes the timer
+ * entry from the local list.
  */
 static int __devexit omap_dm_timer_remove(struct platform_device *pdev)
 {

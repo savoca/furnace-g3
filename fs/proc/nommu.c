@@ -32,7 +32,7 @@
 #include "internal.h"
 
 /*
-                                              
+ * display a single region to a sequenced file
  */
 static int nommu_region_show(struct seq_file *m, struct vm_region *region)
 {
@@ -74,8 +74,8 @@ static int nommu_region_show(struct seq_file *m, struct vm_region *region)
 }
 
 /*
-                                                           
-                                          
+ * display a list of all the REGIONs the kernel knows about
+ * - nommu kernels have a single flat list
  */
 static int nommu_region_list_show(struct seq_file *m, void *_p)
 {

@@ -37,10 +37,10 @@ int __init hwspinlocks_init(void)
 	const char *dev_name = "omap_hwspinlock";
 
 	/*
-                                                                   
-                                                                
-                
-  */
+	 * Hwmod lookup will fail in case our platform doesn't support the
+	 * hardware spinlock module, so it is safe to run this initcall
+	 * on all omaps
+	 */
 	oh = omap_hwmod_lookup(oh_name);
 	if (oh == NULL)
 		return -EINVAL;
@@ -56,5 +56,5 @@ int __init hwspinlocks_init(void)
 
 	return retval;
 }
-/*                                                                      */
+/* early board code might need to reserve specific hwspinlock instances */
 postcore_initcall(hwspinlocks_init);

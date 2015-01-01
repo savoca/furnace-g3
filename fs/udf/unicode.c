@@ -21,7 +21,7 @@
 #include "udfdecl.h"
 
 #include <linux/kernel.h>
-#include <linux/string.h>	/*            */
+#include <linux/string.h>	/* for memset */
 #include <linux/nls.h>
 #include <linux/crc-itu-t.h>
 #include <linux/slab.h>
@@ -44,7 +44,7 @@ static int udf_char_to_ustr(struct ustr *dest, const uint8_t *src, int strlen)
 }
 
 /*
-                 
+ * udf_build_ustr
  */
 int udf_build_ustr(struct ustr *dest, dstring *ptr, int size)
 {
@@ -65,7 +65,7 @@ int udf_build_ustr(struct ustr *dest, dstring *ptr, int size)
 }
 
 /*
-                       
+ * udf_build_ustr_exact
  */
 static int udf_build_ustr_exact(struct ustr *dest, dstring *ptr, int exactsize)
 {
@@ -81,23 +81,23 @@ static int udf_build_ustr_exact(struct ustr *dest, dstring *ptr, int exactsize)
 }
 
 /*
-                  
-  
-          
-                                                           
-  
-                 
-                                        
-                                                        
-                                 
-                                   
-  
-                  
-                             
-  
-          
-                                        
-                                 
+ * udf_ocu_to_utf8
+ *
+ * PURPOSE
+ *	Convert OSTA Compressed Unicode to the UTF-8 equivalent.
+ *
+ * PRE-CONDITIONS
+ *	utf			Pointer to UTF-8 output buffer.
+ *	ocu			Pointer to OSTA Compressed Unicode input buffer
+ *				of size UDF_NAME_LEN bytes.
+ * 				both of type "struct ustr *"
+ *
+ * POST-CONDITIONS
+ *	<return>		Zero on success.
+ *
+ * HISTORY
+ *	November 12, 1997 - Andrew E. Mileski
+ *	Written, tested, and released.
  */
 int udf_CS0toUTF8(struct ustr *utf_o, const struct ustr *ocu_i)
 {
@@ -123,12 +123,12 @@ int udf_CS0toUTF8(struct ustr *utf_o, const struct ustr *ocu_i)
 	utf_o->u_len = 0;
 	for (i = 0; (i < ocu_len) && (utf_o->u_len <= (UDF_NAME_LEN - 3));) {
 
-		/*                                           */
+		/* Expand OSTA compressed Unicode to Unicode */
 		uint32_t c = ocu[i++];
 		if (cmp_id == 16)
 			c = (c << 8) | ocu[i++];
 
-		/*                           */
+		/* Compress Unicode to UTF-8 */
 		if (c < 0x80U)
 			utf_o->u_name[utf_o->u_len++] = (uint8_t)c;
 		else if (c < 0x800U) {
@@ -152,27 +152,27 @@ int udf_CS0toUTF8(struct ustr *utf_o, const struct ustr *ocu_i)
 }
 
 /*
-  
-                  
-  
-          
-                                                           
-  
-              
-                                               
-  
-                 
-                                                  
-                                        
-                                       
-                                                   
-  
-                  
-                             
-  
-          
-                                        
-                                 
+ *
+ * udf_utf8_to_ocu
+ *
+ * PURPOSE
+ *	Convert UTF-8 to the OSTA Compressed Unicode equivalent.
+ *
+ * DESCRIPTION
+ *	This routine is only called by udf_lookup().
+ *
+ * PRE-CONDITIONS
+ *	ocu			Pointer to OSTA Compressed Unicode output
+ *				buffer of size UDF_NAME_LEN bytes.
+ *	utf			Pointer to UTF-8 input buffer.
+ *	utf_len			Length of UTF-8 input buffer in bytes.
+ *
+ * POST-CONDITIONS
+ *	<return>		Zero on success.
+ *
+ * HISTORY
+ *	November 12, 1997 - Andrew E. Mileski
+ *	Written, tested, and released.
  */
 static int udf_UTF8toCS0(dstring *ocu, struct ustr *utf, int length)
 {
@@ -190,15 +190,15 @@ try_again:
 	for (i = 0U; i < utf->u_len; i++) {
 		c = (uint8_t)utf->u_name[i];
 
-		/*                                       */
+		/* Complete a multi-byte UTF-8 character */
 		if (utf_cnt) {
 			utf_char = (utf_char << 6) | (c & 0x3fU);
 			if (--utf_cnt)
 				continue;
 		} else {
-			/*                                        */
+			/* Check for a multi-byte UTF-8 character */
 			if (c & 0x80U) {
-				/*                                    */
+				/* Start a multi-byte UTF-8 character */
 				if ((c & 0xe0U) == 0xc0U) {
 					utf_char = c & 0x1fU;
 					utf_cnt = 1;
@@ -219,12 +219,12 @@ try_again:
 				}
 				continue;
 			} else {
-				/*                                           */
+				/* Single byte UTF-8 character (most common) */
 				utf_char = c;
 			}
 		}
 
-		/*                                    */
+		/* Choose no compression if necessary */
 		if (utf_char > max_val) {
 			if (max_val == 0xffU) {
 				max_val = 0xffffU;
@@ -275,14 +275,14 @@ static int udf_CS0toNLS(struct nls_table *nls, struct ustr *utf_o,
 	ocu = ocu_i->u_name;
 	utf_o->u_len = 0;
 	for (i = 0; (i < ocu_len) && (utf_o->u_len <= (UDF_NAME_LEN - 3));) {
-		/*                                           */
+		/* Expand OSTA compressed Unicode to Unicode */
 		uint32_t c = ocu[i++];
 		if (cmp_id == 16)
 			c = (c << 8) | ocu[i++];
 
 		len = nls->uni2char(c, &utf_o->u_name[utf_o->u_len],
 				    UDF_NAME_LEN - utf_o->u_len);
-		/*                  */
+		/* Valid character? */
 		if (len >= 0)
 			utf_o->u_len += len;
 		else
@@ -311,7 +311,7 @@ try_again:
 		len = nls->char2uni(&uni->u_name[i], uni->u_len - i, &uni_char);
 		if (!len)
 			continue;
-		/*                                 */
+		/* Invalid character, deal with it */
 		if (len < 0) {
 			len = 1;
 			uni_char = '?';

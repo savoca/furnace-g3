@@ -43,10 +43,10 @@
 			 (byte1 << 8) | (byte0))
 
 /*
-                                                    
+ * UFS Protocol Information Unit related definitions
  */
 
-/*                           */
+/* Task management functions */
 enum {
 	UFS_ABORT_TASK		= 0x01,
 	UFS_ABORT_TASK_SET	= 0x02,
@@ -56,7 +56,7 @@ enum {
 	UFS_QUERY_TASK_SET	= 0x81,
 };
 
-/*                                                */
+/* UTP UPIU Transaction Codes Initiator to Target */
 enum {
 	UPIU_TRANSACTION_NOP_OUT	= 0x00,
 	UPIU_TRANSACTION_COMMAND	= 0x01,
@@ -65,7 +65,7 @@ enum {
 	UPIU_TRANSACTION_QUERY_REQ	= 0x26,
 };
 
-/*                                                */
+/* UTP UPIU Transaction Codes Target to Initiator */
 enum {
 	UPIU_TRANSACTION_NOP_IN		= 0x20,
 	UPIU_TRANSACTION_RESPONSE	= 0x21,
@@ -75,14 +75,14 @@ enum {
 	UPIU_TRANSACTION_QUERY_RSP	= 0x36,
 };
 
-/*                       */
+/* UPIU Read/Write flags */
 enum {
 	UPIU_CMD_FLAGS_NONE	= 0x00,
 	UPIU_CMD_FLAGS_WRITE	= 0x20,
 	UPIU_CMD_FLAGS_READ	= 0x40,
 };
 
-/*                      */
+/* UPIU Task Attributes */
 enum {
 	UPIU_TASK_ATTR_SIMPLE	= 0x00,
 	UPIU_TASK_ATTR_ORDERED	= 0x01,
@@ -90,7 +90,7 @@ enum {
 	UPIU_TASK_ATTR_ACA	= 0x03,
 };
 
-/*                                              */
+/* UTP QUERY Transaction Specific Fields OpCode */
 enum {
 	UPIU_QUERY_OPCODE_NOP		= 0x0,
 	UPIU_QUERY_OPCODE_READ_DESC	= 0x1,
@@ -103,7 +103,7 @@ enum {
 	UPIU_QUERY_OPCODE_TOGGLE_FLAG	= 0x8,
 };
 
-/*                                        */
+/* UTP Transfer Request Command Type (CT) */
 enum {
 	UPIU_COMMAND_SET_TYPE_SCSI	= 0x0,
 	UPIU_COMMAND_SET_TYPE_UFS	= 0x1,
@@ -116,7 +116,7 @@ enum {
 	MASK_RSP_UPIU_RESULT	= 0xFFFF,
 };
 
-/*                                  */
+/* Task management service response */
 enum {
 	UPIU_TASK_MANAGEMENT_FUNC_COMPL		= 0x00,
 	UPIU_TASK_MANAGEMENT_FUNC_NOT_SUPPORTED = 0x04,
@@ -124,11 +124,11 @@ enum {
 	UPIU_TASK_MANAGEMENT_FUNC_FAILED	= 0x05,
 	UPIU_INCORRECT_LOGICAL_UNIT_NO		= 0x09,
 };
-/* 
-                                                 
-                             
-                             
-                             
+/**
+ * struct utp_upiu_header - UPIU header structure
+ * @dword_0: UPIU header DW-0
+ * @dword_1: UPIU header DW-1
+ * @dword_2: UPIU header DW-2
  */
 struct utp_upiu_header {
 	u32 dword_0;
@@ -136,11 +136,11 @@ struct utp_upiu_header {
 	u32 dword_2;
 };
 
-/* 
-                                               
-                                              
-                                                
-                                                  
+/**
+ * struct utp_upiu_cmd - Command UPIU structure
+ * @header: UPIU header structure DW-0 to DW-2
+ * @data_transfer_len: Data Transfer Length DW-3
+ * @cdb: Command Descriptor Block CDB DW-4 to DW-7
  */
 struct utp_upiu_cmd {
 	struct utp_upiu_header header;
@@ -148,13 +148,13 @@ struct utp_upiu_cmd {
 	u8 cdb[MAX_CDB_SIZE];
 };
 
-/* 
-                                                
-                                    
-                                                         
-                                                
-                                              
-                                              
+/**
+ * struct utp_upiu_rsp - Response UPIU structure
+ * @header: UPIU header DW-0 to DW-2
+ * @residual_transfer_count: Residual transfer count DW-3
+ * @reserved: Reserved double words DW-4 to DW-7
+ * @sense_data_len: Sense data length DW-8 U16
+ * @sense_data: Sense data field DW-8 to DW-12
  */
 struct utp_upiu_rsp {
 	struct utp_upiu_header header;
@@ -164,13 +164,13 @@ struct utp_upiu_rsp {
 	u8 sense_data[18];
 };
 
-/* 
-                                                         
-                                              
-                                        
-                                        
-                                        
-                                                
+/**
+ * struct utp_upiu_task_req - Task request UPIU structure
+ * @header - UPIU header structure DW0 to DW-2
+ * @input_param1: Input parameter 1 DW-3
+ * @input_param2: Input parameter 2 DW-4
+ * @input_param3: Input parameter 3 DW-5
+ * @reserved: Reserved double words DW-6 to DW-7
  */
 struct utp_upiu_task_req {
 	struct utp_upiu_header header;
@@ -180,12 +180,12 @@ struct utp_upiu_task_req {
 	u32 reserved[2];
 };
 
-/* 
-                                                                     
-                                          
-                                        
-                                         
-                                                
+/**
+ * struct utp_upiu_task_rsp - Task Management Response UPIU structure
+ * @header: UPIU header structure DW0-DW-2
+ * @output_param1: Ouput parameter 1 DW3
+ * @output_param2: Output parameter 2 DW4
+ * @reserved: Reserved double words DW-5 to DW-7
  */
 struct utp_upiu_task_rsp {
 	struct utp_upiu_header header;
@@ -194,4 +194,4 @@ struct utp_upiu_task_rsp {
 	u32 reserved[3];
 };
 
-#endif /*               */
+#endif /* End of Header */

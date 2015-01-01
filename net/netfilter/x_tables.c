@@ -40,8 +40,8 @@ MODULE_DESCRIPTION("{ip,ip6,arp,eb}_tables backend module");
 #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
 
 struct compat_delta {
-	unsigned int offset; /*                  */
-	int delta; /*                          */
+	unsigned int offset; /* offset in kernel */
+	int delta; /* delta in 32bit user land */
 };
 
 struct xt_af {
@@ -51,8 +51,8 @@ struct xt_af {
 #ifdef CONFIG_COMPAT
 	struct mutex compat_mutex;
 	struct compat_delta *compat_tab;
-	unsigned int number; /*                                 */
-	unsigned int cur; /*                                      */
+	unsigned int number; /* number of slots in compat_tab[] */
+	unsigned int cur; /* number of used slots in compat_tab[] */
 #endif
 };
 
@@ -66,10 +66,10 @@ static const char *const xt_prefix[NFPROTO_NUMPROTO] = {
 	[NFPROTO_IPV6]   = "ip6",
 };
 
-/*                                    */
+/* Allow this many total (re)entries. */
 static const unsigned int xt_jumpstack_multiplier = 2;
 
-/*                                 */
+/* Registration hooks for targets. */
 int
 xt_register_target(struct xt_target *target)
 {
@@ -182,12 +182,12 @@ EXPORT_SYMBOL(xt_unregister_matches);
 
 
 /*
-                                                                  
-                                                                
-                   
+ * These are weird, but module loading must not be done with mutex
+ * held (since they will register), and we have to have a single
+ * function to use.
  */
 
-/*                                                     */
+/* Find match, grabs ref.  Returns ERR_PTR() on error. */
 struct xt_match *xt_find_match(u8 af, const char *name, u8 revision)
 {
 	struct xt_match *m;
@@ -204,13 +204,13 @@ struct xt_match *xt_find_match(u8 af, const char *name, u8 revision)
 					return m;
 				}
 			} else
-				err = -EPROTOTYPE; /*                  */
+				err = -EPROTOTYPE; /* Found something. */
 		}
 	}
 	mutex_unlock(&xt[af].mutex);
 
 	if (af != NFPROTO_UNSPEC)
-		/*                                                    */
+		/* Try searching again in the family-independent list */
 		return xt_find_match(NFPROTO_UNSPEC, name, revision);
 
 	return ERR_PTR(err);
@@ -232,7 +232,7 @@ xt_request_find_match(uint8_t nfproto, const char *name, uint8_t revision)
 }
 EXPORT_SYMBOL_GPL(xt_request_find_match);
 
-/*                                                      */
+/* Find target, grabs ref.  Returns ERR_PTR() on error. */
 struct xt_target *xt_find_target(u8 af, const char *name, u8 revision)
 {
 	struct xt_target *t;
@@ -249,13 +249,13 @@ struct xt_target *xt_find_target(u8 af, const char *name, u8 revision)
 					return t;
 				}
 			} else
-				err = -EPROTOTYPE; /*                  */
+				err = -EPROTOTYPE; /* Found something. */
 		}
 	}
 	mutex_unlock(&xt[af].mutex);
 
 	if (af != NFPROTO_UNSPEC)
-		/*                                                    */
+		/* Try searching again in the family-independent list */
 		return xt_find_target(NFPROTO_UNSPEC, name, revision);
 
 	return ERR_PTR(err);
@@ -316,7 +316,7 @@ static int target_revfn(u8 af, const char *name, u8 revision, int *bestp)
 	return have_rev;
 }
 
-/*                                                     */
+/* Returns true or false (if no such extension at all) */
 int xt_find_revision(u8 af, const char *name, u8 revision, int target,
 		     int *err)
 {
@@ -332,7 +332,7 @@ int xt_find_revision(u8 af, const char *name, u8 revision, int target,
 		have_rev = match_revfn(af, name, revision, &best);
 	mutex_unlock(&xt[af].mutex);
 
-	/*                                                  */
+	/* Nothing at all?  Return 0 to try loading module. */
 	if (best == -1) {
 		*err = -ENOENT;
 		return 0;
@@ -379,9 +379,9 @@ int xt_check_match(struct xt_mtchk_param *par,
 	if (XT_ALIGN(par->match->matchsize) != size &&
 	    par->match->matchsize != -1) {
 		/*
-                                                            
-                                             
-   */
+		 * ebt_among is exempt from centralized matchsize checking
+		 * because it uses a dynamic-size data set.
+		 */
 		pr_err("%s_tables: %s.%u match: invalid size "
 		       "%u (kernel) != (user) %u\n",
 		       xt_prefix[par->family], par->match->name,
@@ -417,7 +417,7 @@ int xt_check_match(struct xt_mtchk_param *par,
 		if (ret < 0)
 			return ret;
 		else if (ret > 0)
-			/*                           */
+			/* Flag up potential errors. */
 			return -EIO;
 	}
 	return 0;
@@ -547,7 +547,7 @@ int xt_compat_match_to_user(const struct xt_entry_match *m,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(xt_compat_match_to_user);
-#endif /*               */
+#endif /* CONFIG_COMPAT */
 
 int xt_check_target(struct xt_tgchk_param *par,
 		    unsigned int size, u_int8_t proto, bool inv_proto)
@@ -590,7 +590,7 @@ int xt_check_target(struct xt_tgchk_param *par,
 		if (ret < 0)
 			return ret;
 		else if (ret > 0)
-			/*                           */
+			/* Flag up potential errors. */
 			return -EIO;
 	}
 	return 0;
@@ -665,7 +665,7 @@ struct xt_table_info *xt_alloc_table_info(unsigned int size)
 	struct xt_table_info *newinfo;
 	int cpu;
 
-	/*                                                             */
+	/* Pedantry: prevent them from hitting BUG() in vmalloc.c --RR */
 	if ((SMP_ALIGN(size) >> PAGE_SHIFT) + 2 > totalram_pages)
 		return NULL;
 
@@ -726,7 +726,7 @@ void xt_free_table_info(struct xt_table_info *info)
 }
 EXPORT_SYMBOL(xt_free_table_info);
 
-/*                                                                     */
+/* Find table by name, grabs mutex & ref.  Returns ERR_PTR() on error. */
 struct xt_table *xt_find_table_lock(struct net *net, u_int8_t af,
 				    const char *name)
 {
@@ -794,10 +794,10 @@ static int xt_jumpstack_alloc(struct xt_table_info *i)
 				GFP_KERNEL, cpu_to_node(cpu));
 		if (i->jumpstack[cpu] == NULL)
 			/*
-                                                       
-                                                   
-                                       
-    */
+			 * Freeing will be done later on by the callers. The
+			 * chain is: xt_replace_table -> __do_replace ->
+			 * do_replace -> xt_free_table_info.
+			 */
 			return -ENOMEM;
 	}
 
@@ -819,11 +819,11 @@ xt_replace_table(struct xt_table *table,
 		return NULL;
 	}
 
-	/*                      */
+	/* Do the substitution. */
 	local_bh_disable();
 	private = table->private;
 
-	/*                                               */
+	/* Check inside lock: is the old number correct? */
 	if (num_counters != private->number) {
 		pr_debug("num_counters != table->private->number (%u/%u)\n",
 			 num_counters, private->number);
@@ -834,18 +834,18 @@ xt_replace_table(struct xt_table *table,
 
 	newinfo->initial_entries = private->initial_entries;
 	/*
-                                                              
-            
-  */
+	 * Ensure contents of newinfo are visible before assigning to
+	 * private.
+	 */
 	smp_wmb();
 	table->private = newinfo;
 
 	/*
-                                                                
-                                                             
-                                                         
-                                      
-  */
+	 * Even though table entries have now been swapped, other CPU's
+	 * may still be using the old entries. This is okay, because
+	 * resynchronization happens because of the locking done
+	 * during the get_counters() routine.
+	 */
 	local_bh_enable();
 
 #ifdef CONFIG_AUDIT
@@ -876,7 +876,7 @@ struct xt_table *xt_register_table(struct net *net,
 	struct xt_table_info *private;
 	struct xt_table *t, *table;
 
-	/*                                         */
+	/* Don't add one object to multiple lists. */
 	table = kmemdup(input_table, sizeof(struct xt_table), GFP_KERNEL);
 	if (!table) {
 		ret = -ENOMEM;
@@ -887,7 +887,7 @@ struct xt_table *xt_register_table(struct net *net,
 	if (ret != 0)
 		goto out_free;
 
-	/*                                      */
+	/* Don't autoload: we'd eat our tail... */
 	list_for_each_entry(t, &net->xt.tables[table->af], list) {
 		if (strcmp(t->name, table->name) == 0) {
 			ret = -EEXIST;
@@ -895,7 +895,7 @@ struct xt_table *xt_register_table(struct net *net,
 		}
 	}
 
-	/*                                */
+	/* Simplifies replace_table code. */
 	table->private = bootstrap;
 
 	if (!xt_replace_table(table, 0, newinfo, &ret))
@@ -904,7 +904,7 @@ struct xt_table *xt_register_table(struct net *net,
 	private = table->private;
 	pr_debug("table->private->number = %u\n", private->number);
 
-	/*                                */
+	/* save number of initial entries */
 	private->initial_entries = private->number;
 
 	list_add(&table->list, &net->xt.tables[table->af]);
@@ -1006,8 +1006,8 @@ static const struct file_operations xt_table_ops = {
 };
 
 /*
-                                                                  
-                        
+ * Traverse state for ip{,6}_{tables,matches} for helping crossing
+ * the multi-AF mutexes.
  */
 struct nf_mttg_trav {
 	struct list_head *head, *curr;
@@ -1051,7 +1051,7 @@ static void *xt_mttg_seq_next(struct seq_file *seq, void *v, loff_t *ppos,
 		trav->curr = trav->curr->next;
 		if (trav->curr != trav->head)
 			break;
-		/*                             */
+		/* fallthru, _stop will unlock */
 	default:
 		return NULL;
 	}
@@ -1220,15 +1220,15 @@ static const struct file_operations xt_target_ops = {
 #define	FORMAT_MATCHES	"_tables_matches"
 #define FORMAT_TARGETS 	"_tables_targets"
 
-#endif /*                */
+#endif /* CONFIG_PROC_FS */
 
-/* 
-                                              
-                                                     
-                      
-  
-                                                                         
-                                 
+/**
+ * xt_hook_link - set up hooks for a new table
+ * @table:	table with metadata needed to set up hooks
+ * @fn:		Hook function
+ *
+ * This function will take care of creating and registering the necessary
+ * Netfilter hooks for XT tables.
  */
 struct nf_hook_ops *xt_hook_link(const struct xt_table *table, nf_hookfn *fn)
 {
@@ -1264,10 +1264,10 @@ struct nf_hook_ops *xt_hook_link(const struct xt_table *table, nf_hookfn *fn)
 }
 EXPORT_SYMBOL_GPL(xt_hook_link);
 
-/* 
-                                            
-                                                      
-                                                                 
+/**
+ * xt_hook_unlink - remove hooks for a table
+ * @ops:	nf_hook_ops array as returned by nf_hook_link
+ * @hook_mask:	the very same mask that was passed to nf_hook_link
  */
 void xt_hook_unlink(const struct xt_table *table, struct nf_hook_ops *ops)
 {
@@ -1344,7 +1344,7 @@ void xt_proto_fini(struct net *net, u_int8_t af)
 	strlcpy(buf, xt_prefix[af], sizeof(buf));
 	strlcat(buf, FORMAT_MATCHES, sizeof(buf));
 	proc_net_remove(net, buf);
-#endif /*              */
+#endif /*CONFIG_PROC_FS*/
 }
 EXPORT_SYMBOL_GPL(xt_proto_fini);
 

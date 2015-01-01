@@ -37,17 +37,17 @@
 #include <linux/types.h>
 
 /*
-                                                               
-                          
+ * Increment this value if any changes that break userspace ABI
+ * compatibility are made.
  */
 #define MTHCA_UVERBS_ABI_VERSION	1
 
 /*
-                                                                     
-                                                                     
-                                                                      
-                                                                   
-           
+ * Make sure that all structs defined in this file remain laid out so
+ * that they pack the same way on 32-bit and 64-bit architectures (to
+ * avoid incompatibility between 32-bit userspace and 64-bit kernels).
+ * In particular do not use pointer types -- pass pointers in __u64
+ * instead.
  */
 
 struct mthca_alloc_ucontext_resp {
@@ -62,8 +62,8 @@ struct mthca_alloc_pd_resp {
 
 struct mthca_reg_mr {
 /*
-                                                          
-                                                             
+ * Mark the memory region with a DMA attribute that causes
+ * in-flight DMA to be flushed when the region is written to:
  */
 #define MTHCA_MR_DMASYNC	0x1
 	__u32 mr_attrs;
@@ -109,4 +109,4 @@ struct mthca_create_qp {
 	__u32 rq_db_index;
 };
 
-#endif /*              */
+#endif /* MTHCA_USER_H */

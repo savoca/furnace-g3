@@ -19,7 +19,7 @@
 #include "ctcm_dbug.h"
 
 /*
-                       
+ * Debug Facility Stuff
  */
 
 struct ctcm_dbf_info ctcm_dbf[CTCM_DBF_INFOS] = {
@@ -44,7 +44,7 @@ int ctcm_register_dbf_views(void)
 {
 	int x;
 	for (x = 0; x < CTCM_DBF_INFOS; x++) {
-		/*                    */
+		/* register the areas */
 		ctcm_dbf[x].id = debug_register(ctcm_dbf[x].name,
 						ctcm_dbf[x].pages,
 						ctcm_dbf[x].areas,
@@ -54,9 +54,9 @@ int ctcm_register_dbf_views(void)
 			return -ENOMEM;
 		}
 
-		/*                 */
+		/* register a view */
 		debug_register_view(ctcm_dbf[x].id, &debug_hex_ascii_view);
-		/*                     */
+		/* set a passing level */
 		debug_set_level(ctcm_dbf[x].id, ctcm_dbf[x].level);
 	}
 

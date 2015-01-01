@@ -396,14 +396,14 @@ const char *arizona_mixer_texts[ARIZONA_NUM_MIXER_INPUTS] = {
 EXPORT_SYMBOL_GPL(arizona_mixer_texts);
 
 int arizona_mixer_values[ARIZONA_NUM_MIXER_INPUTS] = {
-	0x00,  /*      */
-	0x04,  /*      */
+	0x00,  /* None */
+	0x04,  /* Tone */
 	0x05,
-	0x06,  /*         */
-	0x08,  /*     */
-	0x0c,  /*             */
-	0x0d,  /*               */
-	0x10,  /*      */
+	0x06,  /* Haptics */
+	0x08,  /* AEC */
+	0x0c,  /* Noise mixer */
+	0x0d,  /* Comfort noise */
+	0x10,  /* IN1L */
 	0x11,
 	0x12,
 	0x13,
@@ -411,7 +411,7 @@ int arizona_mixer_values[ARIZONA_NUM_MIXER_INPUTS] = {
 	0x15,
 	0x16,
 	0x17,
-	0x20,  /*         */
+	0x20,  /* AIF1RX1 */
 	0x21,
 	0x22,
 	0x23,
@@ -419,11 +419,11 @@ int arizona_mixer_values[ARIZONA_NUM_MIXER_INPUTS] = {
 	0x25,
 	0x26,
 	0x27,
-	0x28,  /*         */
+	0x28,  /* AIF2RX1 */
 	0x29,
-	0x30,  /*         */
+	0x30,  /* AIF3RX1 */
 	0x31,
-	0x38,  /*         */
+	0x38,  /* SLIMRX1 */
 	0x39,
 	0x3a,
 	0x3b,
@@ -431,67 +431,67 @@ int arizona_mixer_values[ARIZONA_NUM_MIXER_INPUTS] = {
 	0x3d,
 	0x3e,
 	0x3f,
-	0x50,  /*     */
+	0x50,  /* EQ1 */
 	0x51,
 	0x52,
 	0x53,
-	0x58,  /*       */
+	0x58,  /* DRC1L */
 	0x59,
 	0x5a,
 	0x5b,
-	0x60,  /*       */
+	0x60,  /* LHPF1 */
 	0x61,
 	0x62,
 	0x63,
-	0x68,  /*        */
+	0x68,  /* DSP1.1 */
 	0x69,
 	0x6a,
 	0x6b,
 	0x6c,
 	0x6d,
-	0x70,  /*        */
+	0x70,  /* DSP2.1 */
 	0x71,
 	0x72,
 	0x73,
 	0x74,
 	0x75,
-	0x78,  /*        */
+	0x78,  /* DSP3.1 */
 	0x79,
 	0x7a,
 	0x7b,
 	0x7c,
 	0x7d,
-	0x80,  /*        */
+	0x80,  /* DSP4.1 */
 	0x81,
 	0x82,
 	0x83,
 	0x84,
 	0x85,
-	0x90,  /*        */
+	0x90,  /* ASRC1L */
 	0x91,
 	0x92,
 	0x93,
-	0xa0,  /*           */
+	0xa0,  /* ISRC1INT1 */
 	0xa1,
 	0xa2,
 	0xa3,
-	0xa4,  /*           */
+	0xa4,  /* ISRC1DEC1 */
 	0xa5,
 	0xa6,
 	0xa7,
-	0xa8,  /*           */
+	0xa8,  /* ISRC2DEC1 */
 	0xa9,
 	0xaa,
 	0xab,
-	0xac,  /*           */
+	0xac,  /* ISRC2INT1 */
 	0xad,
 	0xae,
 	0xaf,
-	0xb0,  /*           */
+	0xb0,  /* ISRC3DEC1 */
 	0xb1,
 	0xb2,
 	0xb3,
-	0xb4,  /*           */
+	0xb4,  /* ISRC3INT1 */
 	0xb5,
 	0xb6,
 	0xb7,
@@ -671,7 +671,7 @@ int arizona_in_ev(struct snd_soc_dapm_widget *w, struct snd_kcontrol *kcontrol,
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(w->codec, reg, ARIZONA_IN1L_MUTE, 0);
 
-		/*                                                 */
+		/* If this is the last input pending then allow VU */
 		priv->in_pending--;
 		if (priv->in_pending == 0) {
 			msleep(1);
@@ -684,7 +684,7 @@ int arizona_in_ev(struct snd_soc_dapm_widget *w, struct snd_kcontrol *kcontrol,
 				    ARIZONA_IN1L_MUTE | ARIZONA_IN_VU);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/*                                                 */
+		/* Disable volume updates if no inputs are enabled */
 		reg = snd_soc_read(w->codec, ARIZONA_INPUT_ENABLES);
 		if (reg == 0)
 			arizona_in_set_vu(w->codec, 0);
@@ -739,11 +739,11 @@ int arizona_hp_ev(struct snd_soc_dapm_widget *w,
 		return -EINVAL;
 	}
 
-	/*                                            */
+	/* Store the desired state for the HP outputs */
 	priv->arizona->hp_ena &= ~mask;
 	priv->arizona->hp_ena |= val;
 
-	/*                                    */
+	/* Force off if HPDET magic is active */
 	if (priv->arizona->hpdet_magic)
 		val = 0;
 
@@ -888,7 +888,7 @@ int arizona_slim_tx_ev(struct snd_soc_dapm_widget *w,
 		if (ret != 0)
 			dev_err(arizona->dev, "Failed to remove tx: %d\n", ret);
 
-		/*                      */
+		/* Cargo culted from QC */
 		usleep_range(15000, 15000);
 		break;
 	default:
@@ -912,7 +912,7 @@ int arizona_slim_rx_ev(struct snd_soc_dapm_widget *w,
 	u16 *handles, *group;
 	int chcnt = 0;
 
-	/*                                */
+	/* BODGE: should do this per port */
 	switch (w->shift) {
 	case ARIZONA_SLIMRX1_ENA_SHIFT:
 		dev_crit(codec->dev, "RX1\n");
@@ -991,7 +991,7 @@ int arizona_slim_rx_ev(struct snd_soc_dapm_widget *w,
 		if (ret != 0)
 			dev_err(arizona->dev, "Failed to remove rx: %d\n", ret);
 
-		/*                      */
+		/* Cargo culted from QC */
 		usleep_range(15000, 15000);
 		break;
 	default:
@@ -1053,7 +1053,7 @@ static int arizona_get_channel_map(struct snd_soc_dai *dai,
 				   &tx_porth3[i], SLIM_SRC);
 	}
 
-	/*                                                                 */
+	/* This actually allocates the channel or refcounts it if there... */
 	for (i = 0; i < ARRAY_SIZE(rx_handles1); i++) {
 		ret = slim_query_ch(slim_audio_dev, 128 + i,
 					&rx_handles1[i]);
@@ -1114,7 +1114,7 @@ static int arizona_get_channel_map(struct snd_soc_dai *dai,
 		}
 	}
 
-	/*                                                        */
+	/* Handle both the playback and capture substreams per DAI*/
 	switch (dai->id) {
 	case ARIZONA_SLIM1:
 		*rx_num = 2;
@@ -1529,9 +1529,9 @@ static int arizona_hw_params_rate(struct snd_pcm_substream *substream,
 	int i, sr_val;
 
 	/*
-                                                         
-                                                     
-  */
+	 * We will need to be more flexible than this in future,
+	 * currently we use a single sample rate for SYSCLK.
+	 */
 	for (i = 0; i < ARRAY_SIZE(arizona_sr_vals); i++)
 		if (arizona_sr_vals[i] == params_rate(params))
 			break;
@@ -1591,7 +1591,7 @@ static int arizona_hw_params(struct snd_pcm_substream *substream,
 		bclk_target *= chan_limit;
 	}
 
-	/*                           */
+	/* Force stereo for I2S mode */
 	val = snd_soc_read(codec, base + ARIZONA_AIF_FORMAT);
 	if (params_channels(params) == 1 && (val & ARIZONA_AIF1_FMT_MASK)) {
 		arizona_aif_dbg(dai, "Forcing stereo mode\n");
@@ -1842,7 +1842,7 @@ static int arizona_calc_fll(struct arizona_fll *fll,
 
 	arizona_fll_dbg(fll, "Fref=%u Fout=%u\n", Fref, Fout);
 
-	/*                        */
+	/* Fref must be <=13.5MHz */
 	div = 1;
 	cfg->refdiv = 0;
 	while ((Fref / div) > 13500000) {
@@ -1857,10 +1857,10 @@ static int arizona_calc_fll(struct arizona_fll *fll,
 		}
 	}
 
-	/*                                                   */
+	/* Apply the division for our remaining calculations */
 	Fref /= div;
 
-	/*                                                            */
+	/* Fvco should be over the targt; don't check the upper bound */
 	div = 1;
 	while (Fout * div < 90000000 * fll->vco_mult) {
 		div++;
@@ -1875,7 +1875,7 @@ static int arizona_calc_fll(struct arizona_fll *fll,
 
 	arizona_fll_dbg(fll, "Fvco=%dHz\n", target);
 
-	/*                                                                */
+	/* Find an appropraite FLL_FRATIO and factor it out of the target */
 	for (i = 0; i < ARRAY_SIZE(fll_fratios); i++) {
 		if (fll_fratios[i].min <= Fref && Fref <= fll_fratios[i].max) {
 			cfg->fratio_ref = arizona_fratio_ref(fll->arizona, i);
@@ -1916,10 +1916,10 @@ static int arizona_calc_fll(struct arizona_fll *fll,
 		cfg->lambda = 0;
 	}
 
-	/*                                                      
-                                                        
-                    
-  */
+	/* Round down to 16bit range with cost of accuracy lost.
+	 * Denominator must be bigger than numerator so we only
+	 * take care of it.
+	 */
 	while (cfg->lambda >= (1 << 16)) {
 		cfg->theta >>= 1;
 		cfg->lambda >>= 1;
@@ -1998,9 +1998,9 @@ static void arizona_enable_fll(struct arizona_fll *fll,
 	bool use_sync = false;
 
 	/*
-                                                        
-                                                   
-  */
+	 * If we have both REFCLK and SYNCCLK then enable both,
+	 * otherwise apply the SYNCCLK settings to REFCLK.
+	 */
 	if (fll->ref_src >= 0 && fll->ref_freq &&
 	    fll->ref_src != fll->sync_src) {
 		regmap_update_bits(arizona->regmap, fll->base + 5,
@@ -2030,9 +2030,9 @@ static void arizona_enable_fll(struct arizona_fll *fll,
 	}
 
 	/*
-                                                             
-                
-  */
+	 * Increase the bandwidth if we're not using a low frequency
+	 * sync source.
+	 */
 	if (use_sync && fll->sync_freq > 100000)
 		regmap_update_bits(arizona->regmap, fll->base + 0x17,
 				   ARIZONA_FLL1_SYNC_BW, 0);
@@ -2043,7 +2043,7 @@ static void arizona_enable_fll(struct arizona_fll *fll,
 	if (!arizona_is_enabled_fll(fll))
 		pm_runtime_get(arizona->dev);
 
-	/*                               */
+	/* Clear any pending completions */
 	try_wait_for_completion(&fll->ok);
 
 	regmap_update_bits(arizona->regmap, fll->base + 1,
@@ -2158,7 +2158,7 @@ int arizona_init_fll(struct arizona *arizona, int id, int base, int lock_irq,
 	fll->arizona = arizona;
 	fll->sync_src = ARIZONA_FLL_SRC_NONE;
 
-	/*                                                  */
+	/* Configure default refclk to 32kHz if we have one */
 	regmap_read(arizona->regmap, ARIZONA_CLOCK_32K_1, &val);
 	switch (val & ARIZONA_CLK_32K_SRC_MASK) {
 	case ARIZONA_CLK_SRC_MCLK1:
@@ -2188,21 +2188,21 @@ int arizona_init_fll(struct arizona *arizona, int id, int base, int lock_irq,
 }
 EXPORT_SYMBOL_GPL(arizona_init_fll);
 
-/* 
-                                                                 
-  
-                              
-                         
-                                                     
-  
-                                                              
-                                                                      
-                                                                      
-                                                                  
-                                 
-  
-                                                                 
-                         
+/**
+ * arizona_set_output_mode - Set the mode of the specified output
+ *
+ * @codec: Device to configure
+ * @output: Output number
+ * @diff: True to set the output to differential mode
+ *
+ * Some systems use external analogue switches to connect more
+ * analogue devices to the CODEC than are supported by the device.  In
+ * some systems this requires changing the switched output from single
+ * ended to differential mode dynamically at runtime, an operation
+ * supported using this function.
+ *
+ * Most systems have a single static configuration and should use
+ * platform data instead.
  */
 int arizona_set_output_mode(struct snd_soc_codec *codec, int output, bool diff)
 {

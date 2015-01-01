@@ -190,7 +190,7 @@ static int __init microdev_devices_setup(void)
 device_initcall(microdev_devices_setup);
 
 /*
-                     
+ * The Machine Vector
  */
 static struct sh_machine_vector mv_sh4202_microdev __initmv = {
 	.mv_name		= "SH4-202 MicroDev",

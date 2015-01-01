@@ -24,7 +24,7 @@
 #include <asm/irq_vectors.h>
 #include <asm/timer.h>
 
-/*                                                                            */
+/* timeouts in nanoseconds (indexed by UVH_AGING_PRESCALE_SEL urgency7 30:28) */
 static int timeout_base_ns[] = {
 		20,
 		160,
@@ -42,7 +42,7 @@ static int baudisabled;
 static spinlock_t disable_lock;
 static cycles_t congested_cycles;
 
-/*           */
+/* tunables: */
 static int max_concurr		= MAX_BAU_CONCURRENT;
 static int max_concurr_const	= MAX_BAU_CONCURRENT;
 static int plugged_delay	= PLUGGED_DELAY;
@@ -55,7 +55,7 @@ static int congested_reps	= CONGESTED_REPS;
 static int congested_period	= CONGESTED_PERIOD;
 
 static struct tunables tunables[] = {
-	{&max_concurr, MAX_BAU_CONCURRENT}, /*             */
+	{&max_concurr, MAX_BAU_CONCURRENT}, /* must be [0] */
 	{&plugged_delay, PLUGGED_DELAY},
 	{&plugsb4reset, PLUGSB4RESET},
 	{&timeoutsb4reset, TIMEOUTSB4RESET},
@@ -69,7 +69,7 @@ static struct tunables tunables[] = {
 static struct dentry *tunables_dir;
 static struct dentry *tunables_file;
 
-/*                                                              */
+/* these correspond to the statistics printed by ptc_seq_show() */
 static char *stat_description[] = {
 	"sent:     number of shootdown messages sent",
 	"stime:    time spent sending messages",
@@ -113,7 +113,7 @@ setup_nobau(char *arg)
 }
 early_param("nobau", setup_nobau);
 
-/*                              */
+/* base pnode in this partition */
 static int uv_base_pnode __read_mostly;
 
 static DEFINE_PER_CPU(struct ptc_stats, ptcstats);
@@ -121,8 +121,8 @@ static DEFINE_PER_CPU(struct bau_control, bau_control);
 static DEFINE_PER_CPU(cpumask_var_t, uv_flush_tlb_mask);
 
 /*
-                                                                   
-                     
+ * Determine the first node on a uvhub. 'Nodes' are used for kernel
+ * memory allocation.
  */
 static int __init uvhub_to_first_node(int uvhub)
 {
@@ -137,7 +137,7 @@ static int __init uvhub_to_first_node(int uvhub)
 }
 
 /*
-                                                    
+ * Determine the apicid of the first cpu on a uvhub.
  */
 static int __init uvhub_to_first_apicid(int uvhub)
 {
@@ -150,12 +150,12 @@ static int __init uvhub_to_first_apicid(int uvhub)
 }
 
 /*
-                                                                        
-                                               
-                                                                     
-                                                                    
-                                                                           
-                                                             
+ * Free a software acknowledge hardware resource by clearing its Pending
+ * bit. This will return a reply to the sender.
+ * If the message has timed out, a reply has already been sent by the
+ * hardware but the resource has not been released. In that case our
+ * clear of the Timeout bit (as well) will free the resource. No reply will
+ * be sent (the hardware will only do one reply per message).
  */
 static void reply_to_message(struct msg_desc *mdp, struct bau_control *bcp,
 						int do_acknowledge)
@@ -173,7 +173,7 @@ static void reply_to_message(struct msg_desc *mdp, struct bau_control *bcp,
 }
 
 /*
-                                         
+ * Process the receipt of a RETRY message
  */
 static void bau_process_retry_msg(struct msg_desc *mdp,
 					struct bau_control *bcp)
@@ -188,15 +188,15 @@ static void bau_process_retry_msg(struct msg_desc *mdp,
 
 	stat->d_retries++;
 	/*
-                                                     
-  */
+	 * cancel any message from msg+1 to the retry itself
+	 */
 	for (msg2 = msg+1, i = 0; i < DEST_Q_SIZE; msg2++, i++) {
 		if (msg2 > mdp->queue_last)
 			msg2 = mdp->queue_first;
 		if (msg2 == msg)
 			break;
 
-		/*                                              */
+		/* same conditions for cancellation as do_reset */
 		if ((msg2->replied_to == 0) && (msg2->canceled == 0) &&
 		    (msg2->swack_vec) && ((msg2->swack_vec &
 			msg->swack_vec) == 0) &&
@@ -205,17 +205,17 @@ static void bau_process_retry_msg(struct msg_desc *mdp,
 			mmr = read_mmr_sw_ack();
 			msg_res = msg2->swack_vec;
 			/*
-                                                       
-                                                     
-                                                   
-                          
-    */
+			 * This is a message retry; clear the resources held
+			 * by the previous message only if they timed out.
+			 * If it has not timed out we have an unexpected
+			 * situation to report.
+			 */
 			if (mmr & (msg_res << UV_SW_ACK_NPENDING)) {
 				unsigned long mr;
 				/*
-                                 
-                                                  
-     */
+				 * Is the resource timed out?
+				 * Make everyone ignore the cancelled message.
+				 */
 				msg2->canceled = 1;
 				stat->d_canceled++;
 				cancel_count++;
@@ -229,8 +229,8 @@ static void bau_process_retry_msg(struct msg_desc *mdp,
 }
 
 /*
-                                                                 
-                                                               
+ * Do all the things a cpu should do for a TLB shootdown message.
+ * Other cpu's may come here at the same time for this message.
  */
 static void bau_process_message(struct msg_desc *mdp, struct bau_control *bcp,
 						int do_acknowledge)
@@ -243,8 +243,8 @@ static void bau_process_message(struct msg_desc *mdp, struct bau_control *bcp,
 	struct bau_control *smaster = bcp->socket_master;
 
 	/*
-                                                               
-  */
+	 * This must be a normal message, or retry of a normal message
+	 */
 	if (msg->address == TLB_FLUSH_ALL) {
 		local_flush_tlb();
 		stat->d_alltlb++;
@@ -255,38 +255,38 @@ static void bau_process_message(struct msg_desc *mdp, struct bau_control *bcp,
 	stat->d_requestee++;
 
 	/*
-                                                           
-                                                         
-                                                         
-               
-  */
+	 * One cpu on each uvhub has the additional job on a RETRY
+	 * of releasing the resource held by the message that is
+	 * being retried.  That message is identified by sending
+	 * cpu number.
+	 */
 	if (msg->msg_type == MSG_RETRY && bcp == bcp->uvhub_master)
 		bau_process_retry_msg(mdp, bcp);
 
 	/*
-                                                       
-                                                        
-                                                         
-                
-  */
+	 * This is a swack message, so we have to reply to it.
+	 * Count each responding cpu on the socket. This avoids
+	 * pinging the count's cache line back and forth between
+	 * the sockets.
+	 */
 	sp = &smaster->socket_acknowledge_count[mdp->msg_slot];
 	asp = (struct atomic_short *)sp;
 	socket_ack_count = atom_asr(1, asp);
 	if (socket_ack_count == bcp->cpus_in_socket) {
 		int msg_ack_count;
 		/*
-                                                       
-                         
-   */
+		 * Both sockets dump their completed count total into
+		 * the message's count.
+		 */
 		smaster->socket_acknowledge_count[mdp->msg_slot] = 0;
 		asp = (struct atomic_short *)&msg->acknowledge_count;
 		msg_ack_count = atom_asr(socket_ack_count, asp);
 
 		if (msg_ack_count == bcp->cpus_in_uvhub) {
 			/*
-                                     
-                                           
-    */
+			 * All cpus in uvhub saw it; reply
+			 * (unless we are in the UV2 workaround)
+			 */
 			reply_to_message(mdp, bcp, do_acknowledge);
 		}
 	}
@@ -295,7 +295,7 @@ static void bau_process_message(struct msg_desc *mdp, struct bau_control *bcp,
 }
 
 /*
-                                      
+ * Determine the first cpu on a pnode.
  */
 static int pnode_to_first_cpu(int pnode, struct bau_control *smaster)
 {
@@ -311,14 +311,14 @@ static int pnode_to_first_cpu(int pnode, struct bau_control *smaster)
 }
 
 /*
-                                                                    
-                                          
-                                                                 
-                                                      
-  
-                                                 
-                                                            
-                   
+ * Last resort when we get a large number of destination timeouts is
+ * to clear resources held by a given cpu.
+ * Do this with IPI so that all messages in the BAU message queue
+ * can be identified by their nonzero swack_vec field.
+ *
+ * This is entered for a single cpu on the uvhub.
+ * The sender want's this uvhub to free a specific message's
+ * swack resources.
  */
 static void do_reset(void *ptr)
 {
@@ -330,15 +330,15 @@ static void do_reset(void *ptr)
 
 	stat->d_resets++;
 	/*
-                                           
-                                 
-                                                         
-                                 
-  */
+	 * We're looking for the given sender, and
+	 * will free its swack resource.
+	 * If all cpu's finally responded after the timeout, its
+	 * message 'replied_to' was set.
+	 */
 	for (msg = bcp->queue_first, i = 0; i < DEST_Q_SIZE; msg++, i++) {
 		unsigned long msg_res;
-		/*                                              
-                             */
+		/* do_reset: same conditions for cancellation as
+		   bau_process_retry_msg() */
 		if ((msg->replied_to == 0) &&
 		    (msg->canceled == 0) &&
 		    (msg->sending_cpu == rap->sender) &&
@@ -347,12 +347,12 @@ static void do_reset(void *ptr)
 			unsigned long mmr;
 			unsigned long mr;
 			/*
-                                            
-    */
+			 * make everyone else ignore this message
+			 */
 			msg->canceled = 1;
 			/*
-                                                    
-    */
+			 * only reset the resource if it is still pending
+			 */
 			mmr = read_mmr_sw_ack();
 			msg_res = msg->swack_vec;
 			mr = (msg_res << UV_SW_ACK_NPENDING) | msg_res;
@@ -366,8 +366,8 @@ static void do_reset(void *ptr)
 }
 
 /*
-                                                                
-                              
+ * Use IPI to get all target uvhubs to release resources held by
+ * a given sending cpu number.
  */
 static void reset_with_ipi(struct pnmask *distribution, struct bau_control *bcp)
 {
@@ -381,9 +381,9 @@ static void reset_with_ipi(struct pnmask *distribution, struct bau_control *bcp)
 
 	reset_args.sender = sender;
 	cpus_clear(*mask);
-	/*                                                            */
+	/* find a single cpu for each uvhub in this distribution mask */
 	maskbits = sizeof(struct pnmask) * BITSPERBYTE;
-	/*                                                          */
+	/* each bit is a pnode relative to the partition base pnode */
 	for (pnode = 0; pnode < maskbits; pnode++) {
 		int cpu;
 		if (!bau_uvhub_isset(pnode, distribution))
@@ -393,7 +393,7 @@ static void reset_with_ipi(struct pnmask *distribution, struct bau_control *bcp)
 		cpu_set(cpu, *mask);
 	}
 
-	/*                                              */
+	/* IPI all cpus; preemption is already disabled */
 	smp_call_function_many(mask, do_reset, (void *)&reset_args, 1);
 	return;
 }
@@ -410,9 +410,9 @@ static inline unsigned long cycles_2_us(unsigned long long cyc)
 }
 
 /*
-                                                                   
-                                                                    
-                            
+ * wait for all cpus on this hub to finish their sends and go quiet
+ * leaves uvhub_quiesce set so that no new broadcasts are started by
+ * bau_flush_send_and_wait()
  */
 static inline void quiesce_local_uvhub(struct bau_control *hmaster)
 {
@@ -420,7 +420,7 @@ static inline void quiesce_local_uvhub(struct bau_control *hmaster)
 }
 
 /*
-                                    
+ * mark this quiet-requestor as done
  */
 static inline void end_uvhub_quiesce(struct bau_control *hmaster)
 {
@@ -438,8 +438,8 @@ static unsigned long uv1_read_status(unsigned long mmr_offset, int right_shift)
 }
 
 /*
-                                                          
-                                                       
+ * Wait for completion of a broadcast software ack message
+ * return COMPLETE, RETRY(PLUGGED or TIMEOUT) or GIVEUP
  */
 static int uv1_wait_completion(struct bau_desc *bau_desc,
 				unsigned long mmr_offset, int right_shift,
@@ -450,14 +450,14 @@ static int uv1_wait_completion(struct bau_desc *bau_desc,
 	struct ptc_stats *stat = bcp->statp;
 
 	descriptor_status = uv1_read_status(mmr_offset, right_shift);
-	/*                                                   */
+	/* spin on the status MMR, waiting for it to go idle */
 	while ((descriptor_status != DS_IDLE)) {
 		/*
-                                                     
-                                                     
-                                                     
-                                              
-   */
+		 * Our software ack messages may be blocked because
+		 * there are no swack resources available.  As long
+		 * as none of them has timed out hardware will NACK
+		 * our message and its state will stay IDLE.
+		 */
 		if (descriptor_status == DS_SOURCE_TIMEOUT) {
 			stat->s_stimeout++;
 			return FLUSH_GIVEUP;
@@ -466,11 +466,11 @@ static int uv1_wait_completion(struct bau_desc *bau_desc,
 			ttm = get_cycles();
 
 			/*
-                                                   
-                                                   
-                                                 
-                                                  
-    */
+			 * Our retries may be blocked by all destination
+			 * swack resources being consumed, and a timeout
+			 * pending.  In that case hardware returns the
+			 * ERROR that looks like a destination timeout.
+			 */
 			if (cycles_2_us(ttm - bcp->send_message) < timeout_us) {
 				bcp->conseccompletes = 0;
 				return FLUSH_RETRY_PLUGGED;
@@ -480,8 +480,8 @@ static int uv1_wait_completion(struct bau_desc *bau_desc,
 			return FLUSH_RETRY_TIMEOUT;
 		} else {
 			/*
-                                     
-    */
+			 * descriptor_status is still BUSY
+			 */
 			cpu_relax();
 		}
 		descriptor_status = uv1_read_status(mmr_offset, right_shift);
@@ -491,7 +491,7 @@ static int uv1_wait_completion(struct bau_desc *bau_desc,
 }
 
 /*
-                                                                      
+ * UV2 has an extra bit of status in the ACTIVATION_STATUS_2 register.
  */
 static unsigned long uv2_read_status(unsigned long offset, int rshft, int desc)
 {
@@ -505,12 +505,12 @@ static unsigned long uv2_read_status(unsigned long offset, int rshft, int desc)
 }
 
 /*
-                                                                             
-                                                                
-                                                                          
-                                             
-                                                                        
-                                                              
+ * Return whether the status of the descriptor that is normally used for this
+ * cpu (the one indexed by its hub-relative cpu number) is busy.
+ * The status of the original 32 descriptors is always reflected in the 64
+ * bits of UVH_LB_BAU_SB_ACTIVATION_STATUS_0.
+ * The bit provided by the activation_status_2 register is irrelevant to
+ * the status if it is only being tested for busy or not busy.
  */
 int normal_busy(struct bau_control *bcp)
 {
@@ -525,9 +525,9 @@ int normal_busy(struct bau_control *bcp)
 }
 
 /*
-                                                                            
-                     
-                      
+ * Entered when a bau descriptor has gone into a permanent busy wait because
+ * of a hardware bug.
+ * Workaround the bug.
  */
 int handle_uv2_busy(struct bau_control *bcp)
 {
@@ -546,17 +546,17 @@ int handle_uv2_busy(struct bau_control *bcp)
 
 	stat->s_uv2_wars++;
 	spin_lock(&hmaster->uvhub_lock);
-	/*                            */
+	/* try for the original first */
 	if (busy_one != normal) {
 		if (!normal_busy(bcp))
 			selected = normal;
 	}
 	if (selected < 0) {
-		/*                                           */
+		/* can't use the normal, select an alternate */
 		mmr_offset = UVH_LB_BAU_SB_ACTIVATION_STATUS_1;
 		descriptor_status = read_lmmr(mmr_offset);
 
-		/*                                  */
+		/* scan available descriptors 32-63 */
 		for (i = 0; i < UV_CPUS_PER_AS; i++) {
 			if ((hmaster->inuse_map & (1 << i)) == 0) {
 				status = ((descriptor_status >>
@@ -571,13 +571,13 @@ int handle_uv2_busy(struct bau_control *bcp)
 	}
 
 	if (busy_one != normal)
-		/*                                       */
+		/* mark the busy alternate as not in-use */
 		hmaster->inuse_map &= ~(1 << (busy_one - UV_CPUS_PER_AS));
 
 	if (selected >= 0) {
-		/*                                   */
+		/* switch to the selected descriptor */
 		if (selected != normal) {
-			/*                                      */
+			/* set the selected alternate as in-use */
 			hmaster->inuse_map |=
 					(1 << (selected - UV_CPUS_PER_AS));
 			if (selected > stat->s_uv2_wars_hw)
@@ -591,9 +591,9 @@ int handle_uv2_busy(struct bau_control *bcp)
 		*bau_desc_new = *bau_desc_old;
 	} else {
 		/*
-                                                          
-             
-   */
+		 * All are busy. Wait for the normal one for this cpu to
+		 * free up.
+		 */
 		stat->s_uv2_war_waits++;
 		spin_unlock(&hmaster->uvhub_lock);
 		ttm = get_cycles();
@@ -601,14 +601,14 @@ int handle_uv2_busy(struct bau_control *bcp)
 			cpu_relax();
 		} while (normal_busy(bcp));
 		spin_lock(&hmaster->uvhub_lock);
-		/*                                   */
+		/* switch to the original descriptor */
 		bcp->using_desc = normal;
 		bau_desc_old = bcp->descriptor_base;
 		bau_desc_old += (ITEMS_PER_DESC * bcp->using_desc);
 		bcp->using_desc = (ITEMS_PER_DESC * normal);
 		bau_desc_new = bcp->descriptor_base;
 		bau_desc_new += (ITEMS_PER_DESC * normal);
-		*bau_desc_new = *bau_desc_old; /*                            */
+		*bau_desc_new = *bau_desc_old; /* copy the entire descriptor */
 	}
 	spin_unlock(&hmaster->uvhub_lock);
 	return FLUSH_RETRY_BUSYBUG;
@@ -626,14 +626,14 @@ static int uv2_wait_completion(struct bau_desc *bau_desc,
 
 	descriptor_stat = uv2_read_status(mmr_offset, right_shift, desc);
 
-	/*                                                   */
+	/* spin on the status MMR, waiting for it to go idle */
 	while (descriptor_stat != UV2H_DESC_IDLE) {
 		/*
-                                                     
-                                                     
-                                                     
-                                              
-   */
+		 * Our software ack messages may be blocked because
+		 * there are no swack resources available.  As long
+		 * as none of them has timed out hardware will NACK
+		 * our message and its state will stay IDLE.
+		 */
 		if ((descriptor_stat == UV2H_DESC_SOURCE_TIMEOUT) ||
 		    (descriptor_stat == UV2H_DESC_DEST_PUT_ERR)) {
 			stat->s_stimeout++;
@@ -649,7 +649,7 @@ static int uv2_wait_completion(struct bau_desc *bau_desc,
 		} else {
 			busy_reps++;
 			if (busy_reps > 1000000) {
-				/*                            */
+				/* not to hammer on the clock */
 				busy_reps = 0;
 				ttm = get_cycles();
 				if ((ttm - bcp->send_message) >
@@ -658,8 +658,8 @@ static int uv2_wait_completion(struct bau_desc *bau_desc,
 				}
 			}
 			/*
-                                   
-    */
+			 * descriptor_stat is still BUSY
+			 */
 			cpu_relax();
 		}
 		descriptor_stat = uv2_read_status(mmr_offset, right_shift,
@@ -670,9 +670,9 @@ static int uv2_wait_completion(struct bau_desc *bau_desc,
 }
 
 /*
-                                                                         
-                                                                       
-               
+ * There are 2 status registers; each and array[32] of 2 bits. Set up for
+ * which register to read and position in that register based on cpu in
+ * current hub.
  */
 static int wait_completion(struct bau_desc *bau_desc,
 				struct bau_control *bcp, long try)
@@ -708,9 +708,9 @@ static inline cycles_t sec_2_cycles(unsigned long sec)
 }
 
 /*
-                                                                    
-                                                                      
-                                                           
+ * Our retries are blocked by all destination sw ack resources being
+ * in use, and a timeout is pending. In that case hardware immediately
+ * returns the ERROR that looks like a destination timeout.
  */
 static void destination_plugged(struct bau_desc *bau_desc,
 			struct bau_control *bcp,
@@ -758,21 +758,21 @@ static void destination_timeout(struct bau_desc *bau_desc,
 }
 
 /*
-                                                                      
-           
+ * Completions are taking a very long time due to a congested numalink
+ * network.
  */
 static void disable_for_congestion(struct bau_control *bcp,
 					struct ptc_stats *stat)
 {
-	/*                                    */
+	/* let only one cpu do this disabling */
 	spin_lock(&disable_lock);
 
 	if (!baudisabled && bcp->period_requests &&
 	    ((bcp->period_time / bcp->period_requests) > congested_cycles)) {
 		int tcpu;
 		struct bau_control *tbcp;
-		/*                                                    
-               */
+		/* it becomes this cpu's job to turn on the use of the
+		   BAU again */
 		baudisabled = 1;
 		bcp->set_bau_off = 1;
 		bcp->set_bau_on_time = get_cycles();
@@ -828,8 +828,8 @@ static void record_send_stats(cycles_t time1, cycles_t time2,
 }
 
 /*
-                                                                    
-                        
+ * Because of a uv1 hardware bug only a limited number of concurrent
+ * requests can be made.
  */
 static void uv1_throttle(struct bau_control *hmaster, struct ptc_stats *stat)
 {
@@ -846,7 +846,7 @@ static void uv1_throttle(struct bau_control *hmaster, struct ptc_stats *stat)
 }
 
 /*
-                                                  
+ * Handle the completion status of a message send.
  */
 static void handle_cmplt(int completion_status, struct bau_desc *bau_desc,
 			struct bau_control *bcp, struct bau_control *hmaster,
@@ -859,14 +859,14 @@ static void handle_cmplt(int completion_status, struct bau_desc *bau_desc,
 }
 
 /*
-                                                
-  
-                                                                            
-                                    
-  
-                                                              
-                                                                       
-                          
+ * Send a broadcast and wait for it to complete.
+ *
+ * The flush_mask contains the cpus the broadcast is to be sent to including
+ * cpus that are on the local uvhub.
+ *
+ * Returns 0 if all flushing represented in the mask was done.
+ * Returns 1 if it gives up entirely and the original cpu mask is to be
+ * returned to the kernel.
  */
 int uv_flush_send_and_wait(struct cpumask *flush_mask, struct bau_control *bcp)
 {
@@ -923,7 +923,7 @@ int uv_flush_send_and_wait(struct cpumask *flush_mask, struct bau_control *bcp)
 
 		try++;
 		completion_stat = wait_completion(bau_desc, bcp, try);
-		/*                                                       */
+		/* UV2: wait_completion() may change the bcp->using_desc */
 
 		handle_cmplt(completion_stat, bau_desc, bcp, hmaster, stat);
 
@@ -949,15 +949,15 @@ int uv_flush_send_and_wait(struct cpumask *flush_mask, struct bau_control *bcp)
 	record_send_stats(time1, time2, bcp, stat, completion_stat, try);
 
 	if (completion_stat == FLUSH_GIVEUP)
-		/*                                                          */
+		/* FLUSH_GIVEUP will fall back to using IPI's for tlb flush */
 		return 1;
 	return 0;
 }
 
 /*
-                                                                          
-                                      
-                                             
+ * The BAU is disabled. When the disabled time period has expired, the cpu
+ * that disabled it must re-enable it.
+ * Return 0 if it is re-enabled for all cpus.
  */
 static int check_enable(struct bau_control *bcp, struct ptc_stats *stat)
 {
@@ -988,7 +988,7 @@ static void record_send_statistics(struct ptc_stats *stat, int locals, int hubs,
 	stat->s_ntargremotes += remotes;
 	stat->s_ntarglocals += locals;
 
-	/*                  */
+	/* uvhub statistics */
 	hubs = bau_uvhub_weight(&bau_desc->distribution);
 	if (locals) {
 		stat->s_ntarglocaluvhub++;
@@ -1011,8 +1011,8 @@ static void record_send_statistics(struct ptc_stats *stat, int locals, int hubs,
 }
 
 /*
-                                                                 
-                         
+ * Translate a cpu mask to the uvhub distribution mask in the BAU
+ * activation descriptor.
  */
 static int set_distrib_bits(struct cpumask *flush_mask, struct bau_control *bcp,
 			struct bau_desc *bau_desc, int *localsp, int *remotesp)
@@ -1024,11 +1024,11 @@ static int set_distrib_bits(struct cpumask *flush_mask, struct bau_control *bcp,
 
 	for_each_cpu(cpu, flush_mask) {
 		/*
-                                                             
-                                                              
-                    
-                                                               
-   */
+		 * The distribution vector is a bit map of pnodes, relative
+		 * to the partition base pnode (and the partition base nasid
+		 * in the header).
+		 * Translate cpu to pnode and hub using a local memory array.
+		 */
 		hpp = &bcp->socket_master->thp[cpu];
 		pnode = hpp->pnode - bcp->partition_base_pnode;
 		bau_uvhub_set(pnode, &bau_desc->distribution);
@@ -1044,28 +1044,28 @@ static int set_distrib_bits(struct cpumask *flush_mask, struct bau_control *bcp,
 }
 
 /*
-                                                                     
-                                                                    
-                                                  
-                                                                             
-                        
-  
-                                                                      
-  
-                                                                         
-                                                                
-  
-                                                                        
-                                                                            
-  
-                                                                     
-              
-  
-                                                                     
-  
-                                                
-                                                                   
-                                                                      
+ * globally purge translation cache of a virtual address or all TLB's
+ * @cpumask: mask of all cpu's in which the address is to be removed
+ * @mm: mm_struct containing virtual address range
+ * @va: virtual address to be removed (or TLB_FLUSH_ALL for all TLB's on cpu)
+ * @cpu: the current cpu
+ *
+ * This is the entry point for initiating any UV global TLB shootdown.
+ *
+ * Purges the translation caches of all specified processors of the given
+ * virtual address, or purges all TLB's on specified processors.
+ *
+ * The caller has derived the cpumask from the mm_struct.  This function
+ * is called only if there are bits set in the mask. (e.g. flush_tlb_page())
+ *
+ * The cpumask is converted into a uvhubmask of the uvhubs containing
+ * those cpus.
+ *
+ * Note that this function should be called with preemption disabled.
+ *
+ * Returns NULL if all remote flushing was done.
+ * Returns pointer to cpumask if some remote flushing remains to be
+ * done.  The returned pointer is valid till preemption is re-enabled.
  */
 const struct cpumask *uv_flush_tlb_others(const struct cpumask *cpumask,
 				struct mm_struct *mm, unsigned long va,
@@ -1079,26 +1079,26 @@ const struct cpumask *uv_flush_tlb_others(const struct cpumask *cpumask,
 	struct ptc_stats *stat;
 	struct bau_control *bcp;
 
-	/*                           */
+	/* kernel was booted 'nobau' */
 	if (nobau)
 		return cpumask;
 
 	bcp = &per_cpu(bau_control, cpu);
 	stat = bcp->statp;
 
-	/*                                       */
+	/* bau was disabled due to slow response */
 	if (bcp->baudisabled) {
 		if (check_enable(bcp, stat))
 			return cpumask;
 	}
 
 	/*
-                                                                        
-                                                                 
-                          
-  */
+	 * Each sending cpu has a per-cpu mask which it fills from the caller's
+	 * cpu mask.  All cpus are converted to uvhubs and copied to the
+	 * activation descriptor.
+	 */
 	flush_mask = (struct cpumask *)per_cpu(uv_flush_tlb_mask, cpu);
-	/*                                                */
+	/* don't actually do a shootdown of the local cpu */
 	cpumask_andnot(flush_mask, cpumask, cpumask_of(cpu));
 
 	if (cpu_isset(cpu, *cpumask))
@@ -1115,9 +1115,9 @@ const struct cpumask *uv_flush_tlb_others(const struct cpumask *cpumask,
 	bau_desc->payload.address = va;
 	bau_desc->payload.sending_cpu = cpu;
 	/*
-                                                                
-                                                                   
-  */
+	 * uv_flush_send_and_wait returns 0 if all cpu's were messaged,
+	 * or 1 if it gave up and the original cpumask should be returned.
+	 */
 	if (!uv_flush_send_and_wait(flush_mask, bcp))
 		return NULL;
 	else
@@ -1125,8 +1125,8 @@ const struct cpumask *uv_flush_tlb_others(const struct cpumask *cpumask,
 }
 
 /*
-                                                                          
-                                   
+ * Search the message queue for any 'other' message with the same software
+ * acknowledge resource bit vector.
  */
 struct bau_pq_entry *find_another_by_swack(struct bau_pq_entry *msg,
 			struct bau_control *bcp, unsigned char swack_vec)
@@ -1146,9 +1146,9 @@ struct bau_pq_entry *find_another_by_swack(struct bau_pq_entry *msg,
 }
 
 /*
-                                                                      
-                                                                  
-                                  
+ * UV2 needs to work around a bug in which an arriving message has not
+ * set a bit in the UVH_LB_BAU_INTD_SOFTWARE_ACKNOWLEDGE register.
+ * Such a message must be ignored.
  */
 void process_uv2_message(struct msg_desc *mdp, struct bau_control *bcp)
 {
@@ -1162,54 +1162,54 @@ void process_uv2_message(struct msg_desc *mdp, struct bau_control *bcp)
 
 	if ((swack_vec & mmr_image) == 0) {
 		/*
-                                                       
-                                       
-                                                             
-                                                            
-                                                            
-                                      
-   */
+		 * This message was assigned a swack resource, but no
+		 * reserved acknowlegment is pending.
+		 * The bug has prevented this message from setting the MMR.
+		 * And no other message has used the same sw_ack resource.
+		 * Do the requested shootdown but do not reply to the msg.
+		 * (the 0 means make no acknowledge)
+		 */
 		bau_process_message(mdp, bcp, 0);
 		return;
 	}
 
 	/*
-                                                                  
-                                            
-  */
+	 * Some message has set the MMR 'pending' bit; it might have been
+	 * another message.  Look for that message.
+	 */
 	other_msg = find_another_by_swack(msg, bcp, msg->swack_vec);
 	if (other_msg) {
-		/*                                                */
+		/* There is another.  Do not ack the current one. */
 		bau_process_message(mdp, bcp, 0);
 		/*
-                                                           
-                                                           
-   */
+		 * Let the natural processing of that message acknowledge
+		 * it. Don't get the processing of sw_ack's out of order.
+		 */
 		return;
 	}
 
 	/*
-                                                                 
-                   
-  */
+	 * There is no other message using this sw_ack, so it is safe to
+	 * acknowledge it.
+	 */
 	bau_process_message(mdp, bcp, 1);
 
 	return;
 }
 
 /*
-                                                                      
-                 
-  
-                                          
-  
-                                                          
-                                   
-  
-                                                    
-                                                
-                                                                       
-                                                                
+ * The BAU message interrupt comes here. (registered by set_intr_gate)
+ * See entry_64.S
+ *
+ * We received a broadcast assist message.
+ *
+ * Interrupts are disabled; this interrupt could represent
+ * the receipt of several messages.
+ *
+ * All cores/threads on this hub get this interrupt.
+ * The last one to see it does the software ack.
+ * (the resource will not be freed until noninterruptable cpus see this
+ *  interrupt; hardware may timeout the s/w ack and reply ERROR)
  */
 void uv_bau_message_interrupt(struct pt_regs *regs)
 {
@@ -1253,10 +1253,10 @@ void uv_bau_message_interrupt(struct pt_regs *regs)
 }
 
 /*
-                                                                
-                                                                  
-                                                              
-              
+ * Each target uvhub (i.e. a uvhub that has cpu's) needs to have
+ * shootdown message timeouts enabled.  The timeout does not cause
+ * an interrupt, but causes an error message to be returned to
+ * the sender.
  */
 static void __init enable_timeouts(void)
 {
@@ -1274,25 +1274,25 @@ static void __init enable_timeouts(void)
 		pnode = uv_blade_to_pnode(uvhub);
 		mmr_image = read_mmr_misc_control(pnode);
 		/*
-                                                         
-                                             
-    
-                                                          
-   */
+		 * Set the timeout period and then lock it in, in three
+		 * steps; captures and locks in the period.
+		 *
+		 * To program the period, the SOFT_ACK_MODE must be off.
+		 */
 		mmr_image &= ~(1L << SOFTACK_MSHIFT);
 		write_mmr_misc_control(pnode, mmr_image);
 		/*
-                          
-   */
+		 * Set the 4-bit period.
+		 */
 		mmr_image &= ~((unsigned long)0xf << SOFTACK_PSHIFT);
 		mmr_image |= (SOFTACK_TIMEOUT_PERIOD << SOFTACK_PSHIFT);
 		write_mmr_misc_control(pnode, mmr_image);
 		/*
-         
-                                                          
-                                                      
-                                                             
-   */
+		 * UV1:
+		 * Subsequent reversals of the timebase bit (3) cause an
+		 * immediate timeout of one or all INTD resources as
+		 * indicated in bits 2:0 (7 causes all of them to timeout).
+		 */
 		mmr_image |= (1L << SOFTACK_MSHIFT);
 		if (is_uv2_hub()) {
 			mmr_image &= ~(1L << UV2_LEG_SHFT);
@@ -1332,9 +1332,9 @@ static inline unsigned long long usec_2_cycles(unsigned long microsec)
 }
 
 /*
-                                                          
-                                  
-                                                    
+ * Display the statistics thru /proc/sgi_uv/ptc_statistics
+ * 'data' points to the cpu number
+ * Note: see the descriptions in stat_description[].
  */
 static int ptc_seq_show(struct seq_file *file, void *data)
 {
@@ -1358,7 +1358,7 @@ static int ptc_seq_show(struct seq_file *file, void *data)
 	}
 	if (cpu < num_possible_cpus() && cpu_online(cpu)) {
 		stat = &per_cpu(ptcstats, cpu);
-		/*                        */
+		/* source side statistics */
 		seq_printf(file,
 			"cpu %d %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld ",
 			   cpu, stat->s_requestor, cycles_2_us(stat->s_time),
@@ -1376,7 +1376,7 @@ static int ptc_seq_show(struct seq_file *file, void *data)
 			   stat->s_giveup, stat->s_stimeout,
 			   stat->s_busy, stat->s_throttles);
 
-		/*                             */
+		/* destination side statistics */
 		seq_printf(file,
 			   "%lx %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld ",
 			   read_gmmr_sw_ack(uv_cpu_to_pnode(cpu)),
@@ -1394,7 +1394,7 @@ static int ptc_seq_show(struct seq_file *file, void *data)
 }
 
 /*
-                                    
+ * Display the tunables thru debugfs
  */
 static ssize_t tunables_read(struct file *file, char __user *userbuf,
 				size_t count, loff_t *ppos)
@@ -1419,9 +1419,9 @@ static ssize_t tunables_read(struct file *file, char __user *userbuf,
 }
 
 /*
-                                                
-                           
-                                        
+ * handle a write to /proc/sgi_uv/ptc_statistics
+ * -1: reset the statistics
+ *  0: display meaning of the statistics
  */
 static ssize_t ptc_proc_write(struct file *file, const char __user *user,
 				size_t count, loff_t *data)
@@ -1476,8 +1476,8 @@ static int local_atoi(const char *name)
 }
 
 /*
-                                                                     
-                                      
+ * Parse the values written to /sys/kernel/debug/sgi_uv/bau_tunables.
+ * Zero values reset them to defaults.
  */
 static int parse_tunables_write(struct bau_control *bcp, char *instr,
 				int count)
@@ -1536,7 +1536,7 @@ static int parse_tunables_write(struct bau_control *bcp, char *instr,
 }
 
 /*
-                                                                     
+ * Handle a write to debugfs. (/sys/kernel/debug/sgi_uv/bau_tunables)
  */
 static ssize_t tunables_write(struct file *file, const char __user *user,
 				size_t count, loff_t *data)
@@ -1640,7 +1640,7 @@ static int __init uv_ptc_init(void)
 }
 
 /*
-                                                 
+ * Initialize the sending side's sending buffers.
  */
 static void activation_descriptor_init(int node, int pnode, int base_pnode)
 {
@@ -1658,9 +1658,9 @@ static void activation_descriptor_init(int node, int pnode, int base_pnode)
 	struct bau_control *bcp;
 
 	/*
-                                                           
-                                                  
-  */
+	 * each bau_desc is 64 bytes; there are 8 (ITEMS_PER_DESC)
+	 * per cpu; and one per cpu on the uvhub (ADP_SZ)
+	 */
 	dsize = sizeof(struct bau_desc) * ADP_SZ * ITEMS_PER_DESC;
 	bau_desc = kmalloc_node(dsize, GFP_KERNEL, node);
 	BUG_ON(!bau_desc);
@@ -1671,34 +1671,34 @@ static void activation_descriptor_init(int node, int pnode, int base_pnode)
 	if (is_uv1_hub())
 		uv1 = 1;
 
-	/*                  */
+	/* the 14-bit pnode */
 	write_mmr_descriptor_base(pnode, (n << UV_DESC_PSHIFT | m));
 	/*
-                                                            
-                                                                 
-                                        
-  */
+	 * Initializing all 8 (ITEMS_PER_DESC) descriptors for each
+	 * cpu even though we only use the first one; one descriptor can
+	 * describe a broadcast to 256 uv hubs.
+	 */
 	for (i = 0, bd2 = bau_desc; i < (ADP_SZ * ITEMS_PER_DESC); i++, bd2++) {
 		memset(bd2, 0, sizeof(struct bau_desc));
 		if (uv1) {
 			uv1_hdr = &bd2->header.uv1_hdr;
 			uv1_hdr->swack_flag =	1;
 			/*
-                                                   
-                                                       
-                                                         
-                                                        
-                                      
-    */
+			 * The base_dest_nasid set in the message header
+			 * is the nasid of the first uvhub in the partition.
+			 * The bit map will indicate destination pnode numbers
+			 * relative to that base. They may not be consecutive
+			 * if nasid striding is being used.
+			 */
 			uv1_hdr->base_dest_nasid =
 						UV_PNODE_TO_NASID(base_pnode);
 			uv1_hdr->dest_subnodeid =	UV_LB_SUBNODEID;
 			uv1_hdr->command =		UV_NET_ENDPOINT_INTD;
 			uv1_hdr->int_both =		1;
 			/*
-                                        
-                                                     
-    */
+			 * all others need to be set to zero:
+			 *   fairness chaining multilevel count replied_to
+			 */
 		} else {
 			uv2_hdr = &bd2->header.uv2_hdr;
 			uv2_hdr->swack_flag =	1;
@@ -1717,10 +1717,10 @@ static void activation_descriptor_init(int node, int pnode, int base_pnode)
 }
 
 /*
-                                                      
-                                          
-                                                           
-                                             
+ * initialize the destination side's receiving buffers
+ * entered for each uvhub in the partition
+ * - node is first node (kernel memory notion) on the uvhub
+ * - pnode is the uvhub's physical identifier
  */
 static void pq_init(int node, int pnode)
 {
@@ -1746,15 +1746,15 @@ static void pq_init(int node, int pnode)
 	for_each_present_cpu(cpu) {
 		if (pnode != uv_cpu_to_pnode(cpu))
 			continue;
-		/*                              */
+		/* for every cpu on this pnode: */
 		bcp = &per_cpu(bau_control, cpu);
 		bcp->queue_first	= pqp;
 		bcp->bau_msg_head	= pqp;
 		bcp->queue_last		= pqp + (DEST_Q_SIZE - 1);
 	}
 	/*
-                                                           
-  */
+	 * need the gnode of where the memory was really allocated
+	 */
 	pn = uv_gpa_to_gnode(uv_gpa(pqp));
 	first = uv_physnodeaddr(pqp);
 	pn_first = ((unsigned long)pn << UV_PAYLOADQ_PNODE_SHIFT) | first;
@@ -1764,12 +1764,12 @@ static void pq_init(int node, int pnode)
 	write_mmr_payload_last(pnode, last);
 	write_gmmr_sw_ack(pnode, 0xffffUL);
 
-	/*                                               */
+	/* in effect, all msg_type's are set to MSG_NOOP */
 	memset(pqp, 0, sizeof(struct bau_pq_entry) * DEST_Q_SIZE);
 }
 
 /*
-                                             
+ * Initialization of each UV hub's structures
  */
 static void __init init_uvhub(int uvhub, int vector, int base_pnode)
 {
@@ -1784,17 +1784,17 @@ static void __init init_uvhub(int uvhub, int vector, int base_pnode)
 
 	pq_init(node, pnode);
 	/*
-                                                             
-                                               
-  */
+	 * The below initialization can't be in firmware because the
+	 * messaging IRQ will be determined by the OS.
+	 */
 	apicid = uvhub_to_first_apicid(uvhub) | uv_apicid_hibits;
 	write_mmr_data_config(pnode, ((apicid << 32) | vector));
 }
 
 /*
-                                                      
-                                                                           
-                                                                    
+ * We will set BAU_MISC_CONTROL with a timeout period.
+ * But the BIOS has set UVH_AGING_PRESCALE_SEL and UVH_TRANSACTION_TIMEOUT.
+ * So the destination timeout period has to be calculated from them.
  */
 static int calculate_destination_timeout(void)
 {
@@ -1816,7 +1816,7 @@ static int calculate_destination_timeout(void)
 		ts_ns = base * mult1 * mult2;
 		ret = ts_ns / 1000;
 	} else {
-		/*                                                    */
+		/* 4 bits  0/1 for 10/80us base, 3 bits of multiplier */
 		mmr_image = uv_read_local_mmr(UVH_LB_BAU_MISC_CONTROL);
 		mmr_image = (mmr_image & UV_SA_MASK) >> UV_SA_SHFT;
 		if (mmr_image & (1L << UV2_ACK_UNITS_SHFT))
@@ -1838,7 +1838,7 @@ static void __init init_per_cpu_tunables(void)
 		bcp = &per_cpu(bau_control, cpu);
 		bcp->baudisabled		= 0;
 		bcp->statp			= &per_cpu(ptcstats, cpu);
-		/*                                                 */
+		/* time interval to catch a hardware stay-busy bug */
 		bcp->timeout_interval		= usec_2_cycles(2*timeout_us);
 		bcp->max_concurr		= max_concurr;
 		bcp->max_concurr_const		= max_concurr;
@@ -1857,7 +1857,7 @@ static void __init init_per_cpu_tunables(void)
 }
 
 /*
-                                                       
+ * Scan all cpus to collect blade and socket summaries.
  */
 static int __init get_cpu_topology(int base_pnode,
 					struct uvhub_desc *uvhub_descs,
@@ -1895,8 +1895,8 @@ static int __init get_cpu_topology(int base_pnode,
 		bdp->uvhub = uvhub;
 		bdp->pnode = pnode;
 
-		/*                                                          
-                                                          */
+		/* kludge: 'assuming' one node per socket, and assuming that
+		   disabling a socket just leaves a gap in node numbers */
 		socket = bcp->osnode & 1;
 		bdp->socket_mask |= (1 << socket);
 		sdp = &bdp->socket[socket];
@@ -1912,7 +1912,7 @@ static int __init get_cpu_topology(int base_pnode,
 }
 
 /*
-                                                      
+ * Each socket is to get a local array of pnodes/hubs.
  */
 static void make_per_cpu_thp(struct bau_control *smaster)
 {
@@ -1928,7 +1928,7 @@ static void make_per_cpu_thp(struct bau_control *smaster)
 }
 
 /*
-                                        
+ * Each uvhub is to get a local cpumask.
  */
 static void make_per_hub_cpumask(struct bau_control *hmaster)
 {
@@ -1938,9 +1938,9 @@ static void make_per_hub_cpumask(struct bau_control *hmaster)
 }
 
 /*
-                                                                          
-                                                            
-                                                                    
+ * Initialize all the per_cpu information for the cpu's on a given socket,
+ * given what has been gathered into the socket_desc struct.
+ * And reports the chosen hub and socket masters back to the caller.
  */
 static int scan_sock(struct socket_desc *sdp, struct uvhub_desc *bdp,
 			struct bau_control **smasterp,
@@ -1984,7 +1984,7 @@ static int scan_sock(struct socket_desc *sdp, struct uvhub_desc *bdp,
 }
 
 /*
-                                                                       
+ * Summarize the blade and socket topology into the per_cpu structures.
  */
 static int __init summarize_uvhub_sockets(int nuvhubs,
 			struct uvhub_desc *uvhub_descs,
@@ -2022,7 +2022,7 @@ static int __init summarize_uvhub_sockets(int nuvhubs,
 }
 
 /*
-                                                    
+ * initialize the bau_control structure for each cpu
  */
 static int __init init_per_cpu(int nuvhubs, int base_part_pnode)
 {
@@ -2055,7 +2055,7 @@ fail:
 }
 
 /*
-                                           
+ * Initialization of BAU-related structures
  */
 static int __init uv_bau_init(void)
 {
@@ -2108,10 +2108,10 @@ static int __init uv_bau_init(void)
 			unsigned long val;
 			unsigned long mmr;
 			pnode = uv_blade_to_pnode(uvhub);
-			/*              */
+			/* INIT the bau */
 			val = 1L << 63;
 			write_gmmr_activation(pnode, val);
-			mmr = 1; /*                                          */
+			mmr = 1; /* should be 1 to broadcast to both sockets */
 			if (!is_uv1_hub())
 				write_mmr_data_broadcast(pnode, mmr);
 		}

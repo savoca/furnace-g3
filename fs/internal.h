@@ -18,7 +18,7 @@ struct path;
 struct mount;
 
 /*
-              
+ * block_dev.c
  */
 #ifdef CONFIG_BLOCK
 extern void __init bdev_cache_init(void);
@@ -37,12 +37,12 @@ static inline int __sync_blockdev(struct block_device *bdev, int wait)
 #endif
 
 /*
-             
+ * char_dev.c
  */
 extern void __init chrdev_init(void);
 
 /*
-              
+ * namespace.c
  */
 extern int copy_mount_options(const void __user *, unsigned long *);
 extern int copy_mount_string(const void __user *, char **);
@@ -60,12 +60,12 @@ DECLARE_BRLOCK(vfsmount_lock);
 
 
 /*
-              
+ * fs_struct.c
  */
 extern void chroot_fs_refs(struct path *, struct path *);
 
 /*
-               
+ * file_table.c
  */
 extern void file_sb_list_add(struct file *f, struct super_block *sb);
 extern void file_sb_list_del(struct file *f);
@@ -73,7 +73,7 @@ extern void mark_files_ro(struct super_block *);
 extern struct file *get_empty_filp(void);
 
 /*
-          
+ * super.c
  */
 extern int do_remount_sb(struct super_block *, int, void *, int);
 extern bool grab_super_passive(struct super_block *sb);
@@ -82,7 +82,7 @@ extern struct dentry *mount_fs(struct file_system_type *,
 extern struct super_block *user_get_super(dev_t);
 
 /*
-         
+ * open.c
  */
 struct nameidata;
 extern struct file *nameidata_to_filp(struct nameidata *);
@@ -102,12 +102,12 @@ extern long do_handle_open(int mountdirfd,
 			   struct file_handle __user *ufh, int open_flag);
 
 /*
-          
+ * inode.c
  */
 extern spinlock_t inode_sb_list_lock;
 
 /*
-                 
+ * fs-writeback.c
  */
 extern void inode_wb_list_del(struct inode *inode);
 
@@ -116,6 +116,6 @@ extern void evict_inodes(struct super_block *);
 extern int invalidate_inodes(struct super_block *, bool);
 
 /*
-           
+ * dcache.c
  */
 extern struct dentry *__d_alloc(struct super_block *, const struct qstr *);

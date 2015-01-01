@@ -61,7 +61,7 @@ static ssize_t led_brightness_show(struct device *dev,
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 
-	/*                         */
+	/* no lock needed for this */
 	led_update_brightness(led_cdev);
 
 	return snprintf(buf, LED_BUFF_SIZE, "%u\n", led_cdev->brightness);
@@ -171,13 +171,13 @@ static void led_timer_function(unsigned long data)
 
 	brightness = led_get_brightness(led_cdev);
 	if (!brightness) {
-		/*                            */
+		/* Time to switch the LED on. */
 		brightness = led_cdev->blink_brightness;
 		delay = led_cdev->blink_delay_on;
 	} else {
-		/*                                              
-                                                     
-   */
+		/* Store the current brightness value to be able
+		 * to restore it when the delay_off period is over.
+		 */
 		led_cdev->blink_brightness = brightness;
 		brightness = LED_OFF;
 		delay = led_cdev->blink_delay_off;
@@ -188,9 +188,9 @@ static void led_timer_function(unsigned long data)
 	mod_timer(&led_cdev->blink_timer, jiffies + msecs_to_jiffies(delay));
 }
 
-/* 
-                                                  
-                                          
+/**
+ * led_classdev_suspend - suspend an led_classdev.
+ * @led_cdev: the led_classdev to suspend.
  */
 void led_classdev_suspend(struct led_classdev *led_cdev)
 {
@@ -199,9 +199,9 @@ void led_classdev_suspend(struct led_classdev *led_cdev)
 }
 EXPORT_SYMBOL_GPL(led_classdev_suspend);
 
-/* 
-                                                
-                                         
+/**
+ * led_classdev_resume - resume an led_classdev.
+ * @led_cdev: the led_classdev to resume.
  */
 void led_classdev_resume(struct led_classdev *led_cdev)
 {
@@ -230,10 +230,10 @@ static int led_resume(struct device *dev)
 	return 0;
 }
 
-/* 
-                                                                       
-                                   
-                                                         
+/**
+ * led_classdev_register - register a new object of led_classdev class.
+ * @parent: The device to register.
+ * @led_cdev: the led_classdev structure for this device.
  */
 int led_classdev_register(struct device *parent, struct led_classdev *led_cdev)
 {
@@ -245,7 +245,7 @@ int led_classdev_register(struct device *parent, struct led_classdev *led_cdev)
 #ifdef CONFIG_LEDS_TRIGGERS
 	init_rwsem(&led_cdev->trigger_lock);
 #endif
-	/*                         */
+	/* add to the list of leds */
 	down_write(&leds_list_lock);
 	list_add_tail(&led_cdev->node, &leds_list);
 	up_write(&leds_list_lock);
@@ -274,7 +274,7 @@ EXPORT_SYMBOL_GPL(led_classdev_register);
 static ssize_t get_pattern(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	int count = 0;
-	/*                                                          */
+	/* count = sprintf(buf,"%d %d\n", pattern_num,pattern_on ); */
 
 	return count;
 }
@@ -323,7 +323,7 @@ static ssize_t set_pattern(struct device *dev, struct device_attribute *attr, co
 #endif
 	if (lge_get_boot_mode() <= LGE_BOOT_MODE_CHARGERLOGO) {
 		printk("[RGB LED] pattern_num = %d\n", pattern_num);
-#if !(defined(CONFIG_MACH_MSM8974_G3_LGU) || defined(CONFIG_MACH_MSM8974_G3_SKT) || defined(CONFIG_MACH_MSM8974_G3_KT) || defined(CONFIG_MACH_MSM8974_G3_ATT) || defined(CONFIG_MACH_MSM8974_G3_VZW) || defined(CONFIG_MACH_MSM8974_G3_SPR_US) || defined(CONFIG_MACH_MSM8974_G3_USC_US) || defined(CONFIG_MACH_MSM8974_G3_TMO_US) || defined(CONFIG_MACH_MSM8974_G3_GLOBAL_COM) || defined(CONFIG_MACH_MSM8974_G3_CN) || defined(CONFIG_MACH_MSM8974_G3_CA) || defined(CONFIG_MACH_MSM8974_G3_LRA))
+#if !(defined(CONFIG_MACH_MSM8974_G3_LGU) || defined(CONFIG_MACH_MSM8974_G3_SKT) || defined(CONFIG_MACH_MSM8974_G3_KT) || defined(CONFIG_MACH_MSM8974_G3_ATT) || defined(CONFIG_MACH_MSM8974_G3_VZW) || defined(CONFIG_MACH_MSM8974_G3_SPR_US) || defined(CONFIG_MACH_MSM8974_G3_USC_US) || defined(CONFIG_MACH_MSM8974_G3_ACG_US) || defined(CONFIG_MACH_MSM8974_G3_TMO_US) || defined(CONFIG_MACH_MSM8974_G3_GLOBAL_COM) || defined(CONFIG_MACH_MSM8974_G3_CN) || defined(CONFIG_MACH_MSM8974_G3_CA) || defined(CONFIG_MACH_MSM8974_G3_LRA))
 
 		if (!pattern_num || pattern_num == 35 || pattern_num == 36 || pattern_num == 1035)
 			set_kpdbl_pattern(pattern_num);
@@ -476,7 +476,7 @@ static ssize_t confirm_blink_pattern(struct device *dev, struct device_attribute
 {
 	int count = 0;
 
-	/*                                                          */
+	/* count = sprintf(buf,"%d %d\n", pattern_num,pattern_on ); */
 
 	return count;
 }
@@ -520,7 +520,7 @@ static ssize_t make_onoff_pattern(struct device *dev, struct device_attribute *a
 
 	ret = size;
 
-	/*                                                   */
+	/* printk("[RGB LED] make_onoff_rgb is %06x\n",rgb); */
 	make_onoff_led_pattern(onoff_rgb);
 
 	return ret;
@@ -563,11 +563,11 @@ int led_pattern_sysfs_register(void)
 EXPORT_SYMBOL_GPL(led_pattern_sysfs_register);
 #endif
 
-/* 
-                                                                          
-                                          
-  
-                                                                        
+/**
+ * led_classdev_unregister - unregisters a object of led_properties class.
+ * @led_cdev: the led device to unregister
+ *
+ * Unregisters a previously registered via led_classdev_register object.
  */
 void led_classdev_unregister(struct led_classdev *led_cdev)
 {
@@ -578,7 +578,7 @@ void led_classdev_unregister(struct led_classdev *led_cdev)
 	up_write(&led_cdev->trigger_lock);
 #endif
 
-	/*               */
+	/* Stop blinking */
 	led_brightness_set(led_cdev, LED_OFF);
 
 	device_unregister(led_cdev->dev);

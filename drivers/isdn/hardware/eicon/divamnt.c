@@ -52,7 +52,7 @@ extern void mntfunc_finit(void);
 extern int maint_read_write(void __user *buf, int count);
 
 /*
-                    
+ *  helper functions
  */
 static char *getrev(const char *revision)
 {
@@ -70,7 +70,7 @@ static char *getrev(const char *revision)
 }
 
 /*
-                                   
+ * kernel/user space copy functions
  */
 int diva_os_copy_to_user(void *os_handle, void __user *dst, const void *src,
 			 int length)
@@ -84,7 +84,7 @@ int diva_os_copy_from_user(void *os_handle, void *dst, const void __user *src,
 }
 
 /*
-           
+ * get time
  */
 void diva_os_get_time(dword *sec, dword *usec)
 {
@@ -113,7 +113,7 @@ void diva_os_get_time(dword *sec, dword *usec)
 }
 
 /*
-                         
+ * device node operations
  */
 static unsigned int maint_poll(struct file *file, poll_table *wait)
 {
@@ -132,8 +132,8 @@ static int maint_open(struct inode *ino, struct file *filep)
 	int ret;
 
 	mutex_lock(&maint_mutex);
-	/*                                     
-                  */
+	/* only one open is allowed, so we test
+	   it atomically */
 	if (test_and_set_bit(0, &opened))
 		ret = -EBUSY;
 	else {
@@ -151,7 +151,7 @@ static int maint_close(struct inode *ino, struct file *filep)
 		filep->private_data = NULL;
 	}
 
-	/*                   */
+	/* clear 'used' flag */
 	clear_bit(0, &opened);
 
 	return (0);
@@ -197,7 +197,7 @@ static int DIVA_INIT_FUNCTION divas_maint_register_chrdev(void)
 }
 
 /*
-                 
+ * wake up reader
  */
 void diva_maint_wakeup_read(void)
 {
@@ -205,7 +205,7 @@ void diva_maint_wakeup_read(void)
 }
 
 /*
-               
+ *  Driver Load
  */
 static int DIVA_INIT_FUNCTION maint_init(void)
 {
@@ -243,7 +243,7 @@ out:
 }
 
 /*
-                 
+**  Driver Unload
 */
 static void DIVA_EXIT_FUNCTION maint_exit(void)
 {

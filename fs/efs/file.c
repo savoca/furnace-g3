@@ -20,8 +20,8 @@ int efs_get_block(struct inode *inode, sector_t iblock,
 	if (iblock >= inode->i_blocks) {
 #ifdef DEBUG
 		/*
-                                                        
-   */
+		 * i have no idea why this happens as often as it does
+		 */
 		printk(KERN_WARNING "EFS: bmap(): block %d >= %ld (filesize %ld)\n",
 			block,
 			inode->i_blocks,
@@ -42,12 +42,12 @@ int efs_bmap(struct inode *inode, efs_block_t block) {
 		return 0;
 	}
 
-	/*                                               */
+	/* are we about to read past the end of a file ? */
 	if (!(block < inode->i_blocks)) {
 #ifdef DEBUG
 		/*
-                                                        
-   */
+		 * i have no idea why this happens as often as it does
+		 */
 		printk(KERN_WARNING "EFS: bmap(): block %d >= %ld (filesize %ld)\n",
 			block,
 			inode->i_blocks,

@@ -63,9 +63,9 @@ struct inode *jfs_iget(struct super_block *sb, unsigned long ino)
 		} else {
 			inode->i_op = &jfs_fast_symlink_inode_operations;
 			/*
-                                                    
-                                                   
-    */
+			 * The inline data should be null-terminated, but
+			 * don't let on-disk corruption crash the kernel
+			 */
 			JFS_IP(inode)->i_inline[inode->i_size] = '\0';
 		}
 	} else {
@@ -77,7 +77,7 @@ struct inode *jfs_iget(struct super_block *sb, unsigned long ino)
 }
 
 /*
-                                        
+ * Workhorse of both fsync & write_inode
  */
 int jfs_commit_inode(struct inode *inode, int wait)
 {
@@ -88,16 +88,16 @@ int jfs_commit_inode(struct inode *inode, int wait)
 	jfs_info("In jfs_commit_inode, inode = 0x%p", inode);
 
 	/*
-                                                             
-                                            
-  */
+	 * Don't commit if inode has been committed since last being
+	 * marked dirty, or if it has been deleted.
+	 */
 	if (inode->i_nlink == 0 || !test_cflag(COMMIT_Dirty, inode))
 		return 0;
 
 	if (isReadOnly(inode)) {
-		/*                                             
-                                            
-   */
+		/* kernel allows writes to devices on read-only
+		 * partitions and may think inode is dirty
+		 */
 		if (!special_file(inode->i_mode) && noisy) {
 			jfs_err("jfs_commit_inode(0x%p) called on "
 				   "read-only volume", inode);
@@ -111,8 +111,8 @@ int jfs_commit_inode(struct inode *inode, int wait)
 	mutex_lock(&JFS_IP(inode)->commit_mutex);
 
 	/*
-                                                
-  */
+	 * Retest inode state after taking commit_mutex
+	 */
 	if (inode->i_nlink && test_cflag(COMMIT_Dirty, inode))
 		rc = txCommit(tid, 1, &inode, wait ? COMMIT_SYNC : 0);
 
@@ -128,12 +128,12 @@ int jfs_write_inode(struct inode *inode, struct writeback_control *wbc)
 	if (test_cflag(COMMIT_Nolink, inode))
 		return 0;
 	/*
-                                                             
-                                                              
-                            
-  */
+	 * If COMMIT_DIRTY is not set, the inode isn't really dirty.
+	 * It has been committed since the last change, but was still
+	 * on the dirty inode list.
+	 */
 	 if (!test_cflag(COMMIT_Dirty, inode)) {
-		/*                                          */
+		/* Make sure committed changes hit the disk */
 		jfs_flush_journal(JFS_SBI(inode->i_sb)->log, wait);
 		return 0;
 	 }
@@ -161,8 +161,8 @@ void jfs_evict_inode(struct inode *inode)
 			diFree(inode);
 
 			/*
-                                               
-    */
+			 * Free the inode from the quota allocation.
+			 */
 			dquot_initialize(inode);
 			dquot_free_inode(inode);
 		}
@@ -179,9 +179,9 @@ void jfs_dirty_inode(struct inode *inode, int flags)
 
 	if (isReadOnly(inode)) {
 		if (!special_file(inode->i_mode) && noisy) {
-			/*                                             
-                                                
-    */
+			/* kernel allows writes to devices on read-only
+			 * partitions and may try to mark inode dirty
+			 */
 			jfs_err("jfs_dirty_inode called on read-only volume");
 			jfs_err("Is remount racy?");
 			noisy--;
@@ -203,8 +203,8 @@ int jfs_get_block(struct inode *ip, sector_t lblock,
 	s32 xlen = bh_result->b_size >> ip->i_blkbits;
 
 	/*
-                                  
-  */
+	 * Take appropriate lock on inode
+	 */
 	if (create)
 		IWRITE_LOCK(ip, RDWRLOCK_NORMAL);
 	else
@@ -216,22 +216,22 @@ int jfs_get_block(struct inode *ip, sector_t lblock,
 		if (xflag & XAD_NOTRECORDED) {
 			if (!create)
 				/*
-                                              
-                     
-     */
+				 * Allocated but not recorded, read treats
+				 * this as a hole
+				 */
 				goto unlock;
 #ifdef _JFS_4K
 			XADoffset(&xad, lblock64);
 			XADlength(&xad, xlen);
 			XADaddress(&xad, xaddr);
-#else				/*         */
+#else				/* _JFS_4K */
 			/*
-                                                       
-                                                     
-                                                   
-    */
+			 * As long as block size = 4K, this isn't a problem.
+			 * We should mark the whole page not ABNR, but how
+			 * will we know to mark the other blocks BH_New?
+			 */
 			BUG();
-#endif				/*         */
+#endif				/* _JFS_4K */
 			rc = extRecord(ip, &xad);
 			if (rc)
 				goto unlock;
@@ -246,8 +246,8 @@ int jfs_get_block(struct inode *ip, sector_t lblock,
 		goto unlock;
 
 	/*
-                        
-  */
+	 * Allocate a new block
+	 */
 #ifdef _JFS_4K
 	if ((rc = extHint(ip, lblock64 << ip->i_sb->s_blocksize_bits, &xad)))
 		goto unlock;
@@ -259,18 +259,18 @@ int jfs_get_block(struct inode *ip, sector_t lblock,
 	map_bh(bh_result, ip->i_sb, addressXAD(&xad));
 	bh_result->b_size = lengthXAD(&xad) << ip->i_blkbits;
 
-#else				/*         */
+#else				/* _JFS_4K */
 	/*
-                                                                    
-                                 
-  */
+	 * We need to do whatever it takes to keep all but the last buffers
+	 * in 4K pages - see jfs_write.c
+	 */
 	BUG();
-#endif				/*         */
+#endif				/* _JFS_4K */
 
       unlock:
 	/*
-                         
-  */
+	 * Release lock on inode
+	 */
 	if (create)
 		IWRITE_UNLOCK(ip);
 	else
@@ -333,9 +333,9 @@ static ssize_t jfs_direct_IO(int rw, struct kiocb *iocb,
 				 jfs_get_block);
 
 	/*
-                                                                
-                                                
-  */
+	 * In case of error extending write may have instantiated a few
+	 * blocks outside i_size. Trim these off again.
+	 */
 	if (unlikely((rw & WRITE) && ret < 0)) {
 		loff_t isize = i_size_read(inode);
 		loff_t end = offset + iov_length(iov, nr_segs);
@@ -359,8 +359,8 @@ const struct address_space_operations jfs_aops = {
 };
 
 /*
-                                                                        
-                                                       
+ * Guts of jfs_truncate.  Called with locks already held.  Can be called
+ * with directory for truncating directory index table.
  */
 void jfs_truncate_nolock(struct inode *ip, loff_t length)
 {
@@ -378,11 +378,11 @@ void jfs_truncate_nolock(struct inode *ip, loff_t length)
 		tid = txBegin(ip->i_sb, 0);
 
 		/*
-                                                     
-                                                      
-                                                   
-                            
-   */
+		 * The commit_mutex cannot be taken before txBegin.
+		 * txBegin may block and there is a chance the inode
+		 * could be marked dirty and need to be committed
+		 * before txBegin unblocks
+		 */
 		mutex_lock(&JFS_IP(ip)->commit_mutex);
 
 		newsize = xtTruncate(tid, ip, length,
@@ -399,7 +399,7 @@ void jfs_truncate_nolock(struct inode *ip, loff_t length)
 		txCommit(tid, 1, &ip, 0);
 		txEnd(tid);
 		mutex_unlock(&JFS_IP(ip)->commit_mutex);
-	} while (newsize > length);	/*                              */
+	} while (newsize > length);	/* Truncate isn't always atomic */
 }
 
 void jfs_truncate(struct inode *ip)

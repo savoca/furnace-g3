@@ -4,7 +4,7 @@
 #include <linux/kvm_host.h>
 
 /*
-          
+ * vlsapic
  */
 struct kvm_lapic{
 	struct kvm_vcpu *vcpu;

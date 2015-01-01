@@ -26,7 +26,7 @@
 #include <asm/unaligned.h>
 #include <mach/usb_bridge.h>
 
-/*                                   */
+/* polling interval for Interrupt ep */
 #define HS_INTERVAL		7
 #define FS_LS_INTERVAL		3
 
@@ -36,9 +36,9 @@
 #define SUSPENDED		BIT(0)
 
 enum ctrl_bridge_rx_state {
-	RX_IDLE, /*                      */
-	RX_WAIT, /*                                       */
-	RX_BUSY, /*                                    */
+	RX_IDLE, /* inturb is not queued */
+	RX_WAIT, /* inturb is queued and waiting for data */
+	RX_BUSY, /* inturb is completed. processing RX */
 };
 
 struct ctrl_bridge {
@@ -63,16 +63,16 @@ struct ctrl_bridge {
 
 	unsigned long		flags;
 
-	/*                                        */
+	/* input control lines (DSR, CTS, CD, RI) */
 	unsigned int		cbits_tohost;
 
-	/*                                 */
+	/* output control lines (DTR, RTS) */
 	unsigned int		cbits_tomdm;
 
 	spinlock_t lock;
 	enum ctrl_bridge_rx_state rx_state;
 
-	/*          */
+	/* counters */
 	unsigned int		snd_encap_cmd;
 	unsigned int		get_encap_res;
 	unsigned int		resp_avail;
@@ -134,7 +134,7 @@ int ctrl_bridge_set_cbits(unsigned int id, unsigned int cbits)
 
 	retval = ctrl_bridge_write(id, NULL, 0);
 
-	/*                                                  */
+	/* if DTR is high, update latest modem info to host */
 	if (brdg && (cbits & ACM_CTRL_DTR) && brdg->ops.send_cbits)
 		brdg->ops.send_cbits(brdg->ctx, dev->cbits_tohost);
 
@@ -176,28 +176,28 @@ static void resp_avail_cb(struct urb *urb)
 	struct bridge		*brdg = dev->brdg;
 	unsigned long		flags;
 
-	/*                     */
+	/*usb device disconnect*/
 	if (urb->dev->state == USB_STATE_NOTATTACHED)
 		return;
 
 	switch (urb->status) {
 	case 0:
-		/*       */
+		/*success*/
 		dev->get_encap_res++;
 		if (brdg && brdg->ops.send_pkt)
 			brdg->ops.send_pkt(brdg->ctx, urb->transfer_buffer,
 				urb->actual_length);
 		break;
 
-	/*               */
+	/*do not resubmit*/
 	case -ESHUTDOWN:
 	case -ENOENT:
 	case -ECONNRESET:
-		/*        */
+		/* unplug */
 	case -EPROTO:
-		/*            */
+		/*babble error*/
 		resubmit_urb = 0;
-	/*        */
+	/*resubmit*/
 	case -EOVERFLOW:
 	default:
 		dev_dbg(&dev->intf->dev, "%s: non zero urb status = %d\n",
@@ -205,7 +205,7 @@ static void resp_avail_cb(struct urb *urb)
 	}
 
 	if (resubmit_urb) {
-		/*                                              */
+		/*re- submit int urb to check response available*/
 		ctrl_bridge_start_read(dev, GFP_ATOMIC);
 	} else {
 		spin_lock_irqsave(&dev->lock, flags);
@@ -226,7 +226,7 @@ static void notification_available_cb(struct urb *urb)
 	unsigned char			*data;
 	unsigned long			flags;
 
-	/*                     */
+	/*usb device disconnect*/
 	if (urb->dev->state == USB_STATE_NOTATTACHED)
 		return;
 
@@ -236,18 +236,18 @@ static void notification_available_cb(struct urb *urb)
 
 	switch (urb->status) {
 	case 0:
-		/*       */
+		/*success*/
 		break;
 	case -ESHUTDOWN:
 	case -ENOENT:
 	case -ECONNRESET:
 	case -EPROTO:
-		 /*        */
+		 /* unplug */
 		 return;
 	case -EPIPE:
 		dev_err(&dev->intf->dev,
 			"%s: stall on int endpoint\n", __func__);
-		/*                                  */
+		/* TBD : halt to be cleared in work */
 	case -EOVERFLOW:
 	default:
 		pr_debug_ratelimited("%s: non zero urb status = %d\n",
@@ -369,10 +369,10 @@ static void ctrl_write_callback(struct urb *urb)
 	kfree(urb->setup_packet);
 	usb_free_urb(urb);
 
-	/*                                       
-                                        
-                                            
-  */
+	/* if we are here after device disconnect
+	 * usb_unbind_interface() takes care of
+	 * residual pm_autopm_get_interface_* calls
+	 */
 	if (urb->dev->state != USB_STATE_NOTATTACHED)
 		usb_autopm_put_interface_async(dev->intf);
 }
@@ -417,7 +417,7 @@ int ctrl_bridge_write(unsigned int id, char *data, size_t size)
 		goto free_urb;
 	}
 
-	/*                                      */
+	/* CDC Send Encapsulated Request packet */
 	out_ctlreq->bRequestType = (USB_DIR_OUT | USB_TYPE_CLASS |
 				 USB_RECIP_INTERFACE);
 	if (!data && !size) {
@@ -445,9 +445,9 @@ int ctrl_bridge_write(unsigned int id, char *data, size_t size)
 			__func__, result);
 
 		/*
-                                    
-                                              
-    */
+		  * Revisit: if (result == -EPERM)
+		  * bridge_suspend(dev->intf, PMSG_SUSPEND);
+		  */
 
 		goto free_ctrlreq;
 	}
@@ -539,14 +539,14 @@ int ctrl_bridge_resume(unsigned int id)
 		return 0;
 
 	spin_lock_irqsave(&dev->lock, flags);
-	/*                               */
+	/* submit pending write requests */
 	while ((urb = usb_get_from_anchor(&dev->tx_deferred))) {
 		spin_unlock_irqrestore(&dev->lock, flags);
 		/*
-                                            
-                                                  
-                                                
-   */
+		 * usb_get_from_anchor() does not drop the
+		 * ref count incremented by the usb_anchro_urb()
+		 * called in Tx submission path. Let us do it.
+		 */
 		usb_put_urb(urb);
 		usb_anchor_urb(urb, &dev->tx_submitted);
 		ret = usb_submit_urb(urb, GFP_ATOMIC);
@@ -699,7 +699,7 @@ ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
 		int_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
 	dev->intf = ifc;
 
-	/*                             */
+	/*use max pkt size from ep desc*/
 	ep = &dev->intf->cur_altsetting->endpoint[0].desc;
 
 	dev->inturb = usb_alloc_urb(0, GFP_KERNEL);
@@ -798,9 +798,9 @@ void ctrl_bridge_disconnect(unsigned int id)
 
 	dev_dbg(&dev->intf->dev, "%s:\n", __func__);
 
-	/*                                                 
-                              
-  */
+	/*set device name to none to get correct channel id
+	 * at the time of bridge open
+	 */
 	dev->name = "none";
 
 	platform_device_unregister(dev->pdev);
@@ -834,7 +834,7 @@ int ctrl_bridge_init(void)
 			goto error;
 		}
 
-		/*                                       */
+		/*transport name will be set during probe*/
 		dev->name = "none";
 
 		spin_lock_init(&dev->lock);

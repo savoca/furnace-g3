@@ -1,8 +1,8 @@
 /*
-                                                       
-  
-                                                      
-  
+ * DB1000/DB1500/DB1100 ASoC audio fabric support code.
+ *
+ * (c) 2011 Manuel Lauss <manuel.lauss@googlemail.com>
+ *
  */
 
 #include <linux/module.h>

@@ -108,7 +108,7 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		struct snd_soc_dai *dai)
 {
 	u32 channel_allocation = 0;
-	u32 level_shift  = 0; /*     */
+	u32 level_shift  = 0; /* 0dB */
 	bool down_mix = 0;
 	u32 num_channels = params_channels(params);
 	int rv = 0;
@@ -133,19 +133,19 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		channel_allocation  = 0;
 		break;
 	case 3:
-		channel_allocation  = 0x02;//                   
+		channel_allocation  = 0x02;//default to FL/FR/FC
 		break;
 	case 4:
-		channel_allocation  = 0x06;//                      
+		channel_allocation  = 0x06;//default to FL/FR/FC/RC
 		break;
 	case 5:
-		channel_allocation  = 0x0A;//                         
+		channel_allocation  = 0x0A;//default to FL/FR/FC/RR/RL
 		break;
 	case 6:
 		channel_allocation  = 0x0B;
 		break;
 	case 7:
-		channel_allocation  = 0x12;//                                 
+		channel_allocation  = 0x12;//default to FL/FR/FC/RL/RR/RRC/RLC
 		break;
 	case 8:
 		channel_allocation  = 0x13;

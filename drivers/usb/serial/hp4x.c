@@ -21,7 +21,7 @@
 #include <linux/usb/serial.h>
 
 /*
-                      
+ * Version Information
  */
 #define DRIVER_VERSION "v1.00"
 #define DRIVER_DESC "HP4x (48/49) Generic Serial driver"
@@ -31,7 +31,7 @@
 
 static const struct usb_device_id id_table[] = {
 	{ USB_DEVICE(HP_VENDOR_ID, HP49GP_PRODUCT_ID) },
-	{ }					/*                   */
+	{ }					/* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE(usb, id_table);

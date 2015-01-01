@@ -16,9 +16,9 @@
 #include <asm/spitfire.h>
 #include <asm/perfctr.h>
 
-/*                                                             
-                                                                  
-                            
+/* This code is shared between various users of the performance
+ * counters.  Users will be oprofile, pseudo-NMI watchdog, and the
+ * perf_event support layer.
  */
 
 #define PCR_SUN4U_ENABLE	(PCR_PIC_PRIV | PCR_STRACE | PCR_UTRACE)
@@ -30,12 +30,12 @@
 u64 pcr_enable;
 unsigned int picl_shift;
 
-/*                                                             
-                                                           
-                                                              
-  
-                                                               
-                         
+/* Performance counter interrupts run unmasked at PIL level 15.
+ * Therefore we can't do things like wakeups and other work
+ * that expects IRQ disabling to be adhered to in locking etc.
+ *
+ * Therefore in such situations we defer the work by signalling
+ * a lower level cpu IRQ.
  */
 void __irq_entry deferred_pcr_work_irq(int irq, struct pt_regs *regs)
 {
@@ -160,11 +160,11 @@ int __init pcr_arch_init(void)
 		break;
 
 	case spitfire:
-		/*                                               
-                                                       
-                              
-   */
-		/*             */
+		/* UltraSPARC-I/II and derivatives lack a profile
+		 * counter overflow interrupt so we can't make use of
+		 * their hardware currently.
+		 */
+		/* fallthrough */
 	default:
 		err = -ENODEV;
 		goto out_unregister;

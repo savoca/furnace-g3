@@ -21,7 +21,7 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *	http://www.gnu.org/copyleft/gpl.html
  */
-/*                                                                            */
+/******************************************************************************/
 
 #ifndef _CRYPTO_KFIPS_H
 #define _CRYPTO_KFIPS_H
@@ -58,44 +58,44 @@
 #error unsupported CPU architecture
 #endif
 
-/*                                */
+/* individual operation structure */
 typedef struct {
-	/*                                        */
+	/* kernel-userland synchronization fields */
 	uint32_t request_valid;
 	uint32_t response_valid;
-	/*                                       */
+	/* two keys for XTS, one for ECB and CBC */
 	uint8_t key[2 * KFIPS_AES_MAX_KEY_SIZE];
-	/*                       */
+	/* initialization vector */
 	uint8_t iv[KFIPS_AES_BLOCK_SIZE];
-	/*                         */
+	/* data to encrypt/decrypt */
 	uint8_t buf[KFIPS_BUFFER_SIZE];
-	/*                */
+	/* length of data */
 	int len;
-	/*                 */
+	/* operation flags */
 	uint32_t flags;
 #define KFIPS_FLAGS_DECRYPT 0x01
 #define KFIPS_FLAGS_ENCRYPT 0x02
 #define KFIPS_FLAGS_ECB 0x04
 #define KFIPS_FLAGS_CBC 0x08
 #define KFIPS_FLAGS_XTS 0x10
-	/*                     */
+	/* key length in bytes */
 	uint32_t keylen;
-	/*                 */
+	/* context pointer */
 	void *pointer;
 } kfips_msg_t;
 
-/*                 */
+/* operation ring. */
 #define KFIPS_RING_INDEX_BITS 3
 #define KFIPS_RING_ENTRIES (1 << KFIPS_RING_INDEX_BITS)
 #define KFIPS_RING_INDEX_MASK (KFIPS_RING_ENTRIES - 1)
 typedef struct {
-	/*                   */
+	/* operation buffers */
 	kfips_msg_t msg[1 << KFIPS_RING_INDEX_BITS];
-	/*                      */
+	/* request insert index */
 	int reqins;
-	/*                       */
+	/* response remove index */
 	int rsprem;
-	/*                          */
+	/* request processing index */
 	int next;
 } kfips_queue_t;
 
@@ -165,4 +165,4 @@ static inline void kfips_queue_putrsp(kfips_queue_t *q, kfips_msg_t *m)
 }
 #endif
 
-#endif /*                 */
+#endif /* _CRYPTO_KFIPS_H */

@@ -46,12 +46,12 @@
 
 static int ipv6_dev_ac_dec(struct net_device *dev, const struct in6_addr *addr);
 
-/*                                      */
+/* Big ac list lock for all the sockets */
 static DEFINE_RWLOCK(ipv6_sk_ac_lock);
 
 
 /*
-                               
+ *	socket join an anycast group
  */
 
 int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
@@ -89,7 +89,7 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
 			err = -EADDRNOTAVAIL;
 			goto error;
 		} else {
-			/*                                              */
+			/* router, no matching interface: just pick one */
 			dev = dev_get_by_flags_rcu(net, IFF_UP,
 						   IFF_UP | IFF_LOOPBACK);
 		}
@@ -109,16 +109,16 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
 			err = -EADDRNOTAVAIL;
 		goto error;
 	}
-	/*                                                  */
+	/* reset ishost, now that we have a specific device */
 	ishost = !idev->cnf.forwarding;
 
 	pac->acl_ifindex = dev->ifindex;
 
-	/*    
-                                                            
-                                                               
-                                                         
-  */
+	/* XXX
+	 * For hosts, allow link-local or matching prefix anycasts.
+	 * This obviates the need for propagating anycast routes while
+	 * still allowing some non-router anycast participation.
+	 */
 	if (!ipv6_chk_prefix(addr, dev)) {
 		if (ishost)
 			err = -EADDRNOTAVAIL;
@@ -143,7 +143,7 @@ error:
 }
 
 /*
-                                
+ *	socket leave an anycast group
  */
 int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
 {
@@ -221,7 +221,7 @@ static void aca_put(struct ifacaddr6 *ac)
 }
 
 /*
-                                              
+ *	device anycast group inc (add if not found)
  */
 int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
 {
@@ -250,8 +250,8 @@ int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
 	}
 
 	/*
-                                
-  */
+	 *	not found: create a new one.
+	 */
 
 	aca = kzalloc(sizeof(struct ifacaddr6), GFP_ATOMIC);
 
@@ -271,7 +271,7 @@ int ipv6_dev_ac_inc(struct net_device *dev, const struct in6_addr *addr)
 	aca->aca_idev = idev;
 	aca->aca_rt = rt;
 	aca->aca_users = 1;
-	/*                                           */
+	/* aca_tstamp should be updated upon changes */
 	aca->aca_cstamp = aca->aca_tstamp = jiffies;
 	atomic_set(&aca->aca_refcnt, 2);
 	spin_lock_init(&aca->aca_lock);
@@ -293,7 +293,7 @@ out:
 }
 
 /*
-                                 
+ *	device anycast group decrement
  */
 int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr)
 {
@@ -328,7 +328,7 @@ int __ipv6_dev_ac_dec(struct inet6_dev *idev, const struct in6_addr *addr)
 	return 0;
 }
 
-/*                             */
+/* called with rcu_read_lock() */
 static int ipv6_dev_ac_dec(struct net_device *dev, const struct in6_addr *addr)
 {
 	struct inet6_dev *idev = __in6_dev_get(dev);
@@ -339,8 +339,8 @@ static int ipv6_dev_ac_dec(struct net_device *dev, const struct in6_addr *addr)
 }
 
 /*
-                                                  
-                              
+ *	check if the interface has this anycast address
+ *	called with rcu_read_lock()
  */
 static int ipv6_chk_acast_dev(struct net_device *dev, const struct in6_addr *addr)
 {
@@ -360,7 +360,7 @@ static int ipv6_chk_acast_dev(struct net_device *dev, const struct in6_addr *add
 }
 
 /*
-                                                                        
+ *	check if given interface (or any, if dev==0) has this anycast address
  */
 int ipv6_chk_acast_addr(struct net *net, struct net_device *dev,
 			const struct in6_addr *addr)

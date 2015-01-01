@@ -68,10 +68,10 @@ static const struct proto_ops rose_proto_ops;
 ax25_address rose_callsign;
 
 /*
-                                                                      
-                                                                          
-                                                                            
-                                         
+ * ROSE network devices are virtual network devices encapsulating ROSE
+ * frames into AX.25 which will be sent through an AX.25 device, so form a
+ * special "super class" of normal net devices; split their locks off into a
+ * separate class since they always nest.
  */
 static struct lock_class_key rose_netdev_xmit_lock_key;
 static struct lock_class_key rose_netdev_addr_lock_key;
@@ -90,7 +90,7 @@ static void rose_set_lockdep_key(struct net_device *dev)
 }
 
 /*
-                                    
+ *	Convert a ROSE address into text.
  */
 char *rose2asc(char *buf, const rose_address *addr)
 {
@@ -110,7 +110,7 @@ char *rose2asc(char *buf, const rose_address *addr)
 }
 
 /*
-                                          
+ *	Compare two ROSE addresses, 0 == equal.
  */
 int rosecmp(rose_address *addr1, rose_address *addr2)
 {
@@ -124,7 +124,7 @@ int rosecmp(rose_address *addr1, rose_address *addr2)
 }
 
 /*
-                                                               
+ *	Compare two ROSE addresses for only mask digits, 0 == equal.
  */
 int rosecmpm(rose_address *addr1, rose_address *addr2, unsigned short mask)
 {
@@ -149,7 +149,7 @@ int rosecmpm(rose_address *addr1, rose_address *addr2, unsigned short mask)
 }
 
 /*
-                                                  
+ *	Socket removal during an interrupt is now safe.
  */
 static void rose_remove_socket(struct sock *sk)
 {
@@ -159,8 +159,8 @@ static void rose_remove_socket(struct sock *sk)
 }
 
 /*
-                                                                
-                        
+ *	Kill all bound sockets on a broken link layer connection to a
+ *	particular neighbour.
  */
 void rose_kill_by_neigh(struct rose_neigh *neigh)
 {
@@ -181,7 +181,7 @@ void rose_kill_by_neigh(struct rose_neigh *neigh)
 }
 
 /*
-                                              
+ *	Kill all bound sockets on a dropped device.
  */
 static void rose_kill_by_device(struct net_device *dev)
 {
@@ -202,7 +202,7 @@ static void rose_kill_by_device(struct net_device *dev)
 }
 
 /*
-                                
+ *	Handle device status changes.
  */
 static int rose_device_event(struct notifier_block *this, unsigned long event,
 	void *ptr)
@@ -229,7 +229,7 @@ static int rose_device_event(struct notifier_block *this, unsigned long event,
 }
 
 /*
-                                          
+ *	Add a socket to the bound sockets list.
  */
 static void rose_insert_socket(struct sock *sk)
 {
@@ -240,8 +240,8 @@ static void rose_insert_socket(struct sock *sk)
 }
 
 /*
-                                                              
-            
+ *	Find a socket that wants to accept the Call Request we just
+ *	received.
  */
 static struct sock *rose_find_listener(rose_address *addr, ax25_address *call)
 {
@@ -273,7 +273,7 @@ found:
 }
 
 /*
-                                                        
+ *	Find a connected ROSE socket given my LCI and device.
  */
 struct sock *rose_find_socket(unsigned int lci, struct rose_neigh *neigh)
 {
@@ -294,7 +294,7 @@ found:
 }
 
 /*
-                                        
+ *	Find a unique LCI for a given device.
  */
 unsigned int rose_new_lci(struct rose_neigh *neigh)
 {
@@ -314,12 +314,12 @@ unsigned int rose_new_lci(struct rose_neigh *neigh)
 }
 
 /*
-                    
+ *	Deferred destroy.
  */
 void rose_destroy_socket(struct sock *);
 
 /*
-                              
+ *	Handler for deferred kills.
  */
 static void rose_destroy_timer(unsigned long data)
 {
@@ -327,10 +327,10 @@ static void rose_destroy_timer(unsigned long data)
 }
 
 /*
-                                                                        
-                                                                      
-                                                                       
-                                               
+ *	This is called from user mode and the timers. Thus it protects itself
+ *	against interrupt users but doesn't worry about being called during
+ *	work.  Once it is removed from the queue no interrupt or bottom half
+ *	will touch it and we are (fairly 8-) ) safe.
  */
 void rose_destroy_socket(struct sock *sk)
 {
@@ -341,11 +341,11 @@ void rose_destroy_socket(struct sock *sk)
 	rose_stop_idletimer(sk);
 	rose_stop_timer(sk);
 
-	rose_clear_queues(sk);		/*                  */
+	rose_clear_queues(sk);		/* Flush the queues */
 
 	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL) {
-		if (skb->sk != sk) {	/*                      */
-			/*                                       */
+		if (skb->sk != sk) {	/* A pending connection */
+			/* Queue the unaccepted socket for death */
 			sock_set_flag(skb->sk, SOCK_DEAD);
 			rose_start_heartbeat(skb->sk);
 			rose_sk(skb->sk)->state = ROSE_STATE_0;
@@ -355,7 +355,7 @@ void rose_destroy_socket(struct sock *sk)
 	}
 
 	if (sk_has_allocations(sk)) {
-		/*                            */
+		/* Defer: outstanding buffers */
 		setup_timer(&sk->sk_timer, rose_destroy_timer,
 				(unsigned long)sk);
 		sk->sk_timer.expires  = jiffies + 10 * HZ;
@@ -365,8 +365,8 @@ void rose_destroy_socket(struct sock *sk)
 }
 
 /*
-                                                                    
-                      
+ *	Handling for system calls applied via the various interfaces to a
+ *	ROSE socket object.
  */
 
 static int rose_setsockopt(struct socket *sock, int level, int optname,
@@ -739,14 +739,14 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
 	if ((unsigned int) addr->srose_ndigis > ROSE_MAX_DIGIS)
 		return -EINVAL;
 
-	/*                                                             */
+	/* Source + Destination digis should not exceed ROSE_MAX_DIGIS */
 	if ((rose->source_ndigis + addr->srose_ndigis) > ROSE_MAX_DIGIS)
 		return -EINVAL;
 
 	lock_sock(sk);
 
 	if (sk->sk_state == TCP_ESTABLISHED && sock->state == SS_CONNECTING) {
-		/*                                              */
+		/* Connect completed during a ERESTARTSYS event */
 		sock->state = SS_CONNECTED;
 		goto out_release;
 	}
@@ -758,7 +758,7 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
 	}
 
 	if (sk->sk_state == TCP_ESTABLISHED) {
-		/*                                    */
+		/* No reconnect on a seqpacket socket */
 		err = -EISCONN;
 		goto out_release;
 	}
@@ -779,7 +779,7 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
 		goto out_release;
 	}
 
-	if (sock_flag(sk, SOCK_ZAPPED)) {	/*                                                           */
+	if (sock_flag(sk, SOCK_ZAPPED)) {	/* Must bind first - autobinding in this may or may not work */
 		sock_reset_flag(sk, SOCK_ZAPPED);
 
 		if ((dev = rose_dev_first()) == NULL) {
@@ -798,7 +798,7 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
 		rose->device      = dev;
 		ax25_uid_put(user);
 
-		rose_insert_socket(sk);		/*                 */
+		rose_insert_socket(sk);		/* Finish the bind */
 	}
 	rose->dest_addr   = addr->srose_addr;
 	rose->dest_call   = addr->srose_call;
@@ -815,7 +815,7 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
 		}
 	}
 
-	/*                                                           */
+	/* Move to connecting socket, start sending Connect Requests */
 	sock->state   = SS_CONNECTING;
 	sk->sk_state     = TCP_SYN_SENT;
 
@@ -827,16 +827,16 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
 	rose_start_heartbeat(sk);
 	rose_start_t1timer(sk);
 
-	/*              */
+	/* Now the loop */
 	if (sk->sk_state != TCP_ESTABLISHED && (flags & O_NONBLOCK)) {
 		err = -EINPROGRESS;
 		goto out_release;
 	}
 
 	/*
-                                                                    
-           
-  */
+	 * A Connect Ack with Choke or timeout or failed routing will go to
+	 * closed.
+	 */
 	if (sk->sk_state == TCP_SYN_SENT) {
 		DEFINE_WAIT(wait);
 
@@ -862,7 +862,7 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
 
 	if (sk->sk_state != TCP_ESTABLISHED) {
 		sock->state = SS_UNCONNECTED;
-		err = sock_error(sk);	/*                          */
+		err = sock_error(sk);	/* Always set at this point */
 		goto out_release;
 	}
 
@@ -897,9 +897,9 @@ static int rose_accept(struct socket *sock, struct socket *newsock, int flags)
 	}
 
 	/*
-                                                             
-                                 
-  */
+	 *	The write queue this time is holding sockets ready to use
+	 *	hooked into the SABM we saved
+	 */
 	for (;;) {
 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
 
@@ -927,7 +927,7 @@ static int rose_accept(struct socket *sock, struct socket *newsock, int flags)
 	newsk = skb->sk;
 	sock_graft(newsk, newsock);
 
-	/*                              */
+	/* Now attach up the new socket */
 	skb->sk = NULL;
 	kfree_skb(skb);
 	sk->sk_ack_backlog--;
@@ -977,11 +977,11 @@ int rose_rx_call_request(struct sk_buff *skb, struct net_device *dev, struct ros
 	struct rose_facilities_struct facilities;
 	int n;
 
-	skb->sk = NULL;		/*                                      */
+	skb->sk = NULL;		/* Initially we don't know who it's for */
 
 	/*
-                                            
-  */
+	 *	skb->data points to the rose frame start
+	 */
 	memset(&facilities, 0x00, sizeof(struct rose_facilities_struct));
 
 	if (!rose_parse_facilities(skb->data + ROSE_CALL_REQ_FACILITIES_OFF,
@@ -994,8 +994,8 @@ int rose_rx_call_request(struct sk_buff *skb, struct net_device *dev, struct ros
 	sk = rose_find_listener(&facilities.source_addr, &facilities.source_call);
 
 	/*
-                                     
-  */
+	 * We can't accept the Call Request.
+	 */
 	if (sk == NULL || sk_acceptq_is_full(sk) ||
 	    (make = rose_make_new(sk)) == NULL) {
 		rose_transmit_clear_request(neigh, lci, ROSE_NETWORK_CONGESTION, 120);
@@ -1106,8 +1106,8 @@ static int rose_sendmsg(struct kiocb *iocb, struct socket *sock,
 			srose.srose_digis[n] = rose->dest_digis[n];
 	}
 
-	/*                */
-	/*                              */
+	/* Build a packet */
+	/* Sanity check the packet size */
 	if (len > 65535)
 		return -EMSGSIZE;
 
@@ -1119,8 +1119,8 @@ static int rose_sendmsg(struct kiocb *iocb, struct socket *sock,
 	skb_reserve(skb, AX25_BPQ_HEADER_LEN + AX25_MAX_HEADER_LEN + ROSE_MIN_LEN);
 
 	/*
-                           
-  */
+	 *	Put the data on the end
+	 */
 
 	skb_reset_transport_header(skb);
 	skb_put(skb, len);
@@ -1132,20 +1132,20 @@ static int rose_sendmsg(struct kiocb *iocb, struct socket *sock,
 	}
 
 	/*
-                                                             
-                                                            
-  */
+	 *	If the Q BIT Include socket option is in force, the first
+	 *	byte of the user data is the logical value of the Q Bit.
+	 */
 	if (rose->qbitincl) {
 		qbit = skb->data[0];
 		skb_pull(skb, 1);
 	}
 
 	/*
-                             
-  */
+	 *	Push down the ROSE header
+	 */
 	asmptr = skb_push(skb, ROSE_MIN_LEN);
 
-	/*                             */
+	/* Build a ROSE Network header */
 	asmptr[0] = ((rose->lci >> 8) & 0x0F) | ROSE_GFI;
 	asmptr[1] = (rose->lci >> 0) & 0xFF;
 	asmptr[2] = ROSE_DATA;
@@ -1166,7 +1166,7 @@ static int rose_sendmsg(struct kiocb *iocb, struct socket *sock,
 		int frontlen;
 		int lg;
 
-		/*                           */
+		/* Save a copy of the Header */
 		skb_copy_from_linear_data(skb, header, ROSE_MIN_LEN);
 		skb_pull(skb, ROSE_MIN_LEN);
 
@@ -1186,27 +1186,27 @@ static int rose_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 			lg = (ROSE_PACLEN > skb->len) ? skb->len : ROSE_PACLEN;
 
-			/*                    */
+			/* Copy the user data */
 			skb_copy_from_linear_data(skb, skb_put(skbn, lg), lg);
 			skb_pull(skb, lg);
 
-			/*                      */
+			/* Duplicate the Header */
 			skb_push(skbn, ROSE_MIN_LEN);
 			skb_copy_to_linear_data(skbn, header, ROSE_MIN_LEN);
 
 			if (skb->len > 0)
 				skbn->data[2] |= M_BIT;
 
-			skb_queue_tail(&sk->sk_write_queue, skbn); /*                       */
+			skb_queue_tail(&sk->sk_write_queue, skbn); /* Throw it on the queue */
 		}
 
 		skb->free = 1;
 		kfree_skb(skb);
 	} else {
-		skb_queue_tail(&sk->sk_write_queue, skb);		/*                       */
+		skb_queue_tail(&sk->sk_write_queue, skb);		/* Throw it on the queue */
 	}
 #else
-	skb_queue_tail(&sk->sk_write_queue, skb);	/*                         */
+	skb_queue_tail(&sk->sk_write_queue, skb);	/* Shove it onto the queue */
 #endif
 
 	rose_kick(sk);
@@ -1227,13 +1227,13 @@ static int rose_recvmsg(struct kiocb *iocb, struct socket *sock,
 	int n, er, qbit;
 
 	/*
-                                                                        
-                                          
-  */
+	 * This works for seqpacket too. The receiver has ordered the queue for
+	 * us! We do one quick check first though
+	 */
 	if (sk->sk_state != TCP_ESTABLISHED)
 		return -ENOTCONN;
 
-	/*                            */
+	/* Now we can treat all alike */
 	if ((skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT, flags & MSG_DONTWAIT, &er)) == NULL)
 		return er;
 
@@ -1300,7 +1300,7 @@ static int rose_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	case TIOCINQ: {
 		struct sk_buff *skb;
 		long amount = 0L;
-		/*                                                                          */
+		/* These two are safe on a single CPU system as only user tasks fiddle here */
 		if ((skb = skb_peek(&sk->sk_receive_queue)) != NULL)
 			amount = skb->len;
 		return put_user(amount, (unsigned int __user *) argp);
@@ -1473,7 +1473,7 @@ static const struct file_operations rose_info_fops = {
 	.llseek = seq_lseek,
 	.release = seq_release,
 };
-#endif	/*                */
+#endif	/* CONFIG_PROC_FS */
 
 static const struct net_proto_family rose_family_ops = {
 	.family		=	PF_ROSE,

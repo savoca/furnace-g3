@@ -1,5 +1,5 @@
 /*
-                                       
+ * Common values for serpent algorithms
  */
 
 #ifndef _CRYPTO_SERPENT_H

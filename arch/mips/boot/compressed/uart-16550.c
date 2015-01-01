@@ -1,5 +1,5 @@
 /*
-                                                             
+ * 16550 compatible uart based serial debug support for zboot
  */
 
 #include <linux/types.h>

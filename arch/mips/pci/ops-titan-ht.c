@@ -44,10 +44,10 @@ static int titan_ht_config_read_dword(struct pci_bus *bus, unsigned int devfn,
 		address |= 1;
 
 	/*
-                                                  
-                                             
-                      
-  */
+	 * RM9000 HT Errata: Issue back to back HT config
+	 * transcations. Issue a BIU sync before and
+	 * after the HT cycle
+	 */
 
 	*(volatile int32_t *) 0xfb0000f0 |= 0x2;
 

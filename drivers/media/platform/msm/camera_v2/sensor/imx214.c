@@ -11,7 +11,7 @@
  *
  */
 #include "msm_sensor.h"
-#include <mach/board_lge.h>		//                            
+#include <mach/board_lge.h>		//to use lge_get_board_revno()
 
 #define IMX214_SENSOR_NAME "imx214"
 DEFINE_MSM_MUTEX(imx214_mut);
@@ -28,49 +28,49 @@ DEFINE_MSM_MUTEX(imx214_mut);
 static struct msm_sensor_ctrl_t imx214_s_ctrl;
 
 static struct msm_sensor_power_setting imx214_power_setting[] = {
-	{  /*                                                */
+	{  /* Set GPIO_RESET to low to disable power on reset*/
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
 		.config_val = GPIO_OUT_LOW,
 		.delay = 1,
 	},
-	{	//          
+	{	// OIS_RESET
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_OIS_RESET,
 		.config_val = GPIO_OUT_LOW,
 		.delay = 1,
 	},
-	{										//    
+	{										//VDIG
 		.seq_type = SENSOR_VREG,
 		.seq_val = CAM_VDIG,
 		.config_val = 0,
 		.delay = 1,
 	},
-	{										//             
+	{										//VANA, GPIO 16
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_VANA,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 1,
 	},
-	{										//                    
+	{										//OIS_LDO_EN, GPIO 145
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_OIS_LDO_EN,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 1,
 	},
-	{										//                
+	{										//AF_MVDD, GPIO 30
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_AF_MVDD,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 1,
 	},
-	{										//                              
+	{										//VCM, GPIO 57=> REVA pm_gpio_4 
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_VAF,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 3,
 	},
-	{										//            
+	{										//VIO, GPIO 96
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_VIO,
 		.config_val = GPIO_OUT_HIGH,
@@ -88,7 +88,7 @@ static struct msm_sensor_power_setting imx214_power_setting[] = {
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 1,
 	},
-	{	//          
+	{	// OIS_RESET
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_OIS_RESET,
 		.config_val = GPIO_OUT_HIGH,
@@ -204,8 +204,8 @@ static void __exit imx214_exit_module(void)
 static struct msm_sensor_ctrl_t imx214_s_ctrl = {
 	.sensor_i2c_client = &imx214_sensor_i2c_client,
 /*                                                              */
-//                                                           
-//                                                              
+//	.power_setting_array.power_setting = imx214_power_setting,
+//	.power_setting_array.size = ARRAY_SIZE(imx214_power_setting),
 /*                                                              */
 	.msm_sensor_mutex = &imx214_mut,
 	.sensor_v4l2_subdev_info = imx214_subdev_info,

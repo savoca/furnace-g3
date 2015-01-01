@@ -1,5 +1,5 @@
 /*
-                                             
+ * arch/arm/mach-ep93xx/include/mach/memory.h
  */
 
 #ifndef __ASM_ARCH_MEMORY_H

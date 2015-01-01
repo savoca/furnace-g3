@@ -22,9 +22,9 @@
 
 #if defined(CONFIG_FOOTBRIDGE_ADDIN)
 /*
-                                                          
-                                                        
-          
+ * If we may be using add-in footbridge mode, then we must
+ * use the out-of-line translation that makes use of the
+ * PCI BAR
  */
 #ifndef __ASSEMBLY__
 extern unsigned long __virt_to_bus(unsigned long);
@@ -38,9 +38,9 @@ extern unsigned long __bus_to_pfn(unsigned long);
 #elif defined(CONFIG_FOOTBRIDGE_HOST)
 
 /*
-                                                                       
-                                                                       
-                              
+ * The footbridge is programmed to expose the system RAM at 0xe0000000.
+ * The requirement is that the RAM isn't placed at bus address 0, which
+ * would clash with VGA cards.
  */
 #define BUS_OFFSET		0xe0000000
 #define __virt_to_bus(x)	((x) + (BUS_OFFSET - PAGE_OFFSET))
@@ -55,12 +55,12 @@ extern unsigned long __bus_to_pfn(unsigned long);
 #endif
 
 /*
-                       
+ * Cache flushing area.
  */
 #define FLUSH_BASE		0xf9000000
 
 /*
-                        
+ * Physical DRAM offset.
  */
 #define PLAT_PHYS_OFFSET		UL(0x00000000)
 

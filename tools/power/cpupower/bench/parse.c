@@ -31,14 +31,14 @@
 #include "parse.h"
 #include "config.h"
 
-/* 
-                                       
-  
-                                                         
-  
-                   
-                                                   
-  */
+/**
+ * converts priority string to priority
+ *
+ * @param str string that represents a scheduler priority
+ *
+ * @retval priority
+ * @retval SCHED_ERR when the priority doesn't exit
+ **/
 
 enum sched_prio string_to_prio(const char *str)
 {
@@ -52,14 +52,14 @@ enum sched_prio string_to_prio(const char *str)
 		return SCHED_ERR;
 }
 
-/* 
-                          
-  
-                                                              
-  
-                             
-                                              
-  */
+/**
+ * create and open logfile
+ *
+ * @param dir directory in which the logfile should be created
+ *
+ * @retval logfile on success
+ * @retval NULL when the file can't be created
+ **/
 
 FILE *prepare_output(const char *dirname)
 {
@@ -113,12 +113,12 @@ FILE *prepare_output(const char *dirname)
 	return output;
 }
 
-/* 
-                             
-  
-                                    
-                                                     
-  */
+/**
+ * returns the default config
+ *
+ * @retval default config on success
+ * @retval NULL when the output file can't be created
+ **/
 
 struct config *prepare_default_config()
 {
@@ -146,14 +146,14 @@ struct config *prepare_default_config()
 	return config;
 }
 
-/* 
-                                                          
-  
-                               
-  
-                     
-                       
-  */
+/**
+ * parses config file and returns the config to the caller
+ *
+ * @param path config file name
+ *
+ * @retval 1 on error
+ * @retval 0 on success
+ **/
 
 int prepare_config(const char *path, struct config *config)
 {

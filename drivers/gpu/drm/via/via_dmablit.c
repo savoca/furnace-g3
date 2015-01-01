@@ -28,10 +28,10 @@
 
 
 /*
-                           
-                                     
-                                                                                   
-                         
+ * Unmaps the DMA mappings.
+ * FIXME: Is this a NoOp on x86? Also
+ * FIXME: What happens if this one is called and a pending blit has previously done
+ * the same DMA mappings?
  */
 
 #include "drmP.h"
@@ -55,7 +55,7 @@ typedef struct _drm_via_descriptor {
 
 
 /*
-                       
+ * Unmap a DMA mapping.
  */
 
 
@@ -85,10 +85,10 @@ via_unmap_blit_from_device(struct pci_dev *pdev, drm_via_sg_info_t *vsg)
 }
 
 /*
-                                                      
-                                                                                            
-                                                                                                
-                                                                            
+ * If mode = 0, count how many descriptors are needed.
+ * If mode = 1, Map the DMA pages for the device, put together and map also the descriptors.
+ * Descriptors are run in reverse order by the hardware because we are not allowed to update the
+ * 'next' field without syncing calls when the descriptor is already mapped.
  */
 
 static void
@@ -162,9 +162,9 @@ via_map_blit_for_device(struct pci_dev *pdev,
 }
 
 /*
-                                                                            
-                                                                                   
-                                                
+ * Function that frees up all resources for a blit. It is usable even if the
+ * blit info has only been partially built as long as the status enum is consistent
+ * with the actual status of the used resources.
  */
 
 
@@ -202,7 +202,7 @@ via_free_sg_info(struct pci_dev *pdev, drm_via_sg_info_t *vsg)
 }
 
 /*
-                      
+ * Fire a blit engine.
  */
 
 static void
@@ -223,8 +223,8 @@ via_fire_dmablit(struct drm_device *dev, drm_via_sg_info_t *vsg, int engine)
 }
 
 /*
-                                                                                                   
-                                                                                
+ * Obtain a page pointer array and lock all pages into system memory. A segmentation violation will
+ * occur here if the calling user does not have access to the submitted address.
  */
 
 static int
@@ -258,9 +258,9 @@ via_lock_all_dma_pages(drm_via_sg_info_t *vsg,  drm_via_dmablit_t *xfer)
 }
 
 /*
-                                                                                                  
-                                                                                             
-                                                                     
+ * Allocate DMA capable memory for the blit descriptor chain, and an array that keeps track of the
+ * pages we allocate. We don't want to use kmalloc for the descriptor chain because it may be
+ * quite large for some blits, and pages don't need to be contingous.
  */
 
 static int
@@ -305,10 +305,10 @@ via_dmablit_engine_off(struct drm_device *dev, int engine)
 
 
 /*
-                                                                                      
-                                                                                             
-                                                                                                 
-                                                                            
+ * The dmablit part of the IRQ handler. Trying to do only reasonably fast things here.
+ * The rest, like unmapping and freeing memory for done blits is done in a separate workqueue
+ * task. Basically the task of the interrupt handler is to submit a new blit to the engine, while
+ * the workqueue task takes care of processing associated with the old blit.
  */
 
 void
@@ -346,8 +346,8 @@ via_dmablit_handler(struct drm_device *dev, int engine, int from_irq)
 		blitq->cur = cur;
 
 		/*
-                              
-   */
+		 * Clear transfer done flag.
+		 */
 
 		VIA_WRITE(VIA_PCI_DMA_CSR0 + engine*0x04,  VIA_DMA_CSR_TD);
 
@@ -358,8 +358,8 @@ via_dmablit_handler(struct drm_device *dev, int engine, int from_irq)
 	} else if (blitq->is_active && time_after_eq(jiffies, blitq->end)) {
 
 		/*
-                                     
-   */
+		 * Abort transfer after one second.
+		 */
 
 		via_abort_dmablit(dev, engine);
 		blitq->aborting = 1;
@@ -391,7 +391,7 @@ via_dmablit_handler(struct drm_device *dev, int engine, int from_irq)
 
 
 /*
-                                                                         
+ * Check whether this blit is still active, performing necessary locking.
  */
 
 static int
@@ -404,8 +404,8 @@ via_dmablit_active(drm_via_blitq_t *blitq, int engine, uint32_t handle, wait_que
 	spin_lock_irqsave(&blitq->blit_lock, irqsave);
 
 	/*
-                                 
-  */
+	 * Allow for handle wraparounds.
+	 */
 
 	active = ((blitq->done_blit_handle - handle) > (1 << 23)) &&
 		((blitq->cur_blit_handle - handle) <= (1 << 23));
@@ -423,7 +423,7 @@ via_dmablit_active(drm_via_blitq_t *blitq, int engine, uint32_t handle, wait_que
 }
 
 /*
-                                                                      
+ * Sync. Wait for at least three seconds for the blit to be performed.
  */
 
 static int
@@ -447,11 +447,11 @@ via_dmablit_sync(struct drm_device *dev, uint32_t handle, int engine)
 
 
 /*
-                                                                                        
-                                                                                   
-                                                                                
-                                                                                
-                                              
+ * A timer that regularly polls the blit engine in cases where we don't have interrupts:
+ * a) Broken hardware (typically those that don't have any video capture facility).
+ * b) Blit abort. The hardware doesn't send an interrupt when a blit is aborted.
+ * The timer and hardware IRQ's can and do work in parallel. If the hardware has
+ * irqs, it will shorten the latency somewhat.
  */
 
 
@@ -473,9 +473,9 @@ via_dmablit_timer(unsigned long data)
 		mod_timer(&blitq->poll_timer, jiffies + 1);
 
 	       /*
-                                                         
-                                                     
-  */
+		* Rerun handler to delete timer if engines are off, and
+		* to shorten abort latency. This is a little nasty.
+		*/
 
 	       via_dmablit_handler(dev, engine, 0);
 
@@ -486,9 +486,9 @@ via_dmablit_timer(unsigned long data)
 
 
 /*
-                                                                      
-                                                                   
-                                                            
+ * Workqueue task that frees data and mappings associated with a blit.
+ * Also wakes up waiting processes. Each of these tasks handles one
+ * blit engine only and may not be called on each interrupt.
  */
 
 
@@ -534,7 +534,7 @@ via_dmablit_workqueue(struct work_struct *work)
 
 
 /*
-                                                                         
+ * Init all blit engines. Currently we use two, but some hardware have 4.
  */
 
 
@@ -570,7 +570,7 @@ via_init_dmablit(struct drm_device *dev)
 }
 
 /*
-                                                          
+ * Build all info and do all mappings required for a blit.
  */
 
 
@@ -591,11 +591,11 @@ via_build_sg_info(struct drm_device *dev, drm_via_sg_info_t *vsg, drm_via_dmabli
 	}
 
 	/*
-                                                              
-                                                                     
-                                                         
-                                  
-  */
+	 * Below check is a driver limitation, not a hardware one. We
+	 * don't want to lock unused pages, and don't want to incoporate the
+	 * extra logic of avoiding them. Make sure there are no.
+	 * (Not a big limitation anyway.)
+	 */
 
 	if ((xfer->mem_stride - xfer->line_length) > 2*PAGE_SIZE) {
 		DRM_ERROR("Too large system memory stride. Stride: %d, "
@@ -612,9 +612,9 @@ via_build_sg_info(struct drm_device *dev, drm_via_sg_info_t *vsg, drm_via_dmabli
 	}
 
 	/*
-                                                                      
-                      
-  */
+	 * Don't lock an arbitrary large number of pages, since that causes a
+	 * DOS security hole.
+	 */
 
 	if (xfer->num_lines > 2048 || (xfer->num_lines*xfer->mem_stride > (2048*2048*4))) {
 		DRM_ERROR("Too large PCI DMA bitblt.\n");
@@ -622,9 +622,9 @@ via_build_sg_info(struct drm_device *dev, drm_via_sg_info_t *vsg, drm_via_dmabli
 	}
 
 	/*
-                                                                
-             
-  */
+	 * we allow a negative fb stride to allow flipping of images in
+	 * transfer.
+	 */
 
 	if (xfer->mem_stride < xfer->line_length ||
 		abs(xfer->fb_stride) < xfer->line_length) {
@@ -633,10 +633,10 @@ via_build_sg_info(struct drm_device *dev, drm_via_sg_info_t *vsg, drm_via_dmabli
 	}
 
 	/*
-                                                                                
-                                                                              
-                                                             
-  */
+	 * A hardware bug seems to be worked around if system memory addresses start on
+	 * 16 byte boundaries. This seems a bit restrictive however. VIA is contacted
+	 * about this. Meanwhile, impose the following restrictions:
+	 */
 
 #ifdef VIA_BUGFREE
 	if ((((unsigned long)xfer->mem_addr & 3) != ((unsigned long)xfer->fb_addr & 3)) ||
@@ -673,8 +673,8 @@ via_build_sg_info(struct drm_device *dev, drm_via_sg_info_t *vsg, drm_via_dmabli
 
 
 /*
-                                                                            
-                                                     
+ * Reserve one free slot in the blit queue. Will wait for one second for one
+ * to become available. Otherwise -EBUSY is returned.
  */
 
 static int
@@ -702,7 +702,7 @@ via_dmablit_grab_slot(drm_via_blitq_t *blitq, int engine)
 }
 
 /*
-                                                
+ * Hand back a free slot if we changed our mind.
  */
 
 static void
@@ -717,7 +717,7 @@ via_dmablit_release_slot(drm_via_blitq_t *blitq)
 }
 
 /*
-                                                      
+ * Grab a free slot. Build blit info and queue a blit.
  */
 
 
@@ -766,10 +766,10 @@ via_dmablit(struct drm_device *dev, drm_via_dmablit_t *xfer)
 }
 
 /*
-                                                                                           
-                                                                                                
-                                                               
-                                                                                                    
+ * Sync on a previously submitted blit. Note that the X server use signals extensively, and
+ * that there is a very big probability that this IOCTL will be interrupted by a signal. In that
+ * case it returns with -EAGAIN for the signal to be delivered.
+ * The caller should then reissue the IOCTL. This is similar to what is being done for drmGetLock().
  */
 
 int
@@ -791,9 +791,9 @@ via_dma_blit_sync(struct drm_device *dev, void *data, struct drm_file *file_priv
 
 
 /*
-                                                                                                     
-                                                                                                   
-                                         
+ * Queue a blit and hand back a handle to be used for sync. This IOCTL may be interrupted by a signal
+ * while waiting for a free slot in the blit queue. In that case it returns with -EAGAIN and should
+ * be reissued. See the above IOCTL code.
  */
 
 int

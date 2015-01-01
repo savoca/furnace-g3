@@ -22,8 +22,8 @@
 #include "util.h"
 
 /*
-                                                                           
-                                                        
+ * Read cylinder group into cache. The memory space for ufs_cg_private_info
+ * structure is already allocated during ufs_read_super.
  */
 static void ufs_read_cylinder (struct super_block * sb,
 	unsigned cgno, unsigned bitmap_nr)
@@ -42,8 +42,8 @@ static void ufs_read_cylinder (struct super_block * sb,
 	UCPI_UBH(ucpi)->fragment = ufs_cgcmin(cgno);
 	UCPI_UBH(ucpi)->count = uspi->s_cgsize >> sb->s_blocksize_bits;
 	/*
-                                                                        
-  */
+	 * We have already the first fragment of cylinder group block in buffer
+	 */
 	UCPI_UBH(ucpi)->bh[0] = sbi->s_ucg[cgno];
 	for (i = 1; i < UCPI_UBH(ucpi)->count; i++)
 		if (!(UCPI_UBH(ucpi)->bh[i] = sb_bread(sb, UCPI_UBH(ucpi)->fragment + i)))
@@ -76,8 +76,8 @@ failed:
 }
 
 /*
-                                                           
-                                                                     
+ * Remove cylinder group from cache, doesn't release memory
+ * allocated for cylinder group (this is done at ufs_put_super only).
  */
 void ufs_put_cylinder (struct super_block * sb, unsigned bitmap_nr)
 {
@@ -102,9 +102,9 @@ void ufs_put_cylinder (struct super_block * sb, unsigned bitmap_nr)
 		return;
 	}
 	/*
-                                                         
-                                       
-  */
+	 * rotor is not so important data, so we put it to disk 
+	 * at the end of working with cylinder
+	 */
 	ucg->cg_rotor = cpu_to_fs32(sb, ucpi->c_rotor);
 	ucg->cg_frotor = cpu_to_fs32(sb, ucpi->c_frotor);
 	ucg->cg_irotor = cpu_to_fs32(sb, ucpi->c_irotor);
@@ -118,10 +118,10 @@ void ufs_put_cylinder (struct super_block * sb, unsigned bitmap_nr)
 }
 
 /*
-                                                         
-                                                                
-  
-                                          
+ * Find cylinder group in cache and return it as pointer.
+ * If cylinder group is not in cache, we will load it from disk.
+ *
+ * The cache is managed by LRU algorithm. 
  */
 struct ufs_cg_private_info * ufs_load_cylinder (
 	struct super_block * sb, unsigned cgno)
@@ -139,15 +139,15 @@ struct ufs_cg_private_info * ufs_load_cylinder (
 		return NULL;
 	}
 	/*
-                                                             
-  */
+	 * Cylinder group number cg it in cache and it was last used
+	 */
 	if (sbi->s_cgno[0] == cgno) {
 		UFSD("EXIT\n");
 		return sbi->s_ucpi[0];
 	}
 	/*
-                                                                     
-  */
+	 * Number of cylinder groups is not higher than UFS_MAX_GROUP_LOADED
+	 */
 	if (uspi->s_ncg <= UFS_MAX_GROUP_LOADED) {
 		if (sbi->s_cgno[cgno] != UFS_CGNO_EMPTY) {
 			if (sbi->s_cgno[cgno] != cgno) {
@@ -166,9 +166,9 @@ struct ufs_cg_private_info * ufs_load_cylinder (
 		}
 	}
 	/*
-                                                                   
-                                      
-  */
+	 * Cylinder group number cg is in cache but it was not last used, 
+	 * we will move to the first position
+	 */
 	for (i = 0; i < sbi->s_cg_loaded && sbi->s_cgno[i] != cgno; i++);
 	if (i < sbi->s_cg_loaded && sbi->s_cgno[i] == cgno) {
 		cg = sbi->s_cgno[i];
@@ -180,9 +180,9 @@ struct ufs_cg_private_info * ufs_load_cylinder (
 		sbi->s_cgno[0] = cg;
 		sbi->s_ucpi[0] = ucpi;
 	/*
-                                                                       
-                                    
-  */
+	 * Cylinder group number cg is not in cache, we will read it from disk
+	 * and put it to the first position
+	 */
 	} else {
 		if (sbi->s_cg_loaded < UFS_MAX_GROUP_LOADED)
 			sbi->s_cg_loaded++;

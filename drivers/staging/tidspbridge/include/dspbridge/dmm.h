@@ -24,7 +24,7 @@
 
 struct dmm_object;
 
-/*                                     */
+/* DMM attributes used in dmm_create() */
 struct dmm_mgrattrs {
 	u32 reserved;
 };
@@ -32,10 +32,10 @@ struct dmm_mgrattrs {
 #define DMMPOOLSIZE      0x4000000
 
 /*
-                                    
-            
-                                                                 
-                                                         
+ *  ======== dmm_get_handle ========
+ *  Purpose:
+ *      Return the dynamic memory manager object for this device.
+ *      This is typically called from the client process.
  */
 
 extern int dmm_get_handle(void *hprocessor,
@@ -68,4 +68,4 @@ extern int dmm_create_tables(struct dmm_object *dmm_mgr,
 u32 dmm_mem_map_dump(struct dmm_object *dmm_mgr);
 #endif
 
-#endif /*      */
+#endif /* DMM_ */

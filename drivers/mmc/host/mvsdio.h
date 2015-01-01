@@ -10,7 +10,7 @@
 #define __MVSDIO_H
 
 /*
-              
+ * Clock rates
  */
 
 #define MVSD_CLOCKRATE_MAX			50000000
@@ -18,7 +18,7 @@
 
 
 /*
-                   
+ * Register offsets
  */
 
 #define MVSD_SYS_ADDR_LOW			0x000
@@ -68,7 +68,7 @@
 
 
 /*
-           
+ * MVSD_CMD
  */
 
 #define MVSD_CMD_RSP_NONE			(0 << 0)
@@ -85,7 +85,7 @@
 
 
 /*
-                     
+ * MVSD_AUTOCMD12_CMD
  */
 
 #define MVSD_AUTOCMD12_BUSY			(1 << 0)
@@ -93,7 +93,7 @@
 #define MVSD_AUTOCMD12_INDEX(x)			((x) << 8)
 
 /*
-                 
+ * MVSD_XFER_MODE
  */
 
 #define MVSD_XFER_MODE_WR_DATA_START		(1 << 0)
@@ -106,7 +106,7 @@
 
 
 /*
-                 
+ * MVSD_HOST_CTRL
  */
 
 #define MVSD_HOST_CTRL_PUSH_PULL_EN 		(1 << 0)
@@ -129,14 +129,14 @@
 
 
 /*
-                
+ * MVSD_SW_RESET
  */
 
 #define MVSD_SW_RESET_NOW			(1 << 8)
 
 
 /*
-                               
+ * Normal interrupt status bits
  */
 
 #define MVSD_NOR_CMD_DONE			(1 << 0)
@@ -156,7 +156,7 @@
 
 
 /*
-                    
+ * Error status bits
  */
 
 #define MVSD_ERR_CMD_TIMEOUT			(1 << 0)
@@ -176,7 +176,7 @@
 
 
 /*
-                          
+ * CMD12 error status bits
  */
 
 #define MVSD_AUTOCMD12_ERR_NOTEXE		(1 << 0)

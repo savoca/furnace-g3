@@ -2,7 +2,7 @@
 #define _IA64_MSI_DEF_H
 
 /*
-                             
+ * Shifts for APIC-based data
  */
 
 #define     MSI_DATA_VECTOR_SHIFT	0
@@ -22,7 +22,7 @@
 #define     MSI_DATA_TRIGGER_LEVEL	(1 << MSI_DATA_TRIGGER_SHIFT)
 
 /*
-                                               
+ * Shift/mask fields for APIC-based bus address
  */
 
 #define     MSI_ADDR_DEST_ID_SHIFT	4
@@ -39,4 +39,4 @@
 #define     MSI_ADDR_REDIRECTION_CPU	(0 << MSI_ADDR_REDIRECTION_SHIFT)
 #define     MSI_ADDR_REDIRECTION_LOWPRI	(1 << MSI_ADDR_REDIRECTION_SHIFT)
 
-#endif/*                 */
+#endif/* _IA64_MSI_DEF_H */

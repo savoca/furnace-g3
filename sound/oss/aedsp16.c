@@ -20,8 +20,8 @@
 
  */
 /*
-                                                                              
-                                 
+ * Include the main OSS Lite header file. It include all the os, OSS Lite, etc
+ * headers needed by this source.
  */
 #include <linux/delay.h>
 #include <linux/module.h>
@@ -246,11 +246,11 @@
  */
 
 
-#define VERSION "1.3"		/*                                      */
+#define VERSION "1.3"		/* Version of Audio Excel DSP 16 driver */
 
-#undef	AEDSP16_DEBUG 		/*                                           */
-#undef	AEDSP16_DEBUG_MORE 	/*                                           */
-#undef	AEDSP16_INFO 		/*                                           */
+#undef	AEDSP16_DEBUG 		/* Define this to 1 to enable debug code     */
+#undef	AEDSP16_DEBUG_MORE 	/* Define this to 1 to enable more debug     */
+#undef	AEDSP16_INFO 		/* Define this to 1 to enable info code      */
 
 #if defined(AEDSP16_DEBUG)
 # define DBG(x)  printk x
@@ -265,76 +265,76 @@
 #endif
 
 /*
-                   
+ * Misc definitions
  */
 #define TRUE	1
 #define FALSE	0
 
 /*
-                                                
+ * Region Size for request/check/release region.
  */
 #define IOBASE_REGION_SIZE	0x10
 
 /*
-                            
+ * Hardware related defaults
  */
-#define DEF_AEDSP16_IOB 0x220   /*                                      */
-#define DEF_AEDSP16_IRQ 7	/*                                      */
-#define DEF_AEDSP16_MRQ 0	/*                                      */
-#define DEF_AEDSP16_DMA 1	/*                                      */
+#define DEF_AEDSP16_IOB 0x220   /* 0x220(default) 0x240                 */
+#define DEF_AEDSP16_IRQ 7	/* 5 7(default) 9 10 11                 */
+#define DEF_AEDSP16_MRQ 0	/* 5 7 9 10 0(default), 0 means disable */
+#define DEF_AEDSP16_DMA 1	/* 0 1(default) 3                       */
 
 /*
-                                             
-                                                              
+ * Commands of AEDSP16's DSP (SBPRO+special).
+ * Some of them are COMMAND_xx, in the future they may change.
  */
-#define WRITE_MDIRQ_CFG   0x50	/*                                      */
+#define WRITE_MDIRQ_CFG   0x50	/* Set M&I&DRQ mask (the real config)   */
 #define COMMAND_52        0x52	/*                                      */
-#define READ_HARD_CFG     0x58	/*                                      */
+#define READ_HARD_CFG     0x58	/* Read Hardware Config (I/O base etc)  */
 #define COMMAND_5C        0x5c	/*                                      */
 #define COMMAND_60        0x60	/*                                      */
 #define COMMAND_66        0x66	/*                                      */
 #define COMMAND_6C        0x6c	/*                                      */
 #define COMMAND_6E        0x6e	/*                                      */
 #define COMMAND_88        0x88	/*                                      */
-#define DSP_INIT_MSS      0x8c	/*                                      */
+#define DSP_INIT_MSS      0x8c	/* Enable Microsoft Sound System mode   */
 #define COMMAND_C5        0xc5	/*                                      */
-#define GET_DSP_VERSION   0xe1	/*                                      */
+#define GET_DSP_VERSION   0xe1	/* Get DSP Version                      */
 #define GET_DSP_COPYRIGHT 0xe3	/* Get DSP Copyright                    */
 
 /*
-                                                                         
-                               
-                            
-                     
-                     
-                
-               
+ * Offsets of AEDSP16 DSP I/O ports. The offset is added to base I/O port
+ * to have the actual I/O port.
+ * Register permissions are:
+ * (wo) == Write Only
+ * (ro) == Read  Only
+ * (w-) == Write
+ * (r-) == Read
  */
-#define DSP_RESET    0x06	/*                                      */
-#define DSP_READ     0x0a	/*                                      */
-#define DSP_WRITE    0x0c	/*                                      */
-#define DSP_COMMAND  0x0c	/*                                      */
-#define DSP_STATUS   0x0c	/*                                      */
-#define DSP_DATAVAIL 0x0e	/*                                      */
+#define DSP_RESET    0x06	/* offset of DSP RESET             (wo) */
+#define DSP_READ     0x0a	/* offset of DSP READ              (ro) */
+#define DSP_WRITE    0x0c	/* offset of DSP WRITE             (w-) */
+#define DSP_COMMAND  0x0c	/* offset of DSP COMMAND           (w-) */
+#define DSP_STATUS   0x0c	/* offset of DSP STATUS            (r-) */
+#define DSP_DATAVAIL 0x0e	/* offset of DSP DATA AVAILABLE    (ro) */
 
 
-#define RETRY           10	/*                                      */
-#define STATUSRETRY   1000	/*                                      */
-#define HARDRETRY   500000	/*                                      */
+#define RETRY           10	/* Various retry values on I/O opera-   */
+#define STATUSRETRY   1000	/* tions. Sometimes we have to          */
+#define HARDRETRY   500000	/* wait for previous cmd to complete    */
 
 /*
-                                                                     
+ * Size of character arrays that store name and version of sound card
  */
-#define CARDNAMELEN	15	/*                                      */
-#define CARDVERLEN	10	/*                                     */
-#define CARDVERDIGITS	2	/*                                 */
+#define CARDNAMELEN	15	/* Size of the card's name in chars     */
+#define CARDVERLEN	10	/* Size of the card's version in chars	*/
+#define CARDVERDIGITS	2	/* Number of digits in the version	*/
 
 #if defined(CONFIG_SC6600)
 /*
-                                        
+ * Bitmapped flags of hard configuration
  */
 /*
-                                                 
+ * Decode macros (xl == low byte, xh = high byte)
  */
 #define IOBASE(xl)		((xl & 0x01)?0x240:0x220)
 #define JOY(xl)  		(xl & 0x02)
@@ -347,7 +347,7 @@
 #define CDROM(xh)		(xh & 0x20)
 #define CDROMADDR(xh)		(((xh & 0x1F) << 4) + 0x200)
 /*
-                
+ * Encode macros
  */
 #define BLDIOBASE(xl, val) {		\
 	xl &= ~0x01; 			\
@@ -398,29 +398,29 @@
 	xh &= 0x7F;			\
 	xh |= 0x40;			\
 	}
-#endif /*               */
+#endif /* CONFIG_SC6600 */
 
 /*
-                                                                            
-                  
+ * Bit mapped flags for calling aedsp16_init_board(), and saving the current
+ * emulation mode.
  */
 #define INIT_NONE   (0   )
 #define INIT_SBPRO  (1<<0)
 #define INIT_MSS    (1<<1)
 #define INIT_MPU401 (1<<2)
 
-static int      soft_cfg __initdata = 0;	/*                  */
-static int      soft_cfg_mss __initdata = 0;	/*                      */
-static int      ver[CARDVERDIGITS] __initdata = {0, 0};	/*         
-                               */
+static int      soft_cfg __initdata = 0;	/* bitmapped config */
+static int      soft_cfg_mss __initdata = 0;	/* bitmapped mss config */
+static int      ver[CARDVERDIGITS] __initdata = {0, 0};	/* DSP Ver:
+						   hi->ver[0] lo->ver[1] */
 
 #if defined(CONFIG_SC6600)
-static int	hard_cfg[2]     /*                                      */
+static int	hard_cfg[2]     /* lo<-hard_cfg[0] hi<-hard_cfg[1]      */
                      __initdata = { 0, 0};
-#endif /*               */
+#endif /* CONFIG_SC6600 */
 
 #if defined(CONFIG_SC6600)
-/*                            */
+/* Decoded hard configuration */
 struct	d_hcfg {
 	int iobase;
 	int joystick;
@@ -432,29 +432,29 @@ struct	d_hcfg {
 
 static struct d_hcfg decoded_hcfg __initdata = {0, };
 
-#endif /*               */
+#endif /* CONFIG_SC6600 */
 
-/*                                                 */
+/* orVals contain the values to be or'ed       				*/
 struct orVals {
-	int	val;		/*                                      */
-	int	or;		/*                                      */
+	int	val;		/* irq|mirq|dma                         */
+	int	or;		/* soft_cfg |= TheStruct.or             */
 };
 
-/*                                                                    */
+/* aedsp16_info contain the audio card configuration                  */
 struct aedsp16_info {
-	int base_io;            /*                                      */
-	int irq;                /*                                      */
-	int mpu_irq;            /*                                      */
-	int dma;                /*                                      */
-	int mss_base;           /*                                      */
-	int mpu_base;           /*                                      */
-	int init;               /*                                      */
+	int base_io;            /* base I/O address for accessing card  */
+	int irq;                /* irq value for DSP I/O                */
+	int mpu_irq;            /* irq for mpu401 interface I/O         */
+	int dma;                /* dma value for DSP I/O                */
+	int mss_base;           /* base I/O for Microsoft Sound System  */
+	int mpu_base;           /* base I/O for MPU-401 emulation       */
+	int init;               /* Initialization status of the card    */
 };
 
 /*
-                                                                   
+ * Magic values that the DSP will eat when configuring irq/mirq/dma
  */
-/*                                      */
+/* DSP IRQ conversion array             */
 static struct orVals orIRQ[] __initdata = {
 	{0x05, 0x28},
 	{0x07, 0x08},
@@ -464,7 +464,7 @@ static struct orVals orIRQ[] __initdata = {
 	{0x00, 0x00}
 };
 
-/*                                      */
+/* MPU-401 IRQ conversion array         */
 static struct orVals orMIRQ[] __initdata = {
 	{0x05, 0x04},
 	{0x07, 0x44},
@@ -473,7 +473,7 @@ static struct orVals orMIRQ[] __initdata = {
 	{0x00, 0x00}
 };
 
-/*                                      */
+/* DMA Channels conversion array        */
 static struct orVals orDMA[] __initdata = {
 	{0x00, 0x01},
 	{0x01, 0x02},
@@ -492,7 +492,7 @@ static struct aedsp16_info ae_config = {
 };
 
 /*
-                                           
+ * Buffers to store audio card informations
  */
 static char     DSPCopyright[CARDNAMELEN + 1] __initdata = {0, };
 static char     DSPVersion[CARDVERLEN + 1] __initdata = {0, };
@@ -507,8 +507,8 @@ static int __init aedsp16_wait_data(int port)
 	do {
 		  ret = inb(port + DSP_DATAVAIL);
 	/*
-                                               
-  */
+	 * Wait for data available (bit 7 of ret == 1)
+	 */
 	  } while (!(ret & 0x80) && loop--);
 
 	if (ret & 0x80) {
@@ -546,8 +546,8 @@ static int __init aedsp16_test_dsp(int port)
 static int __init aedsp16_dsp_reset(int port)
 {
 	/*
-             
-  */
+	 * Reset DSP
+	 */
 
 	DBG(("Reset DSP:\n"));
 
@@ -574,8 +574,8 @@ static int __init aedsp16_write(int port, int cmd)
 	do {
 		ret = inb(port + DSP_STATUS);
 		/*
-                                                   
-   */
+		 * DSP ready to receive data if bit 7 of ret == 0
+		 */
 		if (!(ret & 0x80)) {
 			outb(cmd, port + DSP_COMMAND);
 			DBG(("success.\n"));
@@ -607,7 +607,7 @@ static void __init aedsp16_hard_decode(void) {
 	DBG((" aedsp16_hard_decode: 0x%x, 0x%x\n", hard_cfg[0], hard_cfg[1]));
 
 /*
-                    
+ * Decode Cfg Bytes.
  */
 	decoded_hcfg.iobase	= IOBASE(hard_cfg[0]);
 	decoded_hcfg.joystick	= JOY(hard_cfg[0]);
@@ -622,20 +622,20 @@ static void __init aedsp16_hard_decode(void) {
 #endif
 
 /*
-                                            
+ * Now set up the real kernel configuration.
  */
 	decoded_hcfg.iobase	= ae_config.base_io;
 	decoded_hcfg.wssbase	= ae_config.mss_base;
 	decoded_hcfg.mpubase	= ae_config.mpu_base;
 
 #if defined(CONFIG_SC6600_JOY)
- 	decoded_hcfg.joystick	= CONFIG_SC6600_JOY; /*        */
+ 	decoded_hcfg.joystick	= CONFIG_SC6600_JOY; /* Enable */
 #endif
 #if defined(CONFIG_SC6600_CDROM)
-	decoded_hcfg.cdrom	= CONFIG_SC6600_CDROM; /*                     */
+	decoded_hcfg.cdrom	= CONFIG_SC6600_CDROM; /* 4:N-3:I-2:G-1:P-0:S */
 #endif
 #if defined(CONFIG_SC6600_CDROMBASE)
-	decoded_hcfg.cdrombase	= CONFIG_SC6600_CDROMBASE; /*           */
+	decoded_hcfg.cdrombase	= CONFIG_SC6600_CDROMBASE; /* 0 Disable */
 #endif
 
 #if defined(AEDSP16_DEBUG)
@@ -792,7 +792,7 @@ static int __init aedsp16_ext_cfg_write(int port) {
 	return TRUE;
 }
 
-#endif /*               */
+#endif /* CONFIG_SC6600 */
 
 static int __init aedsp16_cfg_write(int port) {
 	if (aedsp16_write(port, WRITE_MDIRQ_CFG)) {
@@ -926,8 +926,8 @@ static int __init aedsp16_stdcfg(int port) {
 		return FALSE;
 	}
 	/*
-                                  
-  */
+	 * 0x0A == (IRQ 7, DMA 1, MIRQ 0)
+	 */
 	if (aedsp16_write(port, 0x0A)) {
 		printk("[AEDSP16] aedsp16_stdcfg: failed!\n");
 		return FALSE;
@@ -954,9 +954,9 @@ static int __init aedsp16_dsp_version(int port)
 			return FALSE;
 		}
 	/*
-                                                                    
-                       
-  */
+	 * We already know how many int are stored (2), so we know when the
+	 * string is finished.
+	 */
 		ver[len++] = ret;
 	  } while (len < CARDVERDIGITS);
 	sprintf(DSPVersion, "%d.%d", ver[0], ver[1]);
@@ -982,9 +982,9 @@ static int __init aedsp16_dsp_copyright(int port)
 	do {
 		if ((ret = aedsp16_read(port)) == -1) {
 	/*
-                                                                       
-                                                             
-  */
+	 * If no more data available, return to the caller, no error if len>0.
+	 * We have no other way to know when the string is finished.
+	 */
 			if (len)
 				break;
 			else {
@@ -1075,7 +1075,7 @@ static int __init aedsp16_init_board(void)
 		printk("[AEDSP16] aedsp16_ext_cfg_write: failed!\n");
 		return FALSE;
 	}
-#endif /*               */
+#endif /* CONFIG_SC6600 */
 
 	if (aedsp16_setup_board(ae_config.base_io) == FALSE) {
 		printk("[AEDSP16] aedsp16_setup_board: failed!\n");
@@ -1120,7 +1120,7 @@ static int __init aedsp16_init_board(void)
 			printk("MSS");
 
 	printk("]\n");
-#endif /*                                         */
+#endif /* MODULE || AEDSP16_INFO || AEDSP16_DEBUG */
 
 	mdelay(10);
 
@@ -1132,8 +1132,8 @@ static int __init init_aedsp16_sb(void)
 	DBG(("init_aedsp16_sb: "));
 
 /*
-                                                                      
-                                                                  
+ * If the card is already init'ed MSS, we can not init it to SBPRO too
+ * because the board can not emulate simultaneously MSS and SBPRO.
  */
 	if (ae_config.init & INIT_MSS)
 		return FALSE;
@@ -1161,16 +1161,16 @@ static int __init init_aedsp16_mss(void)
 	DBG(("init_aedsp16_mss: "));
 
 /*
-                                                                      
-                                                                  
+ * If the card is already init'ed SBPRO, we can not init it to MSS too
+ * because the board can not emulate simultaneously MSS and SBPRO.
  */
 	if (ae_config.init & INIT_SBPRO)
 		return FALSE;
 	if (ae_config.init & INIT_MSS)
 		return FALSE;
 /*
-                                                                             
-                                                
+ * We must allocate the CONFIG_AEDSP16_BASE region too because these are the 
+ * I/O ports to access card's control registers.
  */
 	if (!(ae_config.init & INIT_MPU401)) {
 		if (!request_region(ae_config.base_io, IOBASE_REGION_SIZE,
@@ -1210,8 +1210,8 @@ static int __init init_aedsp16_mpu(void)
 		return FALSE;
 
 /*
-                                                                                
-                                            
+ * We must request the CONFIG_AEDSP16_BASE region too because these are the I/O 
+ * ports to access card's control registers.
  */
 	if (!(ae_config.init & (INIT_MSS | INIT_SBPRO))) {
 		if (!request_region(ae_config.base_io, IOBASE_REGION_SIZE,
@@ -1268,10 +1268,10 @@ static int __init init_aedsp16(void)
 	}
 
 /*
-                                                                   
-                                                                       
-                                                                       
-        
+ * In the sequence of init routines, the MSS init MUST be the last!
+ * This because of the special register programming the MSS mode needs.
+ * A board reset would disable the MSS mode restoring the default SBPRO
+ * mode.
  */
 	if (ae_config.mss_base != -1) {
 		if (init_aedsp16_mss() == FALSE) {
@@ -1337,9 +1337,9 @@ static int __init do_init_aedsp16(void) {
 	if (init_aedsp16() == FALSE) {
 		printk(KERN_ERR "aedsp16: initialization failed\n");
 		/*
-        
-                                       
-   */
+		 * XXX
+		 * What error should we return here ?
+		 */
 		return -EINVAL;
 	}
 	return 0;
@@ -1355,7 +1355,7 @@ module_exit(cleanup_aedsp16);
 #ifndef MODULE
 static int __init setup_aedsp16(char *str)
 {
-	/*                                       */
+	/* io, irq, dma, mss_io, mpu_io, mpu_irq */
 	int ints[7];
 	
 	str = get_options(str, ARRAY_SIZE(ints), ints);

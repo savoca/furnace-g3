@@ -144,7 +144,7 @@ static int memstick_device_resume(struct device *dev)
 #define memstick_device_suspend NULL
 #define memstick_device_resume NULL
 
-#endif /*           */
+#endif /* CONFIG_PM */
 
 #define MEMSTICK_ATTR(name, format)                                           \
 static ssize_t name##_show(struct device *dev, struct device_attribute *attr, \
@@ -203,9 +203,9 @@ static int memstick_dummy_check(struct memstick_dev *card)
 	return 0;
 }
 
-/* 
-                                                                     
-                      
+/**
+ * memstick_detect_change - schedule media detection on memstick host
+ * @host - host to use
  */
 void memstick_detect_change(struct memstick_host *host)
 {
@@ -213,15 +213,15 @@ void memstick_detect_change(struct memstick_host *host)
 }
 EXPORT_SYMBOL(memstick_detect_change);
 
-/* 
-                                                                              
-                      
-                                         
-  
-                                                                             
-                                                                      
-                                                                              
-                                                        
+/**
+ * memstick_next_req - called by host driver to obtain next request to process
+ * @host - host to use
+ * @mrq - pointer to stick the request to
+ *
+ * Host calls this function from idle state (*mrq == NULL) or after finishing
+ * previous request (*mrq should point to it). If previous request was
+ * unsuccessful, it is retried for predetermined number of times. Return value
+ * of 0 means that new request was assigned to the host.
  */
 int memstick_next_req(struct memstick_host *host, struct memstick_request **mrq)
 {
@@ -245,9 +245,9 @@ int memstick_next_req(struct memstick_host *host, struct memstick_request **mrq)
 }
 EXPORT_SYMBOL(memstick_next_req);
 
-/* 
-                                                                    
-                      
+/**
+ * memstick_new_req - notify the host that some requests are pending
+ * @host - host to use
  */
 void memstick_new_req(struct memstick_host *host)
 {
@@ -259,11 +259,11 @@ void memstick_new_req(struct memstick_host *host)
 }
 EXPORT_SYMBOL(memstick_new_req);
 
-/* 
-                                                                          
-                        
-                                             
-                     
+/**
+ * memstick_init_req_sg - set request fields needed for bulk data transfer
+ * @mrq - request to use
+ * @tpc - memstick Transport Protocol Command
+ * @sg - TPC argument
  */
 void memstick_init_req_sg(struct memstick_request *mrq, unsigned char tpc,
 			  const struct scatterlist *sg)
@@ -284,16 +284,16 @@ void memstick_init_req_sg(struct memstick_request *mrq, unsigned char tpc,
 }
 EXPORT_SYMBOL(memstick_init_req_sg);
 
-/* 
-                                                                        
-                        
-                                             
-                             
-                              
-  
-                                                                          
-                                                                          
-                        
+/**
+ * memstick_init_req - set request fields needed for short data transfer
+ * @mrq - request to use
+ * @tpc - memstick Transport Protocol Command
+ * @buf - TPC argument buffer
+ * @length - TPC argument size
+ *
+ * The intended use of this function (transfer of data items several bytes
+ * in size) allows us to just copy the value between request structure and
+ * user supplied buffer.
  */
 void memstick_init_req(struct memstick_request *mrq, unsigned char tpc,
 		       const void *buf, size_t length)
@@ -318,10 +318,10 @@ void memstick_init_req(struct memstick_request *mrq, unsigned char tpc,
 EXPORT_SYMBOL(memstick_init_req);
 
 /*
-                                                                               
-                                                                              
-                                                                              
-                                                                     
+ * Functions prefixed with "h_" are protocol callbacks. They can be called from
+ * interrupt context. Return value of 0 means that request processing is still
+ * ongoing, while special error value of -EAGAIN means that current request is
+ * finished (and request processor should come back some time later).
  */
 
 static int h_memstick_read_dev_id(struct memstick_dev *card,
@@ -363,10 +363,10 @@ static int h_memstick_set_rw_addr(struct memstick_dev *card,
 	}
 }
 
-/* 
-                                                                          
-                                  
-                              
+/**
+ * memstick_set_rw_addr - issue SET_RW_REG_ADDR request and wait for it to
+ *                        complete
+ * @card - media device to use
  */
 int memstick_set_rw_addr(struct memstick_dev *card)
 {
@@ -482,10 +482,10 @@ out_power_off:
 	dev_dbg(&host->dev, "memstick_check finished\n");
 }
 
-/* 
-                                                           
-                                                    
-                                  
+/**
+ * memstick_alloc_host - allocate a memstick_host structure
+ * @extra: size of the user private data to allocate
+ * @dev: parent device of the host
  */
 struct memstick_host *memstick_alloc_host(unsigned int extra,
 					  struct device *dev)
@@ -504,9 +504,9 @@ struct memstick_host *memstick_alloc_host(unsigned int extra,
 }
 EXPORT_SYMBOL(memstick_alloc_host);
 
-/* 
-                                                                
-                      
+/**
+ * memstick_add_host - start request processing on memstick host
+ * @host - host to use
  */
 int memstick_add_host(struct memstick_host *host)
 {
@@ -541,9 +541,9 @@ int memstick_add_host(struct memstick_host *host)
 }
 EXPORT_SYMBOL(memstick_add_host);
 
-/* 
-                                                                  
-                      
+/**
+ * memstick_remove_host - stop request processing on memstick host
+ * @host - host to use
  */
 void memstick_remove_host(struct memstick_host *host)
 {
@@ -562,9 +562,9 @@ void memstick_remove_host(struct memstick_host *host)
 }
 EXPORT_SYMBOL(memstick_remove_host);
 
-/* 
-                                          
-                      
+/**
+ * memstick_free_host - free memstick host
+ * @host - host to use
  */
 void memstick_free_host(struct memstick_host *host)
 {
@@ -573,9 +573,9 @@ void memstick_free_host(struct memstick_host *host)
 }
 EXPORT_SYMBOL(memstick_free_host);
 
-/* 
-                                                               
-                      
+/**
+ * memstick_suspend_host - notify bus driver of host suspension
+ * @host - host to use
  */
 void memstick_suspend_host(struct memstick_host *host)
 {
@@ -585,9 +585,9 @@ void memstick_suspend_host(struct memstick_host *host)
 }
 EXPORT_SYMBOL(memstick_suspend_host);
 
-/* 
-                                                              
-                      
+/**
+ * memstick_resume_host - notify bus driver of host resumption
+ * @host - host to use
  */
 void memstick_resume_host(struct memstick_host *host)
 {

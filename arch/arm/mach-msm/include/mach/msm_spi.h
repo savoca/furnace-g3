@@ -11,17 +11,17 @@
  *
  */
 /*
-                                         
+ * SPI driver for Qualcomm MSM platforms.
  */
 
-/* 
-                                                                 
-  
-                                                                            
-                                                                               
-                                          
-                                                                          
-                                                  
+/**
+ * msm_spi_platform_data: msm spi-controller's configuration data
+ *
+ * @active_only when set, votes when system active and removes the vote when
+ *       system goes idle (optimises for performance). When unset, voting using
+ *       runtime pm (optimizes for power).
+ * @master_id master id number of the controller's wrapper (BLSP or GSBI).
+ *       When zero, clock path voting is disabled.
  */
 struct msm_spi_platform_data {
 	u32 max_clock_speed;

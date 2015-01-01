@@ -23,8 +23,8 @@
 
 #include <asm/setup.h>
 
-/*                                    */
-#define ATAG_MSM_WIFI	0x57494649 /*          */
+/* configuration tags specific to msm */
+#define ATAG_MSM_WIFI	0x57494649 /* MSM WiFi */
 
 #define MAX_NVS_SIZE	0x800U
 static unsigned char wifi_nvs_ram[MAX_NVS_SIZE];

@@ -25,7 +25,7 @@
  *
  **************************************************************************/
 /*
-                                                           
+ * Authors: Thomas Hellstrom <thellstrom-at-vmware-dot-com>
  */
 
 #ifndef _DRM_GLOBAL_H_

@@ -28,7 +28,7 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
-/*                                                                
+/* Eventually we may need a look-up table, but this works for now.
 */
 #define LFS	48
 #define LFD	50
@@ -56,12 +56,12 @@ void print_8xx_pte(struct mm_struct *mm, unsigned long addr)
 #define pp ((long)pte_val(*pte))
 				printk(" RPN: %05lx PP: %lx SPS: %lx SH: %lx "
 				       "CI: %lx v: %lx\n",
-				       pp>>12,    /*     */
-				       (pp>>10)&3, /*    */
-				       (pp>>3)&1, /*       */
-				       (pp>>2)&1, /*        */
-				       (pp>>1)&1, /*               */
-				       pp&1       /*       */
+				       pp>>12,    /* rpn */
+				       (pp>>10)&3, /* pp */
+				       (pp>>3)&1, /* small */
+				       (pp>>2)&1, /* shared */
+				       (pp>>1)&1, /* cache inhibit */
+				       pp&1       /* valid */
 				       );
 #undef pp
 			}
@@ -100,8 +100,8 @@ int get_8xx_pte(struct mm_struct *mm, unsigned long addr)
 }
 
 /*
-                                                                     
-                           
+ * We return 0 on success, 1 on unimplemented instruction, and EFAULT
+ * if a load/store faulted.
  */
 int Soft_emulate_8xx(struct pt_regs *regs)
 {
@@ -126,9 +126,9 @@ int Soft_emulate_8xx(struct pt_regs *regs)
 	switch ( inst )
 	{
 	case LFD:
-		/*                                                
-                                       
-   */
+		/* this is a 16 bit quantity that is sign extended
+		 * so use a signed short here -- Cort
+		 */
 		sdisp = (instword & 0xffff);
 		ea = (u32 *)(regs->gpr[idxreg] + sdisp);
 		if (copy_from_user(ip, ea, sizeof(double)))
@@ -148,9 +148,9 @@ int Soft_emulate_8xx(struct pt_regs *regs)
 			retval = -EFAULT;
 		break;
 	case STFD:
-		/*                                                
-                                       
-   */
+		/* this is a 16 bit quantity that is sign extended
+		 * so use a signed short here -- Cort
+		 */
 		sdisp = (instword & 0xffff);
 		ea = (u32 *)(regs->gpr[idxreg] + sdisp);
 		if (copy_to_user(ea, ip, sizeof(double)))
@@ -164,7 +164,7 @@ int Soft_emulate_8xx(struct pt_regs *regs)
 			regs->gpr[idxreg] = (u32)ea;
 		break;
 	case FMR:
-		/*                                  */
+		/* assume this is a fp move -- Cort */
 		memcpy(ip, &current->thread.TS_FPR((instword>>11)&0x1f),
 		       sizeof(double));
 		break;

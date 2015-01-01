@@ -49,7 +49,7 @@
 #include "vt1636.h"
 #include "tblDPASetting.h"
 
-/*                */
+/* External struct*/
 
 extern int viafb_platform_epia_dvi;
 extern int viafb_device_lcd_dualedge;
@@ -77,4 +77,4 @@ extern int viafb_primary_dev;
 
 extern int viafb_lcd_panel_id;
 
-#endif /*              */
+#endif /* __GLOBAL_H__ */

@@ -23,7 +23,7 @@
 
 #ifdef CONFIG_SMP
 /*
-                                                         
+ * Get the number of CPU cores from the SCU configuration
  */
 unsigned int __init scu_get_core_count(void __iomem *scu_base)
 {
@@ -32,14 +32,14 @@ unsigned int __init scu_get_core_count(void __iomem *scu_base)
 }
 
 /*
-                 
+ * Enable the SCU
  */
 void scu_enable(void __iomem *scu_base)
 {
 	u32 scu_ctrl;
 
 #ifdef CONFIG_ARM_ERRATA_764369
-	/*                */
+	/* Cortex-A9 only */
 	if ((read_cpuid(CPUID_ID) & 0xff0ffff0) == 0x410fc090) {
 		scu_ctrl = __raw_readl(scu_base + 0x30);
 		if (!(scu_ctrl & 1))
@@ -48,7 +48,7 @@ void scu_enable(void __iomem *scu_base)
 #endif
 
 	scu_ctrl = __raw_readl(scu_base + SCU_CTRL);
-	/*                  */
+	/* already enabled? */
 	if (scu_ctrl & 1)
 		return;
 
@@ -56,20 +56,20 @@ void scu_enable(void __iomem *scu_base)
 	__raw_writel(scu_ctrl, scu_base + SCU_CTRL);
 
 	/*
-                                                            
-                                             
-  */
+	 * Ensure that the data accessed by CPU0 before the SCU was
+	 * initialised is visible to the other CPUs.
+	 */
 	flush_cache_all();
 }
 #endif
 
 /*
-                                                                 
-                                                  
-  
-                                                                   
-                                                                    
-                                                     
+ * Set the executing CPUs power mode as defined.  This will be in
+ * preparation for it executing a WFI instruction.
+ *
+ * This function must be called with preemption disabled, and as it
+ * has the side effect of disabling coherency, caches must have been
+ * flushed.  Interrupts must also have been disabled.
  */
 int scu_power_mode(void __iomem *scu_base, unsigned int mode)
 {

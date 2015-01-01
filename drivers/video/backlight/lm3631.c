@@ -69,7 +69,7 @@ static void lm3631_bl_pwm_ctrl(struct lm3631_bl *lm3631_bl, int br, int max_br)
 
 	period = lm3631_bl->pdata->pwm_period;
 	duty = br * period / max_br;
-	/*                                             */
+	/* Request a PWM device with the consumer name */
 	if (!lm3631_bl->pwm) {
 #ifdef CONFIG_MACH_LGE
 		pwm = pwm_request(1, "lm3631-backlight");
@@ -267,7 +267,7 @@ static void lm3631_bl_unregister(struct lm3631_bl *lm3631_bl)
 
 static int lm3631_bl_set_ovp(struct lm3631_bl *lm3631_bl)
 {
-    /*                           */
+    /* Set OVP to 25V by default */
     return lm3631_update_bits(lm3631_bl->lm3631, LM3631_REG_BL_BOOST,
                                 LM3631_BOOST_OVP_MASK, LM3631_BOOST_OVP_25V);
 }
@@ -277,7 +277,7 @@ static int lm3631_bl_set_ctrl_mode(struct lm3631_bl *lm3631_bl)
 #ifndef CONFIG_MACH_LGE
 	struct lm3631_backlight_platform_data *pdata = lm3631_bl->pdata;
 #endif
-	/*                                                */
+	/* Brightness control mode is I2C only by default */
 #ifdef CONFIG_MACH_LGE
 		lm3631_bl->mode = LMU_BL_I2C;
 		return lm3631_update_bits(lm3631_bl->lm3631,

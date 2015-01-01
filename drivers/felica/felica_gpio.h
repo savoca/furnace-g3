@@ -1,6 +1,6 @@
 /*
-                
-  
+ *  felicagpio.h
+ *
  */
 
 #ifndef __FELICA_GPIO_H__
@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 /*
-                            
+ *  INCLUDE FILES FOR MODULE
  */
 
 #include <linux/list.h>
@@ -19,10 +19,10 @@ extern "C" {
 
 #include "felica_common.h"
 /*
-          
+ *  DEFINE
  */
 
-/*        */
+/* common */
 enum{
   GPIO_DIRECTION_IN = 0,
   GPIO_DIRECTION_OUT,
@@ -47,7 +47,7 @@ enum{
 
 
 /*
-                      
+ *  FUNCTION PROTOTYPE
  */
 int felica_gpio_open(int gpionum, int direction, int value);
 void felica_gpio_write(int gpionum, int value);
@@ -59,4 +59,4 @@ int felica_get_int_gpio_num(void);
 }
 #endif
 
-#endif //                 
+#endif // __FELICA_RFS_H__

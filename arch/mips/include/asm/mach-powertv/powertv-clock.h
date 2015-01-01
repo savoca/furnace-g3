@@ -16,7 +16,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 /*
-                                             
+ * Local definitions for the powertv PCI code
  */
 
 #ifndef _POWERTV_PCI_POWERTV_PCI_H_

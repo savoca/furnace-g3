@@ -1,5 +1,5 @@
 /*
-                   
+ *	DMA buffer calls
  */
 
 int DMAbuf_open(int dev, int mode);
@@ -9,7 +9,7 @@ int DMAbuf_getrdbuffer(int dev, char **buf, int *len, int dontblock);
 int DMAbuf_rmchars(int dev, int buff_no, int c);
 int DMAbuf_start_output(int dev, int buff_no, int l);
 int DMAbuf_move_wrpointer(int dev, int l);
-/*                                                                           */
+/* int DMAbuf_ioctl(int dev, unsigned int cmd, void __user *arg, int local); */
 void DMAbuf_init(int dev, int dma1, int dma2);
 void DMAbuf_deinit(int dev);
 int DMAbuf_start_dma (int dev, unsigned long physaddr, int count, int dma_mode);
@@ -26,7 +26,7 @@ void DMAbuf_reset (int dev);
 int DMAbuf_sync (int dev);
 
 /*
-                                                     
+ *	System calls for /dev/dsp and /dev/audio (audio.c)
  */
 
 int audio_read (int dev, struct file *file, char __user *buf, int count);
@@ -39,7 +39,7 @@ void audio_init_devices (void);
 void reorganize_buffers (int dev, struct dma_buffparms *dmap, int recording);
 
 /*
-                                      
+ *	System calls for the /dev/sequencer
  */
 
 int sequencer_read (int dev, struct file *file, char __user *buf, int count);
@@ -59,7 +59,7 @@ void seq_input_event(unsigned char *event, int len);
 void seq_copy_to_input (unsigned char *event, int len);
 
 /*
-                                 
+ *	System calls for the /dev/midi
  */
 
 int MIDIbuf_read (int dev, struct file *file, char __user *buf, int count);
@@ -73,15 +73,15 @@ int MIDIbuf_avail(int dev);
 void MIDIbuf_bytes_received(int dev, unsigned char *buf, int count);
 
 
-/*                  */
+/*	From soundcard.c	*/
 void request_sound_timer (int count);
 void sound_stop_timer(void);
 void conf_printf(char *name, struct address_info *hw_config);
 void conf_printf2(char *name, int base, int irq, int dma, int dma2);
 
-/*                    */
+/*	From sound_timer.c */
 void sound_timer_interrupt(void);
 void sound_timer_syncinterval(unsigned int new_usecs);
 
-/*                              */
+/*      From midi_synth.c       */
 void do_midi_msg (int synthno, unsigned char *msg, int mlen);

@@ -12,8 +12,8 @@
 #include "internal.h"
 
 /*
-                                                                         
-                                                
+ * get a MAC address from a random ethernet interface that has a real one
+ * - the buffer will normally be 6 bytes in size
  */
 int afs_get_MAC_address(u8 *mac, size_t maclen)
 {
@@ -33,9 +33,9 @@ int afs_get_MAC_address(u8 *mac, size_t maclen)
 }
 
 /*
-                                                                          
-                               
-                                                          
+ * get a list of this system's interface IPv4 addresses, netmasks and MTUs
+ * - maxbufs must be at least 1
+ * - returns the number of interface records in the buffer
  */
 int afs_get_ipv4_interfaces(struct afs_interface *bufs, size_t maxbufs,
 			    bool wantloopback)

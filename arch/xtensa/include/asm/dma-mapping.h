@@ -17,7 +17,7 @@
 #include <linux/scatterlist.h>
 
 /*
-                                    
+ * DMA-consistent mapping functions.
  */
 
 extern void *consistent_alloc(int, size_t, dma_addr_t, unsigned long);
@@ -168,4 +168,4 @@ dma_cache_sync(struct device *dev, void *vaddr, size_t size,
 	consistent_sync(vaddr, size, direction);
 }
 
-#endif	/*                       */
+#endif	/* _XTENSA_DMA_MAPPING_H */

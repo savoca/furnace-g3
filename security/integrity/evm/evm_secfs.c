@@ -19,15 +19,15 @@
 
 static struct dentry *evm_init_tpm;
 
-/* 
-                                             
-  
-                                         
-                                
-                                
-                        
-  
-                                                             
+/**
+ * evm_read_key - read() for <securityfs>/evm
+ *
+ * @filp: file pointer, not actually used
+ * @buf: where to put the result
+ * @count: maximum to send along
+ * @ppos: where to start
+ *
+ * Returns number of bytes read or error code, as appropriate
  */
 static ssize_t evm_read_key(struct file *filp, char __user *buf,
 			    size_t count, loff_t *ppos)
@@ -44,17 +44,17 @@ static ssize_t evm_read_key(struct file *filp, char __user *buf,
 	return rc;
 }
 
-/* 
-                                               
-                                         
-                                   
-                     
-                        
-  
-                                                     
-                                                        
-                                                      
-                                                                
+/**
+ * evm_write_key - write() for <securityfs>/evm
+ * @file: file pointer, not actually used
+ * @buf: where to get the data from
+ * @count: bytes sent
+ * @ppos: where to start
+ *
+ * Used to signal that key is on the kernel key ring.
+ * - get the integrity hmac key from the kernel key ring
+ * - create list of hmac protected extended attributes
+ * Returns number of bytes written or error code, as appropriate
  */
 static ssize_t evm_write_key(struct file *file, const char __user *buf,
 			     size_t count, loff_t *ppos)

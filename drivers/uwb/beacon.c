@@ -32,7 +32,7 @@
 
 #include "uwb-internal.h"
 
-/*                                   */
+/* Start Beaconing command structure */
 struct uwb_rc_cmd_start_beacon {
 	struct uwb_rccb rccb;
 	__le16 wBPSTOffset;
@@ -99,18 +99,18 @@ error_cmd:
 }
 
 /*
-                     
-  
-                                                   
-                                                           
-                                               
-                                                               
-  
-                                                                        
-                                                                           
-                                                                           
-                                                                         
-             
+ * Start/stop beacons
+ *
+ * @rc:          UWB Radio Controller to operate on
+ * @channel:     UWB channel on which to beacon (WUSB[table
+ *               5-12]). If -1, stop beaconing.
+ * @bpst_offset: Beacon Period Start Time offset; FIXME-do zero
+ *
+ * According to WHCI 0.95 [4.13.6] the driver will only receive the RCEB
+ * of a SET IE command after the device sent the first beacon that includes
+ * the IEs specified in the SET IE command. So, after we start beaconing we
+ * check if there is anything in the IE cache and call the SET IE command
+ * if needed.
  */
 int uwb_rc_beacon(struct uwb_rc *rc, int channel, unsigned bpst_offset)
 {
@@ -122,7 +122,7 @@ int uwb_rc_beacon(struct uwb_rc *rc, int channel, unsigned bpst_offset)
 	if (channel == -1)
 		result = uwb_rc_stop_beacon(rc);
 	else {
-		/*                    */
+		/* channel >= 0...dah */
 		result = uwb_rc_start_beacon(rc, bpst_offset, channel);
 		if (result < 0)
 			return result;
@@ -144,18 +144,18 @@ int uwb_rc_beacon(struct uwb_rc *rc, int channel, unsigned bpst_offset)
 }
 
 /*
-               
-  
-                                                                     
-                                                                   
-                                                                   
-                                                                  
-                                                                    
-                                                                     
-                      
-  
-                                          
-                                                     
+ * Beacon cache
+ *
+ * The purpose of this is to speed up the lookup of becon information
+ * when a new beacon arrives. The UWB Daemon uses it also to keep a
+ * tab of which devices are in radio distance and which not. When a
+ * device's beacon stays present for more than a certain amount of
+ * time, it is considered a new, usable device. When a beacon ceases
+ * to be received for a certain amount of time, it is considered that
+ * the device is gone.
+ *
+ * FIXME: use an allocator for the entries
+ * FIXME: use something faster for search than a list
  */
 
 void uwb_bce_kfree(struct kref *_bce)
@@ -167,7 +167,7 @@ void uwb_bce_kfree(struct kref *_bce)
 }
 
 
-/*                                        */
+/* Find a beacon by dev addr in the cache */
 static
 struct uwb_beca_e *__uwb_beca_find_bydev(struct uwb_rc *rc,
 					 const struct uwb_dev_addr *dev_addr)
@@ -182,7 +182,7 @@ out:
 	return bce;
 }
 
-/*                                        */
+/* Find a beacon by dev addr in the cache */
 static
 struct uwb_beca_e *__uwb_beca_find_bymac(struct uwb_rc *rc, 
 					 const struct uwb_mac_addr *mac_addr)
@@ -198,13 +198,13 @@ out:
 	return bce;
 }
 
-/* 
-                                                                    
-                                                     
-                                              
-  
-                                                               
-                                                         
+/**
+ * uwb_dev_get_by_devaddr - get a UWB device with a specific DevAddr
+ * @rc:      the radio controller that saw the device
+ * @devaddr: DevAddr of the UWB device to find
+ *
+ * There may be more than one matching device (in the case of a
+ * DevAddr conflict), but only the first one is returned.
  */
 struct uwb_dev *uwb_dev_get_by_devaddr(struct uwb_rc *rc,
 				       const struct uwb_dev_addr *devaddr)
@@ -221,10 +221,10 @@ struct uwb_dev *uwb_dev_get_by_devaddr(struct uwb_rc *rc,
 	return found;
 }
 
-/* 
-                                                                   
-                                                     
-                                             
+/**
+ * uwb_dev_get_by_macaddr - get a UWB device with a specific EUI-48
+ * @rc:      the radio controller that saw the device
+ * @devaddr: EUI-48 of the UWB device to find
  */
 struct uwb_dev *uwb_dev_get_by_macaddr(struct uwb_rc *rc,
 				       const struct uwb_mac_addr *macaddr)
@@ -241,7 +241,7 @@ struct uwb_dev *uwb_dev_get_by_macaddr(struct uwb_rc *rc,
 	return found;
 }
 
-/*                                 */
+/* Initialize a beacon cache entry */
 static void uwb_beca_e_init(struct uwb_beca_e *bce)
 {
 	mutex_init(&bce->mutex);
@@ -251,11 +251,11 @@ static void uwb_beca_e_init(struct uwb_beca_e *bce)
 }
 
 /*
-                            
-  
-                                        
-                                                
-                                                                   
+ * Add a beacon to the cache
+ *
+ * @be:         Beacon event information
+ * @bf:         Beacon frame (part of b, really)
+ * @ts_jiffies: Timestamp (in jiffies) when the beacon was received
  */
 static
 struct uwb_beca_e *__uwb_beca_add(struct uwb_rc *rc,
@@ -276,9 +276,9 @@ struct uwb_beca_e *__uwb_beca_add(struct uwb_rc *rc,
 }
 
 /*
-                                            
-  
-                                  
+ * Wipe out beacon entries that became stale
+ *
+ * Remove associated devicest too.
  */
 void uwb_beca_purge(struct uwb_rc *rc)
 {
@@ -295,7 +295,7 @@ void uwb_beca_purge(struct uwb_rc *rc)
 	mutex_unlock(&rc->uwb_beca.mutex);
 }
 
-/*                                                     */
+/* Clean up the whole beacon cache. Called on shutdown */
 void uwb_beca_release(struct uwb_rc *rc)
 {
 	struct uwb_beca_e *bce, *next;
@@ -325,7 +325,7 @@ static void uwb_beacon_print(struct uwb_rc *rc, struct uwb_rc_evt_beacon *be,
 }
 
 /*
-                                       
+ * @bce: beacon cache entry, referenced
  */
 ssize_t uwb_bce_print_IEs(struct uwb_dev *uwb_dev, struct uwb_beca_e *bce,
 			  char *buf, size_t size)
@@ -353,7 +353,7 @@ ssize_t uwb_bce_print_IEs(struct uwb_dev *uwb_dev, struct uwb_beca_e *bce,
 }
 
 /*
-                                                     
+ * Verify that the beacon event, frame and IEs are ok
  */
 static int uwb_verify_beacon(struct uwb_rc *rc, struct uwb_event *evt,
 			     struct uwb_rc_evt_beacon *be)
@@ -362,30 +362,30 @@ static int uwb_verify_beacon(struct uwb_rc *rc, struct uwb_event *evt,
 	struct uwb_beacon_frame *bf;
 	struct device *dev = &rc->uwb_dev.dev;
 
-	/*                                                */
+	/* Is there enough data to decode a beacon frame? */
 	if (evt->notif.size < sizeof(*be) + sizeof(*bf)) {
 		dev_err(dev, "BEACON event: Not enough data to decode "
 			"(%zu vs %zu bytes needed)\n", evt->notif.size,
 			sizeof(*be) + sizeof(*bf));
 		goto error;
 	}
-	/*                                                                    
-                  */
+	/* FIXME: make sure beacon frame IEs are fine and that the whole thing
+	 * is consistent */
 	result = 0;
 error:
 	return result;
 }
 
 /*
-                                  
-  
-                                                                     
-                                                                    
-         
-  
-                                                                 
-                                                                    
-            
+ * Handle UWB_RC_EVT_BEACON events
+ *
+ * We check the beacon cache to see how the received beacon fares. If
+ * is there already we refresh the timestamp. If not we create a new
+ * entry.
+ *
+ * According to the WHCI and WUSB specs, only one beacon frame is
+ * allowed per notification block, so we don't bother about scanning
+ * for more.
  */
 int uwbd_evt_handle_rc_beacon(struct uwb_event *evt)
 {
@@ -402,7 +402,7 @@ int uwbd_evt_handle_rc_beacon(struct uwb_event *evt)
 	if (result < 0)
 		return result;
 
-	/*                              */
+	/* FIXME: handle alien beacons. */
 	if (be->bBeaconType == UWB_RC_BEACON_TYPE_OL_ALIEN ||
 	    be->bBeaconType == UWB_RC_BEACON_TYPE_NOL_ALIEN) {
 		return -ENOSYS;
@@ -411,20 +411,20 @@ int uwbd_evt_handle_rc_beacon(struct uwb_event *evt)
 	bf = (struct uwb_beacon_frame *) be->BeaconInfo;
 
 	/*
-                                                               
-                           
-   
-                                                              
-                                                           
-                                
-  */
+	 * Drop beacons from devices with a NULL EUI-48 -- they cannot
+	 * be uniquely identified.
+	 *
+	 * It's expected that these will all be WUSB devices and they
+	 * have a WUSB specific connection method so ignoring them
+	 * here shouldn't be a problem.
+	 */
 	if (uwb_mac_addr_bcast(&bf->Device_Identifier))
 		return 0;
 
 	mutex_lock(&rc->uwb_beca.mutex);
 	bce = __uwb_beca_find_bymac(rc, &bf->Device_Identifier);
 	if (bce == NULL) {
-		/*                                       */
+		/* Not in there, a new device is pinging */
 		uwb_beacon_print(evt->rc, be, bf);
 		bce = __uwb_beca_add(rc, be, bf, evt->ts_jiffies);
 		if (bce == NULL) {
@@ -435,12 +435,12 @@ int uwbd_evt_handle_rc_beacon(struct uwb_event *evt)
 	mutex_unlock(&rc->uwb_beca.mutex);
 
 	mutex_lock(&bce->mutex);
-	/*                       */
+	/* purge old beacon data */
 	kfree(bce->be);
 
 	last_ts = bce->ts_jiffies;
 
-	/*                             */
+	/* Update commonly used fields */
 	bce->ts_jiffies = evt->ts_jiffies;
 	bce->be = be;
 	bce->dev_addr = bf->hdr.SrcAddr;
@@ -451,20 +451,20 @@ int uwbd_evt_handle_rc_beacon(struct uwb_event *evt)
 	stats_add_sample(&bce->rssi_stats, be->bRSSI + 18);
 
 	/*
-                                             
-  */
+	 * This might be a beacon from a new device.
+	 */
 	if (bce->uwb_dev == NULL)
 		uwbd_dev_onair(evt->rc, bce);
 
 	mutex_unlock(&bce->mutex);
 
-	return 1; /*                        */
+	return 1; /* we keep the event data */
 }
 
 /*
-                                       
-  
-        
+ * Handle UWB_RC_EVT_BEACON_SIZE events
+ *
+ * XXXXX
  */
 int uwbd_evt_handle_rc_beacon_size(struct uwb_event *evt)
 {
@@ -472,7 +472,7 @@ int uwbd_evt_handle_rc_beacon_size(struct uwb_event *evt)
 	struct device *dev = &evt->rc->uwb_dev.dev;
 	struct uwb_rc_evt_beacon_size *bs;
 
-	/*                                           */
+	/* Is there enough data to decode the event? */
 	if (evt->notif.size < sizeof(*bs)) {
 		dev_err(dev, "BEACON SIZE notification: Not enough data to "
 			"decode (%zu vs %zu bytes needed)\n",
@@ -484,7 +484,7 @@ int uwbd_evt_handle_rc_beacon_size(struct uwb_event *evt)
 		dev_info(dev, "Beacon size changed to %u bytes "
 			"(FIXME: action?)\n", le16_to_cpu(bs->wNewBeaconSize));
 	else {
-		/*                                                           */
+		/* temporary hack until we do something with this message... */
 		static unsigned count;
 		if (++count % 1000 == 0)
 			dev_info(dev, "Beacon size changed %u times "
@@ -495,13 +495,13 @@ error:
 	return result;
 }
 
-/* 
-                                                                    
-                                                                  
-  
-                                                                    
-                                                                   
-                                                  
+/**
+ * uwbd_evt_handle_rc_bp_slot_change - handle a BP_SLOT_CHANGE event
+ * @evt: the BP_SLOT_CHANGE notification from the radio controller
+ *
+ * If the event indicates that no beacon period slots were available
+ * then radio controller has transitioned to a non-beaconing state.
+ * Otherwise, simply save the current beacon slot.
  */
 int uwbd_evt_handle_rc_bp_slot_change(struct uwb_event *evt)
 {
@@ -526,10 +526,10 @@ int uwbd_evt_handle_rc_bp_slot_change(struct uwb_event *evt)
 	return 0;
 }
 
-/* 
-                                        
-  
-        
+/**
+ * Handle UWB_RC_EVT_BPOIE_CHANGE events
+ *
+ * XXXXX
  */
 struct uwb_ie_bpo {
 	struct uwb_ie_hdr hdr;
@@ -543,10 +543,10 @@ int uwbd_evt_handle_rc_bpoie_change(struct uwb_event *evt)
 	struct device *dev = &evt->rc->uwb_dev.dev;
 	struct uwb_rc_evt_bpoie_change *bpoiec;
 	struct uwb_ie_bpo *bpoie;
-	static unsigned count;	/*                            */
+	static unsigned count;	/* FIXME: this is a temp hack */
 	size_t iesize;
 
-	/*                                    */
+	/* Is there enough data to decode it? */
 	if (evt->notif.size < sizeof(*bpoiec)) {
 		dev_err(dev, "BPOIEC notification: Not enough data to "
 			"decode (%zu vs %zu bytes needed)\n",
@@ -561,19 +561,19 @@ int uwbd_evt_handle_rc_bpoie_change(struct uwb_event *evt)
 			iesize, sizeof(*bpoie));
 		goto error;
 	}
-	if (++count % 1000 == 0)	/*                  */
+	if (++count % 1000 == 0)	/* Lame placeholder */
 		dev_info(dev, "BPOIE: %u changes received\n", count);
 	/*
-                                                             
-                                               
-  */
+	 * FIXME: At this point we should go over all the IEs in the
+	 *        bpoiec->BPOIE array and act on each.
+	 */
 	result = 0;
 error:
 	return result;
 }
 
 /*
-                         
+ * Print beaconing state.
  */
 static ssize_t uwb_rc_beacon_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -589,7 +589,7 @@ static ssize_t uwb_rc_beacon_show(struct device *dev,
 }
 
 /*
-                                                               
+ * Start beaconing on the specified channel, or stop beaconing.
  */
 static ssize_t uwb_rc_beacon_store(struct device *dev,
 				   struct device_attribute *attr,

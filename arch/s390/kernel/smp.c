@@ -85,14 +85,14 @@ enum {
 
 struct pcpu {
 	struct cpu cpu;
-	struct task_struct *idle;	/*                          */
-	struct _lowcore *lowcore;	/*                             */
-	unsigned long async_stack;	/*                         */
-	unsigned long panic_stack;	/*                         */
-	unsigned long ec_mask;		/*                               */
-	int state;			/*                    */
-	u32 status;			/*                               */
-	u16 address;			/*                      */
+	struct task_struct *idle;	/* idle process for the cpu */
+	struct _lowcore *lowcore;	/* lowcore page(s) for the cpu */
+	unsigned long async_stack;	/* async stack for the cpu */
+	unsigned long panic_stack;	/* panic stack for the cpu */
+	unsigned long ec_mask;		/* bit mask for ec_xxx functions */
+	int state;			/* physical cpu state */
+	u32 status;			/* last status received via sigp */
+	u16 address;			/* physical cpu address */
 };
 
 static u8 boot_cpu_type;
@@ -102,7 +102,7 @@ static struct pcpu pcpu_devices[NR_CPUS];
 DEFINE_MUTEX(smp_cpu_state_mutex);
 
 /*
-                                     
+ * Signal processor helper functions.
  */
 static inline int __pcpu_sigp(u16 addr, u8 order, u32 parm, u32 *status)
 {
@@ -150,7 +150,7 @@ static inline int pcpu_stopped(struct pcpu *pcpu)
 	if (__pcpu_sigp(pcpu->address, sigp_sense,
 			0, &pcpu->status) != sigp_status_stored)
 		return 0;
-	/*                                        */
+	/* Check for stopped and check stop state */
 	return !!(pcpu->status & 0x50);
 }
 
@@ -159,12 +159,12 @@ static inline int pcpu_running(struct pcpu *pcpu)
 	if (__pcpu_sigp(pcpu->address, sigp_sense_running,
 			0, &pcpu->status) != sigp_status_stored)
 		return 1;
-	/*                          */
+	/* Check for running status */
 	return !(pcpu->status & 0x400);
 }
 
 /*
-                                   
+ * Find struct pcpu by cpu address.
  */
 static struct pcpu *pcpu_find_address(const struct cpumask *mask, int address)
 {
@@ -289,7 +289,7 @@ static void pcpu_start_fn(struct pcpu *pcpu, void (*func)(void *), void *data)
 }
 
 /*
-                                                                  
+ * Call function via PSW restart on pcpu and stop the current cpu.
  */
 static void pcpu_delegate(struct pcpu *pcpu, void (*func)(void *),
 			  void *data, unsigned long stack)
@@ -300,10 +300,10 @@ static void pcpu_delegate(struct pcpu *pcpu, void (*func)(void *),
 	__load_psw_mask(psw_kernel_bits);
 	this_cpu = stap();
 	if (pcpu->address == this_cpu)
-		func(data);	/*                   */
-	/*                                                               */
+		func(data);	/* should not return */
+	/* Stop target cpu (if func returns this stops the current cpu). */
 	pcpu_sigp_retry(pcpu, sigp_stop, 0);
-	/*                                                          */
+	/* Restart func on the target cpu and stop the current cpu. */
 	lc->restart_stack = stack;
 	lc->restart_fn = (unsigned long) func;
 	lc->restart_data = (unsigned long) data;
@@ -318,22 +318,22 @@ static void pcpu_delegate(struct pcpu *pcpu, void (*func)(void *),
 }
 
 /*
-                                  
+ * Call function on an online CPU.
  */
 void smp_call_online_cpu(void (*func)(void *), void *data)
 {
 	struct pcpu *pcpu;
 
-	/*                                      */
+	/* Use the current cpu if it is online. */
 	pcpu = pcpu_find_address(cpu_online_mask, stap());
 	if (!pcpu)
-		/*                           */
+		/* Use the first online cpu. */
 		pcpu = pcpu_devices + cpumask_first(cpu_online_mask);
 	pcpu_delegate(pcpu, func, data, (unsigned long) restart_stack);
 }
 
 /*
-                                
+ * Call function on the ipl CPU.
  */
 void smp_call_ipl_cpu(void (*func)(void *), void *data)
 {
@@ -372,8 +372,8 @@ void smp_yield_cpu(int cpu)
 }
 
 /*
-                                                               
-                                                  
+ * Send cpus emergency shutdown signal. This gives the cpus the
+ * opportunity to complete outstanding interrupts.
  */
 void smp_emergency_stop(cpumask_t *cpumask)
 {
@@ -400,14 +400,14 @@ void smp_emergency_stop(cpumask_t *cpumask)
 }
 
 /*
-                                     
+ * Stop all cpus but the current one.
  */
 void smp_send_stop(void)
 {
 	cpumask_t cpumask;
 	int cpu;
 
-	/*                                       */
+	/* Disable all interrupts/machine checks */
 	__load_psw_mask(psw_kernel_bits | PSW_MASK_DAT);
 	trace_hardirqs_off();
 
@@ -418,7 +418,7 @@ void smp_send_stop(void)
 	if (oops_in_progress)
 		smp_emergency_stop(&cpumask);
 
-	/*                     */
+	/* stop all processors */
 	for_each_cpu(cpu, &cpumask) {
 		struct pcpu *pcpu = pcpu_devices + cpu;
 		pcpu_sigp_retry(pcpu, sigp_stop, 0);
@@ -428,7 +428,7 @@ void smp_send_stop(void)
 }
 
 /*
-                        
+ * Stop the current cpu.
  */
 void smp_stop_cpu(void)
 {
@@ -437,8 +437,8 @@ void smp_stop_cpu(void)
 }
 
 /*
-                                                          
-                    
+ * This is the main routine where commands issued by other
+ * cpus are handled.
  */
 static void do_ext_call_interrupt(struct ext_code ext_code,
 				  unsigned int param32, unsigned long param64)
@@ -452,8 +452,8 @@ static void do_ext_call_interrupt(struct ext_code ext_code,
 	else
 		kstat_cpu(cpu).irqs[EXTINT_EMS]++;
 	/*
-                                    
-  */
+	 * handle bit signal external calls
+	 */
 	bits = xchg(&pcpu_devices[cpu].ec_mask, 0);
 
 	if (test_bit(ec_stop_cpu, &bits))
@@ -485,7 +485,7 @@ void arch_send_call_function_single_ipi(int cpu)
 
 #ifndef CONFIG_64BIT
 /*
-                                                           
+ * this function sends a 'purge tlb' signal to another CPU.
  */
 static void smp_ptlb_callback(void *info)
 {
@@ -497,12 +497,12 @@ void smp_ptlb_all(void)
 	on_each_cpu(smp_ptlb_callback, NULL, 1);
 }
 EXPORT_SYMBOL(smp_ptlb_all);
-#endif /*                */
+#endif /* ! CONFIG_64BIT */
 
 /*
-                                                         
-                                                          
-                                                        
+ * this function sends a 'reschedule' IPI to another CPU.
+ * it goes straight through and wastes no time serializing
+ * anything. Worst case is that we lose a reschedule ...
  */
 void smp_send_reschedule(int cpu)
 {
@@ -510,7 +510,7 @@ void smp_send_reschedule(int cpu)
 }
 
 /*
-                                                         
+ * parameter area for the set/clear control bit callbacks
  */
 struct ec_creg_mask_parms {
 	unsigned long orval;
@@ -519,7 +519,7 @@ struct ec_creg_mask_parms {
 };
 
 /*
-                                             
+ * callback for setting/clearing control bits
  */
 static void smp_ctl_bit_callback(void *info)
 {
@@ -532,7 +532,7 @@ static void smp_ctl_bit_callback(void *info)
 }
 
 /*
-                                              
+ * Set a bit in a control register of all cpus
  */
 void smp_ctl_set_bit(int cr, int bit)
 {
@@ -543,7 +543,7 @@ void smp_ctl_set_bit(int cr, int bit)
 EXPORT_SYMBOL(smp_ctl_set_bit);
 
 /*
-                                                
+ * Clear a bit in a control register of all cpus
  */
 void smp_ctl_clear_bit(int cr, int bit)
 {
@@ -579,13 +579,13 @@ static void __init smp_get_save_area(int cpu, u16 address)
 	zfcpdump_save_areas[cpu] = save_area;
 #ifdef CONFIG_CRASH_DUMP
 	if (address == boot_cpu_address) {
-		/*                                     */
+		/* Copy the registers of the boot cpu. */
 		copy_oldmem_page(1, (void *) save_area, sizeof(*save_area),
 				 SAVE_AREA_BASE - PAGE_SIZE, 0);
 		return;
 	}
 #endif
-	/*                                      */
+	/* Get the registers of a non-boot cpu. */
 	__pcpu_sigp_relax(address, sigp_stop_and_store_status, 0, NULL);
 	memcpy_real(save_area, lc + SAVE_AREA_BASE, sizeof(*save_area));
 }
@@ -601,11 +601,11 @@ int smp_store_status(int cpu)
 	return 0;
 }
 
-#else /*                                      */
+#else /* CONFIG_ZFCPDUMP || CONFIG_CRASH_DUMP */
 
 static inline void smp_get_save_area(int cpu, u16 address) { }
 
-#endif /*                                      */
+#endif /* CONFIG_ZFCPDUMP || CONFIG_CRASH_DUMP */
 
 static struct sclp_cpu_info *smp_get_cpu_info(void)
 {
@@ -672,7 +672,7 @@ static void __init smp_detect_cpus(void)
 		for (cpu = 0; cpu < info->combined; cpu++) {
 			if (info->cpu[cpu].address != boot_cpu_address)
 				continue;
-			/*                                     */
+			/* The boot cpu dictates the cpu type. */
 			boot_cpu_type = info->cpu[cpu].type;
 			break;
 		}
@@ -695,7 +695,7 @@ static void __init smp_detect_cpus(void)
 }
 
 /*
-                                  
+ *	Activate a secondary processor.
  */
 static void __cpuinit smp_start_secondary(void *cpuvoid)
 {
@@ -717,7 +717,7 @@ static void __cpuinit smp_start_secondary(void *cpuvoid)
 	set_cpu_online(smp_processor_id(), true);
 	ipi_call_unlock();
 	local_irq_enable();
-	/*                                    */
+	/* cpu_idle will call schedule for us */
 	cpu_idle();
 }
 
@@ -737,7 +737,7 @@ static void __cpuinit smp_fork_idle(struct work_struct *work)
 	complete(&c_idle->done);
 }
 
-/*                            */
+/* Upping and downing of CPUs */
 int __cpuinit __cpu_up(unsigned int cpu)
 {
 	struct create_idle c_idle;
@@ -792,13 +792,13 @@ int __cpu_disable(void)
 	unsigned long cregs[16];
 
 	set_cpu_online(smp_processor_id(), false);
-	/*                                         */
+	/* Disable pseudo page faults on this cpu. */
 	pfault_fini();
-	/*                                                 */
+	/* Disable interrupt sources via control register. */
 	__ctl_store(cregs, 0, 15);
-	cregs[0]  &= ~0x0000ee70UL;	/*                                 */
-	cregs[6]  &= ~0xff000000UL;	/*                            */
-	cregs[14] &= ~0x1f000000UL;	/*                             */
+	cregs[0]  &= ~0x0000ee70UL;	/* disable all external interrupts */
+	cregs[6]  &= ~0xff000000UL;	/* disable all I/O interrupts */
+	cregs[14] &= ~0x1f000000UL;	/* disable most machine checks */
 	__ctl_load(cregs, 0, 15);
 	return 0;
 }
@@ -807,7 +807,7 @@ void __cpu_die(unsigned int cpu)
 {
 	struct pcpu *pcpu;
 
-	/*                               */
+	/* Wait until target cpu is down */
 	pcpu = pcpu_devices + cpu;
 	while (!pcpu_stopped(pcpu))
 		cpu_relax();
@@ -822,7 +822,7 @@ void __noreturn cpu_die(void)
 	for (;;) ;
 }
 
-#endif /*                    */
+#endif /* CONFIG_HOTPLUG_CPU */
 
 static void smp_call_os_info_init_fn(void)
 {
@@ -837,10 +837,10 @@ static void smp_call_os_info_init_fn(void)
 
 void __init smp_prepare_cpus(unsigned int max_cpus)
 {
-	/*                                                        */
+	/* request the 0x1201 emergency signal external interrupt */
 	if (register_external_interrupt(0x1201, do_ext_call_interrupt) != 0)
 		panic("Couldn't request external interrupt 0x1201");
-	/*                                                     */
+	/* request the 0x1202 external call external interrupt */
 	if (register_external_interrupt(0x1202, do_ext_call_interrupt) != 0)
 		panic("Couldn't request external interrupt 0x1202");
 	smp_call_os_info_init_fn();
@@ -874,10 +874,10 @@ void __init smp_setup_processor_id(void)
 }
 
 /*
-                                                      
-                                                    
-  
-                                              
+ * the frequency of the profiling timer can be changed
+ * by writing a multiplier value into /proc/profile.
+ *
+ * usually you want to run this on all CPUs ;)
  */
 int setup_profiling_timer(unsigned int multiplier)
 {
@@ -911,7 +911,7 @@ static ssize_t cpu_configure_store(struct device *dev,
 	get_online_cpus();
 	mutex_lock(&smp_cpu_state_mutex);
 	rc = -EBUSY;
-	/*                                                         */
+	/* disallow configuration changes of online cpus and cpu 0 */
 	cpu = dev->id;
 	if (cpu_online(cpu) || cpu == 0)
 		goto out;
@@ -947,7 +947,7 @@ out:
 	return rc ? rc : count;
 }
 static DEVICE_ATTR(configure, 0644, cpu_configure_show, cpu_configure_store);
-#endif /*                    */
+#endif /* CONFIG_HOTPLUG_CPU */
 
 static ssize_t show_cpu_address(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -1124,7 +1124,7 @@ static ssize_t __ref rescan_store(struct device *dev,
 	return rc ? rc : count;
 }
 static DEVICE_ATTR(rescan, 0200, NULL, rescan_store);
-#endif /*                    */
+#endif /* CONFIG_HOTPLUG_CPU */
 
 static int __init s390_smp_init(void)
 {

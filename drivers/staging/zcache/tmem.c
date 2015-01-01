@@ -30,14 +30,14 @@
 
 #include "tmem.h"
 
-/*                                                           */
+/* data structure sentinels used for debugging... see tmem.h */
 #define POOL_SENTINEL 0x87658765
 #define OBJ_SENTINEL 0x12345678
 #define OBJNODE_SENTINEL 0xfedcba09
 
 /*
-                                                                          
-                         
+ * A tmem host implementation must use this function to register callbacks
+ * for memory allocation.
  */
 static struct tmem_hostops tmem_hostops;
 
@@ -50,8 +50,8 @@ void tmem_register_hostops(struct tmem_hostops *m)
 }
 
 /*
-                                                                
-                                                              
+ * A tmem host implementation must use this function to register
+ * callbacks for a page-accessible memory (PAM) implementation
  */
 static struct tmem_pamops tmem_pamops;
 
@@ -61,18 +61,18 @@ void tmem_register_pamops(struct tmem_pamops *m)
 }
 
 /*
-                                                                              
-                                                                      
-                                                                             
-                                                                             
-                                                                      
-                                                               
-  
-                                                                           
-                                    
+ * Oid's are potentially very sparse and tmem_objs may have an indeterminately
+ * short life, being added and deleted at a relatively high frequency.
+ * So an rb_tree is an ideal data structure to manage tmem_objs.  But because
+ * of the potentially huge number of tmem_objs, each pool manages a hashtable
+ * of rb_trees to reduce search, insert, delete, and rebalancing time.
+ * Each hashbucket also has a lock to manage concurrent access.
+ *
+ * The following routines manage tmem_objs.  When any tmem_obj is accessed,
+ * the hashbucket lock must be held.
  */
 
-/*                                                                  */
+/* searches for object==oid in pool, returns locked object if found */
 static struct tmem_obj *tmem_obj_find(struct tmem_hashbucket *hb,
 					struct tmem_oid *oidp)
 {
@@ -84,7 +84,7 @@ static struct tmem_obj *tmem_obj_find(struct tmem_hashbucket *hb,
 		BUG_ON(RB_EMPTY_NODE(rbnode));
 		obj = rb_entry(rbnode, struct tmem_obj, rb_tree_node);
 		switch (tmem_oid_compare(oidp, &obj->oid)) {
-		case 0: /*       */
+		case 0: /* equal */
 			goto out;
 		case -1:
 			rbnode = rbnode->rb_left;
@@ -101,7 +101,7 @@ out:
 
 static void tmem_pampd_destroy_all_in_obj(struct tmem_obj *);
 
-/*                                              */
+/* free an object that has no more pampds in it */
 static void tmem_obj_free(struct tmem_obj *obj, struct tmem_hashbucket *hb)
 {
 	struct tmem_pool *pool;
@@ -111,7 +111,7 @@ static void tmem_obj_free(struct tmem_obj *obj, struct tmem_hashbucket *hb)
 	BUG_ON(obj->pampd_count > 0);
 	pool = obj->pool;
 	BUG_ON(pool == NULL);
-	if (obj->objnode_tree_root != NULL) /*                               */
+	if (obj->objnode_tree_root != NULL) /* may be "stump" with no leaves */
 		tmem_pampd_destroy_all_in_obj(obj);
 	BUG_ON(obj->objnode_tree_root != NULL);
 	BUG_ON((long)obj->objnode_count != 0);
@@ -124,7 +124,7 @@ static void tmem_obj_free(struct tmem_obj *obj, struct tmem_hashbucket *hb)
 }
 
 /*
-                                                                          
+ * initialize, and insert an tmem_object_root (called only if find failed)
  */
 static void tmem_obj_init(struct tmem_obj *obj, struct tmem_hashbucket *hb,
 					struct tmem_pool *pool,
@@ -150,7 +150,7 @@ static void tmem_obj_init(struct tmem_obj *obj, struct tmem_hashbucket *hb,
 		parent = *new;
 		switch (tmem_oid_compare(oidp, &this->oid)) {
 		case 0:
-			BUG(); /*                                       */
+			BUG(); /* already present; should never happen! */
 			break;
 		case -1:
 			new = &(*new)->rb_left;
@@ -165,14 +165,14 @@ static void tmem_obj_init(struct tmem_obj *obj, struct tmem_hashbucket *hb,
 }
 
 /*
-                                                                          
-                                                                        
-                                                                     
-                                                                  
-                        
+ * Tmem is managed as a set of tmem_pools with certain attributes, such as
+ * "ephemeral" vs "persistent".  These attributes apply to all tmem_objs
+ * and all pampds that belong to a tmem_pool.  A tmem_pool is created
+ * or deleted relatively rarely (for example, when a filesystem is
+ * mounted or unmounted.
  */
 
-/*                                                     */
+/* flush all data from a pool and, optionally, free it */
 static void tmem_pool_flush(struct tmem_pool *pool, bool destroy)
 {
 	struct rb_node *rbnode;
@@ -216,7 +216,7 @@ struct tmem_objnode_tree_path {
 	int offset;
 };
 
-/*                                        */
+/* objnode height_to_maxindex translation */
 static unsigned long tmem_objnode_tree_h2max[OBJNODE_TREE_MAX_PATH + 1];
 
 static void tmem_objnode_tree_init(void)
@@ -273,7 +273,7 @@ static void tmem_objnode_free(struct tmem_objnode *objnode)
 }
 
 /*
-                                                                            
+ * lookup index in object and return associated pampd (or NULL if not found)
  */
 static void **__tmem_pampd_lookup_in_obj(struct tmem_obj *obj, uint32_t index)
 {
@@ -339,7 +339,7 @@ static int tmem_pampd_add_to_obj(struct tmem_obj *obj, uint32_t index,
 	unsigned int height, shift;
 	int offset = 0;
 
-	/*                                             */
+	/* if necessary, extend the tree to be higher  */
 	if (index > tmem_objnode_tree_h2max[obj->objnode_tree_height]) {
 		height = obj->objnode_tree_height + 1;
 		if (index > tmem_objnode_tree_h2max[height])
@@ -367,7 +367,7 @@ insert:
 	shift = (height-1) * OBJNODE_TREE_MAP_SHIFT;
 	while (height > 0) {
 		if (slot == NULL) {
-			/*                       */
+			/* add a child objnode.  */
 			slot = tmem_objnode_alloc(obj);
 			if (!slot) {
 				ret = -ENOMEM;
@@ -380,7 +380,7 @@ insert:
 			} else
 				obj->objnode_tree_root = slot;
 		}
-		/*                 */
+		/* go down a level */
 		offset = (index >> shift) & OBJNODE_TREE_MAP_MASK;
 		objnode = slot;
 		slot = objnode->slots[offset];
@@ -454,7 +454,7 @@ static void *tmem_pampd_delete_from_obj(struct tmem_obj *obj, uint32_t index)
 			}
 			goto out;
 		}
-		tmem_objnode_free(pathp->objnode); /*                       */
+		tmem_objnode_free(pathp->objnode); /* 0 slots used, free it */
 		pathp--;
 	}
 	obj->objnode_tree_height = 0;
@@ -467,7 +467,7 @@ out:
 	return slot;
 }
 
-/*                                                                  */
+/* recursively walk the objnode_tree destroying pampds and objnodes */
 static void tmem_objnode_node_destroy(struct tmem_obj *obj,
 					struct tmem_objnode *objnode,
 					unsigned int ht)
@@ -510,23 +510,23 @@ static void tmem_pampd_destroy_all_in_obj(struct tmem_obj *obj)
 }
 
 /*
-                                                        
-                                                                        
-                                                                       
-                                            
-  
-                                                                           
+ * Tmem is operated on by a set of well-defined actions:
+ * "put", "get", "flush", "flush_object", "new pool" and "destroy pool".
+ * (The tmem ABI allows for subpages and exchanges but these operations
+ * are not included in this implementation.)
+ *
+ * These "tmem core" operations are implemented in the following functions.
  */
 
 /*
-                                                                      
-                                                                      
-                                                                       
-                                                                         
-                                                                 
-                                                                      
-                                                                        
-                                 
+ * "Put" a page, e.g. copy a page from the kernel into newly allocated
+ * PAM space (if such space is available).  Tmem_put is complicated by
+ * a corner case: What if a page with matching handle already exists in
+ * tmem?  To guarantee coherency, one of two actions is necessary: Either
+ * the data for the page must be overwritten, or the page must be
+ * "flushed" so that the data is not accessible to a subsequent "get".
+ * Since these "duplicate puts" are relatively rare, this implementation
+ * always flushes for simplicity.
  */
 int tmem_put(struct tmem_pool *pool, struct tmem_oid *oidp, uint32_t index,
 		char *data, size_t size, bool raw, bool ephemeral)
@@ -542,7 +542,7 @@ int tmem_put(struct tmem_pool *pool, struct tmem_oid *oidp, uint32_t index,
 	if (obj != NULL) {
 		pampd = tmem_pampd_lookup_in_obj(objfound, index);
 		if (pampd != NULL) {
-			/*                                           */
+			/* if found, is a dup put, flush the old one */
 			pampd_del = tmem_pampd_delete_from_obj(obj, index);
 			BUG_ON(pampd_del != pampd);
 			(*tmem_pamops.free)(pampd, pool, oidp, index);
@@ -568,7 +568,7 @@ int tmem_put(struct tmem_pool *pool, struct tmem_oid *oidp, uint32_t index,
 		goto free;
 	ret = tmem_pampd_add_to_obj(obj, index, pampd);
 	if (unlikely(ret == -ENOMEM))
-		/*                                                 */
+		/* may have partially built objnode tree ("stump") */
 		goto delete_and_free;
 	goto out;
 
@@ -587,15 +587,15 @@ out:
 }
 
 /*
-                                                                      
-                                                                     
-                                                                          
-                                                                            
-                                  
-                                                                   
-                                                                 
-                                                               
-                                    
+ * "Get" a page, e.g. if one can be found, copy the tmem page with the
+ * matching handle from PAM space to the kernel.  By tmem definition,
+ * when a "get" is successful on an ephemeral page, the page is "flushed",
+ * and when a "get" is successful on a persistent page, the page is retained
+ * in tmem.  Note that to preserve
+ * coherency, "get" can never be skipped if tmem contains the data.
+ * That is, if a get is done with a certain handle and fails, any
+ * subsequent "get" must also fail (unless of course there is a
+ * "put" done with the same handle).
 
  */
 int tmem_get(struct tmem_pool *pool, struct tmem_oid *oidp, uint32_t index,
@@ -648,9 +648,9 @@ out:
 }
 
 /*
-                                                                         
-                                                                       
-                                           
+ * If a page in tmem matches the handle, "flush" this page from tmem such
+ * that any subsequent "get" does not succeed (unless, of course, there
+ * was another "put" with the same handle).
  */
 int tmem_flush_page(struct tmem_pool *pool,
 				struct tmem_oid *oidp, uint32_t index)
@@ -681,9 +681,9 @@ out:
 }
 
 /*
-                                                                     
-                                                    
-                                                
+ * If a page in tmem matches the handle, replace the page so that any
+ * subsequent "get" gets the new page.  Returns 0 if
+ * there was a page to replace, else returns -1.
  */
 int tmem_replace(struct tmem_pool *pool, struct tmem_oid *oidp,
 			uint32_t index, void *new_pampd)
@@ -705,7 +705,7 @@ out:
 }
 
 /*
-                                               
+ * "Flush" all pages in tmem matching this oid.
  */
 int tmem_flush_object(struct tmem_pool *pool, struct tmem_oid *oidp)
 {
@@ -729,8 +729,8 @@ out:
 }
 
 /*
-                                                                    
-                                           
+ * "Flush" all pages (and tmem_objs) from this tmem_pool and disable
+ * all subsequent access to this tmem_pool.
  */
 int tmem_destroy_pool(struct tmem_pool *pool)
 {
@@ -747,8 +747,8 @@ out:
 static LIST_HEAD(tmem_global_pool_list);
 
 /*
-                                                           
-                                                      
+ * Create a new tmem_pool with the provided flag and return
+ * a pool id provided by the tmem host implementation.
  */
 void tmem_new_pool(struct tmem_pool *pool, uint32_t flags)
 {

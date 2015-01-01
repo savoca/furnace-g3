@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-         
-  
-                                                          
+/**
+ *  @file
+ *
+ *  @brief Umbrella header file for all ARM-related types.
  */
 
 #ifndef _ARM_TYPES_H_
@@ -39,4 +39,4 @@
 #include "mmu_types.h"
 #include "lpae_types.h"
 
-#endif /*               */
+#endif /* _ARM_TYPES_H_ */

@@ -15,7 +15,7 @@
 #include "acl.h"
 
 /*
-                                                       
+ * Convert from filesystem to in-memory representation.
  */
 static struct posix_acl *
 ext4_acl_from_disk(const void *value, size_t size)
@@ -81,7 +81,7 @@ fail:
 }
 
 /*
-                                                       
+ * Convert from in-memory to filesystem representation.
  */
 static void *
 ext4_acl_to_disk(const struct posix_acl *acl, size_t *size)
@@ -127,9 +127,9 @@ fail:
 }
 
 /*
-                                   
-  
-                             
+ * Inode operation get_posix_acl().
+ *
+ * inode->i_mutex: don't care
  */
 struct posix_acl *
 ext4_get_acl(struct inode *inode, int type)
@@ -178,9 +178,9 @@ ext4_get_acl(struct inode *inode, int type)
 }
 
 /*
-                                             
-  
-                                                         
+ * Set the access or default ACL of an inode.
+ *
+ * inode->i_mutex: down unless called from ext4_new_inode
  */
 static int
 ext4_set_acl(handle_t *handle, struct inode *inode, int type,
@@ -236,10 +236,10 @@ ext4_set_acl(handle_t *handle, struct inode *inode, int type,
 }
 
 /*
-                                                                  
-  
-                     
-                                                          
+ * Initialize the ACLs of a new inode. Called from ext4_new_inode.
+ *
+ * dir->i_mutex: down
+ * inode->i_mutex: up (access to inode is still exclusive)
  */
 int
 ext4_init_acl(handle_t *handle, struct inode *inode, struct inode *dir)
@@ -268,7 +268,7 @@ ext4_init_acl(handle_t *handle, struct inode *inode, struct inode *dir)
 			return error;
 
 		if (error > 0) {
-			/*                         */
+			/* This is an extended ACL */
 			error = ext4_set_acl(handle, inode, ACL_TYPE_ACCESS, acl);
 		}
 	}
@@ -278,18 +278,18 @@ cleanup:
 }
 
 /*
-                                                                    
-                                                                         
-                                
-                                                    
-  
-                                                                     
-                                                                     
-                                                                        
-                                                                      
-             
-  
-                       
+ * Does chmod for an inode that may have an Access Control List. The
+ * inode->i_mode field must be updated to the desired value by the caller
+ * before calling this function.
+ * Returns 0 on success, or a negative error number.
+ *
+ * We change the ACL rather than storing some ACL entries in the file
+ * mode permission bits (which would be more efficient), because that
+ * would break once additional permissions (like  ACL_APPEND, ACL_DELETE
+ * for directories) are added. There are no more bits available in the
+ * file mode.
+ *
+ * inode->i_mutex: down
  */
 int
 ext4_acl_chmod(struct inode *inode)
@@ -329,7 +329,7 @@ out:
 }
 
 /*
-                              
+ * Extended attribute handlers
  */
 static size_t
 ext4_xattr_list_acl_access(struct dentry *dentry, char *list, size_t list_len,

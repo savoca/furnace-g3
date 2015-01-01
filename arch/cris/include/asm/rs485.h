@@ -1,7 +1,7 @@
-/*                   */
+/* RS-485 structures */
 
-/*                                                              
-                                   
+/* Used with ioctl() TIOCSERSETRS485 for backward compatibility!
+ * XXX: Do not use it for new code!
  */
 struct rs485_control {
         unsigned short rts_on_send;
@@ -10,7 +10,7 @@ struct rs485_control {
         unsigned short enabled;
 };
 
-/*                                  */
+/* Used with ioctl() TIOCSERWRRS485 */
 struct rs485_write {
         unsigned short outc_size;
         unsigned char *outc;

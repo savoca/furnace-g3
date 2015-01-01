@@ -19,11 +19,11 @@
 #define KRAIT_EVT_PREFIX 1
 #define KRAIT_VENUMEVT_PREFIX 2
 /*
-                                       
-                                                          
-                
-            
-             
+   event encoding:                prccg
+   p  = prefix (1 for Krait L1) (2 for Krait VeNum events)
+   r  = register
+   cc = code
+   g  = group
 */
 
 #define KRAIT_L1_ICACHE_ACCESS 0x10011
@@ -41,31 +41,31 @@
 #define COUNT_MASK	0xffffffff
 
 u32 evt_type_base[][4] = {
-	{0x4c, 0x50, 0x54},		/*        */
-	{0xcc, 0xd0, 0xd4, 0xd8},	/*        */
+	{0x4c, 0x50, 0x54},		/* Pass 1 */
+	{0xcc, 0xd0, 0xd4, 0xd8},	/* Pass 2 */
 };
 
 #define KRAIT_MIDR_PASS1 0x510F04D0
 #define KRAIT_MIDR_MASK 0xfffffff0
 
 /*
-                                             
-                                               
+ * This offset is used to calculate the index
+ * into evt_type_base[][] and krait_functions[]
  */
 #define VENUM_BASE_OFFSET 3
 
-/*                                         */
+/* Krait Pass 1 has 3 groups, Pass 2 has 4 */
 static u32 krait_ver, evt_index;
 static u32 krait_max_l1_reg;
 
 
 /*
-                                     
-                                      
-                                                  
-  
-                                                    
-                                            
+ * Every 4 bytes represents a prefix.
+ * Every nibble represents a register.
+ * Every bit represents a group within a register.
+ *
+ * This supports up to 4 groups per register, upto 8
+ * registers per prefix and upto 2 prefixes.
  */
 static DEFINE_PER_CPU(u64, pmu_bitmap);
 
@@ -84,11 +84,11 @@ static unsigned armv7_krait_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
 					  [PERF_COUNT_HW_CACHE_RESULT_MAX] = {
 	[C(L1D)] = {
 		/*
-                                                              
-                                                              
-                                                      
-              
-   */
+		 * The performance counters don't differentiate between read
+		 * and write accesses/misses so this isn't strictly correct,
+		 * but it's the best we can do. Writes and reads get
+		 * combined.
+		 */
 		[C(OP_READ)] = {
 			[C(RESULT_ACCESS)]	= ARMV7_PERFCTR_L1_DCACHE_ACCESS,
 			[C(RESULT_MISS)]	= ARMV7_PERFCTR_L1_DCACHE_REFILL,
@@ -186,23 +186,23 @@ static int krait_8960_map_event(struct perf_event *event)
 
 struct krait_evt {
 	/*
-                                                                  
-                                                                      
-                                                           
-  */
+	 * The group_setval field corresponds to the value that the group
+	 * register needs to be set to. This value is calculated from the row
+	 * and column that the event belongs to in the event table
+	 */
 	u32 group_setval;
 
 	/*
-                                                                     
-                                              
-                                                
-  */
+	 * The groupcode corresponds to the group that the event belongs to.
+	 * Krait has 3 groups of events PMRESR0, 1, 2
+	 * going from 0 to 2 in terms of the codes used
+	 */
 	u8 groupcode;
 
 	/*
-                                                                   
-                                     
-  */
+	 * The armv7_evt_type field corresponds to the armv7 defined event
+	 * code that the Krait events map to
+	 */
 	u32 armv7_evt_type;
 };
 
@@ -301,28 +301,28 @@ static void krait_pre_vmresr0(void)
 	u32 v_orig_val;
 	u32 f_orig_val;
 
-	/*                                   */
+	/* CPACR Enable CP10 and CP11 access */
 	v_orig_val = get_copro_access();
 	venum_new_val = v_orig_val | CPACC_SVC(10) | CPACC_SVC(11);
 	set_copro_access(venum_new_val);
-	/*                      */
+	/* Store orig venum val */
 	__get_cpu_var(venum_orig_val) = v_orig_val;
 
-	/*              */
+	/* Enable FPEXC */
 	f_orig_val = fmrx(FPEXC);
 	fp_new_val = f_orig_val | FPEXC_EN;
 	fmxr(FPEXC, fp_new_val);
-	/*                   */
+	/* Store orig fp val */
 	__get_cpu_var(fp_orig_val) = f_orig_val;
 
 }
 
 static void krait_post_vmresr0(void)
 {
-	/*               */
+	/* Restore FPEXC */
 	fmxr(FPEXC, __get_cpu_var(fp_orig_val));
 	isb();
-	/*               */
+	/* Restore CPACR */
 	set_copro_access(__get_cpu_var(venum_orig_val));
 }
 
@@ -334,9 +334,9 @@ struct krait_access_funcs {
 };
 
 /*
-                                                                       
-                                                
-                                                                  
+ * The krait_functions array is used to set up the event register codes
+ * based on the group to which an event belongs.
+ * Having the following array modularizes the code for doing that.
  */
 struct krait_access_funcs krait_functions[] = {
 	{krait_read_pmresr0, krait_write_pmresr0, NULL, NULL},
@@ -405,16 +405,16 @@ static void krait_pmu_disable_event(struct hw_perf_event *hwc, int idx)
 	struct pmu_hw_events *events = cpu_pmu->get_hw_events();
 
 
-	/*                               */
+	/* Disable counter and interrupt */
 	raw_spin_lock_irqsave(&events->pmu_lock, flags);
 
-	/*                 */
+	/* Disable counter */
 	armv7_pmnc_disable_counter(idx);
 
 	/*
-                                                     
-                                                        
-  */
+	 * Clear pmresr code (if destined for PMNx counters)
+	 * We don't need to set the event if it's a cycle count
+	 */
 	if (idx != ARMV7_IDX_CYCLE_COUNTER) {
 		val = hwc->config_base;
 		val &= KRAIT_EVENT_MASK;
@@ -428,7 +428,7 @@ static void krait_pmu_disable_event(struct hw_perf_event *hwc, int idx)
 			krait_clearpmu(gr, val, evtinfo.armv7_evt_type);
 		}
 	}
-	/*                                    */
+	/* Disable interrupt for this counter */
 	armv7_pmnc_disable_intens(idx);
 
 krait_dis_out:
@@ -446,18 +446,18 @@ static void krait_pmu_enable_event(struct hw_perf_event *hwc, int idx, int cpu)
 	struct pmu_hw_events *events = cpu_pmu->get_hw_events();
 
 	/*
-                                                              
-                                       
-  */
+	 * Enable counter and interrupt, and set the counter to count
+	 * the event that we're interested in.
+	 */
 	raw_spin_lock_irqsave(&events->pmu_lock, flags);
 
-	/*                 */
+	/* Disable counter */
 	armv7_pmnc_disable_counter(idx);
 
 	/*
-                                             
-                                                        
-  */
+	 * Set event (if destined for PMNx counters)
+	 * We don't need to set the event if it's a cycle count
+	 */
 	if (idx != ARMV7_IDX_CYCLE_COUNTER) {
 		val = hwc->config_base;
 		val &= KRAIT_EVENT_MASK;
@@ -470,13 +470,13 @@ static void krait_pmu_enable_event(struct hw_perf_event *hwc, int idx, int cpu)
 			if (event == -EINVAL)
 				goto krait_out;
 
-			/*                             */
+			/* Restore Mode-exclusion bits */
 			event |= (hwc->config_base & KRAIT_MODE_EXCL_MASK);
 
 			/*
-                                               
-                                                          
-    */
+			 * Set event (if destined for PMNx counters)
+			 * We don't need to set the event if it's a cycle count
+			 */
 			armv7_pmnc_write_evtsel(idx, event);
 			val = 0x0;
 			asm volatile("mcr p15, 0, %0, c9, c15, 0" : :
@@ -487,13 +487,13 @@ static void krait_pmu_enable_event(struct hw_perf_event *hwc, int idx, int cpu)
 		}
 	}
 
-	/*                                   */
+	/* Enable interrupt for this counter */
 	armv7_pmnc_enable_intens(idx);
 
-	/*                  */
+	/* Restore prev val */
 	armv7pmu_write_counter(idx, prev_count & COUNT_MASK);
 
-	/*                */
+	/* Enable counter */
 	armv7_pmnc_enable_counter(idx);
 
 krait_out:
@@ -504,25 +504,25 @@ static void krait_pmu_reset(void *info)
 {
 	u32 idx, nb_cnt = cpu_pmu->num_events;
 
-	/*                                        */
+	/* Stop all counters and their interrupts */
 	for (idx = 1; idx < nb_cnt; ++idx) {
 		armv7_pmnc_disable_counter(idx);
 		armv7_pmnc_disable_intens(idx);
 	}
 
-	/*                   */
+	/* Clear all pmresrs */
 	krait_clear_pmuregs();
 
-	/*                    */
+	/* Reset irq stat reg */
 	armv7_pmnc_getreset_flags();
 
-	/*                     */
+	/* Reset all ctrs to 0 */
 	armv7_pmnc_write(ARMV7_PMNC_P | ARMV7_PMNC_C);
 }
 
 /*
-                                                  
-                                                
+ * We check for column exclusion constraints here.
+ * Two events cant have same reg and same group.
  */
 static int msm_test_set_ev_constraint(struct perf_event *event)
 {
@@ -533,19 +533,19 @@ static int msm_test_set_ev_constraint(struct perf_event *event)
 	u64 cpu_pmu_bitmap = __get_cpu_var(pmu_bitmap);
 	u64 bitmap_t;
 
-	/*                          */
+	/* Return if non MSM event. */
 	if (!prefix)
 		return 0;
 
 	bitmap_t = 1 << (((prefix - 1) * 32) + (reg * 4) + group);
 
-	/*                            */
+	/* Set it if not already set. */
 	if (!(cpu_pmu_bitmap & bitmap_t)) {
 		cpu_pmu_bitmap |= bitmap_t;
 		__get_cpu_var(pmu_bitmap) = cpu_pmu_bitmap;
 		return 1;
 	}
-	/*                                        */
+	/* Bit is already set. Constraint failed. */
 	return -EPERM;
 }
 
@@ -558,13 +558,13 @@ static int msm_clear_ev_constraint(struct perf_event *event)
 	u64 cpu_pmu_bitmap = __get_cpu_var(pmu_bitmap);
 	u64 bitmap_t;
 
-	/*                          */
+	/* Return if non MSM event. */
 	if (!prefix)
 		return 0;
 
 	bitmap_t = 1 << (((prefix - 1) * 32) + (reg * 4) + group);
 
-	/*                       */
+	/* Clear constraint bit. */
 	cpu_pmu_bitmap &= ~(bitmap_t);
 
 	__get_cpu_var(pmu_bitmap) = cpu_pmu_bitmap;
@@ -579,7 +579,7 @@ static void krait_save_pm_registers(void *hcpu)
 	u32 val;
 	u32 cpu = (int)hcpu;
 
-	/*              */
+	/* Read PMACTLR */
 	asm volatile("mrc p15, 0, %0, c9, c15, 5" : "=r" (val));
 	per_cpu(krait_pm_pmactlr, cpu) = val;
 
@@ -593,7 +593,7 @@ static void krait_restore_pm_registers(void *hcpu)
 
 	val = per_cpu(krait_pm_pmactlr, cpu);
 	if (val != 0)
-		/*                 */
+		/* Restore PMACTLR */
 		asm volatile("mcr p15, 0, %0, c9, c15, 5" : : "r" (val));
 
 	armv7pmu_restore_pm_registers(hcpu);
@@ -616,7 +616,7 @@ static struct arm_pmu krait_pmu = {
 	.restore_pm_registers	= krait_restore_pm_registers,
 };
 
-/*                                  */
+/* NRCCG format for perf RAW codes. */
 PMU_FORMAT_ATTR(prefix,	"config:16-19");
 PMU_FORMAT_ATTR(reg,	"config:12-15");
 PMU_FORMAT_ATTR(code,	"config:4-11");
@@ -631,8 +631,8 @@ static struct attribute *msm_l1_ev_formats[] = {
 };
 
 /*
-                                                           
-                         
+ * Format group is essential to access PMU's from userspace
+ * via their .name field.
  */
 static struct attribute_group msm_pmu_format_group = {
 	.name = "format",
@@ -711,4 +711,4 @@ static const struct arm_pmu *__init armv7_krait_pmu_init(void)
 {
 	return NULL;
 }
-#endif	/*               */
+#endif	/* CONFIG_CPU_V7 */

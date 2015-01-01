@@ -1,5 +1,5 @@
 /*
-                                      
+ * Linux Socket Filter Data Structures
  */
 
 #ifndef __LINUX_FILTER_H__
@@ -13,7 +13,7 @@
 #endif
 
 /*
-                                                   
+ * Current version of the filter code architecture.
  */
 #define BPF_MAJOR_VERSION 1
 #define BPF_MINOR_VERSION 1
@@ -23,20 +23,20 @@
  *	the BPF code definitions which need to match so you can share filters
  */
  
-struct sock_filter {	/*              */
-	__u16	code;   /*                    */
-	__u8	jt;	/*           */
-	__u8	jf;	/*            */
-	__u32	k;      /*                        */
+struct sock_filter {	/* Filter block */
+	__u16	code;   /* Actual filter code */
+	__u8	jt;	/* Jump true */
+	__u8	jf;	/* Jump false */
+	__u32	k;      /* Generic multiuse field */
 };
 
-struct sock_fprog {	/*                                */
-	unsigned short		len;	/*                         */
+struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+	unsigned short		len;	/* Number of filter blocks */
 	struct sock_filter __user *filter;
 };
 
 /*
-                      
+ * Instruction classes
  */
 
 #define BPF_CLASS(code) ((code) & 0x07)
@@ -49,7 +49,7 @@ struct sock_fprog {	/*                                */
 #define         BPF_RET         0x06
 #define         BPF_MISC        0x07
 
-/*               */
+/* ld/ldx fields */
 #define BPF_SIZE(code)  ((code) & 0x18)
 #define         BPF_W           0x00
 #define         BPF_H           0x08
@@ -62,7 +62,7 @@ struct sock_fprog {	/*                                */
 #define         BPF_LEN         0x80
 #define         BPF_MSH         0xa0
 
-/*                */
+/* alu/jmp fields */
 #define BPF_OP(code)    ((code) & 0xf0)
 #define         BPF_ADD         0x00
 #define         BPF_SUB         0x10
@@ -82,11 +82,11 @@ struct sock_fprog {	/*                                */
 #define         BPF_K           0x00
 #define         BPF_X           0x08
 
-/*                                  */
+/* ret - BPF_K and BPF_X also apply */
 #define BPF_RVAL(code)  ((code) & 0x18)
 #define         BPF_A           0x10
 
-/*      */
+/* misc */
 #define BPF_MISCOP(code) ((code) & 0xf8)
 #define         BPF_TAX         0x00
 #define         BPF_TXA         0x80
@@ -96,7 +96,7 @@ struct sock_fprog {	/*                                */
 #endif
 
 /*
-                                              
+ * Macros for filter block array initializers.
  */
 #ifndef BPF_STMT
 #define BPF_STMT(code, k) { (unsigned short)(code), 0, 0, k }
@@ -106,14 +106,14 @@ struct sock_fprog {	/*                                */
 #endif
 
 /*
-                                                         
+ * Number of scratch memory words for: BPF_ST and BPF_STX
  */
 #define BPF_MEMWORDS 16
 
-/*                                                
-                                           
-                                                          
-                                 
+/* RATIONALE. Negative offsets are invalid in BPF.
+   We use them to reference ancillary data.
+   Unlike introduction new instructions, it does not break
+   existing compilers/optimizers.
  */
 #define SKF_AD_OFF    (-0x1000)
 #define SKF_AD_PROTOCOL 0
@@ -138,7 +138,7 @@ struct sock;
 struct sk_filter
 {
 	atomic_t		refcnt;
-	unsigned int         	len;	/*                         */
+	unsigned int         	len;	/* Number of filter blocks */
 	unsigned int		(*bpf_func)(const struct sk_buff *skb,
 					    const struct sock_filter *filter);
 	struct rcu_head		rcu;
@@ -217,7 +217,7 @@ enum {
 	BPF_S_JMP_JGT_X,
 	BPF_S_JMP_JSET_K,
 	BPF_S_JMP_JSET_X,
-	/*                */
+	/* Ancillary data */
 	BPF_S_ANC_PROTOCOL,
 	BPF_S_ANC_PKTTYPE,
 	BPF_S_ANC_IFINDEX,
@@ -230,6 +230,6 @@ enum {
 	BPF_S_ANC_CPU,
 };
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*                    */
+#endif /* __LINUX_FILTER_H__ */

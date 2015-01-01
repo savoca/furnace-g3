@@ -17,7 +17,7 @@
 
 #define PERIPHERAL_CLOCK_RATE		2500000
 
-/*                                                    
+/* For now, all mappings are flat (physical = virtual)
  */
 #define UART0_PHYS			0xE0000000
 #define UART0_VIRT			UART0_PHYS
@@ -31,7 +31,7 @@
 #define SCU_PERIPH_PHYS			0xF8F00000
 #define SCU_PERIPH_VIRT			SCU_PERIPH_PHYS
 
-/*                                                                  */
+/* The following are intended for the devices that are mapped early */
 
 #define TTC0_BASE			IOMEM(TTC0_VIRT)
 #define SCU_PERIPH_BASE			IOMEM(SCU_PERIPH_VIRT)
@@ -40,7 +40,7 @@
 #define PL310_L2CC_BASE			IOMEM(PL310_L2CC_VIRT)
 
 /*
-                                                                   
+ * Mandatory for CONFIG_LL_DEBUG, UART is mapped virtual = physical
  */
 #define LL_UART_PADDR	UART0_PHYS
 #define LL_UART_VADDR	UART0_VIRT

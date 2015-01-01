@@ -21,11 +21,11 @@
 
 
 
-/* 
-                                                                  
-                                                        
-  
-                             
+/**
+ * mei_set_csr_register - writes H_CSR register to the mei device,
+ * and ignores the H_IS bit for it is write-one-to-zero.
+ *
+ * @dev: the device structure
  */
 void mei_hcsr_set(struct mei_device *dev)
 {
@@ -35,10 +35,10 @@ void mei_hcsr_set(struct mei_device *dev)
 	dev->host_hw_state = mei_hcsr_read(dev);
 }
 
-/* 
-                                                            
-  
-                             
+/**
+ * mei_csr_enable_interrupts - enables mei device interrupts
+ *
+ * @dev: the device structure
  */
 void mei_enable_interrupts(struct mei_device *dev)
 {
@@ -46,10 +46,10 @@ void mei_enable_interrupts(struct mei_device *dev)
 	mei_hcsr_set(dev);
 }
 
-/* 
-                                                              
-  
-                             
+/**
+ * mei_csr_disable_interrupts - disables mei device interrupts
+ *
+ * @dev: the device structure
  */
 void mei_disable_interrupts(struct mei_device *dev)
 {
@@ -57,12 +57,12 @@ void mei_disable_interrupts(struct mei_device *dev)
 	mei_hcsr_set(dev);
 }
 
-/* 
-                                                                     
-  
-                                
-  
-                                 
+/**
+ * _host_get_filled_slots - gets number of device filled buffer slots
+ *
+ * @device: the device structure
+ *
+ * returns number of filled slots
  */
 static unsigned char _host_get_filled_slots(const struct mei_device *dev)
 {
@@ -74,12 +74,12 @@ static unsigned char _host_get_filled_slots(const struct mei_device *dev)
 	return (unsigned char) (write_ptr - read_ptr);
 }
 
-/* 
-                                                             
-  
-                             
-  
-                                     
+/**
+ * mei_host_buffer_is_empty - checks if host buffer is empty.
+ *
+ * @dev: the device structure
+ *
+ * returns 1 if empty, 0 - otherwise.
  */
 int mei_host_buffer_is_empty(struct mei_device *dev)
 {
@@ -94,12 +94,12 @@ int mei_host_buffer_is_empty(struct mei_device *dev)
 	return 0;
 }
 
-/* 
-                                                          
-  
-                             
-  
-                                                                       
+/**
+ * mei_count_empty_write_slots - counts write empty slots.
+ *
+ * @dev: the device structure
+ *
+ * returns -1(ESLOTS_OVERFLOW) if overflow, otherwise empty slots count
  */
 int mei_count_empty_write_slots(struct mei_device *dev)
 {
@@ -110,22 +110,22 @@ int mei_count_empty_write_slots(struct mei_device *dev)
 	filled_slots = _host_get_filled_slots(dev);
 	empty_slots = buffer_depth - filled_slots;
 
-	/*                    */
+	/* check for overflow */
 	if (filled_slots > buffer_depth)
 		return -EOVERFLOW;
 
 	return empty_slots;
 }
 
-/* 
-                                                      
-  
-                             
-                             
-                                                
-                                              
-  
-                                                 
+/**
+ * mei_write_message - writes a message to mei device.
+ *
+ * @dev: the device structure
+ * @header: header of message
+ * @write_buffer: message buffer will be written
+ * @write_length: message size will be written
+ *
+ * This function returns -EIO if write has failed
  */
 int mei_write_message(struct mei_device *dev,
 		      struct mei_msg_hdr *header,
@@ -182,12 +182,12 @@ int mei_write_message(struct mei_device *dev,
 	return 0;
 }
 
-/* 
-                                                      
-  
-                             
-  
-                                                                        
+/**
+ * mei_count_full_read_slots - counts read full slots.
+ *
+ * @dev: the device structure
+ *
+ * returns -1(ESLOTS_OVERFLOW) if overflow, otherwise filled slots count
  */
 int mei_count_full_read_slots(struct mei_device *dev)
 {
@@ -200,7 +200,7 @@ int mei_count_full_read_slots(struct mei_device *dev)
 	write_ptr = (char) ((dev->me_hw_state & ME_CBWP_HRA) >> 16);
 	filled_slots = (unsigned char) (write_ptr - read_ptr);
 
-	/*                    */
+	/* check for overflow */
 	if (filled_slots > buffer_depth)
 		return -EOVERFLOW;
 
@@ -208,12 +208,12 @@ int mei_count_full_read_slots(struct mei_device *dev)
 	return (int)filled_slots;
 }
 
-/* 
-                                                    
-  
-                             
-                                          
-                                            
+/**
+ * mei_read_slots - reads a message from mei device.
+ *
+ * @dev: the device structure
+ * @buffer: message buffer will be written
+ * @buffer_length: message size will be read
  */
 void mei_read_slots(struct mei_device *dev, unsigned char *buffer,
 		    unsigned long buffer_length)
@@ -232,15 +232,15 @@ void mei_read_slots(struct mei_device *dev, unsigned char *buffer,
 	mei_hcsr_set(dev);
 }
 
-/* 
-                                                         
-  
-                             
-                                       
-  
-                                                      
-                                   
-                                  
+/**
+ * mei_flow_ctrl_creds - checks flow_control credentials.
+ *
+ * @dev: the device structure
+ * @cl: private data of the file object
+ *
+ * returns 1 if mei_flow_ctrl_creds >0, 0 - otherwise.
+ *	-ENOENT if mei_cl is not present
+ *	-EINVAL if single_recv_buf == 0
  */
 int mei_flow_ctrl_creds(struct mei_device *dev, struct mei_cl *cl)
 {
@@ -267,15 +267,15 @@ int mei_flow_ctrl_creds(struct mei_device *dev, struct mei_cl *cl)
 	return -ENOENT;
 }
 
-/* 
-                                               
-  
-                             
-                                       
-           
-               
-                                      
-                                     
+/**
+ * mei_flow_ctrl_reduce - reduces flow_control.
+ *
+ * @dev: the device structure
+ * @cl: private data of the file object
+ * @returns
+ *	0 on success
+ *	-ENOENT when me client is not found
+ *	-EINVAL when ctrl credits are <= 0
  */
 int mei_flow_ctrl_reduce(struct mei_device *dev, struct mei_cl *cl)
 {
@@ -302,13 +302,13 @@ int mei_flow_ctrl_reduce(struct mei_device *dev, struct mei_cl *cl)
 	return -ENOENT;
 }
 
-/* 
-                                                    
-  
-                             
-                                       
-  
-                                              
+/**
+ * mei_send_flow_control - sends flow control to fw.
+ *
+ * @dev: the device structure
+ * @cl: private data of the file object
+ *
+ * This function returns -EIO on write failure
  */
 int mei_send_flow_control(struct mei_device *dev, struct mei_cl *cl)
 {
@@ -337,14 +337,14 @@ int mei_send_flow_control(struct mei_device *dev, struct mei_cl *cl)
 				sizeof(struct hbm_flow_control));
 }
 
-/* 
-                                                   
-                                                  
-  
-                             
-                                       
-  
-                                                         
+/**
+ * mei_other_client_is_connecting - checks if other
+ *    client with the same client id is connected.
+ *
+ * @dev: the device structure
+ * @cl: private data of the file object
+ *
+ * returns 1 if other client is connected, 0 - otherwise.
  */
 int mei_other_client_is_connecting(struct mei_device *dev,
 				struct mei_cl *cl)
@@ -362,13 +362,13 @@ int mei_other_client_is_connecting(struct mei_device *dev,
 	return 0;
 }
 
-/* 
-                                                   
-  
-                             
-                                       
-  
-                                              
+/**
+ * mei_disconnect - sends disconnect message to fw.
+ *
+ * @dev: the device structure
+ * @cl: private data of the file object
+ *
+ * This function returns -EIO on write failure
  */
 int mei_disconnect(struct mei_device *dev, struct mei_cl *cl)
 {
@@ -395,13 +395,13 @@ int mei_disconnect(struct mei_device *dev, struct mei_cl *cl)
 				sizeof(struct hbm_client_disconnect_request));
 }
 
-/* 
-                                             
-  
-                             
-                                       
-  
-                                              
+/**
+ * mei_connect - sends connect message to fw.
+ *
+ * @dev: the device structure
+ * @cl: private data of the file object
+ *
+ * This function returns -EIO on write failure
  */
 int mei_connect(struct mei_device *dev, struct mei_cl *cl)
 {

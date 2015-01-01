@@ -19,7 +19,7 @@
 #define _CQ_DESC_H_
 
 /*
-                                    
+ * Completion queue descriptor types
  */
 enum cq_desc_types {
 	CQ_DESC_TYPE_WQ_ENET = 0,
@@ -29,11 +29,11 @@ enum cq_desc_types {
 	CQ_DESC_TYPE_RQ_FCP = 4,
 };
 
-/*                                 
-  
-                                                     
-                                                  
-              
+/* Completion queue descriptor: 16B
+ *
+ * All completion queues have this basic layout.  The
+ * type_specfic area is unique for each completion
+ * queue type.
  */
 struct cq_desc {
 	__le16 completed_index;
@@ -60,12 +60,12 @@ static inline void cq_desc_dec(const struct cq_desc *desc_arg,
 	*color = (type_color >> CQ_DESC_COLOR_SHIFT) & CQ_DESC_COLOR_MASK;
 
 	/*
-                                                               
-                                                              
-                                                               
-                                                                
-                                   
-  */
+	 * Make sure color bit is read from desc *before* other fields
+	 * are read from desc.  Hardware guarantees color bit is last
+	 * bit (byte) written.  Adding the rmb() prevents the compiler
+	 * and/or CPU from reordering the reads which would potentially
+	 * result in reading stale values.
+	 */
 
 	rmb();
 
@@ -75,4 +75,4 @@ static inline void cq_desc_dec(const struct cq_desc *desc_arg,
 		CQ_DESC_COMP_NDX_MASK;
 }
 
-#endif /*             */
+#endif /* _CQ_DESC_H_ */

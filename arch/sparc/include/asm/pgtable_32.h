@@ -74,13 +74,13 @@ extern unsigned long page_kernel;
 #define PAGE_KERNEL    __pgprot(BTFIXUP_INT(page_kernel))
 #endif
 
-/*                          */
+/* Top-level page directory */
 extern pgd_t swapper_pg_dir[1024];
 
 extern void paging_init(void);
 
-/*                                                      
-                                 
+/* Page table for 0-4MB for everybody, on the Sparc this
+ * holds the same as on the i386.
  */
 extern pte_t pg0[1024];
 extern pte_t pg1[1024];
@@ -89,10 +89,10 @@ extern pte_t pg3[1024];
 
 extern unsigned long ptr_in_current_pgd;
 
-/*                                                                
-                                                                       
-                                                                 
-                                                    
+/* Here is a trick, since mmap.c need the initializer elements for
+ * protection_map[] to be constant at compile time, I set the following
+ * to all zeros.  I set it to the real values after I link in the
+ * appropriate MMU page table routines at boot time.
  */
 #define __P000  __pgprot(0)
 #define __P001  __pgprot(0)
@@ -114,19 +114,19 @@ extern unsigned long ptr_in_current_pgd;
 
 extern int num_contexts;
 
-/*                                                                     
-                                                                       
-                                        
+/* First physical page can be anywhere, the following is needed so that
+ * va-->pa and vice versa conversions work properly without performance
+ * hit for all __pa()/__va() operations.
  */
 extern unsigned long phys_base;
 extern unsigned long pfn_base;
 
 /*
-                                                               
-                                     
-  
-                                                              
-                                     
+ * BAD_PAGETABLE is used when we need a bogus page-table, while
+ * BAD_PAGE is used for a bogus page.
+ *
+ * ZERO_PAGE is a global shared page that is always zero: used
+ * for zero-mapped memory areas etc..
  */
 extern pte_t * __bad_pagetable(void);
 extern pte_t __bad_page(void);
@@ -179,8 +179,8 @@ BTFIXUPDEF_CALL(void, pgd_clear, pgd_t *)
 #define pgd_clear(pgd) BTFIXUP_CALL(pgd_clear)(pgd)
 
 /*
-                                                    
-                               
+ * The following only work if pte_present() is true.
+ * Undefined behaviour if not..
  */
 BTFIXUPDEF_HALF(pte_writei)
 BTFIXUPDEF_HALF(pte_dirtyi)
@@ -205,7 +205,7 @@ static inline int pte_young(pte_t pte)
 }
 
 /*
-                                                        
+ * The following only work if pte_present() is not true.
  */
 BTFIXUPDEF_HALF(pte_filei)
 
@@ -261,8 +261,8 @@ BTFIXUPDEF_CALL(unsigned long,	 pte_pfn, pte_t)
 #define pte_page(pte)	pfn_to_page(pte_pfn(pte))
 
 /*
-                                                                       
-                                                                 
+ * Conversion functions: convert a page and protection to a page entry,
+ * and a page entry and page directory to the page they refer to.
  */
 BTFIXUPDEF_CALL_CONST(pte_t, mk_pte, struct page *, pgprot_t)
 
@@ -287,30 +287,30 @@ static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 
 #define pgd_index(address) ((address) >> PGDIR_SHIFT)
 
-/*                                            */
+/* to find an entry in a page-table-directory */
 #define pgd_offset(mm, address) ((mm)->pgd + pgd_index(address))
 
-/*                                                   */
+/* to find an entry in a kernel page-table-directory */
 #define pgd_offset_k(address) pgd_offset(&init_mm, address)
 
-/*                                                */
+/* Find an entry in the second-level page table.. */
 BTFIXUPDEF_CALL(pmd_t *, pmd_offset, pgd_t *, unsigned long)
 #define pmd_offset(dir,addr) BTFIXUP_CALL(pmd_offset)(dir,addr)
 
-/*                                               */
+/* Find an entry in the third-level page table.. */
 BTFIXUPDEF_CALL(pte_t *, pte_offset_kernel, pmd_t *, unsigned long)
 #define pte_offset_kernel(dir,addr) BTFIXUP_CALL(pte_offset_kernel)(dir,addr)
 
 /*
-                                                                               
-                                                     
+ * This shortcut works on sun4m (and sun4d) because the nocache area is static,
+ * and sun4c is guaranteed to have no highmem anyway.
  */
 #define pte_offset_map(d, a)		pte_offset_kernel(d,a)
 #define pte_unmap(pte)		do{}while(0)
 
-/*                                                           
-                                                                  
-                          
+/* Certain architectures need to do special things when pte's
+ * within a page table are directly modified.  Thus, the following
+ * hook is made available.
  */
 
 BTFIXUPDEF_CALL(void, set_pte, pte_t *, pte_t)
@@ -323,7 +323,7 @@ BTFIXUPDEF_CALL(void, mmu_info, struct seq_file *)
 
 #define mmu_info(p) BTFIXUP_CALL(mmu_info)(p)
 
-/*                        */
+/* Fault handler stuff... */
 #define FAULT_CODE_PROT     0x1
 #define FAULT_CODE_WRITE    0x2
 #define FAULT_CODE_USER     0x4
@@ -340,7 +340,7 @@ BTFIXUPDEF_CALL(void, sparc_unmapiorange, unsigned long, unsigned int)
 
 extern int invalid_segment;
 
-/*                                 */
+/* Encode and de-code a swap entry */
 BTFIXUPDEF_CALL(unsigned long, __swp_type, swp_entry_t)
 BTFIXUPDEF_CALL(unsigned long, __swp_offset, swp_entry_t)
 BTFIXUPDEF_CALL(swp_entry_t, __swp_entry, unsigned long, unsigned long)
@@ -352,7 +352,7 @@ BTFIXUPDEF_CALL(swp_entry_t, __swp_entry, unsigned long, unsigned long)
 #define __pte_to_swp_entry(pte)		((swp_entry_t) { pte_val(pte) })
 #define __swp_entry_to_pte(x)		((pte_t) { (x).val })
 
-/*                            */
+/* file-offset-in-pte helpers */
 BTFIXUPDEF_CALL(unsigned long, pte_to_pgoff, pte_t pte);
 BTFIXUPDEF_CALL(pte_t, pgoff_to_pte, unsigned long pgoff);
 
@@ -360,8 +360,8 @@ BTFIXUPDEF_CALL(pte_t, pgoff_to_pte, unsigned long pgoff);
 #define pgoff_to_pte(off) BTFIXUP_CALL(pgoff_to_pte)(off)
 
 /*
-                                                                   
-                                                                           
+ * This is made a constant because mm/fremap.c required a constant.
+ * Note that layout of these bits is different between sun4c.c and srmmu.c.
  */
 #define PTE_FILE_MAX_BITS 24
 
@@ -374,9 +374,9 @@ struct ctx_list {
 	struct mm_struct *ctx_mm;
 };
 
-extern struct ctx_list *ctx_list_pool;  /*                       */
-extern struct ctx_list ctx_free;        /*                   */
-extern struct ctx_list ctx_used;        /*                            */
+extern struct ctx_list *ctx_list_pool;  /* Dynamically allocated */
+extern struct ctx_list ctx_free;        /* Head of free list */
+extern struct ctx_list ctx_used;        /* Head of used contexts list */
 
 #define NO_CONTEXT     -1
 
@@ -416,7 +416,7 @@ __get_iospace (unsigned long addr)
 	switch (sparc_cpu_model){
 	case sun4:
 	case sun4c:
-		return -1; /*                              */
+		return -1; /* Don't check iospace on sun4c */
 	case sun4m:
 	case sun4d:
 		return (srmmu_get_pte (addr) >> 28);
@@ -427,13 +427,13 @@ __get_iospace (unsigned long addr)
 
 extern unsigned long *sparc_valid_addr_bitmap;
 
-/*                                                                         */
+/* Needs to be defined here and not in linux/mm.h, as it is arch dependent */
 #define kern_addr_valid(addr) \
 	(test_bit(__pa((unsigned long)(addr))>>20, sparc_valid_addr_bitmap))
 
 /*
-                                                                       
-                                                                              
+ * For sparc32&64, the pfn in io_remap_pfn_range() carries <iospace> in
+ * its high 4 bits.  These macros/functions put it there or get it from there.
  */
 #define MK_IOSPACE_PFN(space, pfn)	(pfn | (space << (BITS_PER_LONG - 4)))
 #define GET_IOSPACE(pfn)		(pfn >> (BITS_PER_LONG - 4))
@@ -468,19 +468,19 @@ static inline int io_remap_pfn_range(struct vm_area_struct *vma,
 
 #include <asm-generic/pgtable.h>
 
-#endif /*                 */
+#endif /* !(__ASSEMBLY__) */
 
 #define VMALLOC_START           _AC(0xfe600000,UL)
-/*                                                          */
+/* XXX Alter this when I get around to fixing sun4c - Anton */
 #define VMALLOC_END             _AC(0xffc00000,UL)
 
 
-/*                                                                         */
+/* We provide our own get_unmapped_area to cope with VA holes for userland */
 #define HAVE_ARCH_UNMAPPED_AREA
 
 /*
-                                     
+ * No page table caches to initialise
  */
 #define pgtable_cache_init()	do { } while (0)
 
-#endif /*                     */
+#endif /* !(_SPARC_PGTABLE_H) */

@@ -65,7 +65,7 @@
 
 
 /*
-                                                            
+ * This file declares the config structures for all devices.
  */
 
 extern const struct iwl_cfg iwl5300_agn_cfg;
@@ -110,4 +110,4 @@ extern const struct iwl_cfg iwl105_bgn_cfg;
 extern const struct iwl_cfg iwl105_bgn_d_cfg;
 extern const struct iwl_cfg iwl135_bgn_cfg;
 
-#endif /*               */
+#endif /* __iwl_pci_h__ */

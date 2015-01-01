@@ -79,12 +79,12 @@ static ssize_t variax_get_param_int(struct device *dev, char *buf, int param)
 static ssize_t variax_get_param_float(struct device *dev, char *buf, int param)
 {
 	/*
-                                                                
-                                                                 
-                                                                  
-                                                                
-                        
-  */
+	   We do our own floating point handling here since at the time
+	   this code was written (Jan 2006) it was highly discouraged to
+	   use floating point arithmetic in the kernel. If you think that
+	   this no longer applies, feel free to replace this by generic
+	   floating point code.
+	 */
 
 	static const int BIAS = 0x7f;
 	static const int OFFSET = 0xf;

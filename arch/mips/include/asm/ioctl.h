@@ -14,9 +14,9 @@
 #define _IOC_DIRBITS	3
 
 /*
-                                                                 
-                                                                 
-                
+ * Direction bits _IOC_NONE could be 0, but OSF/1 gives it a bit.
+ * And this turns out useful to catch old ioctl numbers in header
+ * files for us.
  */
 #define _IOC_NONE	1U
 #define _IOC_READ	2U
@@ -24,4 +24,4 @@
 
 #include <asm-generic/ioctl.h>
 
-#endif /*               */
+#endif /* __ASM_IOCTL_H */

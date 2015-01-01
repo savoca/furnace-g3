@@ -61,9 +61,9 @@
 #define OMAP_MPU_TIMER_OFFSET		0x100
 
 typedef struct {
-	u32 cntl;			/*                 */
-	u32 load_tim;			/*               */
-	u32 read_tim;			/*               */
+	u32 cntl;			/* CNTL_TIMER, R/W */
+	u32 load_tim;			/* LOAD_TIM,   W */
+	u32 read_tim;			/* READ_TIM,   R */
 } omap_mpu_timer_regs_t;
 
 #define omap_mpu_timer_base(n)							\
@@ -114,9 +114,9 @@ static inline void omap_mpu_timer_stop(int nr)
 }
 
 /*
-                                                                              
-                                                        
-                                                                              
+ * ---------------------------------------------------------------------------
+ * MPU timer 1 ... count down to zero, interrupt, reload
+ * ---------------------------------------------------------------------------
  */
 static int omap_mpu_set_next_event(unsigned long cycles,
 				   struct clock_event_device *evt)
@@ -184,9 +184,9 @@ static __init void omap_init_mpu_timer(unsigned long rate)
 
 
 /*
-                                                                              
-                                                                       
-                                                                              
+ * ---------------------------------------------------------------------------
+ * MPU timer 2 ... free running 32-bit clock source and scheduler clock
+ * ---------------------------------------------------------------------------
  */
 
 static u32 notrace omap_mpu_read_sched_clock(void)
@@ -218,7 +218,7 @@ static void __init omap_mpu_timer_init(void)
 	rate = clk_get_rate(ck_ref);
 	clk_put(ck_ref);
 
-	/*         */
+	/* PTV = 0 */
 	rate /= 2;
 
 	omap_init_mpu_timer(rate);
@@ -230,7 +230,7 @@ static inline void omap_mpu_timer_init(void)
 {
 	pr_err("Bogus timer, should not happen\n");
 }
-#endif	/*                       */
+#endif	/* CONFIG_OMAP_MPU_TIMER */
 
 static inline int omap_32k_timer_usable(void)
 {
@@ -247,9 +247,9 @@ static inline int omap_32k_timer_usable(void)
 }
 
 /*
-                                                                              
-                       
-                                                                              
+ * ---------------------------------------------------------------------------
+ * Timer initialization
+ * ---------------------------------------------------------------------------
  */
 static void __init omap1_timer_init(void)
 {

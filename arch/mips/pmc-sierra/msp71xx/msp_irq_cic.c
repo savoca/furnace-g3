@@ -21,14 +21,14 @@
 #include <msp_regs.h>
 
 /*
-               
+ * External API
  */
 extern void msp_per_irq_init(void);
 extern void msp_per_irq_dispatch(void);
 
 
 /*
-                                                   
+ * Convenience Macro.  Should be somewhere generic.
  */
 #define get_current_vpe()   \
 	((read_c0_tcbind() >> TCBIND_CURVPE_SHIFT) & TCBIND_CURVPE)
@@ -65,7 +65,7 @@ do {				\
 #define UNLOCK_VPE(flags, mtflags)
 #endif
 
-/*                                    */
+/* ensure writes to cic are completed */
 static inline void cic_wmb(void)
 {
 	const volatile void __iomem *cic_mem = CIC_VPE0_MSK_REG;
@@ -85,9 +85,9 @@ static void unmask_cic_irq(struct irq_data *d)
 	unsigned long  flags;
 
 	/*
-                                                             
-                              
- */
+	* Make sure we have IRQ affinity.  It may have changed while
+	* we were processing the IRQ.
+	*/
 	if (!cpumask_test_cpu(smp_processor_id(), d->affinity))
 		return;
 #endif
@@ -115,15 +115,15 @@ static void msp_cic_irq_ack(struct irq_data *d)
 {
 	mask_cic_irq(d);
 	/*
-                                                        
-                                                     
-                      
- */
+	* Only really necessary for 18, 16-14 and sometimes 3:0
+	* (since these can be edge sensitive) but it doesn't
+	* hurt for the others
+	*/
 	*CIC_STS_REG = (1 << (d->irq - MSP_CIC_INTBASE));
 	smtc_im_ack_irq(d->irq);
 }
 
-/*                                            */
+/*Note: Limiting to VSMP . Not tested in SMTC */
 
 #ifdef CONFIG_MIPS_MT_SMP
 static int msp_cic_irq_set_affinity(struct irq_data *d,
@@ -135,11 +135,11 @@ static int msp_cic_irq_set_affinity(struct irq_data *d,
 	unsigned long imask = (1 << (irq - MSP_CIC_INTBASE));
 	volatile u32 *cic_mask = (volatile u32 *)CIC_VPE0_MSK_REG;
 
-	/*                                                   */
+	/* timer balancing should be disabled in kernel code */
 	BUG_ON(irq == MSP_INT_VPE0_TIMER || irq == MSP_INT_VPE1_TIMER);
 
 	LOCK_CORE(flags, mtflags);
-	/*                                                  */
+	/* enable if any of each VPE's TCs require this IRQ */
 	for_each_online_cpu(cpu) {
 		if (cpumask_test_cpu(cpu, cpumask))
 			cic_mask[cpu] |= imask;
@@ -168,32 +168,32 @@ static struct irq_chip msp_cic_irq_controller = {
 void __init msp_cic_irq_init(void)
 {
 	int i;
-	/*                        */
+	/* Mask/clear interrupts. */
 	*CIC_VPE0_MSK_REG = 0x00000000;
 	*CIC_VPE1_MSK_REG = 0x00000000;
 	*CIC_STS_REG      = 0xFFFFFFFF;
 	/*
-                                                       
-                                                       
-                                              
- */
+	* The MSP7120 RG and EVBD boards use IRQ[6:4] for PCI.
+	* These inputs map to EXT_INT_POL[6:4] inside the CIC.
+	* They are to be active low, level sensitive.
+	*/
 	*CIC_EXT_CFG_REG &= 0xFFFF8F8F;
 
-	/*                                    */
+	/* initialize all the IRQ descriptors */
 	for (i = MSP_CIC_INTBASE ; i < MSP_CIC_INTBASE + 32 ; i++) {
 		irq_set_chip_and_handler(i, &msp_cic_irq_controller,
 					 handle_level_irq);
 #ifdef CONFIG_MIPS_MT_SMTC
-		/*                       */
+		/* Mask of CIC interrupt */
 		irq_hwmask[i] = C_IRQ4;
 #endif
 	}
 
-	/*                                         */
+	/* Initialize the PER interrupt sub-system */
 	 msp_per_irq_init();
 }
 
-/*                                                            */
+/* CIC masked by CIC vector processing before dispatch called */
 void msp_cic_irq_dispatch(void)
 {
 	volatile u32	*cic_msk_reg = (volatile u32 *)CIC_VPE0_MSK_REG;

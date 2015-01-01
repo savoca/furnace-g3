@@ -1,6 +1,6 @@
-/*                                              */
+/* net/atm/raw.c - Raw AAL0 and AAL5 transports */
 
-/*                                                       */
+/* Written 1995-2000 by Werner Almesberger, EPFL LRC/ICA */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ":%s: " fmt, __func__
 
@@ -16,7 +16,7 @@
 #include "protocols.h"
 
 /*
-                                                      
+ * SKB == NULL indicates that the link is being closed
  */
 
 static void atm_push_raw(struct atm_vcc *vcc, struct sk_buff *skb)
@@ -43,9 +43,9 @@ static void atm_pop_raw(struct atm_vcc *vcc, struct sk_buff *skb)
 static int atm_send_aal0(struct atm_vcc *vcc, struct sk_buff *skb)
 {
 	/*
-                                                           
-              
-  */
+	 * Note that if vpi/vci are _ANY or _UNSPEC the below will
+	 * still work
+	 */
 	if (!capable(CAP_NET_ADMIN) &&
 	    (((u32 *)skb->data)[0] & (ATM_HDR_VPI_MASK | ATM_HDR_VCI_MASK)) !=
 	    ((vcc->vpi << ATM_HDR_VPI_SHIFT) |

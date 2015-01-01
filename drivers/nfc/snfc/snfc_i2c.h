@@ -1,19 +1,19 @@
 /*
-            
- 
+* snfc_i2c.h
+*
 */
 
 #ifndef __SNFC_I2C_H__
 #define __SNFC_I2C_H__
 
 /*
-                            
+ *  INCLUDE FILES FOR MODULE
  */
 #include <linux/list.h>
 
 #include "snfc_common.h" 
 /*
-         
+ *	DEFINE
  */
 	
 typedef enum _e_snfc_i2c_status {
@@ -25,7 +25,7 @@ typedef enum _e_snfc_i2c_status {
 } _e_snfc_i2c_status;
 
 /*
-                     
+ *	FUNCTION PROTOTYPE
  */
 int snfc_i2c_open (void);
 int snfc_i2c_release (void);

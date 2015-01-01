@@ -26,17 +26,17 @@
 #include "11n_rxreorder.h"
 
 /*
-                                                              
-                         
-  
-                                                                  
-                                            
-  
-                                                                    
-                                                                
-                                                                        
-  
-                                                                  
+ * This function processes the received packet and forwards it
+ * to kernel/upper layer.
+ *
+ * This function parses through the received packet and determines
+ * if it is a debug packet or normal packet.
+ *
+ * For non-debug packets, the function chops off unnecessary leading
+ * header bytes, reconstructs the packet as an ethernet frame or
+ * 802.2/llc/snap frame as required, and sends it to kernel/upper layer.
+ *
+ * The completion callback is called after processing in complete.
  */
 int mwifiex_process_rx_packet(struct mwifiex_adapter *adapter,
 			      struct sk_buff *skb)
@@ -60,14 +60,14 @@ int mwifiex_process_rx_packet(struct mwifiex_adapter *adapter,
 	if (!memcmp(&rx_pkt_hdr->rfc1042_hdr,
 		    rfc1042_eth_hdr, sizeof(rfc1042_eth_hdr))) {
 		/*
-                                                                  
-                                                         
-                    
-                                                        
-                                                         
-                                                               
-                                   
-   */
+		 *  Replace the 803 header and rfc1042 header (llc/snap) with an
+		 *    EthernetII header, keep the src/dst and snap_type
+		 *    (ethertype).
+		 *  The firmware only passes up SNAP frames converting
+		 *    all RX Data from 802.11 to 802.2/LLC/SNAP frames.
+		 *  To create the Ethernet II, just move the src, dst address
+		 *    right before the snap_type.
+		 */
 		eth_hdr = (struct ethhdr *)
 			((u8 *) &rx_pkt_hdr->eth803_hdr
 			 + sizeof(rx_pkt_hdr->eth803_hdr) +
@@ -81,17 +81,17 @@ int mwifiex_process_rx_packet(struct mwifiex_adapter *adapter,
 		memcpy(eth_hdr->h_dest, rx_pkt_hdr->eth803_hdr.h_dest,
 		       sizeof(eth_hdr->h_dest));
 
-		/*                                                              
-                              */
+		/* Chop off the rxpd + the excess memory from the 802.2/llc/snap
+		   header that was removed. */
 		hdr_chop = (u8 *) eth_hdr - (u8 *) local_rx_pd;
 	} else {
-		/*                   */
+		/* Chop off the rxpd */
 		hdr_chop = (u8 *) &rx_pkt_hdr->eth803_hdr -
 			(u8 *) local_rx_pd;
 	}
 
-	/*                                                                   
-                                                                     */
+	/* Chop off the leading header bytes so the it points to the start of
+	   either the reconstructed EthII frame or the 802.2/llc/snap frame */
 	skb_pull(skb, hdr_chop);
 
 	priv->rxpd_rate = local_rx_pd->rx_rate;
@@ -106,16 +106,16 @@ int mwifiex_process_rx_packet(struct mwifiex_adapter *adapter,
 }
 
 /*
-                                               
-  
-                                                                    
-                                                                     
-                                                               
-                                                                      
-                                                                  
-                                           
-  
-                                                                  
+ * This function processes the received buffer.
+ *
+ * The function looks into the RxPD and performs sanity tests on the
+ * received buffer to ensure its a valid packet, before processing it
+ * further. If the packet is determined to be aggregated, it is
+ * de-aggregated accordingly. Non-unicast packets are sent directly to
+ * the kernel/upper layers. Unicast packets are handed over to the
+ * Rx reordering routine if 11n is enabled.
+ *
+ * The completion callback is called after processing in complete.
  */
 int mwifiex_process_sta_rx_packet(struct mwifiex_adapter *adapter,
 				  struct sk_buff *skb)
@@ -171,9 +171,9 @@ int mwifiex_process_sta_rx_packet(struct mwifiex_adapter *adapter,
 	}
 
 	/*
-                                                               
-                                                 
-  */
+	 * If the packet is not an unicast packet then send the packet
+	 * directly to os. Don't pass thru rx reordering
+	 */
 	if (!IS_11N_ENABLED(priv) ||
 	    memcmp(priv->curr_addr, rx_pkt_hdr->eth803_hdr.h_dest, ETH_ALEN)) {
 		mwifiex_process_rx_packet(adapter, skb);
@@ -190,7 +190,7 @@ int mwifiex_process_sta_rx_packet(struct mwifiex_adapter *adapter,
 		       ETH_ALEN);
 	}
 
-	/*                        */
+	/* Reorder and send to OS */
 	ret = mwifiex_11n_rx_reorder_pkt(priv, local_rx_pd->seq_num,
 					     local_rx_pd->priority, ta,
 					     (u8) local_rx_pd->rx_pkt_type,

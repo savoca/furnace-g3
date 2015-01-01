@@ -65,8 +65,8 @@ enum ab5500_banks_addr {
 };
 
 /*
-                             
-              
+ * Interrupt register offsets
+ * Bank : 0x0E
  */
 #define AB5500_IT_SOURCE0_REG		0x20
 #define AB5500_IT_SOURCE1_REG		0x21
@@ -95,20 +95,20 @@ enum ab5500_banks_addr {
 
 #define AB5500_NUM_IRQ_REGS		23
 
-/* 
-                
-                                                                  
-                                                            
-                                       
-                                                                
-                                        
-                                                
-                                        
-                                                           
-                                                        
-                                                                      
-                                                                      
-                                                                
+/**
+ * struct ab5500
+ * @access_mutex: lock out concurrent accesses to the AB registers
+ * @dev: a pointer to the device struct for this chip driver
+ * @ab5500_irq: the analog baseband irq
+ * @irq_base: the platform configuration irq base for subdevices
+ * @chip_name: name of this chip variant
+ * @chip_id: 8 bit chip ID for this chip variant
+ * @irq_lock: a lock to protect the mask
+ * @abb_events: a local bit mask of the prcmu wakeup events
+ * @event_mask: a local copy of the mask event registers
+ * @last_event_mask: a copy of the last event_mask written to hardware
+ * @startup_events: a copy of the first reading of the event registers
+ * @startup_events_read: whether the first events have been read
  */
 struct ab5500 {
 	struct mutex access_mutex;
@@ -137,4 +137,4 @@ struct ab5500_platform_data {
 	bool pm_power_off;
 };
 
-#endif /*              */
+#endif /* MFD_AB5500_H */

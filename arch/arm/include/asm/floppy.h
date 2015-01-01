@@ -46,15 +46,15 @@ static inline int fd_dma_setup(void *data, unsigned int length,
 #define fd_free_dma()		free_dma(DMA_FLOPPY)
 #define fd_disable_dma()	disable_dma(DMA_FLOPPY)
 
-/*                        */
+/* need to clean up dma.h */
 #define DMA_FLOPPYDISK		DMA_FLOPPY
 
-/*                                                       
-  
-                                                                          
-                                                                       
-                                                                              
-                                                                         
+/* Floppy_selects is the list of DOR's to select drive fd
+ *
+ * On initialisation, the floppy list is scanned, and the drives allocated
+ * in the order that they are found.  This is done by seeking the drive
+ * to a non-zero track, and then restoring it to track 0.  If an error occurs,
+ * then there is no floppy drive present.       [to be put back in again]
  */
 static unsigned char floppy_selects[2][4] =
 {
@@ -73,7 +73,7 @@ do {										\
 } while (0)
 
 /*
-                                                                  
+ * Someday, we'll automatically detect which drives are present...
  */
 static inline void fd_scandrives (void)
 {
@@ -89,20 +89,20 @@ static inline void fd_scandrives (void)
 	for (floppy = 0; floppy < 4; floppy ++) {
 		current_drive = drive_count;
 		/*
-                         
-   */
+		 * Turn on floppy motor
+		 */
 		if (start_motor(redo_fd_request))
 			continue;
 		/*
-               
-   */
+		 * Set up FDC
+		 */
 		fdc_specify();
 		/*
-                            
-   */
+		 * Tell FDC to recalibrate
+		 */
 		output_byte(FD_RECALIBRATE);
 		LAST_OUT(UNIT(floppy));
-		/*                              */
+		/* wait for command to complete */
 		if (!successful) {
 			int i;
 			for (i = drive_count; i < 3; i--)
@@ -131,10 +131,10 @@ static inline void fd_scandrives (void)
 #define CROSS_64KB(a,s) (0)
 
 /*
-                                             
-                                         
-                                       
-                          
+ * This allows people to reverse the order of
+ * fd0 and fd1, in case their hardware is
+ * strangely connected (as some RiscPCs
+ * and A5000s seem to be).
  */
 static void driveswap(int *ints, int dummy, int dummy2)
 {

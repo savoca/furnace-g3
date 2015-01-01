@@ -13,9 +13,9 @@
 #ifndef __KGSL_PWRCTRL_H
 #define __KGSL_PWRCTRL_H
 
-/*                                                                            
-              
-                                                                            */
+/*****************************************************************************
+** power flags
+*****************************************************************************/
 #define KGSL_PWRFLAGS_ON   1
 #define KGSL_PWRFLAGS_OFF  0
 
@@ -27,7 +27,7 @@
 
 #define KGSL_MAX_CLKS 6
 
-/*                                      */
+/* Only two supported levels, min & max */
 #define KGSL_CONSTRAINT_PWR_MAXLEVELS 2
 
 struct platform_device;
@@ -41,6 +41,9 @@ struct kgsl_clk_stats {
 	unsigned int no_nap_cnt;
 	unsigned int elapsed;
 	unsigned int elapsed_old;
+#ifdef CONFIG_LGE_PM
+	unsigned int converted_on_time_old;
+#endif
 };
 
 struct kgsl_pwr_constraint {
@@ -54,34 +57,34 @@ struct kgsl_pwr_constraint {
 	unsigned long expires;
 };
 
-/* 
-                                                                 
-                                                       
-                                                 
-                                                         
-                                         
-                                              
-                                                      
-                                                                 
-                                                 
-                                             
-                                                            
-                                                            
-                                                    
-                                                                         
-                                                                              
-                                                            
-                                                          
-                              
-                                                                     
-                                        
-                                             
-                                                                      
-                                                        
-                                                            
-                                                       
-                                                                         
-                                                  
+/**
+ * struct kgsl_pwrctrl - Power control settings for a KGSL device
+ * @interrupt_num - The interrupt number for the device
+ * @ebi1_clk - Pointer to the EBI clock structure
+ * @grp_clks - Array of clocks structures that we control
+ * @power_flags - Control flags for power
+ * @pwrlevels - List of supported power levels
+ * @active_pwrlevel - The currently active power level
+ * @thermal_pwrlevel - maximum powerlevel constraint from thermal
+ * @default_pwrlevel - device wake up power level
+ * @init_pwrlevel - device inital power level
+ * @max_pwrlevel - maximum allowable powerlevel per the user
+ * @min_pwrlevel - minimum allowable powerlevel per the user
+ * @num_pwrlevels - number of available power levels
+ * @interval_timeout - timeout in jiffies to be idle before a power event
+ * @strtstp_sleepwake - true if the device supports low latency GPU start/stop
+ * @gpu_reg - pointer to the regulator structure for gpu_reg
+ * @gpu_cx - pointer to the regulator structure for gpu_cx
+ * @pcl - bus scale identifier
+ * @idle_needed - true if the device needs a idle before clock change
+ * @irq_name - resource name for the IRQ
+ * @clk_stats - structure of clock statistics
+ * @pm_qos_req_dma - the power management quality of service structure
+ * @pm_qos_latency - allowed CPU latency in microseconds
+ * @bus_control - true if the bus calculation is independent
+ * @bus_index - default bus index into the bus_ib table
+ * @bus_ib - the set of unique ib requests needed for the bus calculation
+ * @constraint - currently active power constraint
  */
 
 struct kgsl_pwrctrl {
@@ -140,10 +143,10 @@ static inline unsigned long kgsl_get_clkrate(struct clk *clk)
 }
 
 /*
-                                                                
-                                              
-  
-                                                             
+ * kgsl_pwrctrl_active_freq - get currently configured frequency
+ * @pwr: kgsl_pwrctrl structure for the device
+ *
+ * Returns the currently configured frequency for the device.
  */
 static inline unsigned long
 kgsl_pwrctrl_active_freq(struct kgsl_pwrctrl *pwr)
@@ -159,4 +162,4 @@ int __must_check kgsl_active_count_get_light(struct kgsl_device *device);
 void kgsl_active_count_put(struct kgsl_device *device);
 int kgsl_active_count_wait(struct kgsl_device *device, int count);
 
-#endif /*                  */
+#endif /* __KGSL_PWRCTRL_H */

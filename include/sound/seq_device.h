@@ -22,42 +22,42 @@
  */
 
 /*
-                                
+ * registered device information
  */
 
 #define ID_LEN	32
 
-/*             */
+/* status flag */
 #define SNDRV_SEQ_DEVICE_FREE		0
 #define SNDRV_SEQ_DEVICE_REGISTERED	1
 
 struct snd_seq_device {
-	/*             */
-	struct snd_card *card;	/*            */
-	int device;		/*               */
-	char id[ID_LEN];	/*           */
-	char name[80];		/*             */
-	int argsize;		/*                      */
-	void *driver_data;	/*                         */
-	int status;		/*                  */
-	void *private_data;	/*                             */
+	/* device info */
+	struct snd_card *card;	/* sound card */
+	int device;		/* device number */
+	char id[ID_LEN];	/* driver id */
+	char name[80];		/* device name */
+	int argsize;		/* size of the argument */
+	void *driver_data;	/* private data for driver */
+	int status;		/* flag - read only */
+	void *private_data;	/* private data for the caller */
 	void (*private_free)(struct snd_seq_device *device);
-	struct list_head list;	/*                     */
+	struct list_head list;	/* link to next device */
 };
 
 
-/*                 
-               
-                                               
-             
-                         
-                                              
-                              
-                                                      
-    
-               
-                            
-                                                               
+/* driver operators
+ * init_device:
+ *	Initialize the device with given parameters.
+ *	Typically,
+ *		1. call snd_hwdep_new
+ *		2. allocate private data and initialize it
+ *		3. call snd_hwdep_register
+ *		4. store the instance to dev->driver_data pointer.
+ *		
+ * free_device:
+ *	Release the private data.
+ *	Typically, call snd_device_free(dev->card, dev->driver_data)
  */
 struct snd_seq_dev_ops {
 	int (*init_device)(struct snd_seq_device *dev);
@@ -65,7 +65,7 @@ struct snd_seq_dev_ops {
 };
 
 /*
-             
+ * prototypes
  */
 void snd_seq_device_load_drivers(void);
 int snd_seq_device_new(struct snd_card *card, int device, char *id, int argsize, struct snd_seq_device **result);
@@ -76,9 +76,9 @@ int snd_seq_device_unregister_driver(char *id);
 
 
 /*
-                                 
+ * id strings for generic devices
  */
 #define SNDRV_SEQ_DEV_ID_MIDISYNTH	"seq-midi"
 #define SNDRV_SEQ_DEV_ID_OPL3		"opl3-synth"
 
-#endif /*                      */
+#endif /* __SOUND_SEQ_DEVICE_H */

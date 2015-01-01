@@ -14,7 +14,7 @@
 
 #include <mach/sps.h>
 
-/*                                             */
+/* MAX Data xfer block size between BAM and CE */
 #define MAX_CE_BAM_BURST_SIZE   0x40
 #define QCEBAM_BURST_SIZE	MAX_CE_BAM_BURST_SIZE
 
@@ -33,11 +33,11 @@
 	ALIGN((CRYPTO_TOTAL_REGISTERS_DUMPED * CRYPTO_REG_SIZE), \
 	QCEBAM_BURST_SIZE)
 
-/*                                                   */
+/* QCE max number of descriptor in a descriptor list */
 #define QCE_MAX_NUM_DESC    128
 #define SPS_MAX_PKT_SIZE  (32 * 1024  - 64)
 
-/*                                 */
+/* State of consumer/producer Pipe */
 enum qce_pipe_st_enum {
 	QCE_PIPE_STATE_IDLE = 0,
 	QCE_PIPE_STATE_IN_PROG = 1,
@@ -51,7 +51,7 @@ struct qce_sps_ep_conn_data {
 	struct sps_register_event	event;
 };
 
-/*                      */
+/* CE Result DUMP format*/
 struct ce_result_dump_format {
 	uint32_t auth_iv[NUM_OF_CRYPTO_AUTH_IV_REG];
 	uint32_t auth_byte_count[NUM_OF_CRYPTO_AUTH_BYTE_COUNT_REG];
@@ -164,7 +164,7 @@ struct qce_ce_cfg_reg_setting {
 	uint32_t auth_cfg_snow3g;
 };
 
-/*                                                                       */
+/* DM data structure with buffers, commandlists & commmand pointer lists */
 struct ce_sps_data {
 
 	uint32_t			bam_irq;
@@ -181,11 +181,11 @@ struct ce_sps_data {
 	unsigned int			dest_pipe_index;
 	uint32_t			bam_handle;
 
-	enum qce_pipe_st_enum consumer_state;	/*                     */
-	enum qce_pipe_st_enum producer_state;	/*                     */
+	enum qce_pipe_st_enum consumer_state;	/* Consumer pipe state */
+	enum qce_pipe_st_enum producer_state;	/* Producer pipe state */
 
-	int consumer_status;		/*                      */
-	int producer_status;		/*                      */
+	int consumer_status;		/* consumer pipe status */
+	int producer_status;		/* producer pipe status */
 
 	struct sps_transfer in_transfer;
 	struct sps_transfer out_transfer;
@@ -198,4 +198,4 @@ struct ce_sps_data {
 	struct ce_result_dump_format *result;
 	uint32_t minor_version;
 };
-#endif /*                             */
+#endif /* _DRIVERS_CRYPTO_MSM_QCE50_H */

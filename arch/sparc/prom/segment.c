@@ -14,8 +14,8 @@
 
 extern void restore_current(void);
 
-/*                                                             
-                 
+/* Set physical segment 'segment' at virtual address 'vaddr' in
+ * context 'ctx'.
  */
 void
 prom_putsegment(int ctx, unsigned long vaddr, int segment)

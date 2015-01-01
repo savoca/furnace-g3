@@ -139,10 +139,10 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
 
 u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp)
 {
-	/*                                                              
-                                                               
-                                                     
-                                      */
+	/* The adreno GPU hardware requires that the pitch be aligned to
+	   32 pixels for color buffers, so for the cases where the GPU
+	   is writing directly to fb0, the framebuffer pitch
+	   also needs to be 32 pixel aligned */
 
 	if (fb_index == 0)
 		return ALIGN(xres, 32) * bpp;
@@ -217,7 +217,7 @@ int mdss_register_irq(struct mdss_hw *hw)
 	spin_unlock_irqrestore(&mdss_lock, irq_flags);
 
 	return 0;
-} /*                   */
+} /* mdss_regsiter_irq */
 EXPORT_SYMBOL(mdss_register_irq);
 
 void mdss_enable_irq(struct mdss_hw *hw)
@@ -282,7 +282,7 @@ void mdss_disable_irq(struct mdss_hw *hw)
 }
 EXPORT_SYMBOL(mdss_disable_irq);
 
-/*                               */
+/* called from interrupt context */
 void mdss_disable_irq_nosync(struct mdss_hw *hw)
 {
 	u32 ndx_bit;
@@ -368,7 +368,7 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 			vect = &bw_table->usecase[mdss_res->curr_bw_uc_idx].
 				vectors[i];
 
-			/*                                            */
+			/* avoid performing updates for small changes */
 			if ((ALIGN(ab_quota, size) == ALIGN(vect->ab, size)) &&
 			    (ALIGN(ib_quota, size) == ALIGN(vect->ib, size))) {
 				pr_debug("skip bus scaling, no changes\n");
@@ -397,7 +397,7 @@ static inline u32 mdss_mdp_irq_mask(u32 intr_type, u32 intf_num)
 	return 1 << (intr_type + intf_num);
 }
 
-/*                                                             */
+/* function assumes that mdp is clocked to access hw registers */
 void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num)
 {
@@ -504,7 +504,7 @@ void mdss_mdp_hist_irq_disable(u32 irq)
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
 
-/*                               */
+/* called from interrupt context */
 void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 {
 	u32 irq;
@@ -604,14 +604,14 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx)
 	return clk_rate;
 }
 
-/* 
-                                                           
-                                      
-  
-                                                                   
-                                                           
-                                                                     
-               
+/**
+ * mdss_bus_bandwidth_ctrl() -- place bus bandwidth request
+ * @enable:	value of enable or disable
+ *
+ * Function place bus bandwidth request to allocate saved bandwidth
+ * if enabled or free bus bandwidth allocation if disabled.
+ * Bus bandwidth is required by mdp.For dsi, it only requires to send
+ * dcs coammnd.
  */
 void mdss_bus_bandwidth_ctrl(int enable)
 {
@@ -968,7 +968,7 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 	mdata->mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
 	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
 
-	/*                              */
+	/* disable hw underrun recovery */
 	writel_relaxed(0x0, mdata->mdp_base +
 			MDSS_MDP_REG_VIDEO_INTF_UNDERFLOW_CTL);
 
@@ -987,7 +987,7 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 		for (j = 0; j < ENHIST_LUT_ENTRIES; j++)
 			writel_relaxed(j, offset);
 
-		/*      */
+		/* swap */
 		writel_relaxed(1, offset + 4);
 	}
 	vig = mdata->vig_pipes;
@@ -996,7 +996,7 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 			MDSS_MDP_REG_VIG_HIST_LUT_BASE;
 		for (j = 0; j < ENHIST_LUT_ENTRIES; j++)
 			writel_relaxed(j, offset);
-		/*      */
+		/* swap */
 		writel_relaxed(1, offset + 16);
 	}
 
@@ -1043,13 +1043,13 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	return rc;
 }
 
-/* 
-                                                                             
-                                                                              
-  
-                                                                          
-                                                                            
-                                           
+/**
+ * mdss_mdp_footswitch_ctrl_splash() - clocks handoff for cont. splash screen
+ * @on: 1 to start handoff, 0 to complete the handoff after first frame update
+ *
+ * MDSS Clocks and GDSC are already on during continous splash screen, but
+ * increasing ref count will keep clocks from being turned off until handoff
+ * has properly happend after frame update.
  */
 void mdss_mdp_footswitch_ctrl_splash(int on)
 {
@@ -1124,12 +1124,14 @@ static ssize_t fps_store(struct device *dev,
 		mdss_res->weight = 0;
 		mdss_res->bucket = 0;
 		mdss_res->skip_count = 0;
+		mdss_res->skip_ratio = 60;
 		pr_info("Disable frame skip.\n");
 	} else {
 		mdss_res->enable_skip_vsync = 1;
 		mdss_res->skip_value = (60<<16)/fps;
 		mdss_res->weight = (1<<16);
 		mdss_res->bucket = 0;
+		mdss_res->skip_ratio = fps;
 		pr_info("Enable frame skip: Set to %lu fps.\n", fps);
 	}
 	return count;
@@ -1148,7 +1150,7 @@ static ssize_t fps_show(struct device *dev,
 	return r;
 }
 
-//                            
+// Power Save Mode Enable Flag
 int vfps_trigger_boost = 0;
 int vfps_trigger_refresh = 1;
 int vfps_state_type = 0;
@@ -1233,16 +1235,25 @@ static ssize_t vfps_sts_show(struct device *dev,
 {
         int r = 0;
         r = snprintf(buf, PAGE_SIZE, "%d %d %d\n", vfps_boost_flag, vfps_refresh_flag, vfps_state_type);
-	//                                                    
+	// Clear flags these flags would be used only one time
 	vfps_refresh_flag = 0;
 	vfps_boost_flag = 0;
         return r;
+}
+
+static ssize_t fps_ratio_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int r = 0;
+	r = snprintf(buf, PAGE_SIZE, "%d 60\n", mdss_res->skip_ratio);
+	return r;
 }
 
 static DEVICE_ATTR(vfps, S_IRUGO | S_IWUSR, fps_show, fps_store);
 static DEVICE_ATTR(vfps_boost, S_IRUGO | S_IWUSR, vfps_boost_show, vfps_boost_store);
 static DEVICE_ATTR(vfps_trigger, S_IRUGO | S_IWUSR, vfps_trigger_show, vfps_trigger_store);
 static DEVICE_ATTR(vfps_sts, S_IRUGO | S_IWUSR, vfps_sts_show, vfps_sts_store);
+static DEVICE_ATTR(vfps_ratio, 0644, fps_ratio_show, NULL);
 #endif
 
 static struct attribute *mdp_fs_attrs[] = {
@@ -1252,6 +1263,7 @@ static struct attribute *mdp_fs_attrs[] = {
 	&dev_attr_vfps_boost.attr,
 	&dev_attr_vfps_trigger.attr,
 	&dev_attr_vfps_sts.attr,
+	&dev_attr_vfps_ratio.attr,
 #endif
 	NULL
 };
@@ -1342,7 +1354,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdata->irq = res->start;
 	mdss_mdp_hw.ptr = mdata;
 
-	/*                                            */
+	/*populate hw iomem base info from device tree*/
 	rc = mdss_mdp_parse_dt(pdev);
 	if (rc) {
 		pr_err("unable to parse device tree\n");
@@ -1489,13 +1501,13 @@ static int mdss_mdp_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 	} else if (pan_name[0] == '1') {
 		pan_cfg->lk_cfg = true;
 	} else {
-		/*              */
+		/* read from dt */
 		pan_cfg->lk_cfg = true;
 		pan_cfg->pan_intf = MDSS_PANEL_INTF_INVALID;
 		return -EINVAL;
 	}
 
-	/*                                     */
+	/* skip lk cfg and delimiter; ex: "0:" */
 	strlcpy(pan_name, &pan_name[2], MDSS_MAX_PANEL_LEN);
 	t = strnstr(pan_name, ":", MDSS_MAX_PANEL_LEN);
 	if (!t) {
@@ -1509,7 +1521,7 @@ static int mdss_mdp_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 		pan_intf_str[i] = *(pan_name + i);
 	pan_intf_str[i] = 0;
 	pr_debug("%s:%d panel intf %s\n", __func__, __LINE__, pan_intf_str);
-	/*                                  */
+	/* point to the start of panel name */
 	t = t + 1;
 	strlcpy(&pan_cfg->arg_cfg[0], t, sizeof(pan_cfg->arg_cfg));
 	pr_debug("%s:%d: t=[%s] panel name=[%s]\n", __func__, __LINE__,
@@ -1564,7 +1576,7 @@ static int mdss_mdp_parse_bootarg(struct platform_device *pdev)
 	panel_name = &pan_cfg->arg_cfg[0];
 	intf_type = &pan_cfg->pan_intf;
 
-	/*                          */
+	/* reads from dt by default */
 	pan_cfg->lk_cfg = true;
 
 	chosen_node = of_find_node_by_name(NULL, "chosen");
@@ -1633,7 +1645,7 @@ static int mdss_mdp_parse_bootarg(struct platform_device *pdev)
 
 get_dt_pan:
 	rc = mdss_mdp_parse_dt_pan_intf(pdev);
-	/*                                 */
+	/* if pref pan intf is not present */
 	if (rc)
 		pr_err("%s:unable to parse device tree for pan intf\n",
 			__func__);
@@ -2149,7 +2161,7 @@ static int mdss_mdp_parse_dt_smp(struct platform_device *pdev)
 						mmb, k, mdata->smp_mb_cnt);
 					return -EINVAL;
 				}
-				/*                                     */
+				/* rgb pipes fetches only single plane */
 				set_bit(mmb, pipe->smp_map[0].fixed);
 			}
 			if (bitmap_intersects(pipe->smp_map[0].fixed,
@@ -2300,12 +2312,12 @@ struct mdss_data_type *mdss_mdp_get_mdata(void)
 	return mdss_res;
 }
 
-/* 
-                                                       
-  
-                                                 
-  
-                                                    
+/**
+ * mdss_is_ready() - checks if mdss is probed and ready
+ *
+ * Checks if mdss resources have been initialized
+ *
+ * returns true if mdss is ready, else returns false
  */
 bool mdss_is_ready(void)
 {
@@ -2313,17 +2325,17 @@ bool mdss_is_ready(void)
 }
 EXPORT_SYMBOL(mdss_mdp_get_mdata);
 
-/* 
-                                                                  
-                                                               
-  
-                                                           
-                                       
-  
-                                                               
-                                                                      
-                                                              
-              
+/**
+ * mdss_panel_intf_type() - checks if a given intf type is primary
+ * @intf_val: panel interface type of the individual controller
+ *
+ * Individual controller queries with MDP to check if it is
+ * configured as the primary interface.
+ *
+ * returns a pointer to the configured structure mdss_panel_cfg
+ * to the controller that's configured as the primary panel interface.
+ * returns NULL on error or if @intf_val is not the configured
+ * controller.
  */
 struct mdss_panel_cfg *mdss_panel_intf_type(int intf_val)
 {
@@ -2597,9 +2609,9 @@ static struct platform_driver mdss_mdp_driver = {
 	.shutdown = NULL,
 	.driver = {
 		/*
-                                                    
-                
-   */
+		 * Driver name must match the device name added in
+		 * platform.c.
+		 */
 		.name = "mdp",
 		.of_match_table = mdss_mdp_dt_match,
 		.pm = &mdss_mdp_pm_ops,

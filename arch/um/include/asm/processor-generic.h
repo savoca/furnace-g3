@@ -21,12 +21,12 @@ struct mm_struct;
 struct thread_struct {
 	struct task_struct *saved_task;
 	/*
-                                                                 
-                                                                        
-                                                                     
-                                                          
-                  
-  */
+	 * This flag is set to 1 before calling do_fork (and analyzed in
+	 * copy_thread) to mark that we are begin called from userspace (fork /
+	 * vfork / clone), and reset to 0 after. It is left to 0 when called
+	 * from kernelspace (i.e. kernel_thread() or fork_idle(),
+	 * as of 2.6.11).
+	 */
 	int forking;
 	struct pt_regs regs;
 	int singlestep_syscall;
@@ -91,7 +91,7 @@ static inline void mm_copy_segments(struct mm_struct *from_mm,
 #define init_stack	(init_thread_union.stack)
 
 /*
-                                          
+ * User space process size: 3GB (default).
  */
 extern unsigned long task_size;
 
@@ -106,8 +106,8 @@ extern unsigned long stacksizelim;
 #define STACK_TOP	(TASK_SIZE - 2 * PAGE_SIZE)
 #define STACK_TOP_MAX	STACK_TOP
 
-/*                                                                 
-                       
+/* This decides where the kernel will search for a free chunk of vm
+ * space during mmap's.
  */
 #define TASK_UNMAPPED_BASE	(0x40000000)
 

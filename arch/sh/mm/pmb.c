@@ -42,12 +42,12 @@ struct pmb_entry {
 	raw_spinlock_t lock;
 
 	/*
-                                                        
-                                         
-  */
+	 * 0 .. NR_PMB_ENTRIES for specific entry selection, or
+	 * PMB_NO_ENTRY to search for a free one
+	 */
 	int entry;
 
-	/*                                                         */
+	/* Adjacent entry link for contiguous multi-entry mappings */
 	struct pmb_entry *link;
 };
 
@@ -90,11 +90,11 @@ static __always_inline unsigned int pmb_ppn_in_range(unsigned long ppn)
 }
 
 /*
-                                                             
-  
-                                                              
-                                                              
-                
+ * Ensure that the PMB entries match our cache configuration.
+ *
+ * When we are in 32-bit address extended mode, CCR.CB becomes
+ * invalid, so care must be taken to manually adjust cacheable
+ * translations.
  */
 static __always_inline unsigned long pmb_cache_flags(void)
 {
@@ -112,7 +112,7 @@ static __always_inline unsigned long pmb_cache_flags(void)
 }
 
 /*
-                                                     
+ * Convert typical pgprot value to the PMB equivalent
  */
 static inline unsigned long pgprot_to_pmb_flags(pgprot_t prot)
 {
@@ -151,16 +151,16 @@ static bool pmb_mapping_exists(unsigned long vaddr, phys_addr_t phys,
 		pmbe = &pmb_entry_list[i];
 
 		/*
-                                                           
-   */
+		 * See if VPN and PPN are bounded by an existing mapping.
+		 */
 		if ((vaddr < pmbe->vpn) || (vaddr >= (pmbe->vpn + pmbe->size)))
 			continue;
 		if ((phys < pmbe->ppn) || (phys >= (pmbe->ppn + pmbe->size)))
 			continue;
 
 		/*
-                                                   
-   */
+		 * Now see if we're in range of a simple mapping.
+		 */
 		if (size <= pmbe->size) {
 			read_unlock(&pmb_rwlock);
 			return true;
@@ -169,15 +169,15 @@ static bool pmb_mapping_exists(unsigned long vaddr, phys_addr_t phys,
 		span = pmbe->size;
 
 		/*
-                                                           
-               
-   */
+		 * Finally for sizes that involve compound mappings, walk
+		 * the chain.
+		 */
 		for (iter = pmbe->link; iter; iter = iter->link)
 			span += iter->size;
 
 		/*
-                                                          
-   */
+		 * Nothing else to do if the range requirements are met.
+		 */
 		if (size <= span) {
 			read_unlock(&pmb_rwlock);
 			return true;
@@ -287,7 +287,7 @@ static void pmb_free(struct pmb_entry *pmbe)
 }
 
 /*
-                        
+ * Must be run uncached.
  */
 static void __set_pmb_entry(struct pmb_entry *pmbe)
 {
@@ -298,7 +298,7 @@ static void __set_pmb_entry(struct pmb_entry *pmbe)
 
 	jump_to_uncached();
 
-	/*           */
+	/* Set V-bit */
 	__raw_writel(pmbe->vpn | PMB_V, addr);
 	__raw_writel(pmbe->ppn | pmbe->flags | PMB_V, data);
 
@@ -316,7 +316,7 @@ static void __clear_pmb_entry(struct pmb_entry *pmbe)
 	addr_val = __raw_readl(addr);
 	data_val = __raw_readl(data);
 
-	/*             */
+	/* Clear V-bit */
 	writel_uncached(addr_val & ~PMB_V, addr);
 	writel_uncached(data_val & ~PMB_V, data);
 }
@@ -330,7 +330,7 @@ static void set_pmb_entry(struct pmb_entry *pmbe)
 	__set_pmb_entry(pmbe);
 	raw_spin_unlock_irqrestore(&pmbe->lock, flags);
 }
-#endif /*           */
+#endif /* CONFIG_PM */
 
 int pmb_bolt_mapping(unsigned long vaddr, phys_addr_t phys,
 		     unsigned long size, pgprot_t prot)
@@ -378,9 +378,9 @@ int pmb_bolt_mapping(unsigned long vaddr, phys_addr_t phys,
 			size	-= pmbe->size;
 
 			/*
-                                                  
-                                   
-    */
+			 * Link adjacent entries that span multiple PMB
+			 * entries for easier tear-down.
+			 */
 			if (likely(pmbp)) {
 				raw_spin_lock_nested(&pmbp->lock,
 						     SINGLE_DEPTH_NESTING);
@@ -391,10 +391,10 @@ int pmb_bolt_mapping(unsigned long vaddr, phys_addr_t phys,
 			pmbp = pmbe;
 
 			/*
-                                              
-                                                 
-                                                
-    */
+			 * Instead of trying smaller sizes on every
+			 * iteration (even if we succeed in allocating
+			 * space), try using pmb_sizes[i].size again.
+			 */
 			i--;
 			mapped++;
 
@@ -421,8 +421,8 @@ void __iomem *pmb_remap_caller(phys_addr_t phys, unsigned long size,
 		return NULL;
 
 	/*
-                                              
-  */
+	 * Small mappings need to go through the TLB.
+	 */
 	if (size < SZ_16M)
 		return ERR_PTR(-EINVAL);
 	if (!pmb_prot_valid(prot))
@@ -439,10 +439,10 @@ void __iomem *pmb_remap_caller(phys_addr_t phys, unsigned long size,
 	aligned = ALIGN(last_addr, pmb_sizes[i].size) - phys;
 
 	/*
-                                                             
-                                                             
-                          
-  */
+	 * XXX: This should really start from uncached_end, but this
+	 * causes the MMU to reset, so for now we restrict it to the
+	 * 0xb000...0xc000 range.
+	 */
 	area = __get_vm_area_caller(aligned, VM_IOREMAP, 0xb0000000,
 				    P3SEG, caller);
 	if (!area)
@@ -492,15 +492,15 @@ static void __pmb_unmap_entry(struct pmb_entry *pmbe, int depth)
 		struct pmb_entry *pmblink = pmbe;
 
 		/*
-                                                    
-                                                        
-                                                        
-                                                         
-             
-    
-                                                         
-                                          
-   */
+		 * We may be called before this pmb_entry has been
+		 * entered into the PMB table via set_pmb_entry(), but
+		 * that's OK because we've allocated a unique slot for
+		 * this entry in pmb_alloc() (even if we haven't filled
+		 * it yet).
+		 *
+		 * Therefore, calling __clear_pmb_entry() is safe as no
+		 * other mapping can be using that slot.
+		 */
 		__clear_pmb_entry(pmbe);
 
 		flush_cache_vunmap(pmbe->vpn, pmbe->vpn + pmbe->size);
@@ -548,9 +548,9 @@ static void __init pmb_notify(void)
 }
 
 /*
-                                                                         
-                                                                       
-                               
+ * Sync our software copy of the PMB mappings with those in hardware. The
+ * mappings in the hardware PMB were either set up by the bootloader or
+ * very early on by the kernel.
  */
 static void __init pmb_synchronize(void)
 {
@@ -558,21 +558,21 @@ static void __init pmb_synchronize(void)
 	int i, j;
 
 	/*
-                                                              
-                                                                
-                                                                 
-                                             
-   
-                                                                  
-                                                                  
-                                                               
-                                                               
-                                                   
-   
-                                                                  
-                                                                
-                                                             
-  */
+	 * Run through the initial boot mappings, log the established
+	 * ones, and blow away anything that falls outside of the valid
+	 * PPN range. Specifically, we only care about existing mappings
+	 * that impact the cached/uncached sections.
+	 *
+	 * Note that touching these can be a bit of a minefield; the boot
+	 * loader can establish multi-page mappings with the same caching
+	 * attributes, so we need to ensure that we aren't modifying a
+	 * mapping that we're presently executing from, or may execute
+	 * from in the case of straddling page boundaries.
+	 *
+	 * In the future we will have to tidy up after the boot loader by
+	 * jumping between the cached and uncached mappings and tearing
+	 * down alternating mappings while executing from the other.
+	 */
 	for (i = 0; i < NR_PMB_ENTRIES; i++) {
 		unsigned long addr, data;
 		unsigned long addr_val, data_val;
@@ -588,8 +588,8 @@ static void __init pmb_synchronize(void)
 		data_val = __raw_readl(data);
 
 		/*
-                                
-   */
+		 * Skip over any bogus entries
+		 */
 		if (!(data_val & PMB_V) || !(addr_val & PMB_V))
 			continue;
 
@@ -597,20 +597,20 @@ static void __init pmb_synchronize(void)
 		vpn = addr_val & PMB_PFN_MASK;
 
 		/*
-                                     
-   */
+		 * Only preserve in-range mappings.
+		 */
 		if (!pmb_ppn_in_range(ppn)) {
 			/*
-                                        
-    */
+			 * Invalidate anything out of bounds.
+			 */
 			writel_uncached(addr_val & ~PMB_V, addr);
 			writel_uncached(data_val & ~PMB_V, data);
 			continue;
 		}
 
 		/*
-                                               
-   */
+		 * Update the caching attributes if necessary
+		 */
 		if (data_val & PMB_C) {
 			data_val &= ~PMB_CACHE_MASK;
 			data_val |= pmb_cache_flags();
@@ -636,11 +636,11 @@ static void __init pmb_synchronize(void)
 		if (pmbp) {
 			raw_spin_lock_nested(&pmbp->lock, SINGLE_DEPTH_NESTING);
 			/*
-                                                           
-                                                          
-                                                          
-                          
-    */
+			 * Compare the previous entry against the current one to
+			 * see if the entries span a contiguous mapping. If so,
+			 * setup the entry links accordingly. Compound mappings
+			 * are later coalesced.
+			 */
 			if (pmb_can_merge(pmbp, pmbe))
 				pmbp->link = pmbe;
 			raw_spin_unlock(&pmbp->lock);
@@ -669,7 +669,7 @@ static void __init pmb_merge(struct pmb_entry *head)
 			depth = i;
 		}
 
-		/*                               */
+		/* This is the end of the line.. */
 		if (!tail->link)
 			break;
 
@@ -678,8 +678,8 @@ static void __init pmb_merge(struct pmb_entry *head)
 	}
 
 	/*
-                                       
-  */
+	 * The merged page size must be valid.
+	 */
 	if (!depth || !pmb_size_valid(newsize))
 		return;
 
@@ -708,15 +708,15 @@ static void __init pmb_coalesce(void)
 		pmbe = &pmb_entry_list[i];
 
 		/*
-                                               
-   */
+		 * We're only interested in compound mappings
+		 */
 		if (!pmbe->link)
 			continue;
 
 		/*
-                                                          
-               
-   */
+		 * Nothing to do if it already uses the largest possible
+		 * page size.
+		 */
 		if (pmbe->size == SZ_512M)
 			continue;
 
@@ -732,9 +732,9 @@ static void __init pmb_resize(void)
 	int i;
 
 	/*
-                                                                  
-                                 
-  */
+	 * If the uncached mapping was constructed by the kernel, it will
+	 * already be a reasonable size.
+	 */
 	if (uncached_size == SZ_16M)
 		return;
 
@@ -753,8 +753,8 @@ static void __init pmb_resize(void)
 			continue;
 
 		/*
-                             
-   */
+		 * Found it, now resize it.
+		 */
 		raw_spin_lock_irqsave(&pmbe->lock, flags);
 
 		pmbe->size = SZ_16M;
@@ -786,23 +786,23 @@ early_param("pmb", early_pmb);
 
 void __init pmb_init(void)
 {
-	/*                            */
+	/* Synchronize software state */
 	pmb_synchronize();
 
-	/*                                      */
+	/* Attempt to combine compound mappings */
 	pmb_coalesce();
 
 #ifdef CONFIG_UNCACHED_MAPPING
-	/*                                       */
+	/* Resize initial mappings, if necessary */
 	pmb_resize();
 #endif
 
-	/*          */
+	/* Log them */
 	pmb_notify();
 
 	writel_uncached(0, PMB_IRMCR);
 
-	/*                   */
+	/* Flush out the TLB */
 	local_flush_tlb_all();
 	ctrl_barrier();
 }
@@ -834,7 +834,7 @@ static int pmb_seq_show(struct seq_file *file, void *iter)
 			 (size == PMB_SZ_128M) ? "128MB":
 					         "512MB";
 
-		/*                               */
+		/* 02: V 0x88 0x08 128MB C CB  B */
 		seq_printf(file, "%02d: %c 0x%02lx 0x%02lx %s %c %s %s\n",
 			   i, ((addr & PMB_V) && (data & PMB_V)) ? 'V' : ' ',
 			   (addr >> 24) & 0xff, (data >> 24) & 0xff,

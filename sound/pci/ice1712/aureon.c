@@ -60,7 +60,7 @@
 #include "aureon.h"
 #include <sound/tlv.h>
 
-/*                                */
+/* AC97 register cache for Aureon */
 struct aureon_spec {
 	unsigned short stac9744[64];
 	unsigned int cs8415_mux;
@@ -69,25 +69,25 @@ struct aureon_spec {
 	unsigned char pca9554_out;
 };
 
-/*                  */
-#define WM_DAC_ATTEN		0x00	/*                           */
-#define WM_DAC_MASTER_ATTEN	0x08	/*                               */
-#define WM_DAC_DIG_ATTEN	0x09	/*                            */
-#define WM_DAC_DIG_MASTER_ATTEN	0x11	/*                                */
-#define WM_PHASE_SWAP		0x12	/*           */
-#define WM_DAC_CTRL1		0x13	/*                  */
-#define WM_MUTE			0x14	/*               */
-#define WM_DAC_CTRL2		0x15	/*                           */
-#define WM_INT_CTRL		0x16	/*                   */
-#define WM_MASTER		0x17	/*                       */
-#define WM_POWERDOWN		0x18	/*                     */
-#define WM_ADC_GAIN		0x19	/*                      */
-#define WM_ADC_MUX		0x1b	/*           */
-#define WM_OUT_MUX1		0x1c	/*            */
-#define WM_OUT_MUX2		0x1e	/*            */
-#define WM_RESET		0x1f	/*                */
+/* WM8770 registers */
+#define WM_DAC_ATTEN		0x00	/* DAC1-8 analog attenuation */
+#define WM_DAC_MASTER_ATTEN	0x08	/* DAC master analog attenuation */
+#define WM_DAC_DIG_ATTEN	0x09	/* DAC1-8 digital attenuation */
+#define WM_DAC_DIG_MASTER_ATTEN	0x11	/* DAC master digital attenuation */
+#define WM_PHASE_SWAP		0x12	/* DAC phase */
+#define WM_DAC_CTRL1		0x13	/* DAC control bits */
+#define WM_MUTE			0x14	/* mute controls */
+#define WM_DAC_CTRL2		0x15	/* de-emphasis and zefo-flag */
+#define WM_INT_CTRL		0x16	/* interface control */
+#define WM_MASTER		0x17	/* master clock and mode */
+#define WM_POWERDOWN		0x18	/* power-down controls */
+#define WM_ADC_GAIN		0x19	/* ADC gain L(19)/R(1a) */
+#define WM_ADC_MUX		0x1b	/* input MUX */
+#define WM_OUT_MUX1		0x1c	/* output MUX */
+#define WM_OUT_MUX2		0x1e	/* output MUX */
+#define WM_RESET		0x1f	/* software reset */
 
-/*                   */
+/* CS8415A registers */
 #define CS8415_CTRL1	0x01
 #define CS8415_CTRL2	0x02
 #define CS8415_QSUB		0x14
@@ -95,26 +95,26 @@ struct aureon_spec {
 #define CS8415_C_BUFFER	0x20
 #define CS8415_ID		0x7F
 
-/*                   */
-#define PCA9554_DEV     0x40            /*                    */
-#define PCA9554_IN      0x00            /*            */
-#define PCA9554_OUT     0x01            /*             */
-#define PCA9554_INVERT  0x02            /*              */
-#define PCA9554_DIR     0x03            /*                 */
+/* PCA9554 registers */
+#define PCA9554_DEV     0x40            /* I2C device address */
+#define PCA9554_IN      0x00            /* input port */
+#define PCA9554_OUT     0x01            /* output port */
+#define PCA9554_INVERT  0x02            /* input invert */
+#define PCA9554_DIR     0x03            /* port directions */
 
 /*
-                                                    
+ * Aureon Universe additional controls using PCA9554
  */
 
 /*
-                       
+ * Send data to pca9554
  */
 static void aureon_pca9554_write(struct snd_ice1712 *ice, unsigned char reg,
 				 unsigned char data)
 {
 	unsigned int tmp;
 	int i, j;
-	unsigned char dev = PCA9554_DEV;  /*                   */
+	unsigned char dev = PCA9554_DEV;  /* ID 0100000, write */
 	unsigned char val = 0;
 
 	tmp = snd_ice1712_gpio_read(ice);
@@ -123,7 +123,7 @@ static void aureon_pca9554_write(struct snd_ice1712 *ice, unsigned char reg,
 					 AUREON_WM_RW|AUREON_WM_CS|
 					 AUREON_CS8415_CS));
 	tmp |= AUREON_WM_RW;
-	tmp |= AUREON_CS8415_CS | AUREON_WM_CS; /*                     */
+	tmp |= AUREON_CS8415_CS | AUREON_WM_CS; /* disable SPI devices */
 
 	tmp &= ~AUREON_SPI_MOSI;
 	tmp &= ~AUREON_SPI_CLK;
@@ -131,9 +131,9 @@ static void aureon_pca9554_write(struct snd_ice1712 *ice, unsigned char reg,
 	udelay(50);
 
 	/*
-                                               
-                        
-  */
+	 * send i2c stop condition and start condition
+	 * to obtain sane state
+	 */
 	tmp |= AUREON_SPI_CLK;
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(50);
@@ -147,9 +147,9 @@ static void aureon_pca9554_write(struct snd_ice1712 *ice, unsigned char reg,
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(100);
 	/*
-                                           
-                                  
-  */
+	 * send device address, command and value,
+	 * skipping ack cycles in between
+	 */
 	for (j = 0; j < 3; j++) {
 		switch (j) {
 		case 0:
@@ -252,7 +252,7 @@ static void aureon_ac97_write(struct snd_ice1712 *ice, unsigned short reg,
 	struct aureon_spec *spec = ice->spec;
 	unsigned int tmp;
 
-	/*                             */
+	/* Send address to XILINX chip */
 	tmp = (snd_ice1712_gpio_read(ice) & ~0xFF) | (reg & 0x7F);
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(10);
@@ -263,7 +263,7 @@ static void aureon_ac97_write(struct snd_ice1712 *ice, unsigned short reg,
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(10);
 
-	/*                                    */
+	/* Send low-order byte to XILINX chip */
 	tmp &= ~AUREON_AC97_DATA_MASK;
 	tmp |= val & AUREON_AC97_DATA_MASK;
 	snd_ice1712_gpio_write(ice, tmp);
@@ -275,7 +275,7 @@ static void aureon_ac97_write(struct snd_ice1712 *ice, unsigned short reg,
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(10);
 
-	/*                                     */
+	/* Send high-order byte to XILINX chip */
 	tmp &= ~AUREON_AC97_DATA_MASK;
 	tmp |= (val >> 8) & AUREON_AC97_DATA_MASK;
 
@@ -288,7 +288,7 @@ static void aureon_ac97_write(struct snd_ice1712 *ice, unsigned short reg,
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(10);
 
-	/*                                                             */
+	/* Instruct XILINX chip to parse the data to the STAC9744 chip */
 	tmp |= AUREON_AC97_COMMIT;
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(10);
@@ -296,7 +296,7 @@ static void aureon_ac97_write(struct snd_ice1712 *ice, unsigned short reg,
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(10);
 
-	/*                                      */
+	/* Store the data in out private buffer */
 	spec->stac9744[(reg & 0x7F) >> 1] = val;
 }
 
@@ -307,7 +307,7 @@ static unsigned short aureon_ac97_read(struct snd_ice1712 *ice, unsigned short r
 }
 
 /*
-                           
+ * Initialize STAC9744 chip
  */
 static int aureon_ac97_init(struct snd_ice1712 *ice)
 {
@@ -336,7 +336,7 @@ static int aureon_ac97_init(struct snd_ice1712 *ice)
 	};
 	unsigned int tmp;
 
-	/*            */
+	/* Cold reset */
 	tmp = (snd_ice1712_gpio_read(ice) | AUREON_AC97_RESET) & ~AUREON_AC97_DATA_MASK;
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(3);
@@ -353,7 +353,7 @@ static int aureon_ac97_init(struct snd_ice1712 *ice)
 	for (i = 0; ac97_defaults[i] != (unsigned short)-1; i += 2)
 		spec->stac9744[(ac97_defaults[i]) >> 1] = ac97_defaults[i+1];
 
-	/*                                                                   */
+	/* Unmute AC'97 master volume permanently - muting is done by WM8770 */
 	aureon_ac97_write(ice, AC97_MASTER, 0x0000);
 
 	return 0;
@@ -362,7 +362,7 @@ static int aureon_ac97_init(struct snd_ice1712 *ice)
 #define AUREON_AC97_STEREO	0x80
 
 /*
-                        
+ * AC'97 volume controls
  */
 static int aureon_ac97_vol_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
@@ -413,7 +413,7 @@ static int aureon_ac97_vol_put(struct snd_kcontrol *kcontrol, struct snd_ctl_ele
 }
 
 /*
-                      
+ * AC'97 mute controls
  */
 #define aureon_ac97_mute_info	snd_ctl_boolean_mono_info
 
@@ -451,7 +451,7 @@ static int aureon_ac97_mute_put(struct snd_kcontrol *kcontrol, struct snd_ctl_el
 }
 
 /*
-                      
+ * AC'97 mute controls
  */
 #define aureon_ac97_micboost_info	snd_ctl_boolean_mono_info
 
@@ -488,7 +488,7 @@ static int aureon_ac97_micboost_put(struct snd_kcontrol *kcontrol, struct snd_ct
 }
 
 /*
-                             
+ * write data in the SPI mode
  */
 static void aureon_spi_write(struct snd_ice1712 *ice, unsigned int cs, unsigned int data, int bits)
 {
@@ -541,7 +541,7 @@ static void aureon_spi_write(struct snd_ice1712 *ice, unsigned int cs, unsigned 
 }
 
 /*
-                        
+ * Read data in SPI mode
  */
 static void aureon_spi_read(struct snd_ice1712 *ice, unsigned int cs,
 		unsigned int data, int bits, unsigned char *buffer, int size)
@@ -617,7 +617,7 @@ static void aureon_cs8415_put(struct snd_ice1712 *ice, int reg,
 }
 
 /*
-                                             
+ * get the current register value of WM codec
  */
 static unsigned short wm_get(struct snd_ice1712 *ice, int reg)
 {
@@ -627,7 +627,7 @@ static unsigned short wm_get(struct snd_ice1712 *ice, int reg)
 }
 
 /*
-                                     
+ * set the register value of WM codec
  */
 static void wm_put_nocache(struct snd_ice1712 *ice, int reg, unsigned short val)
 {
@@ -639,7 +639,7 @@ static void wm_put_nocache(struct snd_ice1712 *ice, int reg, unsigned short val)
 }
 
 /*
-                                                     
+ * set the register value of WM codec and remember it
  */
 static void wm_put(struct snd_ice1712 *ice, int reg, unsigned short val)
 {
@@ -654,7 +654,7 @@ static void wm_put(struct snd_ice1712 *ice, int reg, unsigned short val)
 #define aureon_mono_bool_info		snd_ctl_boolean_mono_info
 
 /*
-                                                            
+ * AC'97 master playback mute controls (Mute on WM8770 chip)
  */
 #define aureon_ac97_mmute_info		snd_ctl_boolean_mono_info
 
@@ -696,7 +696,7 @@ static const DECLARE_TLV_DB_SCALE(db_scale_ac97_master, -4650, 150, 0);
 static const DECLARE_TLV_DB_SCALE(db_scale_ac97_gain, -3450, 150, 0);
 
 #define WM_VOL_MAX	100
-#define WM_VOL_CNT	101	/*               */
+#define WM_VOL_CNT	101	/* 0dB .. -100dB */
 #define WM_VOL_MUTE	0x8000
 
 static void wm_set_vol(struct snd_ice1712 *ice, unsigned int index, unsigned short vol, unsigned short master)
@@ -716,7 +716,7 @@ static void wm_set_vol(struct snd_ice1712 *ice, unsigned int index, unsigned sho
 }
 
 /*
-                   
+ * DAC mute control
  */
 #define wm_pcm_mute_info	snd_ctl_boolean_mono_info
 
@@ -748,7 +748,7 @@ static int wm_pcm_mute_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_va
 }
 
 /*
-                                          
+ * Master volume attenuation mixer control
  */
 static int wm_master_vol_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
@@ -797,15 +797,15 @@ static int wm_master_vol_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_
 }
 
 /*
-                                       
+ * DAC volume attenuation mixer control
  */
 static int wm_vol_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	int voices = kcontrol->private_value >> 8;
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = voices;
-	uinfo->value.integer.min = 0;		/*               */
-	uinfo->value.integer.max = WM_VOL_MAX;	/*     */
+	uinfo->value.integer.min = 0;		/* mute (-101dB) */
+	uinfo->value.integer.max = WM_VOL_MAX;	/* 0dB */
 	return 0;
 }
 
@@ -851,7 +851,7 @@ static int wm_vol_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *
 }
 
 /*
-                      
+ * WM8770 mute control
  */
 static int wm_mute_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
@@ -904,7 +904,7 @@ static int wm_mute_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value 
 }
 
 /*
-                             
+ * WM8770 master mute control
  */
 #define wm_master_mute_info		snd_ctl_boolean_stereo_info
 
@@ -946,16 +946,16 @@ static int wm_master_mute_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem
 	return change;
 }
 
-/*                       */
+/* digital master volume */
 #define PCM_0dB 0xff
-#define PCM_RES 128	/*       */
+#define PCM_RES 128	/* -64dB */
 #define PCM_MIN (PCM_0dB - PCM_RES)
 static int wm_pcm_vol_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 1;
-	uinfo->value.integer.min = 0;		/*              */
-	uinfo->value.integer.max = PCM_RES;	/*     */
+	uinfo->value.integer.min = 0;		/* mute (-64dB) */
+	uinfo->value.integer.max = PCM_RES;	/* 0dB */
 	return 0;
 }
 
@@ -985,8 +985,8 @@ static int wm_pcm_vol_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_val
 	nvol = (nvol ? (nvol + PCM_MIN) : 0) & 0xff;
 	ovol = wm_get(ice, WM_DAC_DIG_MASTER_ATTEN) & 0xff;
 	if (ovol != nvol) {
-		wm_put(ice, WM_DAC_DIG_MASTER_ATTEN, nvol); /*          */
-		wm_put_nocache(ice, WM_DAC_DIG_MASTER_ATTEN, nvol | 0x100); /*        */
+		wm_put(ice, WM_DAC_DIG_MASTER_ATTEN, nvol); /* prelatch */
+		wm_put_nocache(ice, WM_DAC_DIG_MASTER_ATTEN, nvol | 0x100); /* update */
 		change = 1;
 	}
 	snd_ice1712_restore_gpio_status(ice);
@@ -994,7 +994,7 @@ static int wm_pcm_vol_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_val
 }
 
 /*
-                   
+ * ADC mute control
  */
 #define wm_adc_mute_info		snd_ctl_boolean_stereo_info
 
@@ -1034,14 +1034,14 @@ static int wm_adc_mute_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_va
 }
 
 /*
-                         
+ * ADC gain mixer control
  */
 static int wm_adc_vol_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 2;
-	uinfo->value.integer.min = 0;		/*       */
-	uinfo->value.integer.max = 0x1f;	/*      */
+	uinfo->value.integer.min = 0;		/* -12dB */
+	uinfo->value.integer.max = 0x1f;	/* 19dB */
 	return 0;
 }
 
@@ -1083,26 +1083,26 @@ static int wm_adc_vol_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_val
 }
 
 /*
-                              
+ * ADC input mux mixer control
  */
 static int wm_adc_mux_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	static const char * const texts[] = {
-		"CD",		/*      */
-		"Aux",		/*      */
-		"Line",		/*      */
-		"Mic",		/*      */
-		"AC97"		/*      */
+		"CD",		/* AIN1 */
+		"Aux",		/* AIN2 */
+		"Line",		/* AIN3 */
+		"Mic",		/* AIN4 */
+		"AC97"		/* AIN5 */
 	};
 	static const char * const universe_texts[] = {
-		"Aux1",		/*      */
-		"CD",		/*      */
-		"Phono",	/*      */
-		"Line",		/*      */
-		"Aux2",		/*      */
-		"Mic",		/*      */
-		"Aux3",		/*      */
-		"AC97"		/*      */
+		"Aux1",		/* AIN1 */
+		"CD",		/* AIN2 */
+		"Phono",	/* AIN3 */
+		"Line",		/* AIN4 */
+		"Aux2",		/* AIN5 */
+		"Mic",		/* AIN6 */
+		"Aux3",		/* AIN7 */
+		"AC97"		/* AIN8 */
 	};
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 
@@ -1154,14 +1154,14 @@ static int wm_adc_mux_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_val
 }
 
 /*
-                   
+ * CS8415 Input mux
  */
 static int aureon_cs8415_mux_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 	static const char * const aureon_texts[] = {
-		"CD",		/*      */
-		"Optical"	/*      */
+		"CD",		/* RXP0 */
+		"Optical"	/* RXP1 */
 	};
 	static const char * const prodigy_texts[] = {
 		"CD",
@@ -1184,10 +1184,10 @@ static int aureon_cs8415_mux_get(struct snd_kcontrol *kcontrol, struct snd_ctl_e
 	struct snd_ice1712 *ice = snd_kcontrol_chip(kcontrol);
 	struct aureon_spec *spec = ice->spec;
 
-	/*                                    */
-	/*                                             */
+	/* snd_ice1712_save_gpio_status(ice); */
+	/* val = aureon_cs8415_get(ice, CS8415_CTRL2); */
 	ucontrol->value.enumerated.item[0] = spec->cs8415_mux;
-	/*                                       */
+	/* snd_ice1712_restore_gpio_status(ice); */
 	return 0;
 }
 
@@ -1229,7 +1229,7 @@ static int aureon_cs8415_rate_get(struct snd_kcontrol *kcontrol, struct snd_ctl_
 }
 
 /*
-               
+ * CS8415A Mute
  */
 #define aureon_cs8415_mute_info		snd_ctl_boolean_mono_info
 
@@ -1261,7 +1261,7 @@ static int aureon_cs8415_mute_put(struct snd_kcontrol *kcontrol, struct snd_ctl_
 }
 
 /*
-                     
+ * CS8415A Q-Sub info
  */
 static int aureon_cs8415_qsub_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
@@ -1305,7 +1305,7 @@ static int aureon_cs8415_spdif_get(struct snd_kcontrol *kcontrol, struct snd_ctl
 }
 
 /*
-                      
+ * Headphone Amplifier
  */
 static int aureon_set_headphone_amp(struct snd_ice1712 *ice, int enable)
 {
@@ -1357,7 +1357,7 @@ static int aureon_hpamp_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_v
 }
 
 /*
-             
+ * Deemphasis
  */
 
 #define aureon_deemp_info	snd_ctl_boolean_mono_info
@@ -1386,7 +1386,7 @@ static int aureon_deemp_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_v
 }
 
 /*
-                   
+ * ADC Oversampling
  */
 static int aureon_oversampling_info(struct snd_kcontrol *k, struct snd_ctl_elem_info *uinfo)
 {
@@ -1430,7 +1430,7 @@ static int aureon_oversampling_put(struct snd_kcontrol *kcontrol, struct snd_ctl
 }
 
 /*
-         
+ * mixers
  */
 
 static struct snd_kcontrol_new aureon_dac_controls[] __devinitdata = {
@@ -1903,7 +1903,7 @@ static int __devinit aureon_add_controls(struct snd_ice1712 *ice)
 
 	counts = ARRAY_SIZE(aureon_dac_controls);
 	if (ice->eeprom.subvendor == VT1724_SUBDEVICE_AUREON51_SKY)
-		counts -= 2; /*         */
+		counts -= 2; /* no side */
 	for (i = 0; i < counts; i++) {
 		err = snd_ctl_add(ice->card, snd_ctl_new1(&aureon_dac_controls[i], ice));
 		if (err < 0)
@@ -1957,93 +1957,93 @@ static int __devinit aureon_add_controls(struct snd_ice1712 *ice)
 }
 
 /*
-                 
+ * reset the chip
  */
 static int aureon_reset(struct snd_ice1712 *ice)
 {
 	static const unsigned short wm_inits_aureon[] = {
-		/*                                           */
-		0x1b, 0x044,		/*                        */
-		0x1c, 0x00B,		/*                                         */
-		0x1d, 0x009,		/*                                     */
+		/* These come first to reduce init pop noise */
+		0x1b, 0x044,		/* ADC Mux (AC'97 source) */
+		0x1c, 0x00B,		/* Out Mux1 (VOUT1 = DAC+AUX, VOUT2 = DAC) */
+		0x1d, 0x009,		/* Out Mux2 (VOUT2 = DAC, VOUT3 = DAC) */
 
-		0x18, 0x000,		/*              */
+		0x18, 0x000,		/* All power-up */
 
-		0x16, 0x122,		/*                             */
-		0x17, 0x022,		/*                   */
-		0x00, 0,		/*                  */
-		0x01, 0,		/*                  */
-		0x02, 0,		/*                  */
-		0x03, 0,		/*                  */
-		0x04, 0,		/*                  */
-		0x05, 0,		/*                  */
-		0x06, 0,		/*                  */
-		0x07, 0,		/*                  */
-		0x08, 0x100,		/*                    */
-		0x09, 0xff,		/*                   */
-		0x0a, 0xff,		/*                   */
-		0x0b, 0xff,		/*                   */
-		0x0c, 0xff,		/*                   */
-		0x0d, 0xff,		/*                   */
-		0x0e, 0xff,		/*                   */
-		0x0f, 0xff,		/*                   */
-		0x10, 0xff,		/*                   */
-		0x11, 0x1ff,		/*                     */
-		0x12, 0x000,		/*              */
-		0x13, 0x090,		/*                */
-		0x14, 0x000,		/*            */
-		0x15, 0x000,		/*                        */
-		0x19, 0x000,		/*             */
-		0x1a, 0x000,		/*             */
+		0x16, 0x122,		/* I2S, normal polarity, 24bit */
+		0x17, 0x022,		/* 256fs, slave mode */
+		0x00, 0,		/* DAC1 analog mute */
+		0x01, 0,		/* DAC2 analog mute */
+		0x02, 0,		/* DAC3 analog mute */
+		0x03, 0,		/* DAC4 analog mute */
+		0x04, 0,		/* DAC5 analog mute */
+		0x05, 0,		/* DAC6 analog mute */
+		0x06, 0,		/* DAC7 analog mute */
+		0x07, 0,		/* DAC8 analog mute */
+		0x08, 0x100,		/* master analog mute */
+		0x09, 0xff,		/* DAC1 digital full */
+		0x0a, 0xff,		/* DAC2 digital full */
+		0x0b, 0xff,		/* DAC3 digital full */
+		0x0c, 0xff,		/* DAC4 digital full */
+		0x0d, 0xff,		/* DAC5 digital full */
+		0x0e, 0xff,		/* DAC6 digital full */
+		0x0f, 0xff,		/* DAC7 digital full */
+		0x10, 0xff,		/* DAC8 digital full */
+		0x11, 0x1ff,		/* master digital full */
+		0x12, 0x000,		/* phase normal */
+		0x13, 0x090,		/* unmute DAC L/R */
+		0x14, 0x000,		/* all unmute */
+		0x15, 0x000,		/* no deemphasis, no ZFLG */
+		0x19, 0x000,		/* -12dB ADC/L */
+		0x1a, 0x000,		/* -12dB ADC/R */
 		(unsigned short)-1
 	};
 	static const unsigned short wm_inits_prodigy[] = {
 
-		/*                                           */
-		0x1b, 0x000,		/*         */
-		0x1c, 0x009,		/*          */
-		0x1d, 0x009,		/*          */
+		/* These come first to reduce init pop noise */
+		0x1b, 0x000,		/* ADC Mux */
+		0x1c, 0x009,		/* Out Mux1 */
+		0x1d, 0x009,		/* Out Mux2 */
 
-		0x18, 0x000,		/*              */
+		0x18, 0x000,		/* All power-up */
 
-		0x16, 0x022,		/*                                           */
-		0x17, 0x006,		/*                   */
+		0x16, 0x022,		/* I2S, normal polarity, 24bit, high-pass on */
+		0x17, 0x006,		/* 128fs, slave mode */
 
-		0x00, 0,		/*                  */
-		0x01, 0,		/*                  */
-		0x02, 0,		/*                  */
-		0x03, 0,		/*                  */
-		0x04, 0,		/*                  */
-		0x05, 0,		/*                  */
-		0x06, 0,		/*                  */
-		0x07, 0,		/*                  */
-		0x08, 0x100,		/*                    */
+		0x00, 0,		/* DAC1 analog mute */
+		0x01, 0,		/* DAC2 analog mute */
+		0x02, 0,		/* DAC3 analog mute */
+		0x03, 0,		/* DAC4 analog mute */
+		0x04, 0,		/* DAC5 analog mute */
+		0x05, 0,		/* DAC6 analog mute */
+		0x06, 0,		/* DAC7 analog mute */
+		0x07, 0,		/* DAC8 analog mute */
+		0x08, 0x100,		/* master analog mute */
 
-		0x09, 0x7f,		/*                   */
-		0x0a, 0x7f,		/*                   */
-		0x0b, 0x7f,		/*                   */
-		0x0c, 0x7f,		/*                   */
-		0x0d, 0x7f,		/*                   */
-		0x0e, 0x7f,		/*                   */
-		0x0f, 0x7f,		/*                   */
-		0x10, 0x7f,		/*                   */
-		0x11, 0x1FF,		/*                     */
+		0x09, 0x7f,		/* DAC1 digital full */
+		0x0a, 0x7f,		/* DAC2 digital full */
+		0x0b, 0x7f,		/* DAC3 digital full */
+		0x0c, 0x7f,		/* DAC4 digital full */
+		0x0d, 0x7f,		/* DAC5 digital full */
+		0x0e, 0x7f,		/* DAC6 digital full */
+		0x0f, 0x7f,		/* DAC7 digital full */
+		0x10, 0x7f,		/* DAC8 digital full */
+		0x11, 0x1FF,		/* master digital full */
 
-		0x12, 0x000,		/*              */
-		0x13, 0x090,		/*                */
-		0x14, 0x000,		/*            */
-		0x15, 0x000,		/*                        */
+		0x12, 0x000,		/* phase normal */
+		0x13, 0x090,		/* unmute DAC L/R */
+		0x14, 0x000,		/* all unmute */
+		0x15, 0x000,		/* no deemphasis, no ZFLG */
 
-		0x19, 0x000,		/*             */
-		0x1a, 0x000,		/*             */
+		0x19, 0x000,		/* -12dB ADC/L */
+		0x1a, 0x000,		/* -12dB ADC/R */
 		(unsigned short)-1
 
 	};
 	static const unsigned short cs_inits[] = {
-		0x0441, /*     */
-		0x0180, /*                                  */
-		0x0201, /*                       */
-		0x0605, /*                                                                               */
+		0x0441, /* RUN */
+		0x0180, /* no mute, OMCK output on RMCK pin */
+		0x0201, /* S/PDIF source on RXP1 */
+		0x0605, /* slave, 24bit, MSB on second OSCLK, SDOUT for right channel when OLRCK is high */
 		(unsigned short)-1
 	};
 	unsigned int tmp;
@@ -2055,9 +2055,9 @@ static int aureon_reset(struct snd_ice1712 *ice)
 	if (err != 0)
 		return err;
 
-	snd_ice1712_gpio_set_dir(ice, 0x5fffff); /*                             */
+	snd_ice1712_gpio_set_dir(ice, 0x5fffff); /* fix this for the time being */
 
-	/*                                    */
+	/* reset the wm codec as the SPI mode */
 	snd_ice1712_save_gpio_status(ice);
 	snd_ice1712_gpio_set_mask(ice, ~(AUREON_WM_RESET|AUREON_WM_CS|AUREON_CS8415_CS|AUREON_HP_SEL));
 
@@ -2072,7 +2072,7 @@ static int aureon_reset(struct snd_ice1712 *ice)
 	snd_ice1712_gpio_write(ice, tmp);
 	udelay(1);
 
-	/*                         */
+	/* initialize WM8770 codec */
 	if (ice->eeprom.subvendor == VT1724_SUBDEVICE_PRODIGY71 ||
 		ice->eeprom.subvendor == VT1724_SUBDEVICE_PRODIGY71LT ||
 		ice->eeprom.subvendor == VT1724_SUBDEVICE_PRODIGY71XT)
@@ -2082,7 +2082,7 @@ static int aureon_reset(struct snd_ice1712 *ice)
 	for (; *p != (unsigned short)-1; p += 2)
 		wm_put(ice, p[0], p[1]);
 
-	/*                          */
+	/* initialize CS8415A codec */
 	if (ice->eeprom.subvendor != VT1724_SUBDEVICE_PRODIGY71LT &&
 	    ice->eeprom.subvendor != VT1724_SUBDEVICE_PRODIGY71XT) {
 		for (p = cs_inits; *p != (unsigned short)-1; p++)
@@ -2094,14 +2094,14 @@ static int aureon_reset(struct snd_ice1712 *ice)
 
 	snd_ice1712_restore_gpio_status(ice);
 
-	/*                                                       */
+	/* initialize PCA9554 pin directions & set default input */
 	aureon_pca9554_write(ice, PCA9554_DIR, 0x00);
-	aureon_pca9554_write(ice, PCA9554_OUT, 0x00);   /*              */
+	aureon_pca9554_write(ice, PCA9554_OUT, 0x00);   /* internal AUX */
 	return 0;
 }
 
 /*
-                 
+ * suspend/resume
  */
 #ifdef CONFIG_PM
 static int aureon_resume(struct snd_ice1712 *ice)
@@ -2113,8 +2113,8 @@ static int aureon_resume(struct snd_ice1712 *ice)
 	if (err != 0)
 		return err;
 
-	/*                                                          
-                                 */
+	/* workaround for poking volume with alsamixer after resume:
+	 * just set stored volume again */
 	for (i = 0; i < ice->num_total_dacs; i++)
 		wm_set_vol(ice, i, spec->vol[i], spec->master[i % 2]);
 	return 0;
@@ -2122,7 +2122,7 @@ static int aureon_resume(struct snd_ice1712 *ice)
 #endif
 
 /*
-                      
+ * initialize the chip
  */
 static int __devinit aureon_init(struct snd_ice1712 *ice)
 {
@@ -2138,12 +2138,12 @@ static int __devinit aureon_init(struct snd_ice1712 *ice)
 		ice->num_total_dacs = 6;
 		ice->num_total_adcs = 2;
 	} else {
-		/*                            */
+		/* aureon 7.1 and prodigy 7.1 */
 		ice->num_total_dacs = 8;
 		ice->num_total_adcs = 2;
 	}
 
-	/*                                           */
+	/* to remember the register values of CS8415 */
 	ice->akm = kzalloc(sizeof(struct snd_akm4xxx), GFP_KERNEL);
 	if (!ice->akm)
 		return -ENOMEM;
@@ -2170,15 +2170,15 @@ static int __devinit aureon_init(struct snd_ice1712 *ice)
 
 
 /*
-                                                                         
-                                                 
+ * Aureon boards don't provide the EEPROM data except for the vendor IDs.
+ * hence the driver needs to sets up it properly.
  */
 
 static unsigned char aureon51_eeprom[] __devinitdata = {
-	[ICE_EEP2_SYSCONF]     = 0x0a,	/*                                */
-	[ICE_EEP2_ACLINK]      = 0x80,	/*     */
-	[ICE_EEP2_I2S]         = 0xfc,	/*                       */
-	[ICE_EEP2_SPDIF]       = 0xc3,	/*                           */
+	[ICE_EEP2_SYSCONF]     = 0x0a,	/* clock 512, spdif-in/ADC, 3DACs */
+	[ICE_EEP2_ACLINK]      = 0x80,	/* I2S */
+	[ICE_EEP2_I2S]         = 0xfc,	/* vol, 96k, 24bit, 192k */
+	[ICE_EEP2_SPDIF]       = 0xc3,	/* out-en, out-int, spdif-in */
 	[ICE_EEP2_GPIO_DIR]    = 0xff,
 	[ICE_EEP2_GPIO_DIR1]   = 0xff,
 	[ICE_EEP2_GPIO_DIR2]   = 0x5f,
@@ -2191,10 +2191,10 @@ static unsigned char aureon51_eeprom[] __devinitdata = {
 };
 
 static unsigned char aureon71_eeprom[] __devinitdata = {
-	[ICE_EEP2_SYSCONF]     = 0x0b,	/*                                */
-	[ICE_EEP2_ACLINK]      = 0x80,	/*     */
-	[ICE_EEP2_I2S]         = 0xfc,	/*                       */
-	[ICE_EEP2_SPDIF]       = 0xc3,	/*                           */
+	[ICE_EEP2_SYSCONF]     = 0x0b,	/* clock 512, spdif-in/ADC, 4DACs */
+	[ICE_EEP2_ACLINK]      = 0x80,	/* I2S */
+	[ICE_EEP2_I2S]         = 0xfc,	/* vol, 96k, 24bit, 192k */
+	[ICE_EEP2_SPDIF]       = 0xc3,	/* out-en, out-int, spdif-in */
 	[ICE_EEP2_GPIO_DIR]    = 0xff,
 	[ICE_EEP2_GPIO_DIR1]   = 0xff,
 	[ICE_EEP2_GPIO_DIR2]   = 0x5f,
@@ -2208,12 +2208,12 @@ static unsigned char aureon71_eeprom[] __devinitdata = {
 #define prodigy71_eeprom aureon71_eeprom
 
 static unsigned char aureon71_universe_eeprom[] __devinitdata = {
-	[ICE_EEP2_SYSCONF]     = 0x2b,	/*                                 
-             
-      */
-	[ICE_EEP2_ACLINK]      = 0x80,	/*     */
-	[ICE_EEP2_I2S]         = 0xfc,	/*                       */
-	[ICE_EEP2_SPDIF]       = 0xc3,	/*                           */
+	[ICE_EEP2_SYSCONF]     = 0x2b,	/* clock 512, mpu401, spdif-in/ADC,
+					 * 4DACs
+					 */
+	[ICE_EEP2_ACLINK]      = 0x80,	/* I2S */
+	[ICE_EEP2_I2S]         = 0xfc,	/* vol, 96k, 24bit, 192k */
+	[ICE_EEP2_SPDIF]       = 0xc3,	/* out-en, out-int, spdif-in */
 	[ICE_EEP2_GPIO_DIR]    = 0xff,
 	[ICE_EEP2_GPIO_DIR1]   = 0xff,
 	[ICE_EEP2_GPIO_DIR2]   = 0x5f,
@@ -2226,10 +2226,10 @@ static unsigned char aureon71_universe_eeprom[] __devinitdata = {
 };
 
 static unsigned char prodigy71lt_eeprom[] __devinitdata = {
-	[ICE_EEP2_SYSCONF]     = 0x4b,	/*                                */
-	[ICE_EEP2_ACLINK]      = 0x80,	/*     */
-	[ICE_EEP2_I2S]         = 0xfc,	/*                       */
-	[ICE_EEP2_SPDIF]       = 0xc3,	/*                           */
+	[ICE_EEP2_SYSCONF]     = 0x4b,	/* clock 384, spdif-in/ADC, 4DACs */
+	[ICE_EEP2_ACLINK]      = 0x80,	/* I2S */
+	[ICE_EEP2_I2S]         = 0xfc,	/* vol, 96k, 24bit, 192k */
+	[ICE_EEP2_SPDIF]       = 0xc3,	/* out-en, out-int, spdif-in */
 	[ICE_EEP2_GPIO_DIR]    = 0xff,
 	[ICE_EEP2_GPIO_DIR1]   = 0xff,
 	[ICE_EEP2_GPIO_DIR2]   = 0x5f,
@@ -2242,7 +2242,7 @@ static unsigned char prodigy71lt_eeprom[] __devinitdata = {
 };
 #define prodigy71xt_eeprom prodigy71lt_eeprom
 
-/*             */
+/* entry point */
 struct snd_ice1712_card_info snd_vt1724_aureon_cards[] __devinitdata = {
 	{
 		.subvendor = VT1724_SUBDEVICE_AUREON51_SKY,
@@ -2272,7 +2272,7 @@ struct snd_ice1712_card_info snd_vt1724_aureon_cards[] __devinitdata = {
 		.build_controls = aureon_add_controls,
 		.eeprom_size = sizeof(aureon71_universe_eeprom),
 		.eeprom_data = aureon71_universe_eeprom,
-		.driver = "Aureon71Univ", /*                    */
+		.driver = "Aureon71Univ", /* keep in 15 letters */
 	},
 	{
 		.subvendor = VT1724_SUBDEVICE_PRODIGY71,
@@ -2282,7 +2282,7 @@ struct snd_ice1712_card_info snd_vt1724_aureon_cards[] __devinitdata = {
 		.build_controls = aureon_add_controls,
 		.eeprom_size = sizeof(prodigy71_eeprom),
 		.eeprom_data = prodigy71_eeprom,
-		.driver = "Prodigy71", /*                                   */
+		.driver = "Prodigy71", /* should be identical with Aureon71 */
 	},
 	{
 		.subvendor = VT1724_SUBDEVICE_PRODIGY71LT,
@@ -2304,5 +2304,5 @@ struct snd_ice1712_card_info snd_vt1724_aureon_cards[] __devinitdata = {
 		.eeprom_data = prodigy71xt_eeprom,
 		.driver = "Prodigy71LT",
 	},
-	{ } /*            */
+	{ } /* terminator */
 };

@@ -22,9 +22,9 @@
 #include <linux/vmalloc.h>
 #include "ion_priv.h"
 /*
-                                                                           
-                                                                      
-                                    
+ * This mapper is valid for any heap that allocates memory that already has
+ * a kernel mapping, this includes vmalloc'd memory, kmalloc'd memory,
+ * pages obtained via io_remap, etc.
  */
 static void *ion_kernel_mapper_map(struct ion_mapper *mapper,
 				   struct ion_buffer *buffer,
@@ -34,7 +34,7 @@ static void *ion_kernel_mapper_map(struct ion_mapper *mapper,
 		pr_err("%s: attempting to map an unsupported heap\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
-	/*                   */
+	/* XXX REVISIT ME!!! */
 	*((unsigned long *)mapping) = (unsigned long)buffer->priv;
 	return buffer->priv;
 }

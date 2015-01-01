@@ -12,8 +12,8 @@
 #define _ASM_IRQ_REGS_H
 
 /*
-                                                                              
-            
+ * Per-cpu current frame pointer - the location of the last exception frame on
+ * the stack
  */
 #define ARCH_HAS_OWN_IRQ_REGS
 
@@ -25,4 +25,4 @@ struct pt_regs *get_irq_regs(void)
 }
 #endif
 
-#endif /*                 */
+#endif /* _ASM_IRQ_REGS_H */

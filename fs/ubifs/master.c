@@ -20,18 +20,18 @@
  *          Adrian Hunter
  */
 
-/*                                                          */
+/* This file implements reading and writing the master node */
 
 #include "ubifs.h"
 
-/* 
-                                                  
-                                           
-  
-                                                                            
-                                                                           
-                                                                        
-           
+/**
+ * scan_for_master - search the valid master node.
+ * @c: UBIFS file-system description object
+ *
+ * This function scans the master node LEBs and search for the latest master
+ * node. Returns zero in case of success, %-EUCLEAN if there master area is
+ * corrupted and requires recovery, and a negative error code in case of
+ * failure.
  */
 static int scan_for_master(struct ubifs_info *c)
 {
@@ -88,12 +88,12 @@ out_dump:
 	return -EINVAL;
 }
 
-/* 
-                                          
-                                           
-  
-                                                                             
-                                                
+/**
+ * validate_master - validate master node.
+ * @c: UBIFS file-system description object
+ *
+ * This function validates data which was read from master node. Returns zero
+ * if the data is all right and %-EINVAL if not.
  */
 static int validate_master(const struct ubifs_info *c)
 {
@@ -245,13 +245,13 @@ out:
 	return -EINVAL;
 }
 
-/* 
-                                        
-                                           
-  
-                                                                             
-                                                                              
-                                                                
+/**
+ * ubifs_read_master - read master node.
+ * @c: UBIFS file-system description object
+ *
+ * This function finds and reads the master node during file-system mount. If
+ * the flash is empty, it creates default master node as well. Returns zero in
+ * case of success and a negative error code in case of failure.
  */
 int ubifs_read_master(struct ubifs_info *c)
 {
@@ -267,13 +267,13 @@ int ubifs_read_master(struct ubifs_info *c)
 			err = ubifs_recover_master_node(c);
 		if (err)
 			/*
-                                                         
-                                             
-    */
+			 * Note, we do not free 'c->mst_node' here because the
+			 * unmount routine will take care of this.
+			 */
 			return err;
 	}
 
-	/*                                           */
+	/* Make sure that the recovery flag is clear */
 	c->mst_node->flags &= cpu_to_le32(~UBIFS_MST_RCVRY);
 
 	c->max_sqnum       = le64_to_cpu(c->mst_node->ch.sqnum);
@@ -311,7 +311,7 @@ int ubifs_read_master(struct ubifs_info *c)
 		c->no_orphs = 1;
 
 	if (old_leb_cnt != c->leb_cnt) {
-		/*                                  */
+		/* The file system has been resized */
 		int growth = c->leb_cnt - old_leb_cnt;
 
 		if (c->leb_cnt < old_leb_cnt ||
@@ -328,11 +328,11 @@ int ubifs_read_master(struct ubifs_info *c)
 		c->lst.total_dark += growth * (long long)c->dark_wm;
 
 		/*
-                                                               
-                                                        
-                                                                  
-          
-   */
+		 * Reflect changes back onto the master node. N.B. the master
+		 * node gets written immediately whenever mounting (or
+		 * remounting) in read-write mode, so we do not need to write it
+		 * here.
+		 */
 		c->mst_node->leb_cnt = cpu_to_le32(c->leb_cnt);
 		c->mst_node->empty_lebs = cpu_to_le32(c->lst.empty_lebs);
 		c->mst_node->total_free = cpu_to_le64(c->lst.total_free);
@@ -348,14 +348,14 @@ int ubifs_read_master(struct ubifs_info *c)
 	return err;
 }
 
-/* 
-                                          
-                                           
-  
-                                                                   
-                                                                           
-                                                                           
-                                    
+/**
+ * ubifs_write_master - write master node.
+ * @c: UBIFS file-system description object
+ *
+ * This function writes the master node. The caller has to take the
+ * @c->mst_mutex lock before calling this function. Returns zero in case of
+ * success and a negative error code in case of failure. The master node is
+ * written twice to enable recovery.
  */
 int ubifs_write_master(struct ubifs_info *c)
 {

@@ -27,9 +27,9 @@
 
 struct usbhs_fifo {
 	char *name;
-	u32 port;	/*       */
-	u32 sel;	/*          */
-	u32 ctr;	/*          */
+	u32 port;	/* xFIFO */
+	u32 sel;	/* xFIFOSEL */
+	u32 ctr;	/* xFIFOCTR */
 
 	struct usbhs_pipe	*pipe;
 
@@ -70,7 +70,7 @@ struct usbhs_pkt_handle {
 };
 
 /*
-       
+ * fifo
  */
 int usbhs_fifo_probe(struct usbhs_priv *priv);
 void usbhs_fifo_remove(struct usbhs_priv *priv);
@@ -78,7 +78,7 @@ void usbhs_fifo_init(struct usbhs_priv *priv);
 void usbhs_fifo_quit(struct usbhs_priv *priv);
 
 /*
-              
+ * packet info
  */
 extern struct usbhs_pkt_handle usbhs_fifo_pio_push_handler;
 extern struct usbhs_pkt_handle usbhs_fifo_pio_pop_handler;
@@ -101,4 +101,4 @@ void usbhs_pkt_push(struct usbhs_pipe *pipe, struct usbhs_pkt *pkt,
 struct usbhs_pkt *usbhs_pkt_pop(struct usbhs_pipe *pipe, struct usbhs_pkt *pkt);
 void usbhs_pkt_start(struct usbhs_pipe *pipe);
 
-#endif /*                    */
+#endif /* RENESAS_USB_FIFO_H */

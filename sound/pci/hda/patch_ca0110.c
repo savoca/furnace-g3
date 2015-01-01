@@ -42,11 +42,11 @@ struct ca0110_spec {
 	hda_nid_t dig_in;
 	unsigned int num_inputs;
 	char input_labels[AUTO_PIN_LAST][32];
-	struct hda_pcm pcm_rec[2];	/*                 */
+	struct hda_pcm pcm_rec[2];	/* PCM information */
 };
 
 /*
-                
+ * PCM callbacks
  */
 static int ca0110_playback_pcm_open(struct hda_pcm_stream *hinfo,
 				    struct hda_codec *codec,
@@ -77,7 +77,7 @@ static int ca0110_playback_pcm_cleanup(struct hda_pcm_stream *hinfo,
 }
 
 /*
-              
+ * Digital out
  */
 static int ca0110_dig_playback_pcm_open(struct hda_pcm_stream *hinfo,
 					struct hda_codec *codec,
@@ -107,7 +107,7 @@ static int ca0110_dig_playback_pcm_prepare(struct hda_pcm_stream *hinfo,
 }
 
 /*
-                 
+ * Analog capture
  */
 static int ca0110_capture_pcm_prepare(struct hda_pcm_stream *hinfo,
 				      struct hda_codec *codec,
@@ -412,7 +412,7 @@ static void parse_line_outs(struct hda_codec *codec)
 		nid = cfg->line_out_pins[i];
 		def_conf = snd_hda_codec_get_pincfg(codec, nid);
 		if (!def_conf)
-			continue; /*             */
+			continue; /* invalid pin */
 		if (snd_hda_get_connections(codec, nid, &spec->dacs[i], 1) != 1)
 			continue;
 		spec->out_pins[n++] = nid;
@@ -541,13 +541,13 @@ static int patch_ca0110(struct hda_codec *codec)
 
 
 /*
-                
+ * patch entries
  */
 static const struct hda_codec_preset snd_hda_preset_ca0110[] = {
 	{ .id = 0x1102000a, .name = "CA0110-IBG", .patch = patch_ca0110 },
 	{ .id = 0x1102000b, .name = "CA0110-IBG", .patch = patch_ca0110 },
 	{ .id = 0x1102000d, .name = "SB0880 X-Fi", .patch = patch_ca0110 },
-	{} /*            */
+	{} /* terminator */
 };
 
 MODULE_ALIAS("snd-hda-codec-id:1102000a");

@@ -13,7 +13,7 @@
 #define __57XX_ISCSI_HSI_LINUX_LE__
 
 /*
-                  
+ * iSCSI Async CQE
  */
 struct bnx2i_async_msg {
 #if defined(__BIG_ENDIAN)
@@ -62,7 +62,7 @@ struct bnx2i_async_msg {
 
 
 /*
-                               
+ * iSCSI Buffer Descriptor (BD)
  */
 struct iscsi_bd {
 	u32 buffer_addr_hi;
@@ -101,7 +101,7 @@ struct iscsi_bd {
 
 
 /*
-                       
+ * iSCSI Cleanup SQ WQE
  */
 struct bnx2i_cleanup_request {
 #if defined(__BIG_ENDIAN)
@@ -143,7 +143,7 @@ struct bnx2i_cleanup_request {
 
 
 /*
-                    
+ * iSCSI Cleanup CQE
  */
 struct bnx2i_cleanup_response {
 #if defined(__BIG_ENDIAN)
@@ -187,7 +187,7 @@ struct bnx2i_cleanup_response {
 
 
 /*
-                         
+ * SCSI read/write SQ WQE
  */
 struct bnx2i_cmd_request {
 #if defined(__BIG_ENDIAN)
@@ -264,14 +264,14 @@ struct bnx2i_cmd_request {
 
 
 /*
-                                     
+ * task statistics for write response
  */
 struct bnx2i_write_resp_task_stat {
 	u32 num_data_ins;
 };
 
 /*
-                                    
+ * task statistics for read response
  */
 struct bnx2i_read_resp_task_stat {
 #if defined(__BIG_ENDIAN)
@@ -284,7 +284,7 @@ struct bnx2i_read_resp_task_stat {
 };
 
 /*
-                                         
+ * task statistics for iSCSI cmd response
  */
 union bnx2i_cmd_resp_task_stat {
 	struct bnx2i_write_resp_task_stat write_stat;
@@ -292,7 +292,7 @@ union bnx2i_cmd_resp_task_stat {
 };
 
 /*
-                   
+ * SCSI Command CQE
  */
 struct bnx2i_cmd_response {
 #if defined(__BIG_ENDIAN)
@@ -368,7 +368,7 @@ struct bnx2i_cmd_response {
 
 
 /*
-                                      
+ * firmware middle-path request SQ WQE
  */
 struct bnx2i_fw_mp_request {
 #if defined(__BIG_ENDIAN)
@@ -447,7 +447,7 @@ struct bnx2i_fw_mp_request {
 
 
 /*
-                                                 
+ * firmware response - CQE: used only by firmware
  */
 struct bnx2i_fw_response {
 	u32 hdr_dword1[2];
@@ -473,14 +473,14 @@ struct bnx2i_fw_response {
 
 
 /*
-                           
+ * iSCSI KCQ CQE parameters
  */
 union iscsi_kcqe_params {
 	u32 reserved0[4];
 };
 
 /*
-                
+ * iSCSI KCQ CQE
  */
 struct iscsi_kcqe {
 	u32 iscsi_conn_id;
@@ -513,7 +513,7 @@ struct iscsi_kcqe {
 
 
 /*
-                    
+ * iSCSI KWQE header
  */
 struct iscsi_kwqe_header {
 #if defined(__BIG_ENDIAN)
@@ -538,7 +538,7 @@ struct iscsi_kwqe_header {
 };
 
 /*
-                                
+ * iSCSI firmware init request 1
  */
 struct iscsi_kwqe_init1 {
 #if defined(__BIG_ENDIAN)
@@ -608,7 +608,7 @@ struct iscsi_kwqe_init1 {
 };
 
 /*
-                                
+ * iSCSI firmware init request 2
  */
 struct iscsi_kwqe_init2 {
 #if defined(__BIG_ENDIAN)
@@ -623,7 +623,7 @@ struct iscsi_kwqe_init2 {
 };
 
 /*
-                                             
+ * Initial iSCSI connection offload request 1
  */
 struct iscsi_kwqe_conn_offload1 {
 #if defined(__BIG_ENDIAN)
@@ -641,7 +641,7 @@ struct iscsi_kwqe_conn_offload1 {
 };
 
 /*
-                               
+ * iSCSI Page Table Entry (PTE)
  */
 struct iscsi_pte {
 	u32 hi;
@@ -649,7 +649,7 @@ struct iscsi_pte {
 };
 
 /*
-                                             
+ * Initial iSCSI connection offload request 2
  */
 struct iscsi_kwqe_conn_offload2 {
 #if defined(__BIG_ENDIAN)
@@ -668,7 +668,7 @@ struct iscsi_kwqe_conn_offload2 {
 
 
 /*
-                                             
+ * Initial iSCSI connection offload request 3
  */
 struct iscsi_kwqe_conn_offload3 {
 #if defined(__BIG_ENDIAN)
@@ -684,7 +684,7 @@ struct iscsi_kwqe_conn_offload3 {
 
 
 /*
-                                  
+ * iSCSI connection update request
  */
 struct iscsi_kwqe_conn_update {
 #if defined(__BIG_ENDIAN)
@@ -738,7 +738,7 @@ struct iscsi_kwqe_conn_update {
 };
 
 /*
-                                   
+ * iSCSI destroy connection request
  */
 struct iscsi_kwqe_conn_destroy {
 #if defined(__BIG_ENDIAN)
@@ -753,7 +753,7 @@ struct iscsi_kwqe_conn_destroy {
 };
 
 /*
-                
+ * iSCSI KWQ WQE
  */
 union iscsi_kwqe {
 	struct iscsi_kwqe_init1 init1;
@@ -765,7 +765,7 @@ union iscsi_kwqe {
 };
 
 /*
-                     
+ * iSCSI Login SQ WQE
  */
 struct bnx2i_login_request {
 #if defined(__BIG_ENDIAN)
@@ -878,7 +878,7 @@ struct bnx2i_login_request {
 
 
 /*
-                  
+ * iSCSI Login CQE
  */
 struct bnx2i_login_response {
 #if defined(__BIG_ENDIAN)
@@ -964,7 +964,7 @@ struct bnx2i_login_response {
 
 
 /*
-                      
+ * iSCSI Logout SQ WQE
  */
 struct bnx2i_logout_request {
 #if defined(__BIG_ENDIAN)
@@ -1028,7 +1028,7 @@ struct bnx2i_logout_request {
 
 
 /*
-                   
+ * iSCSI Logout CQE
  */
 struct bnx2i_logout_response {
 #if defined(__BIG_ENDIAN)
@@ -1084,7 +1084,7 @@ struct bnx2i_logout_response {
 
 
 /*
-                   
+ * iSCSI Nop-In CQE
  */
 struct bnx2i_nop_in_msg {
 #if defined(__BIG_ENDIAN)
@@ -1133,7 +1133,7 @@ struct bnx2i_nop_in_msg {
 
 
 /*
-                       
+ * iSCSI NOP-OUT SQ WQE
  */
 struct bnx2i_nop_out_request {
 #if defined(__BIG_ENDIAN)
@@ -1217,7 +1217,7 @@ struct bnx2i_nop_out_request {
 };
 
 /*
-                   
+ * iSCSI Reject CQE
  */
 struct bnx2i_reject_msg {
 #if defined(__BIG_ENDIAN)
@@ -1249,7 +1249,7 @@ struct bnx2i_reject_msg {
 };
 
 /*
-                         
+ * bnx2i iSCSI TMF SQ WQE
  */
 struct bnx2i_tmf_request {
 #if defined(__BIG_ENDIAN)
@@ -1308,7 +1308,7 @@ struct bnx2i_tmf_request {
 };
 
 /*
-                    
+ * iSCSI Text SQ WQE
  */
 struct bnx2i_text_request {
 #if defined(__BIG_ENDIAN)
@@ -1376,7 +1376,7 @@ struct bnx2i_text_request {
 };
 
 /*
-               
+ * iSCSI SQ WQE
  */
 union iscsi_request {
 	struct bnx2i_cmd_request cmd;
@@ -1390,7 +1390,7 @@ union iscsi_request {
 
 
 /*
-                
+ * iSCSI TMF CQE
  */
 struct bnx2i_tmf_response {
 #if defined(__BIG_ENDIAN)
@@ -1437,7 +1437,7 @@ struct bnx2i_tmf_response {
 };
 
 /*
-                 
+ * iSCSI Text CQE
  */
 struct bnx2i_text_response {
 #if defined(__BIG_ENDIAN)
@@ -1497,7 +1497,7 @@ struct bnx2i_text_response {
 };
 
 /*
-            
+ * iSCSI CQE
  */
 union iscsi_response {
 	struct bnx2i_cmd_response cmd;
@@ -1511,4 +1511,4 @@ union iscsi_response {
 	struct bnx2i_nop_in_msg nop_in;
 };
 
-#endif /*                             */
+#endif /* __57XX_ISCSI_HSI_LINUX_LE__ */

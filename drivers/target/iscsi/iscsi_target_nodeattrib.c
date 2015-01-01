@@ -128,8 +128,8 @@ int iscsit_na_nopin_timeout(
 		" Node %s\n", a->nopin_timeout,
 		iscsit_na_get_initiatorname(acl));
 	/*
-                                                                    
-  */
+	 * Reenable disabled nopin_timeout timer for all iSCSI connections.
+	 */
 	if (!orig_nopin_timeout) {
 		spin_lock_bh(&se_nacl->nacl_sess_lock);
 		se_sess = se_nacl->nacl_sess;

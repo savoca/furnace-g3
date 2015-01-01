@@ -1,4 +1,4 @@
-/*                                                                         */
+/***************************************************************************/
 
 /*
  *	pit.c -- Freescale ColdFire PIT timer. Currently this type of
@@ -10,7 +10,7 @@
  *	Copyright (C) 2001-2004, SnapGear Inc. (www.snapgear.com)
  */
 
-/*                                                                         */
+/***************************************************************************/
 
 #include <linux/kernel.h>
 #include <linux/sched.h>
@@ -25,10 +25,10 @@
 #include <asm/mcfpit.h>
 #include <asm/mcfsim.h>
 
-/*                                                                         */
+/***************************************************************************/
 
 /*
-                                                   
+ *	By default use timer1 as the system clock timer.
  */
 #define	FREQ	((MCF_CLK / 2) / 64)
 #define	TA(a)	(MCFPIT_BASE1 + (a))
@@ -37,9 +37,9 @@
 static u32 pit_cnt;
 
 /*
-                            
-  
-                                                                          
+ * Initialize the PIT timer.
+ *
+ * This is also called after resume to bring the PIT into operation again.
  */
 
 static void init_cf_pit_timer(enum clock_event_mode mode,
@@ -70,15 +70,15 @@ static void init_cf_pit_timer(enum clock_event_mode mode,
 		break;
 
 	case CLOCK_EVT_MODE_RESUME:
-		/*                    */
+		/* Nothing to do here */
 		break;
 	}
 }
 
 /*
-                                         
-  
-                              
+ * Program the next event in oneshot mode
+ *
+ * Delta is given in PIT ticks
  */
 static int cf_pit_next_event(unsigned long delta,
 		struct clock_event_device *evt)
@@ -98,14 +98,14 @@ struct clock_event_device cf_pit_clockevent = {
 
 
 
-/*                                                                         */
+/***************************************************************************/
 
 static irqreturn_t pit_tick(int irq, void *dummy)
 {
 	struct clock_event_device *evt = &cf_pit_clockevent;
 	u16 pcsr;
 
-	/*                          */
+	/* Reset the ColdFire timer */
 	pcsr = __raw_readw(TA(MCFPIT_PCSR));
 	__raw_writew(pcsr | MCFPIT_PCSR_PIF, TA(MCFPIT_PCSR));
 
@@ -114,7 +114,7 @@ static irqreturn_t pit_tick(int irq, void *dummy)
 	return IRQ_HANDLED;
 }
 
-/*                                                                         */
+/***************************************************************************/
 
 static struct irqaction pit_irq = {
 	.name	 = "timer",
@@ -122,7 +122,7 @@ static struct irqaction pit_irq = {
 	.handler = pit_tick,
 };
 
-/*                                                                         */
+/***************************************************************************/
 
 static cycle_t pit_read_clk(struct clocksource *cs)
 {
@@ -138,7 +138,7 @@ static cycle_t pit_read_clk(struct clocksource *cs)
 	return cycles + PIT_CYCLES_PER_JIFFY - pcntr;
 }
 
-/*                                                                         */
+/***************************************************************************/
 
 static struct clocksource pit_clk = {
 	.name	= "pit",
@@ -147,7 +147,7 @@ static struct clocksource pit_clk = {
 	.mask	= CLOCKSOURCE_MASK(32),
 };
 
-/*                                                                         */
+/***************************************************************************/
 
 void hw_timer_init(irq_handler_t handler)
 {
@@ -164,4 +164,4 @@ void hw_timer_init(irq_handler_t handler)
 	clocksource_register_hz(&pit_clk, FREQ);
 }
 
-/*                                                                         */
+/***************************************************************************/

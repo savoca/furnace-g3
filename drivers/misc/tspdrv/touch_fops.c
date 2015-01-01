@@ -33,7 +33,7 @@ static int Atoi(const char Str[])
 
 static long touch_fops_ioctl(struct file *filp,unsigned int cmd, unsigned long arg)
 {
-//                                            
+//	void __user *argp = (void __user *)arg;    
 	
 	int return_to_user = 0;
     
@@ -80,7 +80,7 @@ static ssize_t touch_fops_write(struct file *file, const char *buf, size_t count
 
 			for(i=0; i<MAX_FORCE_TIME; i+=5)
 			{
-				/*                                                                                                   */
+				/* Nothing to play for all actuators, turn off the timer when we reach the watchdog tick count limit */
 				ImmVibeSPI_ForceOut_SetSamples(motor_index, 8, 1, cZero);
 				mdelay(5);
 			}
@@ -131,7 +131,7 @@ static struct miscdevice touch_fops_dev = {
 	.fops = &touch_fops,
 };
 
-//                             
+// call in driver init function
 
 void touch_fops_init(void) {
 	int rc;
@@ -140,7 +140,7 @@ void touch_fops_init(void) {
 		pr_err("::::::::: can''t register touch_fops\n");
 	}
 }
-//                               
+// call in driver remove function
 void touch_fops_exit(void) {
 	misc_deregister(&touch_fops_dev);
 }

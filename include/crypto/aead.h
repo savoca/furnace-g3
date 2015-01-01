@@ -17,11 +17,11 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 
-/* 
-                                                                 
-                                          
-                               
-                                 
+/**
+ *	struct aead_givcrypt_request - AEAD request with IV generation
+ *	@seq: Sequence number for IV generation
+ *	@giv: Space for generated IV
+ *	@areq: The AEAD request itself
  */
 struct aead_givcrypt_request {
 	u64 seq;
@@ -102,4 +102,4 @@ static inline void aead_givcrypt_set_giv(struct aead_givcrypt_request *req,
 	req->seq = seq;
 }
 
-#endif	/*                */
+#endif	/* _CRYPTO_AEAD_H */

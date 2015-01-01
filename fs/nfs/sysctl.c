@@ -1,7 +1,7 @@
 /*
-                        
-  
-                                     
+ * linux/fs/nfs/sysctl.c
+ *
+ * Sysctl interface to NFS parameters
  */
 #include <linux/types.h>
 #include <linux/linkage.h>

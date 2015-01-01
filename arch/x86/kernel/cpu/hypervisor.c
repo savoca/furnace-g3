@@ -26,9 +26,9 @@
 #include <asm/hypervisor.h>
 
 /*
-                                                                      
-                                                                 
-                                                                      
+ * Hypervisor detect order.  This is specified explicitly here because
+ * some hypervisors might implement compatibility modes for other
+ * hypervisors and therefore need to be detected in specific sequence.
  */
 static const __initconst struct hypervisor_x86 * const hypervisors[] =
 {

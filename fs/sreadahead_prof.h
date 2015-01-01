@@ -29,7 +29,7 @@
 #define PROF_OPT	3
 #define PROF_DONE	4
 
-/*               */
+/* #define DEBUG */
 #ifdef DEBUG
 #define _DBG(fmt, args...) (printk(KERN_DEBUG "%s: " fmt "\n", __func__, ##args))
 #else
@@ -43,8 +43,8 @@
 struct sreadahead_profdata {
 	char procname[PROC_NAMELEN];
 	unsigned char name[FILE_PATHLEN+FILE_NAMELEN];
-	long long len; /*                             */
-	long long pos[2]; /*                                   */
+	long long len; /* same as pos[][1] - pos[][0] */
+	long long pos[2]; /* 0: start position 1: end position */
 };
 
 struct sreadahead_prof {

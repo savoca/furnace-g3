@@ -11,8 +11,8 @@
  *
  */
 /*
-                                                  
-                                  
+ * Modem Restart Notifier -- Provides notification
+ *			     of modem restart events.
  */
 
 #include <linux/notifier.h>
@@ -208,7 +208,7 @@ int __init msm_init_modem_notifier_list(void)
 	register_test_notifier();
 #endif
 
-	/*                      */
+	/* Create the workqueue */
 	modem_notifier_wq = create_singlethread_workqueue("modem_notifier");
 	if (!modem_notifier_wq) {
 		srcu_cleanup_notifier_head(&modem_notifier_list);

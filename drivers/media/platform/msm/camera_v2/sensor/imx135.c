@@ -11,7 +11,7 @@
  *
  */
 #include "msm_sensor.h"
-#include <mach/board_lge.h>		//                            
+#include <mach/board_lge.h>		//to use lge_get_board_revno()
 
 #define IMX135_SENSOR_NAME "imx135"
 DEFINE_MSM_MUTEX(imx135_mut);
@@ -32,54 +32,54 @@ static struct msm_sensor_ctrl_t imx135_s_ctrl;
 #if defined(CONFIG_MACH_LGE)
 static struct msm_sensor_power_setting imx135_power_setting_rev[] = 
 	{
-		{  /*                                                */
+		{  /* Set GPIO_RESET to low to disable power on reset*/
 			.seq_type = SENSOR_GPIO,
 			.seq_val = SENSOR_GPIO_RESET,
 			.config_val = GPIO_OUT_LOW,
 			.delay = 1,
 		},
 #if defined(CONFIG_LG_OIS)
-		{	//          
+		{	// OIS_RESET
 			.seq_type = SENSOR_GPIO,
 			.seq_val = SENSOR_GPIO_OIS_RESET,
 			.config_val = GPIO_OUT_LOW,
 			.delay = 1,
 		},
 #endif
-		{										//            
+		{										//VIO, GPIO 96
 			.seq_type = SENSOR_GPIO,
 			.seq_val = SENSOR_GPIO_VIO,
 			.config_val = GPIO_OUT_HIGH,
 			.delay = 1,
 		},
-		{										//    
+		{										//VDIG
 			.seq_type = SENSOR_VREG,
 			.seq_val = CAM_VDIG,
 			.config_val = 0,
 			.delay = 1,
 		},
-		{										//             
+		{										//VANA, GPIO 16
 			.seq_type = SENSOR_GPIO,
 			.seq_val = SENSOR_GPIO_VANA,
 			.config_val = GPIO_OUT_HIGH,
 			.delay = 2,
 		},
 #if defined(CONFIG_LG_PROXY)
-		{										//                    
+		{										//LDAF_EN, PMIC_GPIO 1
 			.seq_type = SENSOR_GPIO,
 			.seq_val = SENSOR_GPIO_LDAF_EN,
 			.config_val = GPIO_OUT_HIGH,
 			.delay = 3,
 		},
 #endif
-		{										//             
+		{										//VCM, GPIO 145
 			.seq_type = SENSOR_GPIO,
 			.seq_val = SENSOR_GPIO_VAF,
 			.config_val = GPIO_OUT_HIGH,
 			.delay = 3,
 		},
 #if defined(CONFIG_LG_OIS)
-		{										//                   
+		{										//OIS_LDO_EN, GPIO 30
 			.seq_type = SENSOR_GPIO,
 			.seq_val = SENSOR_GPIO_OIS_LDO_EN,
 			.config_val = GPIO_OUT_HIGH,
@@ -115,55 +115,55 @@ static struct msm_sensor_power_setting imx135_power_setting_rev[] =
 	};
 #if 0
 {
-	{  /*                                                */
+	{  /* Set GPIO_RESET to low to disable power on reset*/
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
 		.config_val = GPIO_OUT_LOW,
 		.delay = 1,
 	},
-	{	//          
+	{	// OIS_RESET
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_OIS_RESET,
 		.config_val = GPIO_OUT_LOW,
 		.delay = 1,
 	},
-	{										//                    
+	{										//OIS_LDO_EN, GPIO 145
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_OIS_LDO_EN,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 1,
 	},
-	{										//            
+	{										//VCM, GPIO 57
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_VAF,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 1,
 	},
-	{										//    
+	{										//VDIG
 		.seq_type = SENSOR_VREG,
 		.seq_val = CAM_VDIG,
 		.config_val = 0,
 		.delay = 0,
 	},
-	{										//             
+	{										//VANA, GPIO 16
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_VANA,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 0,
 	},
-	{										//            
+	{										//VIO, GPIO 96
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_VIO,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 2,
 	},
-	{										//                
+	{										//AF_MVDD, GPIO 57
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_AF_MVDD,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 1,
 	},
-	{	//          
+	{	// OIS_RESET
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_OIS_RESET,
 		.config_val = GPIO_OUT_HIGH,
@@ -303,8 +303,8 @@ static struct msm_sensor_ctrl_t imx135_s_ctrl = {
                                                                
                                
  */
-//                                                           
-//                                                              
+//	.power_setting_array.power_setting = imx135_power_setting,
+//	.power_setting_array.size = ARRAY_SIZE(imx135_power_setting),
 /*                                                                            */
 	.msm_sensor_mutex = &imx135_mut,
 	.sensor_v4l2_subdev_info = imx135_subdev_info,

@@ -13,7 +13,7 @@
 #define __IRQS_H
 
 /*
-                              
+ * IOP80321 chipset interrupts
  */
 #define IRQ_IOP32X_DMA0_EOT	0
 #define IRQ_IOP32X_DMA0_EOC	1

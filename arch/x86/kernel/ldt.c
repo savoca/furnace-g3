@@ -55,7 +55,7 @@ static int alloc_ldt(mm_context_t *pc, int mincount, int reload)
 	paravirt_alloc_ldt(newldt, mincount);
 
 #ifdef CONFIG_X86_64
-	/*                                   */
+	/* CHECKME: Do we really need this ? */
 	wmb();
 #endif
 	pc->ldt = newldt;
@@ -99,8 +99,8 @@ static inline int copy_ldt(mm_context_t *new, mm_context_t *old)
 }
 
 /*
-                                                        
-                                 
+ * we do not have to muck with descriptors here, that is
+ * done in switch_mm() as needed.
  */
 int init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 {
@@ -119,15 +119,15 @@ int init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 }
 
 /*
-                                                 
-  
-                                                                          
+ * No need to lock the MM as we are the last user
+ *
+ * 64bit: Don't touch the LDT register - we're already in the next thread.
  */
 void destroy_context(struct mm_struct *mm)
 {
 	if (mm->context.size) {
 #ifdef CONFIG_X86_32
-		/*                                 */
+		/* CHECKME: Can this ever happen ? */
 		if (mm == current->active_mm)
 			clear_LDT();
 #endif
@@ -163,7 +163,7 @@ static int read_ldt(void __user *ptr, unsigned long bytecount)
 	if (err < 0)
 		goto error_return;
 	if (size != bytecount) {
-		/*                    */
+		/* zero-fill the rest */
 		if (clear_user(ptr + size, bytecount - size) != 0) {
 			err = -EFAULT;
 			goto error_return;
@@ -176,7 +176,7 @@ error_return:
 
 static int read_default_ldt(void __user *ptr, unsigned long bytecount)
 {
-	/*                                           */
+	/* CHECKME: Can we use _one_ random number ? */
 #ifdef CONFIG_X86_32
 	unsigned long size = 5 * sizeof(struct desc_struct);
 #else
@@ -221,7 +221,7 @@ static int write_ldt(void __user *ptr, unsigned long bytecount, int oldmode)
 			goto out_unlock;
 	}
 
-	/*                                       */
+	/* Allow LDTs to be cleared by the user. */
 	if (ldt_info.base_addr == 0 && ldt_info.limit == 0) {
 		if (oldmode || LDT_empty(&ldt_info)) {
 			memset(&ldt, 0, sizeof(ldt));
@@ -233,7 +233,7 @@ static int write_ldt(void __user *ptr, unsigned long bytecount, int oldmode)
 	if (oldmode)
 		ldt.avl = 0;
 
-	/*                            */
+	/* Install the new entry ...  */
 install:
 	write_ldt_entry(mm->context.ldt, ldt_info.entry_number, &ldt);
 	error = 0;

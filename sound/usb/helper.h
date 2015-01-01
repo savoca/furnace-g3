@@ -14,8 +14,8 @@ unsigned char snd_usb_parse_datainterval(struct snd_usb_audio *chip,
 					 struct usb_host_interface *alts);
 
 /*
-                                                            
-                                                     
+ * retrieve usb_interface descriptor from the host interface
+ * (conditional for compatibility with the older API)
  */
 #ifndef get_iface_desc
 #define get_iface_desc(iface)	(&(iface)->desc)
@@ -33,4 +33,4 @@ static inline int snd_usb_ctrl_intf(struct snd_usb_audio *chip)
 	return get_iface_desc(chip->ctrl_intf)->bInterfaceNumber;
 }
 
-#endif /*                     */
+#endif /* __USBAUDIO_HELPER_H */

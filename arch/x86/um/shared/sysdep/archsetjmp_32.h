@@ -1,5 +1,5 @@
 /*
-                                           
+ * arch/um/include/sysdep-i386/archsetjmp.h
  */
 
 #ifndef _KLIBC_ARCHSETJMP_H
@@ -19,4 +19,4 @@ typedef struct __jmp_buf jmp_buf[1];
 #define JB_IP __eip
 #define JB_SP __esp
 
-#endif				/*           */
+#endif				/* _SETJMP_H */

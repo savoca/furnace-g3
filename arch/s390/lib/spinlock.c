@@ -15,8 +15,8 @@
 
 int spin_retry = 1000;
 
-/* 
-                        
+/**
+ * spin_retry= parameter
  */
 static int __init spin_retry_setup(char *str)
 {

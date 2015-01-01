@@ -23,13 +23,13 @@
 #define is_crash(reason)     ((reason & 0xFFFF0000) == LGE_RB_MAGIC)
 #define which_reason(reason) (reason & 0x0000FFFF)
 
-/*                */
+/* uevent version */
 struct qsdl_uevent_table {
 	int reason;
 	char *uevent_key[2];
 };
 
-/*               */
+/* sysfs version */
 struct qsdl_sysfs_table {
 	int reason;
 	char *uevent_key;
@@ -91,7 +91,7 @@ static int lge_qsdl_trigger_notify(struct platform_device *pdev)
 		pr_debug("%s: searching reason - (0x%x - 0x%x)\n", __func__,
 				which_reason(reboot_reason), info[i].reason);
 		if (which_reason(reboot_reason) == info[i].reason) {
-			/*                                     */
+			/* send notify to userspace via uevent */
 			if (dev) {
 				uevent_envp = info[i].uevent_key;
 				kobject_uevent_env(&dev->kobj, KOBJ_CHANGE,
@@ -168,11 +168,11 @@ static ssize_t lge_qsdl_apps_info_show(struct device *dev,
 			break;
 	}
 
-	/*          */
+	/* etc case */
 	if (i >= ARRAY_SIZE(info))
 		goto nothing;
 
-	/*          */
+	/* found it */
 	return snprintf(buffer, PAGE_SIZE, "%s", info[i].uevent_key);
 
 nothing:
@@ -183,14 +183,14 @@ static ssize_t lge_qsdl_modem_info_show(struct device *dev,
 		struct device_attribute *attr, char *buffer)
 {
 	/*
-                                                        
-                                                
- */
+	struct platform_device *pdev = to_platform_device(dev);
+	struct qsdl *data = platform_get_drvdata(pdev);
+	*/
 
 	const char noti_modem_info[] = "Q005";
 	unsigned int count = modem_ssr_count;
 
-	/*             */
+	/* reset count */
 	modem_ssr_count = 0;
 
 	return snprintf(buffer, PAGE_SIZE, "%s=%d", noti_modem_info,
@@ -234,7 +234,7 @@ static int __init lge_qsdl_handler_probe(struct platform_device *pdev)
 	if (!data)
 		return -ENOMEM;
 
-	/*                                                   */
+	/* use legacy platform data to get static sysfs path */
 	if (pdata) {
 		data->oneshot_read = pdata->oneshot_read;
 		data->using_uevent = pdata->using_uevent;
@@ -254,7 +254,7 @@ static int __init lge_qsdl_handler_probe(struct platform_device *pdev)
 
 	data->pdev = pdev;
 
-	/*                            */
+	/* for triggering modem event */
 	lge_qsdl_dev = &pdev->dev;
 	platform_set_drvdata(pdev, data);
 

@@ -36,8 +36,8 @@ static inline int uhc_clkctrl_ready(u32 val)
 }
 
 /*
-                                            
-                                               
+ * UHC(usb host controller) enable function.
+ * affect to both of OHCI and EHCI core module.
  */
 static void enable_scc_uhc(struct pci_dev *dev)
 {
@@ -60,7 +60,7 @@ static void enable_scc_uhc(struct pci_dev *dev)
 	uhc_clkctrl = uhc_base + SCC_UHC_CKRCTRL;
 	uhc_ecmode  = uhc_base + SCC_UHC_ECMODE;
 
-	/*                       */
+	/* setup for normal mode */
 	val |= SCC_UHC_F48MCKLEN;
 	out_be32(uhc_clkctrl, val);
 	val |= SCC_UHC_PHY_SUSPEND_SEL;
@@ -70,7 +70,7 @@ static void enable_scc_uhc(struct pci_dev *dev)
 	out_be32(uhc_clkctrl, val);
 	udelay(50);
 
-	/*               */
+	/* disable reset */
 	val |= SCC_UHC_HCLKEN;
 	out_be32(uhc_clkctrl, val);
 	val |= (SCC_UHC_USBCEN | SCC_UHC_USBEN);
@@ -85,7 +85,7 @@ static void enable_scc_uhc(struct pci_dev *dev)
 		}
 	}
 
-	/*                                            */
+	/* Endian Conversion Mode for Master ALL area */
 	out_be32(uhc_ecmode, SCC_UHC_ECMODE_BY_BYTE);
 
 	iounmap(uhc_base);

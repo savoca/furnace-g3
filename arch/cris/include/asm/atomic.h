@@ -1,4 +1,4 @@
-/*                                                      */
+/* $Id: atomic.h,v 1.3 2001/07/25 16:15:19 bjornw Exp $ */
 
 #ifndef __ASM_CRIS_ATOMIC__
 #define __ASM_CRIS_ATOMIC__
@@ -9,8 +9,8 @@
 #include <arch/atomic.h>
 
 /*
-                                                           
-                          
+ * Atomic operations that C can't guarantee us.  Useful for
+ * resource counting etc..
  */
 
 #define ATOMIC_INIT(i)  { (i) }
@@ -18,7 +18,7 @@
 #define atomic_read(v) (*(volatile int *)&(v)->counter)
 #define atomic_set(v,i) (((v)->counter) = (i))
 
-/*                                                           */
+/* These should be written in asm but we do it in C for now. */
 
 static inline void atomic_add(int i, volatile atomic_t *v)
 {
@@ -151,7 +151,7 @@ static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 	return ret;
 }
 
-/*                                           */
+/* Atomic operations are already serializing */
 #define smp_mb__before_atomic_dec()    barrier()
 #define smp_mb__after_atomic_dec()     barrier()
 #define smp_mb__before_atomic_inc()    barrier()

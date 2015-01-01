@@ -10,18 +10,18 @@
  * GNU General Public License for more details.
  */
 
-/* 
-                         
-  
-                    
-                         
-                                     
-                 
-                                                                          
-                                                                      
-                                                            
-                                                                 
-                 
+/**
+ * SPMI Debug-fs support.
+ *
+ * Hierarchy schema:
+ * /sys/kernel/debug/spmi
+ *        /help			-- static help text
+ *        /spmi-0
+ *        /spmi-0/address	-- Starting register address for reads or writes
+ *        /spmi-0/count		-- number of registers to read (only on read)
+ *        /spmi-0/data		-- Triggers the SPMI formatted read.
+ *        /spmi-0/data_raw	-- Triggers the SPMI raw read or write
+ *        /spmi-#
  */
 
 #define pr_fmt(fmt) "%s:%d: " fmt, __func__, __LINE__
@@ -37,24 +37,24 @@
 #include <linux/ctype.h>
 #include "spmi-dbgfs.h"
 
-#define ADDR_LEN	 6	/*                                    */
-#define CHARS_PER_ITEM   3	/*                 */
-#define ITEMS_PER_LINE	16	/*                        */
+#define ADDR_LEN	 6	/* 5 byte address + 1 space character */
+#define CHARS_PER_ITEM   3	/* Format is 'XX ' */
+#define ITEMS_PER_LINE	16	/* 16 data items per line */
 #define MAX_LINE_LENGTH  (ADDR_LEN + (ITEMS_PER_LINE * CHARS_PER_ITEM) + 1)
 #define MAX_REG_PER_TRANSACTION	(8)
 
 static const char *DFS_ROOT_NAME	= "spmi";
 static const mode_t DFS_MODE = S_IRUSR | S_IWUSR;
 
-/*            */
+/* Log buffer */
 struct spmi_log_buffer {
-	size_t rpos;	/*                                   */
-	size_t wpos;	/*                                    */
-	size_t len;	/*                      */
-	char data[0];	/*            */
+	size_t rpos;	/* Current 'read' position in buffer */
+	size_t wpos;	/* Current 'write' position in buffer */
+	size_t len;	/* Length of the buffer */
+	char data[0];	/* Log buffer */
 };
 
-/*                               */
+/* SPMI controller specific data */
 struct spmi_ctrl_data {
 	u32 cnt;
 	u32 addr;
@@ -63,20 +63,20 @@ struct spmi_ctrl_data {
 	struct spmi_controller *ctrl;
 };
 
-/*                             */
+/* SPMI transaction parameters */
 struct spmi_trans {
-	u32 cnt;	/*                         */
-	u32 addr;	/*                                             */
-	u32 offset;	/*                          */
-	bool raw_data;	/*                               */
+	u32 cnt;	/* Number of bytes to read */
+	u32 addr;	/* 20-bit address: SID + PID + Register offset */
+	u32 offset;	/* Offset of last read data */
+	bool raw_data;	/* Set to true for raw data dump */
 	struct spmi_controller *ctrl;
-	struct spmi_log_buffer *log; /*            */
+	struct spmi_log_buffer *log; /* log buffer */
 };
 
 struct spmi_dbgfs {
 	struct dentry *root;
 	struct mutex  lock;
-	struct list_head ctrl; /*                              */
+	struct list_head ctrl; /* List of spmi_ctrl_data nodes */
 	struct debugfs_blob_wrapper help_msg;
 };
 
@@ -142,7 +142,7 @@ static int spmi_dfs_open(struct spmi_ctrl_data *ctrl_data, struct file *file)
 		return -EINVAL;
 	}
 
-	/*                             */
+	/* Per file "transaction" data */
 	trans = kzalloc(sizeof(*trans), GFP_KERNEL);
 
 	if (!trans) {
@@ -150,7 +150,7 @@ static int spmi_dfs_open(struct spmi_ctrl_data *ctrl_data, struct file *file)
 		return -ENOMEM;
 	}
 
-	/*                     */
+	/* Allocate log buffer */
 	log = kzalloc(logbufsize, GFP_KERNEL);
 
 	if (!log) {
@@ -204,14 +204,14 @@ static int spmi_dfs_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-/* 
-                                                 
-                             
-                                       
-                                                      
-                                     
-  
-                                                                       
+/**
+ * spmi_read_data: reads data across the SPMI bus
+ * @ctrl: The SPMI controller
+ * @buf: buffer to store the data read.
+ * @offset: SPMI address offset to start reading from.
+ * @cnt: The number of bytes to read.
+ *
+ * Returns 0 on success, otherwise returns error code from SPMI driver.
  */
 static int
 spmi_read_data(struct spmi_controller *ctrl, uint8_t *buf, int offset, int cnt)
@@ -241,14 +241,14 @@ done:
 	return ret;
 }
 
-/* 
-                                                   
-                             
-                            
-                                                    
-                                      
-  
-                                                                       
+/**
+ * spmi_write_data: writes data across the SPMI bus
+ * @ctrl: The SPMI controller
+ * @buf: data to be written.
+ * @offset: SPMI address offset to start writing to.
+ * @cnt: The number of bytes to write.
+ *
+ * Returns 0 on success, otherwise returns error code from SPMI driver.
  */
 static int
 spmi_write_data(struct spmi_controller *ctrl, uint8_t *buf, int offset, int cnt)
@@ -278,14 +278,14 @@ done:
 	return ret;
 }
 
-/* 
-                                                              
-                                                 
-                                  
-                                             
-  
-                                                                      
-                                   
+/**
+ * print_to_log: format a string and place into the log buffer
+ * @log: The log buffer to place the result into.
+ * @fmt: The format string to use.
+ * @...: The arguments for the format string.
+ *
+ * The return value is the number of characters written to @log buffer
+ * not including the trailing '\0'.
  */
 static int print_to_log(struct spmi_log_buffer *log, const char *fmt, ...)
 {
@@ -302,18 +302,18 @@ static int print_to_log(struct spmi_log_buffer *log, const char *fmt, ...)
 	return cnt;
 }
 
-/* 
-                                                                             
-                                            
-                                                      
-                                                                            
-  
-                                                                                
-                                                                          
-  
-                                                                      
-                                                                         
-                        
+/**
+ * write_next_line_to_log: Writes a single "line" of data into the log buffer
+ * @trans: Pointer to SPMI transaction data.
+ * @offset: SPMI address offset to start reading from.
+ * @pcnt: Pointer to 'cnt' variable.  Indicates the number of bytes to read.
+ *
+ * The 'offset' is a 20-bits SPMI address which includes a 4-bit slave id (SID),
+ * an 8-bit peripheral id (PID), and an 8-bit peripheral register address.
+ *
+ * On a successful read, the pcnt is decremented by the number of data
+ * bytes read across the SPMI bus.  When the cnt reaches 0, all requested
+ * bytes have been read.
  */
 static int
 write_next_line_to_log(struct spmi_trans *trans, int offset, size_t *pcnt)
@@ -327,36 +327,36 @@ write_next_line_to_log(struct spmi_trans *trans, int offset, size_t *pcnt)
 	int items_to_read = min(ARRAY_SIZE(data) - padding, *pcnt);
 	int items_to_log = min(ITEMS_PER_LINE, padding + items_to_read);
 
-	/*                                              */
+	/* Buffer needs enough space for an entire line */
 	if ((log->len - log->wpos) < MAX_LINE_LENGTH)
 		goto done;
 
-	/*                                    */
+	/* Read the desired number of "items" */
 	if (spmi_read_data(trans->ctrl, data, offset, items_to_read))
 		goto done;
 
 	*pcnt -= items_to_read;
 
-	/*                                                           */
+	/* Each line starts with the aligned offset (20-bit address) */
 	cnt = print_to_log(log, "%5.5X ", offset & 0xffff0);
 	if (cnt == 0)
 		goto done;
 
-	/*                                                                */
+	/* If the offset is unaligned, add padding to right justify items */
 	for (i = 0; i < padding; ++i) {
 		cnt = print_to_log(log, "-- ");
 		if (cnt == 0)
 			goto done;
 	}
 
-	/*                    */
+	/* Log the data items */
 	for (j = 0; i < items_to_log; ++i, ++j) {
 		cnt = print_to_log(log, "%2.2X ", data[j]);
 		if (cnt == 0)
 			goto done;
 	}
 
-	/*                                                                   */
+	/* If the last character was a space, then replace it with a newline */
 	if (log->wpos > 0 && log->data[log->wpos - 1] == ' ')
 		log->data[log->wpos - 1] = '\n';
 
@@ -364,18 +364,18 @@ done:
 	return cnt;
 }
 
-/* 
-                                                                            
-                                            
-                                                      
-                                                                            
-  
-                                                                                
-                                                                          
-  
-                                                                      
-                                                                         
-                        
+/**
+ * write_raw_data_to_log: Writes a single "line" of data into the log buffer
+ * @trans: Pointer to SPMI transaction data.
+ * @offset: SPMI address offset to start reading from.
+ * @pcnt: Pointer to 'cnt' variable.  Indicates the number of bytes to read.
+ *
+ * The 'offset' is a 20-bits SPMI address which includes a 4-bit slave id (SID),
+ * an 8-bit peripheral id (PID), and an 8-bit peripheral register address.
+ *
+ * On a successful read, the pcnt is decremented by the number of data
+ * bytes read across the SPMI bus.  When the cnt reaches 0, all requested
+ * bytes have been read.
  */
 static int
 write_raw_data_to_log(struct spmi_trans *trans, int offset, size_t *pcnt)
@@ -387,24 +387,24 @@ write_raw_data_to_log(struct spmi_trans *trans, int offset, size_t *pcnt)
 	int cnt = 0;
 	int items_to_read = min(ARRAY_SIZE(data), *pcnt);
 
-	/*                                              */
+	/* Buffer needs enough space for an entire line */
 	if ((log->len - log->wpos) < 80)
 		goto done;
 
-	/*                                    */
+	/* Read the desired number of "items" */
 	if (spmi_read_data(trans->ctrl, data, offset, items_to_read))
 		goto done;
 
 	*pcnt -= items_to_read;
 
-	/*                    */
+	/* Log the data items */
 	for (i = 0; i < items_to_read; ++i) {
 		cnt = print_to_log(log, "0x%2.2X ", data[i]);
 		if (cnt == 0)
 			goto done;
 	}
 
-	/*                                                                   */
+	/* If the last character was a space, then replace it with a newline */
 	if (log->wpos > 0 && log->data[log->wpos - 1] == ' ')
 		log->data[log->wpos - 1] = '\n';
 
@@ -412,11 +412,11 @@ done:
 	return cnt;
 }
 
-/* 
-                                                                            
-                                            
-  
-                                                                           
+/**
+ * get_log_data - reads data across the SPMI bus and saves to the log buffer
+ * @trans: Pointer to SPMI transaction data.
+ *
+ * Returns the number of "items" read or SPMI error code for read failures.
  */
 static int get_log_data(struct spmi_trans *trans)
 {
@@ -437,10 +437,10 @@ static int get_log_data(struct spmi_trans *trans)
 	else
 		write_to_log = write_next_line_to_log;
 
-	/*                                 */
+	/* Reset the log buffer 'pointers' */
 	log->wpos = log->rpos = 0;
 
-	/*                                         */
+	/* Keep reading data until the log is full */
 	do {
 		last_cnt = item_cnt;
 		cnt = write_to_log(trans, offset, &item_cnt);
@@ -449,20 +449,20 @@ static int get_log_data(struct spmi_trans *trans)
 		total_items_read += items_read;
 	} while (cnt && item_cnt > 0);
 
-	/*                                         */
+	/* Adjust the transaction offset and count */
 	trans->cnt = item_cnt;
 	trans->offset += total_items_read;
 
 	return total_items_read;
 }
 
-/* 
-                                                                           
-                      
-                                 
-                                          
-                           
-                                                               
+/**
+ * spmi_dfs_reg_write: write user's byte array (coded as string) over SPMI.
+ * @file: file pointer
+ * @buf: user data to be written.
+ * @count: maximum space available in @buf
+ * @ppos: starting position
+ * @return number of user byte written, or negative error value
  */
 static ssize_t spmi_dfs_reg_write(struct file *file, const char __user *buf,
 			size_t count, loff_t *ppos)
@@ -477,7 +477,7 @@ static ssize_t spmi_dfs_reg_write(struct file *file, const char __user *buf,
 	struct spmi_trans *trans = file->private_data;
 	u32 offset = trans->offset;
 
-	/*                              */
+	/* Make a copy of the user data */
 	char *kbuf = kmalloc(count + 1, GFP_KERNEL);
 	if (!kbuf)
 		return -ENOMEM;
@@ -493,10 +493,10 @@ static ssize_t spmi_dfs_reg_write(struct file *file, const char __user *buf,
 	*ppos += count;
 	kbuf[count] = '\0';
 
-	/*                                            */
+	/* Override the text buffer with the raw data */
 	values = kbuf;
 
-	/*                                                                 */
+	/* Parse the data in the buffer.  It should be a string of numbers */
 	while (sscanf(kbuf + pos, "%i%n", &data, &bytes_read) == 1) {
 		pos += bytes_read;
 		values[cnt++] = data & 0xff;
@@ -505,7 +505,7 @@ static ssize_t spmi_dfs_reg_write(struct file *file, const char __user *buf,
 	if (!cnt)
 		goto free_buf;
 
-	/*                           */
+	/* Perform the SPMI write(s) */
 	ret = spmi_write_data(trans->ctrl, values, offset, cnt);
 
 	if (ret) {
@@ -520,14 +520,14 @@ free_buf:
 	return ret;
 }
 
-/* 
-                                                                       
-                                
-                      
-                                
-                                          
-                           
-                                                             
+/**
+ * spmi_dfs_reg_read: reads value(s) over SPMI and fill user's buffer a
+ *  byte array (coded as string)
+ * @file: file pointer
+ * @buf: where to put the result
+ * @count: maximum space available in @buf
+ * @ppos: starting position
+ * @return number of user bytes read, or negative error value
  */
 static ssize_t spmi_dfs_reg_read(struct file *file, char __user *buf,
 	size_t count, loff_t *ppos)
@@ -537,7 +537,7 @@ static ssize_t spmi_dfs_reg_read(struct file *file, char __user *buf,
 	size_t ret;
 	size_t len;
 
-	/*                             */
+	/* Is the the log buffer empty */
 	if (log->rpos >= log->wpos) {
 		if (get_log_data(trans) <= 0)
 			return 0;
@@ -551,7 +551,7 @@ static ssize_t spmi_dfs_reg_read(struct file *file, char __user *buf,
 		return -EFAULT;
 	}
 
-	/*                                         */
+	/* 'ret' is the number of bytes not copied */
 	len -= ret;
 
 	*ppos += len;
@@ -573,9 +573,9 @@ static const struct file_operations spmi_dfs_raw_data_fops = {
 	.write		= spmi_dfs_reg_write,
 };
 
-/* 
-                                                  
-                                                                   
+/**
+ * spmi_dfs_create_fs: create debugfs file system.
+ * @return pointer to root directory or NULL if failed to create fs
  */
 static struct dentry *spmi_dfs_create_fs(void)
 {
@@ -605,12 +605,12 @@ err_remove_fs:
 	return NULL;
 }
 
-/* 
-                                                                      
-                                                                   
-                                                                        
-                                                                
-                                            
+/**
+ * spmi_dfs_get_root: return a pointer to SPMI debugfs root directory.
+ * @brief return a pointer to the existing directory, or if no root
+ * directory exists then create one. Directory is created with file that
+ * configures SPMI transaction, namely: sid, address, and count.
+ * @returns valid pointer on success or NULL
  */
 struct dentry *spmi_dfs_get_root(void)
 {
@@ -619,8 +619,8 @@ struct dentry *spmi_dfs_get_root(void)
 
 	if (mutex_lock_interruptible(&dbgfs_data.lock) < 0)
 		return NULL;
-	/*                  */
-	if (!dbgfs_data.root) { /*                       */
+	/* critical section */
+	if (!dbgfs_data.root) { /* double checking idiom */
 		dbgfs_data.root = spmi_dfs_create_fs();
 	}
 	mutex_unlock(&dbgfs_data.lock);
@@ -628,8 +628,8 @@ struct dentry *spmi_dfs_get_root(void)
 }
 
 /*
-                                                          
-                          
+ * spmi_dfs_add_controller: adds new spmi controller entry
+ * @return zero on success
  */
 int spmi_dfs_add_controller(struct spmi_controller *ctrl)
 {
@@ -643,7 +643,7 @@ int spmi_dfs_add_controller(struct spmi_controller *ctrl)
 	if (!root)
 		return -ENOENT;
 
-	/*                                              */
+	/* Allocate transaction data for the controller */
 	ctrl_data = kzalloc(sizeof(*ctrl_data), GFP_KERNEL);
 	if (!ctrl_data)
 		return -ENOMEM;
@@ -696,8 +696,8 @@ err_create_dir_failed:
 }
 
 /*
-                                                         
-                          
+ * spmi_dfs_del_controller: deletes spmi controller entry
+ * @return zero on success
  */
 int spmi_dfs_del_controller(struct spmi_controller *ctrl)
 {
@@ -731,8 +731,8 @@ done:
 }
 
 /*
-                                                               
-                                                   
+ * spmi_dfs_create_file: creates a new file in the SPMI debugfs
+ * @returns valid dentry pointer on success or NULL
  */
 struct dentry *spmi_dfs_create_file(struct spmi_controller *ctrl,
 					const char *name, void *data,

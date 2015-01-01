@@ -30,11 +30,11 @@ static const char *tape_med_st_verbose[MS_SIZE] =
 	[MS_UNLOADED] = "UNLOADED"
 };
 
-/*                            */
+/* our proc tapedevices entry */
 static struct proc_dir_entry *tape_proc_devices;
 
 /*
-                                      
+ * Show function for /proc/tapedevices
  */
 static int tape_proc_show(struct seq_file *m, void *v)
 {
@@ -120,7 +120,7 @@ static const struct file_operations tape_proc_ops =
 };
 
 /*
-                                     
+ * Initialize procfs stuff on startup
  */
 void
 tape_proc_init(void)
@@ -134,7 +134,7 @@ tape_proc_init(void)
 }
 
 /*
-                                             
+ * Cleanup all stuff registered to the procfs
  */
 void
 tape_proc_cleanup(void)

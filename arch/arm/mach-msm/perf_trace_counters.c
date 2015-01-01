@@ -21,7 +21,7 @@ DEFINE_PER_CPU(u32, previous_ccnt);
 DEFINE_PER_CPU(u32[NUM_L1_CTRS], previous_l1_cnts);
 DEFINE_PER_CPU(u32[NUM_L2_PERCPU], previous_l2_cnts);
 DEFINE_PER_CPU(u32, old_pid);
-/*                                                                    */
+/* Reset per_cpu variables that store counter values uppn CPU hotplug */
 static int tracectr_cpu_hotplug_notifier(struct notifier_block *self,
 				    unsigned long action, void *hcpu)
 {

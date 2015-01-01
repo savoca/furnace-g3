@@ -26,7 +26,7 @@
 #include <asm/kmap_types.h>
 #include <asm/pgtable.h>
 
-/*                            */
+/* declarations for highmem.c */
 extern unsigned long highstart_pfn, highend_pfn;
 
 extern pte_t *kmap_pte;
@@ -36,10 +36,10 @@ extern pte_t *pkmap_page_table;
 extern void kmap_init(void) __init;
 
 /*
-                                                                      
-                                                                     
-                                                                       
-                                              
+ * Right now we initialize only a single pte table. It can be extended
+ * easily, subsequent pte tables have to be allocated in one physical
+ * chunk of RAM.  Currently the simplest way to do this is to align the
+ * pkmap region on a pagetable boundary (4MB).
  */
 #define LAST_PKMAP 1024
 #define PKMAP_SIZE (LAST_PKMAP << PAGE_SHIFT)
@@ -76,6 +76,6 @@ extern struct page *kmap_atomic_to_page(void *vaddr);
 
 #define flush_cache_kmaps()	flush_cache_all()
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*                */
+#endif /* _ASM_HIGHMEM_H */

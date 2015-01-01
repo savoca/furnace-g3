@@ -79,7 +79,7 @@
 #include "ad525x_dpot.h"
 
 /*
-                                         
+ * Client data (each client gets its own)
  */
 
 struct dpot_data {
@@ -211,9 +211,9 @@ static s32 dpot_read_i2c(struct dpot_data *dpot, u8 reg)
 			if (value < 0)
 				return value;
 			/*
-                                                    
-                                             
-    */
+			 * AD5272/AD5274 returns high byte first, however
+			 * underling smbus expects low byte first.
+			 */
 			value = swab16(value);
 
 			if (dpot->uid == DPOT_UID(AD5271_ID))
@@ -327,7 +327,7 @@ static s32 dpot_write_spi(struct dpot_data *dpot, u8 reg, u16 value)
 
 static s32 dpot_write_i2c(struct dpot_data *dpot, u8 reg, u16 value)
 {
-	/*                                                      */
+	/* Only write the instruction byte for certain commands */
 	unsigned tmp = 0, ctrl = 0;
 
 	switch (dpot->uid) {
@@ -351,7 +351,7 @@ static s32 dpot_write_i2c(struct dpot_data *dpot, u8 reg, u16 value)
 	case DPOT_UID(AD5273_ID):
 		if (reg & DPOT_ADDR_OTP) {
 			tmp = dpot_read_d8(dpot);
-			if (tmp >> 6) /*                   */
+			if (tmp >> 6) /* Ready to Program? */
 				return -EFAULT;
 			ctrl = DPOT_AD5273_FUSE;
 		}
@@ -363,7 +363,7 @@ static s32 dpot_write_i2c(struct dpot_data *dpot, u8 reg, u16 value)
 			0 : DPOT_AD5172_3_A0;
 		if (reg & DPOT_ADDR_OTP) {
 			tmp = dpot_read_r8d16(dpot, ctrl);
-			if (tmp >> 14) /*                   */
+			if (tmp >> 14) /* Ready to Program? */
 				return -EFAULT;
 			ctrl |= DPOT_AD5170_2_3_FUSE;
 		}
@@ -372,7 +372,7 @@ static s32 dpot_write_i2c(struct dpot_data *dpot, u8 reg, u16 value)
 	case DPOT_UID(AD5170_ID):
 		if (reg & DPOT_ADDR_OTP) {
 			tmp = dpot_read_r8d16(dpot, tmp);
-			if (tmp >> 14) /*                   */
+			if (tmp >> 14) /* Ready to Program? */
 				return -EFAULT;
 			ctrl = DPOT_AD5170_2_3_FUSE;
 		}
@@ -401,7 +401,7 @@ static s32 dpot_write_i2c(struct dpot_data *dpot, u8 reg, u16 value)
 			return dpot_write_r8d16(dpot, (reg & 0xF8) |
 						((reg & 0x7) << 1), value);
 		else
-			/*                                                      */
+			/* All other registers require instruction + data bytes */
 			return dpot_write_r8d8(dpot, reg, value);
 	}
 }
@@ -414,7 +414,7 @@ static s32 dpot_write(struct dpot_data *dpot, u8 reg, u16 value)
 		return dpot_write_i2c(dpot, reg, value);
 }
 
-/*                 */
+/* sysfs functions */
 
 static ssize_t sysfs_show_reg(struct device *dev,
 			      struct device_attribute *attr,
@@ -436,12 +436,12 @@ static ssize_t sysfs_show_reg(struct device *dev,
 	if (value < 0)
 		return -EINVAL;
 	/*
-                                                  
-                                                   
-                                               
-                                             
-                                        
-  */
+	 * Let someone else deal with converting this ...
+	 * the tolerance is a two-byte value where the MSB
+	 * is a sign + integer value, and the LSB is a
+	 * decimal value.  See page 18 of the AD5258
+	 * datasheet (Rev. A) for more details.
+	 */
 
 	if (reg & DPOT_REG_TOL)
 		return sprintf(buf, "0x%04x\n", value & 0xFFFF);
@@ -480,9 +480,9 @@ static ssize_t sysfs_set_reg(struct device *dev,
 	mutex_lock(&data->update_lock);
 	dpot_write(data, reg, value);
 	if (reg & DPOT_ADDR_EEPROM)
-		msleep(26);	/*                                */
+		msleep(26);	/* Sleep while the EEPROM updates */
 	else if (reg & DPOT_ADDR_OTP)
-		msleep(400);	/*                             */
+		msleep(400);	/* Sleep while the OTP updates */
 	mutex_unlock(&data->update_lock);
 
 	return count;
@@ -501,7 +501,7 @@ static ssize_t sysfs_do_cmd(struct device *dev,
 	return count;
 }
 
-/*                                                                           */
+/* ------------------------------------------------------------------------- */
 
 #define DPOT_DEVICE_SHOW(_name, _reg) static ssize_t \
 show_##_name(struct device *dev, \
@@ -613,7 +613,7 @@ static const struct attribute *dpot_attrib_tolerance[] = {
 	NULL
 };
 
-/*                                                                           */
+/* ------------------------------------------------------------------------- */
 
 #define DPOT_DEVICE_DO_CMD(_name, _cmd) static ssize_t \
 set_##_name(struct device *dev, \
@@ -716,7 +716,7 @@ int __devinit ad_dpot_probe(struct device *dev,
 			err = ad_dpot_add_files(dev, data->feat, i);
 			if (err)
 				goto exit_remove_files;
-			/*                   */
+			/* power-up midscale */
 			if (data->feat & F_RDACS_WONLY)
 				data->rdac_cache[i] = data->max_pos / 2;
 		}

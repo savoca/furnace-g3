@@ -66,8 +66,8 @@
 
 
 /*
-                                                                   
-                           
+ * Pull TX transations from the TX FIFO and send them to the device
+ * until there are no more.
  */
 static
 void i2400ms_tx_submit(struct work_struct *ws)
@@ -110,9 +110,9 @@ void i2400ms_tx_submit(struct work_struct *ws)
 
 
 /*
-                                                                 
-  
-                                                      
+ * The generic driver notifies us that there is data ready for TX
+ *
+ * Schedule a run of i2400ms_tx_submit() to handle it.
  */
 void i2400ms_bus_tx_kick(struct i2400m *i2400m)
 {
@@ -122,9 +122,9 @@ void i2400ms_bus_tx_kick(struct i2400m *i2400m)
 
 	d_fnstart(3, dev, "(i2400m %p) = void\n", i2400m);
 
-	/*                                                          
-                                      
-  */
+	/* schedule tx work, this is because tx may block, therefore
+	 * it has to run in a thread context.
+	 */
 	spin_lock_irqsave(&i2400m->tx_lock, flags);
 	if (i2400ms->tx_workqueue != NULL)
 		queue_work(i2400ms->tx_workqueue, &i2400ms->tx_worker);

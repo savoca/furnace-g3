@@ -41,23 +41,23 @@ MODULE_LICENSE("GPL");
 
 
 /*
-                                                             
-                                                        
-                                                         
-                                                            
-            
+ * The size of the buffer for iucv data transfer is one page,
+ * but in addition to the data we read from iucv we also
+ * place an integer and some characters into that buffer,
+ * so the maximum size for record data is a little less then
+ * one page.
  */
 #define NET_BUFFER_SIZE	(PAGE_SIZE - sizeof(int) - sizeof(FENCE))
 
 /*
-                                                                   
-                                                                    
-                                                         
-                                                                    
-                                      
-                                                                   
-                                                                       
-                                
+ * The elements that are concurrently accessed by bottom halves are
+ * connection_established, iucv_path_severed, local_interrupt_buffer
+ * and receive_ready. The first three can be protected by
+ * priv_lock.  receive_ready is atomic, so it can be incremented and
+ * decremented without holding a lock.
+ * The variable dev_in_use needs to be protected by the lock, since
+ * it's a flag used by open to make sure that the device is opened only
+ * by one user at the same time.
  */
 struct vmlogrdr_priv_t {
 	char system_service[8];
@@ -74,7 +74,7 @@ struct vmlogrdr_priv_t {
 	int remaining;
 	ulong residual_length;
 	int buffer_free;
-	int dev_in_use; /*                                 */
+	int dev_in_use; /* 1: already opened, 0: not opened*/
 	spinlock_t priv_lock;
 	struct device  *device;
 	struct device  *class_device;
@@ -84,7 +84,7 @@ struct vmlogrdr_priv_t {
 
 
 /*
-                                                
+ * File operation structure for vmlogrdr devices
  */
 static int vmlogrdr_open(struct inode *, struct file *);
 static int vmlogrdr_release(struct inode *, struct file *);
@@ -117,10 +117,10 @@ static DECLARE_WAIT_QUEUE_HEAD(conn_wait_queue);
 static DECLARE_WAIT_QUEUE_HEAD(read_wait_queue);
 
 /*
-                                              
-                            
-                             
-                             
+ * pointer to system service private structure
+ * minor number 0 --> logrec
+ * minor number 1 --> account
+ * minor number 2 --> symptom
  */
 
 static struct vmlogrdr_priv_t sys_ser[] = {
@@ -189,7 +189,7 @@ static void vmlogrdr_iucv_path_severed(struct iucv_path *path, u8 ipuser[16])
 	spin_unlock(&logptr->priv_lock);
 
 	wake_up(&conn_wait_queue);
-	/*                                                  */
+	/* just in case we're sleeping waiting for a record */
 	wake_up_interruptible(&read_wait_queue);
 }
 
@@ -200,10 +200,10 @@ static void vmlogrdr_iucv_message_pending(struct iucv_path *path,
 	struct vmlogrdr_priv_t * logptr = path->private;
 
 	/*
-                                                           
-                                                                     
-                   
-  */
+	 * This function is the bottom half so it should be quick.
+	 * Copy the external interrupt data into our local eib and increment
+	 * the usage count
+	 */
 	spin_lock(&logptr->priv_lock);
 	memcpy(&logptr->local_interrupt_buffer, msg, sizeof(*msg));
 	atomic_inc(&logptr->receive_ready);
@@ -221,7 +221,7 @@ static int vmlogrdr_get_recording_class_AB(void)
 
 	cpcmd(cp_command, cp_response, sizeof(cp_response), NULL);
 	len = strnlen(cp_response,sizeof(cp_response));
-	//                
+	// now the parsing
 	tail=strnchr(cp_response,len,'=');
 	if (!tail)
 		return 0;
@@ -231,9 +231,9 @@ static int vmlogrdr_get_recording_class_AB(void)
 	if (!strncmp("NONE",tail,4))
 		return 0;
 	/*
-                                                               
-                                  
-  */
+	 * expect comma separated list of classes here, if one of them
+	 * is A or B return 1 otherwise 0
+	 */
         for (i=tail-cp_response; i<len; i++)
 		if ( cp_response[i]=='A' || cp_response[i]=='B' )
 			return 1;
@@ -254,12 +254,12 @@ static int vmlogrdr_recording(struct vmlogrdr_priv_t * logptr,
 	qid_string = ((recording_class_AB == 1) ? " QID * " : "");
 
 	/*
-                                                             
-                                                  
-                                                              
-                                                             
-                                             
-  */
+	 * The recording commands needs to be called with option QID
+	 * for guests that have previlege classes A or B.
+	 * Purging has to be done as separate step, because recording
+	 * can't be switched on as long as records are on the queue.
+	 * Doing both at the same time doesn't work.
+	 */
 	if (purge && (action == 1)) {
 		memset(cp_command, 0x00, sizeof(cp_command));
 		memset(cp_response, 0x00, sizeof(cp_response));
@@ -277,21 +277,21 @@ static int vmlogrdr_recording(struct vmlogrdr_priv_t * logptr,
 		onoff,
 		qid_string);
 	cpcmd(cp_command, cp_response, sizeof(cp_response), NULL);
-	/*                                                                  
-                                                                 
-                                                                  
-                                                      
-                                                                
-  */
+	/* The recording command will usually answer with 'Command complete'
+	 * on success, but when the specific service was never connected
+	 * before then there might be an additional informational message
+	 * 'HCPCRC8072I Recording entry not found' before the
+	 * 'Command complete'. So I use strstr rather then the strncmp.
+	 */
 	if (strstr(cp_response,"Command complete"))
 		rc = 0;
 	else
 		rc = -EIO;
 	/*
-                                                                    
-                                                                   
-                
-  */
+	 * If we turn recording off, we have to purge any remaining records
+	 * afterwards, as a large number of queued records may impact z/VM
+	 * performance.
+	 */
 	if (purge && (action == 0)) {
 		memset(cp_command, 0x00, sizeof(cp_command));
 		memset(cp_response, 0x00, sizeof(cp_response));
@@ -319,12 +319,12 @@ static int vmlogrdr_open (struct inode *inode, struct file *filp)
 	logptr = &sys_ser[dev_num];
 
 	/*
-                                            
-  */
+	 * only allow for blocking reads to be open
+	 */
 	if (filp->f_flags & O_NONBLOCK)
 		return -ENOSYS;
 
-	/*                                               */
+	/* Besure this device hasn't already been opened */
 	spin_lock_bh(&logptr->priv_lock);
 	if (logptr->dev_in_use)	{
 		spin_unlock_bh(&logptr->priv_lock);
@@ -337,11 +337,11 @@ static int vmlogrdr_open (struct inode *inode, struct file *filp)
 	logptr->buffer_free = 1;
 	spin_unlock_bh(&logptr->priv_lock);
 
-	/*                      */
+	/* set the file options */
 	filp->private_data = logptr;
 	filp->f_op = &vmlogrdr_fops;
 
-	/*                                 */
+	/* start recording for this service*/
 	if (logptr->autorecording) {
 		ret = vmlogrdr_recording(logptr,1,logptr->autopurge);
 		if (ret)
@@ -349,7 +349,7 @@ static int vmlogrdr_open (struct inode *inode, struct file *filp)
 				   "recording automatically\n");
 	}
 
-	/*                                         */
+	/* create connection to the system service */
 	logptr->path = iucv_path_alloc(10, 0, GFP_KERNEL);
 	if (!logptr->path)
 		goto out_dev;
@@ -363,10 +363,10 @@ static int vmlogrdr_open (struct inode *inode, struct file *filp)
 		goto out_path;
 	}
 
-	/*                                                    
-                                                    
-                                      
-  */
+	/* We've issued the connect and now we must wait for a
+	 * ConnectionComplete or ConnectinSevered Interrupt
+	 * before we can continue to process.
+	 */
 	wait_event(conn_wait_queue, (logptr->connection_established)
 		   || (logptr->iucv_path_severed));
 	if (logptr->iucv_path_severed)
@@ -378,7 +378,7 @@ out_record:
 	if (logptr->autorecording)
 		vmlogrdr_recording(logptr,0,logptr->autopurge);
 out_path:
-	kfree(logptr->path);	/*                    */
+	kfree(logptr->path);	/* kfree(NULL) is ok. */
 	logptr->path = NULL;
 out_dev:
 	logptr->dev_in_use = 0;
@@ -410,25 +410,25 @@ static int vmlogrdr_release (struct inode *inode, struct file *filp)
 static int vmlogrdr_receive_data(struct vmlogrdr_priv_t *priv)
 {
 	int rc, *temp;
-	/*                                              
-                                                        
-                                                                
-  */
+	/* we need to keep track of two data sizes here:
+	 * The number of bytes we need to receive from iucv and
+	 * the total number of bytes we actually write into the buffer.
+	 */
 	int user_data_count, iucv_data_count;
 	char * buffer;
 
 	if (atomic_read(&priv->receive_ready)) {
 		spin_lock_bh(&priv->priv_lock);
 		if (priv->residual_length){
-			/*                                 */
+			/* receive second half of a record */
 			iucv_data_count = priv->residual_length;
 			user_data_count = 0;
 			buffer = priv->buffer;
 		} else {
-			/*                      
-                                                      
-                                                                              
-           */
+			/* receive a new record:
+			 * We need to return the total length of the record
+                         * + size of FENCE in the first 4 bytes of the buffer.
+		         */
 			iucv_data_count = priv->local_interrupt_buffer.length;
 			user_data_count = sizeof(int);
 			temp = (int*)priv->buffer;
@@ -436,9 +436,9 @@ static int vmlogrdr_receive_data(struct vmlogrdr_priv_t *priv)
 			buffer = priv->buffer + sizeof(int);
 		}
 		/*
-                                                             
-                                             
-   */
+		 * If the record is bigger than our buffer, we receive only
+		 * a part of it. We can get the rest later.
+		 */
 		if (iucv_data_count > NET_BUFFER_SIZE)
 			iucv_data_count = NET_BUFFER_SIZE;
 		rc = iucv_message_receive(priv->path,
@@ -446,10 +446,10 @@ static int vmlogrdr_receive_data(struct vmlogrdr_priv_t *priv)
 					  0, buffer, iucv_data_count,
 					  &priv->residual_length);
 		spin_unlock_bh(&priv->priv_lock);
-		/*                                                     
-                                                           
-                                                 
-   */
+		/* An rc of 5 indicates that the record was bigger than
+		 * the buffer, which is OK for us. A 9 indicates that the
+		 * record was purged befor we could receive it.
+		 */
 		if (rc == 5)
 			rc = 0;
 		if (rc == 9)
@@ -462,8 +462,8 @@ static int vmlogrdr_receive_data(struct vmlogrdr_priv_t *priv)
  		user_data_count += iucv_data_count;
 		priv->current_position = priv->buffer;
 		if (priv->residual_length == 0){
-			/*                                    
-                        */
+			/* the whole record has been captured,
+			 * now add the fence */
 			atomic_dec(&priv->receive_ready);
 			buffer = priv->buffer + user_data_count;
 			memcpy(buffer, FENCE, sizeof(FENCE));
@@ -491,7 +491,7 @@ static ssize_t vmlogrdr_read(struct file *filp, char __user *data,
 				return rc;
 		}
 	}
-	/*                               */
+	/* copy only up to end of record */
 	if (count > priv->remaining)
 		count = priv->remaining;
 
@@ -502,7 +502,7 @@ static ssize_t vmlogrdr_read(struct file *filp, char __user *data,
 	priv->current_position += count;
 	priv->remaining -= count;
 
-	/*                                                   */
+	/* if all data has been transferred, set buffer free */
 	if (priv->remaining == 0)
 		priv->buffer_free = 1;
 
@@ -559,11 +559,11 @@ static ssize_t vmlogrdr_purge_store(struct device * dev,
 	memset(cp_response, 0x00, sizeof(cp_response));
 
         /*
-                                                            
-                                                  
-                                                              
-                                                     
-  */
+	 * The recording command needs to be called with option QID
+	 * for guests that have previlege classes A or B.
+	 * Other guests will not recognize the command and we have to
+	 * issue the same command without the QID parameter.
+	 */
 
 	if (recording_class_AB)
 		snprintf(cp_command, sizeof(cp_command),
@@ -708,7 +708,7 @@ static int vmlogrdr_register_driver(void)
 {
 	int ret;
 
-	/*                           */
+	/* Register with iucv driver */
 	ret = iucv_register(&vmlogrdr_iucv_handler, 1);
 	if (ret)
 		goto out;
@@ -764,12 +764,12 @@ static int vmlogrdr_register_device(struct vmlogrdr_priv_t *priv)
 		dev->driver = &vmlogrdr_driver;
 		dev_set_drvdata(dev, priv);
 		/*
-                                                   
-                                                     
-                                                   
-                                                      
-                       
-   */
+		 * The release function could be called after the
+		 * module has been unloaded. It's _only_ task is to
+		 * free the struct. Therefore, we specify kfree()
+		 * directly here. (Probably a little bit obfuscating
+		 * but legitime ...).
+		 */
 		dev->release = (void (*)(struct device *))kfree;
 	} else
 		return -ENOMEM;
@@ -826,7 +826,7 @@ static int vmlogrdr_register_cdev(dev_t dev)
 	if (!rc)
 		return 0;
 
-	//                                                         
+	// cleanup: cdev is not fully registered, no cdev_del here!
 	kobject_put(&vmlogrdr_cdev->kobj);
 	vmlogrdr_cdev=NULL;
 	return rc;

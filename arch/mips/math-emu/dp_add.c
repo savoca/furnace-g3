@@ -1,5 +1,5 @@
-/*                                  
-                                     
+/* IEEE754 floating point arithmetic
+ * double precision: common utilities
  */
 /*
  * MIPS floating point support
@@ -69,8 +69,8 @@ ieee754dp ieee754dp_add(ieee754dp x, ieee754dp y)
 		return x;
 
 
-		/*                  
-   */
+		/* Infinity handling
+		 */
 
 	case CLPAIR(IEEE754_CLASS_INF, IEEE754_CLASS_INF):
 		if (xs == ys)
@@ -88,8 +88,8 @@ ieee754dp ieee754dp_add(ieee754dp x, ieee754dp y)
 	case CLPAIR(IEEE754_CLASS_INF, IEEE754_CLASS_DNORM):
 		return x;
 
-		/*              
-   */
+		/* Zero handling
+		 */
 
 	case CLPAIR(IEEE754_CLASS_ZERO, IEEE754_CLASS_ZERO):
 		if (xs == ys)
@@ -109,7 +109,7 @@ ieee754dp ieee754dp_add(ieee754dp x, ieee754dp y)
 	case CLPAIR(IEEE754_CLASS_DNORM, IEEE754_CLASS_DNORM):
 		DPDNORMX;
 
-		/*              */
+		/* FALL THROUGH */
 
 	case CLPAIR(IEEE754_CLASS_NORM, IEEE754_CLASS_DNORM):
 		DPDNORMY;
@@ -125,19 +125,19 @@ ieee754dp ieee754dp_add(ieee754dp x, ieee754dp y)
 	assert(xm & DP_HIDDEN_BIT);
 	assert(ym & DP_HIDDEN_BIT);
 
-	/*                                         */
+	/* provide guard,round and stick bit space */
 	xm <<= 3;
 	ym <<= 3;
 
 	if (xe > ye) {
-		/*                                        
-   */
+		/* have to shift y fraction right to align
+		 */
 		int s = xe - ye;
 		ym = XDPSRS(ym, s);
 		ye += s;
 	} else if (ye > xe) {
-		/*                                        
-   */
+		/* have to shift x fraction right to align
+		 */
 		int s = ye - xe;
 		xm = XDPSRS(xm, s);
 		xe += s;
@@ -146,14 +146,14 @@ ieee754dp ieee754dp_add(ieee754dp x, ieee754dp y)
 	assert(xe <= DP_EMAX);
 
 	if (xs == ys) {
-		/*                                                    
-                               
-   */
+		/* generate 28 bit result of adding two 27 bit numbers
+		 * leaving result in xm,xs,xe
+		 */
 		xm = xm + ym;
 		xe = xe;
 		xs = xs;
 
-		if (xm >> (DP_MBITS + 1 + 3)) {	/*           */
+		if (xm >> (DP_MBITS + 1 + 3)) {	/* carry out */
 			xm = XDPSRS1(xm);
 			xe++;
 		}
@@ -171,7 +171,7 @@ ieee754dp ieee754dp_add(ieee754dp x, ieee754dp y)
 			return ieee754dp_zero(ieee754_csr.rm ==
 					      IEEE754_RD);
 
-		/*                                 */
+		/* normalize to rounding precision */
 		while ((xm >> (DP_MBITS + 3)) == 0) {
 			xm <<= 1;
 			xe--;

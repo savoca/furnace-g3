@@ -59,14 +59,14 @@
 #include <linux/io.h>
 
 /*
-                                                 
-                                                             
-                                                             
-                               
-                                                      
-                                                          
-                                       
-                                
+ * We have two types of cards that can be probed:
+ * 1) The Mixcom cards: these cards can be found at addresses
+ *    0x180, 0x280, 0x380 with an additional offset of 0xc10.
+ *    (Or 0xd90, 0xe90, 0xf90).
+ * 2) The FlashCOM cards: these cards can be set up at
+ *    0x300 -> 0x378, in 0x8 jumps with an offset of 0x04.
+ *    (Or 0x304 -> 0x37c in 0x8 jumps).
+ *    Each card has it's own ID.
  */
 #define MIXCOM_ID 0x11
 #define FLASHCOM_ID 0x18
@@ -74,11 +74,11 @@ static struct {
 	int ioport;
 	int id;
 } mixcomwd_io_info[] __devinitdata = {
-	/*                  */
+	/* The Mixcom cards */
 	{0x0d90, MIXCOM_ID},
 	{0x0e90, MIXCOM_ID},
 	{0x0f90, MIXCOM_ID},
-	/*                    */
+	/* The FlashCOM cards */
 	{0x0304, FLASHCOM_ID},
 	{0x030c, FLASHCOM_ID},
 	{0x0314, FLASHCOM_ID},
@@ -95,13 +95,13 @@ static struct {
 	{0x036c, FLASHCOM_ID},
 	{0x0374, FLASHCOM_ID},
 	{0x037c, FLASHCOM_ID},
-	/*                     */
+	/* The end of the list */
 	{0x0000, 0},
 };
 
 static void mixcomwd_timerfun(unsigned long d);
 
-static unsigned long mixcomwd_opened; /*                            */
+static unsigned long mixcomwd_opened; /* long req'd for setbit --RR */
 
 static int watchdog_port;
 static int mixcomwd_timer_alive;
@@ -127,7 +127,7 @@ static void mixcomwd_timerfun(unsigned long d)
 }
 
 /*
-                                        
+ *	Allow only one person to hold it open
  */
 
 static int mixcomwd_open(struct inode *inode, struct file *file)
@@ -139,10 +139,10 @@ static int mixcomwd_open(struct inode *inode, struct file *file)
 
 	if (nowayout)
 		/*
-                                                
-                                               
-                    
-   */
+		 * fops_get() code via open() has already done
+		 * a try_module_get() so it is safe to do the
+		 * __module_get().
+		 */
 		__module_get(THIS_MODULE);
 	else {
 		if (mixcomwd_timer_alive) {
@@ -178,7 +178,7 @@ static ssize_t mixcomwd_write(struct file *file, const char __user *data,
 		if (!nowayout) {
 			size_t i;
 
-			/*                             */
+			/* In case it was set long ago */
 			expect_close = 0;
 
 			for (i = 0; i != len; i++) {

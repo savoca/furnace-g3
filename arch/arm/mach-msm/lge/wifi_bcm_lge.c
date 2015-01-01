@@ -12,36 +12,36 @@
 #include <linux/skbuff.h>
 #include <linux/wlan_plat.h>
 #endif
-#include <mach/board_lge.h> //                                       
+#include <mach/board_lge.h> // add for hw revision check by hayun.kim
 #include <linux/pm_qos.h>
 
-//                        
-//                        
+//#define WLAN_POWER    36
+//#define WLAN_HOSTWAKE 35
 
-//                           
-//                           
+//#define WLAN_POWER_B1    69
+//#define WLAN_HOSTWAKE_B1 44
 
 #define WLAN_POWER_B2    69
 #define WLAN_HOSTWAKE_B2 44
 
 
-static int gpio_wlan_power = WLAN_POWER_B2; //                                       
-static int gpio_wlan_hostwake = WLAN_HOSTWAKE_B2; //                                       
+static int gpio_wlan_power = WLAN_POWER_B2; // add for hw revision check by hayun.kim
+static int gpio_wlan_hostwake = WLAN_HOSTWAKE_B2; // add for hw revision check by hayun.kim
 
 static unsigned wlan_wakes_msm[] = {
 	    GPIO_CFG(WLAN_HOSTWAKE_B2, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA) };
 
-/*                       */
+/* for wifi power supply */
 static unsigned wifi_config_power_on[] = {
 	    GPIO_CFG(WLAN_POWER_B2, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA) };
 
 #if defined(CONFIG_BCM4335BT) 
 extern int bcm_bt_lock(int cookie);
 extern void bcm_bt_unlock(int cookie);
-static int lock_cookie_wifi = 'W' | 'i'<<8 | 'F'<<16 | 'i'<<24; /*                  */
-#endif //                           
+static int lock_cookie_wifi = 'W' | 'i'<<8 | 'F'<<16 | 'i'<<24; /* cookie is "WiFi" */
+#endif // defined(CONFIG_BCM4335BT) 
 
-//             
+// For broadcom
 #ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
 
 #define WLAN_STATIC_SCAN_BUF0		5
@@ -149,7 +149,7 @@ static int brcm_init_wlan_mem(void)
 
 	return -ENOMEM;
 }
-#endif /*                                   */
+#endif /* CONFIG_BROADCOM_WIFI_RESERVED_MEM */
 
 static unsigned int g_wifi_detect;
 static void *sdc2_dev;
@@ -175,7 +175,7 @@ unsigned int sdc2_status(struct device *dev)
 }
 
 #ifdef LGE_BCM_WIFI_DMA_QOS_CONTROL
-static int wifi_dma_state; //                                      
+static int wifi_dma_state; // 0 : INATIVE, 1:INIT, 2:IDLE, 3:ACTIVE
 static struct pm_qos_request wifi_dma_qos;
 static struct delayed_work req_dma_work;
 static uint32_t packet_transfer_cnt = 0;
@@ -183,33 +183,33 @@ static uint32_t packet_transfer_cnt = 0;
 static void bcm_wifi_req_dma_work(struct work_struct * work)
 {
 	switch ( wifi_dma_state ) {
-		case 2: //          
+		case 2: //IDLE State
 			if ( packet_transfer_cnt < 100 ) {
-				//             
+				// IDLE -> INIT
 				wifi_dma_state = 1;
-				//                                                                                            
+				//printk(KERN_ERR "%s: schedule work : %d : (IDLE -> INIT)\n", __func__, packet_transfer_cnt);
 			}
 			else {
-				//               
+				// IDLE -> ACTIVE
 				wifi_dma_state = 3;
 				pm_qos_update_request(&wifi_dma_qos, 7);
 				schedule_delayed_work(&req_dma_work, msecs_to_jiffies(50));
-				//                                                                                              
+				//printk(KERN_ERR "%s: schedule work : %d : (IDLE -> ACTIVE)\n", __func__, packet_transfer_cnt);
 			}
 			break;
 
-		case 3: //            
+		case 3: //ACTIVE State
 			if ( packet_transfer_cnt < 10 ) {
-				//               
+				// ACTIVE -> IDLE
 				wifi_dma_state = 2;
 				pm_qos_update_request(&wifi_dma_qos, PM_QOS_DEFAULT_VALUE);
 				schedule_delayed_work(&req_dma_work, msecs_to_jiffies(1000));
-				//                                                                                              
+				//printk(KERN_ERR "%s: schedule work : %d : (ACTIVE -> IDLE)\n", __func__, packet_transfer_cnt);
 			}
 			else {
-				//            
+				// Keep ACTIVE
 				schedule_delayed_work(&req_dma_work, msecs_to_jiffies(50));
-				//                                                                                                 
+				//printk(KERN_ERR "%s: schedule work : %d :  (ACTIVE -> ACTIVE)\n", __func__, packet_transfer_cnt);
 			}
 			break;
 
@@ -227,11 +227,11 @@ void bcm_wifi_req_dma_qos(int vote)
 		packet_transfer_cnt++;
 	}
 
-	//             
+	// INIT -> IDLE
 	if ( wifi_dma_state == 1 && vote ) {
-		wifi_dma_state = 2; //     
+		wifi_dma_state = 2; // IDLE
 		schedule_delayed_work(&req_dma_work, msecs_to_jiffies(1000));
-		//                                                                
+		//printk(KERN_ERR "%s: schedule work (INIT -> IDLE)\n", __func__);
 	}
 }
 #endif
@@ -242,7 +242,7 @@ int bcm_wifi_reinit_gpio( void )
 
 	int hw_rev = HW_REV_A;
 
-	//               
+	// set gpio value
 	hw_rev = lge_get_board_revno();		
 
 	gpio_wlan_hostwake	= WLAN_HOSTWAKE_B2;
@@ -254,15 +254,15 @@ int bcm_wifi_reinit_gpio( void )
 
 	printk(KERN_ERR "%s: 2rev=%d, gpio_power=%d, gpio_hostwakeup=%d \n", __func__, hw_rev, gpio_wlan_power, gpio_wlan_hostwake);
 
-	//       
+	// COMMON
 	wlan_wakes_msm[0] = GPIO_CFG(gpio_wlan_hostwake, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA);
 	wifi_config_power_on[0] = GPIO_CFG(gpio_wlan_power, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA);
 		
-	//          
+	//WLAN_POWER
 	if (gpio_tlmm_config(wifi_config_power_on[0], GPIO_CFG_ENABLE))
 		printk(KERN_ERR "%s: Failed to configure WLAN_POWER\n", __func__);
 
-	//           
+	//HOST_WAKEUP
 	rc = gpio_tlmm_config(wlan_wakes_msm[0], GPIO_CFG_ENABLE);	
 	if (rc)		
 		printk(KERN_ERR "%s: Failed to configure wlan_wakes_msm = %d\n",__func__, rc);
@@ -290,7 +290,7 @@ int bcm_wifi_set_power(int enable)
 		printk("%s:** WiFi: timeout in acquiring bt lock**\n", __func__);
 	else 
 		printk("%s: btlock acquired\n", __func__);
-#endif //                           
+#endif // defined(CONFIG_BCM4335BT) 
 
 	if (enable)
 	{
@@ -303,8 +303,8 @@ int bcm_wifi_set_power(int enable)
 			goto out;
 		}
 
-		//                   
-		mdelay(150); //                     
+		// WLAN chip to reset
+		mdelay(150); //for booting time save
 		printk("J:%s: applied delay. 150ms\n",__func__);
 		printk(KERN_ERR "%s: wifi power successed to pull up\n",__func__);
 
@@ -319,24 +319,24 @@ int bcm_wifi_set_power(int enable)
 			goto out;
 		}
 
-		//                
+		// WLAN chip down 
 		//                                                                                
-		//                                   
+		//mdelay(100);//for booting time save
 		printk(KERN_ERR "%s: wifi power successed to pull down\n",__func__);
 	}
 
 #if defined(CONFIG_BCM4335BT) 
 	bcm_bt_unlock(lock_cookie_wifi);
-#endif //                           
+#endif // defined(CONFIG_BCM4335BT) 
 
 	return ret;
 
 out : 
 #if defined(CONFIG_BCM4335BT) 
-	/*                                        */
+	/* For a exceptional case, release btlock */
 	printk("%s: exceptional bt_unlock\n", __func__);
 	bcm_bt_unlock(lock_cookie_wifi);
-#endif //                           
+#endif // defined(CONFIG_BCM4335BT) 
 
 	return ret;
 }
@@ -345,7 +345,7 @@ int __init bcm_wifi_init_gpio_mem( struct platform_device* platdev )
 {
 	int rc=0;
 
-//                                              
+// add for hw revision check by hayun.kim, START
 	int hw_rev = HW_REV_A;
 
 	hw_rev = lge_get_board_revno();		
@@ -359,12 +359,12 @@ int __init bcm_wifi_init_gpio_mem( struct platform_device* platdev )
 
 	printk(KERN_ERR "%s: rev=%d, gpio_power=%d, gpio_hostwakeup=%d \n", __func__, hw_rev, gpio_wlan_power, gpio_wlan_hostwake);
 
-	//       
+	// COMMON
 	wlan_wakes_msm[0] = GPIO_CFG(gpio_wlan_hostwake, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA);
 	wifi_config_power_on[0] = GPIO_CFG(gpio_wlan_power, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA);
-//                                            
+// add for hw revision check by hayun.kim, END
 		
-	//          
+	//WLAN_POWER
 	if (gpio_tlmm_config(wifi_config_power_on[0], GPIO_CFG_ENABLE))
 		printk(KERN_ERR "%s: Failed to configure WLAN_POWER\n", __func__);
 
@@ -374,7 +374,7 @@ int __init bcm_wifi_init_gpio_mem( struct platform_device* platdev )
 	if (gpio_direction_output(gpio_wlan_power, 0)) 
 		printk(KERN_ERR "%s: WL_REG_ON  failed direction out\n", __func__);
 
-	//           
+	//HOST_WAKEUP
 	rc = gpio_tlmm_config(wlan_wakes_msm[0], GPIO_CFG_ENABLE);	
 	if (rc)		
 		printk(KERN_ERR "%s: Failed to configure wlan_wakes_msm = %d\n",__func__, rc);
@@ -384,7 +384,7 @@ int __init bcm_wifi_init_gpio_mem( struct platform_device* platdev )
 		printk(KERN_ERR "%s: WL_HOSTWAKE failed direction in\n", __func__);
 
 
-	//             
+	//For MSM8974_S
 	if( platdev != NULL )
 	{
 		struct resource* resource = platdev->resource;
@@ -396,7 +396,7 @@ int __init bcm_wifi_init_gpio_mem( struct platform_device* platdev )
 			printk("J:%s> resource->start = %d\n", __func__, resource->start );
 		}
 	}
-	//             
+	//For MSM8974_E
 
 #ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
 	brcm_init_wlan_mem();
@@ -433,8 +433,8 @@ static int bcm_wifi_get_mac_addr(unsigned char* buf)
 
 	if( memcmp( mymac, nullmac, 6 ) != 0 )
 	{
-		/*                                          
-                                              */
+		/* Mac displayed from UI are never updated..
+		   So, mac obtained on initial time is used */
 		memcpy( buf, mymac, 6 );
 		return 0;
 	}
@@ -462,37 +462,37 @@ struct cntry_locales_custom {
 	int custom_locale_rev;
 };
 
-/*                         */
+/* Customized Locale table */
 const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
-/*                                                                            */
-	{"",   "XZ", 11},	/*                                               */
-	{"IR", "XZ", 11},	/*                                                          */
-	{"SD", "XZ", 11},	/*                                    */
-	{"SY", "XZ", 11},	/*                                                   */
-	{"GL", "XZ", 11},	/*                                        */
-	{"PS", "XZ", 11},	/*                                                              */
-	{"TL", "XZ", 11},	/*                                                       */
-	{"MH", "XZ", 11},	/*                                               */
-	{"PK", "XZ", 11},	/*                                       */
-	{"CK", "XZ", 11},	/*                                                   */
-	{"CU", "XZ", 11},	/*                                            */
-	{"FK", "XZ", 11},	/*                                                       */
-	{"FO", "XZ", 11},	/*                                                    */
-	{"GI", "XZ", 11},	/*                                                 */
-	{"IM", "XZ", 11},	/*                                                   */
-	{"CI", "XZ", 11},	/*                                                   */
-	{"JE", "XZ", 11},	/*                                              */
-	{"KP", "XZ", 11},	/*                                                   */
-	{"FM", "XZ", 11},	/*                                                  */
-	{"MM", "XZ", 11},	/*                                               */
-	{"NU", "XZ", 11},	/*                                            */
-	{"NF", "XZ", 11},	/*                                                      */
-	{"PN", "XZ", 11},	/*                                                        */
-	{"PM", "XZ", 11},	/*                                                                 */
-	{"SS", "XZ", 11},	/*                                                   */
+/* Table should be filled out based on custom platform regulatory requirement */
+	{"",   "XZ", 11},	/* Universal if Country code is unknown or empty */
+	{"IR", "XZ", 11},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
+	{"SD", "XZ", 11},	/* Universal if Country code is SUDAN */
+	{"SY", "XZ", 11},	/* Universal if Country code is SYRIAN ARAB REPUBLIC */
+	{"GL", "XZ", 11},	/* Universal if Country code is GREENLAND */
+	{"PS", "XZ", 11},	/* Universal if Country code is PALESTINIAN TERRITORY, OCCUPIED */
+	{"TL", "XZ", 11},	/* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
+	{"MH", "XZ", 11},	/* Universal if Country code is MARSHALL ISLANDS */
+	{"PK", "XZ", 11},	/* Universal if Country code is PAKISTAN */
+	{"CK", "XZ", 11},	/* Universal if Country code is Cook Island (13.4.27)*/
+	{"CU", "XZ", 11},	/* Universal if Country code is Cuba (13.4.27)*/
+	{"FK", "XZ", 11},	/* Universal if Country code is Falkland Island (13.4.27)*/
+	{"FO", "XZ", 11},	/* Universal if Country code is Faroe Island (13.4.27)*/
+	{"GI", "XZ", 11},	/* Universal if Country code is Gibraltar (13.4.27)*/
+	{"IM", "XZ", 11},	/* Universal if Country code is Isle of Man (13.4.27)*/
+	{"CI", "XZ", 11},	/* Universal if Country code is Ivory Coast (13.4.27)*/
+	{"JE", "XZ", 11},	/* Universal if Country code is Jersey (13.4.27)*/
+	{"KP", "XZ", 11},	/* Universal if Country code is North Korea (13.4.27)*/
+	{"FM", "XZ", 11},	/* Universal if Country code is Micronesia (13.4.27)*/
+	{"MM", "XZ", 11},	/* Universal if Country code is Myanmar (13.4.27)*/
+	{"NU", "XZ", 11},	/* Universal if Country code is Niue (13.4.27)*/
+	{"NF", "XZ", 11},	/* Universal if Country code is Norfolk Island (13.4.27)*/
+	{"PN", "XZ", 11},	/* Universal if Country code is Pitcairn Islands (13.4.27)*/
+	{"PM", "XZ", 11},	/* Universal if Country code is Saint Pierre and Miquelon (13.4.27)*/
+	{"SS", "XZ", 11},	/* Universal if Country code is South_Sudan (13.4.27)*/
 	{"AL", "AL", 2},
 	{"DZ", "DZ", 1},
-	{"AS", "AS", 12},  /*                */
+	{"AS", "AS", 12},  /* changed 2 -> 12*/
 	{"AI", "AI", 1},
 	{"AG", "AG", 2},
 	{"AR", "AR", 21},
@@ -501,7 +501,7 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
 	{"AT", "AT", 4},
 	{"AZ", "AZ", 2},
 	{"BS", "BS", 2},
-	{"BH", "BH", 4},  /*                */
+	{"BH", "BH", 4},  /* changed 24 -> 4*/
 	{"BD", "BD", 2},
 	{"BY", "BY", 3},
 	{"BE", "BE", 4},
@@ -541,7 +541,7 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
 	{"IN", "IN", 3},
 	{"ID", "ID", 1},
 	{"IE", "IE", 5},
-	{"IL", "BO", 0},    //            
+	{"IL", "BO", 0},    //IL/7 -> BO/0
 	{"IT", "IT", 4},
 #if defined (CONFIG_MACH_MSM8974_G2_DCM)
 	{"JP", "JP", 45},
@@ -606,7 +606,7 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
 	{"GB", "GB", 6},
 	{"UY", "UY", 1},
 	{"VI", "VI", 13},
-	{"VA", "VA", 12},   /*                */
+	{"VA", "VA", 12},   /* changed 2 -> 12*/
 	{"VE", "VE", 3},
 	{"VN", "VN", 4},
 	{"MA", "MA", 1},
@@ -647,7 +647,7 @@ static void *bcm_wifi_get_country_code(char *ccode)
 static struct wifi_platform_data bcm_wifi_control = {
 #ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
 	.mem_prealloc	= brcm_wlan_mem_prealloc,
-#endif /*                                   */
+#endif /* CONFIG_BROADCOM_WIFI_RESERVED_MEM */
 	.set_power	= bcm_wifi_set_power,
 	.set_reset      = bcm_wifi_reset,
 	.set_carddetect = bcm_wifi_carddetect,
@@ -658,10 +658,10 @@ static struct wifi_platform_data bcm_wifi_control = {
 static struct resource wifi_resource[] = {
 	[0] = {
 		.name = "bcmdhd_wlan_irq",
-		.start = 0,  //              
-		.end   = 0,  //              
-		.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE, //           
-		//                                                                                                                    
+		.start = 0,  //assigned later
+		.end   = 0,  //assigned later
+		.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE, // for HW_OOB
+		//.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE | IORESOURCE_IRQ_LOWEDGE | IORESOURCE_IRQ_SHAREABLE, // for SW_OOB
 	},
 };
 
@@ -682,7 +682,7 @@ void __init init_bcm_wifi(void)
 #ifdef LGE_BCM_WIFI_DMA_QOS_CONTROL
 	INIT_DELAYED_WORK(&req_dma_work, bcm_wifi_req_dma_work);
 	pm_qos_add_request(&wifi_dma_qos, PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
-	wifi_dma_state = 1; //    
+	wifi_dma_state = 1; //INIT
 	printk("%s: wifi_dma_qos is added\n", __func__);
 #endif
       printk("jaewoo %s: \n", __func__);

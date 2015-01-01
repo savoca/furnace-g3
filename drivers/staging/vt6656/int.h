@@ -33,7 +33,7 @@
 #include "ttype.h"
 #include "device.h"
 
-/*                                                                   */
+/*---------------------  Export Definitions -------------------------*/
 #pragma pack(1)
 typedef struct tagSINTData {
     BYTE    byTSR0;
@@ -61,13 +61,13 @@ typedef struct tagSINTData {
 SINTData, *PSINTData;
 
 
-/*                                                                   */
+/*---------------------  Export Classes  ----------------------------*/
 
-/*                                                                   */
+/*---------------------  Export Variables  --------------------------*/
 
-/*                                                                   */
+/*---------------------  Export Functions  --------------------------*/
 
 void INTvWorkItem(void *Context);
 void INTnsProcessData(PSDevice pDevice);
 
-#endif /*           */
+#endif /* __INT_H__ */

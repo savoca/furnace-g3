@@ -11,23 +11,23 @@ static ide_startstop_t ide_ata_error(ide_drive_t *drive, struct request *rq,
 
 	if ((stat & ATA_BUSY) ||
 	    ((stat & ATA_DF) && (drive->dev_flags & IDE_DFLAG_NOWERR) == 0)) {
-		/*                                  */
+		/* other bits are useless when BUSY */
 		rq->errors |= ERROR_RESET;
 	} else if (stat & ATA_ERR) {
-		/*                                             */
+		/* err has different meaning on cdrom and tape */
 		if (err == ATA_ABORTED) {
 			if ((drive->dev_flags & IDE_DFLAG_LBA) &&
-			    /*                                                         */
+			    /* some newer drives don't support ATA_CMD_INIT_DEV_PARAMS */
 			    hwif->tp_ops->read_status(hwif) == ATA_CMD_INIT_DEV_PARAMS)
 				return ide_stopped;
 		} else if ((err & BAD_CRC) == BAD_CRC) {
-			/*                                          */
+			/* UDMA crc error, just retry the operation */
 			drive->crc_count++;
 		} else if (err & (ATA_BBK | ATA_UNC)) {
-			/*                          */
+			/* retries won't help these */
 			rq->errors = ERROR_MAX;
 		} else if (err & ATA_TRK0NF) {
-			/*                         */
+			/* help it find track zero */
 			rq->errors |= ERROR_RECAL;
 		}
 	}
@@ -67,14 +67,14 @@ static ide_startstop_t ide_atapi_error(ide_drive_t *drive, struct request *rq,
 
 	if ((stat & ATA_BUSY) ||
 	    ((stat & ATA_DF) && (drive->dev_flags & IDE_DFLAG_NOWERR) == 0)) {
-		/*                                  */
+		/* other bits are useless when BUSY */
 		rq->errors |= ERROR_RESET;
 	} else {
-		/*                          */
+		/* add decoding error stuff */
 	}
 
 	if (hwif->tp_ops->read_status(hwif) & (ATA_BUSY | ATA_DRQ))
-		/*                */
+		/* force an abort */
 		hwif->tp_ops->exec_command(hwif, ATA_CMD_IDLEIMMEDIATE);
 
 	if (rq->errors >= ERROR_MAX) {
@@ -98,17 +98,17 @@ static ide_startstop_t __ide_error(ide_drive_t *drive, struct request *rq,
 	return ide_atapi_error(drive, rq, stat, err);
 }
 
-/* 
-                                         
-                                      
-                          
-                     
-  
-                                                                     
-                                                             
-                                                                 
-                                                                 
-     
+/**
+ *	ide_error	-	handle an error on the IDE
+ *	@drive: drive the error occurred on
+ *	@msg: message to report
+ *	@stat: status bits
+ *
+ *	ide_error() takes action based on the error returned by the drive.
+ *	For normal I/O that may well include retries. We deal with
+ *	both new-style (taskfile) and old style command handling here.
+ *	In the case of taskfile command handling there is work left to
+ *	do
  */
 
 ide_startstop_t ide_error(ide_drive_t *drive, const char *msg, u8 stat)
@@ -122,7 +122,7 @@ ide_startstop_t ide_error(ide_drive_t *drive, const char *msg, u8 stat)
 	if (rq == NULL)
 		return ide_stopped;
 
-	/*                          */
+	/* retry only "normal" I/O: */
 	if (rq->cmd_type != REQ_TYPE_FS) {
 		if (rq->cmd_type == REQ_TYPE_ATA_TASKFILE) {
 			struct ide_cmd *cmd = rq->special;
@@ -155,14 +155,14 @@ static inline void ide_complete_drive_reset(ide_drive_t *drive, int err)
 	}
 }
 
-/*              */
+/* needed below */
 static ide_startstop_t do_reset1(ide_drive_t *, int);
 
 /*
-                                                                           
-                                                                              
-                                                                              
-                                 
+ * atapi_reset_pollfunc() gets invoked to poll the interface for completion
+ * every 50ms during an atapi drive reset operation.  If the drive has not yet
+ * responded, and we have not yet hit our maximum waiting time, then the timer
+ * is restarted for another 50ms.
  */
 static ide_startstop_t atapi_reset_pollfunc(ide_drive_t *drive)
 {
@@ -179,17 +179,17 @@ static ide_startstop_t atapi_reset_pollfunc(ide_drive_t *drive)
 	else {
 		if (time_before(jiffies, hwif->poll_timeout)) {
 			ide_set_handler(drive, &atapi_reset_pollfunc, HZ/20);
-			/*                  */
+			/* continue polling */
 			return ide_started;
 		}
-		/*                */
+		/* end of polling */
 		hwif->polling = 0;
 		printk(KERN_ERR "%s: ATAPI reset timed-out, status=0x%02x\n",
 			drive->name, stat);
-		/*                             */
+		/* do it the old fashioned way */
 		return do_reset1(drive, 1);
 	}
-	/*              */
+	/* done polling */
 	hwif->polling = 0;
 	ide_complete_drive_reset(drive, 0);
 	return ide_stopped;
@@ -215,10 +215,10 @@ static void ide_reset_report_error(ide_hwif_t *hwif, u8 err)
 }
 
 /*
-                                                                                
-                                                                       
-                                                                                
-                    
+ * reset_pollfunc() gets invoked to poll the interface for completion every 50ms
+ * during an ide reset operation. If the drives have not yet responded,
+ * and we have not yet hit our maximum waiting time, then the timer is restarted
+ * for another 50ms.
  */
 static ide_startstop_t reset_pollfunc(ide_drive_t *drive)
 {
@@ -241,7 +241,7 @@ static ide_startstop_t reset_pollfunc(ide_drive_t *drive)
 	if (!OK_STAT(tmp, 0, ATA_BUSY)) {
 		if (time_before(jiffies, hwif->poll_timeout)) {
 			ide_set_handler(drive, &reset_pollfunc, HZ/20);
-			/*                  */
+			/* continue polling */
 			return ide_started;
 		}
 		printk(KERN_ERR "%s: reset timed-out, status=0x%02x\n",
@@ -261,7 +261,7 @@ static ide_startstop_t reset_pollfunc(ide_drive_t *drive)
 		}
 	}
 out:
-	hwif->polling = 0;	/*              */
+	hwif->polling = 0;	/* done polling */
 	ide_complete_drive_reset(drive, err);
 	return ide_stopped;
 }
@@ -317,19 +317,19 @@ static void pre_reset(ide_drive_t *drive)
 }
 
 /*
-                                                                    
-                                                                       
-                                                                      
-                                             
-  
-                                                                       
-                                                                             
-  
-                                                                         
-                                                                           
-                                                                                
-                                                                          
-                                            
+ * do_reset1() attempts to recover a confused drive by resetting it.
+ * Unfortunately, resetting a disk drive actually resets all devices on
+ * the same interface, so it can really be thought of as resetting the
+ * interface rather than resetting the drive.
+ *
+ * ATAPI devices have their own reset mechanism which allows them to be
+ * individually reset without clobbering other devices on the same interface.
+ *
+ * Unfortunately, the IDE interface does not generate an interrupt to let
+ * us know when the reset operation has finished, so we must poll for this.
+ * Equally poor, though, is the fact that this may a very long time to complete,
+ * (up to 30 seconds worstcase).  So, instead of busy-waiting here for it,
+ * we set a timer to poll at 50ms intervals.
  */
 static ide_startstop_t do_reset1(ide_drive_t *drive, int do_not_try_atapi)
 {
@@ -344,10 +344,10 @@ static ide_startstop_t do_reset1(ide_drive_t *drive, int do_not_try_atapi)
 
 	spin_lock_irqsave(&hwif->lock, flags);
 
-	/*                                         */
+	/* We must not reset with running handlers */
 	BUG_ON(hwif->handler != NULL);
 
-	/*                                               */
+	/* For an ATAPI device, first try an ATAPI SRST. */
 	if (drive->media != ide_disk && !do_not_try_atapi) {
 		pre_reset(drive);
 		tp_ops->dev_select(drive);
@@ -361,7 +361,7 @@ static ide_startstop_t do_reset1(ide_drive_t *drive, int do_not_try_atapi)
 		return ide_started;
 	}
 
-	/*                                                            */
+	/* We must not disturb devices in the IDE_DFLAG_PARKED state. */
 	do {
 		unsigned long now;
 
@@ -384,9 +384,9 @@ static ide_startstop_t do_reset1(ide_drive_t *drive, int do_not_try_atapi)
 	finish_wait(&ide_park_wq, &wait);
 
 	/*
-                                                          
-                                            
-  */
+	 * First, reset any device state data we were maintaining
+	 * for any of the drives on this interface.
+	 */
 	ide_port_for_each_dev(i, tdrive, hwif)
 		pre_reset(tdrive);
 
@@ -397,32 +397,32 @@ static ide_startstop_t do_reset1(ide_drive_t *drive, int do_not_try_atapi)
 	}
 
 	/*
-                                                          
-                                                                    
-                                                                 
-                                                               
-                                                                
-                                                                        
-  */
-	/*                   */
+	 * Note that we also set nIEN while resetting the device,
+	 * to mask unwanted interrupts from the interface during the reset.
+	 * However, due to the design of PC hardware, this will cause an
+	 * immediate interrupt due to the edge transition it produces.
+	 * This single interrupt gives us a "fast poll" for drives that
+	 * recover from reset very quickly, saving us the first 50ms wait time.
+	 */
+	/* set SRST and nIEN */
 	tp_ops->write_devctl(hwif, ATA_SRST | ATA_NIEN | ATA_DEVCTL_OBS);
-	/*                       */
+	/* more than enough time */
 	udelay(10);
-	/*                                                             */
+	/* clear SRST, leave nIEN (unless device is on the quirk list) */
 	tp_ops->write_devctl(hwif,
 		((drive->dev_flags & IDE_DFLAG_NIEN_QUIRK) ? 0 : ATA_NIEN) |
 		 ATA_DEVCTL_OBS);
-	/*                       */
+	/* more than enough time */
 	udelay(10);
 	hwif->poll_timeout = jiffies + WAIT_WORSTCASE;
 	hwif->polling = 1;
 	__ide_set_handler(drive, &reset_pollfunc, HZ/20);
 
 	/*
-                                                                
-                                                                  
-                               
-  */
+	 * Some weird controller like resetting themselves to a strange
+	 * state when the disks are reset this way. At least, the Winbond
+	 * 553 documentation says that
+	 */
 	port_ops = hwif->port_ops;
 	if (port_ops && port_ops->resetproc)
 		port_ops->resetproc(drive);
@@ -432,7 +432,7 @@ static ide_startstop_t do_reset1(ide_drive_t *drive, int do_not_try_atapi)
 }
 
 /*
-                                                                       
+ * ide_do_reset() is the entry point to the drive/interface reset code.
  */
 
 ide_startstop_t ide_do_reset(ide_drive_t *drive)

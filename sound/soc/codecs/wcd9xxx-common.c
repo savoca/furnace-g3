@@ -454,8 +454,8 @@ static const char *state_to_str(u8 state, char *buf, size_t buflen)
 	int i;
 	int cnt = 0;
 	/*
-                                                                        
-  */
+	 * This array of strings should match with enum wcd9xxx_clsh_state_bit.
+	 */
 	const char *states[] = {
 		"STATE_EAR",
 		"STATE_HPH_L",
@@ -671,7 +671,7 @@ static void wcd9xxx_set_buck_mode(struct snd_soc_codec *codec, u8 buck_vref)
 }
 
 
-/*                                                   */
+/* This will be called for all states except Lineout */
 static void wcd9xxx_clsh_enable_post_pa(struct snd_soc_codec *codec,
 	struct wcd9xxx_clsh_cdc_data *cdc_clsh_d)
 {
@@ -706,7 +706,7 @@ static void wcd9xxx_set_fclk_get_ncp(struct snd_soc_codec *codec,
 		 clsh_d->ncp_users[NCP_FCLK_LEVEL_5]);
 
 	snd_soc_update_bits(codec, WCD9XXX_A_NCP_STATIC, 0x10, 0x00);
-	/*                                */
+	/* fclk level 8 dominates level 5 */
 	if (clsh_d->ncp_users[NCP_FCLK_LEVEL_8] > 0)
 		snd_soc_update_bits(codec, WCD9XXX_A_NCP_STATIC, 0x0F, 0x08);
 	else if (clsh_d->ncp_users[NCP_FCLK_LEVEL_5] > 0)
@@ -717,7 +717,7 @@ static void wcd9xxx_set_fclk_get_ncp(struct snd_soc_codec *codec,
 			  clsh_d->ncp_users[NCP_FCLK_LEVEL_5]);
 	snd_soc_update_bits(codec, WCD9XXX_A_NCP_STATIC, 0x20, 0x20);
 
-	/*                                        */
+	/* enable NCP and wait until settles down */
 	if (snd_soc_update_bits(codec, WCD9XXX_A_NCP_EN, 0x01, 0x01))
 		usleep_range(NCP_SETTLE_TIME_US, NCP_SETTLE_TIME_US);
 	pr_debug("%s: leave\n", __func__);
@@ -737,7 +737,7 @@ static void wcd9xxx_set_fclk_put_ncp(struct snd_soc_codec *codec,
 	    clsh_d->ncp_users[NCP_FCLK_LEVEL_5] == 0)
 		snd_soc_update_bits(codec, WCD9XXX_A_NCP_EN, 0x01, 0x00);
 	else if (clsh_d->ncp_users[NCP_FCLK_LEVEL_8] == 0)
-		/*                                             */
+		/* if dominating level 8 has gone, switch to 5 */
 		snd_soc_update_bits(codec, WCD9XXX_A_NCP_STATIC, 0x0F, 0x05);
 	pr_debug("%s: leave\n", __func__);
 }
@@ -750,7 +750,7 @@ static void wcd9xxx_cfg_clsh_param_ear(struct snd_soc_codec *codec)
 		{WCD9XXX_A_CDC_CLSH_V_PA_HD_EAR, (0x3f << 0), 0x0D},
 		{WCD9XXX_A_CDC_CLSH_V_PA_MIN_EAR, (0x3f << 0), 0x3A},
 
-		/*                                           */
+		/* Under assumption that EAR load is 10.7ohm */
 		{WCD9XXX_A_CDC_CLSH_IDLE_EAR_THSD, (0x3f << 0), 0x26},
 		{WCD9XXX_A_CDC_CLSH_FCLKONLY_EAR_THSD, (0x3f << 0), 0x2C},
 		{WCD9XXX_A_CDC_CLSH_I_PA_FACT_EAR_L, 0xff, 0xA9},
@@ -783,7 +783,7 @@ static void wcd9xxx_cfg_clsh_param_hph(struct snd_soc_codec *codec)
 		{WCD9XXX_A_CDC_CLSH_V_PA_HD_HPH, 0x3f, 0x0D},
 		{WCD9XXX_A_CDC_CLSH_V_PA_MIN_HPH, 0x3f, 0x1D},
 
-		/*                                                     */
+		/* Under assumption that HPH load is 16ohm per channel */
 		{WCD9XXX_A_CDC_CLSH_IDLE_HPH_THSD, 0x3f, 0x13},
 		{WCD9XXX_A_CDC_CLSH_FCLKONLY_HPH_THSD, 0x1f, 0x19},
 		{WCD9XXX_A_CDC_CLSH_I_PA_FACT_HPH_L, 0xff, 0x97},
@@ -918,11 +918,11 @@ static void wcd9xxx_clsh_state_lo(struct snd_soc_codec *codec,
 			wcd9xxx_enable_buck(codec, clsh_d, false);
 			snd_soc_update_bits(codec, WCD9XXX_A_NCP_STATIC,
 					    1 << 4, 1 << 4);
-			/*                                                    */
+			/* NCP settle time recommended by codec specification */
 			usleep_range(NCP_SETTLE_TIME_US,
 				     NCP_SETTLE_TIME_US + 10);
 		} else {
-			/*                                                    */
+			/* NCP settle time recommended by codec specification */
 			usleep_range(NCP_SETTLE_TIME_US,
 				     NCP_SETTLE_TIME_US + 10);
 			snd_soc_update_bits(codec, WCD9XXX_A_BUCK_MODE_5,
@@ -961,7 +961,7 @@ void wcd9xxx_clsh_fsm(struct snd_soc_codec *codec,
 
 	switch (clsh_event) {
 	case WCD9XXX_CLSH_EVENT_PRE_DAC:
-		/*                                              */
+		/* PRE_DAC event should be used only for Enable */
 		BUG_ON(req_type != WCD9XXX_CLSH_REQ_ENABLE);
 
 		old_state = cdc_clsh_d->state;

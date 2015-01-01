@@ -12,7 +12,7 @@
 #ifndef __ASSEMBLY__
 
 #include <linux/types.h>
-/*                                      */
+/* include compiler specific intrinsics */
 #include <asm/ia64regs.h>
 #ifdef __INTEL_COMPILER
 # include <asm/intel_intrin.h>
@@ -21,8 +21,8 @@
 #endif
 
 /*
-                                                               
-                                           
+ * This function doesn't exist, so you'll get a linker error if
+ * something tries to do an invalid xchg().
  */
 extern void ia64_xchg_called_with_bad_pointer(void);
 
@@ -56,16 +56,16 @@ extern void ia64_xchg_called_with_bad_pointer(void);
 ((__typeof__(*(ptr))) __xchg((unsigned long) (x), (ptr), sizeof(*(ptr))))
 
 /*
-                                                                    
-                                                                  
-                                          
+ * Atomic compare and exchange.  Compare OLD with MEM, if identical,
+ * store NEW in MEM.  Return the initial value in MEM.  Success is
+ * indicated by comparing RETURN with OLD.
  */
 
 #define __HAVE_ARCH_CMPXCHG 1
 
 /*
-                                                            
-                                                 
+ * This function doesn't exist, so you'll get a linker error
+ * if something tries to do an invalid cmpxchg().
  */
 extern long ia64_cmpxchg_called_with_bad_pointer(void);
 
@@ -118,7 +118,7 @@ extern long ia64_cmpxchg_called_with_bad_pointer(void);
 #define cmpxchg_rel(ptr, o, n)	\
 	ia64_cmpxchg(rel, (ptr), (o), (n), sizeof(*(ptr)))
 
-/*                                         */
+/* for compatibility with other platforms: */
 #define cmpxchg(ptr, o, n)	cmpxchg_acq((ptr), (o), (n))
 #define cmpxchg64(ptr, o, n)	cmpxchg_acq((ptr), (o), (n))
 
@@ -137,11 +137,11 @@ do {									\
 		break;							\
 	}								\
 } while (0)
-#else /*                            */
+#else /* !CONFIG_IA64_DEBUG_CMPXCHG */
 # define CMPXCHG_BUGCHECK_DECL
 # define CMPXCHG_BUGCHECK(v)
-#endif /*                            */
+#endif /* !CONFIG_IA64_DEBUG_CMPXCHG */
 
-#endif /*               */
+#endif /* !__ASSEMBLY__ */
 
-#endif /*                     */
+#endif /* _ASM_IA64_CMPXCHG_H */

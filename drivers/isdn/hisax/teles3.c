@@ -50,7 +50,7 @@ write_fifo(unsigned int adr, u_char *data, int size)
 	outsb(adr, data, size);
 }
 
-/*                     */
+/* Interface functions */
 
 static u_char
 ReadISAC(struct IsdnCardState *cs, u_char offset)
@@ -89,7 +89,7 @@ WriteHSCX(struct IsdnCardState *cs, int hscx, u_char offset, u_char value)
 }
 
 /*
-                                      
+ * fast interrupt HSCX stuff goes here
  */
 
 #define READHSCX(cs, nr, reg) readreg(cs->hw.teles3.hscx[nr], reg)
@@ -216,7 +216,7 @@ reset_teles3(struct IsdnCardState *cs)
 			byteout(cs->hw.teles3.cfg_reg, 0x00);
 			HZDELAY(2);
 		} else {
-			/*                                                */
+			/* Reset off for 16.3 PnP , thanks to Georg Acher */
 			byteout(cs->hw.teles3.isac + 0x3c, 0);
 			HZDELAY(2);
 			byteout(cs->hw.teles3.isac + 0x3c, 1);
@@ -349,7 +349,7 @@ setup_teles3(struct IsdnCard *card)
 		cs->hw.teles3.isac = card->para[2] - 32;
 		cs->hw.teles3.hscx[0] = card->para[1] - 32;
 		cs->hw.teles3.hscx[1] = card->para[1];
-	} else {	/*     */
+	} else {	/* PNP */
 		cs->hw.teles3.cfg_reg = 0;
 		cs->hw.teles3.isac = card->para[1] - 32;
 		cs->hw.teles3.hscx[0] = card->para[2] - 32;
@@ -368,7 +368,7 @@ setup_teles3(struct IsdnCard *card)
 			       cs->hw.teles3.hscx[1] + 96);
 			return (0);
 		}
-		cs->irq_flags |= IRQF_SHARED; /*                   */
+		cs->irq_flags |= IRQF_SHARED; /* cardbus can share */
 	} else {
 		if (cs->hw.teles3.cfg_reg) {
 			if (cs->typ == ISDN_CTYPE_COMPAQ_ISA) {
@@ -451,13 +451,13 @@ setup_teles3(struct IsdnCard *card)
 			release_io_teles3(cs);
 			return (0);
 		}
-		val = bytein(cs->hw.teles3.cfg_reg + 2);/*                
-                      
-                       
-                       
-                       
-                                                  
-        */
+		val = bytein(cs->hw.teles3.cfg_reg + 2);/* 0x1e=without AB
+							 * 0x1f=with AB
+							 * 0x1c 16.3 ???
+							 * 0x39 16.3 1.1
+							 * 0x38 16.3 1.3
+							 * 0x46 16.3 with AB + Video (Teles-Vision)
+							 */
 		if (val != 0x46 && val != 0x39 && val != 0x38 && val != 0x1c && val != 0x1e && val != 0x1f) {
 			printk(KERN_WARNING "Teles: 16.3 Byte at %x is %x\n",
 			       cs->hw.teles3.cfg_reg + 2, val);

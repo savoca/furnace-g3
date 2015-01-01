@@ -1,6 +1,6 @@
 /*
-                                                                              
-                           
+ * This file is only for sharing some helpers from read_write.c with compat.c.
+ * Don't use anywhere else.
  */
 
 

@@ -12,9 +12,9 @@
  *       enhancements.
  */
 /*
-                                                                          
-                                                                           
-                                                          
+ * NOTE:  this file only contains compatibility glue for old drivers.  All
+ * these wrappers will be removed sooner or later.  For new code please use
+ * the interfaces declared in the headers in include/scsi/
  */
 
 #ifndef _SCSI_H
@@ -27,7 +27,7 @@
 #include <scsi/scsi.h>
 
 /*
-                                                      
+ * Some defs, in case these are not defined elsewhere.
  */
 #ifndef TRUE
 #define TRUE 1
@@ -42,7 +42,7 @@ struct scsi_device;
 struct scsi_target;
 struct scatterlist;
 
-/*                        */
+/* obsolete typedef junk. */
 #include "scsi_typedefs.h"
 
-#endif /*         */
+#endif /* _SCSI_H */

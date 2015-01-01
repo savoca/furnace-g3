@@ -25,22 +25,22 @@
 #include <asm/page.h>
 
 /*
-                                                                     
-                      
+ * DMA coherent memory management, can be redefined using the memdma=
+ * kernel command line
  */
 
-/*                 */
+/* none by default */
 static phys_addr_t dma_base;
 static u32 dma_size;
 static u32 dma_pages;
 
 static unsigned long *dma_bitmap;
 
-/*             */
+/* bitmap lock */
 static DEFINE_SPINLOCK(dma_lock);
 
 /*
-                                                                        
+ * Return a DMA coherent and contiguous memory chunk from the DMA memory
  */
 static inline u32 __alloc_dma_pages(int order)
 {
@@ -70,8 +70,8 @@ static void __free_dma_pages(u32 addr, int order)
 }
 
 /*
-                                                                
-                                          
+ * Allocate DMA coherent memory space and return both the kernel
+ * virtual and DMA address for that space.
  */
 void *dma_alloc_coherent(struct device *dev, size_t size,
 			 dma_addr_t *handle, gfp_t gfp)
@@ -97,7 +97,7 @@ void *dma_alloc_coherent(struct device *dev, size_t size,
 EXPORT_SYMBOL(dma_alloc_coherent);
 
 /*
-                                                            
+ * Free DMA coherent memory as defined by the above mapping.
  */
 void dma_free_coherent(struct device *dev, size_t size, void *vaddr,
 		       dma_addr_t dma_handle)
@@ -114,7 +114,7 @@ void dma_free_coherent(struct device *dev, size_t size, void *vaddr,
 EXPORT_SYMBOL(dma_free_coherent);
 
 /*
-                                                                                
+ * Initialise the coherent DMA memory allocator using the given uncached region.
  */
 void __init coherent_mem_init(phys_addr_t start, u32 size)
 {
@@ -130,7 +130,7 @@ void __init coherent_mem_init(phys_addr_t start, u32 size)
 	dma_base = start;
 	dma_size = size;
 
-	/*                 */
+	/* allocate bitmap */
 	dma_pages = dma_size >> PAGE_SHIFT;
 	if (dma_size & (PAGE_SIZE - 1))
 		++dma_pages;

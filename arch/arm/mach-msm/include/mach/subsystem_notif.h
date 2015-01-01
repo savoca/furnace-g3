@@ -30,25 +30,25 @@ enum subsys_notif_type {
 };
 
 #if defined(CONFIG_MSM_SUBSYSTEM_RESTART)
-/*                                                                             
-                                                                            
-                                                                             
-                                         
-  
-                                                                          
-                                                                               
-                                                        
-                                  
+/* Use the subsys_notif_register_notifier API to register for notifications for
+ * a particular subsystem. This API will return a handle that can be used to
+ * un-reg for notifications using the subsys_notif_unregister_notifier API by
+ * passing in that handle as an argument.
+ *
+ * On receiving a notification, the second (unsigned long) argument of the
+ * notifier callback will contain the notification type, and the third (void *)
+ * argument will contain the handle that was returned by
+ * subsys_notif_register_notifier.
  */
 void *subsys_notif_register_notifier(
 			const char *subsys_name, struct notifier_block *nb);
 int subsys_notif_unregister_notifier(void *subsys_handle,
 				struct notifier_block *nb);
 
-/*                                                                            
-                                                                            
-                                                                               
-                                 
+/* Use the subsys_notif_init_subsys API to initialize the notifier chains form
+ * a particular subsystem. This API will return a handle that can be used to
+ * queue notifications using the subsys_notif_queue_notification API by passing
+ * in that handle as an argument.
  */
 void *subsys_notif_add_subsys(const char *);
 int subsys_notif_queue_notification(void *subsys_handle,
@@ -79,6 +79,6 @@ static inline int subsys_notif_queue_notification(void *subsys_handle,
 {
 	return 0;
 }
-#endif /*                              */
+#endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 
 #endif

@@ -33,4 +33,4 @@
 #define MCDRVMODULEAPI_VERSION_MAJOR 1
 #define MCDRVMODULEAPI_VERSION_MINOR 1
 
-#endif /*                    */
+#endif /* _MC_DRV_VERSION_H_ */

@@ -10,7 +10,7 @@
  */
 
 /*
-                                      
+ * Logitech Bus Mouse Driver for Linux
  */
 
 /*

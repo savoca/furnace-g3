@@ -40,7 +40,7 @@ struct rdc321x_gpio {
 	struct gpio_chip	chip;
 };
 
-/*               */
+/* read GPIO pin */
 static int rdc_gpio_get_value(struct gpio_chip *chip, unsigned gpio)
 {
 	struct rdc321x_gpio *gpch;
@@ -77,7 +77,7 @@ static void rdc_gpio_set_value_impl(struct gpio_chip *chip,
 			gpch->data_reg[reg]);
 }
 
-/*                       */
+/* set GPIO pin to value */
 static void rdc_gpio_set_value(struct gpio_chip *chip,
 				unsigned gpio, int value)
 {
@@ -119,14 +119,14 @@ unlock:
 	return err;
 }
 
-/*                             */
+/* configure GPIO pin as input */
 static int rdc_gpio_direction_input(struct gpio_chip *chip, unsigned gpio)
 {
 	return rdc_gpio_config(chip, gpio, 1);
 }
 
 /*
-                                                      
+ * Cache the initial value of both GPIO data registers
  */
 static int __devinit rdc321x_gpio_probe(struct platform_device *pdev)
 {
@@ -179,9 +179,9 @@ static int __devinit rdc321x_gpio_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, rdc321x_gpio_dev);
 
-	/*                                                        
-                                                                 
-                                       */
+	/* This might not be, what others (BIOS, bootloader, etc.)
+	   wrote to these registers before, but it's a good guess. Still
+	   better than just using 0xffffffff. */
 	err = pci_read_config_dword(rdc321x_gpio_dev->sb_pdev,
 					rdc321x_gpio_dev->reg1_data_base,
 					&rdc321x_gpio_dev->data_reg[0]);

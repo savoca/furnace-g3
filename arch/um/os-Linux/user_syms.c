@@ -1,11 +1,11 @@
 #include "linux/types.h"
 #include "linux/module.h"
 
-/*                                                                          
-                                                                     
-                                                                    
-                                                                    
-                                   
+/* Some of this are builtin function (some are not but could in the future),
+ * so I *must* declare good prototypes for them and then EXPORT them.
+ * The kernel code uses the macro defined by include/linux/string.h,
+ * so I undef macros; the userspace code does not include that and I
+ * add an EXPORT for the glibc one.
  */
 
 #undef strlen
@@ -18,7 +18,7 @@ extern void *memmove(void *, const void *, size_t);
 extern void *memset(void *, int, size_t);
 extern int printf(const char *, ...);
 
-/*                                                             */
+/* If it's not defined, the export is included in lib/string.c.*/
 #ifdef __HAVE_ARCH_STRSTR
 EXPORT_SYMBOL(strstr);
 #endif
@@ -32,9 +32,9 @@ EXPORT_SYMBOL(memmove);
 EXPORT_SYMBOL(memset);
 EXPORT_SYMBOL(printf);
 
-/*                                                                             
-                                                                           
-                                                           
+/* Here, instead, I can provide a fake prototype. Yes, someone cares: genksyms.
+ * However, the modules will use the CRC defined *here*, no matter if it is
+ * good; so the versions of these symbols will always match
  */
 #define EXPORT_SYMBOL_PROTO(sym)       \
 	int sym(void);                  \
@@ -107,7 +107,7 @@ EXPORT_SYMBOL_PROTO(lstat64);
 EXPORT_SYMBOL_PROTO(fstat64);
 EXPORT_SYMBOL_PROTO(mknod);
 
-/*                                                     */
+/* Export symbols used by GCC for the stack protector. */
 extern void __stack_smash_handler(void *) __attribute__((weak));
 EXPORT_SYMBOL(__stack_smash_handler);
 

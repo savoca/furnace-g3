@@ -14,7 +14,7 @@
 #include "tls.h"
 
 /*
-                                                                
+ * sys_alloc_thread_area: get a yet unused TLS descriptor index.
  */
 static int get_free_idx(void)
 {
@@ -35,8 +35,8 @@ static void set_tls_desc(struct task_struct *p, int idx,
 	int cpu;
 
 	/*
-                                                      
-  */
+	 * We must not get preempted while modifying the TLS.
+	 */
 	cpu = get_cpu();
 
 	while (n-- > 0) {
@@ -55,7 +55,7 @@ static void set_tls_desc(struct task_struct *p, int idx,
 }
 
 /*
-                              
+ * Set a given TLS descriptor:
  */
 int do_set_thread_area(struct task_struct *p, int idx,
 		       struct user_desc __user *u_info,
@@ -70,9 +70,9 @@ int do_set_thread_area(struct task_struct *p, int idx,
 		idx = info.entry_number;
 
 	/*
-                                                    
-                                 
-  */
+	 * index -1 means the kernel should try to find and
+	 * allocate an empty descriptor:
+	 */
 	if (idx == -1 && can_allocate) {
 		idx = get_free_idx();
 		if (idx < 0)
@@ -98,7 +98,7 @@ asmlinkage int sys_set_thread_area(struct user_desc __user *u_info)
 
 
 /*
-                                             
+ * Get the current Thread-Local Storage area:
  */
 
 static void fill_user_desc(struct user_desc *info, int idx,

@@ -7,8 +7,8 @@
 #endif
 
 /*
-                                                         
-                                                          
+ * In parisc assembly a semicolon marks a comment while a
+ * exclamation mark is used to separate independent lines.
  */
 #ifdef __ASSEMBLY__
 
@@ -26,6 +26,6 @@ name:
 	END(name)
 #endif
 
-#endif /*              */
+#endif /* __ASSEMBLY__ */
 
-#endif  /*                        */
+#endif  /* __ASM_PARISC_LINKAGE_H */

@@ -1,5 +1,5 @@
 /*
-           
+ * ISA bus.
  */
 
 #include <linux/device.h>

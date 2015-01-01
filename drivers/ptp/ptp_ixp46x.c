@@ -48,7 +48,7 @@ struct ixp_clock {
 DEFINE_SPINLOCK(register_lock);
 
 /*
-                            
+ * Register access functions
  */
 
 static u64 ixp_systime_read(struct ixp46x_ts_regs *regs)
@@ -79,7 +79,7 @@ static void ixp_systime_write(struct ixp46x_ts_regs *regs, u64 ns)
 }
 
 /*
-                            
+ * Interrupt service routine
  */
 
 static irqreturn_t isr(int irq, void *priv)
@@ -120,7 +120,7 @@ static irqreturn_t isr(int irq, void *priv)
 	}
 
 	if (val & TTIPEND)
-		ack |= TTIPEND; /*                                 */
+		ack |= TTIPEND; /* this bit seems to be always set */
 
 	if (ack) {
 		__raw_writel(ack, &regs->event);
@@ -130,7 +130,7 @@ static irqreturn_t isr(int irq, void *priv)
 }
 
 /*
-                       
+ * PTP clock operations
  */
 
 static int ptp_ixp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
@@ -252,7 +252,7 @@ static struct ptp_clock_info ptp_ixp_caps = {
 	.enable		= ptp_ixp_enable,
 };
 
-/*                   */
+/* module operations */
 
 static struct ixp_clock ixp_clock;
 

@@ -35,7 +35,7 @@ int32_t msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	uint16_t *power_setting_size)
 {
 #endif
-	int rc = 0, i;//    
+	int rc = 0, i;//, j;
 	int count = 0;
 	const char *seq_name = NULL;
 	uint32_t *array = NULL;

@@ -47,7 +47,7 @@ static struct platform_device smsc911x_device = {
 };
 
 /*
-                       
+ * add platform devices
  */
 static int __init unit_device_init(void)
 {

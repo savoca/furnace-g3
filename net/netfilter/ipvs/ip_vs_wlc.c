@@ -28,7 +28,7 @@
 #include <net/ip_vs.h>
 
 /*
-                                       
+ *	Weighted Least Connection scheduling
  */
 static struct ip_vs_dest *
 ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
@@ -39,17 +39,17 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
 	IP_VS_DBG(6, "ip_vs_wlc_schedule(): Scheduling...\n");
 
 	/*
-                                                         
-                                     
-   
-                                           
-                                                            
-                    
-                                        
-   
-                                                                 
-                    
-  */
+	 * We calculate the load of each dest server as follows:
+	 *		  (dest overhead) / dest->weight
+	 *
+	 * Remember -- no floats in kernel mode!!!
+	 * The comparison of h1*w2 > h2*w1 is equivalent to that of
+	 *		  h1/w1 > h2/w2
+	 * if every weight is larger than zero.
+	 *
+	 * The server with weight=0 is quiesced and will not receive any
+	 * new connections.
+	 */
 
 	list_for_each_entry(dest, &svc->destinations, n_list) {
 		if (!(dest->flags & IP_VS_DEST_F_OVERLOAD) &&
@@ -63,8 +63,8 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
 	return NULL;
 
 	/*
-                                                
-  */
+	 *    Find the destination with the least load.
+	 */
   nextstage:
 	list_for_each_entry_continue(dest, &svc->destinations, n_list) {
 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)

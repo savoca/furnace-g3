@@ -9,10 +9,10 @@
  * ----------------------------------------------------------------------- */
 
 /*
-                      
-  
-                                                                      
-           
+ * arch/x86/boot/cpu.c
+ *
+ * Check for obligatory CPU features and abort if the features are not
+ * present.
  */
 
 #include "boot.h"
@@ -61,7 +61,7 @@ int validate_cpu(void)
 			for (j = 0; j < 32; j++) {
 				if (msg_strs[0] < i ||
 				    (msg_strs[0] == i && msg_strs[1] < j)) {
-					/*                         */
+					/* Skip to the next string */
 					msg_strs += 2;
 					while (*msg_strs++)
 						;

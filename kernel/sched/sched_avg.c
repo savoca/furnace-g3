@@ -11,7 +11,7 @@
  */
 
 /*
-                                                    
+ * Scheduler hook for average runqueue determination
  */
 #include <linux/module.h>
 #include <linux/percpu.h>
@@ -26,14 +26,14 @@ static DEFINE_PER_CPU(unsigned long, iowait_prod_sum);
 static DEFINE_PER_CPU(spinlock_t, nr_lock) = __SPIN_LOCK_UNLOCKED(nr_lock);
 static s64 last_get_time;
 
-/* 
-                           
-                                                                
-                                                               
-                   
-  
-                                                            
-                                                           
+/**
+ * sched_get_nr_running_avg
+ * @return: Average nr_running and iowait value since last poll.
+ *	    Returns the avg * 100 to return up to two decimal points
+ *	    of accuracy.
+ *
+ * Obtains the average nr_running value since the last poll.
+ * This function may not be called concurrently with itself
  */
 void sched_get_nr_running_avg(int *avg, int *iowait_avg)
 {
@@ -49,7 +49,7 @@ void sched_get_nr_running_avg(int *avg, int *iowait_avg)
 		return;
 
 	last_get_time = curr_time;
-	/*                                  */
+	/* read and reset nr_running counts */
 	for_each_possible_cpu(cpu) {
 		unsigned long flags;
 
@@ -76,14 +76,14 @@ void sched_get_nr_running_avg(int *avg, int *iowait_avg)
 }
 EXPORT_SYMBOL(sched_get_nr_running_avg);
 
-/* 
-                       
-                                              
-                                         
-                                                          
-               
-  
-                                                      
+/**
+ * sched_update_nr_prod
+ * @cpu: The core id of the nr running driver.
+ * @nr: Updated nr running value for cpu.
+ * @inc: Whether we are increasing or decreasing the count
+ * @return: N/A
+ *
+ * Update average with latest nr_running value for CPU
  */
 void sched_update_nr_prod(int cpu, unsigned long nr_running, bool inc)
 {

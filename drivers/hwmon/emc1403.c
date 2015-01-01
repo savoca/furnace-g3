@@ -42,9 +42,9 @@ struct thermal_data {
 	struct device *hwmon_dev;
 	struct mutex mutex;
 	/*
-                                                                  
-                                                                  
-  */
+	 * Cache the hyst value so we don't keep re-reading it. In theory
+	 * we could cache it forever as nobody else should be writing it.
+	 */
 	u8 cached_hyst;
 	unsigned long hyst_valid;
 };
@@ -180,7 +180,7 @@ fail:
 }
 
 /*
-                                                           
+ *	Sensors. We pass the actual i2c register to the methods.
  */
 
 static SENSOR_DEVICE_ATTR(temp1_min, S_IRUGO | S_IWUSR,
@@ -271,7 +271,7 @@ static int emc1403_detect(struct i2c_client *client,
 			struct i2c_board_info *info)
 {
 	int id;
-	/*                                                      */
+	/* Check if thermal chip is SMSC and EMC1403 or EMC1423 */
 
 	id = i2c_smbus_read_byte_data(client, THERMAL_SMSC_ID_REG);
 	if (id != 0x5d)
@@ -286,9 +286,9 @@ static int emc1403_detect(struct i2c_client *client,
 		strlcpy(info->type, "emc1423", I2C_NAME_SIZE);
 		break;
 	/*
-                                                         
-                            
-  */
+	 * Note: 0x25 is the 1404 which is very similar and this
+	 * driver could be extended
+	 */
 	default:
 		return -ENODEV;
 	}
@@ -314,7 +314,7 @@ static int emc1403_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, data);
 	mutex_init(&data->mutex);
-	data->hyst_valid = jiffies - 1;		/*         */
+	data->hyst_valid = jiffies - 1;		/* Expired */
 
 	res = sysfs_create_group(&client->dev.kobj, &m_thermal_gr);
 	if (res) {

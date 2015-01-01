@@ -29,21 +29,21 @@
 
 #define DRIVER_NAME "saa7706h"
 
-/*                                   
+/* the I2C memory map looks like this
 
-                       
-                                         
-                          
-                                 
-                                         
-                          
-                         
-                       
-                                         
-                          
-                       
-                                         
-                          
+	$1C00 - $FFFF Not Used
+	$2200 - $3FFF Reserved YRAM (DSP2) space
+	$2000 - $21FF YRAM (DSP2)
+	$1FF0 - $1FFF Hardware Registers
+	$1280 - $1FEF Reserved XRAM (DSP2) space
+	$1000 - $127F XRAM (DSP2)
+	$0FFF        DSP CONTROL
+	$0A00 - $0FFE Reserved
+	$0980 - $09FF Reserved YRAM (DSP1) space
+	$0800 - $097F YRAM (DSP1)
+	$0200 - $07FF Not Used
+	$0180 - $01FF Reserved XRAM (DSP1) space
+	$0000 - $017F XRAM (DSP1)
 */
 
 #define SAA7706H_REG_CTRL		0x0fff
@@ -218,7 +218,7 @@ static int saa7706h_unmute(struct v4l2_subdev *sd)
 		SAA7706H_CTRL_PLL3_62975MHZ | SAA7706H_CTRL_PC_RESET_DSP1 |
 		SAA7706H_CTRL_PC_RESET_DSP2, &err);
 
-	/*                                                               */
+	/* newer versions of the chip requires a small sleep after reset */
 	msleep(1);
 
 	err = saa7706h_set_reg16_err(sd, SAA7706H_REG_CTRL,
@@ -358,8 +358,8 @@ static const struct v4l2_subdev_ops saa7706h_ops = {
 };
 
 /*
-                    
-                                                                            
+ * Generic i2c probe
+ * concerning the addresses: i2c wants 7 bit (without the r/w bit), so '>>1'
  */
 
 static int __devinit saa7706h_probe(struct i2c_client *client,
@@ -369,7 +369,7 @@ static int __devinit saa7706h_probe(struct i2c_client *client,
 	struct v4l2_subdev *sd;
 	int err;
 
-	/*                                                   */
+	/* Check if the adapter supports the needed features */
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE_DATA))
 		return -EIO;
 
@@ -382,7 +382,7 @@ static int __devinit saa7706h_probe(struct i2c_client *client,
 	sd = &state->sd;
 	v4l2_i2c_subdev_init(sd, client, &saa7706h_ops);
 
-	/*                        */
+	/* check the rom versions */
 	err = saa7706h_get_reg16(sd, SAA7706H_DSP1_ROM_VER);
 	if (err < 0)
 		goto err;
@@ -391,7 +391,7 @@ static int __devinit saa7706h_probe(struct i2c_client *client,
 
 	state->muted = 1;
 
-	/*                          */
+	/* startup in a muted state */
 	err = saa7706h_mute(sd);
 	if (err)
 		goto err;

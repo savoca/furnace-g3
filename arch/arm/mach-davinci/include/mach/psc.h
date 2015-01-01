@@ -29,7 +29,7 @@
 
 #define	DAVINCI_PWR_SLEEP_CNTRL_BASE	0x01C41000
 
-/*                                          */
+/* Power and Sleep Controller (PSC) Domains */
 #define DAVINCI_GPSC_ARMDOMAIN		0
 #define DAVINCI_GPSC_DSPDOMAIN		1
 
@@ -81,7 +81,7 @@
 #define DM355_LPSC_RTO			12
 #define DM355_LPSC_VPSS_DAC		41
 
-/*       */
+/* DM365 */
 #define DM365_LPSC_TIMER3	5
 #define DM365_LPSC_SPI1		6
 #define DM365_LPSC_MMC_SD1	7
@@ -100,7 +100,7 @@
 #define DM365_LPSC_MJCP		50
 
 /*
-                   
+ * LPSC Assignments
  */
 #define DM646X_LPSC_ARM		0
 #define DM646X_LPSC_C64X_CPU	1
@@ -136,7 +136,7 @@
 #define DM646X_LPSC_TIMER1	35
 #define DM646X_LPSC_ARM_INTC	45
 
-/*              */
+/* PSC0 defines */
 #define DA8XX_LPSC0_TPCC		0
 #define DA8XX_LPSC0_TPTC0		1
 #define DA8XX_LPSC0_TPTC1		2
@@ -154,7 +154,7 @@
 #define DA8XX_LPSC0_ARM			14
 #define DA8XX_LPSC0_GEM			15
 
-/*              */
+/* PSC1 defines */
 #define DA850_LPSC1_TPCC1		0
 #define DA8XX_LPSC1_USB20		1
 #define DA8XX_LPSC1_USB11		2
@@ -181,7 +181,7 @@
 #define DA8XX_LPSC1_CR_P3_SS		26
 #define DA8XX_LPSC1_L3_CBA_RAM		31
 
-/*                            */
+/* TNETV107X LPSC Assignments */
 #define TNETV107X_LPSC_ARM			0
 #define TNETV107X_LPSC_GEM			1
 #define TNETV107X_LPSC_DDR2_PHY			2
@@ -228,7 +228,7 @@
 #define TNETV107X_LPSC_DDR2_EMIF2_VCTL_RST	43
 #define TNETV107X_LPSC_MAX			44
 
-/*                      */
+/* PSC register offsets */
 #define EPCPR		0x070
 #define PTCMD		0x120
 #define PTSTAT		0x128
@@ -237,7 +237,7 @@
 #define MDSTAT		0x800
 #define MDCTL		0xA00
 
-/*                   */
+/* PSC module states */
 #define PSC_STATE_SWRSTDISABLE	0
 #define PSC_STATE_SYNCRST	1
 #define PSC_STATE_DISABLE	2
@@ -257,4 +257,4 @@ extern void davinci_psc_config(unsigned int domain, unsigned int ctlr,
 
 #endif
 
-#endif /*                  */
+#endif /* __ASM_ARCH_PSC_H */

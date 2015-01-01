@@ -24,13 +24,13 @@ static LIST_HEAD(clocks);
 static DEFINE_MUTEX(clocks_mutex);
 
 /*
-                                                                
-                                      
-                                                        
-                                              
-                                                  
-                                                            
-                                                      
+ * Find the correct struct clk for the device and connection ID.
+ * We do slightly fuzzy matching here:
+ *  An entry with a NULL ID is assumed to be a wildcard.
+ *  If an entry has a device ID, it must match
+ *  If an entry has a connection ID, it must match
+ * Then we take the most specific entry - with the following
+ * order of precedence: dev+con > dev only > con only.
  */
 static struct clk_lookup *clk_find(const char *dev_id, const char *con_id)
 {
@@ -188,7 +188,7 @@ int clk_add_alias(const char *alias, const char *alias_dev_name, char *id,
 EXPORT_SYMBOL(clk_add_alias);
 
 /*
-                                                     
+ * clkdev_drop - remove a clock dynamically allocated
  */
 void clkdev_drop(struct clk_lookup *cl)
 {

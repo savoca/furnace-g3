@@ -25,12 +25,12 @@
 #define MAX1111_TX_BUF_SIZE	1
 #define MAX1111_RX_BUF_SIZE	2
 
-/*                  */
+/* MAX1111 Commands */
 #define MAX1111_CTRL_PD0      (1u << 0)
 #define MAX1111_CTRL_PD1      (1u << 1)
 #define MAX1111_CTRL_SGL      (1u << 2)
 #define MAX1111_CTRL_UNI      (1u << 3)
-#define MAX1111_CTRL_SEL_SH   (5)	/*                        */
+#define MAX1111_CTRL_SEL_SH   (5)	/* NOTE: bit 4 is ignored */
 #define MAX1111_CTRL_STR      (1u << 7)
 
 struct max1111_data {
@@ -41,7 +41,7 @@ struct max1111_data {
 	uint8_t tx_buf[MAX1111_TX_BUF_SIZE];
 	uint8_t rx_buf[MAX1111_RX_BUF_SIZE];
 	struct mutex		drvdata_lock;
-	/*                                                    */
+	/* protect msg, xfer and buffers from multiple access */
 };
 
 static int max1111_read(struct device *dev, int channel)
@@ -50,7 +50,7 @@ static int max1111_read(struct device *dev, int channel)
 	uint8_t v1, v2;
 	int err;
 
-	/*                                                             */
+	/* writing to drvdata struct is not thread safe, wait on mutex */
 	mutex_lock(&data->drvdata_lock);
 
 	data->tx_buf[0] = (channel << MAX1111_CTRL_SEL_SH) |
@@ -86,9 +86,9 @@ EXPORT_SYMBOL(max1111_read_channel);
 #endif
 
 /*
-                                                                     
-                                                                 
-                                                           
+ * NOTE: SPI devices do not have a default 'name' attribute, which is
+ * likely to be used by hwmon applications to distinguish between
+ * different devices, explicitly add a name attribute here.
  */
 static ssize_t show_name(struct device *dev,
 			 struct device_attribute *attr, char *buf)
@@ -107,9 +107,9 @@ static ssize_t show_adc(struct device *dev,
 		return ret;
 
 	/*
-                                                                    
-                         
-  */
+	 * assume the reference voltage to be 2.048V, with an 8-bit sample,
+	 * the LSB weight is 8mV
+	 */
 	return sprintf(buf, "%d\n", ret * 8);
 }
 

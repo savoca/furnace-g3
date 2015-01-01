@@ -32,17 +32,17 @@
 #ifdef CONFIG_DYNAMIC_FTRACE
 
 /*
-                                                             
-                                                              
-                                                            
-                                                              
-  
-                                                               
-                                                               
-  
-                                                              
-                                                            
-                                             
+ * modifying_code is set to notify NMIs that they need to use
+ * memory barriers when entering or exiting. But we don't want
+ * to burden NMIs with unnecessary memory barriers when code
+ * modification is not being done (which is most of the time).
+ *
+ * A mutex is already held when ftrace_arch_code_modify_prepare
+ * and post_process are called. No locks need to be taken here.
+ *
+ * Stop machine will make sure currently running NMIs are done
+ * and new NMIs will see the updated variable before we need
+ * to worry about NMIs doing memory barriers.
  */
 static int modifying_code __read_mostly;
 static DEFINE_PER_CPU(int, save_modifying_code);
@@ -84,46 +84,46 @@ static unsigned char *ftrace_call_replace(unsigned long ip, unsigned long addr)
 	calc.offset	= ftrace_calc_offset(ip + MCOUNT_INSN_SIZE, addr);
 
 	/*
-                                                            
-                                                               
-  */
+	 * No locking needed, this must be called via kstop_machine
+	 * which in essence is like running on a uniprocessor machine.
+	 */
 	return calc.code;
 }
 
 /*
-                                                             
-                                                                
-                                                                
-                                                               
-                                                            
-                                                               
-                                 
-  
-                                                           
-  
-                                                    
-                                              
-                                                                  
-                                                               
-                    
-                     
-                                          
-  
-                                                            
-                                                                  
-                                                                    
-  
-                                                                   
-                                                                 
-                                                                        
-                               
+ * Modifying code must take extra care. On an SMP machine, if
+ * the code being modified is also being executed on another CPU
+ * that CPU will have undefined results and possibly take a GPF.
+ * We use kstop_machine to stop other CPUS from exectuing code.
+ * But this does not stop NMIs from happening. We still need
+ * to protect against that. We separate out the modification of
+ * the code to take care of this.
+ *
+ * Two buffers are added: An IP buffer and a "code" buffer.
+ *
+ * 1) Put the instruction pointer into the IP buffer
+ *    and the new code into the "code" buffer.
+ * 2) Wait for any running NMIs to finish and set a flag that says
+ *    we are modifying code, it is done in an atomic operation.
+ * 3) Write the code
+ * 4) clear the flag.
+ * 5) Wait for any running NMIs to finish.
+ *
+ * If an NMI is executed, the first thing it does is to call
+ * "ftrace_nmi_enter". This will check if the flag is set to write
+ * and if it is, it will write what is in the IP and "code" buffers.
+ *
+ * The trick is, it does not matter if everyone is writing the same
+ * content to the code location. Also, if a CPU is executing code
+ * it is OK to write to that code location if the contents being written
+ * are the same as what exists.
  */
 
-#define MOD_CODE_WRITE_FLAG (1 << 31)	/*                                  */
+#define MOD_CODE_WRITE_FLAG (1 << 31)	/* set when NMI should do the write */
 static atomic_t nmi_running = ATOMIC_INIT(0);
-static int mod_code_status;		/*                                  */
-static void *mod_code_ip;		/*                          */
-static const void *mod_code_newcode;	/*                                   */
+static int mod_code_status;		/* holds return value of text write */
+static void *mod_code_ip;		/* holds the IP to write to */
+static const void *mod_code_newcode;	/* holds the text to write to the IP */
 
 static unsigned nmi_wait_count;
 static atomic_t nmi_update_count = ATOMIC_INIT(0);
@@ -155,15 +155,15 @@ static void clear_mod_flag(void)
 static void ftrace_mod_code(void)
 {
 	/*
-                                                                     
-                            
-                                                                  
-                                     
-  */
+	 * Yes, more than one CPU process can be writing to mod_code_status.
+	 *    (and the code itself)
+	 * But if one were to fail, then they all should, and if one were
+	 * to succeed, then they all should.
+	 */
 	mod_code_status = probe_kernel_write(mod_code_ip, mod_code_newcode,
 					     MCOUNT_INSN_SIZE);
 
-	/*                                       */
+	/* if we fail, then kill any new writers */
 	if (mod_code_status)
 		clear_mod_flag();
 }
@@ -180,7 +180,7 @@ void ftrace_nmi_enter(void)
 		ftrace_mod_code();
 		atomic_inc(&nmi_update_count);
 	}
-	/*                                                   */
+	/* Must have previous changes seen before executions */
 	smp_mb();
 }
 
@@ -189,7 +189,7 @@ void ftrace_nmi_exit(void)
 	if (!__this_cpu_read(save_modifying_code))
 		return;
 
-	/*                                                   */
+	/* Finish all executions before clearing nmi_running */
 	smp_mb();
 	atomic_dec(&nmi_running);
 }
@@ -228,30 +228,30 @@ static int
 do_ftrace_mod_code(unsigned long ip, const void *new_code)
 {
 	/*
-                                                             
-                                                                      
-                                                         
-   
-                                                             
-                                           
-  */
+	 * On x86_64, kernel text mappings are mapped read-only with
+	 * CONFIG_DEBUG_RODATA. So we use the kernel identity mapping instead
+	 * of the kernel text mapping to modify the kernel text.
+	 *
+	 * For 32bit kernels, these mappings are same and we can use
+	 * kernel identity mapping to modify code.
+	 */
 	if (within(ip, (unsigned long)_text, (unsigned long)_etext))
 		ip = (unsigned long)__va(__pa(ip));
 
 	mod_code_ip = (void *)ip;
 	mod_code_newcode = new_code;
 
-	/*                                                              */
+	/* The buffers need to be visible before we let NMIs write them */
 	smp_mb();
 
 	wait_for_nmi_and_set_mod_flag();
 
-	/*                                                                   */
+	/* Make sure all running NMIs have finished before we write the code */
 	smp_mb();
 
 	ftrace_mod_code();
 
-	/*                                                     */
+	/* Make sure the write happens before clearing the bit */
 	smp_mb();
 
 	clear_mod_flag();
@@ -272,24 +272,24 @@ ftrace_modify_code(unsigned long ip, unsigned const char *old_code,
 	unsigned char replaced[MCOUNT_INSN_SIZE];
 
 	/*
-                                             
-                                                              
-                                                      
-                              
-   
-                                                    
-                                        
-  */
+	 * Note: Due to modules and __init, code can
+	 *  disappear and change, we need to protect against faulting
+	 *  as well as code changing. We do this by using the
+	 *  probe_kernel_* functions.
+	 *
+	 * No real locking needed, this code is run through
+	 * kstop_machine, or before SMP starts.
+	 */
 
-	/*                                 */
+	/* read the text we want to modify */
 	if (probe_kernel_read(replaced, (void *)ip, MCOUNT_INSN_SIZE))
 		return -EFAULT;
 
-	/*                                         */
+	/* Make sure it is what we expect it to be */
 	if (memcmp(replaced, old_code, MCOUNT_INSN_SIZE) != 0)
 		return -EINVAL;
 
-	/*                                    */
+	/* replace the text with the new text */
 	if (do_ftrace_mod_code(ip, new_code))
 		return -EPERM;
 
@@ -336,7 +336,7 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
 
 int __init ftrace_dyn_arch_init(void *data)
 {
-	/*                                     */
+	/* The return code is retured via data */
 	*(unsigned long *)data = 0;
 
 	return 0;
@@ -389,11 +389,11 @@ int ftrace_disable_ftrace_graph_caller(void)
 	return ftrace_mod_jmp(ip, old_offset, new_offset);
 }
 
-#endif /*                        */
+#endif /* !CONFIG_DYNAMIC_FTRACE */
 
 /*
-                                                                   
-                          
+ * Hook the return address and push it in the stack of return addrs
+ * in current thread info.
  */
 void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
 			   unsigned long frame_pointer)
@@ -408,10 +408,10 @@ void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
 		return;
 
 	/*
-                                               
-                                              
-                             
-  */
+	 * Protect against fault, even if it shouldn't
+	 * happen. This tool is too much intrusive to
+	 * ignore such a protection.
+	 */
 	asm volatile(
 		"1: " _ASM_MOV " (%[parent]), %[old]\n"
 		"2: " _ASM_MOV " %[return_hooker], (%[parent])\n"
@@ -440,7 +440,7 @@ void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
 	trace.func = self_addr;
 	trace.depth = current->curr_ret_stack + 1;
 
-	/*                                               */
+	/* Only trace if the calling function expects to */
 	if (!ftrace_graph_entry(&trace)) {
 		*parent = old;
 		return;
@@ -452,4 +452,4 @@ void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
 		return;
 	}
 }
-#endif /*                              */
+#endif /* CONFIG_FUNCTION_GRAPH_TRACER */

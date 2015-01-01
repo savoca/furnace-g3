@@ -25,7 +25,7 @@ static int logfs_mtd_read(struct super_block *sb, loff_t ofs, size_t len,
 	if (ret)
 		return ret;
 
-	/*                                     */
+	/* Not sure if we should loop instead. */
 	if (retlen != len)
 		return -EIO;
 
@@ -57,12 +57,12 @@ static int loffs_mtd_write(struct super_block *sb, loff_t ofs, size_t len,
 }
 
 /*
-                                                                          
-                                                                      
-                                                                             
-                                                                          
-                                                                         
-                                                         
+ * For as long as I can remember (since about 2001) mtd->erase has been an
+ * asynchronous interface lacking the first driver to actually use the
+ * asynchronous properties.  So just to prevent the first implementor of such
+ * a thing from breaking logfs in 2350, we do the usual pointless dance to
+ * declare a completion variable and wait for completion before returning
+ * from logfs_mtd_erase().  What an exercise in futility!
  */
 static void logfs_erase_callback(struct erase_info *ei)
 {
@@ -130,9 +130,9 @@ static int logfs_mtd_readpage(void *_sb, struct page *page)
 	err = logfs_mtd_read(sb, page->index << PAGE_SHIFT, PAGE_SIZE,
 			page_address(page));
 	if (err == -EUCLEAN || err == -EBADMSG) {
-		/*                                              */
+		/* -EBADMSG happens regularly on power failures */
 		err = 0;
-		/*                              */
+		/* FIXME: force GC this segment */
 	}
 	if (err) {
 		ClearPageUptodate(page);
@@ -211,10 +211,10 @@ static void logfs_mtd_writeseg(struct super_block *sb, u64 ofs, size_t len)
 		return;
 
 	if (len == 0) {
-		/*                                                     
-                                                                
-            
-   */
+		/* This can happen when the object fit perfectly into a
+		 * segment, the segment gets written per sync and subsequently
+		 * closed.
+		 */
 		return;
 	}
 	head = ofs & (PAGE_SIZE - 1);

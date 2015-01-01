@@ -13,8 +13,8 @@
  * of it).
  */
 
-struct task_struct;	/*                     */
-struct switch_stack;	/*                     */
+struct task_struct;	/* forward declaration */
+struct switch_stack;	/* forward declaration */
 
 enum unw_application_register {
 	UNW_AR_BSP,
@@ -32,8 +32,8 @@ enum unw_application_register {
 };
 
 /*
-                                                       
-                  
+ * The following declarations are private to the unwind
+ * implementation:
  */
 
 struct unw_stack {
@@ -44,9 +44,9 @@ struct unw_stack {
 #define UNW_FLAG_INTERRUPT_FRAME	(1UL << 0)
 
 /*
-                                                                     
-                                                                    
-                           
+ * No user of this module should every access this structure directly
+ * as it is subject to change.  It is declared here solely so we can
+ * use automatic variables.
  */
 struct unw_frame_info {
 	struct unw_stack regstk;
@@ -55,20 +55,20 @@ struct unw_frame_info {
 	short hint;
 	short prev_script;
 
-	/*                     */
-	unsigned long bsp;		/*                             */
-	unsigned long sp;		/*                     */
-	unsigned long psp;		/*                   */
-	unsigned long ip;		/*                           */
-	unsigned long pr;		/*                          */
-	unsigned long *cfm_loc;		/*                             */
-	unsigned long pt;		/*                         */
+	/* current frame info: */
+	unsigned long bsp;		/* backing store pointer value */
+	unsigned long sp;		/* stack pointer value */
+	unsigned long psp;		/* previous sp value */
+	unsigned long ip;		/* instruction pointer value */
+	unsigned long pr;		/* current predicate values */
+	unsigned long *cfm_loc;		/* cfm save location (or NULL) */
+	unsigned long pt;		/* struct pt_regs location */
 
 	struct task_struct *task;
 	struct switch_stack *sw;
 
-	/*                  */
-	unsigned long *bsp_loc;		/*                            */
+	/* preserved state: */
+	unsigned long *bsp_loc;		/* previous bsp save location */
 	unsigned long *bspstore_loc;
 	unsigned long *pfs_loc;
 	unsigned long *rnat_loc;
@@ -81,8 +81,8 @@ struct unw_frame_info {
 	struct unw_ireg {
 		unsigned long *loc;
 		struct unw_ireg_nat {
-			unsigned long type : 3;		/*                   */
-			signed long off : 61;		/*                            */
+			unsigned long type : 3;		/* enum unw_nat_type */
+			signed long off : 61;		/* NaT word is at loc+nat.off */
 		} nat;
 	} r4, r5, r6, r7;
 	unsigned long *b1_loc, *b2_loc, *b3_loc, *b4_loc, *b5_loc;
@@ -90,7 +90,7 @@ struct unw_frame_info {
 };
 
 /*
-                                  
+ * The official API follows below:
  */
 
 struct unw_table_entry {
@@ -100,7 +100,7 @@ struct unw_table_entry {
 };
 
 /*
-                             
+ * Initialize unwind support.
  */
 extern void unw_init (void);
 
@@ -110,7 +110,7 @@ extern void *unw_add_unwind_table (const char *name, unsigned long segment_base,
 extern void unw_remove_unwind_table (void *handle);
 
 /*
-                                    
+ * Prepare to unwind blocked task t.
  */
 extern void unw_init_from_blocked_task (struct unw_frame_info *info, struct task_struct *t);
 
@@ -118,20 +118,20 @@ extern void unw_init_frame_info (struct unw_frame_info *info, struct task_struct
 				 struct switch_stack *sw);
 
 /*
-                                                  
+ * Prepare to unwind the currently running thread.
  */
 extern void unw_init_running (void (*callback)(struct unw_frame_info *info, void *arg), void *arg);
 
 /*
-                                                                  
-                              
+ * Unwind to previous to frame.  Returns 0 if successful, negative
+ * number in case of an error.
  */
 extern int unw_unwind (struct unw_frame_info *info);
 
 /*
-                                                                     
-                                                                
-         
+ * Unwind until the return pointer is in user-land (or until an error
+ * occurs).  Returns 0 if successful, negative number in case of
+ * error.
  */
 extern int unw_unwind_to_user (struct unw_frame_info *info);
 
@@ -230,4 +230,4 @@ unw_set_pr (struct unw_frame_info *i, unsigned long v)
 #define unw_get_ar(i,n,v)	unw_access_ar(i,n,v,0)
 #define unw_get_pr(i,v)		unw_access_pr(i,v,0)
 
-#endif /*               */
+#endif /* _ASM_UNWIND_H */

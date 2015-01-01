@@ -51,20 +51,20 @@ struct  cs35l32_private {
 
 static const struct reg_default cs35l32_reg_defaults[] = {
 	
-	{ 0x06, 0x00 }, /*             */
-	{ 0x07, 0xE8 }, /*             */
-	{ 0x08, 0x40 }, /*           */
-	{ 0x09, 0x20 }, /*                       */
-	{ 0x0A, 0x00 }, /*                      */
-	{ 0x0B, 0x40 }, /*                               */
-	{ 0x0C, 0x07 }, /*              */
-	{ 0x0D, 0x03 }, /*                       */
-	{ 0x0F, 0x20 }, /*                     */
-	{ 0x10, 0x14 }, /*                 */
-	{ 0x11, 0x00 }, /*                        */
-	{ 0x12, 0xFF }, /*                  */
-	{ 0x13, 0xFF }, /*                  */
-	{ 0x14, 0xFF }, /*                  */
+	{ 0x06, 0x00 }, /* Power Ctl 1 */
+	{ 0x07, 0xE8 }, /* Power Ctl 2 */
+	{ 0x08, 0x40 }, /* Clock Ctl */
+	{ 0x09, 0x20 }, /* Low Battery Threshold */
+	{ 0x0A, 0x00 }, /* Voltage Monitor [RO] */
+	{ 0x0B, 0x40 }, /* Conv Peak Curr Protection CTL */
+	{ 0x0C, 0x07 }, /* IMON Scaling */
+	{ 0x0D, 0x03 }, /* Audio/LED Pwr Manager */
+	{ 0x0F, 0x20 }, /* Serial Port Control */
+	{ 0x10, 0x14 }, /* Class D Amp CTL */
+	{ 0x11, 0x00 }, /* Protection Release CTL */
+	{ 0x12, 0xFF }, /* Interrupt Mask 1 */
+	{ 0x13, 0xFF }, /* Interrupt Mask 2 */
+	{ 0x14, 0xFF }, /* Interrupt Mask 3 */
 
 };
 
@@ -299,21 +299,21 @@ static int cs35l32_probe(struct snd_soc_codec *codec) {
 
 	regcache_cache_only(cs35l32->regmap, false);
 
-	/*                    */
+	/* Power down the AMP */
 	snd_soc_update_bits(codec, CS35L32_PWRCTL1, CS35L32_PDN_AMP, 1);
 	
-	/*                          */
+	/* Setup ADSP Format Config */
 	snd_soc_update_bits(codec, CS35L32_ADSP_CTL, CS35L32_ADSP_SHARE_MASK,
 			    cs35l32->pdata.sdout_share << 3); 
-	/*                               */
+	/* Setup ADSP Data Configuration */
 	snd_soc_update_bits(codec, CS35L32_ADSP_CTL, CS35L32_ADSP_DATACFG_MASK,
 			    cs35l32->pdata.sdout_datacfg << 4);
 
-	/*                       */
+	/* Setup VBoost Manager  */
 	snd_soc_update_bits(codec, CS35L32_AUDIO_LED_MNGR, CS35L32_BOOST_MASK,
 			    cs35l32->pdata.boost_mng);
 
-	/*                                                        */
+	/* Clear MCLK Error Bit since we don't have the clock yet */
 	snd_soc_read(codec, CS35L32_INT_STATUS_1);
 	
 	return ret;
@@ -338,7 +338,7 @@ static struct snd_soc_codec_driver soc_codec_dev_cs35l32 = {
 	.controls = cs35l32_snd_controls,
 	.num_controls = ARRAY_SIZE(cs35l32_snd_controls), };
 
-/*                                             */ static const struct 
+/* Current and threshold powerup sequence Pg37 */ static const struct 
 reg_default cs35l32_monitor_patch[] = {
 
 	{ 0x00, 0x99 },
@@ -407,7 +407,7 @@ static __devinit int cs35l32_i2c_probe(struct i2c_client *i2c_client,
 				cs35l32->pdata.gpio_nreset);
 		return ret;
 	}
-	/*                           */
+	/*bring the chip out of reset*/
 	gpio_direction_output(cs35l32->pdata.gpio_nreset, 0);
 	msleep(20);
 	gpio_set_value_cansleep(cs35l32->pdata.gpio_nreset, 1);
@@ -424,7 +424,7 @@ static __devinit int cs35l32_i2c_probe(struct i2c_client *i2c_client,
 			dev_err(&i2c_client->dev, "failed to register regmap retry again\n");
 	}
 
-	/*                  */
+	/* initialize codec */
 	ret = regmap_read(cs35l32->regmap, CS35L32_DEVID_AB, &reg);
 	devid = (reg & 0xFF) << 12;
 

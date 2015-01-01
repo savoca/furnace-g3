@@ -46,7 +46,7 @@ static int mpc834xemds_usb_cfg(void)
 	u8 bcsr5;
 
 	mpc834x_usb_cfg();
-	/*               */
+	/* Map BCSR area */
 	np = of_find_node_by_name(NULL, "bcsr");
 	if (np) {
 		struct resource res;
@@ -59,9 +59,9 @@ static int mpc834xemds_usb_cfg(void)
 		return -1;
 
 	/*
-                                                 
-                                           
-  */
+	 * if Processor Board is plugged into PIB board,
+	 * force to use the PHY on Processor Board
+	 */
 	bcsr5 = in_8(bcsr_regs + 5);
 	if (!(bcsr5 & BCSR5_INT_USB))
 		out_8(bcsr_regs + 5, (bcsr5 | BCSR5_INT_USB));
@@ -69,10 +69,10 @@ static int mpc834xemds_usb_cfg(void)
 	return 0;
 }
 
-/*                                                                         
-  
-                         
-  
+/* ************************************************************************
+ *
+ * Setup the architecture
+ *
  */
 static void __init mpc834x_mds_setup_arch(void)
 {
@@ -87,7 +87,7 @@ static void __init mpc834x_mds_setup_arch(void)
 machine_device_initcall(mpc834x_mds, mpc83xx_declare_of_platform_devices);
 
 /*
-                                                               
+ * Called very early, MMU is off, device-tree isn't unflattened
  */
 static int __init mpc834x_mds_probe(void)
 {

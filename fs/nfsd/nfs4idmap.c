@@ -41,7 +41,7 @@
 #include "nfsd.h"
 
 /*
-                                          
+ * Turn off idmapping when using AUTH_SYS.
  */
 static bool nfs4_disable_idmapping = true;
 module_param(nfs4_disable_idmapping, bool, 0644);
@@ -49,12 +49,12 @@ MODULE_PARM_DESC(nfs4_disable_idmapping,
 		"Turn off server's NFSv4 idmapping when using 'sec=sys'");
 
 /*
-              
+ * Cache entry
  */
 
 /*
-                                                                      
-        
+ * XXX we know that IDMAP_NAMESZ < PAGE_SIZE, but it's ugly to rely on
+ * that.
  */
 
 #define IDMAP_TYPE_USER  0
@@ -62,13 +62,13 @@ MODULE_PARM_DESC(nfs4_disable_idmapping,
 
 struct ent {
 	struct cache_head h;
-	int               type;		       /*              */
+	int               type;		       /* User / Group */
 	uid_t             id;
 	char              name[IDMAP_NAMESZ];
 	char              authname[IDMAP_NAMESZ];
 };
 
-/*                       */
+/* Common entry handling */
 
 #define ENT_HASHBITS          8
 #define ENT_HASHMAX           (1 << ENT_HASHBITS)
@@ -104,7 +104,7 @@ ent_alloc(void)
 }
 
 /*
-                   
+ * ID -> Name cache
  */
 
 static struct cache_head *idtoname_table[ENT_HASHMAX];
@@ -117,7 +117,7 @@ idtoname_hash(struct ent *ent)
 	hash = hash_str(ent->authname, ENT_HASHBITS);
 	hash = hash_long(hash ^ ent->id, ENT_HASHBITS);
 
-	/*                         */
+	/* Flip LSB for user/group */
 	if (ent->type == IDMAP_TYPE_GROUP)
 		hash ^= 1;
 
@@ -220,25 +220,25 @@ idtoname_parse(struct cache_detail *cd, char *buf, int buflen)
 
 	memset(&ent, 0, sizeof(ent));
 
-	/*                     */
+	/* Authentication name */
 	if (qword_get(&buf, buf1, PAGE_SIZE) <= 0)
 		goto out;
 	memcpy(ent.authname, buf1, sizeof(ent.authname));
 
-	/*      */
+	/* Type */
 	if (qword_get(&buf, buf1, PAGE_SIZE) <= 0)
 		goto out;
 	ent.type = strcmp(buf1, "user") == 0 ?
 		IDMAP_TYPE_USER : IDMAP_TYPE_GROUP;
 
-	/*    */
+	/* ID */
 	if (qword_get(&buf, buf1, PAGE_SIZE) <= 0)
 		goto out;
 	ent.id = simple_strtoul(buf1, &bp, 10);
 	if (bp == buf1)
 		goto out;
 
-	/*        */
+	/* expiry */
 	ent.h.expiry_time = get_expiry(&buf);
 	if (ent.h.expiry_time == 0)
 		goto out;
@@ -248,7 +248,7 @@ idtoname_parse(struct cache_detail *cd, char *buf, int buflen)
 	if (!res)
 		goto out;
 
-	/*      */
+	/* Name */
 	error = -EINVAL;
 	len = qword_get(&buf, buf1, PAGE_SIZE);
 	if (len < 0)
@@ -300,7 +300,7 @@ idtoname_update(struct ent *new, struct ent *old)
 
 
 /*
-                   
+ * Name -> ID cache
  */
 
 static struct cache_head *nametoid_table[ENT_HASHMAX];
@@ -396,29 +396,29 @@ nametoid_parse(struct cache_detail *cd, char *buf, int buflen)
 
 	memset(&ent, 0, sizeof(ent));
 
-	/*                     */
+	/* Authentication name */
 	if (qword_get(&buf, buf1, PAGE_SIZE) <= 0)
 		goto out;
 	memcpy(ent.authname, buf1, sizeof(ent.authname));
 
-	/*      */
+	/* Type */
 	if (qword_get(&buf, buf1, PAGE_SIZE) <= 0)
 		goto out;
 	ent.type = strcmp(buf1, "user") == 0 ?
 		IDMAP_TYPE_USER : IDMAP_TYPE_GROUP;
 
-	/*      */
+	/* Name */
 	error = qword_get(&buf, buf1, PAGE_SIZE);
 	if (error <= 0 || error >= IDMAP_NAMESZ)
 		goto out;
 	memcpy(ent.name, buf1, sizeof(ent.name));
 
-	/*        */
+	/* expiry */
 	ent.h.expiry_time = get_expiry(&buf);
 	if (ent.h.expiry_time == 0)
 		goto out;
 
-	/*    */
+	/* ID */
 	error = get_int(&buf, &ent.id);
 	if (error == -EINVAL)
 		goto out;
@@ -467,7 +467,7 @@ nametoid_update(struct ent *new, struct ent *old)
 }
 
 /*
-               
+ * Exported API
  */
 
 int
@@ -576,9 +576,9 @@ numeric_name_to_id(struct svc_rqst *rqstp, int type, const char *name, u32 namel
 	char buf[11];
 
 	if (namelen + 1 > sizeof(buf))
-		/*                                    */
+		/* too long to represent a 32-bit id: */
 		return false;
-	/*                                         */
+	/* Just to make sure it's null-terminated: */
 	memcpy(buf, name, namelen);
 	buf[namelen] = '\0';
 	ret = kstrtouint(name, 10, id);
@@ -592,9 +592,9 @@ do_name_to_id(struct svc_rqst *rqstp, int type, const char *name, u32 namelen, u
 		if (numeric_name_to_id(rqstp, type, name, namelen, id))
 			return 0;
 		/*
-                                                   
-                                                        
-   */
+		 * otherwise, fall through and try idmapping, for
+		 * backwards compatibility with clients sending names:
+		 */
 	return idmap_name_to_id(rqstp, type, name, namelen, id);
 }
 

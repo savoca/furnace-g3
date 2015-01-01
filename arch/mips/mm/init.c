@@ -43,7 +43,7 @@
 #include <asm/tlb.h>
 #include <asm/fixmap.h>
 
-/*                                */
+/* Atomicity and interruptability */
 #ifdef CONFIG_MIPS_MT_SMTC
 
 #include <asm/mipsmtregs.h>
@@ -62,20 +62,20 @@
 #define ENTER_CRITICAL(flags) local_irq_save(flags)
 #define EXIT_CRITICAL(flags) local_irq_restore(flags)
 
-#endif /*                     */
+#endif /* CONFIG_MIPS_MT_SMTC */
 
 /*
-                                                                           
-                                                                           
-                                                                        
-                                                                         
-                                                  
+ * We have up to 8 empty zeroed pages so we can map one of the right colour
+ * when needed.  This is necessary only on R4000 / R4400 SC and MC versions
+ * where we have to avoid VCED / VECI exceptions for good performance at
+ * any price.  Since page is never written to after the initialization we
+ * don't have to care about aliases on other CPUs.
  */
 unsigned long empty_zero_page, zero_page_mask;
 EXPORT_SYMBOL_GPL(empty_zero_page);
 
 /*
-                                                                           
+ * Not static inline because used by IP27 special magic initialization code
  */
 unsigned long setup_zero_pages(void)
 {
@@ -111,7 +111,7 @@ static void __init kmap_coherent_init(void)
 {
 	unsigned long vaddr;
 
-	/*                                   */
+	/* cache the first coherent kmap pte */
 	vaddr = __fix_to_virt(FIX_CMAP_BEGIN);
 	kmap_coherent_pte = kmap_get_fixmap_pte(vaddr);
 }
@@ -152,7 +152,7 @@ void *kmap_coherent(struct page *page, unsigned long addr)
 	write_c0_entrylo1(entrylo);
 #ifdef CONFIG_MIPS_MT_SMTC
 	set_pte(kmap_coherent_pte - (FIX_CMAP_END - idx), pte);
-	/*                                              */
+	/* preload TLB instead of local_flush_tlb_one() */
 	mtc0_tlbw_hazard();
 	tlb_probe();
 	tlb_probe_hazard();
@@ -222,7 +222,7 @@ void copy_user_highpage(struct page *to, struct page *from,
 	    pages_do_alias((unsigned long)vto, vaddr & PAGE_MASK))
 		flush_data_cache_page((unsigned long)vto);
 	kunmap_atomic(vto);
-	/*                                                                   */
+	/* Make sure this page is cleared on other CPU's too before using it */
 	smp_wmb();
 }
 
@@ -309,7 +309,7 @@ int page_is_ram(unsigned long pagenr)
 		case BOOT_MEM_INIT_RAM:
 			break;
 		default:
-			/*                   */
+			/* not usable memory */
 			continue;
 		}
 
@@ -380,7 +380,7 @@ void __init mem_init(void)
 	high_memory = (void *) __va(max_low_pfn << PAGE_SHIFT);
 
 	totalram_pages += free_all_bootmem();
-	totalram_pages -= setup_zero_pages();	/*                      */
+	totalram_pages -= setup_zero_pages();	/* Setup zeroed pages.  */
 
 	reservedpages = ram = 0;
 	for (tmp = 0; tmp < max_low_pfn; tmp++)
@@ -414,8 +414,8 @@ void __init mem_init(void)
 
 #ifdef CONFIG_64BIT
 	if ((unsigned long) &_text > (unsigned long) CKSEG0)
-		/*                                                         
-                    */
+		/* The -4 is a hack so that user tools don't have to handle
+		   the overflow.  */
 		kclist_add(&kcore_kseg0, (void *) CKSEG0,
 				0x80000000 - 4, KCORE_TEXT);
 #endif
@@ -430,7 +430,7 @@ void __init mem_init(void)
 	       initsize >> 10,
 	       totalhigh_pages << (PAGE_SHIFT-10));
 }
-#endif /*                             */
+#endif /* !CONFIG_NEED_MULTIPLE_NODES */
 
 void free_init_pages(const char *what, unsigned long begin, unsigned long end)
 {
@@ -470,15 +470,15 @@ void __init_refok free_initmem(void)
 unsigned long pgd_current[NR_CPUS];
 #endif
 /*
-                                                             
-                       
+ * On 64-bit we've got three-level pagetables with a slightly
+ * different layout ...
  */
 #define __page_aligned(order) __attribute__((__aligned__(PAGE_SIZE<<order)))
 
 /*
-                                                                             
-                                                                          
-                              
+ * gcc 3.3 and older have trouble determining that PTRS_PER_PGD and PGD_ORDER
+ * are constants.  So we use the variants from asm-offset.h until that gcc
+ * will officially be retired.
  */
 pgd_t swapper_pg_dir[_PTRS_PER_PGD] __page_aligned(_PGD_ORDER);
 #ifndef __PAGETABLE_PMD_FOLDED

@@ -28,7 +28,7 @@ static DEFINE_SPINLOCK(snap_lock);
 static struct llc_sap *snap_sap;
 
 /*
-                                              
+ *	Find a snap client by matching the 5 bytes.
  */
 static struct datalink_proto *find_snap_client(const unsigned char *desc)
 {
@@ -44,7 +44,7 @@ static struct datalink_proto *find_snap_client(const unsigned char *desc)
 }
 
 /*
-                            
+ *	A SNAP packet has arrived
  */
 static int snap_rcv(struct sk_buff *skb, struct net_device *dev,
 		    struct packet_type *pt, struct net_device *orig_dev)
@@ -61,7 +61,7 @@ static int snap_rcv(struct sk_buff *skb, struct net_device *dev,
 	rcu_read_lock();
 	proto = find_snap_client(skb_transport_header(skb));
 	if (proto) {
-		/*                    */
+		/* Pass the frame on. */
 		skb->transport_header += 5;
 		skb_pull_rcsum(skb, 5);
 		rc = proto->rcvfunc(skb, dev, &snap_packet_type, orig_dev);
@@ -80,7 +80,7 @@ drop:
 }
 
 /*
-                                                 
+ *	Put a SNAP header on a frame and pass to 802.2
  */
 static int snap_request(struct datalink_proto *dl,
 			struct sk_buff *skb, u8 *dest)
@@ -91,7 +91,7 @@ static int snap_request(struct datalink_proto *dl,
 }
 
 /*
-                        
+ *	Set up the SNAP layer
  */
 EXPORT_SYMBOL(register_snap_client);
 EXPORT_SYMBOL(unregister_snap_client);
@@ -121,7 +121,7 @@ module_exit(snap_exit);
 
 
 /*
-                                                       
+ *	Register SNAP clients. We don't yet use this for IP.
  */
 struct datalink_proto *register_snap_client(const unsigned char *desc,
 					    int (*rcvfunc)(struct sk_buff *,
@@ -140,7 +140,7 @@ struct datalink_proto *register_snap_client(const unsigned char *desc,
 	if (proto) {
 		memcpy(proto->type, desc, 5);
 		proto->rcvfunc		= rcvfunc;
-		proto->header_length	= 5 + 3; /*              */
+		proto->header_length	= 5 + 3; /* snap + 802.2 */
 		proto->request		= snap_request;
 		list_add_rcu(&proto->node, &snap_list);
 	}
@@ -151,7 +151,7 @@ out:
 }
 
 /*
-                                                                        
+ *	Unregister SNAP clients. Protocols no longer want to play with us ...
  */
 void unregister_snap_client(struct datalink_proto *proto)
 {

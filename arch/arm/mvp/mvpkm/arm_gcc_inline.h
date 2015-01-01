@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-        
-  
-                                                          
+/**
+ * @file
+ *
+ * @brief GCC inline stubs for ARM assembler instructions.
  */
 
 #ifndef _ARM_GCC_INLINE_H_
@@ -38,7 +38,7 @@
 #include "coproc_defs.h"
 
 /*
-                             
+ * Macros for accessing CP10.
  */
 #define _ARM_CP10_MRCMCR_STR(_op1, _cr1, _cr2, _op2, _var) \
 	" p10, " #_op1 ", "#_var", " #_cr1 ", " #_cr2 ", " #_op2 "\n\t"
@@ -60,7 +60,7 @@
 
 
 /*
-                             
+ * Macros for accessing CP15.
  */
 #define _ARM_CP15_MRCMCR_STR(_op1, _cr1, _cr2, _op2, _var) \
 	" p15, " #_op1 ", "#_var", " #_cr1 ", " #_cr2 ", " #_op2 "\n\t"
@@ -127,39 +127,39 @@ static uint32 __cp15;
 #define DSB() { asm volatile ("dsb" : : : "memory"); }
 #define ISB() { asm volatile ("isb" : : : "memory"); }
 
-/* 
-                          
-     
+/**
+ * @name 64-bit multiplies
+ * @{
  */
 
-/*                                   */
+/* rdhi:rdlo = rm * rs + rdhi + rdlo */
 #define ARM_UMAAL(rdlo, rdhi, rm, rs) do { \
 	asm ("umaal %0, %1, %2, %3" \
 	     : "+r" (rdlo), "+r" (rdhi) \
 	     :  "r" (rm),    "r" (rs)); \
 } while (0)
 
-/*                      */
+/* rdhi:rdlo += rm * rs */
 #define ARM_UMLAL(rdlo, rdhi, rm, rs) do { \
 	asm ("umlal %0, %1, %2, %3" \
 	     : "+r" (rdlo), "+r" (rdhi) \
 	     :  "r" (rm),    "r" (rs)); \
 } while (0)
 
-/*                     */
+/* rdhi:rdlo = rm * rs */
 #define ARM_UMULL(rdlo, rdhi, rm, rs) do { \
 	asm ("umull %0, %1, %2, %3" \
 	     : "=r" (rdlo), "=r" (rdhi) \
 	     :  "r" (rm),    "r" (rs)); \
 } while (0)
-/*  */
+/*@}*/
 
-/* 
-                                        
-  
-                                                                   
-                                                               
-                          
+/**
+ * @brief Disable interrupts (IRQ + FIQ)
+ *
+ * @return CPSR status prior to disabling - suitable for passing to
+ *         ARM_RestoreInterrupts() to restore IRQ/FIQ levels to
+ *         pre-call values
  */
 static inline uint32
 ARM_DisableInterrupts(void)
@@ -176,10 +176,10 @@ ARM_DisableInterrupts(void)
 	return status;
 }
 
-/* 
-                            
-  
-                                                                             
+/**
+ * @brief Restore interrupts
+ *
+ * @param status return value from a previous call to ARM_DisableInterrupts()
  */
 static inline void
 ARM_RestoreInterrupts(uint32 status)
@@ -187,10 +187,10 @@ ARM_RestoreInterrupts(uint32 status)
 	asm volatile ("msr cpsr_c, %0\n\t" : : "r" (status) : "memory");
 }
 
-/* 
-                                 
-  
-                             
+/**
+ * @brief Read current CPSR value
+ *
+ * @return current CPSR value
  */
 static inline uint32
 ARM_ReadCPSR(void)
@@ -202,10 +202,10 @@ ARM_ReadCPSR(void)
 	return status;
 }
 
-/* 
-                                    
-  
-                              
+/**
+ * @brief Read current stack pointer
+ *
+ * @return stack pointer value
  */
 static inline uint32
 ARM_ReadSP(void)
@@ -217,4 +217,4 @@ ARM_ReadSP(void)
 	return sp;
 }
 
-#endif /*                           */
+#endif /* ifndef _ARM_GCC_INLINE_H_ */

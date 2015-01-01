@@ -113,7 +113,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			atomic_set(&this_afe.state, 0);
 			this_afe.apr = NULL;
 		}
-		/*                   */
+		/* send info to user */
 		pr_debug("task_name = %s pid = %d\n",
 			this_afe.task->comm, this_afe.task->pid);
 		return 0;
@@ -149,7 +149,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 					__func__, data->opcode,
 					payload[0], payload[1], data->token);
 		if (data->opcode == APR_BASIC_RSP_RESULT) {
-			/*                                                   */
+			/* payload[1] contains the error status for response */
 			if (payload[1] != 0) {
 				atomic_set(&this_afe.status, -1);
 				pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
@@ -352,7 +352,7 @@ int afe_q6_interface_prepare(void)
 }
 
 /*
-                                                               
+ * afe_apr_send_pkt : returns 0 on success, negative otherwise.
  */
 static int afe_apr_send_pkt(void *data, wait_queue_head_t *wait)
 {
@@ -375,7 +375,7 @@ static int afe_apr_send_pkt(void *data, wait_queue_head_t *wait)
 			ret = 0;
 		}
 	} else if (ret == 0) {
-		/*                                                       */
+		/* apr_send_pkt can return 0 when nothing is transmitted */
 		ret = -EINVAL;
 	}
 
@@ -578,7 +578,7 @@ static void afe_send_cal_spkr_prot_tx(int port_id)
 	struct msm_spk_prot_cfg prot_cfg;
 	union afe_spkr_prot_config afe_spk_config;
 
-	/*                            */
+	/*Get spkr protection cfg data*/
 	get_spk_protection_cfg(&prot_cfg);
 
 	if ((prot_cfg.mode != MSM_SPKR_PROT_DISABLED) &&
@@ -614,7 +614,7 @@ static void afe_send_cal_spkr_prot_rx(int port_id)
 	struct msm_spk_prot_cfg prot_cfg;
 	union afe_spkr_prot_config afe_spk_config;
 
-	/*                            */
+	/*Get spkr protection cfg data*/
 	get_spk_protection_cfg(&prot_cfg);
 
 	if (prot_cfg.mode != MSM_SPKR_PROT_DISABLED) {
@@ -1189,9 +1189,9 @@ int afe_set_config(enum afe_config_type config_type, void *config_data, int arg)
 }
 
 /*
-                                                                                
-                                                                
-                       
+ * afe_clear_config - If SSR happens ADSP loses AFE configs, let AFE driver know
+ *		      about the state so client driver can wait until AFE is
+ *		      reconfigured.
  */
 void afe_clear_config(enum afe_config_type config)
 {
@@ -1260,7 +1260,7 @@ fail_cmd:
 }
 
 int afe_port_start(u16 port_id, union afe_port_config *afe_config,
-	u32 rate) /*                              */
+	u32 rate) /* This function is no blocking */
 {
 	struct afe_audioif_config_command config;
 	int ret = 0;
@@ -1291,7 +1291,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 			proxy_afe_instance[port_id & 0x1], port_id);
 
 		if (!afe_close_done[port_id & 0x1]) {
-			/*                                            */
+			/*close pcm dai corresponding to the proxy dai*/
 			afe_close(port_id - 0x10);
 			pcm_afe_instance[port_id & 0x1]++;
 			pr_debug("%s: reconfigure afe port again\n", __func__);
@@ -1316,7 +1316,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	afe_send_cal(port_id);
 	afe_send_hw_delay(port_id, rate);
 
-	/*                     */
+	/* Start SW MAD module */
 	mad_type = afe_port_get_mad_type(port_id);
 	pr_debug("%s: port_id 0x%x, mad_type %d\n", __func__, port_id,
 		 mad_type);
@@ -1727,7 +1727,7 @@ int afe_loopback_gain(u16 port_id, u16 volume)
 	if (q6audio_validate_port(port_id) < 0)
 		return -EINVAL;
 
-	/*                                                      */
+	/* RX ports numbers are even .TX ports numbers are odd. */
 	if (port_id % 2 == 0) {
 		pr_err("%s: Failed : afe loopback gain only for TX ports. port_id %d\n",
 				__func__, port_id);
@@ -2070,7 +2070,7 @@ int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz)
 	mregion->mem_pool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL;
 	mregion->num_regions = 1;
 	mregion->property_flag = 0x00;
-	/*      */
+	/* Todo */
 	index = mregion->hdr.token = IDX_RSVD_2;
 
 	payload = ((u8 *) mmap_region_cmd +
@@ -2261,7 +2261,7 @@ int afe_cmd_memory_unmap(u32 mem_map_handle)
 	mregion.hdr.opcode = AFE_SERVICE_CMD_SHARED_MEM_UNMAP_REGIONS;
 	mregion.mem_map_handle = mem_map_handle;
 
-	/*      */
+	/* Todo */
 	index = mregion.hdr.token = IDX_RSVD_2;
 
 	atomic_set(&this_afe.status, 0);
@@ -2738,9 +2738,9 @@ int afe_sidetone(u16 tx_port_id, u16 rx_port_id, u16 enable, uint16_t gain)
 	cmd_sidetone.hdr.dest_port = 0;
 	cmd_sidetone.hdr.token = 0;
 	cmd_sidetone.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
-	/*                                           */
+	/* should it be rx or tx port id ?? , bharath*/
 	cmd_sidetone.param.port_id = tx_port_id;
-	/*                              */
+	/* size of data param & payload */
 	cmd_sidetone.param.payload_size = (sizeof(cmd_sidetone) -
 			sizeof(struct apr_hdr) -
 			sizeof(struct afe_port_cmd_set_param_v2));
@@ -2749,7 +2749,7 @@ int afe_sidetone(u16 tx_port_id, u16 rx_port_id, u16 enable, uint16_t gain)
 	cmd_sidetone.param.mem_map_handle = 0x00;
 	cmd_sidetone.pdata.module_id = AFE_MODULE_LOOPBACK;
 	cmd_sidetone.pdata.param_id = AFE_PARAM_ID_LOOPBACK_CONFIG;
-	/*                             */
+	/* size of actual payload only */
 	cmd_sidetone.pdata.param_size =  cmd_sidetone.param.payload_size -
 				sizeof(struct afe_port_param_data_v2);
 
@@ -2823,9 +2823,9 @@ int afe_convert_virtual_to_portid(u16 port_id)
 	int ret;
 
 	/*
-                                                
-                                                   
-  */
+	 * if port_id is virtual, convert to physical..
+	 * if port_id is already physical, return physical
+	 */
 	if (afe_validate_port(port_id) < 0) {
 		if (port_id == RT_PROXY_DAI_001_RX ||
 		    port_id == RT_PROXY_DAI_001_TX ||

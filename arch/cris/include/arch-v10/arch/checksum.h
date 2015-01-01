@@ -1,11 +1,11 @@
 #ifndef _CRIS_ARCH_CHECKSUM_H
 #define _CRIS_ARCH_CHECKSUM_H
 
-/*                                              
-  
-                                                                            
-                                                                            
-                                                          
+/* Checksum some values used in TCP/UDP headers.
+ *
+ * The gain by doing this in asm is that C will not generate carry-additions
+ * for the 32-bit components of the checksum, so otherwise we would have had
+ * to split all of those into 16-bit components, then add.
  */
 
 static inline __wsum

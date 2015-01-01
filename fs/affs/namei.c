@@ -1,11 +1,11 @@
 /*
-                         
-  
-                                               
-  
-                                                           
-  
-                                               
+ *  linux/fs/affs/namei.c
+ *
+ *  (c) 1996  Hans-Joachim Widmaier - Rewritten
+ *
+ *  (C) 1993  Ray Burr - Modified for Amiga FFS filesystem.
+ *
+ *  (C) 1991  Linus Torvalds - minix filesystem
  */
 
 #include "affs.h"
@@ -38,7 +38,7 @@ const struct dentry_operations affs_intl_dentry_operations = {
 };
 
 
-/*                            */
+/* Simple toupper() for DOS\1 */
 
 static int
 affs_toupper(int ch)
@@ -46,7 +46,7 @@ affs_toupper(int ch)
 	return ch >= 'a' && ch <= 'z' ? ch -= ('a' - 'A') : ch;
 }
 
-/*                                                     */
+/* International toupper() for DOS\3 ("international") */
 
 static int
 affs_intl_toupper(int ch)
@@ -63,7 +63,7 @@ affs_get_toupper(struct super_block *sb)
 }
 
 /*
-                                                  
+ * Note: the dentry argument is the parent dentry.
  */
 static inline int
 __affs_hash_dentry(struct qstr *qstr, toupper_t toupper)
@@ -105,17 +105,17 @@ static inline int __affs_compare_dentry(unsigned int len,
 	const u8 *bname = name->name;
 
 	/*
-                                                                
-                                                  
-  */
+	 * 'str' is the name of an already existing dentry, so the name
+	 * must be valid. 'name' must be validated first.
+	 */
 
 	if (affs_check_name(name->name, name->len))
 		return 1;
 
 	/*
-                                                      
-                                                      
-  */
+	 * If the names are longer than the allowed 30 chars,
+	 * the excess is ignored, so their length may differ.
+	 */
 	if (len >= 30) {
 		if (name->len < 30)
 			return 1;
@@ -146,7 +146,7 @@ affs_intl_compare_dentry(const struct dentry *parent,const struct inode *pinode,
 }
 
 /*
-                                                                         
+ * NOTE! unlike strncmp, affs_match returns 1 for success, 0 for failure.
  */
 
 static inline int
@@ -227,11 +227,11 @@ affs_lookup(struct inode *dir, struct dentry *dentry, struct nameidata *nd)
 	if (bh) {
 		u32 ino = bh->b_blocknr;
 
-		/*                                                          */
+		/* store the real header ino in d_fsdata for faster lookups */
 		dentry->d_fsdata = (void *)(long)ino;
 		switch (be32_to_cpu(AFFS_TAIL(sb, bh)->stype)) {
-		//                     
-		//                
+		//link to dirs disabled
+		//case ST_LINKDIR:
 		case ST_LINKFILE:
 			ino = be32_to_cpu(AFFS_TAIL(sb, bh)->original);
 		}
@@ -358,7 +358,7 @@ affs_symlink(struct inode *dir, struct dentry *dentry, const char *symname)
 		while (*symname == '/')
 			symname++;
 		spin_lock(&sbi->symlink_lock);
-		while (sbi->s_volume[i])	/*                 */
+		while (sbi->s_volume[i])	/* Cannot overflow */
 			*p++ = sbi->s_volume[i++];
 		spin_unlock(&sbi->symlink_lock);
 	}
@@ -425,7 +425,7 @@ affs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	if (retval)
 		return retval;
 
-	/*                                         */
+	/* Unlink destination if it already exists */
 	if (new_dentry->d_inode) {
 		retval = affs_remove_header(new_dentry);
 		if (retval)
@@ -436,20 +436,20 @@ affs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	if (!bh)
 		return -EIO;
 
-	/*                                          */
+	/* Remove header from its parent directory. */
 	affs_lock_dir(old_dir);
 	retval = affs_remove_hash(old_dir, bh);
 	affs_unlock_dir(old_dir);
 	if (retval)
 		goto done;
 
-	/*                                                         */
+	/* And insert it into the new directory with the new name. */
 	affs_copy_name(AFFS_TAIL(sb, bh)->name, new_dentry);
 	affs_fix_checksum(sb, bh);
 	affs_lock_dir(new_dir);
 	retval = affs_insert_hash(new_dir, bh);
 	affs_unlock_dir(new_dir);
-	/*                                          */
+	/* TODO: move it back to old_dir, if error? */
 
 done:
 	mark_buffer_dirty_inode(bh, retval ? old_dir : new_dir);

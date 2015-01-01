@@ -32,10 +32,10 @@
 #include "xfs_rw.h"
 
 /*
-                                                             
-                                                                        
-                                                                    
-                                    
+ * Force a shutdown of the filesystem instantly while keeping
+ * the filesystem consistent. We don't do an unmount here; just shutdown
+ * the shop, make sure that absolutely nothing persistent happens to
+ * this filesystem after this point.
  */
 void
 xfs_do_force_shutdown(
@@ -54,17 +54,17 @@ xfs_do_force_shutdown(
 			__func__, flags, lnnum, fname, __return_address);
 	}
 	/*
-                                 
-  */
+	 * No need to duplicate efforts.
+	 */
 	if (XFS_FORCED_SHUTDOWN(mp) && !logerror)
 		return;
 
 	/*
-                                                              
-                                                              
-                                                             
-                 
-  */
+	 * This flags XFS_MOUNT_FS_SHUTDOWN, makes sure that we don't
+	 * queue up anybody new on the log reservations, and wakes up
+	 * everybody who's sleeping on log reservations to tell them
+	 * the bad news.
+	 */
 	if (xfs_log_force_umount(mp, logerror))
 		return;
 
@@ -92,13 +92,13 @@ xfs_do_force_shutdown(
 }
 
 /*
-                                                
-                                                   
-                                                        
-                                                              
-                                                             
-                                                             
-                                                  
+ * This isn't an absolute requirement, but it is
+ * just a good idea to call xfs_read_buf instead of
+ * directly doing a read_buf call. For one, we shouldn't
+ * be doing this disk read if we are in SHUTDOWN state anyway,
+ * so this stops that from happening. Secondly, this does all
+ * the error checking stuff and the brelse if appropriate for
+ * the caller, so the code can be a little leaner.
  */
 
 int
@@ -133,8 +133,8 @@ xfs_read_buf(
 			XFS_BUF_UNDONE(bp);
 			xfs_buf_stale(bp);
 			/*
-                                       
-    */
+			 * brelse clears B_ERROR and b_error
+			 */
 			xfs_buf_relse(bp);
 		}
 	}
@@ -142,7 +142,7 @@ xfs_read_buf(
 }
 
 /*
-                                                         
+ * helper function to extract extent size hint from inode
  */
 xfs_extlen_t
 xfs_get_extsz_hint(

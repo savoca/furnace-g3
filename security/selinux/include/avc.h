@@ -1,7 +1,7 @@
 /*
-                                                     
-  
-                                                 
+ * Access vector cache interface for object managers.
+ *
+ * Author : Stephen Smalley, <sds@epoch.ncsc.mil>
  */
 #ifndef _SELINUX_AVC_H_
 #define _SELINUX_AVC_H_
@@ -26,7 +26,7 @@ extern int selinux_enforcing;
 #endif
 
 /*
-                       
+ * An entry in the AVC.
  */
 struct avc_entry;
 
@@ -36,7 +36,7 @@ struct sock;
 struct sk_buff;
 
 /*
-                 
+ * AVC statistics
  */
 struct avc_cache_stats {
 	unsigned int lookups;
@@ -47,7 +47,7 @@ struct avc_cache_stats {
 };
 
 /*
-                                                                         
+ * We only need this data after we have decided to send an audit message.
  */
 struct selinux_late_audit_data {
 	u32 ssid;
@@ -60,19 +60,19 @@ struct selinux_late_audit_data {
 };
 
 /*
-                                                                           
+ * We collect this at the beginning or during an selinux security operation
  */
 struct selinux_audit_data {
 	/*
-                                                       
-                                                 
-  */
+	 * auditdeny is a bit tricky and unintuitive.  See the
+	 * comments in avc.c for it's meaning and usage.
+	 */
 	u32 auditdeny;
 	struct selinux_late_audit_data *slad;
 };
 
 /*
-                 
+ * AVC operations
  */
 
 void __init avc_init(void);
@@ -83,7 +83,7 @@ int avc_audit(u32 ssid, u32 tsid,
 	       int result,
 	      struct common_audit_data *a, unsigned flags);
 
-#define AVC_STRICT 1 /*                         */
+#define AVC_STRICT 1 /* Ignore permissive mode. */
 int avc_has_perm_noaudit(u32 ssid, u32 tsid,
 			 u16 tclass, u32 requested,
 			 unsigned flags,
@@ -118,16 +118,16 @@ int avc_add_callback(int (*callback)(u32 event, u32 ssid, u32 tsid,
 		     u32 events, u32 ssid, u32 tsid,
 		     u16 tclass, u32 perms);
 
-/*                       */
+/* Exported to selinuxfs */
 int avc_get_hash_stats(char *page);
 extern unsigned int avc_cache_threshold;
 
-/*                                */
+/* Attempt to free avc node cache */
 void avc_disable(void);
 
 #ifdef CONFIG_SECURITY_SELINUX_AVC_STATS
 DECLARE_PER_CPU(struct avc_cache_stats, avc_cache_stats);
 #endif
 
-#endif /*                 */
+#endif /* _SELINUX_AVC_H_ */
 

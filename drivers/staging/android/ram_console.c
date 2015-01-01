@@ -108,7 +108,7 @@ static ssize_t ram_console_read_old(struct file *file, char __user *buf,
 	if (dmesg_restrict && !capable(CAP_SYSLOG))
 		return -EPERM;
 
-	/*                    */
+	/* Main last_kmsg log */
 	if (pos < old_log_size) {
 		count = min(len, (size_t)(old_log_size - pos));
 		if (copy_to_user(buf, old_log + pos, count))
@@ -116,7 +116,7 @@ static ssize_t ram_console_read_old(struct file *file, char __user *buf,
 		goto out;
 	}
 
-	/*                       */
+	/* ECC correction notice */
 	pos -= old_log_size;
 	count = persistent_ram_ecc_string(prz, NULL, 0);
 	if (pos < count) {
@@ -132,7 +132,7 @@ static ssize_t ram_console_read_old(struct file *file, char __user *buf,
 		goto out;
 	}
 
-	/*                                */
+	/* Boot info passed through pdata */
 	pos -= count;
 	if (pos < bootinfo_size) {
 		count = min(len, (size_t)(bootinfo_size - pos));
@@ -141,7 +141,7 @@ static ssize_t ram_console_read_old(struct file *file, char __user *buf,
 		goto out;
 	}
 
-	/*     */
+	/* EOF */
 	return 0;
 
 out:

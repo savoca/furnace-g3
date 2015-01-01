@@ -22,9 +22,9 @@
 #include "cm2xxx_3xxx.h"
 #include "cm-regbits-24xx.h"
 
-/*                   */
+/* Private functions */
 
-/*     */
+/* XXX */
 void omap2_clkt_iclk_allow_idle(struct clk *clk)
 {
 	u32 v, r;
@@ -36,7 +36,7 @@ void omap2_clkt_iclk_allow_idle(struct clk *clk)
 	__raw_writel(v, (__force void __iomem *)r);
 }
 
-/*     */
+/* XXX */
 void omap2_clkt_iclk_deny_idle(struct clk *clk)
 {
 	u32 v, r;
@@ -48,7 +48,7 @@ void omap2_clkt_iclk_deny_idle(struct clk *clk)
 	__raw_writel(v, (__force void __iomem *)r);
 }
 
-/*             */
+/* Public data */
 
 const struct clkops clkops_omap2_iclk_dflt_wait = {
 	.enable		= omap2_dflt_clk_enable,

@@ -10,11 +10,11 @@ static inline void native_clts(void)
 }
 
 /*
-                                                                    
-                                                                            
-                                                                            
-                                                                         
-                                                                           
+ * Volatile isn't enough to prevent the compiler from reordering the
+ * read/write functions for the control registers and messing everything up.
+ * A memory clobber would solve the problem, but would prevent reordering of
+ * all loads stores around it, which can hurt performance. Solution is to
+ * use a variable and mimic reads and writes to it to enforce serialization
  */
 static unsigned long __force_order;
 
@@ -64,8 +64,8 @@ static inline unsigned long native_read_cr4(void)
 static inline unsigned long native_read_cr4_safe(void)
 {
 	unsigned long val;
-	/*                                                                 
-                                   */
+	/* This could fault if %cr4 does not exist. In x86_64, a cr4 always
+	 * exists, so it will never fail. */
 #ifdef CONFIG_X86_32
 	asm volatile("1: mov %%cr4, %0\n"
 		     "2:\n"
@@ -176,13 +176,13 @@ static inline void load_gs_index(unsigned selector)
 
 #endif
 
-/*                    */
+/* Clear the 'TS' bit */
 static inline void clts(void)
 {
 	native_clts();
 }
 
-#endif/*                 */
+#endif/* CONFIG_PARAVIRT */
 
 #define stts() write_cr0(read_cr0() | X86_CR0_TS)
 
@@ -194,6 +194,6 @@ static inline void clflush(volatile void *__p)
 #define nop() asm volatile ("nop")
 
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*                          */
+#endif /* _ASM_X86_SPECIAL_INSNS_H */

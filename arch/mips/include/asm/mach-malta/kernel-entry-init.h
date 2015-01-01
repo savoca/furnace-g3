@@ -21,14 +21,14 @@
 	and	t0, 1<<2
 	bnez	t0, 0f
 9:
-	/*                              */
-	PTR_LA	v0, 0x9fc00534	/*             */
+	/* Assume we came from YAMON... */
+	PTR_LA	v0, 0x9fc00534	/* YAMON print */
 	lw	v0, (v0)
 	move	a0, zero
 	PTR_LA	a1, nonmt_processor
 	jal	v0
 
-	PTR_LA	v0, 0x9fc00520	/*            */
+	PTR_LA	v0, 0x9fc00520	/* YAMON exit */
 	lw	v0, (v0)
 	li	a0, 1
 	jal	v0
@@ -44,9 +44,9 @@ nonmt_processor:
 	.endm
 
 /*
-                                                                              
+ * Do SMP slave processor setup necessary before we can safely execute C code.
  */
 	.macro	smp_slave_setup
 	.endm
 
-#endif /*                                     */
+#endif /* __ASM_MACH_MIPS_KERNEL_ENTRY_INIT_H */

@@ -1,13 +1,13 @@
 /* 
-                                                   
-                                                                  
-                                                   
-                                         
-                                                               
+ * File...........: linux/include/asm-s390x/idals.h
+ * Author(s)......: Holger Smolinski <Holger.Smolinski@de.ibm.com>
+ *		    Martin Schwidefsky <schwidefsky@de.ibm.com>
+ * Bugreports.to..: <Linux390@de.ibm.com>
+ * (C) IBM Corporation, IBM Deutschland Entwicklung GmbH, 2000a
  
-                     
-                    
-                               
+ * History of changes
+ * 07/24/00 new file
+ * 05/04/02 code restructuring.
  */
 
 #ifndef _S390_IDALS_H
@@ -21,14 +21,14 @@
 #include <asm/uaccess.h>
 
 #ifdef __s390x__
-#define IDA_SIZE_LOG 12 /*                       */
+#define IDA_SIZE_LOG 12 /* 11 for 2k , 12 for 4k */
 #else
-#define IDA_SIZE_LOG 11 /*                       */
+#define IDA_SIZE_LOG 11 /* 11 for 2k , 12 for 4k */
 #endif
 #define IDA_BLOCK_SIZE (1L<<IDA_SIZE_LOG)
 
 /*
-                                                     
+ * Test if an address/length pair needs an idal list.
  */
 static inline int
 idal_is_needed(void *vaddr, unsigned int length)
@@ -42,7 +42,7 @@ idal_is_needed(void *vaddr, unsigned int length)
 
 
 /*
-                                                                     
+ * Return the number of idal words needed for an address/length pair.
  */
 static inline unsigned int idal_nr_words(void *vaddr, unsigned int length)
 {
@@ -51,7 +51,7 @@ static inline unsigned int idal_nr_words(void *vaddr, unsigned int length)
 }
 
 /*
-                                                            
+ * Create the list of idal words for an address/length pair.
  */
 static inline unsigned long *idal_create_words(unsigned long *idaws,
 					       void *vaddr, unsigned int length)
@@ -72,8 +72,8 @@ static inline unsigned long *idal_create_words(unsigned long *idaws,
 }
 
 /*
-                                       
-                                                                    
+ * Sets the address of the data in CCW.
+ * If necessary it allocates an IDAL and sets the appropriate flags.
  */
 static inline int
 set_normalized_cda(struct ccw1 * ccw, void *vaddr)
@@ -100,7 +100,7 @@ set_normalized_cda(struct ccw1 * ccw, void *vaddr)
 }
 
 /*
-                                                  
+ * Releases any allocated IDAL related to the CCW.
  */
 static inline void
 clear_normalized_cda(struct ccw1 * ccw)
@@ -115,7 +115,7 @@ clear_normalized_cda(struct ccw1 * ccw)
 }
 
 /*
-                        
+ * Idal buffer extension
  */
 struct idal_buffer {
 	size_t size;
@@ -124,7 +124,7 @@ struct idal_buffer {
 };
 
 /*
-                          
+ * Allocate an idal buffer
  */
 static inline struct idal_buffer *
 idal_buffer_alloc(size_t size, int page_order)
@@ -149,7 +149,7 @@ idal_buffer_alloc(size_t size, int page_order)
 			__get_free_pages(GFP_KERNEL, page_order);
 		if (ib->data[i] != NULL)
 			continue;
-		//                  
+		// Not enough memory
 		while (i >= nr_chunks) {
 			i -= nr_chunks;
 			free_pages((unsigned long) ib->data[i],
@@ -162,7 +162,7 @@ idal_buffer_alloc(size_t size, int page_order)
 }
 
 /*
-                       
+ * Free an idal buffer.
  */
 static inline void
 idal_buffer_free(struct idal_buffer *ib)
@@ -177,7 +177,7 @@ idal_buffer_free(struct idal_buffer *ib)
 }
 
 /*
-                                        
+ * Test if a idal list is really needed.
  */
 static inline int
 __idal_buffer_is_needed(struct idal_buffer *ib)
@@ -191,23 +191,23 @@ __idal_buffer_is_needed(struct idal_buffer *ib)
 }
 
 /*
-                                           
+ * Set channel data address to idal buffer.
  */
 static inline void
 idal_buffer_set_cda(struct idal_buffer *ib, struct ccw1 *ccw)
 {
 	if (__idal_buffer_is_needed(ib)) {
-		//             
+		// setup idals;
 		ccw->cda = (u32)(addr_t) ib->data;
 		ccw->flags |= CCW_FLAG_IDA;
 	} else
-		//                                             
+		// we do not need idals - use direct addressing
 		ccw->cda = (u32)(addr_t) ib->data[0];
 	ccw->count = ib->size;
 }
 
 /*
-                                                      
+ * Copy count bytes from an idal buffer to user memory
  */
 static inline size_t
 idal_buffer_to_user(struct idal_buffer *ib, void __user *to, size_t count)
@@ -227,7 +227,7 @@ idal_buffer_to_user(struct idal_buffer *ib, void __user *to, size_t count)
 }
 
 /*
-                                                      
+ * Copy count bytes from user memory to an idal buffer
  */
 static inline size_t
 idal_buffer_from_user(struct idal_buffer *ib, const void __user *from, size_t count)

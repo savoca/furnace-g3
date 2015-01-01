@@ -66,8 +66,8 @@
 #define FPSCR_V	(1 << 28)
 
 /*
-                                                           
-                                                      
+ * Since we aren't building with -mfpu=vfp, we need to code
+ * these instructions using their MRC/MCR equivalents.
  */
 #define vfpreg(_vfp_) #_vfp_
 

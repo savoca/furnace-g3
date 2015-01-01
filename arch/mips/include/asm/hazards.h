@@ -25,7 +25,7 @@ static inline void name(void)						\
 }
 
 /*
-                                                                            
+ * MIPS R2 instruction hazard barrier.   Needs to be called as a subroutine.
  */
 extern void mips_ihb(void);
 
@@ -40,12 +40,12 @@ ASMMACRO(_ehb,
 	)
 
 /*
-              
+ * TLB hazards
  */
 #if defined(CONFIG_CPU_MIPSR2) && !defined(CONFIG_CPU_CAVIUM_OCTEON)
 
 /*
-                                          
+ * MIPSR2 defines ehb for hazard avoidance
  */
 
 ASMMACRO(mtc0_tlbw_hazard,
@@ -67,12 +67,12 @@ ASMMACRO(back_to_back_c0_hazard,
 	 _ehb
 	)
 /*
-                                                                        
-                                                                        
-                                                                          
-                                                                      
-                                                                          
-                                         
+ * gcc has a tradition of misscompiling the previous construct using the
+ * address of a label as argument to inline assembler.  Gas otoh has the
+ * annoying difference between la and dla which are only usable for 32-bit
+ * rsp. 64-bit code, so can't be used without conditional compilation.
+ * The alterantive is switching the assembler to 64-bit code which happens
+ * to work right even for 32-bit code ...
  */
 #define instruction_hazard()						\
 do {									\
@@ -91,8 +91,8 @@ do {									\
 	defined(CONFIG_CPU_BMIPS)
 
 /*
-                                                                             
-                             
+ * These are slightly complicated by the fact that we guarantee R1 kernels to
+ * run fine on R2 processors.
  */
 ASMMACRO(mtc0_tlbw_hazard,
 	_ssnop; _ssnop; _ehb
@@ -113,12 +113,12 @@ ASMMACRO(back_to_back_c0_hazard,
 	 _ssnop; _ssnop; _ssnop; _ehb
 	)
 /*
-                                                                        
-                                                                        
-                                                                          
-                                                                      
-                                                                          
-                                         
+ * gcc has a tradition of misscompiling the previous construct using the
+ * address of a label as argument to inline assembler.  Gas otoh has the
+ * annoying difference between la and dla which are only usable for 32-bit
+ * rsp. 64-bit code, so can't be used without conditional compilation.
+ * The alterantive is switching the assembler to 64-bit code which happens
+ * to work right even for 32-bit code ...
  */
 #define __instruction_hazard()						\
 do {									\
@@ -144,7 +144,7 @@ do {									\
 	defined(CONFIG_CPU_R5500)
 
 /*
-                                                                               
+ * R10000 rocks - all hazards handled in hardware, so this becomes a nobrainer.
  */
 
 ASMMACRO(mtc0_tlbw_hazard,
@@ -164,9 +164,9 @@ ASMMACRO(back_to_back_c0_hazard,
 #elif defined(CONFIG_CPU_RM9000)
 
 /*
-                                                                            
-                                                                             
-                                                           
+ * RM9000 hazards.  When the JTLB is updated by tlbwi or tlbwr, a subsequent
+ * use of the JTLB for instructions should not occur for 4 cpu cycles and use
+ * for data translations should not occur for 3 cpu cycles.
  */
 
 ASMMACRO(mtc0_tlbw_hazard,
@@ -189,7 +189,7 @@ ASMMACRO(back_to_back_c0_hazard,
 #elif defined(CONFIG_CPU_SB1)
 
 /*
-                                         
+ * Mostly like R4000 for historic reasons
  */
 ASMMACRO(mtc0_tlbw_hazard,
 	)
@@ -209,13 +209,13 @@ ASMMACRO(back_to_back_c0_hazard,
 #else
 
 /*
-                                                                             
-                                               
-  
-                                                                         
-                                                                            
-                                                                      
-              
+ * Finally the catchall case for all other processors including R4000, R4400,
+ * R4600, R4700, R5000, RM7000, NEC VR41xx etc.
+ *
+ * The taken branch will result in a two cycle penalty for the two killed
+ * instructions on R4000 / R4400.  Other processors only have a single cycle
+ * hazard so this is nice trick to have an optimal code for a range of
+ * processors.
  */
 ASMMACRO(mtc0_tlbw_hazard,
 	nop; nop
@@ -240,7 +240,7 @@ ASMMACRO(back_to_back_c0_hazard,
 #endif
 
 
-/*             */
+/* FPU hazards */
 
 #if defined(CONFIG_CPU_SB1)
 ASMMACRO(enable_fpu_hazard,
@@ -271,4 +271,4 @@ ASMMACRO(disable_fpu_hazard,
 )
 #endif
 
-#endif /*                */
+#endif /* _ASM_HAZARDS_H */

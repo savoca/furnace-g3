@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-        
-  
-                                                      
+/**
+ * @file
+ *
+ * @brief Generic shared memory transport private API.
  */
 
 #ifndef _COMM_TRANSP_IMPL_H_
@@ -36,12 +36,12 @@
 #include "comm_transp.h"
 
 
-/*                                                                  */
+/* Shared memory opaque descriptor/handle. Only meaningful locally. */
 
 typedef struct CommTranspPriv *CommTransp;
 
 
-/*                                                  */
+/* Asynchronous signaling initialization arguments. */
 
 typedef enum CommTranspIOEvent {
 	COMM_TRANSP_IO_DETACH = 0x0,
@@ -57,7 +57,7 @@ typedef struct CommTranspEvent {
 
 
 /*
-                                                                               
+ * Mechanism to detect and optionally attach to, created shared memory regions.
  */
 
 typedef struct CommTranspListener {
@@ -68,7 +68,7 @@ typedef struct CommTranspListener {
 
 
 /*
-                       
+ * Function prototypes.
  */
 
 int CommTranspEvent_Init(void);
@@ -115,4 +115,4 @@ CommTransp_DequeueSegment(CommTransp transp,
 unsigned int CommTransp_RequestInlineEvents(CommTransp transp);
 unsigned int CommTransp_ReleaseInlineEvents(CommTransp transp);
 
-#endif /*                      */
+#endif /* _COMM_TRANSP_IMPL_H_ */

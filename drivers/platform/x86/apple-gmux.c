@@ -29,8 +29,8 @@ struct apple_gmux_data {
 };
 
 /*
-                                                                       
-                                                               
+ * gmux port offsets. Many of these are not yet used, but may be in the
+ * future, and it's useful to have them documented here anyhow.
  */
 #define GMUX_PORT_VERSION_MAJOR		0x04
 #define GMUX_PORT_VERSION_MINOR		0x05
@@ -88,11 +88,11 @@ static int gmux_update_status(struct backlight_device *bd)
 	u32 brightness = bd->props.brightness;
 
 	/*
-                                                                  
-                                                                   
-                                                                   
-                                                  
-  */
+	 * Older gmux versions require writing out lower bytes first then
+	 * setting the upper byte to 0 to flush the values. Newer versions
+	 * accept a single u32 write, but the old method also works, so we
+	 * just use the old method for all gmux versions.
+	 */
 	gmux_write8(gmux_data, GMUX_PORT_BRIGHTNESS, brightness);
 	gmux_write8(gmux_data, GMUX_PORT_BRIGHTNESS + 1, brightness >> 8);
 	gmux_write8(gmux_data, GMUX_PORT_BRIGHTNESS + 2, brightness >> 16);
@@ -143,10 +143,10 @@ static int __devinit gmux_probe(struct pnp_dev *pnp,
 	}
 
 	/*
-                                                                 
-                                                                     
-                   
-  */
+	 * On some machines the gmux is in ACPI even thought the machine
+	 * doesn't really have a gmux. Check for invalid version information
+	 * to detect this.
+	 */
 	ver_major = gmux_read8(gmux_data, GMUX_PORT_VERSION_MAJOR);
 	ver_minor = gmux_read8(gmux_data, GMUX_PORT_VERSION_MINOR);
 	ver_release = gmux_read8(gmux_data, GMUX_PORT_VERSION_RELEASE);
@@ -164,11 +164,11 @@ static int __devinit gmux_probe(struct pnp_dev *pnp,
 	props.max_brightness = gmux_read32(gmux_data, GMUX_PORT_MAX_BRIGHTNESS);
 
 	/*
-                                                                   
-                                                              
-                                                                 
-                                                     
-  */
+	 * Currently it's assumed that the maximum brightness is less than
+	 * 2^24 for compatibility with old gmux versions. Cap the max
+	 * brightness at this value, but print a warning if the hardware
+	 * reports something higher so that it can be fixed.
+	 */
 	if (WARN_ON(props.max_brightness > GMUX_MAX_BRIGHTNESS))
 		props.max_brightness = GMUX_MAX_BRIGHTNESS;
 
@@ -184,11 +184,11 @@ static int __devinit gmux_probe(struct pnp_dev *pnp,
 	backlight_update_status(bdev);
 
 	/*
-                                                                  
-                                                             
-                                                                  
-                                        
-  */
+	 * The backlight situation on Macs is complicated. If the gmux is
+	 * present it's the best choice, because it always works for
+	 * backlight control and supports more levels than other options.
+	 * Disable the other backlight choices.
+	 */
 	acpi_video_unregister();
 	apple_bl_unregister();
 

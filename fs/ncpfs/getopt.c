@@ -1,5 +1,5 @@
 /*
-           
+ * getopt.c
  */
 
 #include <linux/kernel.h>
@@ -9,19 +9,19 @@
 
 #include "getopt.h"
 
-/* 
-                             
-                                                  
-                               
-                                                                          
-                                                   
-                                                          
-                                                                          
-                            
-  
-                                                                       
-                                                                      
-                                                                  
+/**
+ *	ncp_getopt - option parser
+ *	@caller: name of the caller, for error messages
+ *	@options: the options string
+ *	@opts: an array of &struct option entries controlling parser operations
+ *	@optopt: output; will contain the current option
+ *	@optarg: output; will contain the value (if one exists)
+ *	@value: output; may be NULL; will be overwritten with the integer value
+ *		of the current argument.
+ *
+ *	Helper to parse options on the format used by mount ("a=b,c=d,e,f").
+ *	Returns opts->val if a matching entry in the 'opts' array is found,
+ *	0 when no more tokens are found, -1 if an error is encountered.
  */
 int ncp_getopt(const char *caller, char **options, const struct ncp_option *opts,
 	       char **optopt, char **optarg, unsigned long *value)

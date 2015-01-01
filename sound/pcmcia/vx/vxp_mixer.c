@@ -29,7 +29,7 @@
 #define MIC_LEVEL_MAX	8
 
 /*
-                                   
+ * mic level control (for VXPocket)
  */
 static int vx_mic_level_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
 {
@@ -81,7 +81,7 @@ static struct snd_kcontrol_new vx_control_mic_level = {
 };
 
 /*
-                                       
+ * mic boost level control (for VXP440)
  */
 #define vx_mic_boost_info		snd_ctl_boolean_mono_info
 
@@ -123,7 +123,7 @@ int vxp_add_mic_controls(struct vx_core *_chip)
 	struct snd_vxpocket *chip = (struct snd_vxpocket *)_chip;
 	int err;
 
-	/*                   */
+	/* mute input levels */
 	chip->mic_level = 0;
 	switch (_chip->type) {
 	case VX_TYPE_VXPOCKET:
@@ -134,7 +134,7 @@ int vxp_add_mic_controls(struct vx_core *_chip)
 		break;
 	}
 
-	/*           */
+	/* mic level */
 	switch (_chip->type) {
 	case VX_TYPE_VXPOCKET:
 		if ((err = snd_ctl_add(_chip->card, snd_ctl_new1(&vx_control_mic_level, chip))) < 0)

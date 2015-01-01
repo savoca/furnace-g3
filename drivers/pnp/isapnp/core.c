@@ -49,10 +49,10 @@
 #define ISAPNP_REGION_OK
 #endif
 
-int isapnp_disable;		/*                 */
-static int isapnp_rdp;		/*                */
-static int isapnp_reset = 1;	/*                                  */
-static int isapnp_verbose = 1;	/*              */
+int isapnp_disable;		/* Disable ISA PnP */
+static int isapnp_rdp;		/* Read Data Port */
+static int isapnp_reset = 1;	/* reset all PnP cards (deactivate) */
+static int isapnp_verbose = 1;	/* verbose mode */
 
 MODULE_AUTHOR("Jaroslav Kysela <perex@perex.cz>");
 MODULE_DESCRIPTION("Generic ISA Plug & Play support");
@@ -69,7 +69,7 @@ MODULE_LICENSE("GPL");
 #define _PIDXR		0x279
 #define _PNPWRP		0xa79
 
-/*            */
+/* short tags */
 #define _STAG_PNPVERNO		0x01
 #define _STAG_LOGDEVID		0x02
 #define _STAG_COMPATDEVID	0x03
@@ -81,7 +81,7 @@ MODULE_LICENSE("GPL");
 #define _STAG_FIXEDIO		0x09
 #define _STAG_VENDOR		0x0e
 #define _STAG_END		0x0f
-/*           */
+/* long tags */
 #define _LTAG_MEMRANGE		0x81
 #define _LTAG_ANSISTR		0x82
 #define _LTAG_UNICODESTR	0x83
@@ -89,17 +89,17 @@ MODULE_LICENSE("GPL");
 #define _LTAG_MEM32RANGE	0x85
 #define _LTAG_FIXEDMEM32RANGE	0x86
 
-/*                                                    */
+/* Logical device control and configuration registers */
 
-#define ISAPNP_CFG_ACTIVATE	0x30	/*      */
-#define ISAPNP_CFG_MEM		0x40	/*           */
-#define ISAPNP_CFG_PORT		0x60	/*          */
-#define ISAPNP_CFG_IRQ		0x70	/*          */
-#define ISAPNP_CFG_DMA		0x74	/*          */
+#define ISAPNP_CFG_ACTIVATE	0x30	/* byte */
+#define ISAPNP_CFG_MEM		0x40	/* 4 * dword */
+#define ISAPNP_CFG_PORT		0x60	/* 8 * word */
+#define ISAPNP_CFG_IRQ		0x70	/* 2 * word */
+#define ISAPNP_CFG_DMA		0x74	/* 2 * byte */
 
 /*
-                                                              
-                                     
+ * Sizes of ISAPNP logical device configuration register sets.
+ * See PNP-ISA-v1.0a.pdf, Appendix A.
  */
 #define ISAPNP_MAX_MEM		4
 #define ISAPNP_MAX_PORT		8
@@ -110,7 +110,7 @@ static unsigned char isapnp_checksum_value;
 static DEFINE_MUTEX(isapnp_cfg_mutex);
 static int isapnp_csn_count;
 
-/*                 */
+/* some prototypes */
 
 static inline void write_data(unsigned char x)
 {
@@ -174,7 +174,7 @@ static void isapnp_key(void)
 	}
 }
 
-/*                                           */
+/* place all pnp cards in wait-for-key state */
 static void isapnp_wait(void)
 {
 	isapnp_write_byte(0x02, 0x02);
@@ -221,14 +221,14 @@ static void __init isapnp_peek(unsigned char *data, int bytes)
 				*data++ = 0xff;
 			continue;
 		}
-		d = isapnp_read_byte(0x04);	/*        */
+		d = isapnp_read_byte(0x04);	/* PRESDI */
 		isapnp_checksum_value += d;
 		if (data != NULL)
 			*data++ = d;
 	}
 }
 
-#define RDP_STEP	32	/*              */
+#define RDP_STEP	32	/* minimum is 4 */
 
 static int isapnp_next_rdp(void)
 {
@@ -241,9 +241,9 @@ static int isapnp_next_rdp(void)
 	}
 	while (rdp <= 0x3ff) {
 		/*
-                                                            
-                                
-   */
+		 *      We cannot use NE2000 probe spaces for ISAPnP or we
+		 *      will lock up machines.
+		 */
 		if ((rdp < 0x280 || rdp > 0x380)
 		    && request_region(rdp, 1, "ISAPnP")) {
 			isapnp_rdp = rdp;
@@ -255,7 +255,7 @@ static int isapnp_next_rdp(void)
 	return -1;
 }
 
-/*                       */
+/* Set read port address */
 static inline void isapnp_set_rdp(void)
 {
 	isapnp_write_byte(0x00, isapnp_rdp >> 2);
@@ -263,15 +263,15 @@ static inline void isapnp_set_rdp(void)
 }
 
 /*
-                                                                   
-                             
+ *	Perform an isolation. The port selection code now tries to avoid
+ *	"dangerous to read" ports.
  */
 static int __init isapnp_isolate_rdp_select(void)
 {
 	isapnp_wait();
 	isapnp_key();
 
-	/*                                                          */
+	/* Control: reset CSN and conditionally everything else too */
 	isapnp_write_byte(0x02, isapnp_reset ? 0x05 : 0x04);
 	mdelay(2);
 
@@ -292,7 +292,7 @@ static int __init isapnp_isolate_rdp_select(void)
 }
 
 /*
-                                                        
+ *  Isolate (assign uniqued CSN) to all ISA PnP devices.
  */
 static int __init isapnp_isolate(void)
 {
@@ -362,16 +362,16 @@ __next:
 }
 
 /*
-                             
+ *  Read one tag from stream.
  */
 static int __init isapnp_read_tag(unsigned char *type, unsigned short *size)
 {
 	unsigned char tag, tmp[2];
 
 	isapnp_peek(&tag, 1);
-	if (tag == 0)		/*             */
+	if (tag == 0)		/* invalid tag */
 		return -1;
-	if (tag & 0x80) {	/*            */
+	if (tag & 0x80) {	/* large item */
 		*type = tag;
 		isapnp_peek(tmp, 2);
 		*size = (tmp[1] << 8) | tmp[0];
@@ -383,13 +383,13 @@ static int __init isapnp_read_tag(unsigned char *type, unsigned short *size)
 	printk(KERN_DEBUG "tag = 0x%x, type = 0x%x, size = %i\n", tag, *type,
 	       *size);
 #endif
-	if (*type == 0xff && *size == 0xffff)	/*                       */
+	if (*type == 0xff && *size == 0xffff)	/* probably invalid data */
 		return -1;
 	return 0;
 }
 
 /*
-                                               
+ *  Skip specified number of bytes from stream.
  */
 static void __init isapnp_skip_bytes(int count)
 {
@@ -397,7 +397,7 @@ static void __init isapnp_skip_bytes(int count)
 }
 
 /*
-                             
+ *  Parse logical device tag.
  */
 static struct pnp_dev *__init isapnp_parse_device(struct pnp_card *card,
 						  int size, int number)
@@ -425,7 +425,7 @@ static struct pnp_dev *__init isapnp_parse_device(struct pnp_card *card,
 }
 
 /*
-                                       
+ *  Add IRQ resource to resources list.
  */
 static void __init isapnp_parse_irq_resource(struct pnp_dev *dev,
 					     unsigned int option_flags,
@@ -449,7 +449,7 @@ static void __init isapnp_parse_irq_resource(struct pnp_dev *dev,
 }
 
 /*
-                                       
+ *  Add DMA resource to resources list.
  */
 static void __init isapnp_parse_dma_resource(struct pnp_dev *dev,
 					     unsigned int option_flags,
@@ -462,7 +462,7 @@ static void __init isapnp_parse_dma_resource(struct pnp_dev *dev,
 }
 
 /*
-                                        
+ *  Add port resource to resources list.
  */
 static void __init isapnp_parse_port_resource(struct pnp_dev *dev,
 					      unsigned int option_flags,
@@ -483,7 +483,7 @@ static void __init isapnp_parse_port_resource(struct pnp_dev *dev,
 }
 
 /*
-                                              
+ *  Add fixed port resource to resources list.
  */
 static void __init isapnp_parse_fixed_port_resource(struct pnp_dev *dev,
 						    unsigned int option_flags,
@@ -500,7 +500,7 @@ static void __init isapnp_parse_fixed_port_resource(struct pnp_dev *dev,
 }
 
 /*
-                                          
+ *  Add memory resource to resources list.
  */
 static void __init isapnp_parse_mem_resource(struct pnp_dev *dev,
 					     unsigned int option_flags,
@@ -521,7 +521,7 @@ static void __init isapnp_parse_mem_resource(struct pnp_dev *dev,
 }
 
 /*
-                                                 
+ *  Add 32-bit memory resource to resources list.
  */
 static void __init isapnp_parse_mem32_resource(struct pnp_dev *dev,
 					       unsigned int option_flags,
@@ -542,7 +542,7 @@ static void __init isapnp_parse_mem32_resource(struct pnp_dev *dev,
 }
 
 /*
-                                                       
+ *  Add 32-bit fixed memory resource to resources list.
  */
 static void __init isapnp_parse_fixed_mem32_resource(struct pnp_dev *dev,
 						     unsigned int option_flags,
@@ -560,7 +560,7 @@ static void __init isapnp_parse_fixed_mem32_resource(struct pnp_dev *dev,
 }
 
 /*
-                                       
+ *  Parse card name for ISA PnP device.
  */
 static void __init
 isapnp_parse_name(char *name, unsigned int name_max, unsigned short *size)
@@ -572,14 +572,14 @@ isapnp_parse_name(char *name, unsigned int name_max, unsigned short *size)
 		name[size1] = '\0';
 		*size -= size1;
 
-		/*                                     */
+		/* clean whitespace from end of string */
 		while (size1 > 0 && name[--size1] == ' ')
 			name[size1] = '\0';
 	}
 }
 
 /*
-                                          
+ *  Parse resource map for logical device.
  */
 static int __init isapnp_create_device(struct pnp_card *card,
 				       unsigned short size)
@@ -681,8 +681,8 @@ static int __init isapnp_create_device(struct pnp_card *card,
 			isapnp_parse_name(dev->name, sizeof(dev->name), &size);
 			break;
 		case _LTAG_UNICODESTR:
-			/*                 */
-			/*                                              */
+			/* silently ignore */
+			/* who use unicode for hardware identification? */
 			break;
 		case _LTAG_VENDOR:
 			break;
@@ -715,7 +715,7 @@ __skip:
 }
 
 /*
-                                        
+ *  Parse resource map for ISA PnP card.
  */
 static void __init isapnp_parse_resource_map(struct pnp_card *card)
 {
@@ -748,8 +748,8 @@ static void __init isapnp_parse_resource_map(struct pnp_card *card)
 					  &size);
 			break;
 		case _LTAG_UNICODESTR:
-			/*                 */
-			/*                                              */
+			/* silently ignore */
+			/* who use unicode for hardware identification? */
 			break;
 		case _LTAG_VENDOR:
 			break;
@@ -768,7 +768,7 @@ __skip:
 }
 
 /*
-                                                   
+ *  Compute ISA PnP checksum for first eight bytes.
  */
 static unsigned char __init isapnp_checksum(unsigned char *data)
 {
@@ -790,7 +790,7 @@ static unsigned char __init isapnp_checksum(unsigned char *data)
 }
 
 /*
-                                                      
+ *  Build device list for all present ISA PnP devices.
  */
 static int __init isapnp_build_device_list(void)
 {
@@ -838,7 +838,7 @@ static int __init isapnp_build_device_list(void)
 }
 
 /*
-                                 
+ *  Basic configuration routines.
  */
 
 int isapnp_present(void)
@@ -861,18 +861,18 @@ int isapnp_cfg_begin(int csn, int logdev)
 	isapnp_key();
 	isapnp_wake(csn);
 #if 0
-	/*                                                           */
-	/*                                    */
-	/*                                                       */
-	/*                                                           */
-	isapnp_write_byte(0x02, 0x04);	/*                   */
-	mdelay(2);		/*                    */
-	isapnp_wake(csn);	/*                             */
-	isapnp_wake(0);		/*                                 */
-	isapnp_set_rdp();	/*                    */
-	udelay(1000);		/*              */
-	isapnp_write_byte(0x06, csn);	/*                             */
-	udelay(250);		/*                    */
+	/* to avoid malfunction when the isapnptools package is used */
+	/* we must set RDP to our value again */
+	/* it is possible to set RDP only in the isolation phase */
+	/*   Jens Thoms Toerring <Jens.Toerring@physik.fu-berlin.de> */
+	isapnp_write_byte(0x02, 0x04);	/* clear CSN of card */
+	mdelay(2);		/* is this necessary? */
+	isapnp_wake(csn);	/* bring card into sleep state */
+	isapnp_wake(0);		/* bring card into isolation state */
+	isapnp_set_rdp();	/* reset the RDP port */
+	udelay(1000);		/* delay 1000us */
+	isapnp_write_byte(0x06, csn);	/* reset CSN to previous value */
+	udelay(250);		/* is this necessary? */
 #endif
 	if (logdev >= 0)
 		isapnp_device(logdev);
@@ -887,7 +887,7 @@ int isapnp_cfg_end(void)
 }
 
 /*
-                   
+ *  Initialization.
  */
 
 EXPORT_SYMBOL(isapnp_protocol);
@@ -977,7 +977,7 @@ static int isapnp_set_resources(struct pnp_dev *dev)
 					  (res->start >> 8) & 0xffff);
 		}
 	}
-	/*                                                    */
+	/* FIXME: We aren't handling 32bit mems properly here */
 	isapnp_activate(dev->number);
 	isapnp_cfg_end();
 	return 0;
@@ -1036,9 +1036,9 @@ static int __init isapnp_init(void)
 		return -EBUSY;
 
 	/*
-                                                                      
-                                    
-  */
+	 *      Print a message. The existing ISAPnP code is hanging machines
+	 *      so let the user know where.
+	 */
 
 	printk(KERN_INFO "isapnp: Scanning for PnP cards...\n");
 	if (isapnp_rdp >= 0x203 && isapnp_rdp <= 0x3ff) {
@@ -1097,7 +1097,7 @@ static int __init isapnp_init(void)
 
 device_initcall(isapnp_init);
 
-/*                     */
+/* format is: noisapnp */
 
 static int __init isapnp_setup_disable(char *str)
 {
@@ -1107,7 +1107,7 @@ static int __init isapnp_setup_disable(char *str)
 
 __setup("noisapnp", isapnp_setup_disable);
 
-/*                                                   */
+/* format is: isapnp=rdp,reset,skip_pci_scan,verbose */
 
 static int __init isapnp_setup_isapnp(char *str)
 {

@@ -204,7 +204,7 @@ out:
 }
 
 /*
-                               
+ * The actual xt_tables plugin.
  */
 static unsigned int idletimer_tg_target(struct sk_buff *skb,
 					 const struct xt_action_param *par)
@@ -225,7 +225,7 @@ static unsigned int idletimer_tg_target(struct sk_buff *skb,
 			 info->label, info->timer->timer.expires, now);
 	}
 
-	/*                                             */
+	/* TODO: Avoid modifying timers on each packet */
 	mod_timer(&info->timer->timer,
 		  msecs_to_jiffies(info->timeout * 1000) + now);
 

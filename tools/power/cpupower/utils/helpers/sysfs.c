@@ -57,12 +57,12 @@ static unsigned int sysfs_write_file(const char *path,
 }
 
 /*
-                                 
-  
-           
-                            
-                             
-                                          
+ * Detect whether a CPU is online
+ *
+ * Returns:
+ *     1 -> if CPU is online
+ *     0 -> if CPU is offline
+ *     negative errno values in error case
  */
 int sysfs_is_cpu_online(unsigned int cpu)
 {
@@ -80,9 +80,9 @@ int sysfs_is_cpu_online(unsigned int cpu)
 		return 0;
 
 	/*
-                                     
-                                                      
-  */
+	 * kernel without CONFIG_HOTPLUG_CPU
+	 * -> cpuX directory exists, but not cpuX/online file
+	 */
 	snprintf(path, sizeof(path), PATH_TO_CPU "cpu%u/online", cpu);
 	if (stat(path, &statbuf) != 0)
 		return 1;
@@ -106,13 +106,13 @@ int sysfs_is_cpu_online(unsigned int cpu)
 	return value;
 }
 
-/*                                                                         */
+/* CPUidle idlestate specific /sys/devices/system/cpu/cpuX/cpuidle/ access */
 
 /*
-                                                           
-                                                            
-                                                        
-                                                            
+ * helper function to read file from /sys into given buffer
+ * fname is a relative path under "cpuX/cpuidle/stateX/" dir
+ * cstates starting with 0, C0 is not counted as cstate.
+ * This means if you want C1 info, pass 0 as idlestate param
  */
 unsigned int sysfs_idlestate_read_file(unsigned int cpu, unsigned int idlestate,
 			     const char *fname, char *buf, size_t buflen)
@@ -140,7 +140,7 @@ unsigned int sysfs_idlestate_read_file(unsigned int cpu, unsigned int idlestate,
 	return (unsigned int) numread;
 }
 
-/*                                                      */
+/* read access to files which contain one numeric value */
 
 enum idlestate_value {
 	IDLESTATE_USAGE,
@@ -183,7 +183,7 @@ static unsigned long long sysfs_idlestate_get_one_value(unsigned int cpu,
 	return value;
 }
 
-/*                                               */
+/* read access to files which contain one string */
 
 enum idlestate_string {
 	IDLESTATE_DESC,
@@ -253,9 +253,9 @@ char *sysfs_get_idlestate_desc(unsigned int cpu, unsigned int idlestate)
 }
 
 /*
-                                                       
-                        
-                                               
+ * Returns number of supported C-states of CPU core cpu
+ * Negativ in error case
+ * Zero if cpuidle does not export any C-states
  */
 int sysfs_get_idlestate_count(unsigned int cpu)
 {
@@ -281,11 +281,11 @@ int sysfs_get_idlestate_count(unsigned int cpu)
 	return idlestates;
 }
 
-/*                                                                      */
+/* CPUidle general /sys/devices/system/cpu/cpuidle/ sysfs access ********/
 
 /*
-                                                           
-                                                    
+ * helper function to read file from /sys into given buffer
+ * fname is a relative path under "cpu/cpuidle/" dir
  */
 static unsigned int sysfs_cpuidle_read_file(const char *fname, char *buf,
 					    size_t buflen)
@@ -299,7 +299,7 @@ static unsigned int sysfs_cpuidle_read_file(const char *fname, char *buf,
 
 
 
-/*                                               */
+/* read access to files which contain one string */
 
 enum cpuidle_string {
 	CPUIDLE_GOVERNOR,
@@ -352,13 +352,13 @@ char *sysfs_get_cpuidle_driver(void)
 {
 	return sysfs_cpuidle_get_one_string(CPUIDLE_DRIVER);
 }
-/*                                                                         */
+/* CPUidle idlestate specific /sys/devices/system/cpu/cpuX/cpuidle/ access */
 
 /*
-                                     
-                                 
-  
-                                    
+ * Get sched_mc or sched_smt settings
+ * Pass "mc" or "smt" as argument
+ *
+ * Returns negative value on failure
  */
 int sysfs_get_sched(const char *smt_mc)
 {
@@ -381,10 +381,10 @@ int sysfs_get_sched(const char *smt_mc)
 }
 
 /*
-                                     
-                                 
-  
-                                    
+ * Get sched_mc or sched_smt settings
+ * Pass "mc" or "smt" as argument
+ *
+ * Returns negative value on failure
  */
 int sysfs_set_sched(const char *smt_mc, int val)
 {

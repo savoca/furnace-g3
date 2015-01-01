@@ -57,9 +57,9 @@ static inline void *__samsung_dma_get_ops(void)
 }
 
 /*
-                      
-                                        
+ * samsung_dma_get_ops
+ * get the set of samsung dma operations
  */
 #define samsung_dma_get_ops() __samsung_dma_get_ops()
 
-#endif /*                      */
+#endif /* __SAMSUNG_DMA_OPS_H_ */

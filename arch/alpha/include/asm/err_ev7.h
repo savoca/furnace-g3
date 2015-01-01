@@ -2,7 +2,7 @@
 #define __ALPHA_ERR_EV7_H 1
 
 /*
-                                                           
+ * Data for el packet class PAL (14), type LOGOUT_FRAME (1)
  */
 struct ev7_pal_logout_subpacket {
 	u32 mchk_code;
@@ -17,7 +17,7 @@ struct ev7_pal_logout_subpacket {
 };
 
 /*
-                                                            
+ * Data for el packet class PAL (14), type EV7_PROCESSOR (4)
  */
 struct ev7_pal_processor_subpacket {
 	u64 i_stat;
@@ -48,7 +48,7 @@ struct ev7_pal_processor_subpacket {
 };
 
 /*
-                                                       
+ * Data for el packet class PAL (14), type EV7_ZBOX (5)
  */
 struct ev7_pal_zbox_subpacket {
 	u32 zbox0_dram_err_status_1;
@@ -81,7 +81,7 @@ struct ev7_pal_zbox_subpacket {
 };
 
 /*
-                                                       
+ * Data for el packet class PAL (14), type EV7_RBOX (6)
  */
 struct ev7_pal_rbox_subpacket {
 	u64 rbox_cfg;
@@ -104,7 +104,7 @@ struct ev7_pal_rbox_subpacket {
 };
 
 /*
-                                                     
+ * Data for el packet class PAL (14), type EV7_IO (7)
  */
 struct ev7_pal_io_one_port {
 	u64 pox_err_sum;
@@ -138,27 +138,27 @@ struct ev7_pal_io_subpacket {
 };
 
 /*
-                                                     
-                                                    
-                                             
-                                        
-                                          
-                                            
-                                   
-                                        
+ * Environmental subpacket. Data used for el packets:
+ * 	   class PAL (14), type AMBIENT_TEMPERATURE (10)
+ * 	   class PAL (14), type AIRMOVER_FAN (11)
+ * 	   class PAL (14), type VOLTAGE (12)
+ * 	   class PAL (14), type INTRUSION (13)
+ *	   class PAL (14), type POWER_SUPPLY (14)
+ *	   class PAL (14), type LAN (15)
+ *	   class PAL (14), type HOT_PLUG (16)
  */
 struct ev7_pal_environmental_subpacket {
 	u16 cabinet;
 	u16 drawer;
 	u16 reserved1[2];
 	u8 module_type;
-	u8 unit_id;		/*                          */
+	u8 unit_id;		/* unit reporting condition */
 	u8 reserved2;
-	u8 condition;		/*                          */
+	u8 condition;		/* condition reported       */
 };
 
 /*
-                                      
+ * Convert environmental type to index
  */
 static inline int ev7_lf_env_index(int type)
 {
@@ -169,34 +169,34 @@ static inline int ev7_lf_env_index(int type)
 }
 
 /*
-                                        
+ * Data for generic el packet class PAL.
  */
 struct ev7_pal_subpacket {
 	union {
-		struct ev7_pal_logout_subpacket logout;	     /*            */
-		struct ev7_pal_processor_subpacket ev7;	     /*            */
-		struct ev7_pal_zbox_subpacket zbox;	     /*            */
-		struct ev7_pal_rbox_subpacket rbox;	     /*            */
-		struct ev7_pal_io_subpacket io;		     /*            */
-		struct ev7_pal_environmental_subpacket env;  /*            */
-		u64 as_quad[1];				     /*            */
+		struct ev7_pal_logout_subpacket logout;	     /* Type     1 */
+		struct ev7_pal_processor_subpacket ev7;	     /* Type     4 */
+		struct ev7_pal_zbox_subpacket zbox;	     /* Type     5 */
+		struct ev7_pal_rbox_subpacket rbox;	     /* Type     6 */
+		struct ev7_pal_io_subpacket io;		     /* Type     7 */
+		struct ev7_pal_environmental_subpacket env;  /* Type 10-16 */
+		u64 as_quad[1];				     /* Raw u64    */
 	} by_type;
 };
 
 /*
-                                                      
+ * Struct to contain collected logout from subpackets.
  */
 struct ev7_lf_subpackets {
-	struct ev7_pal_logout_subpacket *logout;		/*         */
-	struct ev7_pal_processor_subpacket *ev7;		/*         */
-	struct ev7_pal_zbox_subpacket *zbox;			/*         */
-	struct ev7_pal_rbox_subpacket *rbox;			/*         */
-	struct ev7_pal_io_subpacket *io;			/*         */
-	struct ev7_pal_environmental_subpacket *env[7];	     /*            */
+	struct ev7_pal_logout_subpacket *logout;		/* Type  1 */
+	struct ev7_pal_processor_subpacket *ev7;		/* Type  4 */
+	struct ev7_pal_zbox_subpacket *zbox;			/* Type  5 */
+	struct ev7_pal_rbox_subpacket *rbox;			/* Type  6 */
+	struct ev7_pal_io_subpacket *io;			/* Type  7 */
+	struct ev7_pal_environmental_subpacket *env[7];	     /* Type 10-16 */
 
 	unsigned int io_pid;
 };
 
-#endif /*                   */
+#endif /* __ALPHA_ERR_EV7_H */
 
 

@@ -38,7 +38,7 @@
 }
 
 /*
-                                         
+ * Superset of all mux modes for omap2420
  */
 static struct omap_mux __initdata omap2420_muxmodes[] = {
 	_OMAP2420_MUXENTRY(CAM_D0, 54,
@@ -504,7 +504,7 @@ static struct omap_mux __initdata omap2420_muxmodes[] = {
 };
 
 /*
-                                
+ * Balls for 447-pin POP package
  */
 #ifdef CONFIG_DEBUG_FS
 static struct omap_ball __initdata omap2420_pop_ball[] = {
@@ -676,7 +676,7 @@ int __init omap2420_mux_init(struct omap_board_mux *board_subset, int flags)
 		package_balls = omap2420_pop_ball;
 		break;
 	case OMAP_PACKAGE_ZAF:
-		/*                          */
+		/* REVISIT: Please add data */
 	default:
 		pr_warning("%s: No ball data available for omap2420 package\n",
 				__func__);

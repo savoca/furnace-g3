@@ -47,16 +47,20 @@
 #include "smd_private.h"
 
 static int enable_debug;
+
+extern bool ignore_errors_by_subsys_modem_restart; // seungyeol.seo, workaround fix for modem reset
+
+
 module_param(enable_debug, int, S_IRUGO | S_IWUSR);
 
-/* 
-                                                       
-                                                  
-                                                                  
-                                                                        
-  
-                                                                          
-                                    
+/**
+ * enum p_subsys_state - state of a subsystem (private)
+ * @SUBSYS_NORMAL: subsystem is operating normally
+ * @SUBSYS_CRASHED: subsystem has crashed and hasn't been shutdown
+ * @SUBSYS_RESTARTING: subsystem has been shutdown and is now restarting
+ *
+ * The 'private' side of the subsytem state used to determine where in the
+ * restart process the subsystem is.
  */
 enum p_subsys_state {
 	SUBSYS_NORMAL,
@@ -64,12 +68,12 @@ enum p_subsys_state {
 	SUBSYS_RESTARTING,
 };
 
-/* 
-                                                    
-                                        
-                                      
-  
-                                                                 
+/**
+ * enum subsys_state - state of a subsystem (public)
+ * @SUBSYS_OFFLINE: subsystem is offline
+ * @SUBSYS_ONLINE: subsystem is online
+ *
+ * The 'public' side of the subsytem state, exposed to userspace.
  */
 enum subsys_state {
 	SUBSYS_OFFLINE,
@@ -86,16 +90,16 @@ static const char * const restart_levels[] = {
 	[RESET_SUBSYS_COUPLED] = "RELATED",
 };
 
-/* 
-                                                                       
-                                             
-                                          
-                            
-                                                      
-  
-                                                                          
-                                                                      
-                                                  
+/**
+ * struct subsys_tracking - track state of a subsystem or restart order
+ * @p_state: private state of subsystem/order
+ * @state: public state of subsystem/order
+ * @s_lock: protects p_state
+ * @lock: protects subsystem/order callbacks and state
+ *
+ * Tracks the state of a subsystem or a set of subsystems (restart order).
+ * Doing this avoids the need to grab each subsystem's lock and update
+ * each subsystems state when restarting an order.
  */
 struct subsys_tracking {
 	enum p_subsys_state p_state;
@@ -104,12 +108,12 @@ struct subsys_tracking {
 	struct mutex lock;
 };
 
-/* 
-                                                            
-                                                             
-                                        
-                                     
-                                                             
+/**
+ * struct subsys_soc_restart_order - subsystem restart order
+ * @subsystem_list: names of subsystems in this restart order
+ * @count: number of subsystems in order
+ * @track: state tracking and locking
+ * @subsys_ptrs: pointers to subsystems in this restart order
  */
 struct subsys_soc_restart_order {
 	const char * const *subsystem_list;
@@ -125,24 +129,24 @@ struct restart_log {
 	struct list_head list;
 };
 
-/* 
-                                          
-                              
-                                                          
-                              
-                                                                 
-                                     
-                                
-               
-                                     
-                                                             
-           
-                                                                                
-                                                                    
-                                             
-                                                         
-                                                                       
-                                               
+/**
+ * struct subsys_device - subsystem device
+ * @desc: subsystem descriptor
+ * @wake_lock: prevents suspend during subsystem_restart()
+ * @wlname: name of @wake_lock
+ * @work: context for subsystem_restart_wq_func() for this device
+ * @track: state tracking and locking
+ * @notify: subsys notify handle
+ * @dev: device
+ * @owner: module that provides @desc
+ * @count: reference count of subsystem_get()/subsystem_put()
+ * @id: ida
+ * @restart_level: restart level (0 - panic, 1 - related, 2 - independent, etc.)
+ * @restart_order: order of other devices this devices restarts with
+ * @dentry: debugfs directory for this device
+ * @do_ramdump_on_put: ramdump on subsystem_put() if true
+ * @err_ready: completion variable to record error ready from subsystem
+ * @crashed: indicates if subsystem has crashed
  */
 struct subsys_device {
 	struct subsys_desc *desc;
@@ -239,13 +243,13 @@ static void subsys_set_state(struct subsys_device *subsys,
 	spin_unlock_irqrestore(&subsys->track.s_lock, flags);
 }
 
-/* 
-                                                                    
-                                    
-  
-                                                                       
-                                                                          
-                                   
+/**
+ * subsytem_default_online() - Mark a subsystem as online by default
+ * @dev: subsystem to mark as online
+ *
+ * Marks a subsystem as "online" without increasing the reference count
+ * on the subsystem. This is typically used by subsystems that are already
+ * online when the kernel boots up.
  */
 void subsys_default_online(struct subsys_device *dev)
 {
@@ -276,7 +280,7 @@ static LIST_HEAD(restart_log_list);
 static DEFINE_MUTEX(soc_order_reg_lock);
 static DEFINE_MUTEX(restart_log_mutex);
 
-/*                                     */
+/* SOC specific restart orders go here */
 
 #define DEFINE_SINGLE_RESTART_ORDER(name, order)		\
 	static struct subsys_soc_restart_order __##name = {	\
@@ -288,7 +292,7 @@ static DEFINE_MUTEX(restart_log_mutex);
 		&__##name,					\
 	}
 
-/*                                */
+/* MSM 8x60 restart ordering info */
 static const char * const _order_8x60_all[] = {
 	"external_modem",  "modem", "adsp"
 };
@@ -297,7 +301,7 @@ DEFINE_SINGLE_RESTART_ORDER(orders_8x60_all, _order_8x60_all);
 static const char * const _order_8x60_modems[] = {"external_modem", "modem"};
 DEFINE_SINGLE_RESTART_ORDER(orders_8x60_modems, _order_8x60_modems);
 
-/*                           */
+/*SGLTE restart ordering info*/
 static const char * const order_8960_sglte[] = {"external_modem",
 						"modem"};
 
@@ -311,8 +315,8 @@ static struct subsys_soc_restart_order *restart_orders_8960_sglte[] = {
 	&restart_orders_8960_fusion_sglte,
 	};
 
-/*                                                      
-                              
+/* These will be assigned to one of the sets above after
+ * runtime SoC identification.
  */
 static struct subsys_soc_restart_order **restart_orders;
 static int n_restart_orders;
@@ -361,7 +365,7 @@ static void do_epoch_check(struct subsys_device *dev)
 	max_restarts_check = max_restarts;
 	max_history_time_check = max_history_time;
 
-	/*                                    */
+	/* Check if epoch checking is enabled */
 	if (!max_restarts_check)
 		goto out;
 
@@ -536,9 +540,9 @@ static int subsys_start(struct subsys_device *subsys)
 
 	ret = wait_for_err_ready(subsys);
 	if (ret) {
-		/*                                           
-                                              
-   */
+		/* pil-boot succeeded but we need to shutdown
+		 * the device because error ready timed out.
+		 */
 		notify_each_subsys_device(&subsys, 1, SUBSYS_POWERUP_FAILURE,
 									NULL);
 		subsys->desc->stop(subsys->desc);
@@ -564,14 +568,14 @@ static struct subsys_tracking *subsys_get_track(struct subsys_device *subsys)
 		return &subsys->track;
 }
 
-/* 
-                                    
-                                                                          
-  
-                                                                        
-                       
-  
-                                                                
+/**
+ * subsytem_get() - Boot a subsystem
+ * @name: pointer to a string containing the name of the subsystem to boot
+ *
+ * This function returns a pointer if it succeeds. If an error occurs an
+ * ERR_PTR is returned.
+ *
+ * If this feature is disable, the value %NULL will be returned.
  */
 void *subsystem_get(const char *name)
 {
@@ -621,12 +625,12 @@ err_module:
 }
 EXPORT_SYMBOL(subsystem_get);
 
-/* 
-                                         
-                                                                      
-  
-                                                                       
-                                               
+/**
+ * subsystem_put() - Shutdown a subsystem
+ * @peripheral_handle: pointer from a previous call to subsystem_get()
+ *
+ * This doesn't imply that a subsystem is shutdown until all callers of
+ * subsystem_get() have called subsystem_put().
  */
 void subsystem_put(void *subsystem)
 {
@@ -673,10 +677,10 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	unsigned long flags;
 
 	/*
-                                                            
-                                                          
-                                         
-  */
+	 * It's OK to not take the registration lock at this point.
+	 * This is because the subsystem list inside the relevant
+	 * restart order is not being traversed.
+	 */
 	if (order) {
 		list = order->subsys_ptrs;
 		count = order->count;
@@ -691,10 +695,10 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	do_epoch_check(dev);
 
 	/*
-                                                                      
-                                                                       
-                                                    
-  */
+	 * It's necessary to take the registration lock because the subsystem
+	 * list in the SoC restart order will be traversed and it shouldn't be
+	 * changed until _this_ restart sequence completes.
+	 */
 	mutex_lock(&soc_order_reg_lock);
 
 	pr_debug("[%p]: Starting restart sequence for %s\n", current,
@@ -710,7 +714,7 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	track->p_state = SUBSYS_RESTARTING;
 	spin_unlock_irqrestore(&track->s_lock, flags);
 
-	/*                                                    */
+	/* Collect ram dumps for all subsystems in order here */
 	for_each_subsys_device(list, count, NULL, subsystem_ramdump);
 
 	notify_each_subsys_device(list, count, SUBSYS_BEFORE_POWERUP, NULL);
@@ -741,9 +745,9 @@ static void __subsystem_restart_dev(struct subsys_device *dev)
 
 	track = subsys_get_track(dev);
 	/*
-                                                                    
-                                                                 
-  */
+	 * Allow drivers to call subsystem_restart{_dev}() as many times as
+	 * they want up until the point where the subsystem is shutdown.
+	 */
 	spin_lock_irqsave(&track->s_lock, flags);
 	if (track->p_state != SUBSYS_CRASHED) {
 		if (dev->track.state == SUBSYS_ONLINE &&
@@ -773,10 +777,10 @@ int subsystem_restart_dev(struct subsys_device *dev)
 	name = dev->desc->name;
 
 	/*
-                                                                     
-                                                                     
-                      
-  */
+	 * If a system reboot/shutdown is underway, ignore subsystem errors.
+	 * However, print a message so that we know that a subsystem behaved
+	 * unexpectedly here.
+	 */
 	if (system_state == SYSTEM_RESTART
 		|| system_state == SYSTEM_POWER_OFF) {
 		pr_err("%s crashed during a system poweroff/shutdown.\n", name);
@@ -833,10 +837,10 @@ int subsystem_restart(const char *name)
 }
 EXPORT_SYMBOL(subsystem_restart);
 
-/* 
-                                                  
-  
-                         
+/**
+ * subsys_modem_restart() - modem restart silently
+ *
+ * modem restart silently
  */
 int subsys_modem_restart()
 {
@@ -854,10 +858,10 @@ int subsys_modem_restart()
 	name = dev->desc->name;
 
 	/*
-                                                                     
-                                                                     
-                      
-  */
+	 * If a system reboot/shutdown is underway, ignore subsystem errors.
+	 * However, print a message so that we know that a subsystem behaved
+	 * unexpectedly here.
+	 */
 	if (system_state == SYSTEM_RESTART
 		|| system_state == SYSTEM_POWER_OFF) {
 		pr_err("%s crashed during a system poweroff/shutdown.\n", name);
@@ -874,6 +878,8 @@ int subsys_modem_restart()
 			modem_reboot_cnt = 1;
 	}
 #endif
+
+	ignore_errors_by_subsys_modem_restart = true; // seungyeol.seo, workaround fix for modem reset
 
 	__subsystem_restart_dev(dev);
 
@@ -900,10 +906,10 @@ int subsystem_crashed(const char *name)
 	mutex_lock(&track->lock);
 	dev->do_ramdump_on_put = true;
 	/*
-                                                                     
-                                                                   
-                                                 
-  */
+	 * TODO: Make this work with multiple consumers where one is calling
+	 * subsystem_restart() and another is calling this function. To do
+	 * so would require updating private state, etc.
+	 */
 	mutex_unlock(&track->lock);
 
 	put_device(&dev->dev);

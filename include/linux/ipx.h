@@ -12,11 +12,11 @@ struct sockaddr_ipx {
 	__be32		sipx_network;
 	unsigned char 	sipx_node[IPX_NODE_LEN];
 	__u8		sipx_type;
-	unsigned char	sipx_zero;	/*              */
+	unsigned char	sipx_zero;	/* 16 byte fill */
 };
 
 /*
-                                                                       
+ * So we can fit the extra info for SIOCSIFADDR into the address nicely
  */
 #define sipx_special	sipx_port
 #define sipx_action	sipx_zero
@@ -38,7 +38,7 @@ struct ipx_interface_definition {
 #define IPX_FRAME_8022		2
 #define IPX_FRAME_ETHERII	3
 #define IPX_FRAME_8023		4
-#define IPX_FRAME_TR_8022       5 /*          */
+#define IPX_FRAME_TR_8022       5 /* obsolete */
 	unsigned char ipx_special;
 #define IPX_SPECIAL_NONE	0
 #define IPX_PRIMARY		1
@@ -52,7 +52,7 @@ struct ipx_config_data {
 };
 
 /*
-                                                   
+ * OLD Route Definition for backward compatibility.
  */
 
 struct ipx_route_def {
@@ -72,4 +72,4 @@ struct ipx_route_def {
 #define SIOCAIPXPRISLT		(SIOCPROTOPRIVATE + 1)
 #define SIOCIPXCFGDATA		(SIOCPROTOPRIVATE + 2)
 #define SIOCIPXNCPCONN		(SIOCPROTOPRIVATE + 3)
-#endif /*         */
+#endif /* _IPX_H_ */

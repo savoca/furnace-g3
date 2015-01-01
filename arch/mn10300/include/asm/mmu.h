@@ -9,11 +9,11 @@
 #define _ASM_MMU_H
 
 /*
-              
+ * MMU context
  */
 typedef struct {
-	unsigned long	tlbpid[NR_CPUS];	/*                            
-                  */
+	unsigned long	tlbpid[NR_CPUS];	/* TLB PID for this process on
+						 * each CPU */
 } mm_context_t;
 
-#endif /*            */
+#endif /* _ASM_MMU_H */

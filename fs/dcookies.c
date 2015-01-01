@@ -27,9 +27,9 @@
 #include <linux/path.h>
 #include <asm/uaccess.h>
 
-/*                                                 
-                                                   
-                                                 
+/* The dcookies are allocated from a kmem_cache and
+ * hashed onto a small number of lists. None of the
+ * code here is particularly performance critical
  */
 struct dcookie_struct {
 	struct path path;
@@ -48,7 +48,7 @@ static inline int is_live(void)
 }
 
 
-/*                                                          */
+/* The dentry is locked, its address will do for the cookie */
 static inline unsigned long dcookie_value(struct dcookie_struct * dcs)
 {
 	return (unsigned long)dcs->path.dentry;
@@ -109,8 +109,8 @@ static struct dcookie_struct *alloc_dcookie(struct path *path)
 }
 
 
-/*                                                               
-                                  
+/* This is the main kernel-side routine that retrieves the cookie
+ * value for a dentry/vfsmnt pair.
  */
 int get_dcookie(struct path *path, unsigned long *cookie)
 {
@@ -142,8 +142,8 @@ out:
 }
 
 
-/*                                                                     
-                        
+/* And here is where the userspace process can look up the cookie value
+ * to retrieve the path.
  */
 SYSCALL_DEFINE(lookup_dcookie)(u64 cookie64, char __user * buf, size_t len)
 {
@@ -154,9 +154,9 @@ SYSCALL_DEFINE(lookup_dcookie)(u64 cookie64, char __user * buf, size_t len)
 	size_t pathlen;
 	struct dcookie_struct * dcs;
 
-	/*                                        
-                                            
-  */
+	/* we could leak path information to users
+	 * without dir read permission without this
+	 */
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
@@ -175,7 +175,7 @@ SYSCALL_DEFINE(lookup_dcookie)(u64 cookie64, char __user * buf, size_t len)
 	if (!kbuf)
 		goto out;
 
-	/*                    */
+	/* FIXME: (deleted) ? */
 	path = d_path(&dcs->path, kbuf, PAGE_SIZE);
 
 	mutex_unlock(&dcookie_mutex);
@@ -229,10 +229,10 @@ static int dcookie_init(void)
 	err = 0;
 
 	/*
-                                                                       
-                                                                     
-                   
-  */
+	 * Find the power-of-two list-heads that can fit into the allocation..
+	 * We don't guarantee that "sizeof(struct list_head)" is necessarily
+	 * a power-of-two.
+	 */
 	hash_size = PAGE_SIZE / sizeof(struct list_head);
 	hash_bits = 0;
 	do {
@@ -241,12 +241,12 @@ static int dcookie_init(void)
 	hash_bits--;
 
 	/*
-                                                          
-                                       
-  */
+	 * Re-calculate the actual number of entries and the mask
+	 * from the number of bits we can fit.
+	 */
 	hash_size = 1UL << hash_bits;
 
-	/*                                          */
+	/* And initialize the newly allocated array */
 	d = dcookie_hashtable;
 	i = hash_size;
 	do {

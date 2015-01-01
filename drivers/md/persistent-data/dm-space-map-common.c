@@ -12,10 +12,10 @@
 
 #define DM_MSG_PREFIX "space map common"
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 /*
-                   
+ * Index validator.
  */
 #define INDEX_CSUM_XOR 160478
 
@@ -62,10 +62,10 @@ static struct dm_block_validator index_validator = {
 	.check = index_check
 };
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 /*
-                   
+ * Bitmap validator
  */
 #define BITMAP_CSUM_XOR 240779
 
@@ -112,7 +112,7 @@ static struct dm_block_validator dm_sm_bitmap_validator = {
 	.check = bitmap_check
 };
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 #define ENTRIES_PER_WORD 32
 #define ENTRIES_SHIFT	5
@@ -186,7 +186,7 @@ static int sm_find_free(void *addr, unsigned begin, unsigned end,
 	return -ENOSPC;
 }
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 static int sm_ll_init(struct ll_disk *ll, struct dm_transaction_manager *tm)
 {
@@ -196,10 +196,10 @@ static int sm_ll_init(struct ll_disk *ll, struct dm_transaction_manager *tm)
 	ll->bitmap_info.levels = 1;
 
 	/*
-                                                          
-                                                                
-                                                                  
-  */
+	 * Because the new bitmap blocks are created via a shadow
+	 * operation, the old entry has already had its reference count
+	 * decremented and we don't need the btree to do any bookkeeping.
+	 */
 	ll->bitmap_info.value_type.size = sizeof(struct disk_index_entry);
 	ll->bitmap_info.value_type.inc = NULL;
 	ll->bitmap_info.value_type.dec = NULL;
@@ -320,8 +320,8 @@ int sm_ll_find_free_block(struct ll_disk *ll, dm_block_t begin,
 	dm_block_t index_end = dm_sector_div_up(end, ll->entries_per_block);
 
 	/*
-                     
-  */
+	 * FIXME: Use shifts
+	 */
 	begin = do_div(index_begin, ll->entries_per_block);
 	end = do_div(end, ll->entries_per_block);
 
@@ -349,9 +349,9 @@ int sm_ll_find_free_block(struct ll_disk *ll, dm_block_t begin,
 				 bit_end, &position);
 		if (r == -ENOSPC) {
 			/*
-                                                    
-                                  
-    */
+			 * This might happen because we started searching
+			 * part way through the bitmap.
+			 */
 			dm_tm_unlock(ll->tm, blk);
 			continue;
 
@@ -479,7 +479,7 @@ int sm_ll_commit(struct ll_disk *ll)
 	return ll->commit(ll);
 }
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 static int metadata_ll_load_ie(struct ll_disk *ll, dm_block_t index,
 			       struct disk_index_entry *ie)
@@ -603,7 +603,7 @@ int sm_ll_open_metadata(struct ll_disk *ll, struct dm_transaction_manager *tm,
 	return ll->open_index(ll);
 }
 
-/*                                                                */
+/*----------------------------------------------------------------*/
 
 static int disk_ll_load_ie(struct ll_disk *ll, dm_block_t index,
 			   struct disk_index_entry *ie)
@@ -626,7 +626,7 @@ static int disk_ll_init_index(struct ll_disk *ll)
 
 static int disk_ll_open(struct ll_disk *ll)
 {
-	/*               */
+	/* nothing to do */
 	return 0;
 }
 
@@ -699,4 +699,4 @@ int sm_ll_open_disk(struct ll_disk *ll, struct dm_transaction_manager *tm,
 	return ll->open_index(ll);
 }
 
-/*                                                                */
+/*----------------------------------------------------------------*/

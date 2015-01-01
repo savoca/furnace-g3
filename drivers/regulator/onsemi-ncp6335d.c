@@ -19,7 +19,7 @@
 #include <linux/regmap.h>
 #include <linux/regulator/onsemi-ncp6335d.h>
 
-/*           */
+/* registers */
 #define REG_NCP6335D_PID		0x03
 #define REG_NCP6335D_PROGVSEL1		0x10
 #define REG_NCP6335D_PROGVSEL0		0x11
@@ -27,13 +27,13 @@
 #define REG_NCP6335D_TIMING		0x13
 #define REG_NCP6335D_COMMAND		0x14
 
-/*             */
+/* constraints */
 #define NCP6335D_MIN_VOLTAGE_UV		600000
 #define NCP6335D_STEP_VOLTAGE_UV	6250
 #define NCP6335D_MIN_SLEW_NS		166
 #define NCP6335D_MAX_SLEW_NS		1333
 
-/*      */
+/* bits */
 #define NCP6335D_ENABLE			BIT(7)
 #define NCP6335D_DVS_PWM_MODE		BIT(5)
 #define NCP6335D_PWM_MODE1		BIT(6)
@@ -165,7 +165,7 @@ static int ncp6335d_set_mode(struct regulator_dev *rdev,
 	int rc;
 	struct ncp6335d_info *dd = rdev_get_drvdata(rdev);
 
-	/*                                               */
+	/* only FAST and NORMAL mode types are supported */
 	if (mode != REGULATOR_MODE_FAST && mode != REGULATOR_MODE_NORMAL) {
 		dev_err(dd->dev, "Mode %d not supported\n", mode);
 		return -EINVAL;
@@ -246,7 +246,7 @@ static int __devinit ncp6335d_init(struct ncp6335d_info *dd,
 		return -EINVAL;
 	}
 
-	/*                                    */
+	/* get the current programmed voltage */
 	rc = regmap_read(dd->regmap, dd->vsel_reg, &val);
 	if (rc) {
 		dev_err(dd->dev, "Unable to get volatge rc(%d)", rc);
@@ -255,7 +255,7 @@ static int __devinit ncp6335d_init(struct ncp6335d_info *dd,
 	dd->curr_voltage = ((val & NCP6335D_VOUT_SEL_MASK) *
 			NCP6335D_STEP_VOLTAGE_UV) + NCP6335D_MIN_VOLTAGE_UV;
 
-	/*               */
+	/* set discharge */
 	rc = regmap_update_bits(dd->regmap, REG_NCP6335D_PGOOD,
 					NCP6335D_PGOOD_DISCHG,
 					(pdata->discharge_enable ?
@@ -265,7 +265,7 @@ static int __devinit ncp6335d_init(struct ncp6335d_info *dd,
 		return -EINVAL;
 	}
 
-	/*               */
+	/* set slew rate */
 	if (pdata->slew_rate_ns < NCP6335D_MIN_SLEW_NS ||
 			pdata->slew_rate_ns > NCP6335D_MAX_SLEW_NS) {
 		dev_err(dd->dev, "Invalid slew rate %d\n", pdata->slew_rate_ns);
@@ -281,7 +281,7 @@ static int __devinit ncp6335d_init(struct ncp6335d_info *dd,
 	if (rc)
 		dev_err(dd->dev, "Unable to set slew rate rc(%d)\n", rc);
 
-	/*                    */
+	/* Set Sleep mode bit */
 	rc = regmap_update_bits(dd->regmap, REG_NCP6335D_COMMAND,
 				NCP6335D_SLEEP_MODE, pdata->sleep_enable ?
 						NCP6335D_SLEEP_MODE : 0);

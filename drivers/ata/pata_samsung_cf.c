@@ -36,13 +36,13 @@ enum s3c_cpu_type {
 };
 
 /*
-                                           
-                                                
-                                                         
-                                                                 
-                                     
-                                                
-                                                         
+ * struct s3c_ide_info - S3C PATA instance.
+ * @clk: The clock resource for this controller.
+ * @ide_addr: The area mapped for the hardware registers.
+ * @sfr_addr: The area mapped for the special function registers.
+ * @irq: The IRQ number we are using.
+ * @cpu_type: The exact type of this controller.
+ * @fifo_status_reg: The ATA_FIFO_STATUS register offset.
  */
 struct s3c_ide_info {
 	struct clk *clk;
@@ -62,7 +62,7 @@ static void pata_s3c_set_endian(void __iomem *s3c_ide_regbase, u8 mode)
 
 static void pata_s3c_cfg_mode(void __iomem *s3c_ide_sfrbase)
 {
-	/*                                                */
+	/* Select true-ide as the internal operating mode */
 	writel(readl(s3c_ide_sfrbase + S3C_CFATA_MUX) | S3C_CFATA_MUX_TRUEIDE,
 		s3c_ide_sfrbase + S3C_CFATA_MUX);
 }
@@ -88,7 +88,7 @@ static void pata_s3c_set_piomode(struct ata_port *ap, struct ata_device *adev)
 	ulong ata_cfg = readl(info->ide_addr + S3C_ATA_CFG);
 	ulong piotime;
 
-	/*                                   */
+	/* Enables IORDY if mode requires it */
 	if (ata_pio_need_iordy(adev))
 		ata_cfg |= S3C_ATA_CFG_IORDYEN;
 	else
@@ -106,15 +106,15 @@ static void pata_s3c_set_piomode(struct ata_port *ap, struct ata_device *adev)
 }
 
 /*
-                                                                    
-                                                             
+ * Waits until the IDE controller is able to perform next read/write
+ * operation to the disk. Needed for 64XX series boards only.
  */
 static int wait_for_host_ready(struct s3c_ide_info *info)
 {
 	ulong timeout;
 	void __iomem *fifo_reg = info->ide_addr + info->fifo_status_reg;
 
-	/*                             */
+	/* wait for maximum of 20 msec */
 	timeout = jiffies + msecs_to_jiffies(20);
 	while (time_before(jiffies, timeout)) {
 		if ((readl(fifo_reg) >> 28) == 0)
@@ -124,7 +124,7 @@ static int wait_for_host_ready(struct s3c_ide_info *info)
 }
 
 /*
-                                            
+ * Writes to one of the task file registers.
  */
 static void ata_outb(struct ata_host *host, u8 addr, void __iomem *reg)
 {
@@ -135,7 +135,7 @@ static void ata_outb(struct ata_host *host, u8 addr, void __iomem *reg)
 }
 
 /*
-                                             
+ * Reads from one of the task file registers.
  */
 static u8 ata_inb(struct ata_host *host, void __iomem *reg)
 {
@@ -150,7 +150,7 @@ static u8 ata_inb(struct ata_host *host, void __iomem *reg)
 }
 
 /*
-                                                                
+ * pata_s3c_tf_load - send taskfile registers to host controller
  */
 static void pata_s3c_tf_load(struct ata_port *ap,
 				const struct ata_taskfile *tf)
@@ -187,7 +187,7 @@ static void pata_s3c_tf_load(struct ata_port *ap,
 }
 
 /*
-                                                                  
+ * pata_s3c_tf_read - input device's ATA taskfile shadow registers
  */
 static void pata_s3c_tf_read(struct ata_port *ap, struct ata_taskfile *tf)
 {
@@ -213,7 +213,7 @@ static void pata_s3c_tf_read(struct ata_port *ap, struct ata_taskfile *tf)
 }
 
 /*
-                                                               
+ * pata_s3c_exec_command - issue ATA command to host controller
  */
 static void pata_s3c_exec_command(struct ata_port *ap,
 				const struct ata_taskfile *tf)
@@ -223,7 +223,7 @@ static void pata_s3c_exec_command(struct ata_port *ap,
 }
 
 /*
-                                                      
+ * pata_s3c_check_status - Read device status register
  */
 static u8 pata_s3c_check_status(struct ata_port *ap)
 {
@@ -231,7 +231,7 @@ static u8 pata_s3c_check_status(struct ata_port *ap)
 }
 
 /*
-                                                                   
+ * pata_s3c_check_altstatus - Read alternate device status register
  */
 static u8 pata_s3c_check_altstatus(struct ata_port *ap)
 {
@@ -239,7 +239,7 @@ static u8 pata_s3c_check_altstatus(struct ata_port *ap)
 }
 
 /*
-                                            
+ * pata_s3c_data_xfer - Transfer data by PIO
  */
 unsigned int pata_s3c_data_xfer(struct ata_device *dev, unsigned char *buf,
 				unsigned int buflen, int rw)
@@ -250,7 +250,7 @@ unsigned int pata_s3c_data_xfer(struct ata_device *dev, unsigned char *buf,
 	unsigned int words = buflen >> 1, i;
 	u16 *data_ptr = (u16 *)buf;
 
-	/*                                           */
+	/* Requires wait same as in ata_inb/ata_outb */
 	if (rw == READ)
 		for (i = 0; i < words; i++, data_ptr++) {
 			wait_for_host_ready(info);
@@ -272,7 +272,7 @@ unsigned int pata_s3c_data_xfer(struct ata_device *dev, unsigned char *buf,
 }
 
 /*
-                                                 
+ * pata_s3c_dev_select - Select device on ATA bus
  */
 static void pata_s3c_dev_select(struct ata_port *ap, unsigned int device)
 {
@@ -286,7 +286,7 @@ static void pata_s3c_dev_select(struct ata_port *ap, unsigned int device)
 }
 
 /*
-                                                   
+ * pata_s3c_devchk - PATA device presence detection
  */
 static unsigned int pata_s3c_devchk(struct ata_port *ap,
 				unsigned int device)
@@ -309,13 +309,13 @@ static unsigned int pata_s3c_devchk(struct ata_port *ap,
 	lbal = ata_inb(ap->host, ioaddr->lbal_addr);
 
 	if ((nsect == 0x55) && (lbal == 0xaa))
-		return 1;	/*                   */
+		return 1;	/* we found a device */
 
-	return 0;		/*               */
+	return 0;		/* nothing found */
 }
 
 /*
-                                                                           
+ * pata_s3c_wait_after_reset - wait for devices to become ready after reset
  */
 static int pata_s3c_wait_after_reset(struct ata_link *link,
 		unsigned long deadline)
@@ -324,11 +324,11 @@ static int pata_s3c_wait_after_reset(struct ata_link *link,
 
 	ata_msleep(link->ap, ATA_WAIT_AFTER_RESET);
 
-	/*                                             */
+	/* always check readiness of the master device */
 	rc = ata_sff_wait_ready(link, deadline);
-	/*                                                            
-                                              
-  */
+	/* -ENODEV means the odd clown forgot the D7 pulldown resistor
+	 * and TF status is 0xff, bail out on it too.
+	 */
 	if (rc)
 		return rc;
 
@@ -336,14 +336,14 @@ static int pata_s3c_wait_after_reset(struct ata_link *link,
 }
 
 /*
-                                                      
+ * pata_s3c_bus_softreset - PATA device software reset
  */
 static unsigned int pata_s3c_bus_softreset(struct ata_port *ap,
 		unsigned long deadline)
 {
 	struct ata_ioports *ioaddr = &ap->ioaddr;
 
-	/*                                             */
+	/* software reset.  causes dev0 to be selected */
 	ata_outb(ap->host, ap->ctl, ioaddr->ctl_addr);
 	udelay(20);
 	ata_outb(ap->host, ap->ctl | ATA_SRST, ioaddr->ctl_addr);
@@ -355,7 +355,7 @@ static unsigned int pata_s3c_bus_softreset(struct ata_port *ap,
 }
 
 /*
-                                                    
+ * pata_s3c_softreset - reset host port via ATA SRST
  */
 static int pata_s3c_softreset(struct ata_link *link, unsigned int *classes,
 			 unsigned long deadline)
@@ -365,22 +365,22 @@ static int pata_s3c_softreset(struct ata_link *link, unsigned int *classes,
 	int rc;
 	u8 err;
 
-	/*                                  */
+	/* determine if device 0 is present */
 	if (pata_s3c_devchk(ap, 0))
 		devmask |= (1 << 0);
 
-	/*                       */
+	/* select device 0 again */
 	pata_s3c_dev_select(ap, 0);
 
-	/*                 */
+	/* issue bus reset */
 	rc = pata_s3c_bus_softreset(ap, deadline);
-	/*                                              */
+	/* if link is occupied, -ENODEV too is an error */
 	if (rc && rc != -ENODEV) {
 		ata_link_err(link, "SRST failed (errno=%d)\n", rc);
 		return rc;
 	}
 
-	/*                                                             */
+	/* determine by signature whether we have ATA or ATAPI devices */
 	classes[0] = ata_sff_dev_classify(&ap->link.device[0],
 					  devmask & (1 << 0), &err);
 
@@ -388,7 +388,7 @@ static int pata_s3c_softreset(struct ata_link *link, unsigned int *classes,
 }
 
 /*
-                                                      
+ * pata_s3c_set_devctl - Write device control register
  */
 static void pata_s3c_set_devctl(struct ata_port *ap, u8 ctl)
 {
@@ -442,28 +442,28 @@ static void pata_s3c_hwinit(struct s3c_ide_info *info,
 {
 	switch (info->cpu_type) {
 	case TYPE_S3C64XX:
-		/*                         */
+		/* Configure as big endian */
 		pata_s3c_cfg_mode(info->sfr_addr);
 		pata_s3c_set_endian(info->ide_addr, 1);
 		pata_s3c_enable(info->ide_addr, true);
 		msleep(100);
 
-		/*                   */
+		/* Remove IRQ Status */
 		writel(0x1f, info->ide_addr + S3C_ATA_IRQ);
 		writel(0x1b, info->ide_addr + S3C_ATA_IRQ_MSK);
 		break;
 
 	case TYPE_S5PC100:
 		pata_s3c_cfg_mode(info->sfr_addr);
-		/*             */
+		/* FALLTHROUGH */
 
 	case TYPE_S5PV210:
-		/*                            */
+		/* Configure as little endian */
 		pata_s3c_set_endian(info->ide_addr, 0);
 		pata_s3c_enable(info->ide_addr, true);
 		msleep(100);
 
-		/*                   */
+		/* Remove IRQ Status */
 		writel(0x3f, info->ide_addr + S3C_ATA_IRQ);
 		writel(0x3f, info->ide_addr + S3C_ATA_IRQ_MSK);
 		break;
@@ -522,7 +522,7 @@ static int __init pata_s3c_probe(struct platform_device *pdev)
 
 	clk_enable(info->clk);
 
-	/*               */
+	/* init ata host */
 	host = ata_host_alloc(dev, 1);
 	if (!host) {
 		dev_err(dev, "failed to allocate ide host\n");
@@ -578,7 +578,7 @@ static int __init pata_s3c_probe(struct platform_device *pdev)
 	if (pdata && pdata->setup_gpio)
 		pdata->setup_gpio();
 
-	/*                                         */
+	/* Set endianness and enable the interface */
 	pata_s3c_hwinit(info, pdata);
 
 	platform_set_drvdata(pdev, host);
@@ -634,7 +634,7 @@ static const struct dev_pm_ops pata_s3c_pm_ops = {
 };
 #endif
 
-/*                            */
+/* driver device registration */
 static struct platform_device_id pata_s3c_driver_ids[] = {
 	{
 		.name		= "s3c64xx-pata",

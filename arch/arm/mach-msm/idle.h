@@ -20,7 +20,7 @@ void msm_pm_boot_entry(void);
 #else
 static inline void msm_pm_boot_entry(void)
 {
-	/*       */
+	/* empty */
 }
 #endif
 #endif

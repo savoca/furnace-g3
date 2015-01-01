@@ -25,7 +25,7 @@
  */
 #ifndef DSPDIDS_H_
 #define DSPDIDS_H_
-/*                                                                           */
+/*---------------------------------------------------------------------------*/
 #define DSP_DID_INVALID   0
 #define DSP_DID_DIVA   1
 #define DSP_DID_DIVA_PRO  2
@@ -70,6 +70,6 @@
 #define DSP_DID_PARTIAL_OVERLAY_FSK 612
 #define DSP_DID_PARTIAL_OVERLAY_FAX 613
 #define DSP_DID_TASK_TIKRNL05  700
-/*                                                                           */
+/*---------------------------------------------------------------------------*/
 #endif
-/*                                                                           */
+/*---------------------------------------------------------------------------*/

@@ -15,7 +15,7 @@
 #include <video/kyro.h>
 
 /*
-               
+ * Ramdac Setup
  */
 extern int InitialiseRamdac(volatile STG4000REG __iomem *pSTGReg, u32 displayDepth,
 			    u32 displayWidth, u32 displayHeight,
@@ -26,7 +26,7 @@ extern void DisableRamdacOutput(volatile STG4000REG __iomem *pSTGReg);
 extern void EnableRamdacOutput(volatile STG4000REG __iomem *pSTGReg);
 
 /*
-                         
+ * Timing generator setup
  */
 extern void DisableVGA(volatile STG4000REG __iomem *pSTGReg);
 extern void StopVTG(volatile STG4000REG __iomem *pSTGReg);
@@ -38,7 +38,7 @@ extern u32 ProgramClock(u32 refClock, u32 coreClock, u32 *FOut, u32 *ROut, u32 *
 extern int SetCoreClockPLL(volatile STG4000REG __iomem *pSTGReg, struct pci_dev *pDev);
 
 /*
-                
+ * Overlay setup
  */
 extern void ResetOverlayRegisters(volatile STG4000REG __iomem *pSTGReg);
 
@@ -58,4 +58,4 @@ extern int SetOverlayViewPort(volatile STG4000REG __iomem *pSTGReg,
 
 extern void EnableOverlayPlane(volatile STG4000REG __iomem *pSTGReg);
 
-#endif /*                     */
+#endif /* _STG4000INTERFACE_H */

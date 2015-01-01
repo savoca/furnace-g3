@@ -1,5 +1,5 @@
 /*                                                          */
-//                                
+//#include "pn544_lge_hwadapter.h"
 #include <linux/nfc/pn544_lge_hwadapter.h>
 /*                                                          */
 
@@ -66,7 +66,7 @@ void pn544_shutdown_cb(struct pn544_dev *pn544_dev)
 #if defined(CONFIG_LGE_NFC_HW_QCT_MSM8660)
 		dprintk("================ pn544_shutdown() start ================\n");
 	
-		//                             
+		// Make all output GPIOs to Low
 		gpio_set_value(pn544_dev->ven_gpio, 0);
 		gpio_set_value(pn544_dev->firm_gpio, 0);
 		msleep(10);

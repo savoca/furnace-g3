@@ -18,9 +18,9 @@ unsigned long omfs_count_free(struct super_block *sb)
 }
 
 /*
-                                                          
-                                                              
-                            
+ *  Counts the run of zero bits starting at bit up to max.
+ *  It handles the case where a run might spill over a buffer.
+ *  Called with bitmap lock.
  */
 static int count_run(unsigned long **addr, int nbits,
 		int addrlen, int bit, int max)
@@ -41,8 +41,8 @@ static int count_run(unsigned long **addr, int nbits,
 }
 
 /*
-                                                          
-                           
+ * Sets or clears the run of count bits starting with bit.
+ * Called with bitmap lock.
  */
 static int set_run(struct super_block *sb, int map,
 		int nbits, int bit, int count, int set)
@@ -85,7 +85,7 @@ out:
 }
 
 /*
-                                                                    
+ * Tries to allocate exactly one block.  Returns true if successful.
  */
 int omfs_allocate_block(struct super_block *sb, u64 block)
 {
@@ -121,10 +121,10 @@ out:
 
 
 /*
-                                                                      
-                                                                          
-                                                                          
-                        
+ *  Tries to allocate a set of blocks.	The request size depends on the
+ *  type: for inodes, we must allocate sbi->s_mirrors blocks, and for file
+ *  blocks, we try to allocate sbi->s_clustersize, but can always get away
+ *  with just one block.
  */
 int omfs_allocate_range(struct super_block *sb,
 			int min_request,
@@ -169,7 +169,7 @@ out:
 }
 
 /*
-                                               
+ * Clears count bits starting at a given block.
  */
 int omfs_clear_range(struct super_block *sb, u64 block, int count)
 {

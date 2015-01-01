@@ -10,9 +10,9 @@
  */
 
 /*
-                                                                
-                                                                          
-                                                                     
+ * Note:  currently there's only stubs for framebuffer_alloc and
+ * framebuffer_release here.  The reson for that is that until all drivers
+ * are converted to use it a sysfsification will open OOPSable races.
  */
 
 #include <linux/kernel.h>
@@ -23,18 +23,18 @@
 
 #define FB_SYSFS_FLAG_ATTR 1
 
-/* 
-                                                                
-  
-                                                  
-                                                            
-  
-                                                                       
-                                                                  
-                           
-  
-                                                           
-  
+/**
+ * framebuffer_alloc - creates a new frame buffer info structure
+ *
+ * @size: size of driver private data, can be zero
+ * @dev: pointer to the device for this fb, this can be NULL
+ *
+ * Creates a new frame buffer info structure. Also reserves @size bytes
+ * for driver private data (info->par). info->par (if any) will be
+ * aligned to sizeof(long).
+ *
+ * Returns the new structure, or NULL if an error occurred.
+ *
  */
 struct fb_info *framebuffer_alloc(size_t size, struct device *dev)
 {
@@ -69,14 +69,14 @@ struct fb_info *framebuffer_alloc(size_t size, struct device *dev)
 }
 EXPORT_SYMBOL(framebuffer_alloc);
 
-/* 
-                                                                  
-  
-                                     
-  
-                                                         
-                              
-  
+/**
+ * framebuffer_release - marks the structure available for freeing
+ *
+ * @info: frame buffer info structure
+ *
+ * Drop the reference count of the device embedded in the
+ * framebuffer info structure.
+ *
  */
 void framebuffer_release(struct fb_info *info)
 {
@@ -314,7 +314,7 @@ static ssize_t store_blank(struct device *device,
 static ssize_t show_blank(struct device *device,
 			  struct device_attribute *attr, char *buf)
 {
-//                                                   
+//	struct fb_info *fb_info = dev_get_drvdata(device);
 	return 0;
 }
 
@@ -322,14 +322,14 @@ static ssize_t store_console(struct device *device,
 			     struct device_attribute *attr,
 			     const char *buf, size_t count)
 {
-//                                                   
+//	struct fb_info *fb_info = dev_get_drvdata(device);
 	return 0;
 }
 
 static ssize_t show_console(struct device *device,
 			    struct device_attribute *attr, char *buf)
 {
-//                                                   
+//	struct fb_info *fb_info = dev_get_drvdata(device);
 	return 0;
 }
 
@@ -337,14 +337,14 @@ static ssize_t store_cursor(struct device *device,
 			    struct device_attribute *attr,
 			    const char *buf, size_t count)
 {
-//                                                   
+//	struct fb_info *fb_info = dev_get_drvdata(device);
 	return 0;
 }
 
 static ssize_t show_cursor(struct device *device,
 			   struct device_attribute *attr, char *buf)
 {
-//                                                   
+//	struct fb_info *fb_info = dev_get_drvdata(device);
 	return 0;
 }
 
@@ -425,9 +425,9 @@ static ssize_t store_bl_curve(struct device *device,
 	u8 tmp_curve[FB_BACKLIGHT_LEVELS];
 	unsigned int i;
 
-	/*                                                           
-                          
-  */
+	/* Some drivers don't use framebuffer_alloc(), but those also
+	 * don't have backlights.
+	 */
 	if (!fb_info || !fb_info->bl_dev)
 		return -ENODEV;
 
@@ -447,9 +447,9 @@ static ssize_t store_bl_curve(struct device *device,
 			&tmp_curve[i * 8 + 7]) != 8)
 			return -EINVAL;
 
-	/*                                                       
-                    
-  */
+	/* If there has been an error in the input data, we won't
+	 * reach this loop.
+	 */
 	mutex_lock(&fb_info->bl_curve_mutex);
 	for (i = 0; i < FB_BACKLIGHT_LEVELS; ++i)
 		fb_info->bl_curve[i] = tmp_curve[i];
@@ -465,9 +465,9 @@ static ssize_t show_bl_curve(struct device *device,
 	ssize_t len = 0;
 	unsigned int i;
 
-	/*                                                           
-                          
-  */
+	/* Some drivers don't use framebuffer_alloc(), but those also
+	 * don't have backlights.
+	 */
 	if (!fb_info || !fb_info->bl_dev)
 		return -ENODEV;
 
@@ -489,9 +489,9 @@ static ssize_t show_bl_curve(struct device *device,
 }
 #endif
 
-/*                                                           
-                                                                   
-                                          */
+/* When cmap is added back in it should be a binary attribute
+ * not a text one. Consideration should also be given to converting
+ * fbdev to use configfs instead of sysfs */
 static struct device_attribute device_attrs[] = {
 	__ATTR(bits_per_pixel, S_IRUGO|S_IWUSR, show_bpp, store_bpp),
 	__ATTR(blank, S_IRUGO|S_IWUSR, show_blank, store_blank),
@@ -547,11 +547,11 @@ void fb_cleanup_device(struct fb_info *fb_info)
 }
 
 #ifdef CONFIG_FB_BACKLIGHT
-/*                                                 
-  
-             
-             
-                                
+/* This function generates a linear backlight curve
+ *
+ *     0: off
+ *   1-7: min
+ * 8-127: linear from min to max
  */
 void fb_bl_default_curve(struct fb_info *fb_info, u8 off, u8 min, u8 max)
 {

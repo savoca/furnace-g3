@@ -42,9 +42,9 @@ static unsigned long stack_maxrandom_size(void)
 }
 
 /*
-                                                   
-  
-                                
+ * Top of mmap area (just below the process stack).
+ *
+ * Leave at least a ~32 MB hole.
  */
 #define MIN_GAP (32*1024*1024)
 #define MAX_GAP (STACK_TOP/6*5)
@@ -62,7 +62,7 @@ static unsigned long mmap_rnd(void)
 {
 	if (!(current->flags & PF_RANDOMIZE))
 		return 0;
-	/*                                 */
+	/* 8MB randomization for mmap_base */
 	return (get_random_int() & 0x7ffUL) << PAGE_SHIFT;
 }
 
@@ -81,15 +81,15 @@ static inline unsigned long mmap_base(void)
 #ifndef CONFIG_64BIT
 
 /*
-                                                                
-                                                             
+ * This function, called very early during the creation of a new
+ * process VM image, sets up which VM layout function to use:
  */
 void arch_pick_mmap_layout(struct mm_struct *mm)
 {
 	/*
-                                                       
-                                                             
-  */
+	 * Fall back to the standard layout if the personality
+	 * bit is set, or if the expected stack growth is unlimited:
+	 */
 	if (mmap_is_legacy()) {
 		mm->mmap_base = TASK_UNMAPPED_BASE;
 		mm->get_unmapped_area = arch_get_unmapped_area;
@@ -123,7 +123,7 @@ s390_get_unmapped_area(struct file *filp, unsigned long addr,
 	if (!(area & ~PAGE_MASK))
 		return area;
 	if (area == -ENOMEM && !is_compat_task() && TASK_SIZE < (1UL << 53)) {
-		/*                                               */
+		/* Upgrade the page table to 4 levels and retry. */
 		rc = crst_table_upgrade(mm, 1UL << 53);
 		if (rc)
 			return (unsigned long) rc;
@@ -145,7 +145,7 @@ s390_get_unmapped_area_topdown(struct file *filp, const unsigned long addr,
 	if (!(area & ~PAGE_MASK))
 		return area;
 	if (area == -ENOMEM && !is_compat_task() && TASK_SIZE < (1UL << 53)) {
-		/*                                               */
+		/* Upgrade the page table to 4 levels and retry. */
 		rc = crst_table_upgrade(mm, 1UL << 53);
 		if (rc)
 			return (unsigned long) rc;
@@ -155,15 +155,15 @@ s390_get_unmapped_area_topdown(struct file *filp, const unsigned long addr,
 	return area;
 }
 /*
-                                                                
-                                                             
+ * This function, called very early during the creation of a new
+ * process VM image, sets up which VM layout function to use:
  */
 void arch_pick_mmap_layout(struct mm_struct *mm)
 {
 	/*
-                                                       
-                                                             
-  */
+	 * Fall back to the standard layout if the personality
+	 * bit is set, or if the expected stack growth is unlimited:
+	 */
 	if (mmap_is_legacy()) {
 		mm->mmap_base = TASK_UNMAPPED_BASE;
 		mm->get_unmapped_area = s390_get_unmapped_area;

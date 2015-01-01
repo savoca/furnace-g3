@@ -28,9 +28,9 @@ static struct uts_namespace *create_uts_ns(void)
 }
 
 /*
-                                                                    
-                              
-                                                              
+ * Clone a new ns copying an original utsname, setting refcount to 1
+ * @old_ns: namespace to clone
+ * Return NULL on error (failure to kmalloc), new ns otherwise
  */
 static struct uts_namespace *clone_uts_ns(struct task_struct *tsk,
 					  struct uts_namespace *old_ns)
@@ -49,10 +49,10 @@ static struct uts_namespace *clone_uts_ns(struct task_struct *tsk,
 }
 
 /*
-                                                          
-                                                          
-                                                            
-         
+ * Copy task tsk's utsname namespace, or clone it if flags
+ * specifies CLONE_NEWUTS.  In latter case, changes to the
+ * utsname of this process won't be seen by parent, and vice
+ * versa.
  */
 struct uts_namespace *copy_utsname(unsigned long flags,
 				   struct task_struct *tsk)

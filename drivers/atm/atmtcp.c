@@ -1,6 +1,6 @@
-/*                                                     */
+/* drivers/atm/atmtcp.c - ATM over TCP "device" driver */
 
-/*                                                       */
+/* Written 1997-2000 by Werner Almesberger, EPFL LRC/ICA */
 
 
 #include <linux/module.h>
@@ -14,28 +14,28 @@
 #include <linux/atomic.h>
 
 
-extern int atm_init_aal5(struct atm_vcc *vcc); /*                      */
+extern int atm_init_aal5(struct atm_vcc *vcc); /* "raw" AAL5 transport */
 
 
 #define PRIV(dev) ((struct atmtcp_dev_data *) ((dev)->dev_data))
 
 
 struct atmtcp_dev_data {
-	struct atm_vcc *vcc;	/*                               */
-	int persist;		/*                        */
+	struct atm_vcc *vcc;	/* control VCC; NULL if detached */
+	int persist;		/* non-zero if persistent */
 };
 
 
 #define DEV_LABEL    "atmtcp"
 
-#define MAX_VPI_BITS  8	/*                 */
+#define MAX_VPI_BITS  8	/* simplifies life */
 #define MAX_VCI_BITS 16
 
 
 /*
-                                                                    
-                                                                      
-              
+ * Hairy code ahead: the control VCC may be closed while we're still
+ * waiting for an answer, so we need to re-validate out_vcc every once
+ * in a while.
  */
 
 
@@ -112,7 +112,7 @@ static int atmtcp_recv_control(const struct atmtcp_control *msg)
 
 static void atmtcp_v_dev_close(struct atm_dev *dev)
 {
-	/*                                           */
+	/* Nothing.... Isn't this simple :-)  -- REW */
 }
 
 
@@ -133,7 +133,7 @@ static int atmtcp_v_open(struct atm_vcc *vcc)
 	msg.type = ATMTCP_CTRL_OPEN;
 	msg.qos = vcc->qos;
 	set_bit(ATM_VF_ADDR,&vcc->flags);
-	clear_bit(ATM_VF_READY,&vcc->flags); /*                  */
+	clear_bit(ATM_VF_READY,&vcc->flags); /* just in case ... */
 	error = atmtcp_send_control(vcc,ATMTCP_CTRL_OPEN,&msg,ATM_VF_READY);
 	if (error) return error;
 	return -sk_atm(vcc)->sk_err;
@@ -191,7 +191,7 @@ static int atmtcp_v_ioctl(struct atm_dev *dev,unsigned int cmd,void __user *arg)
 static int atmtcp_v_send(struct atm_vcc *vcc,struct sk_buff *skb)
 {
 	struct atmtcp_dev_data *dev_data;
-	struct atm_vcc *out_vcc=NULL; /*                                  */
+	struct atm_vcc *out_vcc=NULL; /* Initializer quietens GCC warning */
 	struct sk_buff *new_skb;
 	struct atmtcp_hdr *hdr;
 	int size;
@@ -323,7 +323,7 @@ done:
 
 
 /*
-                                                                   
+ * Device operations for the virtual ATM devices created by ATMTCP.
  */
 
 
@@ -339,7 +339,7 @@ static struct atmdev_ops atmtcp_v_dev_ops = {
 
 
 /*
-                                                   
+ * Device operations for the ATMTCP control device.
  */
 
 
@@ -409,7 +409,7 @@ static int atmtcp_attach(struct atm_vcc *vcc,int itf)
 	set_bit(ATM_VF_META,&vcc->flags);
 	set_bit(ATM_VF_READY,&vcc->flags);
 	vcc->dev_data = dev;
-	(void) atm_init_aal5(vcc); /*                               */
+	(void) atm_init_aal5(vcc); /* @@@ losing AAL in transit ... */
 	vcc->stats = &atmtcp_control_dev.stats.aal5;
 	return dev->number;
 }

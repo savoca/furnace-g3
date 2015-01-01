@@ -110,8 +110,8 @@ static int snd_sbdsp_probe(struct snd_sb * chip)
 	unsigned long flags;
 
 	/*
-                            
-  */
+	 *  initialization sequence
+	 */
 
 	spin_lock_irqsave(&chip->reg_lock, flags);
 	if (snd_sbdsp_reset(chip) < 0) {
@@ -267,7 +267,7 @@ int snd_sbdsp_create(struct snd_card *card,
 	chip->dma8 = dma8;
 	if (dma16 >= 0) {
 		if (hardware != SB_HW_ALS100 && (dma16 < 5 || dma16 > 7)) {
-			/*           */
+			/* no duplex */
 			dma16 = -1;
 		} else if (request_dma(dma16, "SoundBlaster - 16bit")) {
 			snd_printk(KERN_ERR "sb: can't grab DMA16 %d\n", dma16);
@@ -297,7 +297,7 @@ EXPORT_SYMBOL(snd_sbdsp_command);
 EXPORT_SYMBOL(snd_sbdsp_get_byte);
 EXPORT_SYMBOL(snd_sbdsp_reset);
 EXPORT_SYMBOL(snd_sbdsp_create);
-/*            */
+/* sb_mixer.c */
 EXPORT_SYMBOL(snd_sbmixer_write);
 EXPORT_SYMBOL(snd_sbmixer_read);
 EXPORT_SYMBOL(snd_sbmixer_new);
@@ -308,7 +308,7 @@ EXPORT_SYMBOL(snd_sbmixer_resume);
 #endif
 
 /*
-             
+ *  INIT part
  */
 
 static int __init alsa_sb_common_init(void)

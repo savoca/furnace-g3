@@ -1,8 +1,8 @@
-/* 
-                   
-                                
-  
-                                         
+/**
+ * \file drm_info.c
+ * DRM info file implementations
+ *
+ * \author Ben Gamari <bgamari@gmail.com>
  */
 
 /*
@@ -36,10 +36,10 @@
 #include <linux/seq_file.h>
 #include "drmP.h"
 
-/* 
-                                            
-  
-                                                                
+/**
+ * Called when "/proc/dri/.../name" is read.
+ *
+ * Prints the device name together with the bus id if available.
  */
 int drm_name_info(struct seq_file *m, void *data)
 {
@@ -63,10 +63,10 @@ int drm_name_info(struct seq_file *m, void *data)
 	return 0;
 }
 
-/* 
-                                          
-  
-                                                                
+/**
+ * Called when "/proc/dri/.../vm" is read.
+ *
+ * Prints information about all mappings in drm_device::maplist.
  */
 int drm_vm_info(struct seq_file *m, void *data)
 {
@@ -75,9 +75,9 @@ int drm_vm_info(struct seq_file *m, void *data)
 	struct drm_local_map *map;
 	struct drm_map_list *r_list;
 
-	/*                                  
-                                           
-                                            */
+	/* Hardcoded from _DRM_FRAME_BUFFER,
+	   _DRM_REGISTERS, _DRM_SHM, _DRM_AGP, and
+	   _DRM_SCATTER_GATHER and _DRM_CONSISTENT */
 	const char *types[] = { "FB", "REG", "SHM", "AGP", "SG", "PCI" };
 	const char *type;
 	int i;
@@ -109,8 +109,8 @@ int drm_vm_info(struct seq_file *m, void *data)
 	return 0;
 }
 
-/* 
-                                              
+/**
+ * Called when "/proc/dri/.../queues" is read.
  */
 int drm_queues_info(struct seq_file *m, void *data)
 {
@@ -145,8 +145,8 @@ int drm_queues_info(struct seq_file *m, void *data)
 	return 0;
 }
 
-/* 
-                                            
+/**
+ * Called when "/proc/dri/.../bufs" is read.
  */
 int drm_bufs_info(struct seq_file *m, void *data)
 {
@@ -187,8 +187,8 @@ int drm_bufs_info(struct seq_file *m, void *data)
 	return 0;
 }
 
-/* 
-                                              
+/**
+ * Called when "/proc/dri/.../vblank" is read.
  */
 int drm_vblank_info(struct seq_file *m, void *data)
 {
@@ -211,9 +211,9 @@ int drm_vblank_info(struct seq_file *m, void *data)
 	return 0;
 }
 
-/* 
-                                               
-  
+/**
+ * Called when "/proc/dri/.../clients" is read.
+ *
  */
 int drm_clients_info(struct seq_file *m, void *data)
 {

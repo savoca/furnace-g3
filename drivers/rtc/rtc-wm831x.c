@@ -27,65 +27,65 @@
 
 
 /*
-                                      
+ * R16416 (0x4020) - RTC Write Counter
  */
-#define WM831X_RTC_WR_CNT_MASK                  0xFFFF  /*                     */
-#define WM831X_RTC_WR_CNT_SHIFT                      0  /*                     */
-#define WM831X_RTC_WR_CNT_WIDTH                     16  /*                     */
+#define WM831X_RTC_WR_CNT_MASK                  0xFFFF  /* RTC_WR_CNT - [15:0] */
+#define WM831X_RTC_WR_CNT_SHIFT                      0  /* RTC_WR_CNT - [15:0] */
+#define WM831X_RTC_WR_CNT_WIDTH                     16  /* RTC_WR_CNT - [15:0] */
 
 /*
-                               
+ * R16417 (0x4021) - RTC Time 1
  */
-#define WM831X_RTC_TIME_MASK                    0xFFFF  /*                   */
-#define WM831X_RTC_TIME_SHIFT                        0  /*                   */
-#define WM831X_RTC_TIME_WIDTH                       16  /*                   */
+#define WM831X_RTC_TIME_MASK                    0xFFFF  /* RTC_TIME - [15:0] */
+#define WM831X_RTC_TIME_SHIFT                        0  /* RTC_TIME - [15:0] */
+#define WM831X_RTC_TIME_WIDTH                       16  /* RTC_TIME - [15:0] */
 
 /*
-                               
+ * R16418 (0x4022) - RTC Time 2
  */
-#define WM831X_RTC_TIME_MASK                    0xFFFF  /*                   */
-#define WM831X_RTC_TIME_SHIFT                        0  /*                   */
-#define WM831X_RTC_TIME_WIDTH                       16  /*                   */
+#define WM831X_RTC_TIME_MASK                    0xFFFF  /* RTC_TIME - [15:0] */
+#define WM831X_RTC_TIME_SHIFT                        0  /* RTC_TIME - [15:0] */
+#define WM831X_RTC_TIME_WIDTH                       16  /* RTC_TIME - [15:0] */
 
 /*
-                                
+ * R16419 (0x4023) - RTC Alarm 1
  */
-#define WM831X_RTC_ALM_MASK                     0xFFFF  /*                  */
-#define WM831X_RTC_ALM_SHIFT                         0  /*                  */
-#define WM831X_RTC_ALM_WIDTH                        16  /*                  */
+#define WM831X_RTC_ALM_MASK                     0xFFFF  /* RTC_ALM - [15:0] */
+#define WM831X_RTC_ALM_SHIFT                         0  /* RTC_ALM - [15:0] */
+#define WM831X_RTC_ALM_WIDTH                        16  /* RTC_ALM - [15:0] */
 
 /*
-                                
+ * R16420 (0x4024) - RTC Alarm 2
  */
-#define WM831X_RTC_ALM_MASK                     0xFFFF  /*                  */
-#define WM831X_RTC_ALM_SHIFT                         0  /*                  */
-#define WM831X_RTC_ALM_WIDTH                        16  /*                  */
+#define WM831X_RTC_ALM_MASK                     0xFFFF  /* RTC_ALM - [15:0] */
+#define WM831X_RTC_ALM_SHIFT                         0  /* RTC_ALM - [15:0] */
+#define WM831X_RTC_ALM_WIDTH                        16  /* RTC_ALM - [15:0] */
 
 /*
-                                
+ * R16421 (0x4025) - RTC Control
  */
-#define WM831X_RTC_VALID                        0x8000  /*           */
-#define WM831X_RTC_VALID_MASK                   0x8000  /*           */
-#define WM831X_RTC_VALID_SHIFT                      15  /*           */
-#define WM831X_RTC_VALID_WIDTH                       1  /*           */
-#define WM831X_RTC_SYNC_BUSY                    0x4000  /*               */
-#define WM831X_RTC_SYNC_BUSY_MASK               0x4000  /*               */
-#define WM831X_RTC_SYNC_BUSY_SHIFT                  14  /*               */
-#define WM831X_RTC_SYNC_BUSY_WIDTH                   1  /*               */
-#define WM831X_RTC_ALM_ENA                      0x0400  /*             */
-#define WM831X_RTC_ALM_ENA_MASK                 0x0400  /*             */
-#define WM831X_RTC_ALM_ENA_SHIFT                    10  /*             */
-#define WM831X_RTC_ALM_ENA_WIDTH                     1  /*             */
-#define WM831X_RTC_PINT_FREQ_MASK               0x0070  /*                       */
-#define WM831X_RTC_PINT_FREQ_SHIFT                   4  /*                       */
-#define WM831X_RTC_PINT_FREQ_WIDTH                   3  /*                       */
+#define WM831X_RTC_VALID                        0x8000  /* RTC_VALID */
+#define WM831X_RTC_VALID_MASK                   0x8000  /* RTC_VALID */
+#define WM831X_RTC_VALID_SHIFT                      15  /* RTC_VALID */
+#define WM831X_RTC_VALID_WIDTH                       1  /* RTC_VALID */
+#define WM831X_RTC_SYNC_BUSY                    0x4000  /* RTC_SYNC_BUSY */
+#define WM831X_RTC_SYNC_BUSY_MASK               0x4000  /* RTC_SYNC_BUSY */
+#define WM831X_RTC_SYNC_BUSY_SHIFT                  14  /* RTC_SYNC_BUSY */
+#define WM831X_RTC_SYNC_BUSY_WIDTH                   1  /* RTC_SYNC_BUSY */
+#define WM831X_RTC_ALM_ENA                      0x0400  /* RTC_ALM_ENA */
+#define WM831X_RTC_ALM_ENA_MASK                 0x0400  /* RTC_ALM_ENA */
+#define WM831X_RTC_ALM_ENA_SHIFT                    10  /* RTC_ALM_ENA */
+#define WM831X_RTC_ALM_ENA_WIDTH                     1  /* RTC_ALM_ENA */
+#define WM831X_RTC_PINT_FREQ_MASK               0x0070  /* RTC_PINT_FREQ - [6:4] */
+#define WM831X_RTC_PINT_FREQ_SHIFT                   4  /* RTC_PINT_FREQ - [6:4] */
+#define WM831X_RTC_PINT_FREQ_WIDTH                   3  /* RTC_PINT_FREQ - [6:4] */
 
 /*
-                             
+ * R16422 (0x4026) - RTC Trim
  */
-#define WM831X_RTC_TRIM_MASK                    0x03FF  /*                  */
-#define WM831X_RTC_TRIM_SHIFT                        0  /*                  */
-#define WM831X_RTC_TRIM_WIDTH                       10  /*                  */
+#define WM831X_RTC_TRIM_MASK                    0x03FF  /* RTC_TRIM - [9:0] */
+#define WM831X_RTC_TRIM_SHIFT                        0  /* RTC_TRIM - [9:0] */
+#define WM831X_RTC_TRIM_WIDTH                       10  /* RTC_TRIM - [9:0] */
 
 #define WM831X_SET_TIME_RETRIES	5
 #define WM831X_GET_TIME_RETRIES	5
@@ -97,7 +97,7 @@ struct wm831x_rtc {
 };
 
 /*
-                                    
+ * Read current time and date in RTC
  */
 static int wm831x_rtc_readtime(struct device *dev, struct rtc_time *tm)
 {
@@ -107,7 +107,7 @@ static int wm831x_rtc_readtime(struct device *dev, struct rtc_time *tm)
 	int ret;
 	int count = 0;
 
-	/*                              */
+	/* Has the RTC been programmed? */
 	ret = wm831x_reg_read(wm831x, WM831X_RTC_CONTROL);
 	if (ret < 0) {
 		dev_err(dev, "Failed to read RTC control: %d\n", ret);
@@ -118,9 +118,9 @@ static int wm831x_rtc_readtime(struct device *dev, struct rtc_time *tm)
 		return -EINVAL;
 	}
 
-	/*                                                           
-                       
-  */
+	/* Read twice to make sure we don't read a corrupt, partially
+	 * incremented, value.
+	 */
 	do {
 		ret = wm831x_bulk_read(wm831x, WM831X_RTC_TIME_1,
 				       2, time1);
@@ -147,7 +147,7 @@ static int wm831x_rtc_readtime(struct device *dev, struct rtc_time *tm)
 }
 
 /*
-                                   
+ * Set current time and date in RTC
  */
 static int wm831x_rtc_set_mmss(struct device *dev, unsigned long time)
 {
@@ -171,9 +171,9 @@ static int wm831x_rtc_set_mmss(struct device *dev, unsigned long time)
 		return ret;
 	}
 
-	/*                                                           
-                              
-  */
+	/* Wait for the update to complete - should happen first time
+	 * round but be conservative.
+	 */
 	do {
 		msleep(1);
 
@@ -188,9 +188,9 @@ static int wm831x_rtc_set_mmss(struct device *dev, unsigned long time)
 		return -EIO;
 	}
 
-	/*                                                          
-                                         
-  */
+	/* Check that the update was accepted; security features may
+	 * have caused the update to be ignored.
+	 */
 	ret = wm831x_rtc_readtime(dev, &new_tm);
 	if (ret < 0)
 		return ret;
@@ -201,7 +201,7 @@ static int wm831x_rtc_set_mmss(struct device *dev, unsigned long time)
 		return ret;
 	}
 
-	/*                                          */
+	/* Allow a second of change in case of tick */
 	if (new_time - time > 1) {
 		dev_err(dev, "RTC update not permitted by hardware\n");
 		return -EPERM;
@@ -211,7 +211,7 @@ static int wm831x_rtc_set_mmss(struct device *dev, unsigned long time)
 }
 
 /*
-                                  
+ * Read alarm time and date in RTC
  */
 static int wm831x_rtc_readalarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
@@ -333,7 +333,7 @@ static const struct rtc_class_ops wm831x_rtc_ops = {
 };
 
 #ifdef CONFIG_PM
-/*                                                       */
+/* Turn off the alarm if it should not be a wake source. */
 static int wm831x_rtc_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -353,8 +353,8 @@ static int wm831x_rtc_suspend(struct device *dev)
 	return 0;
 }
 
-/*                                                                     
-                                 
+/* Enable the alarm if it should be enabled (in case it was disabled to
+ * prevent use as a wake source).
  */
 static int wm831x_rtc_resume(struct device *dev)
 {
@@ -372,7 +372,7 @@ static int wm831x_rtc_resume(struct device *dev)
 	return 0;
 }
 
-/*                                   */
+/* Unconditionally disable the alarm */
 static int wm831x_rtc_freeze(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);

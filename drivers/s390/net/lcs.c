@@ -55,37 +55,37 @@
 #error Cannot compile lcs.c without some net devices switched on.
 #endif
 
-/* 
-                                   
+/**
+ * initialization string for output
  */
 
 static char version[] __initdata = "LCS driver";
 
-/* 
-                                         
+/**
+  * the root device for lcs group devices
   */
 static struct device *lcs_root_dev;
 
-/* 
-                   
+/**
+ * Some prototypes.
  */
 static void lcs_tasklet(unsigned long);
 static void lcs_start_kernel_thread(struct work_struct *);
 static void lcs_get_frames_cb(struct lcs_channel *, struct lcs_buffer *);
 #ifdef CONFIG_IP_MULTICAST
 static int lcs_send_delipm(struct lcs_card *, struct lcs_ipm_list *);
-#endif /*                     */
+#endif /* CONFIG_IP_MULTICAST */
 static int lcs_recovery(void *ptr);
 
-/* 
-                       
+/**
+ * Debug Facility Stuff
  */
 static char debug_buffer[255];
 static debug_info_t *lcs_dbf_setup;
 static debug_info_t *lcs_dbf_trace;
 
-/* 
-                                
+/**
+ *  LCS Debug Facility functions
  */
 static void
 lcs_unregister_debug_facility(void)
@@ -113,8 +113,8 @@ lcs_register_debug_facility(void)
 	return 0;
 }
 
-/* 
-                       
+/**
+ * Allocate io buffers.
  */
 static int
 lcs_alloc_channel(struct lcs_channel *channel)
@@ -123,7 +123,7 @@ lcs_alloc_channel(struct lcs_channel *channel)
 
 	LCS_DBF_TEXT(2, setup, "ichalloc");
 	for (cnt = 0; cnt < LCS_NUM_BUFFS; cnt++) {
-		/*                          */
+		/* alloc memory fo iobuffer */
 		channel->iob[cnt].data =
 			kzalloc(LCS_IOBUFFERSIZE, GFP_DMA | GFP_KERNEL);
 		if (channel->iob[cnt].data == NULL)
@@ -131,7 +131,7 @@ lcs_alloc_channel(struct lcs_channel *channel)
 		channel->iob[cnt].state = LCS_BUF_STATE_EMPTY;
 	}
 	if (cnt < LCS_NUM_BUFFS) {
-		/*                                        */
+		/* Not all io buffers could be allocated. */
 		LCS_DBF_TEXT(2, setup, "echalloc");
 		while (cnt-- > 0)
 			kfree(channel->iob[cnt].data);
@@ -140,8 +140,8 @@ lcs_alloc_channel(struct lcs_channel *channel)
 	return 0;
 }
 
-/* 
-                   
+/**
+ * Free io buffers.
  */
 static void
 lcs_free_channel(struct lcs_channel *channel)
@@ -156,20 +156,20 @@ lcs_free_channel(struct lcs_channel *channel)
 }
 
 /*
-                   
+ * Cleanup channel.
  */
 static void
 lcs_cleanup_channel(struct lcs_channel *channel)
 {
 	LCS_DBF_TEXT(3, setup, "cleanch");
-	/*                              */
+	/* Kill write channel tasklets. */
 	tasklet_kill(&channel->irq_tasklet);
-	/*                       */
+	/* Free channel buffers. */
 	lcs_free_channel(channel);
 }
 
-/* 
-                                         
+/**
+ * LCS free memory for card and channels.
  */
 static void
 lcs_free_card(struct lcs_card *card)
@@ -179,8 +179,8 @@ lcs_free_card(struct lcs_card *card)
 	kfree(card);
 }
 
-/* 
-                                         
+/**
+ * LCS alloc memory for card and channels
  */
 static struct lcs_card *
 lcs_alloc_card(void)
@@ -196,14 +196,14 @@ lcs_alloc_card(void)
 	card->lan_type = LCS_FRAME_TYPE_AUTO;
 	card->pkt_seq = 0;
 	card->lancmd_timeout = LCS_LANCMD_TIMEOUT_DEFAULT;
-	/*                                           */
+	/* Allocate io buffers for the read channel. */
 	rc = lcs_alloc_channel(&card->read);
 	if (rc){
 		LCS_DBF_TEXT(2, setup, "iccwerr");
 		lcs_free_card(card);
 		return NULL;
 	}
-	/*                                            */
+	/* Allocate io buffers for the write channel. */
 	rc = lcs_alloc_channel(&card->write);
 	if (rc) {
 		LCS_DBF_TEXT(2, setup, "iccwerr");
@@ -220,7 +220,7 @@ lcs_alloc_card(void)
 }
 
 /*
-                      
+ * Setup read channel.
  */
 static void
 lcs_setup_read_ccws(struct lcs_card *card)
@@ -228,7 +228,7 @@ lcs_setup_read_ccws(struct lcs_card *card)
 	int cnt;
 
 	LCS_DBF_TEXT(2, setup, "ireadccw");
-	/*                  */
+	/* Setup read ccws. */
 	memset(card->read.ccws, 0, sizeof (struct ccw1) * (LCS_NUM_BUFFS + 1));
 	for (cnt = 0; cnt < LCS_NUM_BUFFS; cnt++) {
 		card->read.ccws[cnt].cmd_code = LCS_CCW_READ;
@@ -236,9 +236,9 @@ lcs_setup_read_ccws(struct lcs_card *card)
 		card->read.ccws[cnt].flags =
 			CCW_FLAG_CC | CCW_FLAG_SLI | CCW_FLAG_PCI;
 		/*
-                                                        
-                                             
-   */
+		 * Note: we have allocated the buffer with GFP_DMA, so
+		 * we do not need to do set_normalized_cda.
+		 */
 		card->read.ccws[cnt].cda =
 			(__u32) __pa(card->read.iob[cnt].data);
 		((struct lcs_header *)
@@ -250,11 +250,11 @@ lcs_setup_read_ccws(struct lcs_card *card)
 	card->read.ccws[0].flags &= ~CCW_FLAG_PCI;
 	card->read.ccws[LCS_NUM_BUFFS - 1].flags &= ~CCW_FLAG_PCI;
 	card->read.ccws[LCS_NUM_BUFFS - 1].flags |= CCW_FLAG_SUSPEND;
-	/*                                          */
+	/* Last ccw is a tic (transfer in channel). */
 	card->read.ccws[LCS_NUM_BUFFS].cmd_code = LCS_CCW_TRANSFER;
 	card->read.ccws[LCS_NUM_BUFFS].cda =
 		(__u32) __pa(card->read.ccws);
-	/*                                         */
+	/* Setg initial state of the read channel. */
 	card->read.state = LCS_CH_STATE_INIT;
 
 	card->read.io_idx = 0;
@@ -267,15 +267,15 @@ lcs_setup_read(struct lcs_card *card)
 	LCS_DBF_TEXT(3, setup, "initread");
 
 	lcs_setup_read_ccws(card);
-	/*                                  */
+	/* Initialize read channel tasklet. */
 	card->read.irq_tasklet.data = (unsigned long) &card->read;
 	card->read.irq_tasklet.func = lcs_tasklet;
-	/*                       */
+	/* Initialize waitqueue. */
 	init_waitqueue_head(&card->read.wait_q);
 }
 
 /*
-                       
+ * Setup write channel.
  */
 static void
 lcs_setup_write_ccws(struct lcs_card *card)
@@ -283,7 +283,7 @@ lcs_setup_write_ccws(struct lcs_card *card)
 	int cnt;
 
 	LCS_DBF_TEXT(3, setup, "iwritccw");
-	/*                   */
+	/* Setup write ccws. */
 	memset(card->write.ccws, 0, sizeof(struct ccw1) * LCS_NUM_BUFFS + 1);
 	for (cnt = 0; cnt < LCS_NUM_BUFFS; cnt++) {
 		card->write.ccws[cnt].cmd_code = LCS_CCW_WRITE;
@@ -291,17 +291,17 @@ lcs_setup_write_ccws(struct lcs_card *card)
 		card->write.ccws[cnt].flags =
 			CCW_FLAG_SUSPEND | CCW_FLAG_CC | CCW_FLAG_SLI;
 		/*
-                                                        
-                                             
-   */
+		 * Note: we have allocated the buffer with GFP_DMA, so
+		 * we do not need to do set_normalized_cda.
+		 */
 		card->write.ccws[cnt].cda =
 			(__u32) __pa(card->write.iob[cnt].data);
 	}
-	/*                                          */
+	/* Last ccw is a tic (transfer in channel). */
 	card->write.ccws[LCS_NUM_BUFFS].cmd_code = LCS_CCW_TRANSFER;
 	card->write.ccws[LCS_NUM_BUFFS].cda =
 		(__u32) __pa(card->write.ccws);
-	/*                                         */
+	/* Set initial state of the write channel. */
 	card->read.state = LCS_CH_STATE_INIT;
 
 	card->write.io_idx = 0;
@@ -314,10 +314,10 @@ lcs_setup_write(struct lcs_card *card)
 	LCS_DBF_TEXT(3, setup, "initwrit");
 
 	lcs_setup_write_ccws(card);
-	/*                                   */
+	/* Initialize write channel tasklet. */
 	card->write.irq_tasklet.data = (unsigned long) &card->write;
 	card->write.irq_tasklet.func = lcs_tasklet;
-	/*                       */
+	/* Initialize waitqueue. */
 	init_waitqueue_head(&card->write.wait_q);
 }
 
@@ -422,8 +422,8 @@ lcs_do_start_thread(struct lcs_card *card, unsigned long thread)
         return rc;
 }
 
-/* 
-                                               
+/**
+ * Initialize channels,card and state machines.
  */
 static void
 lcs_setup_card(struct lcs_card *card)
@@ -433,7 +433,7 @@ lcs_setup_card(struct lcs_card *card)
 
 	lcs_setup_read(card);
 	lcs_setup_write(card);
-	/*                          */
+	/* Set cards initial state. */
 	card->state = DEV_STATE_DOWN;
 	card->tx_buffer = NULL;
 	card->tx_emitted = 0;
@@ -455,7 +455,7 @@ lcs_clear_multicast_list(struct lcs_card *card)
 	struct lcs_ipm_list *ipm;
 	unsigned long flags;
 
-	/*                      */
+	/* Free multicast list. */
 	LCS_DBF_TEXT(3, setup, "clmclist");
 	spin_lock_irqsave(&card->ipm_lock, flags);
 	while (!list_empty(&card->ipm_list)){
@@ -472,8 +472,8 @@ lcs_clear_multicast_list(struct lcs_card *card)
 	spin_unlock_irqrestore(&card->ipm_lock, flags);
 #endif
 }
-/* 
-                                            
+/**
+ * Cleanup channels,card and state machines.
  */
 static void
 lcs_cleanup_card(struct lcs_card *card)
@@ -484,13 +484,13 @@ lcs_cleanup_card(struct lcs_card *card)
 
 	if (card->dev != NULL)
 		free_netdev(card->dev);
-	/*                   */
+	/* Cleanup channels. */
 	lcs_cleanup_channel(&card->write);
 	lcs_cleanup_channel(&card->read);
 }
 
-/* 
-                 
+/**
+ * Start channel.
  */
 static int
 lcs_start_channel(struct lcs_channel *channel)
@@ -538,8 +538,8 @@ lcs_clear_channel(struct lcs_channel *channel)
 }
 
 
-/* 
-                
+/**
+ * Stop channel.
  */
 static int
 lcs_stop_channel(struct lcs_channel *channel)
@@ -560,14 +560,14 @@ lcs_stop_channel(struct lcs_channel *channel)
 			      dev_name(&channel->ccwdev->dev));
 		return rc;
 	}
-	/*                                                        */
+	/* Asynchronous halt initialted. Wait for its completion. */
 	wait_event(channel->wait_q, (channel->state == LCS_CH_STATE_HALTED));
 	lcs_clear_channel(channel);
 	return 0;
 }
 
-/* 
-                               
+/**
+ * start read and write channel
  */
 static int
 lcs_start_channels(struct lcs_card *card)
@@ -575,19 +575,19 @@ lcs_start_channels(struct lcs_card *card)
 	int rc;
 
 	LCS_DBF_TEXT(2, trace, "chstart");
-	/*                    */
+	/* start read channel */
 	rc = lcs_start_channel(&card->read);
 	if (rc)
 		return rc;
-	/*                     */
+	/* start write channel */
 	rc = lcs_start_channel(&card->write);
 	if (rc)
 		lcs_stop_channel(&card->read);
 	return rc;
 }
 
-/* 
-                              
+/**
+ * stop read and write channel
  */
 static int
 lcs_stop_channels(struct lcs_card *card)
@@ -598,8 +598,8 @@ lcs_stop_channels(struct lcs_card *card)
 	return 0;
 }
 
-/* 
-                    
+/**
+ * Get empty buffer.
  */
 static struct lcs_buffer *
 __lcs_get_buffer(struct lcs_channel *channel)
@@ -631,8 +631,8 @@ lcs_get_buffer(struct lcs_channel *channel)
 	return buffer;
 }
 
-/* 
-                                                      
+/**
+ * Resume channel program if the channel is suspended.
  */
 static int
 __lcs_resume_channel(struct lcs_channel *channel)
@@ -657,8 +657,8 @@ __lcs_resume_channel(struct lcs_channel *channel)
 
 }
 
-/* 
-                                      
+/**
+ * Make a buffer ready for processing.
  */
 static inline void
 __lcs_ready_buffer_bits(struct lcs_channel *channel, int index)
@@ -668,13 +668,13 @@ __lcs_ready_buffer_bits(struct lcs_channel *channel, int index)
 	LCS_DBF_TEXT(5, trace, "rdybits");
 	prev = (index - 1) & (LCS_NUM_BUFFS - 1);
 	next = (index + 1) & (LCS_NUM_BUFFS - 1);
-	/*                                                       */
+	/* Check if we may clear the suspend bit of this buffer. */
 	if (channel->ccws[next].flags & CCW_FLAG_SUSPEND) {
-		/*                                      */
+		/* Check if we have to set the PCI bit. */
 		if (!(channel->ccws[prev].flags & CCW_FLAG_SUSPEND))
-			/*                                                */
+			/* Suspend bit of the previous buffer is not set. */
 			channel->ccws[index].flags |= CCW_FLAG_PCI;
-		/*                                        */
+		/* Suspend bit of the next buffer is set. */
 		channel->ccws[index].flags &= ~CCW_FLAG_SUSPEND;
 	}
 }
@@ -691,19 +691,19 @@ lcs_ready_buffer(struct lcs_channel *channel, struct lcs_buffer *buffer)
 	spin_lock_irqsave(get_ccwdev_lock(channel->ccwdev), flags);
 	buffer->state = LCS_BUF_STATE_READY;
 	index = buffer - channel->iob;
-	/*             */
+	/* Set length. */
 	channel->ccws[index].count = buffer->count;
-	/*                                  */
+	/* Check relevant PCI/suspend bits. */
 	__lcs_ready_buffer_bits(channel, index);
 	rc = __lcs_resume_channel(channel);
 	spin_unlock_irqrestore(get_ccwdev_lock(channel->ccwdev), flags);
 	return rc;
 }
 
-/* 
-                                                             
-                                                       
-                                                    
+/**
+ * Mark the buffer as processed. Take care of the suspend bit
+ * of the previous buffer. This function is called from
+ * interrupt context, so the lock must not be taken.
  */
 static int
 __lcs_processed_buffer(struct lcs_channel *channel, struct lcs_buffer *buffer)
@@ -716,26 +716,26 @@ __lcs_processed_buffer(struct lcs_channel *channel, struct lcs_buffer *buffer)
 	index = buffer - channel->iob;
 	prev = (index - 1) & (LCS_NUM_BUFFS - 1);
 	next = (index + 1) & (LCS_NUM_BUFFS - 1);
-	/*                                                           */
+	/* Set the suspend bit and clear the PCI bit of this buffer. */
 	channel->ccws[index].flags |= CCW_FLAG_SUSPEND;
 	channel->ccws[index].flags &= ~CCW_FLAG_PCI;
-	/*                                               */
+	/* Check the suspend bit of the previous buffer. */
 	if (channel->iob[prev].state == LCS_BUF_STATE_READY) {
 		/*
-                                                     
-                                                      
-                                                   
-               
-   */
+		 * Previous buffer is in state ready. It might have
+		 * happened in lcs_ready_buffer that the suspend bit
+		 * has not been cleared to avoid an endless loop.
+		 * Do it now.
+		 */
 		__lcs_ready_buffer_bits(channel, prev);
 	}
-	/*                               */
+	/* Clear PCI bit of next buffer. */
 	channel->ccws[next].flags &= ~CCW_FLAG_PCI;
 	return __lcs_resume_channel(channel);
 }
 
-/* 
-                                              
+/**
+ * Put a processed buffer back to state empty.
  */
 static void
 lcs_release_buffer(struct lcs_channel *channel, struct lcs_buffer *buffer)
@@ -750,8 +750,8 @@ lcs_release_buffer(struct lcs_channel *channel, struct lcs_buffer *buffer)
 	spin_unlock_irqrestore(get_ccwdev_lock(channel->ccwdev), flags);
 }
 
-/* 
-                                
+/**
+ * Get buffer for a lan command.
  */
 static struct lcs_buffer *
 lcs_get_lancmd(struct lcs_card *card, int count)
@@ -760,7 +760,7 @@ lcs_get_lancmd(struct lcs_card *card, int count)
 	struct lcs_cmd *cmd;
 
 	LCS_DBF_TEXT(4, trace, "getlncmd");
-	/*                                           */
+	/* Get buffer and wait if none is available. */
 	wait_event(card->write.wait_q,
 		   ((buffer = lcs_get_buffer(&card->write)) != NULL));
 	count += sizeof(struct lcs_header);
@@ -811,8 +811,8 @@ lcs_alloc_reply(struct lcs_cmd *cmd)
 	return reply;
 }
 
-/* 
-                                                              
+/**
+ * Notifier function for lancmd replies. Called from read irq.
  */
 static void
 lcs_notify_lancmd_waiters(struct lcs_card *card, struct lcs_cmd *cmd)
@@ -839,8 +839,8 @@ lcs_notify_lancmd_waiters(struct lcs_card *card, struct lcs_cmd *cmd)
 	spin_unlock(&card->lock);
 }
 
-/* 
-                                
+/**
+ * Emit buffer of a lan command.
  */
 static void
 lcs_lancmd_timeout(unsigned long data)
@@ -907,8 +907,8 @@ lcs_send_lancmd(struct lcs_card *card, struct lcs_buffer *buffer,
 	return rc ? -EIO : 0;
 }
 
-/* 
-                      
+/**
+ * LCS startup command
  */
 static int
 lcs_send_startup(struct lcs_card *card, __u8 initiator)
@@ -925,8 +925,8 @@ lcs_send_startup(struct lcs_card *card, __u8 initiator)
 	return lcs_send_lancmd(card, buffer, NULL);
 }
 
-/* 
-                       
+/**
+ * LCS shutdown command
  */
 static int
 lcs_send_shutdown(struct lcs_card *card)
@@ -942,8 +942,8 @@ lcs_send_shutdown(struct lcs_card *card)
 	return lcs_send_lancmd(card, buffer, NULL);
 }
 
-/* 
-                      
+/**
+ * LCS lanstat command
  */
 static void
 __lcs_lanstat_cb(struct lcs_card *card, struct lcs_cmd *cmd)
@@ -961,7 +961,7 @@ lcs_send_lanstat(struct lcs_card *card)
 	LCS_DBF_TEXT(2,trace, "cmdstat");
 	buffer = lcs_get_lancmd(card, LCS_STD_CMD_SIZE);
 	cmd = (struct lcs_cmd *) buffer->data;
-	/*                        */
+	/* Setup lanstat command. */
 	cmd->cmd_code = LCS_CMD_LANSTAT;
 	cmd->initiator = LCS_INITIATOR_TCPIP;
 	cmd->cmd.lcs_std_cmd.lan_type = card->lan_type;
@@ -969,8 +969,8 @@ lcs_send_lanstat(struct lcs_card *card)
 	return lcs_send_lancmd(card, buffer, __lcs_lanstat_cb);
 }
 
-/* 
-                       
+/**
+ * send stoplan command
  */
 static int
 lcs_send_stoplan(struct lcs_card *card, __u8 initiator)
@@ -988,8 +988,8 @@ lcs_send_stoplan(struct lcs_card *card, __u8 initiator)
 	return lcs_send_lancmd(card, buffer, NULL);
 }
 
-/* 
-                        
+/**
+ * send startlan command
  */
 static void
 __lcs_send_startlan_cb(struct lcs_card *card, struct lcs_cmd *cmd)
@@ -1016,8 +1016,8 @@ lcs_send_startlan(struct lcs_card *card, __u8 initiator)
 }
 
 #ifdef CONFIG_IP_MULTICAST
-/* 
-                                  
+/**
+ * send setipm command (Multicast)
  */
 static int
 lcs_send_setipm(struct lcs_card *card,struct lcs_ipm_list *ipm_list)
@@ -1040,8 +1040,8 @@ lcs_send_setipm(struct lcs_card *card,struct lcs_ipm_list *ipm_list)
 	return lcs_send_lancmd(card, buffer, NULL);
 }
 
-/* 
-                                  
+/**
+ * send delipm command (Multicast)
  */
 static int
 lcs_send_delipm(struct lcs_card *card,struct lcs_ipm_list *ipm_list)
@@ -1064,8 +1064,8 @@ lcs_send_delipm(struct lcs_card *card,struct lcs_ipm_list *ipm_list)
 	return lcs_send_lancmd(card, buffer, NULL);
 }
 
-/* 
-                                         
+/**
+ * check if multicast is supported by LCS
  */
 static void
 __lcs_check_multicast_cb(struct lcs_card *card, struct lcs_cmd *cmd)
@@ -1085,7 +1085,7 @@ lcs_check_multicast_support(struct lcs_card *card)
 	int rc;
 
 	LCS_DBF_TEXT(2, trace, "cmdqipa");
-	/*                      */
+	/* Send query ipassist. */
 	buffer = lcs_get_lancmd(card, LCS_STD_CMD_SIZE);
 	cmd = (struct lcs_cmd *) buffer->data;
 	cmd->cmd_code = LCS_CMD_QIPASSIST;
@@ -1104,8 +1104,8 @@ lcs_check_multicast_support(struct lcs_card *card)
 	return -EOPNOTSUPP;
 }
 
-/* 
-                                           
+/**
+ * set or del multicast address on LCS card
  */
 static void
 lcs_fix_multicast_list(struct lcs_card *card)
@@ -1122,8 +1122,8 @@ list_modified:
 	list_for_each_entry_safe(ipm, tmp, &card->ipm_list, list){
 		switch (ipm->ipm_state) {
 		case LCS_IPM_STATE_SET_REQUIRED:
-			/*                                                 
-                 */
+			/* del from ipm_list so no one else can tamper with
+			 * this entry */
 			list_del_init(&ipm->list);
 			spin_unlock_irqrestore(&card->ipm_lock, flags);
 			rc = lcs_send_setipm(card, ipm);
@@ -1131,13 +1131,13 @@ list_modified:
 			if (rc) {
 				pr_info("Adding multicast address failed."
 					" Table possibly full!\n");
-				/*                                          
-                                                 
-                                             */
+				/* store ipm in failed list -> will be added
+				 * to ipm_list again, so a retry will be done
+				 * during the next call of this function */
 				list_add_tail(&ipm->list, &failed_list);
 			} else {
 				ipm->ipm_state = LCS_IPM_STATE_ON_CARD;
-				/*                         */
+				/* re-insert into ipm_list */
 				list_add_tail(&ipm->list, &card->ipm_list);
 			}
 			goto list_modified;
@@ -1152,15 +1152,15 @@ list_modified:
 			break;
 		}
 	}
-	/*                                                          */
+	/* re-insert all entries from the failed_list into ipm_list */
 	list_for_each_entry_safe(ipm, tmp, &failed_list, list)
 		list_move_tail(&ipm->list, &card->ipm_list);
 
 	spin_unlock_irqrestore(&card->ipm_lock, flags);
 }
 
-/* 
-                                                     
+/**
+ * get mac address for the relevant Multicast address
  */
 static void
 lcs_get_mac_for_ipm(__be32 ipm, char *mac, struct net_device *dev)
@@ -1172,8 +1172,8 @@ lcs_get_mac_for_ipm(__be32 ipm, char *mac, struct net_device *dev)
 		ip_eth_mc_map(ipm, mac);
 }
 
-/* 
-                                                                            
+/**
+ * function called by net device to handle multicast address relevant things
  */
 static inline void
 lcs_remove_mc_addresses(struct lcs_card *card, struct in_device *in4_dev)
@@ -1239,7 +1239,7 @@ lcs_set_mc_addresses(struct lcs_card *card, struct in_device *in4_dev)
 		lcs_get_mac_for_ipm(im4->multiaddr, buf, card->dev);
 		ipm = lcs_check_addr_entry(card, im4, buf);
 		if (ipm != NULL)
-			continue;	/*                          */
+			continue;	/* Address already in list. */
 		ipm = kzalloc(sizeof(struct lcs_ipm_list), GFP_ATOMIC);
 		if (ipm == NULL) {
 			pr_info("Not enough memory to add"
@@ -1290,11 +1290,11 @@ out:
 	lcs_clear_thread_running_bit(card, LCS_SET_MC_THREAD);
 	return 0;
 }
-#endif /*                     */
+#endif /* CONFIG_IP_MULTICAST */
 
-/* 
-                                   
-                                           
+/**
+ * function called by net device to
+ * handle multicast address relevant things
  */
 static void
 lcs_set_multicast_list(struct net_device *dev)
@@ -1307,7 +1307,7 @@ lcs_set_multicast_list(struct net_device *dev)
 
         if (!lcs_set_thread_start_bit(card, LCS_SET_MC_THREAD))
 		schedule_work(&card->kernel_thread_starter);
-#endif /*                     */
+#endif /* CONFIG_IP_MULTICAST */
 }
 
 static long
@@ -1387,8 +1387,8 @@ lcs_schedule_recovery(struct lcs_card *card)
 		schedule_work(&card->kernel_thread_starter);
 }
 
-/* 
-                               
+/**
+ * IRQ Handler for LCS channels
  */
 static void
 lcs_irq(struct ccw_device *cdev, unsigned long intparm, struct irb *irb)
@@ -1415,7 +1415,7 @@ lcs_irq(struct ccw_device *cdev, unsigned long intparm, struct irb *irb)
 	LCS_DBF_TEXT_(5, trace, "%4x%4x", irb->scsw.cmd.fctl,
 		      irb->scsw.cmd.actl);
 
-	/*                                               */
+	/* Check for channel and device errors presented */
 	rc = lcs_get_problem(cdev, irb);
 	if (rc || (dstat & DEV_STAT_UNIT_EXCEP)) {
 		dev_warn(&cdev->dev,
@@ -1431,7 +1431,7 @@ lcs_irq(struct ccw_device *cdev, unsigned long intparm, struct irb *irb)
 		wake_up(&card->wait_q);
 		return;
 	}
-	/*                                             */
+	/* How far in the ccw chain have we processed? */
 	if ((channel->state != LCS_CH_STATE_INIT) &&
 	    (irb->scsw.cmd.fctl & SCSW_FCTL_START_FUNC) &&
 	    (irb->scsw.cmd.cpa != 0)) {
@@ -1439,7 +1439,7 @@ lcs_irq(struct ccw_device *cdev, unsigned long intparm, struct irb *irb)
 			- channel->ccws;
 		if ((irb->scsw.cmd.actl & SCSW_ACTL_SUSPENDED) ||
 		    (irb->scsw.cmd.cstat & SCHN_STAT_PCI))
-			/*                                                */
+			/* Bloody io subsystem tells us lies about cpa... */
 			index = (index - 1) & (LCS_NUM_BUFFS - 1);
 		while (channel->io_idx != index) {
 			__lcs_processed_buffer(channel,
@@ -1452,27 +1452,27 @@ lcs_irq(struct ccw_device *cdev, unsigned long intparm, struct irb *irb)
 	if ((irb->scsw.cmd.dstat & DEV_STAT_DEV_END) ||
 	    (irb->scsw.cmd.dstat & DEV_STAT_CHN_END) ||
 	    (irb->scsw.cmd.dstat & DEV_STAT_UNIT_CHECK))
-		/*                          */
+		/* Mark channel as stopped. */
 		channel->state = LCS_CH_STATE_STOPPED;
 	else if (irb->scsw.cmd.actl & SCSW_ACTL_SUSPENDED)
-		/*                                         */
+		/* CCW execution stopped on a suspend bit. */
 		channel->state = LCS_CH_STATE_SUSPENDED;
 	if (irb->scsw.cmd.fctl & SCSW_FCTL_HALT_FUNC) {
 		if (irb->scsw.cmd.cc != 0) {
 			ccw_device_halt(channel->ccwdev, (addr_t) channel);
 			return;
 		}
-		/*                                          */
+		/* The channel has been stopped by halt_IO. */
 		channel->state = LCS_CH_STATE_HALTED;
 	}
 	if (irb->scsw.cmd.fctl & SCSW_FCTL_CLEAR_FUNC)
 		channel->state = LCS_CH_STATE_CLEARED;
-	/*                             */
+	/* Do the rest in the tasklet. */
 	tasklet_schedule(&channel->irq_tasklet);
 }
 
-/* 
-                          
+/**
+ * Tasklet for IRQ handler
  */
 static void
 lcs_tasklet(unsigned long data)
@@ -1485,11 +1485,11 @@ lcs_tasklet(unsigned long data)
 	channel = (struct lcs_channel *) data;
 	LCS_DBF_TEXT_(5, trace, "tlet%s", dev_name(&channel->ccwdev->dev));
 
-	/*                              */
+	/* Check for processed buffers. */
 	iob = channel->iob;
 	buf_idx = channel->buf_idx;
 	while (iob[buf_idx].state == LCS_BUF_STATE_PROCESSED) {
-		/*                        */
+		/* Do the callback thing. */
 		if (iob[buf_idx].callback != NULL)
 			iob[buf_idx].callback(channel, iob + buf_idx);
 		buf_idx = (buf_idx + 1) & (LCS_NUM_BUFFS - 1);
@@ -1504,12 +1504,12 @@ lcs_tasklet(unsigned long data)
 		__lcs_resume_channel(channel);
 	spin_unlock_irqrestore(get_ccwdev_lock(channel->ccwdev), flags);
 
-	/*                                                     */
+	/* Something happened on the channel. Wake up waiters. */
 	wake_up(&channel->wait_q);
 }
 
-/* 
-                                                           
+/**
+ * Finish current tx buffer and make it ready for transmit.
  */
 static void
 __lcs_emit_txbuffer(struct lcs_card *card)
@@ -1522,8 +1522,8 @@ __lcs_emit_txbuffer(struct lcs_card *card)
 	card->tx_emitted++;
 }
 
-/* 
-                                    
+/**
+ * Callback for finished tx buffers.
  */
 static void
 lcs_txbuffer_cb(struct lcs_channel *channel, struct lcs_buffer *buffer)
@@ -1531,7 +1531,7 @@ lcs_txbuffer_cb(struct lcs_channel *channel, struct lcs_buffer *buffer)
 	struct lcs_card *card;
 
 	LCS_DBF_TEXT(5, trace, "txbuffcb");
-	/*                          */
+	/* Put buffer back to pool. */
 	lcs_release_buffer(channel, buffer);
 	card = container_of(channel, struct lcs_card, write);
 	if (netif_queue_stopped(card->dev) && netif_carrier_ok(card->dev))
@@ -1540,15 +1540,15 @@ lcs_txbuffer_cb(struct lcs_channel *channel, struct lcs_buffer *buffer)
 	card->tx_emitted--;
 	if (card->tx_emitted <= 0 && card->tx_buffer != NULL)
 		/*
-                                                          
-                           
-   */
+		 * Last running tx buffer has finished. Submit partially
+		 * filled current buffer.
+		 */
 		__lcs_emit_txbuffer(card);
 	spin_unlock(&card->lock);
 }
 
-/* 
-                                                   
+/**
+ * Packet transmit function called by network stack
  */
 static int
 __lcs_start_xmit(struct lcs_card *card, struct sk_buff *skb,
@@ -1579,10 +1579,10 @@ __lcs_start_xmit(struct lcs_card *card, struct sk_buff *skb,
 	if (card->tx_buffer != NULL &&
 	    card->tx_buffer->count + sizeof(struct lcs_header) +
 	    skb->len + sizeof(u16) > LCS_IOBUFFERSIZE)
-		/*                                    */
+		/* skb too big for current tx buffer. */
 		__lcs_emit_txbuffer(card);
 	if (card->tx_buffer == NULL) {
-		/*                   */
+		/* Get new tx buffer */
 		card->tx_buffer = lcs_get_buffer(&card->write);
 		if (card->tx_buffer == NULL) {
 			card->stats.tx_dropped++;
@@ -1606,7 +1606,7 @@ __lcs_start_xmit(struct lcs_card *card, struct sk_buff *skb,
 	netif_wake_queue(card->dev);
 	spin_lock(&card->lock);
 	if (card->tx_emitted <= 0 && card->tx_buffer != NULL)
-		/*                                                     */
+		/* If this is the first tx buffer emit it immediately. */
 		__lcs_emit_txbuffer(card);
 out:
 	spin_unlock(&card->lock);
@@ -1625,8 +1625,8 @@ lcs_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	return rc;
 }
 
-/* 
-                                                             
+/**
+ * send startlan and lanstat command to make LCS device ready
  */
 static int
 lcs_startlan_auto(struct lcs_card *card)
@@ -1675,7 +1675,7 @@ lcs_startlan(struct lcs_card *card)
                                 rc = lcs_send_startlan(card,
                                                        LCS_INITIATOR_TCPIP);
                         else
-                                /*                        */
+                                /* autodetecting lan type */
                                 rc = lcs_startlan_auto(card);
                         if (rc == 0)
                                 break;
@@ -1686,9 +1686,9 @@ lcs_startlan(struct lcs_card *card)
 	return rc;
 }
 
-/* 
-                      
-                                         
+/**
+ * LCS detect function
+ * setup channels and make them I/O ready
  */
 static int
 lcs_detect(struct lcs_card *card)
@@ -1696,7 +1696,7 @@ lcs_detect(struct lcs_card *card)
 	int rc = 0;
 
 	LCS_DBF_TEXT(2, setup, "lcsdetct");
-	/*                  */
+	/* start/reset card */
 	if (card->dev)
 		netif_stop_queue(card->dev);
 	rc = lcs_stop_channels(card);
@@ -1718,8 +1718,8 @@ lcs_detect(struct lcs_card *card)
 	return rc;
 }
 
-/* 
-                
+/**
+ * LCS Stop card
  */
 static int
 lcs_stopcard(struct lcs_card *card)
@@ -1743,8 +1743,8 @@ lcs_stopcard(struct lcs_card *card)
 	return rc;
 }
 
-/* 
-                                                            
+/**
+ * Kernel Thread helper functions for LGW initiated commands
  */
 static void
 lcs_start_kernel_thread(struct work_struct *work)
@@ -1759,8 +1759,8 @@ lcs_start_kernel_thread(struct work_struct *work)
 #endif
 }
 
-/* 
-                          
+/**
+ * Process control frames.
  */
 static void
 lcs_get_control(struct lcs_card *card, struct lcs_cmd *cmd)
@@ -1786,8 +1786,8 @@ lcs_get_control(struct lcs_card *card, struct lcs_cmd *cmd)
 		lcs_notify_lancmd_waiters(card, cmd);
 }
 
-/* 
-                         
+/**
+ * Unpack network packet.
  */
 static void
 lcs_get_skb(struct lcs_card *card, char *skb_data, unsigned int skb_len)
@@ -1797,7 +1797,7 @@ lcs_get_skb(struct lcs_card *card, char *skb_data, unsigned int skb_len)
 	LCS_DBF_TEXT(5, trace, "getskb");
 	if (card->dev == NULL ||
 	    card->state != DEV_STATE_UP)
-		/*                                       */
+		/* The card isn't up. Ignore the packet. */
 		return;
 
 	skb = dev_alloc_skb(skb_len);
@@ -1817,8 +1817,8 @@ lcs_get_skb(struct lcs_card *card, char *skb_data, unsigned int skb_len)
 	netif_rx(skb);
 }
 
-/* 
-                                                                      
+/**
+ * LCS main routine to get packets and lancmd replies from the buffers
  */
 static void
 lcs_get_frames_cb(struct lcs_channel *channel, struct lcs_buffer *buffer)
@@ -1839,36 +1839,36 @@ lcs_get_frames_cb(struct lcs_channel *channel, struct lcs_buffer *buffer)
 		if (lcs_hdr->offset <= 0 ||
 		    lcs_hdr->offset > LCS_IOBUFFERSIZE ||
 		    lcs_hdr->offset < offset) {
-			/*                 */
+			/* Offset invalid. */
 			card->stats.rx_length_errors++;
 			card->stats.rx_errors++;
 			return;
 		}
-		/*                           */
+		/* What kind of frame is it? */
 		if (lcs_hdr->type == LCS_FRAME_TYPE_CONTROL)
-			/*                */
+			/* Control frame. */
 			lcs_get_control(card, (struct lcs_cmd *) lcs_hdr);
 		else if (lcs_hdr->type == LCS_FRAME_TYPE_ENET ||
 			 lcs_hdr->type == LCS_FRAME_TYPE_TR ||
 			 lcs_hdr->type == LCS_FRAME_TYPE_FDDI)
-			/*                        */
+			/* Normal network packet. */
 			lcs_get_skb(card, (char *)(lcs_hdr + 1),
 				    lcs_hdr->offset - offset -
 				    sizeof(struct lcs_header));
 		else
-			/*                     */
-			; //                       
-		/*                        */
+			/* Unknown frame type. */
+			; // FIXME: error message ?
+		/* Proceed to next frame. */
 		offset = lcs_hdr->offset;
 		lcs_hdr->offset = LCS_ILLEGAL_OFFSET;
 		lcs_hdr = (struct lcs_header *) (buffer->data + offset);
 	}
-	/*                                               */
+	/* The buffer is now empty. Make it ready again. */
 	lcs_ready_buffer(&card->read, buffer);
 }
 
-/* 
-                                                              
+/**
+ * get network statistics for ifconfig and other user programs
  */
 static struct net_device_stats *
 lcs_getstats(struct net_device *dev)
@@ -1880,9 +1880,9 @@ lcs_getstats(struct net_device *dev)
 	return &card->stats;
 }
 
-/* 
-                  
-                                                               
+/**
+ * stop lcs device
+ * This function will be called by user doing ifconfig xxx down
  */
 static int
 lcs_stop_device(struct net_device *dev)
@@ -1904,9 +1904,9 @@ lcs_stop_device(struct net_device *dev)
 	return rc;
 }
 
-/* 
-                                        
-                                                             
+/**
+ * start lcs device and make it runnable
+ * This function will be called by user doing ifconfig xxx up
  */
 static int
 lcs_open_device(struct net_device *dev)
@@ -1916,7 +1916,7 @@ lcs_open_device(struct net_device *dev)
 
 	LCS_DBF_TEXT(2, trace, "opendev");
 	card = (struct lcs_card *) dev->ml_priv;
-	/*                       */
+	/* initialize statistics */
 	rc = lcs_detect(card);
 	if (rc) {
 		pr_err("Error in opening device!\n");
@@ -1930,8 +1930,8 @@ lcs_open_device(struct net_device *dev)
 	return rc;
 }
 
-/* 
-                                                           
+/**
+ * show function for portno called by cat or similar things
  */
 static ssize_t
 lcs_portno_show (struct device *dev, struct device_attribute *attr, char *buf)
@@ -1946,8 +1946,8 @@ lcs_portno_show (struct device *dev, struct device_attribute *attr, char *buf)
         return sprintf(buf, "%d\n", card->portno);
 }
 
-/* 
-                                                
+/**
+ * store the value which is piped to file portno
  */
 static ssize_t
 lcs_portno_store (struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -1961,7 +1961,7 @@ lcs_portno_store (struct device *dev, struct device_attribute *attr, const char 
                 return 0;
 
         sscanf(buf, "%u", &value);
-        /*                     */
+        /* TODO: sanity checks */
         card->portno = value;
 
         return count;
@@ -2015,7 +2015,7 @@ lcs_timeout_store (struct device *dev, struct device_attribute *attr, const char
                 return 0;
 
         sscanf(buf, "%u", &value);
-        /*                     */
+        /* TODO: sanity checks */
         card->lancmd_timeout = value;
 
         return count;
@@ -2056,8 +2056,8 @@ static struct attribute_group lcs_attr_group = {
 	.attrs = lcs_attrs,
 };
 
-/* 
-                                                                    
+/**
+ * lcs_probe_device is called on establishing a new ccwgroup_device.
  */
 static int
 lcs_probe_device(struct ccwgroup_device *ccwgdev)
@@ -2105,8 +2105,8 @@ lcs_register_netdev(struct ccwgroup_device *ccwgdev)
 	return register_netdev(card->dev);
 }
 
-/* 
-                                                                    
+/**
+ * lcs_new_device will be called by setting the group device online.
  */
 static const struct net_device_ops lcs_netdev_ops = {
 	.ndo_open		= lcs_open_device,
@@ -2214,11 +2214,11 @@ netdev_out:
 	if (lcs_register_netdev(ccwgdev) != 0)
 		goto out;
 
-	/*                                   */
+	/* Print out supported assists: IPv6 */
 	pr_info("LCS device %s %s IPv6 support\n", card->dev->name,
 		(card->ip_assists_supported & LCS_IPASS_IPV6_SUPPORT) ?
 		"with" : "without");
-	/*                                       */
+	/* Print out supported assist: Multicast */
 	pr_info("LCS device %s %s Multicast support\n", card->dev->name,
 		(card->ip_assists_supported & LCS_IPASS_MULTICAST_SUPPORT) ?
 		"with" : "without");
@@ -2232,8 +2232,8 @@ out_err:
 	return -ENODEV;
 }
 
-/* 
-                                                                     
+/**
+ * lcs_shutdown_device, called when setting the group device offline.
  */
 static int
 __lcs_shutdown_device(struct ccwgroup_device *ccwgdev, int recovery_mode)
@@ -2273,8 +2273,8 @@ lcs_shutdown_device(struct ccwgroup_device *ccwgdev)
 	return __lcs_shutdown_device(ccwgdev, 0);
 }
 
-/* 
-                                                                         
+/**
+ * drive lcs recovery after startup and startlan initiated by Lan Gateway
  */
 static int
 lcs_recovery(void *ptr)
@@ -2304,8 +2304,8 @@ lcs_recovery(void *ptr)
 	return 0;
 }
 
-/* 
-                                           
+/**
+ * lcs_remove_device, free buffers and card
  */
 static void
 lcs_remove_device(struct ccwgroup_device *ccwgdev)
@@ -2402,8 +2402,8 @@ static struct ccw_driver lcs_ccw_driver = {
 	.int_class = IOINT_LCS,
 };
 
-/* 
-                                   
+/**
+ * LCS ccwgroup driver registration
  */
 static struct ccwgroup_driver lcs_group_driver = {
 	.driver = {
@@ -2450,8 +2450,8 @@ static const struct attribute_group *lcs_group_attr_groups[] = {
 	NULL,
 };
 
-/* 
-                                             
+/**
+ *  LCS Module/Kernel initialization function
  */
 static int
 __init lcs_init_module(void)
@@ -2488,8 +2488,8 @@ out_err:
 }
 
 
-/* 
-                               
+/**
+ *  LCS module cleanup function
  */
 static void
 __exit lcs_cleanup_module(void)

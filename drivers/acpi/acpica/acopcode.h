@@ -1,8 +1,8 @@
-/*                                                                             
-  
-                                                                               
-  
-                                                                             */
+/******************************************************************************
+ *
+ * Name: acopcode.h - AML opcode information for the AML parser and interpreter
+ *
+ *****************************************************************************/
 
 /*
  * Copyright (C) 2000 - 2012, Intel Corp.
@@ -49,23 +49,23 @@
 #define MAX_INTERNAL_OPCODE
 #define NUM_INTERNAL_OPCODE         (MAX_INTERNAL_OPCODE + 1)
 
-/*                               */
+/* Used for non-assigned opcodes */
 
 #define _UNK                        0x6B
 
 /*
-                                                          
-                                                         
-                                
+ * Reserved ASCII characters.  Do not use any of these for
+ * internal opcodes, since they are used to differentiate
+ * name strings from AML opcodes
  */
 #define _ASC                        0x6C
 #define _NAM                        0x6C
 #define _PFX                        0x6D
 
 /*
-                                                                          
-                                                                         
-                                       
+ * All AML opcodes and the parse-time arguments for each.  Used by the AML
+ * parser  Each list is compressed into a 32-bit number and stored in the
+ * master opcode table (in psopcode.c).
  */
 #define ARGP_ACCESSFIELD_OP             ARGP_LIST1 (ARGP_NAMESTRING)
 #define ARGP_ACQUIRE_OP                 ARGP_LIST2 (ARGP_SUPERNAME,  ARGP_WORDDATA)
@@ -193,11 +193,11 @@
 #define ARGP_ZERO_OP                    ARG_NONE
 
 /*
-                                                                       
-                                                                       
-                                              
-  
-                                                         
+ * All AML opcodes and the runtime arguments for each.  Used by the AML
+ * interpreter  Each list is compressed into a 32-bit number and stored
+ * in the master opcode table (in psopcode.c).
+ *
+ * (Used by prep_operands procedure and the ASL Compiler)
  */
 #define ARGI_ACCESSFIELD_OP             ARGI_INVALID_OPCODE
 #define ARGI_ACQUIRE_OP                 ARGI_LIST2 (ARGI_MUTEX,      ARGI_INTEGER)
@@ -324,4 +324,4 @@
 #define ARGI_WORD_OP                    ARGI_INVALID_OPCODE
 #define ARGI_ZERO_OP                    ARG_NONE
 
-#endif				/*                */
+#endif				/* __ACOPCODE_H__ */

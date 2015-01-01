@@ -13,8 +13,8 @@
  */
 
 /*
-                                                               
-                                                              
+ * Part of this this code is based on the standard ARM spinlock
+ * implementation (asm/spinlock.h) found in the 2.6.29 kernel.
  */
 
 #ifndef __ASM__ARCH_QC_REMOTE_SPINLOCK_H
@@ -26,7 +26,7 @@
 #define REMOTE_SPINLOCK_NUM_PID 128
 #define REMOTE_SPINLOCK_TID_START REMOTE_SPINLOCK_NUM_PID
 
-/*                              */
+/* Remote spinlock definitions. */
 
 struct dek_spinlock {
 	volatile uint8_t self_lock;
@@ -81,7 +81,7 @@ static inline void _remote_spin_unlock_rlock(_remote_spinlock_t *lock) {}
 #endif
 
 
-/*                           */
+/* Remote mutex definitions. */
 
 typedef struct {
 	_remote_spinlock_t	r_spinlock;
@@ -112,4 +112,4 @@ static inline int _remote_mutex_trylock(_remote_mutex_t *lock)
 }
 #endif
 
-#endif /*                                  */
+#endif /* __ASM__ARCH_QC_REMOTE_SPINLOCK_H */

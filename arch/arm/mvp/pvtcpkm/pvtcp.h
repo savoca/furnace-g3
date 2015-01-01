@@ -18,21 +18,21 @@
  */
 #line 5
 
-/* 
-        
-  
-                            
+/**
+ * @file
+ *
+ * @brief Pvtcp common APIs.
  */
 
 #ifndef _PVTCP_H_
 #define _PVTCP_H_
 
 /*
-                                                      
-                                                                            
-                                                                           
-  
-                                                                    
+ * Pvtcp state store ipv4 and ipv6 address structures.
+ * Platform-specific headers where these are defined, must be included here.
+ * Implementation-related header files should not be included in this file.
+ *
+ * NOTE: Pvtcp is not an API and none of its functions are exported.
  */
 
 #if defined(__linux__)
@@ -44,16 +44,16 @@
 
 #include "comm_svc.h"
 
-/*                                               */
+/* Max time to wait for a channel to be created. */
 #define PVTCP_CHANNEL_OPEN_TIMEOUT 2000
 
-/*                                                                    */
-#define PVTCP_SOCK_BUF_SIZE (8 << 10) /*    */
+/* Max payload size. Used to allocate offload per-cpu bounce buffers. */
+#define PVTCP_SOCK_BUF_SIZE (8 << 10) /* 8K */
 
 #define PVTCP_SOCK_DGRAM_BUF_SIZE PVTCP_SOCK_BUF_SIZE
 #define PVTCP_SOCK_STREAM_BUF_SIZE PVTCP_SOCK_BUF_SIZE
 
-/*                                                  */
+/* Dgram payloads include a pseudo (udp/ip) header. */
 typedef struct PvtcpDgramPseudoHeader {
    unsigned long long d0;
    unsigned long long d1;
@@ -63,40 +63,40 @@ typedef struct PvtcpDgramPseudoHeader {
 
 
 /*
-                                                 
-                                                                      
-                                                                         
-                                                                        
-  
-                                                                       
-                                                                             
-                                                                             
-  
-                                                                          
-                                                                           
-                                         
-                                                                            
-                                                                          
-                                                                         
-                                                                        
-                        
-                                                                          
-                                                          
-                                            
-                                                                             
-                                                                          
-                                                                              
-                                                                        
-                                                                            
-                                                                  
-                                                                              
-                                                                            
-                                                                        
-                                                                            
-                                              
-                                                                      
-                                                                          
-                                                
+ * Flow control constants for pv/offload sockets.
+ * We are defining a receive size model: 1) small, 2) medium, 3)large.
+ * This seems sufficient in addressing most target environments, but more
+ * models may be defined. A smaller minimum model (1) cannot be defined.
+ *
+ * Short description of socket-level flow control. This applies to both
+ * dgram and stream sockets, in both directions. It follows that, with regard
+ * to 'comm' writes, dgram and stream writes are: a) lossless and b) ordered.
+ *
+ * 0. Both sides (offload, pv) of a socket maintain (almost) mirror values
+ *    of input/output queue sizes. We say 'almost', because they're allowed
+ *    to conservatively converge in time.
+ * 1. Senders never write out to the shmem channel, and destined to a socket
+ *    (be it offload or pv), more bytes than that socket can hold/enqueue.
+ *    This is based on socket fields storing information mentioned above.
+ *    The upper limit is PVTCP_SOCK_RCVSIZE and cannot be exceeded under
+ *    any circumstances.
+ * 2. There is a 'safe' limit value (per socket) which can be tested prior
+ *    to writing one more max-sized packet to that socket.
+ *    This value is PVTCP_SOCK_SAFE_RCVSIZE.
+ * 3. There is also a notion of 'large' acks, which controls the frequency of
+ *    reporting socket queue size changes when bytes are consumed from it.
+ *    When a sender is about to write out (to the channel, for a given socket)
+ *    in excess of PVTCP_SOCK_LARGE_ACK_WM bytes, it sets, in the packet
+ *    header flag field, the PVTCP_SOCK_LARGE_ACK_ORDER value. The other end
+ *    updates its 'delta ack' value accordingly (1 << flag value).
+ * 4. As bytes are consumed (again, at either end), the operation or function,
+ *    will send a size ack packet with the consumed size since the last ack,
+ *    _iff_ that size is larger than, or equal to the 'delta ack' value.
+ *    If an ack was sent, the 'delta ack' is decreased by half, to a minimum
+ *    indicated by PVTCP_SOCK_SMALL_ACK_ORDER.
+ *    Note that concurrently setting the 'delta ack' to its high value
+ *    because of condition 3) above, is fine since the sender already has,
+ *    or is about to put pressure on the socket.
  */
 
 #if !defined(PVTCP_SOCK_RCVSIZE_MODEL)
@@ -104,20 +104,20 @@ typedef struct PvtcpDgramPseudoHeader {
 #endif
 
 #if PVTCP_SOCK_RCVSIZE_MODEL == 1
-   #define PVTCP_SOCK_LARGE_ACK_WM (64 << 10) /*     */
+   #define PVTCP_SOCK_LARGE_ACK_WM (64 << 10) /* 64K */
    #define PVTCP_SOCK_LARGE_ACK_ORDER 15
    #define PVTCP_SOCK_SMALL_ACK_ORDER 11
-   #define PVTCP_SOCK_SAFE_RCVSIZE (128 << 10) /*      */
+   #define PVTCP_SOCK_SAFE_RCVSIZE (128 << 10) /* 128K */
 #elif PVTCP_SOCK_RCVSIZE_MODEL == 2
-   #define PVTCP_SOCK_LARGE_ACK_WM (128 << 10) /*      */
+   #define PVTCP_SOCK_LARGE_ACK_WM (128 << 10) /* 128K */
    #define PVTCP_SOCK_LARGE_ACK_ORDER 16
    #define PVTCP_SOCK_SMALL_ACK_ORDER 12
-   #define PVTCP_SOCK_SAFE_RCVSIZE (256 << 10) /*      */
+   #define PVTCP_SOCK_SAFE_RCVSIZE (256 << 10) /* 256K */
 #elif PVTCP_SOCK_RCVSIZE_MODEL == 3
-   #define PVTCP_SOCK_LARGE_ACK_WM (128 << 10) /*      */
+   #define PVTCP_SOCK_LARGE_ACK_WM (128 << 10) /* 128K */
    #define PVTCP_SOCK_LARGE_ACK_ORDER 16
    #define PVTCP_SOCK_SMALL_ACK_ORDER 12
-   #define PVTCP_SOCK_SAFE_RCVSIZE (512 << 10) /*      */
+   #define PVTCP_SOCK_SAFE_RCVSIZE (512 << 10) /* 512K */
 #else
    #error "Invalid PVTCP_SOCK_RCVSIZE_MODEL (one of 1, 2, 3)"
 #endif
@@ -128,7 +128,7 @@ typedef struct PvtcpDgramPseudoHeader {
 
 
 /*
-                  
+ * Operation codes
  */
 
 enum PvtcpOpCodes {
@@ -151,7 +151,7 @@ enum PvtcpOpCodes {
 
 
 /*
-                      
+ * Operation functions
  */
 
 COMM_DEFINE_OP(PvtcpFlowOp);
@@ -169,7 +169,7 @@ COMM_DEFINE_OP(PvtcpIoctlOp);
 
 
 /*
-                                          
+ * Pvtcp/Comm type and supported versions.
  */
 
 #define PVTCP_COMM_IMPL_TYPE "com.vmware.comm.protocol.pvTCP@"
@@ -187,7 +187,7 @@ extern const unsigned int pvtcpVersionsSize;
 
 
 /*
-                          
+ * State interface markers
  */
 
 #define PVTCP_PF_UNBOUND   0x0
@@ -196,89 +196,89 @@ extern const unsigned int pvtcpVersionsSize;
 
 
 /*
-                                                    
+ * Interface and interface configuration structures.
  */
 
 typedef struct PvtcpIfConf {
    /*
-             
-                                    
-                                      
-                                           
-                           
-                            
+    * Values:
+    *    unbound  (PVTCP_PF_UNBOUND)
+    *    deathRow (PVTCP_PF_DEATH_ROW)
+    *    loopback (PVTCP_PF_LOOPBACK_INET4)
+    *    inet4    (PF_INET)
+    *    inet6    (PF_INET6)
     */
    int family;
 
    union {
       struct in_addr in;
       struct in6_addr in6;
-   } addr;                          /*                         */
+   } addr;                          /* inet4 or inet6 address. */
    union {
       struct in_addr in;
       struct in6_addr in6;
-   } mask;                          /*                         */
+   } mask;                          /* inet4 or inet6 netmask. */
 } PvtcpIfConf;
 
 
 struct PvtcpState;
 
 typedef struct PvtcpIf {
-   CommOSList sockList;       /*                  */
-   CommOSList stateLink;      /*                            */
-   struct PvtcpState *state;  /*                          */
-   PvtcpIfConf conf;          /*                          */
+   CommOSList sockList;       /* List of sockets. */
+   CommOSList stateLink;      /* Link in PvtcpState.ifList. */
+   struct PvtcpState *state;  /* Back reference to state. */
+   PvtcpIfConf conf;          /* Interface configuration. */
 } PvtcpIf;
 
 
 /*
-                                                 
+ * General pvtcp state associated with a channel.
  */
 
 typedef struct PvtcpState {
-   unsigned long long id;     /*                              */
-   CommOSList ifList;         /*                            */
-   CommChannel channel;       /*                              */
-   PvtcpIf ifDeathRow;        /*                       */
-   PvtcpIf ifUnbound;         /*        */
-   PvtcpIf ifLoopbackInet4;   /*        */
-   void *namespace;           /*                              */
-   void *extra;               /*                                                */
-   unsigned int mask;         /*                                         */
+   unsigned long long id;     /* Randomly generated state ID. */
+   CommOSList ifList;         /* List of active interfaces. */
+   CommChannel channel;       /* Comm channel back reference. */
+   PvtcpIf ifDeathRow;        /* Always-present netif. */
+   PvtcpIf ifUnbound;         /* Ditto. */
+   PvtcpIf ifLoopbackInet4;   /* Ditto. */
+   void *namespace;           /* Name space, where supported. */
+   void *extra;               /* Used by upper layer to extend state as needed. */
+   unsigned int mask;         /* Mask used to obfuscate socket pointers. */
 } PvtcpState;
 
 
 /*
-                                                                         
-                                         
+ * Define pvtcp socket common fields and include the pv or offload header
+ * to get the right PvtcpSock definition.
  */
 
 #define PVTCP_SOCK_COMMON_FIELDS                                           \
-   CommOSMutex inLock;          /*                                      */ \
-   CommOSMutex outLock;         /*                                      */ \
-   CommOSSpinlock stateLock;    /*                                      */ \
-   CommOSList ifLink;           /*                                      */ \
-   CommOSWork work;             /*                                      */ \
-   PvtcpIf *netif;              /*                                      */ \
-   PvtcpState *state;           /*                                      */ \
-   unsigned long long stateID;  /*                                      */ \
-   CommChannel channel;         /*                                      */ \
-   unsigned long long peerSock; /*                                      */ \
-   volatile int peerSockSet;    /*                                      */ \
-   CommOSAtomic deltaAckSize;   /*                                      */ \
-   CommOSAtomic rcvdSize;       /*                                      */ \
-   CommOSAtomic sentSize;       /*                                      */ \
-   CommOSAtomic queueSize;      /*                                      */ \
-   CommOSList queue;            /*                                      */ \
-   void *rpcReply;              /*                                      */ \
-   int rpcStatus;               /*                                      */ \
-   int err                      /*                                      */
+   CommOSMutex inLock;          /* Input lock.                          */ \
+   CommOSMutex outLock;         /* Output lock.                         */ \
+   CommOSSpinlock stateLock;    /* State update lock.                   */ \
+   CommOSList ifLink;           /* Link in PvtcpIf.sockList.            */ \
+   CommOSWork work;             /* Work item for AIO processing.        */ \
+   PvtcpIf *netif;              /* Netif reference.                     */ \
+   PvtcpState *state;           /* State reference.                     */ \
+   unsigned long long stateID;  /* State ID.                            */ \
+   CommChannel channel;         /* Comm channel reference.              */ \
+   unsigned long long peerSock; /* Peer socket, opaque.                 */ \
+   volatile int peerSockSet;    /* Peer socket valid.                   */ \
+   CommOSAtomic deltaAckSize;   /* Recv size updates required by peer.  */ \
+   CommOSAtomic rcvdSize;       /* Bytes received since last ack.       */ \
+   CommOSAtomic sentSize;       /* Bytes sent; also updated by peer.    */ \
+   CommOSAtomic queueSize;      /* Queue size.                          */ \
+   CommOSList queue;            /* Send queue (off) or recv queue (pv). */ \
+   void *rpcReply;              /* RPC reply.                           */ \
+   int rpcStatus;               /* RPC completion status.               */ \
+   int err                      /* Socket error.                        */
 
 #define PVTCP_PEER_SOCK_NULL ((unsigned long long)0)
 
 
 /*
-                
+ * Helper macros
  */
 
 #define SOCK_STATE_LOCK(pvsk)   CommOS_SpinLock(&(pvsk)->stateLock)
@@ -307,11 +307,11 @@ typedef struct PvtcpState {
 #include "pvtcp_off.h"
 #else
 #include "pvtcp_pv.h"
-#endif /*                                */
+#endif /* defined(PVTCP_BUILDING_SERVER) */
 
 
 /*
-                    
+ * Data declarations
  */
 
 extern const PvtcpIfConf *pvtcpIfUnbound;
@@ -325,7 +325,7 @@ extern CommChannel pvtcpClientChannel;
 
 
 /*
-                                       
+ * Common state manipulation functions.
  */
 
 void *PvtcpStateAlloc(CommChannel channel);
@@ -343,7 +343,7 @@ int PvtcpStateRemoveSocket(CommChannel channel, PvtcpSock *sock);
 
 
 /*
-                          
+ * Common Pvtcp functions.
  */
 
 int PvtcpCheckArgs(CommTranspInitArgs *transpArgs);
@@ -369,12 +369,12 @@ int PvtcpSockInit(PvtcpSock *pvsk, CommChannel channel);
 void PvtcpProcessAIO(CommOSWork *work);
 
 
-/* 
-                                                                           
-                                
-                                                           
-                                                
-                                                
+/**
+ * @brief Packs an IPV6 address stored in an array of four 32-bit elements,
+ *    into two 64-bit variables.
+ * @param addr IPV6 address as an array of 32-bit elements.
+ * @param[out] d64_0 pointer to 64-bit variable.
+ * @param[out] d64_1 pointer to 64-bit variable.
  */
 
 static inline void
@@ -387,12 +387,12 @@ PvtcpI6AddrPack(const unsigned int addr[4],
 }
 
 
-/* 
-                                                                         
-                           
-                                                                
-                             
-                             
+/**
+ * @brief Unpacks two 64-bit values into an IPV6 address-storing array of
+ *    four 32-bit elements,
+ * @param[out] addr IPV6 address as an array of 32-bit elements.
+ * @param d64_0 64-bit value.
+ * @param d64_1 64-bit value.
  */
 
 static inline void
@@ -405,14 +405,14 @@ PvtcpI6AddrUnpack(unsigned int addr[4],
 }
 
 
-/* 
-                                                                             
-                                                                          
-                                                                          
-                                      
-                                         
-                                                                
-                                                                           
+/**
+ * @brief Verifies whether the argument is a valid socket. If yes, it returns
+ *    the actual pointer. Otherwise, it returns from the calling function.
+ *    WARNING: This macro must ONLY be used in operation functions, as its
+ *             implementation assumes.
+ * @param handle socket handle to verify.
+ * @param container state supposed to contain the socket handle.
+ * @return 32-bit or 64-bit PvtcpSock*, depending on __LP64__ or __LLP64__.
  */
 
 #if defined(__LP64__) || defined(__LLP64__)
@@ -431,7 +431,7 @@ PvtcpI6AddrUnpack(unsigned int addr[4],
       (__pvsk);                                                                \
    })
 
-#else /*                       */
+#else /* __LP64__ || __LLP64__ */
 
 #define PvtcpGetPvskOrReturn(handle, container)                                \
    ({                                                                          \
@@ -447,13 +447,13 @@ PvtcpI6AddrUnpack(unsigned int addr[4],
       (__pvsk);                                                                \
    })
 
-#endif /*                       */
+#endif /* __LP64__ || __LLP64__ */
 
 
-/* 
-                                                                 
-                                      
-                                      
+/**
+ * @brief Masks a socket pointer to be passed to the peer module.
+ * @param pvsk socket pointer to mask.
+ * @return 64-bit pvtcp socket handle.
  */
 
 #if defined(__LP64__) || defined(__LLP64__)
@@ -461,12 +461,12 @@ PvtcpI6AddrUnpack(unsigned int addr[4],
 #define PvtcpGetHandle(pvsk)                                                   \
    ((unsigned long long)(pvsk) ^ (unsigned long long)(pvsk)->state->mask)
 
-#else /*                       */
+#else /* __LP64__ || __LLP64__ */
 
 #define PvtcpGetHandle(pvsk)                                                   \
    ((unsigned int)(pvsk) ^ (pvsk)->state->mask)
 
-#endif /*                       */
+#endif /* __LP64__ || __LLP64__ */
 
-#endif /*           */
+#endif /* _PVTCP_H_ */
 

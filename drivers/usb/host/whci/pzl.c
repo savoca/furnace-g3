@@ -58,9 +58,9 @@ static void update_pzl_pointers(struct whc *whc, int period, u64 addr)
 }
 
 /*
-                                                                      
-                                                                    
-                       
+ * Return the 'period' to use for this qset.  The minimum interval for
+ * the endpoint is used so whatever urbs are submitted the device is
+ * polled often enough.
  */
 static int qset_get_period(struct whc *whc, struct whc_qset *qset)
 {
@@ -91,14 +91,14 @@ static void pzl_qset_remove(struct whc *whc, struct whc_qset *qset)
 	qset->in_sw_list = false;
 }
 
-/* 
-                                                                     
-             
-  
-                                                                
-                                 
-  
-                                         
+/**
+ * pzl_process_qset - process any recently inactivated or halted qTDs
+ * in a qset.
+ *
+ * After inactive qTDs are removed, new qTDs can be added if the
+ * urb queue still contains URBs.
+ *
+ * Returns the schedule updates required.
  */
 static enum whc_update pzl_process_qset(struct whc *whc, struct whc_qset *qset)
 {
@@ -114,22 +114,22 @@ static enum whc_update pzl_process_qset(struct whc *whc, struct whc_qset *qset)
 		status = le32_to_cpu(td->status);
 
 		/*
-                                           
-   */
+		 * Nothing to do with a still active qTD.
+		 */
 		if (status & QTD_STS_ACTIVE)
 			break;
 
 		if (status & QTD_STS_HALTED) {
-			/*               */
+			/* Ug, an error. */
 			process_halted_qtd(whc, qset, td);
-			/*                                       
-                                            
-                   */
+			/* A halted qTD always triggers an update
+			   because the qset was either removed or
+			   reactivated. */
 			update |= WHC_UPDATE_UPDATED;
 			goto done;
 		}
 
-		/*                       */
+		/* Mmm, a completed qTD. */
 		process_inactive_qtd(whc, qset, td);
 	}
 
@@ -138,8 +138,8 @@ static enum whc_update pzl_process_qset(struct whc *whc, struct whc_qset *qset)
 
 done:
 	/*
-                                                              
-  */
+	 * If there are no qTDs in this qset, remove it from the PZL.
+	 */
 	if (qset->remove && qset->ntds == 0) {
 		pzl_qset_remove(whc, qset);
 		update |= WHC_UPDATE_REMOVED;
@@ -148,12 +148,12 @@ done:
 	return update;
 }
 
-/* 
-                                          
-                                 
-  
-                                                                   
-                  
+/**
+ * pzl_start - start the periodic schedule
+ * @whc: the WHCI host controller
+ *
+ * The PZL must be valid (e.g., all entries in the list should have
+ * the T bit set).
  */
 void pzl_start(struct whc *whc)
 {
@@ -165,9 +165,9 @@ void pzl_start(struct whc *whc)
 		      1000, "start PZL");
 }
 
-/* 
-                                        
-                                 
+/**
+ * pzl_stop - stop the periodic schedule
+ * @whc: the WHCI host controller
  */
 void pzl_stop(struct whc *whc)
 {
@@ -177,14 +177,14 @@ void pzl_stop(struct whc *whc)
 		      1000, "stop PZL");
 }
 
-/* 
-                                                                           
-                    
-                                               
-  
-                                                                 
-                                                                   
-            
+/**
+ * pzl_update - request a PZL update and wait for the hardware to be synced
+ * @whc: the WHCI HC
+ * @wusbcmd: WUSBCMD value to start the update.
+ *
+ * If the WUSB HC is inactive (i.e., the PZL is stopped) then the
+ * update must be skipped as the hardware may not respond to update
+ * requests.
  */
 void pzl_update(struct whc *whc, uint32_t wusbcmd)
 {
@@ -220,13 +220,13 @@ static void update_pzl_hw_view(struct whc *whc)
 	}
 }
 
-/* 
-                                                          
-  
-                                                                    
-                            
-  
-                                                                
+/**
+ * scan_periodic_work - scan the PZL for qsets to process.
+ *
+ * Process each qset in the PZL in turn and then signal the WHC that
+ * the PZL has been updated.
+ *
+ * Then start, stop or update the periodic schedule as required.
  */
 void scan_periodic_work(struct work_struct *work)
 {
@@ -258,12 +258,12 @@ void scan_periodic_work(struct work_struct *work)
 	}
 
 	/*
-                                                            
-                  
-   
-                                                               
-                                    
-  */
+	 * Now that the PZL is updated, complete the removal of any
+	 * removed qsets.
+	 *
+	 * If the qset was to be reset, do so and reinsert it into the
+	 * PZL if it has pending transfers.
+	 */
 	spin_lock_irq(&whc->lock);
 
 	list_for_each_entry_safe(qset, t, &whc->periodic_removed_list, list_node) {
@@ -280,15 +280,15 @@ void scan_periodic_work(struct work_struct *work)
 	spin_unlock_irq(&whc->lock);
 }
 
-/* 
-                                                              
-                                 
-                           
-                                               
-  
-                                                                     
-  
-                                                              
+/**
+ * pzl_urb_enqueue - queue an URB onto the periodic list (PZL)
+ * @whc: the WHCI host controller
+ * @urb: the URB to enqueue
+ * @mem_flags: flags for any memory allocations
+ *
+ * The qset for the endpoint is obtained and the urb queued on to it.
+ *
+ * Work is scheduled to update the hardware's view of the PZL.
  */
 int pzl_urb_enqueue(struct whc *whc, struct urb *urb, gfp_t mem_flags)
 {
@@ -323,15 +323,15 @@ int pzl_urb_enqueue(struct whc *whc, struct urb *urb, gfp_t mem_flags)
 	return err;
 }
 
-/* 
-                                                                
-                                 
-                           
-                                         
-  
-                                                                     
-                                                                      
-           
+/**
+ * pzl_urb_dequeue - remove an URB (qset) from the periodic list
+ * @whc: the WHCI host controller
+ * @urb: the URB to dequeue
+ * @status: the current status of the URB
+ *
+ * URBs that do yet have qTDs can simply be removed from the software
+ * queue, otherwise the qset must be removed so the qTDs can be safely
+ * removed.
  */
 int pzl_urb_dequeue(struct whc *whc, struct urb *urb, int status)
 {
@@ -354,7 +354,7 @@ int pzl_urb_dequeue(struct whc *whc, struct urb *urb, int status)
 				has_qtd = true;
 			qset_free_std(whc, std);
 		} else
-			std->qtd = NULL; /*                                          */
+			std->qtd = NULL; /* so this std is re-added when the qset is */
 	}
 
 	if (has_qtd) {
@@ -371,8 +371,8 @@ out:
 	return ret;
 }
 
-/* 
-                                               
+/**
+ * pzl_qset_delete - delete a qset from the PZL
  */
 void pzl_qset_delete(struct whc *whc, struct whc_qset *qset)
 {
@@ -381,9 +381,9 @@ void pzl_qset_delete(struct whc *whc, struct whc_qset *qset)
 	qset_delete(whc, qset);
 }
 
-/* 
-                                               
-                                 
+/**
+ * pzl_init - initialize the periodic zone list
+ * @whc: the WHCI host controller
  */
 int pzl_init(struct whc *whc)
 {
@@ -394,7 +394,7 @@ int pzl_init(struct whc *whc)
 	if (whc->pz_list == NULL)
 		return -ENOMEM;
 
-	/*                                   */
+	/* Set T bit on all elements in PZL. */
 	for (i = 0; i < 16; i++)
 		whc->pz_list[i] = cpu_to_le64(QH_LINK_NTDS(8) | QH_LINK_T);
 
@@ -403,11 +403,11 @@ int pzl_init(struct whc *whc)
 	return 0;
 }
 
-/* 
-                                    
-                                 
-  
-                                
+/**
+ * pzl_clean_up - free PZL resources
+ * @whc: the WHCI host controller
+ *
+ * The PZL is stopped and empty.
  */
 void pzl_clean_up(struct whc *whc)
 {

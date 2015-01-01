@@ -4,16 +4,16 @@
 #include <linux/neighbour.h>
 
 /*
-                                 
-  
-           
-                                   
-                                          
-  
-            
-  
-                                        
-                                                
+ *	Generic neighbour manipulation
+ *
+ *	Authors:
+ *	Pedro Roque		<roque@di.fc.ul.pt>
+ *	Alexey Kuznetsov	<kuznet@ms2.inr.ac.ru>
+ *
+ * 	Changes:
+ *
+ *	Harald Welte:		<laforge@gnumonks.org>
+ *		- Add neighbour cache statistics like rtstat
  */
 
 #include <linux/atomic.h>
@@ -28,7 +28,7 @@
 #include <net/rtnetlink.h>
 
 /*
-                                                     
+ * NUD stands for "neighbor unreachability detection"
  */
 
 #define NUD_IN_TIMER	(NUD_INCOMPLETE|NUD_REACHABLE|NUD_DELAY|NUD_PROBE)
@@ -70,22 +70,22 @@ struct neigh_parms {
 };
 
 struct neigh_statistics {
-	unsigned long allocs;		/*                            */
-	unsigned long destroys;		/*                            */
-	unsigned long hash_grows;	/*                        */
+	unsigned long allocs;		/* number of allocated neighs */
+	unsigned long destroys;		/* number of destroyed neighs */
+	unsigned long hash_grows;	/* number of hash resizes */
 
-	unsigned long res_failed;	/*                              */
+	unsigned long res_failed;	/* number of failed resolutions */
 
-	unsigned long lookups;		/*                   */
-	unsigned long hits;		/*                                */
+	unsigned long lookups;		/* number of lookups */
+	unsigned long hits;		/* number of hits (among lookups) */
 
-	unsigned long rcv_probes_mcast;	/*                               */
-	unsigned long rcv_probes_ucast; /*                               */
+	unsigned long rcv_probes_mcast;	/* number of received mcast ipv6 */
+	unsigned long rcv_probes_ucast; /* number of received ucast ipv6 */
 
-	unsigned long periodic_gc_runs;	/*                            */
-	unsigned long forced_gc_runs;	/*                          */
+	unsigned long periodic_gc_runs;	/* number of periodic GC runs */
+	unsigned long forced_gc_runs;	/* number of forced GC runs */
 
-	unsigned long unres_discards;	/*                            */
+	unsigned long unres_discards;	/* number of unresolved drops */
 };
 
 #define NEIGH_CACHE_STAT_INC(tbl, field) this_cpu_inc((tbl)->stats->field)
@@ -136,7 +136,7 @@ struct pneigh_entry {
 };
 
 /*
-                               
+ *	neighbour table manipulation
  */
 
 #define NEIGH_NUM_HASH_RND	4
@@ -163,7 +163,7 @@ struct neigh_table {
 	void			(*proxy_redo)(struct sk_buff *skb);
 	char			*id;
 	struct neigh_parms	parms;
-	/*                                               */
+	/* HACK. gc_* should follow parms without a gap! */
 	int			gc_interval;
 	int			gc_thresh1;
 	int			gc_thresh2;
@@ -187,7 +187,7 @@ static inline void *neighbour_priv(const struct neighbour *n)
 	return (char *)n + ALIGN(sizeof(*n) + n->tbl->key_len, NEIGH_PRIV_ALIGN);
 }
 
-/*                          */
+/* flags for neigh_update() */
 #define NEIGH_UPDATE_F_OVERRIDE			0x00000001
 #define NEIGH_UPDATE_F_WEAK_OVERRIDE		0x00000002
 #define NEIGH_UPDATE_F_OVERRIDE_ISROUTER	0x00000004
@@ -285,7 +285,7 @@ static inline struct neigh_parms *neigh_parms_clone(struct neigh_parms *parms)
 }
 
 /*
-                       
+ *	Neighbour references
  */
 
 static inline void neigh_release(struct neighbour *neigh)

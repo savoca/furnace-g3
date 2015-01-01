@@ -19,7 +19,7 @@
 #define HALL_IC_DEV_NAME "bu52031nvx"
 #define CARKIT_DEV_NAME  "bu52031nvx-carkit"
 
-/*                     */
+/* SMART COVER Support */
 #define SMARTCOVER_NO_DEV			0
 #define SMARTCOVER_POUCH_CLOSED		1
 #define SMARTCOVER_POUCH_OPENED		0
@@ -32,14 +32,14 @@
 #define SMARTCOVER_PEN_OUT			4
 #endif
 
-/*                         */
+/* Carkit support -only VZW*/
 #ifdef CONFIG_BU52031NVX_CARKIT
-#define	CARKIT_NO_DEV				0	//         
-#define	CARKIT_DESKDOCK				1	//         
-#define CARKIT_DOCKED				2	//         
+#define	CARKIT_NO_DEV				0	// only VZW
+#define	CARKIT_DESKDOCK				1	// only VZW
+#define CARKIT_DOCKED				2	// only VZW
 #endif
 
-/*                                         */
+/* define if supports touch wakeup gesture */
 #define HALLIC_TOUCH_IF
 
 struct pm8xxx_cradle_platform_data {
@@ -73,4 +73,4 @@ int carkit_get_deskdock(void);
 int get_smartcover_status(void);
 #endif
 
-#endif /*                     */
+#endif /* __PM8XXX_CRADLE_H__ */

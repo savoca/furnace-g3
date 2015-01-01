@@ -11,8 +11,8 @@
  *
  */
 /*
-                             
-  
+ * Qualcomm PM8XXX UPL driver
+ *
  */
 
 #include <linux/module.h>
@@ -23,7 +23,7 @@
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/upl.h>
 
-/*                        */
+/* PMIC8XXX UPL registers */
 #define SSBI_REG_UPL_CTRL		0x17B
 #define SSBI_REG_UPL_TRUTHTABLE1	0x17C
 #define SSBI_REG_UPL_TRUTHTABLE2	0x17D
@@ -37,10 +37,10 @@ struct pm8xxx_upl_device {
 };
 static struct pm8xxx_upl_device *upl_dev;
 
-/*      */
+/* APIs */
 
 /*
-                                                             
+ * pm8xxx_upl_request - request a handle to access UPL device
  */
 struct pm8xxx_upl_device *pm8xxx_upl_request(void)
 {
@@ -49,10 +49,10 @@ struct pm8xxx_upl_device *pm8xxx_upl_request(void)
 EXPORT_SYMBOL(pm8xxx_upl_request);
 
 /*
-                                                                              
-  
-                          
-                                               
+ * pm8xxx_upl_read_truthtable - read value currently stored in UPL truth table
+ *
+ * @upldev: the UPL device
+ * @truthtable: value read from UPL truth table
  */
 int pm8xxx_upl_read_truthtable(struct pm8xxx_upl_device *upldev,
 				u16 *truthtable)
@@ -86,15 +86,15 @@ upl_read_done:
 EXPORT_SYMBOL(pm8xxx_upl_read_truthtable);
 
 /*
-                                                                  
-  
-                          
-                                                
-  
-                                                                               
-                                                                             
-                                                                            
-                                      
+ * pm8xxx_upl_writes_truthtable - write value into UPL truth table
+ *
+ * @upldev: the UPL device
+ * @truthtable: value written to UPL truth table
+ *
+ * Each bit in parameter "truthtable" corresponds to the UPL output for a given
+ * set of input pin values. For example, if the input pins have the following
+ * values: A=1, B=1, C=1, D=0, then the UPL would output the value of bit 14
+ * (0b1110) in parameter "truthtable".
  */
 int pm8xxx_upl_write_truthtable(struct pm8xxx_upl_device *upldev,
 				u16 truthtable)
@@ -130,11 +130,11 @@ upl_write_done:
 EXPORT_SYMBOL(pm8xxx_upl_write_truthtable);
 
 /*
-                                                                        
-  
-                          
-                                   
-                        
+ * pm8xxx_upl_config - configure UPL I/O settings and UPL enable/disable
+ *
+ * @upldev: the UPL device
+ * @mask: setting mask to configure
+ * @flags: setting flags
  */
 int pm8xxx_upl_config(struct pm8xxx_upl_device *upldev, u32 mask, u32 flags)
 {
@@ -199,7 +199,7 @@ static int truthtable_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(upl_truthtable_fops, truthtable_get,
 			truthtable_set, "0x%04llX\n");
 
-/*                                                                         */
+/* enter values as 0xMMMMFFFF where MMMM is the mask and FFFF is the flags */
 static int control_set(void *data, u64 val)
 {
 	u8 mask, flags;
@@ -282,7 +282,7 @@ static int __devexit pm8xxx_upl_debug_remove(struct pm8xxx_upl_device *upldev)
 	return 0;
 }
 
-#endif /*                 */
+#endif /* CONFIG_DEBUG_FS */
 
 static int __devinit pm8xxx_upl_probe(struct platform_device *pdev)
 {

@@ -13,7 +13,7 @@
 #include <net/netrom.h>
 
 /*
-                                           
+ *	Values taken from NET/ROM documentation.
  */
 static int min_quality[] = {0}, max_quality[] = {255};
 static int min_obs[]     = {0}, max_obs[]     = {255};

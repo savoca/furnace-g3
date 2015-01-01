@@ -40,7 +40,7 @@
 static atomic_t proc_event_num_listeners = ATOMIC_INIT(0);
 static struct cb_id cn_proc_event_id = { CN_IDX_PROC, CN_VAL_PROC };
 
-/*                                                                         */
+/* proc_event_counts is used as the sequence number of the netlink message */
 static DEFINE_PER_CPU(__u32, proc_event_counts) = { 0 };
 
 static inline void get_seq(__u32 *ts, int *cpu)
@@ -65,7 +65,7 @@ void proc_fork_connector(struct task_struct *task)
 	msg = (struct cn_msg*)buffer;
 	ev = (struct proc_event*)msg->data;
 	get_seq(&msg->seq, &ev->cpu);
-	ktime_get_ts(&ts); /*                                  */
+	ktime_get_ts(&ts); /* get high res monotonic timestamp */
 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
 	ev->what = PROC_EVENT_FORK;
 	rcu_read_lock();
@@ -77,9 +77,9 @@ void proc_fork_connector(struct task_struct *task)
 	ev->event_data.fork.child_tgid = task->tgid;
 
 	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
-	msg->ack = 0; /*          */
+	msg->ack = 0; /* not used */
 	msg->len = sizeof(*ev);
-	/*                                                    */
+	/*  If cn_netlink_send() failed, the data is not sent */
 	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
 }
 
@@ -96,14 +96,14 @@ void proc_exec_connector(struct task_struct *task)
 	msg = (struct cn_msg*)buffer;
 	ev = (struct proc_event*)msg->data;
 	get_seq(&msg->seq, &ev->cpu);
-	ktime_get_ts(&ts); /*                                  */
+	ktime_get_ts(&ts); /* get high res monotonic timestamp */
 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
 	ev->what = PROC_EVENT_EXEC;
 	ev->event_data.exec.process_pid = task->pid;
 	ev->event_data.exec.process_tgid = task->tgid;
 
 	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
-	msg->ack = 0; /*          */
+	msg->ack = 0; /* not used */
 	msg->len = sizeof(*ev);
 	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
 }
@@ -138,11 +138,11 @@ void proc_id_connector(struct task_struct *task, int which_id)
 	}
 	rcu_read_unlock();
 	get_seq(&msg->seq, &ev->cpu);
-	ktime_get_ts(&ts); /*                                  */
+	ktime_get_ts(&ts); /* get high res monotonic timestamp */
 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
 
 	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
-	msg->ack = 0; /*          */
+	msg->ack = 0; /* not used */
 	msg->len = sizeof(*ev);
 	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
 }
@@ -160,14 +160,14 @@ void proc_sid_connector(struct task_struct *task)
 	msg = (struct cn_msg *)buffer;
 	ev = (struct proc_event *)msg->data;
 	get_seq(&msg->seq, &ev->cpu);
-	ktime_get_ts(&ts); /*                                  */
+	ktime_get_ts(&ts); /* get high res monotonic timestamp */
 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
 	ev->what = PROC_EVENT_SID;
 	ev->event_data.sid.process_pid = task->pid;
 	ev->event_data.sid.process_tgid = task->tgid;
 
 	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
-	msg->ack = 0; /*          */
+	msg->ack = 0; /* not used */
 	msg->len = sizeof(*ev);
 	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
 }
@@ -185,7 +185,7 @@ void proc_ptrace_connector(struct task_struct *task, int ptrace_id)
 	msg = (struct cn_msg *)buffer;
 	ev = (struct proc_event *)msg->data;
 	get_seq(&msg->seq, &ev->cpu);
-	ktime_get_ts(&ts); /*                                  */
+	ktime_get_ts(&ts); /* get high res monotonic timestamp */
 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
 	ev->what = PROC_EVENT_PTRACE;
 	ev->event_data.ptrace.process_pid  = task->pid;
@@ -200,7 +200,7 @@ void proc_ptrace_connector(struct task_struct *task, int ptrace_id)
 		return;
 
 	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
-	msg->ack = 0; /*          */
+	msg->ack = 0; /* not used */
 	msg->len = sizeof(*ev);
 	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
 }
@@ -218,7 +218,7 @@ void proc_comm_connector(struct task_struct *task)
 	msg = (struct cn_msg *)buffer;
 	ev = (struct proc_event *)msg->data;
 	get_seq(&msg->seq, &ev->cpu);
-	ktime_get_ts(&ts); /*                                  */
+	ktime_get_ts(&ts); /* get high res monotonic timestamp */
 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
 	ev->what = PROC_EVENT_COMM;
 	ev->event_data.comm.process_pid  = task->pid;
@@ -226,7 +226,7 @@ void proc_comm_connector(struct task_struct *task)
 	get_task_comm(ev->event_data.comm.comm, task);
 
 	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
-	msg->ack = 0; /*          */
+	msg->ack = 0; /* not used */
 	msg->len = sizeof(*ev);
 	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
 }
@@ -244,7 +244,7 @@ void proc_exit_connector(struct task_struct *task)
 	msg = (struct cn_msg*)buffer;
 	ev = (struct proc_event*)msg->data;
 	get_seq(&msg->seq, &ev->cpu);
-	ktime_get_ts(&ts); /*                                  */
+	ktime_get_ts(&ts); /* get high res monotonic timestamp */
 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
 	ev->what = PROC_EVENT_EXIT;
 	ev->event_data.exit.process_pid = task->pid;
@@ -253,18 +253,18 @@ void proc_exit_connector(struct task_struct *task)
 	ev->event_data.exit.exit_signal = task->exit_signal;
 
 	memcpy(&msg->id, &cn_proc_event_id, sizeof(msg->id));
-	msg->ack = 0; /*          */
+	msg->ack = 0; /* not used */
 	msg->len = sizeof(*ev);
 	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
 }
 
 /*
-                                               
-  
-                                     
-                                                          
-                                                            
-              
+ * Send an acknowledgement message to userspace
+ *
+ * Use 0 for success, EFOO otherwise.
+ * Note: this is the negative of conventional kernel error
+ * values because it's not being returned via syscall return
+ * mechanisms.
  */
 static void cn_proc_ack(int err, int rcvd_seq, int rcvd_ack)
 {
@@ -279,7 +279,7 @@ static void cn_proc_ack(int err, int rcvd_seq, int rcvd_ack)
 	msg = (struct cn_msg*)buffer;
 	ev = (struct proc_event*)msg->data;
 	msg->seq = rcvd_seq;
-	ktime_get_ts(&ts); /*                                  */
+	ktime_get_ts(&ts); /* get high res monotonic timestamp */
 	put_unaligned(timespec_to_ns(&ts), (__u64 *)&ev->timestamp_ns);
 	ev->cpu = -1;
 	ev->what = PROC_EVENT_NONE;
@@ -290,9 +290,9 @@ static void cn_proc_ack(int err, int rcvd_seq, int rcvd_ack)
 	cn_netlink_send(msg, CN_IDX_PROC, GFP_KERNEL);
 }
 
-/* 
-                    
-                                                       
+/**
+ * cn_proc_mcast_ctl
+ * @data: message sent from userspace via the connector
  */
 static void cn_proc_mcast_ctl(struct cn_msg *msg,
 			      struct netlink_skb_parms *nsp)
@@ -319,9 +319,9 @@ static void cn_proc_mcast_ctl(struct cn_msg *msg,
 }
 
 /*
-                                            
-  
-                                                       
+ * cn_proc_init - initialization entry point
+ *
+ * Adds the connector callback to the connector driver.
  */
 static int __init cn_proc_init(void)
 {

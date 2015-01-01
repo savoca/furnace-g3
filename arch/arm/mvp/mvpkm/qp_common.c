@@ -18,13 +18,13 @@
  */
 #line 5
 
-/* 
-         
-  
-                                                                
-                                                                     
-                 
-                    
+/**
+ *  @file
+ *
+ *  @brief MVP Queue Pairs common enqueue and dequeue functions.
+ *  Does not include Attach(), and Detach(), as this will be specific
+ *  to host/guest
+ *  implementations.
  */
 
 #include <linux/uaccess.h>
@@ -35,12 +35,12 @@
 #include "qp.h"
 
 
-/* 
-                                                                  
-                                 
-                                 
-                                  
-                                   
+/**
+ *  @brief Calculate free space in the queue, convenience function
+ *  @param head queue head offset
+ *  @param tail queue tail offset
+ *  @param queueSize size of queue
+ *  @return free space in the queue
  */
 static inline int32
 FreeSpace(uint32 head,
@@ -48,20 +48,20 @@ FreeSpace(uint32 head,
 	  uint32 queueSize)
 {
 	/*
-                                                        
-                       
-  */
+	 * Leave 1 byte free to resolve ambiguity between empty
+	 * and full conditions
+	 */
 
 	return (tail >= head) ? (queueSize - (tail - head) - 1) :
 				(head - tail - 1);
 }
 
 
-/* 
-                                                        
-                                      
-                                                                         
-                                                          
+/**
+ *  @brief Returns available space for enqueue, in bytes
+ *  @param qp handle to the queue pair
+ *  @return available space in bytes in the queue for enqueue operations,
+ *      QP_ERROR_INVALID_HANDLE if the handle is malformed
  */
 int32
 QP_EnqueueSpace(QPHandle *qp)
@@ -84,15 +84,15 @@ QP_EnqueueSpace(QPHandle *qp)
 EXPORT_SYMBOL(QP_EnqueueSpace);
 
 
-/* 
-                                                             
-                                      
-                              
-                                           
-                                                  
-                                                                  
-                      
-                                              
+/**
+ *  @brief Enqueues a segment of data into the producer queue
+ *  @param qp handle to the queue pair
+ *  @param buf data to enqueue
+ *  @param bufSize size in bytes to enqueue
+ *  @param kern != 0 if copying from kernel memory
+ *  @return number of bytes enqueued on success, appropriate error
+ *      code otherwise
+ *  @sideeffects May move phantom tail pointer
  */
 int32
 QP_EnqueueSegment(QPHandle *qp,
@@ -111,11 +111,11 @@ QP_EnqueueSegment(QPHandle *qp,
 	phantom = qp->produceQ->phantom_tail;
 
 	/*
-                                                  
-                                                 
-                                                   
-                           
-  */
+	 * This check must go after the assignment above,
+	 * otherwise a malicious guest could write bogus
+	 * offsets to the queue and cause copying to write
+	 * into unpleasant places.
+	 */
 	if (head    >= qp->queueSize ||
 	    phantom >= qp->queueSize)
 		return QP_ERROR_INVALID_HANDLE;
@@ -164,12 +164,12 @@ QP_EnqueueSegment(QPHandle *qp,
 EXPORT_SYMBOL(QP_EnqueueSegment);
 
 
-/* 
-                                                                      
-               
-                                       
-                                                                    
-                                      
+/**
+ *  @brief Commits any previous EnqueueSegment operations to the queue
+ *         pair
+ *  @param qp handle to the queue pair.
+ *  @return QP_SUCCESS on success, appropriate error code otherwise.
+ *  @sideeffects May move tail pointer
  */
 int32
 QP_EnqueueCommit(QPHandle *qp)
@@ -189,11 +189,11 @@ QP_EnqueueCommit(QPHandle *qp)
 EXPORT_SYMBOL(QP_EnqueueCommit);
 
 
-/* 
-                                                  
-                                      
-                                                               
-                 
+/**
+ *  @brief Returns any available bytes for dequeue
+ *  @param qp handle to the queue pair
+ *  @return available bytes for dequeue, appropriate error code
+ *      otherwise
  */
 int32
 QP_DequeueSpace(QPHandle *qp)
@@ -221,16 +221,16 @@ QP_DequeueSpace(QPHandle *qp)
 EXPORT_SYMBOL(QP_DequeueSpace);
 
 
-/* 
-                                                                  
-                
-                                      
-                                     
-                                                  
-                                                
-                                                                  
-                      
-                                              
+/**
+ *  @brief Dequeues a segment of data from the consumer queue into
+ *      a buffer
+ *  @param qp handle to the queue pair
+ *  @param[out] buf buffer to copy to
+ *  @param bytesDesired number of bytes to dequeue
+ *  @param kern != 0 if copying to kernel memory
+ *  @return number of bytes dequeued on success, appropriate error
+ *      code otherwise
+ *  @sideeffects May move phantom head pointer
  */
 int32
 QP_DequeueSegment(QPHandle *qp,
@@ -249,11 +249,11 @@ QP_DequeueSegment(QPHandle *qp,
 	phantom = qp->consumeQ->phantom_head;
 
 	/*
-                                                  
-                                                 
-                                                   
-                           
-  */
+	 * This check must go after the assignment above,
+	 * otherwise a malicious guest could write bogus
+	 * offsets to the queue and cause copying to write
+	 * into unpleasant places.
+	 */
 	if (tail    >= qp->queueSize  ||
 	    phantom >= qp->queueSize)
 		return QP_ERROR_INVALID_HANDLE;
@@ -306,13 +306,13 @@ QP_DequeueSegment(QPHandle *qp,
 EXPORT_SYMBOL(QP_DequeueSegment);
 
 
-/* 
-                                                                      
-            
-                                      
-                                                                        
-                    
-                                       
+/**
+ *  @brief Commits any previous DequeueSegment operations to the queue
+ *      pair
+ *  @param qp handle to the queue pair
+ *  @return QP_SUCCESS on success, QP_ERROR_INVALID_HANDLE if the handle
+ *      is malformed
+ *  @sideeffects Moves the head pointer
  */
 int32
 QP_DequeueCommit(QPHandle *qp)
@@ -332,13 +332,13 @@ QP_DequeueCommit(QPHandle *qp)
 EXPORT_SYMBOL(QP_DequeueCommit);
 
 
-/* 
-                                                                   
-                
-                                      
-                                                                        
-                    
-                                                
+/**
+ *  @brief Resets the phantom tail pointer and discards any pending
+ *      enqueues
+ *  @param qp handle to the queue pair
+ *  @return QP_SUCCESS on success, QP_ERROR_INVALID_HANDLE if the handle
+ *      is malformed
+ *  @sideeffects Resets the phantom tail pointer
  */
 int32
 QP_EnqueueReset(QPHandle *qp)
@@ -357,13 +357,13 @@ QP_EnqueueReset(QPHandle *qp)
 }
 EXPORT_SYMBOL(QP_EnqueueReset);
 
-/* 
-                                                                   
-                
-                                      
-                                                                        
-                    
-                                                
+/**
+ *  @brief Resets the phantom head pointer and discards any pending
+ *      dequeues
+ *  @param qp handle to the queue pair
+ *  @return QP_SUCCESS on success, QP_ERROR_INVALID_HANDLE if the handle
+ *      is malformed
+ *  @sideeffects Resets the phantom head pointer
  */
 int32
 QP_DequeueReset(QPHandle *qp)

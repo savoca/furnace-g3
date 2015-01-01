@@ -22,7 +22,7 @@
 #define SMP2P_MAX_ENTRY 16
 #define SMP2P_FEATURE_SSR_ACK 0x1
 
-/*                         */
+/* SMEM Item Header Macros */
 #define SMP2P_MAGIC 0x504D5324
 #define SMP2P_LOCAL_PID_MASK 0x0000ffff
 #define SMP2P_LOCAL_PID_BIT 0
@@ -94,7 +94,7 @@
 	SMP2P_SET_BITS(hdr, SMP2P_FLAGS_RESTART_ACK_MASK, \
 			SMP2P_FLAGS_RESTART_ACK_BIT, value)
 
-/*                         */
+/* Loopback Command Macros */
 #define SMP2P_RMT_CMD_TYPE_MASK 0x80000000
 #define SMP2P_RMT_CMD_TYPE_BIT 31
 #define SMP2P_RMT_IGNORE_MASK 0x40000000
@@ -139,7 +139,7 @@ enum {
 #define SMP2P_RLPB_IGNORE 0x40
 #define SMP2P_RLPB_ENTRY_NAME "smp2p"
 
-/*                      */
+/* Debug Logging Macros */
 enum {
 	MSM_SMP2P_INFO = 1U << 0,
 	MSM_SMP2P_DEBUG = 1U << 1,
@@ -179,14 +179,14 @@ enum msm_smp2p_edge_state {
 	SMP2P_EDGE_STATE_FAILED = 0xff,
 };
 
-/* 
-                                             
-  
-                                                                     
-                                                
-                                                                   
-                                                            
-                                      
+/**
+ * struct smp2p_smem - SMP2P SMEM Item Header
+ *
+ * @magic:  Set to "$SMP" -- used for identification / debug purposes
+ * @feature_version:  Feature and version fields
+ * @rem_loc_proc_id:  Remote (31:16) and Local (15:0) processor IDs
+ * @valid_total_ent:  Valid (31:16) and total (15:0) entries
+ * @flags:  Flags (bits 31:2 reserved)
  */
 struct smp2p_smem {
 	uint32_t magic;
@@ -206,7 +206,7 @@ struct smp2p_smem_item {
 	struct smp2p_entry_v1 entries[SMP2P_MAX_ENTRY];
 };
 
-/*                                            */
+/* Mock object for internal loopback testing. */
 struct msm_smp2p_remote_mock {
 	struct smp2p_smem_item remote_item;
 	int rx_interrupt_count;
@@ -231,7 +231,7 @@ int msm_smp2p_deinit_rmt_lpb_proc(int remote_pid);
 void *smp2p_get_log_ctx(void);
 int smp2p_get_debug_mask(void);
 
-/*                                             */
+/* Inbound / outbound Interrupt configuration. */
 struct smp2p_interrupt_config {
 	bool is_configured;
 	uint32_t *out_int_ptr;
@@ -239,7 +239,7 @@ struct smp2p_interrupt_config {
 	int in_int_id;
 	const char *name;
 
-	/*                 */
+	/* interrupt stats */
 	unsigned in_interrupt_count;
 	unsigned out_interrupt_count;
 };

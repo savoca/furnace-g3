@@ -1,5 +1,5 @@
 /*
-                                               
+ * arch/arm/mach-ep93xx/include/mach/platform.h
  */
 
 #ifndef __ASSEMBLY__

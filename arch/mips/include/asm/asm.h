@@ -29,8 +29,8 @@
 #endif
 
 /*
-                            
-                                                                
+ * PIC specific declarations
+ * Not used for the kernel but here seems to be the right place.
  */
 #ifdef __PIC__
 #define CPRESTORE(register)                             \
@@ -46,7 +46,7 @@
 #endif
 
 /*
-                              
+ * LEAF - declare leaf routine
  */
 #define	LEAF(symbol)                                    \
 		.globl	symbol;                         \
@@ -56,7 +56,7 @@
 symbol:		.frame	sp, 0, ra
 
 /*
-                                              
+ * NESTED - declare nested routine entry point
  */
 #define	NESTED(symbol, framesize, rpc)                  \
 		.globl	symbol;                         \
@@ -66,21 +66,21 @@ symbol:		.frame	sp, 0, ra
 symbol:		.frame	sp, framesize, rpc
 
 /*
-                             
+ * END - mark end of function
  */
 #define	END(function)                                   \
 		.end	function;		        \
 		.size	function, .-function
 
 /*
-                                       
+ * EXPORT - export definition of symbol
  */
 #define EXPORT(symbol)					\
 		.globl	symbol;                         \
 symbol:
 
 /*
-                                                   
+ * FEXPORT - export definition of a function symbol
  */
 #define FEXPORT(symbol)					\
 		.globl	symbol;				\
@@ -88,7 +88,7 @@ symbol:
 symbol:
 
 /*
-                               
+ * ABS - export absolute symbol
  */
 #define	ABS(symbol,value)                               \
 		.globl	symbol;                         \
@@ -104,7 +104,7 @@ symbol		=	value
 		TEXT(msg)
 
 /*
-                         
+ * Print formatted string
  */
 #ifdef CONFIG_PRINTK
 #define PRINT(string)                                   \
@@ -124,7 +124,7 @@ symbol		=	value
 		.popsection;
 
 /*
-                    
+ * Build text tables
  */
 #define TTABLE(string)                                  \
 		.pushsection .text;			\
@@ -135,11 +135,11 @@ symbol		=	value
 		.popsection
 
 /*
-                            
-                                
-  
-                                                                      
-                                                                            
+ * MIPS IV pref instruction.
+ * Use with .set noreorder only!
+ *
+ * MIPS IV implementations are free to treat this as a nop.  The R5000
+ * is one of them.  So we should have an option not to use this instruction.
  */
 #ifdef CONFIG_CPU_HAS_PREFETCH
 
@@ -155,15 +155,15 @@ symbol		=	value
 		prefx	hint, addr;			\
 		.set	pop
 
-#else /*                          */
+#else /* !CONFIG_CPU_HAS_PREFETCH */
 
 #define PREF(hint, addr)
 #define PREFX(hint, addr)
 
-#endif /*                          */
+#endif /* !CONFIG_CPU_HAS_PREFETCH */
 
 /*
-                                                                       
+ * MIPS ISA IV/V movn/movz instructions and equivalents for older CPUs.
  */
 #if (_MIPS_ISA == _MIPS_ISA_MIPS1)
 #define MOVN(rd, rs, rt)                                \
@@ -180,7 +180,7 @@ symbol		=	value
 		move	rd, rs;                         \
 		.set	pop;				\
 9:
-#endif /*                              */
+#endif /* _MIPS_ISA == _MIPS_ISA_MIPS1 */
 #if (_MIPS_ISA == _MIPS_ISA_MIPS2) || (_MIPS_ISA == _MIPS_ISA_MIPS3)
 #define MOVN(rd, rs, rt)                                \
 		.set	push;				\
@@ -196,17 +196,17 @@ symbol		=	value
 		 move	rd, rs;                         \
 		.set	pop;				\
 9:
-#endif /*                                                                  */
+#endif /* (_MIPS_ISA == _MIPS_ISA_MIPS2) || (_MIPS_ISA == _MIPS_ISA_MIPS3) */
 #if (_MIPS_ISA == _MIPS_ISA_MIPS4 ) || (_MIPS_ISA == _MIPS_ISA_MIPS5) || \
     (_MIPS_ISA == _MIPS_ISA_MIPS32) || (_MIPS_ISA == _MIPS_ISA_MIPS64)
 #define MOVN(rd, rs, rt)                                \
 		movn	rd, rs, rt
 #define MOVZ(rd, rs, rt)                                \
 		movz	rd, rs, rt
-#endif /*                                   */
+#endif /* MIPS IV, MIPS V, MIPS32 or MIPS64 */
 
 /*
-                  
+ * Stack alignment
  */
 #if (_MIPS_SIM == _MIPS_SIM_ABI32)
 #define ALSZ	7
@@ -218,11 +218,11 @@ symbol		=	value
 #endif
 
 /*
-                                                                       
+ * Macros to handle different pointer/register sizes for 32/64-bit code
  */
 
 /*
-                     
+ * Size of a register
  */
 #ifdef __mips64
 #define SZREG	8
@@ -231,8 +231,8 @@ symbol		=	value
 #endif
 
 /*
-                                                                     
-                
+ * Use the following macros in assemblercode to load/store registers,
+ * pointers etc.
  */
 #if (_MIPS_SIM == _MIPS_SIM_ABI32)
 #define REG_S		sw
@@ -248,7 +248,7 @@ symbol		=	value
 #endif
 
 /*
-                                                   
+ * How to add/sub/load/store/shift C int variables.
  */
 #if (_MIPS_SZINT == 32)
 #define INT_ADD		add
@@ -285,7 +285,7 @@ symbol		=	value
 #endif
 
 /*
-                                                    
+ * How to add/sub/load/store/shift C long variables.
  */
 #if (_MIPS_SZLONG == 32)
 #define LONG_ADD	add
@@ -332,7 +332,7 @@ symbol		=	value
 #endif
 
 /*
-                                            
+ * How to add/sub/load/store/shift pointers.
  */
 #if (_MIPS_SZPTR == 32)
 #define PTR_ADD		add
@@ -385,7 +385,7 @@ symbol		=	value
 #endif
 
 /*
-                                                          
+ * Some cp0 registers were extended to 64bit for MIPS III.
  */
 #if (_MIPS_SIM == _MIPS_SIM_ABI32)
 #define MFC0		mfc0
@@ -399,11 +399,11 @@ symbol		=	value
 #define SSNOP		sll zero, zero, 1
 
 #ifdef CONFIG_SGI_IP28
-/*                                                                        */
+/* Inhibit speculative stores to volatile (e.g.DMA) or invalid addresses. */
 #include <asm/cacheops.h>
 #define R10KCBARRIER(addr)  cache   Cache_Barrier, addr;
 #else
 #define R10KCBARRIER(addr)
 #endif
 
-#endif /*             */
+#endif /* __ASM_ASM_H */

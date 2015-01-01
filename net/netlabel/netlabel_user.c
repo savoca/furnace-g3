@@ -1,12 +1,12 @@
 /*
-                             
-  
-                                                                        
-                                                                        
-                                     
-  
-                                           
-  
+ * NetLabel NETLINK Interface
+ *
+ * This file defines the NETLINK interface for the NetLabel system.  The
+ * NetLabel system manages static and dynamic label mappings for network
+ * protocols such as CIPSO and RIPSO.
+ *
+ * Author: Paul Moore <paul@paul-moore.com>
+ *
  */
 
 /*
@@ -48,17 +48,17 @@
 #include "netlabel_user.h"
 
 /*
-                                   
+ * NetLabel NETLINK Setup Functions
  */
 
-/* 
-                                                                     
-  
-               
-                                                                              
-                                                                            
-                       
-  
+/**
+ * netlbl_netlink_init - Initialize the NETLINK communication channel
+ *
+ * Description:
+ * Call out to the NetLabel components so they can register their families and
+ * commands with the Generic NETLINK mechanism.  Returns zero on success and
+ * non-zero on failure.
+ *
  */
 int __init netlbl_netlink_init(void)
 {
@@ -80,19 +80,19 @@ int __init netlbl_netlink_init(void)
 }
 
 /*
-                           
+ * NetLabel Audit Functions
  */
 
-/* 
-                                                     
-                            
-                                          
-  
-               
-                                                                              
-                                                                           
-                                                             
-  
+/**
+ * netlbl_audit_start_common - Start an audit message
+ * @type: audit message type
+ * @audit_info: NetLabel audit information
+ *
+ * Description:
+ * Start an audit message using the type specified in @type and fill the audit
+ * message with some fields common to all NetLabel audit messages.  Returns
+ * a pointer to the audit buffer on success, NULL on failure.
+ *
  */
 struct audit_buffer *netlbl_audit_start_common(int type,
 					       struct netlbl_audit *audit_info)

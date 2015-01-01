@@ -38,10 +38,10 @@ EXPORT_SYMBOL(bttv_gpio_enable);
 EXPORT_SYMBOL(bttv_read_gpio);
 EXPORT_SYMBOL(bttv_write_gpio);
 
-/*                                                                         */
-/*                                                                         */
-/*                                                                         */
-/*                                                                         */
+/* ----------------------------------------------------------------------- */
+/* Exported functions - for other modules which want to access the         */
+/*                      gpio ports (IR for example)                        */
+/*                      see bttv.h for comments                            */
 
 struct pci_dev* bttv_get_pcidev(unsigned int card)
 {
@@ -88,8 +88,8 @@ int bttv_read_gpio(unsigned int card, unsigned long *data)
 		return -ENODEV;
 	}
 
-/*                                                          
-                                       */
+/* prior setting BT848_GPIO_REG_INP is (probably) not needed
+   because we set direct input on init */
 	*data = gpio_read();
 	return 0;
 }
@@ -106,8 +106,8 @@ int bttv_write_gpio(unsigned int card, unsigned long mask, unsigned long data)
 	if (!btv)
 		return -ENODEV;
 
-/*                                                          
-                                       */
+/* prior setting BT848_GPIO_REG_INP is (probably) not needed
+   because direct input is set on init */
 	gpio_bits(mask,data);
 	if (bttv_gpio)
 		bttv_gpio_tracking(btv,"extern write");
@@ -115,7 +115,7 @@ int bttv_write_gpio(unsigned int card, unsigned long mask, unsigned long data)
 }
 
 /*
-                   
-                    
-       
+ * Local variables:
+ * c-basic-offset: 8
+ * End:
  */

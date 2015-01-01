@@ -8,25 +8,25 @@
  */
 
 #include <linux/fs.h>
-#include <asm/page.h> /*               */
+#include <asm/page.h> /* for PAGE_SIZE */
 
 #include "befs.h"
 #include "super.h"
 
-/* 
-                                                                      
-                         
-  
-  
-  
-  
+/**
+ * load_befs_sb -- Read from disk and properly byteswap all the fields
+ * of the befs superblock
+ *
+ *
+ *
+ *
  */
 int
 befs_load_sb(struct super_block *sb, befs_super_block * disk_sb)
 {
 	befs_sb_info *befs_sb = BEFS_SB(sb);
 
-	/*                                        */
+	/* Check the byte order of the filesystem */
 	if (disk_sb->fs_byte_order == BEFS_BYTEORDER_NATIVE_LE)
 	    befs_sb->byte_order = BEFS_BYTESEX_LE;
 	else if (disk_sb->fs_byte_order == BEFS_BYTEORDER_NATIVE_BE)
@@ -61,7 +61,7 @@ befs_check_sb(struct super_block *sb)
 {
 	befs_sb_info *befs_sb = BEFS_SB(sb);
 
-	/*                                    */
+	/* Check magic headers of super block */
 	if ((befs_sb->magic1 != BEFS_SUPER_MAGIC1)
 	    || (befs_sb->magic2 != BEFS_SUPER_MAGIC2)
 	    || (befs_sb->magic3 != BEFS_SUPER_MAGIC3)) {
@@ -70,10 +70,10 @@ befs_check_sb(struct super_block *sb)
 	}
 
 	/*
-                            
-   
-                                                  
-  */
+	 * Check blocksize of BEFS.
+	 *
+	 * Blocksize of BEFS is 1024, 2048, 4096 or 8192.
+	 */
 
 	if ((befs_sb->block_size != 1024)
 	    && (befs_sb->block_size != 2048)
@@ -91,9 +91,9 @@ befs_check_sb(struct super_block *sb)
 	}
 
 	/*
-                                                            
-                                               
-  */
+	   * block_shift and block_size encode the same information
+	   * in different ways as a consistency check.
+	 */
 
 	if ((1 << befs_sb->block_shift) != befs_sb->block_size) {
 		befs_error(sb, "block_shift disagrees with block_size. "

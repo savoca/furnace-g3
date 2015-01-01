@@ -12,9 +12,9 @@
 #include <asm/sgidefs.h>
 
 /*
-                                                                     
-                                                                      
-                            
+ * This file is generally used by user-level software, so you need to
+ * be a little careful about namespace pollution etc.  Also, we cannot
+ * assume GCC is being used.
  */
 
 #if (_MIPS_SZLONG == 64)
@@ -34,4 +34,4 @@ typedef struct {
 
 #include <asm-generic/posix_types.h>
 
-#endif /*                    */
+#endif /* _ASM_POSIX_TYPES_H */

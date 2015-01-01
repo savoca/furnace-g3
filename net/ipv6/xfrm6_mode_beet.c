@@ -33,9 +33,9 @@ static void xfrm6_beet_make_header(struct sk_buff *skb)
 	iph->hop_limit = XFRM_MODE_SKB_CB(skb)->ttl;
 }
 
-/*                          
-  
-                                                                                 
+/* Add encapsulation header.
+ *
+ * The top IP header will be constructed per draft-nikander-esp-beet-mode-06.txt.
  */
 static int xfrm6_beet_output(struct xfrm_state *x, struct sk_buff *skb)
 {

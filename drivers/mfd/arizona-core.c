@@ -231,10 +231,10 @@ static int arizona_wait_for_boot(struct arizona *arizona)
 	int count = 0;
 
 	/*
-                                                                    
-                                                                   
-                   
-  */
+	 * We can't use an interrupt as we need to runtime resume to do so,
+	 * we won't race with the interrupt handler as it'll be blocked on
+	 * runtime resume.
+	 */
 	do {
 		msleep(100);
 
@@ -257,7 +257,7 @@ static int arizona_apply_hardware_patch(struct arizona* arizona)
 
 	regcache_cache_bypass(arizona->regmap, true);
 
-	/*                                        */
+	/* Cache existing FLL and SYSCLK settings */
 	ret = regmap_read(arizona->regmap, ARIZONA_FLL1_CONTROL_1, &fll);
 	if (ret != 0) {
 		dev_err(arizona->dev, "Failed to cache FLL settings: %d\n",
@@ -272,7 +272,7 @@ static int arizona_apply_hardware_patch(struct arizona* arizona)
 		return ret;
 	}
 
-	/*                                                    */
+	/* Start up SYSCLK using the FLL in free running mode */
 	ret = regmap_write(arizona->regmap, ARIZONA_FLL1_CONTROL_1,
 			ARIZONA_FLL1_ENA | ARIZONA_FLL1_FREERUN);
 	if (ret != 0) {
@@ -296,7 +296,7 @@ static int arizona_apply_hardware_patch(struct arizona* arizona)
 		goto err_fll;
 	}
 
-	/*                                                     */
+	/* Start the write sequencer and wait for it to finish */
 	ret = regmap_write(arizona->regmap, ARIZONA_WRITE_SEQUENCER_CTRL_0,
 			ARIZONA_WSEQ_ENA | ARIZONA_WSEQ_START | 160);
 	if (ret != 0) {
@@ -472,7 +472,7 @@ static int arizona_suspend(struct device *dev)
 	struct arizona *arizona = dev_get_drvdata(dev);
 
 	dev_dbg(arizona->dev, "Suspend, disabling IRQ\n");
-#if 0 //                        
+#if 0 //#ifndef SLEEP_EZ2CONTROL
 	disable_irq(arizona->irq);
 #endif
 
@@ -484,7 +484,7 @@ static int arizona_resume(struct device *dev)
 	struct arizona *arizona = dev_get_drvdata(dev);
 
 	dev_dbg(arizona->dev, "Resume, reenabling IRQ\n");
-#if 0 //                        
+#if 0 //#ifndef SLEEP_EZ2CONTROL
 	enable_irq(arizona->irq);
 #endif
 
@@ -532,11 +532,11 @@ static int arizona_of_get_core_pdata(struct arizona *arizona)
 					 ARRAY_SIZE(arizona->pdata.gpio_defaults));
 	if (ret >= 0) {
 		/*
-                                                      
-                                                    
-                                                       
-             
-   */
+		 * All values are literal except out of range values
+		 * which are chip default, translate into platform
+		 * data which uses 0 as chip default and out of range
+		 * as zero.
+		 */
 		for (i = 0; i < ARRAY_SIZE(arizona->pdata.gpio_defaults); i++) {
 			if (arizona->pdata.gpio_defaults[i] > 0xffff)
 				arizona->pdata.gpio_defaults[i] = 0;
@@ -646,7 +646,7 @@ int __devinit arizona_dev_init(struct arizona *arizona)
 	}
 
 	if (arizona->pdata.reset) {
-		/*                                                      */
+		/* Start out with /RESET low to put the chip into reset */
 		ret = gpio_request_one(arizona->pdata.reset,
 				       GPIOF_DIR_OUT | GPIOF_INIT_LOW,
 				       "arizona /RESET");
@@ -680,7 +680,7 @@ int __devinit arizona_dev_init(struct arizona *arizona)
 
 	regcache_cache_only(arizona->regmap, false);
 
-	/*                                          */
+	/* Verify that this is a chip we know about */
 	ret = regmap_read(arizona->regmap, ARIZONA_SOFTWARE_RESET, &reg);
 	if (ret != 0) {
 		dev_err(dev, "Failed to read ID register: %d\n", ret);
@@ -696,14 +696,14 @@ int __devinit arizona_dev_init(struct arizona *arizona)
 		goto err_reset;
 	}
 
-	/*                                                 */
+	/* If we have a /RESET GPIO we'll already be reset */
 	if (!arizona->pdata.reset) {
 		ret = arizona_soft_reset(arizona);
 		if (ret != 0)
 			goto err_reset;
 	}
 
-	/*                                   */
+	/* Ensure device startup is complete */
 	switch (arizona->type) {
 	case WM5102:
 		ret = regmap_read(arizona->regmap, 0x19, &val);
@@ -713,7 +713,7 @@ int __devinit arizona_dev_init(struct arizona *arizona)
 				ret);
 		else if (val & 0x01)
 			break;
-		/*              */
+		/* Fall through */
 	default:
 		ret = arizona_wait_for_boot(arizona);
 		if (ret != 0) {
@@ -724,7 +724,7 @@ int __devinit arizona_dev_init(struct arizona *arizona)
 		break;
 	}
 
-	/*                                                           */
+	/* Read the device ID information & do device specific stuff */
 	ret = regmap_read(arizona->regmap, ARIZONA_SOFTWARE_RESET, &reg);
 	if (ret != 0) {
 		dev_err(dev, "Failed to read ID register: %d\n", ret);
@@ -801,16 +801,16 @@ int __devinit arizona_dev_init(struct arizona *arizona)
 			     arizona->pdata.gpio_defaults[i]);
 	}
 	/*
-                                                         
-                                                
-  */
+	 * LDO1 can only be used to supply DCVDD so if it has no
+	 * consumers then DCVDD is supplied externally.
+	 */
 	if (arizona->pdata.ldo1 &&
 	    arizona->pdata.ldo1->num_consumer_supplies == 0)
 		arizona->external_dcvdd = true;
 
 	pm_runtime_enable(arizona->dev);
 
-	/*              */
+	/* Chip default */
 	if (!arizona->pdata.clk32k_src)
 		arizona->pdata.clk32k_src = ARIZONA_32KZ_MCLK2;
 
@@ -838,7 +838,7 @@ int __devinit arizona_dev_init(struct arizona *arizona)
 		    !arizona->pdata.micbias[i].bypass)
 			continue;
 
-		/*                               */
+		/* Apply default for bypass mode */
 		if (!arizona->pdata.micbias[i].mV)
 			arizona->pdata.micbias[i].mV = 2800;
 
@@ -867,7 +867,7 @@ int __devinit arizona_dev_init(struct arizona *arizona)
 	}
 
 	for (i = 0; i < ARIZONA_MAX_INPUT; i++) {
-		/*                                             */
+		/* Default for both is 0 so noop with defaults */
 		val = arizona->pdata.dmic_ref[i]
 			<< ARIZONA_IN1_DMIC_SUP_SHIFT;
 		val |= arizona->pdata.inmode[i] << ARIZONA_IN1_MODE_SHIFT;
@@ -879,7 +879,7 @@ int __devinit arizona_dev_init(struct arizona *arizona)
 	}
 
 	for (i = 0; i < ARIZONA_MAX_OUTPUT; i++) {
-		/*                                    */
+		/* Default is 0 so noop with defaults */
 		if (arizona->pdata.out_mono[i])
 			val = ARIZONA_OUT1_MONO;
 		else
@@ -905,7 +905,7 @@ int __devinit arizona_dev_init(struct arizona *arizona)
 					   arizona->pdata.spk_fmt[i]);
 	}
 
-	/*                  */
+	/* set virtual IRQs */
 
 	arizona->virq[0] = arizona->pdata.irq_base;
 	arizona->virq[1] = arizona->pdata.irq_base + ARIZONA_NUM_IRQ;
@@ -931,7 +931,7 @@ int __devinit arizona_dev_init(struct arizona *arizona)
 		break;
 	}
 
-	/*                       */
+	/* Set up for interrupts */
 	ret = arizona_irq_init(arizona);
 	if (ret != 0)
 		goto err_reset;

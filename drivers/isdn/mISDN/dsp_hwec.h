@@ -1,5 +1,5 @@
 /*
-             
+ * dsp_hwec.h
  */
 
 extern struct mISDN_dsp_element *dsp_hwec;

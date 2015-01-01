@@ -1,41 +1,41 @@
 /*
-                
-  
+ *  felica_pon.c
+ *
  */
 
 /*
-                              
+ *    INCLUDE FILES FOR MODULE
  */
 #include "felica_pon.h"
 #include "felica_gpio.h"
 
 #include "felica_test.h"
 
-//                        
-//                        
-//      
+//#ifdef FELICA_UART_DEBUG
+//#include "felica_uart.h"
+//#endif
 /*
-          
+ *  DEFINE
  */
 
-//                                                                            
-//                         
+//enable this feature for checking port ready packet when PON was set to HIGH.
+//#define FELICA_UART_DEBUG
 
 /*
-                         
+ *    INTERNAL DEFINITION
  */
 
-static int isopen = 0; //                     
+static int isopen = 0; // 0 : No open 1 : Open
 
 /*
-                         
+ *    FUNCTION DEFINITION
  */
 
 /*
-                                                                                                 
-                                                             
-              
-                                   
+* Description : MFC calls this function using close method(void open()) of FileOutputStream class
+*               When this fuction is excuted, set PON to Low.
+* Input : None
+* Output : Success : 0 Fail : Other
 */
 static int felica_pon_open (struct inode *inode, struct file *fp)
 {
@@ -76,9 +76,9 @@ static int felica_pon_open (struct inode *inode, struct file *fp)
 }
 
 /*
-                                                                                                             
-                                  
-                                   
+* Description : MFC calls this function using write method(void write(int oneByte)) of FileOutputStream class
+* Input : PON low : 0 PON high : 1
+* Output : Success : 0 Fail : Other
 */
 static ssize_t felica_pon_write(struct file *fp, const char *buf, size_t count, loff_t *pos)
 {
@@ -89,9 +89,9 @@ static ssize_t felica_pon_write(struct file *fp, const char *buf, size_t count, 
   FELICA_DEBUG_MSG("[FELICA_PON] felica_pon_write - start \n");
   #endif
 
-  //                                                                                    
+  //FELICA_DEBUG_MSG("[FELICA_PON] felica_pon_write current_uid : %d \n",current_uid());
 
-  /*             */
+  /* Check error */
 	if(NULL == fp)
 	{
     #ifdef FEATURE_DEBUG_HIGH
@@ -179,10 +179,10 @@ static ssize_t felica_pon_write(struct file *fp, const char *buf, size_t count, 
 }
 
 /*
-                                                                                                  
-                                                             
-              
-                                   
+* Description : MFC calls this function using close method(void close()) of FileOutputStream class
+*               When this fuction is excuted, set PON to Low.
+* Input : None
+* Output : Success : 0 Fail : Other
 */
 static int felica_pon_release (struct inode *inode, struct file *fp)
 {
@@ -223,7 +223,7 @@ static int felica_pon_release (struct inode *inode, struct file *fp)
 }
 
 /*
-                       
+ *    STRUCT DEFINITION
  */
 
 static struct file_operations felica_pon_fops =
@@ -249,7 +249,7 @@ static int felica_pon_init(void)
   FELICA_DEBUG_MSG("[FELICA_PON] felica_pon_init - start \n");
   #endif
 
-  /*                          */
+  /* register the device file */
   rc = misc_register(&felica_pon_device);
   if (rc)
   {
@@ -272,7 +272,7 @@ static void felica_pon_exit(void)
   FELICA_DEBUG_MSG("[FELICA_PON] felica_pon_exit - start \n");
   #endif
 
-  /*                            */
+  /* deregister the device file */
   misc_deregister(&felica_pon_device);
 
   #ifdef FEATURE_DEBUG_LOW

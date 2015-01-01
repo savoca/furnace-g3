@@ -9,7 +9,7 @@
 #define TRACE_SYSTEM kvm
 
 /*
-                                   
+ * Tracepoint for guest mode entry.
  */
 TRACE_EVENT(kvm_entry,
 	TP_PROTO(unsigned int vcpu_id),
@@ -27,7 +27,7 @@ TRACE_EVENT(kvm_entry,
 );
 
 /*
-                            
+ * Tracepoint for hypercall.
  */
 TRACE_EVENT(kvm_hypercall,
 	TP_PROTO(unsigned long nr, unsigned long a0, unsigned long a1,
@@ -56,7 +56,7 @@ TRACE_EVENT(kvm_hypercall,
 );
 
 /*
-                            
+ * Tracepoint for hypercall.
  */
 TRACE_EVENT(kvm_hv_hypercall,
 	TP_PROTO(__u16 code, bool fast, __u16 rep_cnt, __u16 rep_idx,
@@ -88,7 +88,7 @@ TRACE_EVENT(kvm_hv_hypercall,
 );
 
 /*
-                      
+ * Tracepoint for PIO.
  */
 TRACE_EVENT(kvm_pio,
 	TP_PROTO(unsigned int rw, unsigned int port, unsigned int size,
@@ -115,7 +115,7 @@ TRACE_EVENT(kvm_pio,
 );
 
 /*
-                        
+ * Tracepoint for cpuid.
  */
 TRACE_EVENT(kvm_cpuid,
 	TP_PROTO(unsigned int function, unsigned long rax, unsigned long rbx,
@@ -153,7 +153,7 @@ TRACE_EVENT(kvm_cpuid,
 	AREG(TMICT), AREG(TMCCT), AREG(TDCR), AREG(SELF_IPI), AREG(EFEAT),  \
 	AREG(ECTRL)
 /*
-                              
+ * Tracepoint for apic access.
  */
 TRACE_EVENT(kvm_apic,
 	TP_PROTO(unsigned int rw, unsigned int reg, unsigned int val),
@@ -273,7 +273,7 @@ TRACE_EVENT(kvm_apic,
 	{ SVM_EXIT_NPF,				"npf" }
 
 /*
-                                 
+ * Tracepoint for kvm guest exit:
  */
 TRACE_EVENT(kvm_exit,
 	TP_PROTO(unsigned int exit_reason, struct kvm_vcpu *vcpu, u32 isa),
@@ -303,7 +303,7 @@ TRACE_EVENT(kvm_exit,
 );
 
 /*
-                                          
+ * Tracepoint for kvm interrupt injection:
  */
 TRACE_EVENT(kvm_inj_virq,
 	TP_PROTO(unsigned int irq),
@@ -328,7 +328,7 @@ TRACE_EVENT(kvm_inj_virq,
 	EXS(MF), EXS(MC)
 
 /*
-                                          
+ * Tracepoint for kvm interrupt injection:
  */
 TRACE_EVENT(kvm_inj_exception,
 	TP_PROTO(unsigned exception, bool has_error, unsigned error_code),
@@ -348,12 +348,12 @@ TRACE_EVENT(kvm_inj_exception,
 
 	TP_printk("%s (0x%x)",
 		  __print_symbolic(__entry->exception, kvm_trace_sym_exc),
-		  /*                                              */
+		  /* FIXME: don't print error_code if not present */
 		  __entry->has_error ? __entry->error_code : 0)
 );
 
 /*
-                             
+ * Tracepoint for page fault.
  */
 TRACE_EVENT(kvm_page_fault,
 	TP_PROTO(unsigned long fault_address, unsigned int error_code),
@@ -374,7 +374,7 @@ TRACE_EVENT(kvm_page_fault,
 );
 
 /*
-                                   
+ * Tracepoint for guest MSR access.
  */
 TRACE_EVENT(kvm_msr,
 	TP_PROTO(unsigned write, u32 ecx, u64 data, bool exception),
@@ -406,7 +406,7 @@ TRACE_EVENT(kvm_msr,
 #define trace_kvm_msr_write_ex(ecx, data)  trace_kvm_msr(1, ecx, data, true)
 
 /*
-                                  
+ * Tracepoint for guest CR access.
  */
 TRACE_EVENT(kvm_cr,
 	TP_PROTO(unsigned int rw, unsigned int cr, unsigned long val),
@@ -518,7 +518,7 @@ TRACE_EVENT(kvm_apic_accept_irq,
 );
 
 /*
-                              
+ * Tracepoint for nested VMRUN
  */
 TRACE_EVENT(kvm_nested_vmrun,
 	    TP_PROTO(__u64 rip, __u64 vmcb, __u64 nested_rip, __u32 int_ctl,
@@ -573,7 +573,7 @@ TRACE_EVENT(kvm_nested_intercepts,
 		__entry->intercept)
 );
 /*
-                                      
+ * Tracepoint for #VMEXIT while nested
  */
 TRACE_EVENT(kvm_nested_vmexit,
 	    TP_PROTO(__u64 rip, __u32 exit_code,
@@ -612,7 +612,7 @@ TRACE_EVENT(kvm_nested_vmexit,
 );
 
 /*
-                                                 
+ * Tracepoint for #VMEXIT reinjected to the guest
  */
 TRACE_EVENT(kvm_nested_vmexit_inject,
 	    TP_PROTO(__u32 exit_code,
@@ -649,7 +649,7 @@ TRACE_EVENT(kvm_nested_vmexit_inject,
 );
 
 /*
-                                                             
+ * Tracepoint for nested #vmexit because of interrupt pending
  */
 TRACE_EVENT(kvm_nested_intr_vmexit,
 	    TP_PROTO(__u64 rip),
@@ -667,7 +667,7 @@ TRACE_EVENT(kvm_nested_intr_vmexit,
 );
 
 /*
-                                                             
+ * Tracepoint for nested #vmexit because of interrupt pending
  */
 TRACE_EVENT(kvm_invlpga,
 	    TP_PROTO(__u64 rip, int asid, u64 address),
@@ -690,7 +690,7 @@ TRACE_EVENT(kvm_invlpga,
 );
 
 /*
-                                                             
+ * Tracepoint for nested #vmexit because of interrupt pending
  */
 TRACE_EVENT(kvm_skinit,
 	    TP_PROTO(__u64 rip, __u32 slb),
@@ -819,12 +819,12 @@ TRACE_EVENT(
 		  __entry->write ? "Write" : "Read",
 		  __entry->gpa_match ? "GPA" : "GVA")
 );
-#endif /*              */
+#endif /* _TRACE_KVM_H */
 
 #undef TRACE_INCLUDE_PATH
 #define TRACE_INCLUDE_PATH arch/x86/kvm
 #undef TRACE_INCLUDE_FILE
 #define TRACE_INCLUDE_FILE trace
 
-/*                                      */
+/* This part must be outside protection */
 #include <trace/define_trace.h>

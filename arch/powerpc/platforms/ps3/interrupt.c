@@ -37,31 +37,31 @@
 #define FAIL pr_debug
 #endif
 
-/* 
-                                                                  
-                                                 
-                       
-                                             
-                       
-  
-                                                                      
-                                                                        
-                                                                         
-                                                                       
-                                                                      
-                                                                     
-             
-  
-                                                                          
-                                                                     
-                                                                            
-                                                                           
-                                                                       
-                                                                          
-                                                                           
-               
-  
-                                                                           
+/**
+ * struct ps3_bmp - a per cpu irq status and mask bitmap structure
+ * @status: 256 bit status bitmap indexed by plug
+ * @unused_1: Alignment
+ * @mask: 256 bit mask bitmap indexed by plug
+ * @unused_2: Alignment
+ *
+ * The HV maintains per SMT thread mappings of HV outlet to HV plug on
+ * behalf of the guest.  These mappings are implemented as 256 bit guest
+ * supplied bitmaps indexed by plug number.  The addresses of the bitmaps
+ * are registered with the HV through lv1_configure_irq_state_bitmap().
+ * The HV requires that the 512 bits of status + mask not cross a page
+ * boundary.  PS3_BMP_MINALIGN is used to define this minimal 64 byte
+ * alignment.
+ *
+ * The HV supports 256 plugs per thread, assigned as {0..255}, for a total
+ * of 512 plugs supported on a processor.  To simplify the logic this
+ * implementation equates HV plug value to Linux virq value, constrains each
+ * interrupt to have a system wide unique plug number, and limits the range
+ * of the plug values to map into the first dword of the bitmaps.  This
+ * gives a usable range of plug values of  {NUM_ISA_INTERRUPTS..63}.  Note
+ * that there is no constraint on how many in this set an individual thread
+ * can acquire.
+ *
+ * The mask is declared as unsigned long so we can use set/clear_bit on it.
  */
 
 #define PS3_BMP_MINALIGN 64
@@ -75,14 +75,14 @@ struct ps3_bmp {
 	};
 };
 
-/* 
-                                                
-                          
-                                       
-                                                 
-                             
-                           
-                               
+/**
+ * struct ps3_private - a per cpu data structure
+ * @bmp: ps3_bmp structure
+ * @bmp_lock: Syncronize access to bmp.
+ * @ipi_debug_brk_mask: Mask for debug break IPIs
+ * @ppe_id: HV logical_ppe_id
+ * @thread_id: HV thread_id
+ * @ipi_mask: Mask of IPI virqs
  */
 
 struct ps3_private {
@@ -96,11 +96,11 @@ struct ps3_private {
 
 static DEFINE_PER_CPU(struct ps3_private, ps3_private);
 
-/* 
-                                                        
-                                  
-  
-                                                               
+/**
+ * ps3_chip_mask - Set an interrupt mask bit in ps3_bmp.
+ * @virq: The assigned Linux virq.
+ *
+ * Sets ps3_bmp.mask and calls lv1_did_update_interrupt_mask().
  */
 
 static void ps3_chip_mask(struct irq_data *d)
@@ -117,11 +117,11 @@ static void ps3_chip_mask(struct irq_data *d)
 	local_irq_restore(flags);
 }
 
-/* 
-                                                            
-                                  
-  
-                                                                 
+/**
+ * ps3_chip_unmask - Clear an interrupt mask bit in ps3_bmp.
+ * @virq: The assigned Linux virq.
+ *
+ * Clears ps3_bmp.mask and calls lv1_did_update_interrupt_mask().
  */
 
 static void ps3_chip_unmask(struct irq_data *d)
@@ -138,25 +138,25 @@ static void ps3_chip_unmask(struct irq_data *d)
 	local_irq_restore(flags);
 }
 
-/* 
-                                      
-                                  
-  
-                                    
+/**
+ * ps3_chip_eoi - HV end-of-interrupt.
+ * @virq: The assigned Linux virq.
+ *
+ * Calls lv1_end_of_interrupt_ext().
  */
 
 static void ps3_chip_eoi(struct irq_data *d)
 {
 	const struct ps3_private *pd = irq_data_get_irq_chip_data(d);
 
-	/*                          */
+	/* non-IPIs are EOIed here. */
 
 	if (!test_bit(63 - d->irq, &pd->ipi_mask))
 		lv1_end_of_interrupt_ext(pd->ppe_id, pd->thread_id, d->irq);
 }
 
-/* 
-                                                                    
+/**
+ * ps3_irq_chip - Represents the ps3_bmp as a Linux struct irq_chip.
  */
 
 static struct irq_chip ps3_irq_chip = {
@@ -166,15 +166,15 @@ static struct irq_chip ps3_irq_chip = {
 	.irq_eoi = ps3_chip_eoi,
 };
 
-/* 
-                                       
-                                                                        
-               
-                                                                  
-                                  
-  
-                                                                     
-                    
+/**
+ * ps3_virq_setup - virq related setup.
+ * @cpu: enum ps3_cpu_binding indicating the cpu the interrupt should be
+ * serviced on.
+ * @outlet: The HV outlet from the various create outlet routines.
+ * @virq: The assigned Linux virq.
+ *
+ * Calls irq_create_mapping() to get a virq and sets the chip data to
+ * ps3_private data.
  */
 
 static int ps3_virq_setup(enum ps3_cpu_binding cpu, unsigned long outlet,
@@ -183,7 +183,7 @@ static int ps3_virq_setup(enum ps3_cpu_binding cpu, unsigned long outlet,
 	int result;
 	struct ps3_private *pd;
 
-	/*                                                         */
+	/* This defines the default interrupt distribution policy. */
 
 	if (cpu == PS3_BINDING_CPU_ANY)
 		cpu = 0;
@@ -220,11 +220,11 @@ fail_create:
 	return result;
 }
 
-/* 
-                                            
-                                  
-  
-                                                                 
+/**
+ * ps3_virq_destroy - virq related teardown.
+ * @virq: The assigned Linux virq.
+ *
+ * Clears chip data and calls irq_dispose_mapping() for the virq.
  */
 
 static int ps3_virq_destroy(unsigned int virq)
@@ -241,14 +241,14 @@ static int ps3_virq_destroy(unsigned int virq)
 	return 0;
 }
 
-/* 
-                                                              
-                                                                        
-               
-                                                                  
-                                  
-  
-                                          
+/**
+ * ps3_irq_plug_setup - Generic outlet and virq related setup.
+ * @cpu: enum ps3_cpu_binding indicating the cpu the interrupt should be
+ * serviced on.
+ * @outlet: The HV outlet from the various create outlet routines.
+ * @virq: The assigned Linux virq.
+ *
+ * Sets up virq and connects the irq plug.
  */
 
 int ps3_irq_plug_setup(enum ps3_cpu_binding cpu, unsigned long outlet,
@@ -266,7 +266,7 @@ int ps3_irq_plug_setup(enum ps3_cpu_binding cpu, unsigned long outlet,
 
 	pd = irq_get_chip_data(*virq);
 
-	/*                             */
+	/* Binds outlet to cpu + virq. */
 
 	result = lv1_connect_irq_plug_ext(pd->ppe_id, pd->thread_id, *virq,
 		outlet, 0);
@@ -287,13 +287,13 @@ fail_setup:
 }
 EXPORT_SYMBOL_GPL(ps3_irq_plug_setup);
 
-/* 
-                                                                   
-                                  
-  
-                                                
-                                                         
-                                     
+/**
+ * ps3_irq_plug_destroy - Generic outlet and virq related teardown.
+ * @virq: The assigned Linux virq.
+ *
+ * Disconnects the irq plug and tears down virq.
+ * Do not call for system bus event interrupts setup with
+ * ps3_sb_event_receive_port_setup().
  */
 
 int ps3_irq_plug_destroy(unsigned int virq)
@@ -318,15 +318,15 @@ int ps3_irq_plug_destroy(unsigned int virq)
 }
 EXPORT_SYMBOL_GPL(ps3_irq_plug_destroy);
 
-/* 
-                                                              
-                                                                        
-               
-                                  
-  
-                                                                          
-                                                                 
-                                             
+/**
+ * ps3_event_receive_port_setup - Setup an event receive port.
+ * @cpu: enum ps3_cpu_binding indicating the cpu the interrupt should be
+ * serviced on.
+ * @virq: The assigned Linux virq.
+ *
+ * The virq can be used with lv1_connect_interrupt_event_receive_port() to
+ * arrange to receive interrupts from system-bus devices, or with
+ * ps3_send_event_locally() to signal events.
  */
 
 int ps3_event_receive_port_setup(enum ps3_cpu_binding cpu, unsigned int *virq)
@@ -350,13 +350,13 @@ int ps3_event_receive_port_setup(enum ps3_cpu_binding cpu, unsigned int *virq)
 }
 EXPORT_SYMBOL_GPL(ps3_event_receive_port_setup);
 
-/* 
-                                                                  
-                                  
-  
-                                                                         
-                                                                           
-        
+/**
+ * ps3_event_receive_port_destroy - Destroy an event receive port.
+ * @virq: The assigned Linux virq.
+ *
+ * Since ps3_event_receive_port_destroy destroys the receive port outlet,
+ * SB devices need to call disconnect_interrupt_event_receive_port() before
+ * this.
  */
 
 int ps3_event_receive_port_destroy(unsigned int virq)
@@ -374,9 +374,9 @@ int ps3_event_receive_port_destroy(unsigned int virq)
 			__func__, __LINE__, ps3_result(result));
 
 	/*
-                                                                  
-                                                                   
-  */
+	 * Don't call ps3_virq_destroy() here since ps3_smp_cleanup_cpu()
+	 * calls from interrupt context (smp_call_function) when kexecing.
+	 */
 
 	DBG(" <- %s:%d\n", __func__, __LINE__);
 	return result;
@@ -387,21 +387,21 @@ int ps3_send_event_locally(unsigned int virq)
 	return lv1_send_event_locally(virq_to_hw(virq));
 }
 
-/* 
-                                                                           
-                                                                        
-               
-                                        
-                                  
-  
-                                                                        
-                                               
+/**
+ * ps3_sb_event_receive_port_setup - Setup a system bus event receive port.
+ * @cpu: enum ps3_cpu_binding indicating the cpu the interrupt should be
+ * serviced on.
+ * @dev: The system bus device instance.
+ * @virq: The assigned Linux virq.
+ *
+ * An event irq represents a virtual device interrupt.  The interrupt_id
+ * coresponds to the software interrupt number.
  */
 
 int ps3_sb_event_receive_port_setup(struct ps3_system_bus_device *dev,
 	enum ps3_cpu_binding cpu, unsigned int *virq)
 {
-	/*                                */
+	/* this should go in system-bus.c */
 
 	int result;
 
@@ -432,7 +432,7 @@ EXPORT_SYMBOL(ps3_sb_event_receive_port_setup);
 int ps3_sb_event_receive_port_destroy(struct ps3_system_bus_device *dev,
 	unsigned int virq)
 {
-	/*                                */
+	/* this should go in system-bus.c */
 
 	int result;
 
@@ -451,9 +451,9 @@ int ps3_sb_event_receive_port_destroy(struct ps3_system_bus_device *dev,
 	BUG_ON(result);
 
 	/*
-                                                           
-                                              
-  */
+	 * ps3_event_receive_port_destroy() destroys the IRQ plug,
+	 * so don't call ps3_irq_plug_destroy() here.
+	 */
 
 	result = ps3_virq_destroy(virq);
 	BUG_ON(result);
@@ -463,15 +463,15 @@ int ps3_sb_event_receive_port_destroy(struct ps3_system_bus_device *dev,
 }
 EXPORT_SYMBOL(ps3_sb_event_receive_port_destroy);
 
-/* 
-                                                
-                                                                        
-               
-                                                                          
-                                  
-  
-                                                                         
-                                                                  
+/**
+ * ps3_io_irq_setup - Setup a system bus io irq.
+ * @cpu: enum ps3_cpu_binding indicating the cpu the interrupt should be
+ * serviced on.
+ * @interrupt_id: The device interrupt id read from the system repository.
+ * @virq: The assigned Linux virq.
+ *
+ * An io irq represents a non-virtualized device interrupt.  interrupt_id
+ * coresponds to the interrupt number of the interrupt controller.
  */
 
 int ps3_io_irq_setup(enum ps3_cpu_binding cpu, unsigned int interrupt_id,
@@ -503,9 +503,9 @@ int ps3_io_irq_destroy(unsigned int virq)
 	ps3_chip_mask(irq_get_irq_data(virq));
 
 	/*
-                                                           
-                                         
-  */
+	 * lv1_destruct_io_irq_outlet() will destroy the IRQ plug,
+	 * so call ps3_irq_plug_destroy() first.
+	 */
 
 	result = ps3_irq_plug_destroy(virq);
 	BUG_ON(result);
@@ -520,15 +520,15 @@ int ps3_io_irq_destroy(unsigned int virq)
 }
 EXPORT_SYMBOL_GPL(ps3_io_irq_destroy);
 
-/* 
-                                                            
-                                                                        
-               
-                                                                     
-                                  
-  
-                                                                            
-                                                         
+/**
+ * ps3_vuart_irq_setup - Setup the system virtual uart virq.
+ * @cpu: enum ps3_cpu_binding indicating the cpu the interrupt should be
+ * serviced on.
+ * @virt_addr_bmp: The caller supplied virtual uart interrupt bitmap.
+ * @virq: The assigned Linux virq.
+ *
+ * The system supports only a single virtual uart, so multiple calls without
+ * freeing the interrupt will return a wrong state error.
  */
 
 int ps3_vuart_irq_setup(enum ps3_cpu_binding cpu, void* virt_addr_bmp,
@@ -577,14 +577,14 @@ int ps3_vuart_irq_destroy(unsigned int virq)
 }
 EXPORT_SYMBOL_GPL(ps3_vuart_irq_destroy);
 
-/* 
-                                         
-                                                                        
-               
-                                                                 
-                                           
-                                  
-  
+/**
+ * ps3_spe_irq_setup - Setup an spe virq.
+ * @cpu: enum ps3_cpu_binding indicating the cpu the interrupt should be
+ * serviced on.
+ * @spe_id: The spe_id returned from lv1_construct_logical_spe().
+ * @class: The spe interrupt class {0,1,2}.
+ * @virq: The assigned Linux virq.
+ *
  */
 
 int ps3_spe_irq_setup(enum ps3_cpu_binding cpu, unsigned long spe_id,
@@ -665,7 +665,7 @@ static void __maybe_unused _dump_mask(struct ps3_private *pd,
 }
 #else
 static void dump_bmp(struct ps3_private* pd) {};
-#endif /*                */
+#endif /* defined(DEBUG) */
 
 static int ps3_host_map(struct irq_domain *h, unsigned int virq,
 	irq_hw_number_t hwirq)
@@ -680,7 +680,7 @@ static int ps3_host_map(struct irq_domain *h, unsigned int virq,
 
 static int ps3_host_match(struct irq_domain *h, struct device_node *np)
 {
-	/*           */
+	/* Match all */
 	return 1;
 }
 
@@ -715,7 +715,7 @@ static unsigned int ps3_get_irq(void)
 	u64 x = (pd->bmp.status & pd->bmp.mask);
 	unsigned int plug;
 
-	/*                                                 */
+	/* check for ipi break first to stop this cpu ASAP */
 
 	if (x & pd->ipi_debug_brk_mask)
 		x &= pd->ipi_debug_brk_mask;
@@ -739,7 +739,7 @@ static unsigned int ps3_get_irq(void)
 	}
 #endif
 
-	/*                      */
+	/* IPIs are EOIed here. */
 
 	if (test_bit(63 - plug, &pd->ipi_mask))
 		lv1_end_of_interrupt_ext(pd->ppe_id, pd->thread_id, plug);

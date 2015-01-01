@@ -9,8 +9,8 @@
 #define __ASM_TLBDEBUG_H
 
 /*
-                           
+ * TLB debugging functions:
  */
 extern void dump_tlb_all(void);
 
-#endif /*                  */
+#endif /* __ASM_TLBDEBUG_H */

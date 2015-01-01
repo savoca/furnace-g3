@@ -44,12 +44,12 @@ static unsigned char get_dtype(struct super_block *sb, int filetype)
 	return (ext4_filetype_table[filetype]);
 }
 
-/* 
-                                                                    
-                                                                     
-             
-  
-                                       
+/**
+ * Check if the given dir-inode refers to an htree-indexed directory
+ * (or a directory which chould potentially get coverted to use htree
+ * indexing).
+ *
+ * Return 1 if it is a dx dir, 0 if not
  */
 static int is_dx_dir(struct inode *inode)
 {
@@ -65,9 +65,9 @@ static int is_dx_dir(struct inode *inode)
 }
 
 /*
-                                                                     
-  
-                                                                            
+ * Return 0 if the directory entry is OK, and 1 if there is a problem
+ *
+ * Note: this is the opposite of what ext2 and ext3 historically returned...
  */
 int __ext4_check_dir_entry(const char *function, unsigned int line,
 			   struct inode *dir, struct file *filp,
@@ -132,9 +132,9 @@ static int ext4_readdir(struct file *filp,
 			goto out;
 		}
 		/*
-                                                     
-                                                   
-   */
+		 * We don't set the inode dirty flag since it's not
+		 * critical that it get flushed back to the disk.
+		 */
 		ext4_clear_inode_flag(filp->f_path.dentry->d_inode,
 				      EXT4_INODE_INDEX);
 	}
@@ -161,9 +161,9 @@ static int ext4_readdir(struct file *filp,
 		}
 
 		/*
-                                                               
-                                                 
-   */
+		 * We ignore I/O errors on directories so users have a chance
+		 * of recovering data when there's a bad sector
+		 */
 		if (!bh) {
 			if (!dir_has_error) {
 				EXT4_ERROR_FILE(filp, 0,
@@ -172,7 +172,7 @@ static int ext4_readdir(struct file *filp,
 					   (unsigned long long) filp->f_pos);
 				dir_has_error = 1;
 			}
-			/*                                             */
+			/* corrupt size?  Maybe no more blocks to read */
 			if (filp->f_pos > inode->i_blocks << 9)
 				break;
 			filp->f_pos += sb->s_blocksize - offset;
@@ -180,20 +180,20 @@ static int ext4_readdir(struct file *filp,
 		}
 
 revalidate:
-		/*                                                    
-                                                        
-                                                        
-                   */
+		/* If the dir block has changed since the last call to
+		 * readdir(2), then we might be pointing to an invalid
+		 * dirent right now.  Scan from the start of the block
+		 * to make sure. */
 		if (filp->f_version != inode->i_version) {
 			for (i = 0; i < sb->s_blocksize && i < offset; ) {
 				de = (struct ext4_dir_entry_2 *)
 					(bh->b_data + i);
-				/*                                
-                                       
-                                      
-                                    
-                                      
-                          */
+				/* It's too expensive to do a full
+				 * dirent test each time round this
+				 * loop, but we do have to test at
+				 * least that it is non-zero.  A
+				 * failure will be detected in the
+				 * dirent test below. */
 				if (ext4_rec_len_from_disk(de->rec_len,
 					sb->s_blocksize) < EXT4_DIR_REC_LEN(1))
 					break;
@@ -212,8 +212,8 @@ revalidate:
 			if (ext4_check_dir_entry(inode, filp, de,
 						 bh, offset)) {
 				/*
-                                                 
-     */
+				 * On error, skip the f_pos to the next block
+				 */
 				filp->f_pos = (filp->f_pos |
 						(sb->s_blocksize - 1)) + 1;
 				brelse(bh);
@@ -223,13 +223,13 @@ revalidate:
 			offset += ext4_rec_len_from_disk(de->rec_len,
 					sb->s_blocksize);
 			if (le32_to_cpu(de->inode)) {
-				/*                                   
-                                 
-                                        
-                                         
-                                          
-                                 
-     */
+				/* We might block in the next section
+				 * if the data destination is
+				 * currently swapped out.  So, use a
+				 * version stamp to detect whether or
+				 * not the directory has been modified
+				 * during the copy operation.
+				 */
 				u64 version = filp->f_version;
 
 				error = filldir(dirent, de->name,
@@ -263,13 +263,13 @@ static inline int is_32bit_api(void)
 }
 
 /*
-                                                                
-                           
-  
-                                                                  
-                                                                             
-                                                                     
-                                                    
+ * These functions convert from the major/minor hash to an f_pos
+ * value for dx directories
+ *
+ * Upper layer (for example NFS) should specify FMODE_32BITHASH or
+ * FMODE_64BITHASH explicitly. On the other hand, we allow ext4 to be mounted
+ * directly on both 32-bit and 64-bit nodes, under such case, neither
+ * FMODE_32BITHASH nor FMODE_64BITHASH is specified.
  */
 static inline loff_t hash2pos(struct file *filp, __u32 major, __u32 minor)
 {
@@ -299,7 +299,7 @@ static inline __u32 pos2min_hash(struct file *filp, loff_t pos)
 }
 
 /*
-                                                      
+ * Return 32- or 64-bit end-of-file for dx directories
  */
 static inline loff_t ext4_get_htree_eof(struct file *filp)
 {
@@ -312,12 +312,12 @@ static inline loff_t ext4_get_htree_eof(struct file *filp)
 
 
 /*
-                                                                  
-                                                                  
-                                                         
-  
-                                                                             
-                                                                             
+ * ext4_dir_llseek() based on generic_file_llseek() to handle both
+ * non-htree and htree directories, where the "offset" is in terms
+ * of the filename hash value instead of the byte offset.
+ *
+ * NOTE: offsets obtained *before* ext4_set_inode_flag(dir, EXT4_INODE_INDEX)
+ *       will be invalid once the directory was converted into a dx directory
  */
 loff_t ext4_dir_llseek(struct file *file, loff_t offset, int origin)
 {
@@ -327,17 +327,17 @@ loff_t ext4_dir_llseek(struct file *file, loff_t offset, int origin)
 
 	mutex_lock(&inode->i_mutex);
 
-	/*                                                          
-                                                           
-                                           */
+	/* NOTE: relative offsets with dx directories might not work
+	 *       as expected, as it is difficult to figure out the
+	 *       correct offset between dx hashes */
 
 	switch (origin) {
 	case SEEK_END:
 		if (unlikely(offset > 0))
-			goto out_err; /*                               */
+			goto out_err; /* not supported for directories */
 
-		/*                                                    
-                                     */
+		/* so only negative offsets are left, does that have a
+		 * meaning for directories at all? */
 		if (dx_dir)
 			offset += ext4_get_htree_eof(file);
 		else
@@ -345,11 +345,11 @@ loff_t ext4_dir_llseek(struct file *file, loff_t offset, int origin)
 		break;
 	case SEEK_CUR:
 		/*
-                                                    
-                                                             
-                                                              
-                                             
-   */
+		 * Here we special-case the lseek(fd, 0, SEEK_CUR)
+		 * position-querying operation.  Avoid rewriting the "same"
+		 * f_pos value back to the file because a concurrent read(),
+		 * write() or lseek() might have altered it
+		 */
 		if (offset == 0) {
 			offset = file->f_pos;
 			goto out_ok;
@@ -368,7 +368,7 @@ loff_t ext4_dir_llseek(struct file *file, loff_t offset, int origin)
 	} else if (offset > ext4_get_htree_eof(file))
 		goto out_err;
 
-	/*                           */
+	/* Special lock needed here? */
 	if (offset != file->f_pos) {
 		file->f_pos = offset;
 		file->f_version = 0;
@@ -383,8 +383,8 @@ out_err:
 }
 
 /*
-                                                                     
-                                     
+ * This structure holds the nodes of the red-black tree used to store
+ * the directory entry in hash order.
  */
 struct fname {
 	__u32		hash;
@@ -398,8 +398,8 @@ struct fname {
 };
 
 /*
-                                                                     
-                               
+ * This functoin implements a non-recursive way of freeing all of the
+ * nodes in the red-black tree.
  */
 static void free_rb_tree_fname(struct rb_root *root)
 {
@@ -408,7 +408,7 @@ static void free_rb_tree_fname(struct rb_root *root)
 	struct fname	*fname;
 
 	while (n) {
-		/*                              */
+		/* Do the node's children first */
 		if (n->rb_left) {
 			n = n->rb_left;
 			continue;
@@ -418,11 +418,11 @@ static void free_rb_tree_fname(struct rb_root *root)
 			continue;
 		}
 		/*
-                                                     
-                                                
-                                                     
-          
-   */
+		 * The node has no children; free it, and then zero
+		 * out parent's link to it.  Finally go to the
+		 * beginning of the loop and try to free the parent
+		 * node.
+		 */
 		parent = rb_parent(n);
 		fname = rb_entry(n, struct fname, rb_hash);
 		while (fname) {
@@ -461,7 +461,7 @@ void ext4_htree_free_dir_info(struct dir_private_info *p)
 }
 
 /*
-                                                            
+ * Given a directory entry, enter it into the fname rb tree.
  */
 int ext4_htree_store_dirent(struct file *dir_file, __u32 hash,
 			     __u32 minor_hash,
@@ -475,7 +475,7 @@ int ext4_htree_store_dirent(struct file *dir_file, __u32 hash,
 	info = dir_file->private_data;
 	p = &info->root.rb_node;
 
-	/*                                         */
+	/* Create and allocate the fname structure */
 	len = sizeof(struct fname) + dirent->name_len + 1;
 	new_fn = kzalloc(len, GFP_KERNEL);
 	if (!new_fn)
@@ -493,9 +493,9 @@ int ext4_htree_store_dirent(struct file *dir_file, __u32 hash,
 		fname = rb_entry(parent, struct fname, rb_hash);
 
 		/*
-                                                     
-                                                   
-   */
+		 * If the hash and minor hash match up, then we put
+		 * them on a linked list.  This rarely happens...
+		 */
 		if ((new_fn->hash == fname->hash) &&
 		    (new_fn->minor_hash == fname->minor_hash)) {
 			new_fn->next = fname->next;
@@ -509,7 +509,7 @@ int ext4_htree_store_dirent(struct file *dir_file, __u32 hash,
 			p = &(*p)->rb_right;
 		else if (new_fn->minor_hash < fname->minor_hash)
 			p = &(*p)->rb_left;
-		else /*                                             */
+		else /* if (new_fn->minor_hash > fname->minor_hash) */
 			p = &(*p)->rb_right;
 	}
 
@@ -521,9 +521,9 @@ int ext4_htree_store_dirent(struct file *dir_file, __u32 hash,
 
 
 /*
-                                                                   
-                                                                    
-                                                                          
+ * This is a helper function for ext4_dx_readdir.  It calls filldir
+ * for all entres on the fname linked list.  (Normally there is only
+ * one entry on the linked list, unless there are 62 bit hash collisions.)
  */
 static int call_filldir(struct file *filp, void *dirent,
 			filldir_t filldir, struct fname *fname)
@@ -574,9 +574,9 @@ static int ext4_dx_readdir(struct file *filp,
 	}
 
 	if (filp->f_pos == ext4_get_htree_eof(filp))
-		return 0;	/*     */
+		return 0;	/* EOF */
 
-	/*                                                 */
+	/* Some one has messed with f_pos; reset the world */
 	if (info->last_pos != filp->f_pos) {
 		free_rb_tree_fname(&info->root);
 		info->curr_node = NULL;
@@ -586,9 +586,9 @@ static int ext4_dx_readdir(struct file *filp,
 	}
 
 	/*
-                                                         
-                             
-  */
+	 * If there are any leftover names on the hash collision
+	 * chain, return them first.
+	 */
 	if (info->extra_fname) {
 		if (call_filldir(filp, dirent, filldir, info->extra_fname))
 			goto finished;
@@ -599,10 +599,10 @@ static int ext4_dx_readdir(struct file *filp,
 
 	while (1) {
 		/*
-                                                
-                                                       
-                    
-   */
+		 * Fill the rbtree if we have no more entries,
+		 * or the inode has changed since we last read in the
+		 * cached entries.
+		 */
 		if ((!info->curr_node) ||
 		    (filp->f_version != inode->i_version)) {
 			info->curr_node = NULL;

@@ -14,12 +14,12 @@
 #include <asm/bug.h>
 
 /*
-                                    
-  
-                                                                          
-                                                                            
-                                                                       
-                                         
+ * Generic direct DMA implementation
+ *
+ * This implementation supports a per-device offset that can be applied if
+ * the address at which memory is visible to devices is not 0. Platform code
+ * can set archdata.dma_data to an unsigned long holding the offset. By
+ * default the offset is PCI_DRAM_OFFSET.
  */
 
 static unsigned long get_dma_direct_offset(struct device *dev)
@@ -27,7 +27,7 @@ static unsigned long get_dma_direct_offset(struct device *dev)
 	if (likely(dev))
 		return (unsigned long)dev->archdata.dma_data;
 
-	return PCI_DRAM_OFFSET; /*                              */
+	return PCI_DRAM_OFFSET; /* FIXME Not sure if is correct */
 }
 
 #define NOT_COHERENT_CACHE
@@ -43,7 +43,7 @@ static void *dma_direct_alloc_coherent(struct device *dev, size_t size,
 	struct page *page;
 	int node = dev_to_node(dev);
 
-	/*                          */
+	/* ignore region specifiers */
 	flag  &= ~(__GFP_HIGHMEM);
 
 	page = alloc_pages_node(node, flag, get_order(size));
@@ -75,7 +75,7 @@ static int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl,
 	struct scatterlist *sg;
 	int i;
 
-	/*                                     */
+	/* FIXME this part of code is untested */
 	for_each_sg(sgl, sg, nents, i) {
 		sg->dma_address = sg_phys(sg) + get_dma_direct_offset(dev);
 		__dma_sync(page_to_phys(sg_page(sg)) + sg->offset,
@@ -113,10 +113,10 @@ static inline void dma_direct_unmap_page(struct device *dev,
 					 enum dma_data_direction direction,
 					 struct dma_attrs *attrs)
 {
-/*                                           
-  
-                                                                        
-                                  
+/* There is not necessary to do cache cleanup
+ *
+ * phys_to_virt is here because in __dma_sync_page is __virt_to_phys and
+ * dma_address is physical address
  */
 	__dma_sync(dma_address, size, direction);
 }
@@ -127,9 +127,9 @@ dma_direct_sync_single_for_cpu(struct device *dev,
 			       enum dma_data_direction direction)
 {
 	/*
-                                                           
-                       
-  */
+	 * It's pointless to flush the cache as the memory segment
+	 * is given to the CPU
+	 */
 
 	if (direction == DMA_FROM_DEVICE)
 		__dma_sync(dma_handle, size, direction);
@@ -141,9 +141,9 @@ dma_direct_sync_single_for_device(struct device *dev,
 				  enum dma_data_direction direction)
 {
 	/*
-                                                              
-                                            
-  */
+	 * It's pointless to invalidate the cache if the device isn't
+	 * supposed to write to the relevant region
+	 */
 
 	if (direction == DMA_TO_DEVICE)
 		__dma_sync(dma_handle, size, direction);
@@ -157,7 +157,7 @@ dma_direct_sync_sg_for_cpu(struct device *dev,
 	struct scatterlist *sg;
 	int i;
 
-	/*                                     */
+	/* FIXME this part of code is untested */
 	if (direction == DMA_FROM_DEVICE)
 		for_each_sg(sgl, sg, nents, i)
 			__dma_sync(sg->dma_address, sg->length, direction);
@@ -171,7 +171,7 @@ dma_direct_sync_sg_for_device(struct device *dev,
 	struct scatterlist *sg;
 	int i;
 
-	/*                                     */
+	/* FIXME this part of code is untested */
 	if (direction == DMA_TO_DEVICE)
 		for_each_sg(sgl, sg, nents, i)
 			__dma_sync(sg->dma_address, sg->length, direction);
@@ -192,7 +192,7 @@ struct dma_map_ops dma_direct_ops = {
 };
 EXPORT_SYMBOL(dma_direct_ops);
 
-/*                                                      */
+/* Number of entries preallocated for DMA-API debugging */
 #define PREALLOC_DMA_DEBUG_ENTRIES (1 << 16)
 
 static int __init dma_init(void)

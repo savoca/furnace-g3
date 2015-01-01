@@ -11,7 +11,7 @@
  *
  */
 
-/*                                                */
+/* Qualcomm PMIC Multi-Purpose Pin Configurations */
 
 #include <linux/kernel.h>
 #include <linux/device.h>

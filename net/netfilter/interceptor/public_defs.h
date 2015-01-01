@@ -12,4 +12,4 @@
 #include <stdint.h>
 #endif
 
-#endif				/*               */
+#endif				/* PUBLIC_DEFS_H */

@@ -1,23 +1,23 @@
-/*                                                                          */
-/*                                         */
-/*                                           */
-/*                                                                          */
-/*             */
-/*                                */
+/*--------------------------------------------------------------------------*/
+/*    FileName	  : Tcpal_android.c					    */
+/*    Description : OS glue Function					    */
+/*--------------------------------------------------------------------------*/
+/*									    */
+/*   TCC Version : 1.0.0						    */
 /*   Copyright (c) Telechips, Inc.					    */
-/*                                */
-/*             */
-/*                                                                          */
+/*   ALL RIGHTS RESERVED						    */
+/*									    */
+/*--------------------------------------------------------------------------*/
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include "tcc353x_common.h"
 
 
-/*                                            */
+/* Telechips Android (Android Platform Layer) */
 I08S Tcc353xDebugStr[1024];
 
-/*                 */
+/* For Debug Print */
 I32S TcpalPrintLog(const I08S * _fmt, ...)
 {
 	va_list ap;
@@ -54,7 +54,7 @@ I32S TcpalPrintStatus(const I08S * _fmt, ...)
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*               */
+/* For TimeCheck */
 #define MAX_TIMECNT 0xFFFFFFFFFFFFFFFFLL
 TcpalTime_t TcpalGetCurrentTimeCount_ms(void)
 {
@@ -79,7 +79,7 @@ TcpalTime_t TcpalGetTimeIntervalCount_ms(TcpalTime_t _startTimeCount)
 	return count;
 }
 
-/*           */
+/* for sleep */
 void TcpalmSleep(I32S _ms)
 {
 	msleep(_ms);
@@ -94,10 +94,10 @@ void TcpalmDelay(I32S _ms)
 
 void TcpaluSleep(I32S _us)
 {
-	//            
+	//usleep(_us);
 }
 
-/*                                  */
+/* for memory allocation, free, set */
 void *TcpalMalloc(I32U _size)
 {
 	void *ptr = NULL;
@@ -144,7 +144,7 @@ void *TcpalMemcpy(void *_dest, const void *_src, I32U _cnt)
 	return ptr;
 }
 
-/*               */
+/* For Semaphore */
 #define MAX_MUTEX_POOL 15
 static struct mutex MutexPool[MAX_MUTEX_POOL];
 static I32U MutexAssignd[MAX_MUTEX_POOL] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};

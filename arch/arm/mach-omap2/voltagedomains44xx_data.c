@@ -97,9 +97,9 @@ void __init omap44xx_voltagedomains_init(void)
 	int i;
 
 	/*
-                                                           
-                                
-  */
+	 * XXX Will depend on the process, validation, and binning
+	 * for the currently-running IC
+	 */
 #ifdef CONFIG_PM_OPP
 	omap4_voltdm_mpu.volt_data = omap44xx_vdd_mpu_volt_data;
 	omap4_voltdm_iva.volt_data = omap44xx_vdd_iva_volt_data;

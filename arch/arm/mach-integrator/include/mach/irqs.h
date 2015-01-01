@@ -20,7 +20,7 @@
  */
 
 /* 
-                     
+ *  Interrupt numbers
  */
 #define IRQ_PIC_START			0
 #define IRQ_SOFTINT			0
@@ -61,7 +61,7 @@
 #define IRQ_CIC_END			34
 
 /*
-                    
+ * IntegratorCP only
  */
 #define IRQ_SIC_START			35
 #define IRQ_SIC_CP_SOFTINT		35

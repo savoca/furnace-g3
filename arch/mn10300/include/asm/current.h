@@ -14,7 +14,7 @@
 #include <linux/thread_info.h>
 
 /*
-                                                  
+ * dedicate E2 to keeping the current task pointer
  */
 #ifdef CONFIG_MN10300_CURRENT_IN_E2
 
@@ -34,4 +34,4 @@ struct task_struct *get_current(void)
 #define current get_current()
 #endif
 
-#endif /*                */
+#endif /* _ASM_CURRENT_H */

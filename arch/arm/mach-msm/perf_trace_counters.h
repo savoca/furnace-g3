@@ -16,7 +16,7 @@
 #if !defined(_PERF_TRACE_COUNTERS_H_) || defined(TRACE_HEADER_MULTI_READ)
 #define _PERF_TRACE_COUNTERS_H_
 
-/*                              */
+/* Ctr index for PMCNTENSET/CLR */
 #define CC 0x80000000
 #define C0 0x1
 #define C1 0x2
@@ -71,14 +71,14 @@ TRACE_EVENT(sched_switch_with_ctrs,
 			val = get_l2_indirect_reg(L2PMCR);
 			num_l2ctrs = ((val >> 11) & 0x1f) + 1;
 
-			/*                 */
+			/* Read PMCNTENSET */
 			asm volatile("mrc p15, 0, %0, c9, c12, 1"
 						: "=r"(cnten_val));
-			/*                                            */
+			/* Disable all the counters that were enabled */
 			asm volatile("mcr p15, 0, %0, c9, c12, 2"
 					: : "r"(cnten_val));
 			if (cnten_val & CC) {
-				/*            */
+				/* Read value */
 				asm volatile("mrc p15, 0, %0, c9, c13, 0"
 					: "=r"(total_ccnt));
 				__entry->cctr = total_ccnt -
@@ -87,11 +87,11 @@ TRACE_EVENT(sched_switch_with_ctrs,
 			}
 			for (i = 0; i < NUM_L1_CTRS; i++) {
 				if (cnten_val & (1 << i)) {
-					/*        */
+					/* Select */
 					asm volatile(
 						"mcr p15, 0, %0, c9, c12, 5"
 						: : "r"(i));
-					/*            */
+					/* Read value */
 					asm volatile(
 						"mrc p15, 0, %0, c9, c13, 2"
 						: "=r"(total_cnt));
@@ -103,33 +103,33 @@ TRACE_EVENT(sched_switch_with_ctrs,
 				} else
 					delta_l1_cnts[i] = 0;
 			}
-			/*                                            */
+			/* Enable all the counters that were disabled */
 			asm volatile("mcr p15, 0, %0, c9, c12, 1"
 					: : "r"(cnten_val));
 
-			/*             */
-			/*                                                  
-                                                       
-                                                         
-    */
+			/* L2 counters */
+			/* Assign L2 counters to cores sequentially starting
+			 * from zero. A core could have multiple L2 counters
+			 * allocated if # L2 counters is more than the # cores
+			 */
 			cnten_val = get_l2_indirect_reg(L2PMCNTENSET);
 			for (i = 0; i < NUM_L2_PERCPU; i++) {
 				idx = cpu + (num_cores * i);
 				if (idx < num_l2ctrs &&
 						(cnten_val & (1 << idx))) {
-					/*         */
+					/* Disable */
 					set_l2_indirect_reg(L2PMCNTENCLR,
 						(1 << idx));
-					/*                                 
-               
-                                           
-                         
-      */
+					/* L2PMEVCNTR values go from 0x421,
+					 * 0x431..
+					 * So we multiply idx by 16 to get the
+					 * counter reg value
+					 */
 					counter_reg = (idx * 16) +
 						IA_L2PMXEVCNTR_BASE;
 					total_cnt =
 					  get_l2_indirect_reg(counter_reg);
-					/*        */
+					/* Enable */
 					set_l2_indirect_reg(L2PMCNTENSET,
 						(1 << idx));
 					delta_l2_cnts[i] = total_cnt -

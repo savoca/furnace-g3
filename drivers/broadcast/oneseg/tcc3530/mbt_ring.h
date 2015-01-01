@@ -14,9 +14,9 @@
 #ifndef _MBT_RING_H_
 #define _MBT_RING_H_
 
-/*                                                            
-                      
-                                                             */
+/*============================================================
+**    1.   DEFINITIONS
+*============================================================*/
 typedef struct _mbt_ring 
 {
 	char *data;
@@ -26,16 +26,16 @@ typedef struct _mbt_ring
 	unsigned int mutex;
 }MBT_RING;
 
-/*                                                        
-                              
-                                         
-                                                                              
-                       
+/*======================================================= 
+    Function 		: mbt_ring_init
+    Description		: Ring Buffer Initialize
+    Parameter		: rbuf - structure, data - ring buffer, len - ring buffer size 
+    Return Value	: void
 
-                                                     
-                                                         
-                                            
-                                                         */
+	when            model      		who        edit history
+  -------------------------------------------------------
+	Mar.16.2009  QDMB 2.0.0    inb612   created
+======================================================== */
 static void mbt_ring_init(MBT_RING *rbuf, void *data, int len)
 {		
 	rbuf->pread=rbuf->pwrite=0;
@@ -43,31 +43,31 @@ static void mbt_ring_init(MBT_RING *rbuf, void *data, int len)
 	rbuf->size=len;
 }
 
-/*                                                        
-                             
-                                  
-                               
-                                                    
+/*======================================================= 
+	 Function		 : mbt_ring_empty
+	 Description	 : Ring Buffer empty
+	 Parameter	 : rbuf - structure
+	 Return Value	 : -1 : error, 0 : no empty, 1: empty
  
-                                    
-                                                          
-                                         
-                                                         */
+	 when			 model			 who		edit history
+   -------------------------------------------------------
+	 Mar.16.2009  QDMB 2.0.0	inb612	 created
+======================================================== */
 static int mbt_ring_empty(MBT_RING *rbuf)
 {	
 	return (rbuf->pread==rbuf->pwrite);
 }
 
-/*                                                        
-                            
-                                              
-                               
-                                        
+/*======================================================= 
+	 Function		 : mbt_ring_free
+	 Description	 : Ring Buffer free size getting
+	 Parameter	 : rbuf - structure
+	 Return Value	 : -1 : error, free size 
  
-                                    
-                                                          
-                                         
-                                                         */
+	 when			 model			 who		edit history
+   -------------------------------------------------------
+	 Mar.16.2009  QDMB 2.0.0	inb612	 created
+======================================================== */
 static int mbt_ring_free(MBT_RING *rbuf)
 {
 	int free;
@@ -81,16 +81,16 @@ static int mbt_ring_free(MBT_RING *rbuf)
 	return free-1;
 }
 
-/*                                                        
-                             
-                                                   
-                               
-                                            
+/*======================================================= 
+	 Function		 : mbt_ring_avail
+	 Description	 : Ring Buffer available size getting
+	 Parameter	 : rbuf - structure
+	 Return Value	 : -1 : error, available size
  
-                                    
-                                                          
-                                         
-                                                         */
+	 when			 model			 who		edit history
+   -------------------------------------------------------
+	 Mar.16.2009  QDMB 2.0.0	inb612	 created
+======================================================== */
 static int mbt_ring_avail(MBT_RING *rbuf)
 {
 	int avail;
@@ -104,31 +104,31 @@ static int mbt_ring_avail(MBT_RING *rbuf)
 	return avail;
 }
 
-/*                                                        
-                             
-                                  
-                               
-                      
+/*======================================================= 
+	 Function		 : mbt_ring_flush
+	 Description	 : Ring Buffer flush
+	 Parameter	 : rbuf - structure
+	 Return Value	 : void
  
-                                    
-                                                          
-                                         
-                                                         */
+	 when			 model			 who		edit history
+   -------------------------------------------------------
+	 Mar.16.2009  QDMB 2.0.0	inb612	 created
+======================================================== */
 static void mbt_ring_flush(MBT_RING *rbuf)
 {
 	rbuf->pread = rbuf->pwrite;
 }
 
-/*                                                        
-                            
-                                      
-                                                                        
-                                       
+/*======================================================= 
+	 Function		 : mbt_ring_read
+	 Description	 : Ring Buffer data read
+	 Parameter	 : rbuf - structure, buf - data buffer to read, len - length
+	 Return Value	 : -1 : error, read size
  
-                                    
-                                                          
-                                         
-                                                         */
+	 when			 model			 who		edit history
+   -------------------------------------------------------
+	 Mar.16.2009  QDMB 2.0.0	inb612	 created
+======================================================== */
 static int mbt_ring_read(MBT_RING *rbuf, char *buf, int len)
 {
 	int todo = len;
@@ -154,16 +154,16 @@ static int mbt_ring_read(MBT_RING *rbuf, char *buf, int len)
 
 }
 
-/*                                                        
-                             
-                                       
-                                                                        
-                                        
+/*======================================================= 
+	 Function		 : mbt_ring_write
+	 Description	 : Ring Buffer data write
+	 Parameter	 : rbuf - structure, buf - data buffer to read, len - length
+	 Return Value	 : -1 : error, write size
  
-                                    
-                                                          
-                                         
-                                                         */
+	 when			 model			 who		edit history
+   -------------------------------------------------------
+	 Mar.16.2009  QDMB 2.0.0	inb612	 created
+======================================================== */
 static int mbt_ring_write(MBT_RING *rbuf, const char *buf,int len)
 {
 	int todo = len;
@@ -187,4 +187,4 @@ static int mbt_ring_write(MBT_RING *rbuf, const char *buf,int len)
 	return len;
 }
 
-#endif /*               */
+#endif /* _TDMB_RING_H_ */

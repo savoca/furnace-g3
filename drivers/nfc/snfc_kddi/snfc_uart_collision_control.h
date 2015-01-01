@@ -1,11 +1,11 @@
 /*
-                                 
-    
+ *  snfc_uart_collision_control.h
+ *  
  */
 #ifndef __SNFC_UART_COLLISION_CONTROL_H__
 #define __SNFC_UART_COLLISION_CONTROL_H__
 /*
-                        
+ *  Include header files
  */
 #include "snfc_common.h"
 #include "snfc_gpio.h"
@@ -13,7 +13,7 @@
 
 
  /*
-          
+ *	Defines
  */
 #define IOCTL_SNFC_MAGIC	254
 
@@ -45,17 +45,17 @@ typedef enum _e_snfc_uart_status {
 
 
  /*
-                        
+  *   Function prototype
   */
 _e_snfc_uart_status __snfc_uart_control_get_uart_status(void);
 
  /*
-                         
+  *   Internal definition
   */
  /*
-                     
+ *	Internal variables
  */
 int snfc_uart_control_probe(struct device_node *np);
 void snfc_uart_control_remove(void);
 
-#endif	//                                 
+#endif	//__SNFC_UART_COLLISION_CONTROL_H__

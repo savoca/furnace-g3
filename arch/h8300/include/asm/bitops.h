@@ -15,12 +15,12 @@
 #endif
 
 /*
-                                              
+ * Function prototypes to keep gcc -Wall happy
  */
 
 /*
-                                                              
-                                            
+ * ffz = Find First Zero in word. Undefined if no zero exists,
+ * so code should check against ~0UL first..
  */
 static __inline__ unsigned long ffz(unsigned long word)
 {
@@ -63,7 +63,7 @@ static __inline__ void FNAME(int nr, volatile unsigned long* addr)    \
 }
 
 /*
-                                                            
+ * clear_bit() doesn't provide any barrier for the compiler.
  */
 #define smp_mb__before_clear_bit()	barrier()
 #define smp_mb__after_clear_bit()	barrier()
@@ -202,10 +202,10 @@ static __inline__ unsigned long __ffs(unsigned long word)
 #include <asm-generic/bitops/le.h>
 #include <asm-generic/bitops/ext2-atomic.h>
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
 #include <asm-generic/bitops/fls.h>
 #include <asm-generic/bitops/__fls.h>
 #include <asm-generic/bitops/fls64.h>
 
-#endif /*                 */
+#endif /* _H8300_BITOPS_H */

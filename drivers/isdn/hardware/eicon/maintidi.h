@@ -45,8 +45,8 @@ int SuperTraceExecuteRequest(void *AdapterHandle,
 			     byte *data);
 
 typedef struct _diva_strace_path2action {
-	char path[64]; /*                                  */
-	void *variable; /*                                  */
+	char path[64]; /* Full path to variable            */
+	void *variable; /* Variable that will receive value */
 } diva_strace_path2action_t;
 
 #define DIVA_MAX_MANAGEMENT_TRANSFER_SIZE 4096
@@ -73,8 +73,8 @@ typedef struct _diva_strace_context {
 	byte rc_ok;
 
 	/*
-                                       
- */
+	  Initialization request state machine
+	*/
 	int ChannelsTraceActive;
 	int ModemTraceActive;
 	int FaxTraceActive;
@@ -93,8 +93,8 @@ typedef struct _diva_strace_context {
 	int l2_trace;
 
 	/*
-                     
- */
+	  Trace\Event Enable
+	*/
 	word trace_event_mask;
 	word current_trace_event_mask;
 

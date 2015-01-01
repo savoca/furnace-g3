@@ -2,7 +2,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/device.h>
-//                      
+//#include <linux/i2c.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spidev.h>
 #include <linux/interrupt.h>
@@ -10,26 +10,26 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
-#include <linux/wakelock.h> 		/*                   */
+#include <linux/wakelock.h> 		/* wake_lock, unlock */
 
 #include "../../broadcast_tdmb_drv_ifdef.h"
 #include "../inc/broadcast_fc8080.h"
 #include "../inc/fci_types.h"
 #include "../inc/bbm.h"
 
-#include <linux/pm_qos.h> //                       
+#include <linux/pm_qos.h> // FEATURE_DMB_USE_PM_QOS
 
 #include <linux/err.h>
 #include <linux/of_gpio.h>
 
 #include <linux/clk.h>
-#include <mach/msm_bus.h> //                          
+#include <mach/msm_bus.h> // FEATURE_DMB_USE_BUS_SCALE
 
-/*                   */
+/* external function */
 extern int broadcast_drv_if_isr(void);
 extern void tunerbb_drv_fc8080_isr_control(fci_u8 onoff);
 
-/*                    */
+/* proto type declare */
 static int broadcast_tdmb_fc8080_probe(struct spi_device *spi);
 static int broadcast_tdmb_fc8080_remove(struct spi_device *spi);
 static int broadcast_tdmb_fc8080_suspend(struct spi_device *spi, pm_message_t mesg);
@@ -38,15 +38,15 @@ static int broadcast_tdmb_fc8080_resume(struct spi_device *spi);
 #define DMB_EN			55
 #define DMB_INT_N		77
 
-/*                               */
-//                                 
+/* SPI Data read using workqueue */
+//#define FEATURE_DMB_USE_WORKQUEUE
 #define FEATURE_DMB_USE_XO
 #define FEATURE_DMB_USE_BUS_SCALE
 #define FEATURE_DMB_USE_PM_QOS
 
-/*                                                                      */
-/*                                                                      */
-/*                                                                      */
+/************************************************************************/
+/* LINUX Driver Setting                                                 */
+/************************************************************************/
 static uint32 user_stop_flg = 0;
 struct tdmb_fc8080_ctrl_blk
 {
@@ -57,7 +57,7 @@ struct tdmb_fc8080_ctrl_blk
 	struct workqueue_struct*				spi_wq;
 #endif
 	struct mutex							mutex;
-	struct wake_lock						wake_lock;	/*                       */
+	struct wake_lock						wake_lock;	/* wake_lock,wake_unlock */
 	boolean									spi_irq_status;
 	spinlock_t								spin_lock;
 #ifdef FEATURE_DMB_USE_XO
@@ -145,11 +145,11 @@ int tdmb_fc8080_mdelay(int32 ms)
 {
 	int32	wait_loop =0;
 	int32	wait_ms = ms;
-	int		rc = 1;  /*                     */
+	int		rc = 1;  /* 0 : false, 1 : true */
 
 	if(ms > 100)
 	{
-		wait_loop = (ms /100);   /*                                                                            */
+		wait_loop = (ms /100);   /* 100, 200, 300 more only , Otherwise this must be modified e.g (ms + 40)/50 */
 		wait_ms = 100;
 	}
 
@@ -178,9 +178,9 @@ int tdmb_fc8080_tdmb_is_on(void)
 	return (int)fc8080_ctrl_info.TdmbPowerOnState;
 }
 
-/*                                              
-                                                          */
-//                                      
+/* EXPORT_SYMBOL() : when we use external symbol
+which is not included in current module - over kernel 2.6 */
+//EXPORT_SYMBOL(tdmb_fc8080_tdmb_is_on);
 
 #ifdef FEATURE_POWER_ON_RETRY
 int tdmb_fc8080_power_on_retry(void)
@@ -247,7 +247,7 @@ int tdmb_fc8080_power_on(void)
 		mdelay(5);
 
 #ifdef FEATURE_DMB_USE_BUS_SCALE
-		msm_bus_scale_client_update_request(fc8080_ctrl_info.bus_scale_client_id, 1); /*                                                           */
+		msm_bus_scale_client_update_request(fc8080_ctrl_info.bus_scale_client_id, 1); /* expensive call, index:1 is the <84 512 3000 152000> entry */
 #endif
 #ifdef FEATURE_DMB_USE_XO
 		if(fc8080_ctrl_info.clk != NULL) {
@@ -265,10 +265,10 @@ int tdmb_fc8080_power_on(void)
 			pm_qos_update_request(&fc8080_ctrl_info.pm_req_list, 20);
 		}
 #endif
-//                                                            
-//                                                            
+//		gpio_set_value(PM8058_GPIO_PM_TO_SYS(DMB_ANT_SEL_P-1), 0);
+//		gpio_set_value(PM8058_GPIO_PM_TO_SYS(DMB_ANT_SEL_N-1), 1);
 
-		mdelay(30); /*                                */
+		mdelay(30); /* Due to X-tal stablization Time */
 
 		tdmb_fc8080_interrupt_free();
 		fc8080_ctrl_info.TdmbPowerOnState = TRUE;
@@ -305,11 +305,11 @@ int tdmb_fc8080_power_off(void)
 		wake_unlock(&fc8080_ctrl_info.wake_lock);
 		mdelay(20);
 
-//                                                                            
-//                                                            
+//		gpio_set_value(PM8058_GPIO_PM_TO_SYS(DMB_ANT_SEL_P-1), 1);	// for ESD TEST
+//		gpio_set_value(PM8058_GPIO_PM_TO_SYS(DMB_ANT_SEL_N-1), 0);
 
 #ifdef FEATURE_DMB_USE_BUS_SCALE
-		msm_bus_scale_client_update_request(fc8080_ctrl_info.bus_scale_client_id, 0); /*                                                   */
+		msm_bus_scale_client_update_request(fc8080_ctrl_info.bus_scale_client_id, 0); /* expensive call, index:0 is the <84 512 0 0> entry */
 #endif
 #ifdef FEATURE_DMB_USE_PM_QOS
 		if(pm_qos_request_active(&fc8080_ctrl_info.pm_req_list)) {
@@ -423,7 +423,7 @@ static irqreturn_t broadcast_tdmb_spi_isr(int irq, void *handle)
 			printk("######### spi read function is so late skip #########\n");
 			return IRQ_HANDLED;
 		}
-//                                                          
+//		printk("***** broadcast_tdmb_spi_isr coming *******\n");
 		spin_lock_irqsave(&fc8080_info_p->spin_lock, flag);
 		queue_work(fc8080_info_p->spi_wq, &fc8080_info_p->spi_work);
 		spin_unlock_irqrestore(&fc8080_info_p->spin_lock, flag);
@@ -530,7 +530,7 @@ static int broadcast_tdmb_fc8080_probe(struct spi_device *spi)
 	fc8080_ctrl_info.bus_scale_client_id = msm_bus_scale_register_client(fc8080_ctrl_info.bus_scale_pdata);
 #endif
 
-	//                                                               
+	// Once I have a spi_device structure I can do a transfer anytime
 
 	rc = spi_setup(spi);
 	printk("broadcast_tdmb_fc8080_probe spi_setup=%d\n", rc);
@@ -544,7 +544,7 @@ static int broadcast_tdmb_fc8080_probe(struct spi_device *spi)
 		return rc;
 	}
 
-	/*                                                     */
+	/* We enable/disable the clock only to assure it works */
 	rc = clk_prepare_enable(fc8080_ctrl_info.clk);
 	if (rc) {
 		dev_err(&fc8080_ctrl_info.spi_ptr->dev, "could not enable clock\n");
@@ -651,9 +651,9 @@ static void __exit broadcast_tdmb_drv_exit(void)
 module_init(broadcast_tdmb_drv_init);
 module_exit(broadcast_tdmb_drv_exit);
 
-/*                                                      
-                                                        
-                               */
+/* optional part when we include driver code to build-on
+it's just used when we make device driver to module(.ko)
+so it doesn't work in build-on */
 MODULE_DESCRIPTION("FC8080 tdmb device driver");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("FCI");

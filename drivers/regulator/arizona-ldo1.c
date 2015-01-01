@@ -226,10 +226,10 @@ static __devinit int arizona_ldo1_probe(struct platform_device *pdev)
 	ldo1->arizona = arizona;
 
 	/*
-                                                          
-                                                           
-                              
-  */
+	 * Since the chip usually supplies itself we provide some
+	 * default init_data for it.  This will be overridden with
+	 * platform data if provided.
+	 */
 	switch (arizona->type) {
 	case WM5102:
 		ldo1->init_data = arizona_ldo1_dvfs;
@@ -284,7 +284,7 @@ static struct platform_driver arizona_ldo1_driver = {
 
 module_platform_driver(arizona_ldo1_driver);
 
-/*                    */
+/* Module information */
 MODULE_AUTHOR("Mark Brown <broonie@opensource.wolfsonmicro.com>");
 MODULE_DESCRIPTION("Arizona LDO1 driver");
 MODULE_LICENSE("GPL");

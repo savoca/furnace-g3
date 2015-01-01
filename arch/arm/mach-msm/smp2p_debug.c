@@ -18,10 +18,10 @@
 
 #if defined(CONFIG_DEBUG_FS)
 
-/* 
-                             
-  
-                               
+/**
+ * Dump interrupt statistics.
+ *
+ * @s:   pointer to output file
  */
 static void smp2p_int_stats(struct seq_file *s)
 {
@@ -51,14 +51,14 @@ static void smp2p_int_stats(struct seq_file *s)
 	}
 }
 
-/* 
-                           
-  
-                           
-                                     
-                               
-                        
-                                                     
+/**
+ * Dump item header line 1.
+ *
+ * @buf:      output buffer
+ * @max:      length of output buffer
+ * @item_ptr: SMEM item pointer
+ * @state:    item state
+ * @returns: Number of bytes written to output buffer
  */
 static int smp2p_item_header1(char *buf, int max, struct smp2p_smem *item_ptr,
 	enum msm_smp2p_edge_state state)
@@ -96,13 +96,13 @@ static int smp2p_item_header1(char *buf, int max, struct smp2p_smem *item_ptr,
 	return i;
 }
 
-/* 
-                           
-  
-                           
-                                     
-                               
-                                                     
+/**
+ * Dump item header line 2.
+ *
+ * @buf:      output buffer
+ * @max:      length of output buffer
+ * @item_ptr: SMEM item pointer
+ * @returns: Number of bytes written to output buffer
  */
 static int smp2p_item_header2(char *buf, int max, struct smp2p_smem *item_ptr)
 {
@@ -122,14 +122,14 @@ static int smp2p_item_header2(char *buf, int max, struct smp2p_smem *item_ptr)
 	return i;
 }
 
-/* 
-                           
-  
-                           
-                                     
-                               
-                        
-                                                     
+/**
+ * Dump item header line 3.
+ *
+ * @buf:      output buffer
+ * @max:      length of output buffer
+ * @item_ptr: SMEM item pointer
+ * @state:    item state
+ * @returns: Number of bytes written to output buffer
  */
 static int smp2p_item_header3(char *buf, int max, struct smp2p_smem *item_ptr)
 {
@@ -151,10 +151,10 @@ static int smp2p_item_header3(char *buf, int max, struct smp2p_smem *item_ptr)
 	return i;
 }
 
-/* 
-                                          
-  
-                               
+/**
+ * Dump individual input/output item pair.
+ *
+ * @s:   pointer to output file
  */
 static void smp2p_item(struct seq_file *s, int remote_pid)
 {
@@ -182,7 +182,7 @@ static void smp2p_item(struct seq_file *s, int remote_pid)
 	if (!out_ptr && !in_ptr)
 		return;
 
-	/*                    */
+	/* print item headers */
 	seq_printf(s, "%s%s\n",
 		" ====================================== ",
 		"======================================");
@@ -225,7 +225,7 @@ static void smp2p_item(struct seq_file *s, int remote_pid)
 		"-------------------------------------- ",
 		"--------------------------------------");
 
-	/*               */
+	/* print entries */
 	if (out_ptr) {
 		out_entries = (struct smp2p_entry_v1 *)((void *)out_ptr +
 				sizeof(struct smp2p_smem));
@@ -268,10 +268,10 @@ static void smp2p_item(struct seq_file *s, int remote_pid)
 		"--------------------------------------");
 }
 
-/* 
-                   
-  
-                               
+/**
+ * Dump item state.
+ *
+ * @s:   pointer to output file
  */
 static void smp2p_items(struct seq_file *s)
 {
@@ -327,4 +327,4 @@ static int __init smp2p_debugfs_init(void)
 }
 
 late_initcall(smp2p_debugfs_init);
-#endif /*                 */
+#endif /* CONFIG_DEBUG_FS */

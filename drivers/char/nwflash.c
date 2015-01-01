@@ -1,17 +1,17 @@
 /*
-                                                    
-                                     
-  
-                                                                
-                                          
-                                           
-                                                            
-                                                       
-                                                  
-  
-                                                                    
-                                                                  
-                                                    
+ * Flash memory interface rev.5 driver for the Intel
+ * Flash chips used on the NetWinder.
+ *
+ * 20/08/2000	RMK	use __ioremap to map flash into virtual memory
+ *			make a few more places use "volatile"
+ * 22/05/2001	RMK	- Lock read against write
+ *			- merge printk level changes (with mods) from Alan Cox.
+ *			- use *ppos as the file position, not file->f_pos.
+ *			- fix check for out of range pos and r/w size
+ *
+ * Please note that we are tampering with the only flash chip in the
+ * machine, which contains the bootup code.  We therefore have the
+ * power to convert these machines into doorstops...
  */
 
 #include <linux/module.h>
@@ -34,7 +34,7 @@
 #include <asm/mach-types.h>
 #include <asm/uaccess.h>
 
-/*                                                                           */
+/*****************************************************************************/
 #include <asm/nwflash.h>
 
 #define	NWFLASH_VERSION "6.4"
@@ -45,12 +45,12 @@ static int get_flash_id(void);
 static int erase_block(int nBlock);
 static int write_block(unsigned long p, const char __user *buf, int count);
 
-#define KFLASH_SIZE	1024*1024	//     
-#define KFLASH_SIZE4	4*1024*1024	//     
-#define KFLASH_ID	0x89A6		//           
-#define KFLASH_ID4	0xB0D4		//                
+#define KFLASH_SIZE	1024*1024	//1 Meg
+#define KFLASH_SIZE4	4*1024*1024	//4 Meg
+#define KFLASH_ID	0x89A6		//Intel flash
+#define KFLASH_ID4	0xB0D4		//Intel flash 4Meg
 
-static bool flashdebug;		//                                      
+static bool flashdebug;		//if set - we will display progress msgs
 
 static int gbWriteEnable;
 static int gbWriteBase64Enable;
@@ -63,8 +63,8 @@ static int get_flash_id(void)
 	volatile unsigned int c1, c2;
 
 	/*
-                            
-  */
+	 * try to get flash chip ID
+	 */
 	kick_open();
 	c2 = inb(0x80);
 	*(volatile unsigned char *) (FLASH_BASE + 0x8000) = 0x90;
@@ -73,8 +73,8 @@ static int get_flash_id(void)
 	c2 = inb(0x80);
 
 	/*
-                                                             
-  */
+	 * on 4 Meg flash the second byte is actually at offset 2...
+	 */
 	if (c1 == 0xB0)
 		c2 = *(volatile unsigned char *) (FLASH_BASE + 2);
 	else
@@ -83,8 +83,8 @@ static int get_flash_id(void)
 	c2 += (c1 << 8);
 
 	/*
-                            
-  */
+	 * set it back to read mode
+	 */
 	*(volatile unsigned char *) (FLASH_BASE + 0x8000) = 0xFF;
 
 	if (c2 == KFLASH_ID4)
@@ -129,8 +129,8 @@ static ssize_t flash_read(struct file *file, char __user *buf, size_t size,
 		printk(KERN_DEBUG "flash_read: flash_read: offset=0x%llx, "
 		       "buffer=%p, count=0x%zx.\n", *ppos, buf, size);
 	/*
-                                               
-  */
+	 * We now lock against reads and writes. --rmk
+	 */
 	if (mutex_lock_interruptible(&nwflash_mutex))
 		return -ERESTARTSYS;
 
@@ -160,8 +160,8 @@ static ssize_t flash_write(struct file *file, const char __user *buf,
 		return -EINVAL;
 
 	/*
-                                       
-  */
+	 * check for out of range pos or count
+	 */
 	if (p >= gbFlashSize)
 		return count ? -ENXIO : 0;
 
@@ -172,8 +172,8 @@ static ssize_t flash_write(struct file *file, const char __user *buf,
 		return -EFAULT;
 
 	/*
-                                               
-  */
+	 * We now lock against reads and writes. --rmk
+	 */
 	if (mutex_lock_interruptible(&nwflash_mutex))
 		return -ERESTARTSYS;
 
@@ -182,16 +182,16 @@ static ssize_t flash_write(struct file *file, const char __user *buf,
 	leds_event(led_claim);
 	leds_event(led_green_on);
 
-	nBlock = (int) p >> 16;	//                    
+	nBlock = (int) p >> 16;	//block # of 64K bytes
 
 	/*
-                                      
-  */
+	 * # of 64K blocks to erase and write
+	 */
 	temp = ((int) (p + count) >> 16) - nBlock + 1;
 
 	/*
-                                       
-  */
+	 * write ends at exactly 64k boundary?
+	 */
 	if (((int) (p + count) & 0xFFFF) == 0)
 		temp -= 1;
 
@@ -204,8 +204,8 @@ static ssize_t flash_write(struct file *file, const char __user *buf,
 			printk(KERN_DEBUG "flash_write: erasing block %d.\n", nBlock);
 
 		/*
-                                                                
-   */
+		 * first we have to erase the block(s), where we will write...
+		 */
 		i = 0;
 		j = 0;
 	  RetryBlock:
@@ -224,24 +224,24 @@ static ssize_t flash_write(struct file *file, const char __user *buf,
 			       count - written);
 
 		/*
-                                                             
-   */
+		 * write_block will limit write to space left in this block
+		 */
 		rc = write_block(p, buf, count - written);
 		j++;
 
 		/*
-                                                   
-   */
+		 * if somehow write verify failed? Can't happen??
+		 */
 		if (!rc) {
 			/*
-                          
-    */
+			 * retry up to 10 times
+			 */
 			if (j < 10)
 				goto RetryBlock;
 			else
 				/*
-                              
-     */
+				 * else quit with error...
+				 */
 				rc = -1;
 
 		}
@@ -259,8 +259,8 @@ static ssize_t flash_write(struct file *file, const char __user *buf,
 	}
 
 	/*
-                       
-  */
+	 * restore reg on exit
+	 */
 	leds_event(led_release);
 
 	mutex_unlock(&nwflash_mutex);
@@ -270,12 +270,12 @@ static ssize_t flash_write(struct file *file, const char __user *buf,
 
 
 /*
-                                                                             
-                                                                            
-                            
-  
-                                                                        
-                                            
+ * The memory devices use the full 32/64 bits of the offset, and so we cannot
+ * check against negative addresses: they are ok. The return value is weird,
+ * though, in that case (0).
+ *
+ * also note that seeking relative to the "end of file" isn't supported:
+ * it has no meaning, so it returns -EINVAL.
  */
 static loff_t flash_llseek(struct file *file, loff_t offset, int orig)
 {
@@ -322,8 +322,8 @@ static loff_t flash_llseek(struct file *file, loff_t offset, int orig)
 
 
 /*
-                                                               
-                                              
+ * assume that main Write routine did the parameter checking...
+ * so just go ahead and erase, what requested!
  */
 
 static int erase_block(int nBlock)
@@ -334,89 +334,89 @@ static int erase_block(int nBlock)
 	int temp, temp1;
 
 	/*
-                       
-  */
+	 * orange LED == erase
+	 */
 	leds_event(led_amber_on);
 
 	/*
-                                                      
-  */
+	 * reset footbridge to the correct offset 0 (...0..3)
+	 */
 	*CSR_ROMWRITEREG = 0;
 
 	/*
-                  
-  */
+	 * dummy ROM read
+	 */
 	c1 = *(volatile unsigned char *) (FLASH_BASE + 0x8000);
 
 	kick_open();
 	/*
-                              
-  */
+	 * reset status if old errors
+	 */
 	*(volatile unsigned char *) (FLASH_BASE + 0x8000) = 0x50;
 
 	/*
-                    
-                                           
-  */
+	 * erase a block...
+	 * aim at the middle of a current block...
+	 */
 	pWritePtr = (unsigned char *) ((unsigned int) (FLASH_BASE + 0x8000 + (nBlock << 16)));
 	/*
-              
-  */
+	 * dummy read
+	 */
 	c1 = *pWritePtr;
 
 	kick_open();
 	/*
-         
-  */
+	 * erase
+	 */
 	*(volatile unsigned char *) pWritePtr = 0x20;
 
 	/*
-           
-  */
+	 * confirm
+	 */
 	*(volatile unsigned char *) pWritePtr = 0xD0;
 
 	/*
-              
-  */
+	 * wait 10 ms
+	 */
 	msleep(10);
 
 	/*
-                                                
-  */
+	 * wait while erasing in process (up to 10 sec)
+	 */
 	timeout = jiffies + 10 * HZ;
 	c1 = 0;
 	while (!(c1 & 0x80) && time_before(jiffies, timeout)) {
 		msleep(10);
 		/*
-                     
-   */
+		 * read any address
+		 */
 		c1 = *(volatile unsigned char *) (pWritePtr);
-		//                                                     
+		//              printk("Flash_erase: status=%X.\n",c1);
 	}
 
 	/*
-                                    
-  */
+	 * set flash for normal read access
+	 */
 	kick_open();
-//                                                           
-	*(volatile unsigned char *) pWritePtr = 0xFF;	//                        
+//      *(volatile unsigned char*)(FLASH_BASE+0x8000) = 0xFF;
+	*(volatile unsigned char *) pWritePtr = 0xFF;	//back to normal operation
 
 	/*
-                                       
-  */
+	 * check if erase errors were reported
+	 */
 	if (c1 & 0x20) {
 		printk(KERN_ERR "flash_erase: err at %p\n", pWritePtr);
 
 		/*
-                
-   */
+		 * reset error
+		 */
 		*(volatile unsigned char *) (FLASH_BASE + 0x8000) = 0x50;
 		return -2;
 	}
 
 	/*
-                                              
-  */
+	 * just to make sure - verify if erased OK...
+	 */
 	msleep(10);
 
 	pWritePtr = (unsigned char *) ((unsigned int) (FLASH_BASE + (nBlock << 16)));
@@ -434,7 +434,7 @@ static int erase_block(int nBlock)
 }
 
 /*
-                                                                            
+ * write_block will limit number of bytes written to the space in this block
  */
 static int write_block(unsigned long p, const char __user *buf, int count)
 {
@@ -447,24 +447,24 @@ static int write_block(unsigned long p, const char __user *buf, int count)
 	unsigned long timeout1;
 
 	/*
-                    
-  */
+	 * red LED == write
+	 */
 	leds_event(led_amber_off);
 	leds_event(led_red_on);
 
 	pWritePtr = (unsigned char *) ((unsigned int) (FLASH_BASE + p));
 
 	/*
-                                             
-  */
+	 * check if write will end in this block....
+	 */
 	offset = p & 0xFFFF;
 
 	if (offset + count > 0x10000)
 		count = 0x10000 - offset;
 
 	/*
-                                    
-  */
+	 * wait up to 30 sec for this block
+	 */
 	timeout = jiffies + 30 * HZ;
 
 	for (offset = 0; offset < count; offset++, pWritePtr++) {
@@ -475,99 +475,99 @@ static int write_block(unsigned long p, const char __user *buf, int count)
 
 	  WriteRetry:
 	  	/*
-                 
-     */
+	  	 * dummy read
+	  	 */
 		c1 = *(volatile unsigned char *) (FLASH_BASE + 0x8000);
 
 		/*
-                             
-   */
+		 * kick open the write gate
+		 */
 		kick_open();
 
 		/*
-                                                    
-   */
+		 * program footbridge to the correct offset...0..3
+		 */
 		*CSR_ROMWRITEREG = (unsigned int) pWritePtr & 3;
 
 		/*
-              
-   */
+		 * write cmd
+		 */
 		*(volatile unsigned char *) (uAddress) = 0x40;
 
 		/*
-                  
-   */
+		 * data to write
+		 */
 		*(volatile unsigned char *) (uAddress) = c2;
 
 		/*
-               
-   */
+		 * get status
+		 */
 		*(volatile unsigned char *) (FLASH_BASE + 0x10000) = 0x70;
 
 		c1 = 0;
 
 		/*
-                                   
-   */
+		 * wait up to 1 sec for this byte
+		 */
 		timeout1 = jiffies + 1 * HZ;
 
 		/*
-                       
-   */
+		 * while not ready...
+		 */
 		while (!(c1 & 0x80) && time_before(jiffies, timeout1))
 			c1 = *(volatile unsigned char *) (FLASH_BASE + 0x8000);
 
 		/*
-                              
-   */
+		 * if timeout getting status
+		 */
 		if (time_after_eq(jiffies, timeout1)) {
 			kick_open();
 			/*
-               
-    */
+			 * reset err
+			 */
 			*(volatile unsigned char *) (FLASH_BASE + 0x8000) = 0x50;
 
 			goto WriteRetry;
 		}
 		/*
-                                                             
-   */
+		 * switch on read access, as a default flash operation mode
+		 */
 		kick_open();
 		/*
-                
-   */
+		 * read access
+		 */
 		*(volatile unsigned char *) (FLASH_BASE + 0x8000) = 0xFF;
 
 		/*
-                                                             
-                             
-   */
+		 * if hardware reports an error writing, and not timeout - 
+		 * reset the chip and retry
+		 */
 		if (c1 & 0x10) {
 			kick_open();
 			/*
-               
-    */
+			 * reset err
+			 */
 			*(volatile unsigned char *) (FLASH_BASE + 0x8000) = 0x50;
 
 			/*
-                     
-    */
+			 * before timeout?
+			 */
 			if (time_before(jiffies, timeout)) {
 				if (flashdebug)
 					printk(KERN_DEBUG "write_block: Retrying write at 0x%X)n",
 					       pWritePtr - FLASH_BASE);
 
 				/*
-                        
-     */
+				 * no LED == waiting
+				 */
 				leds_event(led_amber_off);
 				/*
-                     
-     */
+				 * wait couple ms
+				 */
 				msleep(10);
 				/*
-                       
-     */
+				 * red LED == write
+				 */
 				leds_event(led_red_on);
 
 				goto WriteRetry;
@@ -575,8 +575,8 @@ static int write_block(unsigned long p, const char __user *buf, int count)
 				printk(KERN_ERR "write_block: timeout at 0x%X\n",
 				       pWritePtr - FLASH_BASE);
 				/*
-                      
-     */
+				 * return error -2
+				 */
 				return -2;
 
 			}
@@ -584,8 +584,8 @@ static int write_block(unsigned long p, const char __user *buf, int count)
 	}
 
 	/*
-                            
-  */
+	 * green LED == read/verify
+	 */
 	leds_event(led_amber_off);
 	leds_event(led_green_on);
 
@@ -614,16 +614,16 @@ static void kick_open(void)
 	unsigned long flags;
 
 	/*
-                                                           
-                                                              
-  */
+	 * we want to write a bit pattern XXX1 to Xilinx to enable
+	 * the write gate, which will be open for about the next 2ms.
+	 */
 	spin_lock_irqsave(&nw_gpio_lock, flags);
 	nw_cpld_modify(CPLD_FLASH_WR_ENABLE, CPLD_FLASH_WR_ENABLE);
 	spin_unlock_irqrestore(&nw_gpio_lock, flags);
 
 	/*
-                                  
-  */
+	 * let the ISA bus to catch on...
+	 */
 	udelay(25);
 }
 

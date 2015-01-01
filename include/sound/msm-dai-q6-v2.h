@@ -31,9 +31,9 @@ struct msm_dai_auxpcm_config {
 	u16 sync;
 	u16 frame;
 	u16 quant;
-	/*                                 
-                                   
-                            */
+	/* modify slot to arr[4] to specify
+	* the slot number for each channel
+	* in multichannel scenario */
 	u16 slot;
 	u16 data;
 	int pcm_clk_rate;
@@ -50,7 +50,7 @@ struct msm_mi2s_pdata {
 };
 
 struct msm_i2s_data {
-	u32 capability; /*          */
+	u32 capability; /* RX or TX */
 	u16 sd_lines;
 };
 #endif

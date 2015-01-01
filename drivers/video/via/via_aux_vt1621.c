@@ -18,7 +18,7 @@
  * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /*
-                                      
+ * driver for VIA VT1621(M) TV Encoder
  */
 
 #include <linux/slab.h>

@@ -64,7 +64,7 @@ int irq_select_affinity(unsigned int irq)
 	chip->irq_set_affinity(data, cpumask_of(cpu), false);
 	return 0;
 }
-#endif /*            */
+#endif /* CONFIG_SMP */
 
 int arch_show_interrupts(struct seq_file *p, int prec)
 {
@@ -85,9 +85,9 @@ int arch_show_interrupts(struct seq_file *p, int prec)
 }
 
 /*
-                                                          
-                                                   
-             
+ * handle_irq handles all normal device IRQ's (the special
+ * SMP cross-CPU interrupts have their own specific
+ * handlers).
  */
 
 #define MAX_ILLEGAL_IRQS 16
@@ -96,15 +96,15 @@ void
 handle_irq(int irq)
 {	
 	/* 
-                                                    
-                                                        
-                                                        
-                                                          
-                                                    
-   
-                                                       
-                                               
-  */
+	 * We ack quickly, we don't want the irq controller
+	 * thinking we're snobs just because some other CPU has
+	 * disabled global interrupts (we have already done the
+	 * INT_ACK cycles, it's too late to try to pretend to the
+	 * controller that we aren't taking the interrupt).
+	 *
+	 * 0 return value means that this irq is already being
+	 * handled by some other CPU. (or is disabled)
+	 */
 	static unsigned int illegal_count=0;
 	struct irq_desc *desc = irq_to_desc(irq);
 	
@@ -118,11 +118,11 @@ handle_irq(int irq)
 	}
 
 	/*
-                                                               
-                                                               
-                                                             
-             
-  */
+	 * From here we must proceed with IPL_MAX. Note that we do not
+	 * explicitly enable interrupts afterwards - some MILO PALcode
+	 * (namely LX164 one) seems to have severe problems with RTI
+	 * at IPL 0.
+	 */
 	local_irq_disable();
 	irq_enter();
 	generic_handle_irq_desc(irq, desc);

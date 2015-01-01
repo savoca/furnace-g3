@@ -121,9 +121,9 @@ static inline void mlx4_cq_arm(struct mlx4_cq *cq, u32 cmd,
 	*cq->arm_db = cpu_to_be32(sn << 28 | cmd | ci);
 
 	/*
-                                                        
-                                                     
-  */
+	 * Make sure that the doorbell record in host memory is
+	 * written before ringing the doorbell via PCI MMIO.
+	 */
 	wmb();
 
 	doorbell[0] = cpu_to_be32(sn << 28 | cmd | cq->cqn);
@@ -147,4 +147,4 @@ int mlx4_cq_modify(struct mlx4_dev *dev, struct mlx4_cq *cq,
 int mlx4_cq_resize(struct mlx4_dev *dev, struct mlx4_cq *cq,
 		   int entries, struct mlx4_mtt *mtt);
 
-#endif /*           */
+#endif /* MLX4_CQ_H */

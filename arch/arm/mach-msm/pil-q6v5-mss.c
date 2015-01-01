@@ -57,7 +57,7 @@ struct modem_data {
 
 /*                                                */
 struct lge_hw_smem_id2_type {
-	u32 build_info;             /*                                     */
+	u32 build_info;             /* build type user:0 userdebug:1 eng:2 */
 	int modem_reset;
 };
 
@@ -66,6 +66,10 @@ struct lge_hw_smem_id2_type {
 //                                      
 char ssr_noti[MAX_SSR_REASON_LEN];
 //                                    
+
+// Start: seungyeol.seo, workaround fix for modem reset
+bool ignore_errors_by_subsys_modem_restart = false;
+// End: seungyeol.seo, workaround fix for modem reset
 
 
 static void log_modem_sfr(void)
@@ -112,8 +116,10 @@ static int check_modem_reset(struct modem_data *drv)
 	}
 
 	if(smem_id2->modem_reset != 1) {
+		pr_err("%s: modem_reset is %d, keep handling irq. \n", __func__, smem_id2->modem_reset);
 		ret = 1;
 	} else {
+		pr_err("%s: modem_reset is %d, ignore errors. \n", __func__, smem_id2->modem_reset);
 		wmb();
 		drv->ignore_errors = true;
 		subsys_modem_restart();
@@ -126,7 +132,7 @@ static irqreturn_t modem_err_fatal_intr_handler(int irq, void *dev_id)
 {
 	struct modem_data *drv = subsys_to_drv(dev_id);
 
-	/*                                                      */
+	/* Ignore if we're the one that set the force stop GPIO */
 	if (drv->crash_shutdown)
 		return IRQ_HANDLED;
 
@@ -178,12 +184,13 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	if (subsys->is_not_loadable)
 		return 0;
 	/*
-                                                                       
-                                                                       
-                                                          
-  */
+	 * At this time, the modem is shutdown. Therefore this function cannot
+	 * run concurrently with either the watchdog bite error handler or the
+	 * SMSM callback, making it safe to unset the flag below.
+	 */
 	INIT_COMPLETION(drv->stop_ack);
 	drv->ignore_errors = false;
+	ignore_errors_by_subsys_modem_restart = false; // seungyeol.seo, workaround fix for modem reset
 	ret = pil_boot(&drv->q6->desc);
 	if (ret)
 		return ret;
@@ -243,7 +250,17 @@ static irqreturn_t modem_wdog_bite_intr_handler(int irq, void *dev_id)
 	if (drv->ignore_errors)
 		return IRQ_HANDLED;
 	pr_err("Watchdog bite received from modem software!\n");
+
+
+	// Start: seungyeol.seo, workaround fix for modem reset
+	if (ignore_errors_by_subsys_modem_restart == true) {
+	 	pr_err("IGNORE watchdog bite received from modem software!\n");
+	 	return IRQ_HANDLED;
+	}
+	// End: seungyeol.seo, workaround fix for modem reset
+
 	subsys_set_crash_status(drv->subsys, true);
+
 	restart_modem(drv);
 	return IRQ_HANDLED;
 }

@@ -80,10 +80,10 @@ static void gfs2_bh_free(void *ptr, void *data)
 	return free_buffer_head(ptr);
 }
 
-/* 
-                                               
-  
-                                               
+/**
+ * init_gfs2_fs - Register GFS2 as a filesystem
+ *
+ * Returns: 0 on success, error code on failure
  */
 
 static int __init init_gfs2_fs(void)
@@ -208,9 +208,9 @@ fail:
 	return error;
 }
 
-/* 
-                                            
-  
+/**
+ * exit_gfs2_fs - Unregister the file system
+ *
  */
 
 static void __exit exit_gfs2_fs(void)

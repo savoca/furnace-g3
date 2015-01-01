@@ -9,21 +9,21 @@
  */
 
 /*
-                                                       
+ * This file contains the default configuration of ISS.
  */
 
 #ifndef _XTENSA_PLATFORM_ISS_HARDWARE_H
 #define _XTENSA_PLATFORM_ISS_HARDWARE_H
 
 /*
-                        
+ * Memory configuration.
  */
 
 #define PLATFORM_DEFAULT_MEM_START	0x00000000
 #define PLATFORM_DEFAULT_MEM_SIZE	0x08000000
 
 /*
-                           
+ * Interrupt configuration.
  */
 
-#endif /*                                 */
+#endif /* _XTENSA_PLATFORM_ISS_HARDWARE_H */

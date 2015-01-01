@@ -42,7 +42,7 @@
 #define true 1
 #endif
 
-/*                                                                      */
+/* following came from the other byteorder.h to avoid include conflicts */
 #define CVAL(buf,pos) (((unsigned char *)(buf))[pos])
 #define SSVALX(buf,pos,val) (CVAL(buf,pos)=(val)&0xFF,CVAL(buf,pos+1)=(val)>>8)
 #define SSVAL(buf,pos,val) SSVALX((buf),(pos),((__u16)(val)))
@@ -127,7 +127,7 @@ E_P24(unsigned char *p21, const unsigned char *c8, unsigned char *p24)
 	return rc;
 }
 
-/*                                                          */
+/* produce a md4 message digest from data of length n bytes */
 int
 mdfour(unsigned char *md4_hash, unsigned char *link_str, int link_len)
 {
@@ -174,10 +174,10 @@ mdfour_err:
 }
 
 /*
-                                                     
-                                                                 
-                               */
-/*                                                           */
+   This implements the X/Open SMB password encryption
+   It takes a password, a 8 byte "crypt key" and puts 24 bytes of
+   encrypted password into p24 */
+/* Note that password must be uppercased and null terminated */
 int
 SMBencrypt(unsigned char *passwd, const unsigned char *c8, unsigned char *p24)
 {
@@ -200,7 +200,7 @@ SMBencrypt(unsigned char *passwd, const unsigned char *c8, unsigned char *p24)
 }
 
 /*
-                                                            
+ * Creates the MD4 Hash of the users password in NT UNICODE.
  */
 
 int
@@ -211,12 +211,12 @@ E_md4hash(const unsigned char *passwd, unsigned char *p16,
 	int len;
 	__le16 wpwd[129];
 
-	/*                                               */
-	if (passwd) /*                                          */
+	/* Password cannot be longer than 128 characters */
+	if (passwd) /* Password must be converted to NT unicode */
 		len = cifs_strtoUTF16(wpwd, passwd, 128, codepage);
 	else {
 		len = 0;
-		*wpwd = 0; /*                                  */
+		*wpwd = 0; /* Ensure string is null terminated */
 	}
 
 	rc = mdfour(p16, (unsigned char *) wpwd, len * sizeof(__le16));
@@ -225,7 +225,7 @@ E_md4hash(const unsigned char *passwd, unsigned char *p16,
 	return rc;
 }
 
-/*                                           */
+/* Does the NT MD4 hash then des encryption. */
 int
 SMBNTencrypt(unsigned char *passwd, unsigned char *c8, unsigned char *p24,
 		const struct nls_table *codepage)

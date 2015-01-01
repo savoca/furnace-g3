@@ -10,7 +10,7 @@
 #define __ASM_MACH_IP28_CPU_FEATURE_OVERRIDES_H
 
 /*
-                                                                          
+ * IP28 only comes with R10000 family processors all using the same config
  */
 #define cpu_has_watch		1
 #define cpu_has_mips16		0
@@ -24,7 +24,7 @@
 
 #define cpu_has_llsc		1
 #define cpu_has_vtag_icache	0
-#define cpu_has_dc_aliases	0 /*                    */
+#define cpu_has_dc_aliases	0 /* see probe_pcache() */
 #define cpu_has_ic_fills_f_dc	0
 #define cpu_has_dsp		0
 #define cpu_icache_snoops_remote_store  1
@@ -47,4 +47,4 @@
 #define cpu_has_mips64r1	0
 #define cpu_has_mips64r2	0
 
-#endif /*                                         */
+#endif /* __ASM_MACH_IP28_CPU_FEATURE_OVERRIDES_H */

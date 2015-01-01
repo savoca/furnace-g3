@@ -31,7 +31,7 @@ struct stackframe {
 };
 
 /*
-                                                            
+ * Save stack-backtrace addresses into a stack_trace buffer.
  */
 void save_stack_trace(struct stack_trace *trace)
 {
@@ -56,9 +56,9 @@ void save_stack_trace(struct stack_trace *trace)
 		}
 
 		/*
-                                                        
-                   
-   */
+		 * The next frame must be at a higher address than the
+		 * current frame.
+		 */
 		low = fp + sizeof(*frame);
 		fp = frame->fp;
 	}

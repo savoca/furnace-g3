@@ -11,8 +11,8 @@
  *
  */
 /*
-                                         
-  
+ * Atlab optical Finger Navigation driver
+ *
  */
 
 struct ofn_function1 {

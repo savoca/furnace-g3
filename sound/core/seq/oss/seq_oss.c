@@ -30,12 +30,12 @@
 #include "seq_oss_synth.h"
 
 /*
-                
+ * module option
  */
 MODULE_AUTHOR("Takashi Iwai <tiwai@suse.de>");
 MODULE_DESCRIPTION("OSS-compatible sequencer module");
 MODULE_LICENSE("GPL");
-/*                                                                        */
+/* Takashi says this is really only for sound-service-0-, but this is OK. */
 MODULE_ALIAS_SNDRV_MINOR(SNDRV_MINOR_OSS_SEQUENCER);
 MODULE_ALIAS_SNDRV_MINOR(SNDRV_MINOR_OSS_MUSIC);
 
@@ -47,7 +47,7 @@ int seq_oss_debug = 0;
 
 
 /*
-             
+ * prototypes
  */
 static int register_device(void);
 static void unregister_device(void);
@@ -68,7 +68,7 @@ static unsigned int odev_poll(struct file *file, poll_table * wait);
 
 
 /*
-                   
+ * module interface
  */
 
 static int __init alsa_seq_oss_init(void)
@@ -100,7 +100,7 @@ static int __init alsa_seq_oss_init(void)
 		goto error;
 	}
 
-	/*         */
+	/* success */
 	snd_seq_oss_synth_init();
 
  error:
@@ -120,7 +120,7 @@ module_init(alsa_seq_oss_init)
 module_exit(alsa_seq_oss_exit)
 
 /*
-                              
+ * ALSA minor device interface
  */
 
 static DEFINE_MUTEX(register_mutex);
@@ -207,7 +207,7 @@ odev_poll(struct file *file, poll_table * wait)
 }
 
 /*
-                                         
+ * registration of sequencer minor device
  */
 
 static const struct file_operations seq_oss_f_ops =
@@ -264,7 +264,7 @@ unregister_device(void)
 }
 
 /*
-                  
+ * /proc interface
  */
 
 #ifdef CONFIG_PROC_FS
@@ -309,4 +309,4 @@ unregister_proc(void)
 	snd_info_free_entry(info_entry);
 	info_entry = NULL;
 }
-#endif /*                */
+#endif /* CONFIG_PROC_FS */

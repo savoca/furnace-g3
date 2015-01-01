@@ -39,15 +39,15 @@ static double __initdata x = 4195835.0;
 static double __initdata y = 3145727.0;
 
 /*
-                                      
-                                              
-                                         
-                                             
-                                         
-                       
-  
-                                             
-                        
+ * This used to check for exceptions..
+ * However, it turns out that to support that,
+ * the XMM trap handlers basically had to
+ * be buggy. So let's have a correct XMM trap
+ * handler, and forget about printing out
+ * some status at boot.
+ *
+ * We should really only care about bugs here
+ * anyway. Not features.
  */
 static void __init check_fpu(void)
 {
@@ -65,11 +65,11 @@ static void __init check_fpu(void)
 	kernel_fpu_begin();
 
 	/*
-                                                                
-                  
-   
-                           
-  */
+	 * trap_init() enabled FXSR and company _before_ testing for FP
+	 * problems here.
+	 *
+	 * Test for the divl bug..
+	 */
 	__asm__("fninit\n\t"
 		"fldl %1\n\t"
 		"fdivl %2\n\t"
@@ -107,8 +107,8 @@ static void __init check_hlt(void)
 }
 
 /*
-                                                            
-                                
+ *	Most 386 processors have a bug where a POPAD can lock the
+ *	machine even from user space.
  */
 
 static void __init check_popad(void)
@@ -123,9 +123,9 @@ static void __init check_popad(void)
 	  : "d" (inp)
 	  : "ecx", "edi");
 	/*
-                                                              
-                      
-  */
+	 * If this fails, it means that any user program may lock the
+	 * CPU hard. Too bad.
+	 */
 	if (res != 12345678)
 		printk(KERN_CONT "Buggy.\n");
 	else
@@ -134,20 +134,20 @@ static void __init check_popad(void)
 }
 
 /*
-                                                              
-  
-                                                               
-                                                           
-                                                             
-                         
+ * Check whether we are able to run this kernel safely on SMP.
+ *
+ * - In order to run on a i386, we need to be compiled for i386
+ *   (for due to lack of "invlpg" and working WP on a i386)
+ * - In order to run on anything without a TSC, we need to be
+ *   compiled for a i486.
  */
 
 static void __init check_config(void)
 {
 /*
-                                                            
-                                                            
-                                         
+ * We'd better not be a i386 if we're configured to use some
+ * i486+ only features! (WP works in supervisor mode and the
+ * new "invlpg" and "bswap" instructions)
  */
 #if defined(CONFIG_X86_WP_WORKS_OK) || defined(CONFIG_X86_INVLPG) || \
 	defined(CONFIG_X86_BSWAP)

@@ -26,7 +26,7 @@
 struct kgsl_device;
 
 /*
-                                                
+ * Tracepoint for a3xx irq. Includes status info
  */
 TRACE_EVENT(kgsl_a3xx_irq_status,
 
@@ -83,7 +83,7 @@ TRACE_EVENT(kgsl_a3xx_irq_status,
 	)
 );
 
-#endif /*                      */
+#endif /* _ADRENO_A3XX_TRACE_H */
 
-/*                                      */
+/* This part must be outside protection */
 #include <trace/define_trace.h>

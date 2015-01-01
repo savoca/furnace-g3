@@ -17,9 +17,9 @@
 
 #include "of.h"
 
-/*                                           */
-#define PROG_START	0x01400000	/*                             */
-#define RAM_END		(512<<20)	/*               */
+/* Value picked to match that used by yaboot */
+#define PROG_START	0x01400000	/* only used on 64-bit systems */
+#define RAM_END		(512<<20)	/* Fixme: use OF */
 #define	ONE_MB		0x100000
 
 
@@ -53,9 +53,9 @@ static void of_image_hdr(const void *hdr)
 
 	if (elf64->e_ident[EI_CLASS] == ELFCLASS64) {
 		/*
-                                                              
-                                
-   */
+		 * Maintain a "magic" minimum address. This keeps some older
+		 * firmware platforms running.
+		 */
 		if (claim_base < PROG_START)
 			claim_base = PROG_START;
 	}

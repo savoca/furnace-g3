@@ -21,20 +21,20 @@ static inline struct irq_chip_regs *cur_regs(struct irq_data *d)
 	return &container_of(d->chip, struct irq_chip_type, chip)->regs;
 }
 
-/* 
-                              
-               
+/**
+ * irq_gc_noop - NOOP function
+ * @d: irq_data
  */
 void irq_gc_noop(struct irq_data *d)
 {
 }
 
-/* 
-                                                           
-               
-  
-                                                                      
-            
+/**
+ * irq_gc_mask_disable_reg - Mask chip via disable register
+ * @d: irq_data
+ *
+ * Chip has separate enable/disable registers instead of a single mask
+ * register.
  */
 void irq_gc_mask_disable_reg(struct irq_data *d)
 {
@@ -47,12 +47,12 @@ void irq_gc_mask_disable_reg(struct irq_data *d)
 	irq_gc_unlock(gc);
 }
 
-/* 
-                                                                        
-               
-  
-                                                                      
-                            
+/**
+ * irq_gc_mask_set_mask_bit - Mask chip via setting bit in mask register
+ * @d: irq_data
+ *
+ * Chip has a single mask register. Values of this register are cached
+ * and protected by gc->lock
  */
 void irq_gc_mask_set_bit(struct irq_data *d)
 {
@@ -65,12 +65,12 @@ void irq_gc_mask_set_bit(struct irq_data *d)
 	irq_gc_unlock(gc);
 }
 
-/* 
-                                                                         
-               
-  
-                                                                      
-                            
+/**
+ * irq_gc_mask_set_mask_bit - Mask chip via clearing bit in mask register
+ * @d: irq_data
+ *
+ * Chip has a single mask register. Values of this register are cached
+ * and protected by gc->lock
  */
 void irq_gc_mask_clr_bit(struct irq_data *d)
 {
@@ -83,12 +83,12 @@ void irq_gc_mask_clr_bit(struct irq_data *d)
 	irq_gc_unlock(gc);
 }
 
-/* 
-                                                             
-               
-  
-                                                                      
-            
+/**
+ * irq_gc_unmask_enable_reg - Unmask chip via enable register
+ * @d: irq_data
+ *
+ * Chip has separate enable/disable registers instead of a single mask
+ * register.
  */
 void irq_gc_unmask_enable_reg(struct irq_data *d)
 {
@@ -101,9 +101,9 @@ void irq_gc_unmask_enable_reg(struct irq_data *d)
 	irq_gc_unlock(gc);
 }
 
-/* 
-                                                             
-               
+/**
+ * irq_gc_ack_set_bit - Ack pending interrupt via setting bit
+ * @d: irq_data
  */
 void irq_gc_ack_set_bit(struct irq_data *d)
 {
@@ -115,9 +115,9 @@ void irq_gc_ack_set_bit(struct irq_data *d)
 	irq_gc_unlock(gc);
 }
 
-/* 
-                                                              
-               
+/**
+ * irq_gc_ack_clr_bit - Ack pending interrupt via clearing bit
+ * @d: irq_data
  */
 void irq_gc_ack_clr_bit(struct irq_data *d)
 {
@@ -129,9 +129,9 @@ void irq_gc_ack_clr_bit(struct irq_data *d)
 	irq_gc_unlock(gc);
 }
 
-/* 
-                                                                  
-               
+/**
+ * irq_gc_mask_disable_reg_and_ack- Mask and ack pending interrupt
+ * @d: irq_data
  */
 void irq_gc_mask_disable_reg_and_ack(struct irq_data *d)
 {
@@ -144,9 +144,9 @@ void irq_gc_mask_disable_reg_and_ack(struct irq_data *d)
 	irq_gc_unlock(gc);
 }
 
-/* 
-                             
-               
+/**
+ * irq_gc_eoi - EOI interrupt
+ * @d: irq_data
  */
 void irq_gc_eoi(struct irq_data *d)
 {
@@ -158,13 +158,13 @@ void irq_gc_eoi(struct irq_data *d)
 	irq_gc_unlock(gc);
 }
 
-/* 
-                                                      
-               
-  
-                                                             
-                                                                   
-                            
+/**
+ * irq_gc_set_wake - Set/clr wake bit for an interrupt
+ * @d: irq_data
+ *
+ * For chips where the wake from suspend functionality is not
+ * configured in a separate register and the wakeup active state is
+ * just stored in a bitmask.
  */
 int irq_gc_set_wake(struct irq_data *d, unsigned int on)
 {
@@ -183,16 +183,16 @@ int irq_gc_set_wake(struct irq_data *d, unsigned int on)
 	return 0;
 }
 
-/* 
-                                                                     
-                              
-                                                                  
-                                             
-                                             
-                                                           
-  
-                                                                       
-                                                      
+/**
+ * irq_alloc_generic_chip - Allocate a generic chip and initialize it
+ * @name:	Name of the irq chip
+ * @num_ct:	Number of irq_chip_type instances associated with this
+ * @irq_base:	Interrupt base nr for this chip
+ * @reg_base:	Register base address (virtual)
+ * @handler:	Default flow handler associated with this chip
+ *
+ * Returns an initialized irq_chip_generic structure. The chip defaults
+ * to the primary (index 0) irq_chip_type and @handler
  */
 struct irq_chip_generic *
 irq_alloc_generic_chip(const char *name, int num_ct, unsigned int irq_base,
@@ -215,22 +215,22 @@ irq_alloc_generic_chip(const char *name, int num_ct, unsigned int irq_base,
 EXPORT_SYMBOL_GPL(irq_alloc_generic_chip);
 
 /*
-                                                                    
-        
+ * Separate lockdep class for interrupt chip which can nest irq_desc
+ * lock.
  */
 static struct lock_class_key irq_nested_lock_class;
 
-/* 
-                                                                           
-                                          
-                                                                        
-                                   
-                            
-                          
-  
-                                                                   
-                                                                  
-                      
+/**
+ * irq_setup_generic_chip - Setup a range of interrupts with a generic chip
+ * @gc:		Generic irq chip holding all data
+ * @msk:	Bitmask holding the irqs to initialize relative to gc->irq_base
+ * @flags:	Flags for initialization
+ * @clr:	IRQ_* bits to clear
+ * @set:	IRQ_* bits to set
+ *
+ * Set up max. 32 interrupts starting from gc->irq_base. Note, this
+ * initializes all interrupts to the primary irq_chip_type and its
+ * associated handler.
  */
 void irq_setup_generic_chip(struct irq_chip_generic *gc, u32 msk,
 			    enum irq_gc_flags flags, unsigned int clr,
@@ -243,7 +243,7 @@ void irq_setup_generic_chip(struct irq_chip_generic *gc, u32 msk,
 	list_add_tail(&gc->list, &gc_list);
 	raw_spin_unlock(&gc_lock);
 
-	/*                   */
+	/* Init mask cache ? */
 	if (flags & IRQ_GC_INIT_MASK_CACHE)
 		gc->mask_cache = irq_reg_readl(gc->reg_base + ct->regs.mask);
 
@@ -262,12 +262,12 @@ void irq_setup_generic_chip(struct irq_chip_generic *gc, u32 msk,
 }
 EXPORT_SYMBOL_GPL(irq_setup_generic_chip);
 
-/* 
-                                                  
-                                   
-                                    
-  
-                                                         
+/**
+ * irq_setup_alt_chip - Switch to alternative chip
+ * @d:		irq_data for this interrupt
+ * @type	Flow type to be initialized
+ *
+ * Only to be called from chip->irq_set_type() callbacks.
  */
 int irq_setup_alt_chip(struct irq_data *d, unsigned int type)
 {
@@ -286,14 +286,14 @@ int irq_setup_alt_chip(struct irq_data *d, unsigned int type)
 }
 EXPORT_SYMBOL_GPL(irq_setup_alt_chip);
 
-/* 
-                                          
-                                          
-                                                                        
-                            
-                          
-  
-                                                         
+/**
+ * irq_remove_generic_chip - Remove a chip
+ * @gc:		Generic irq chip holding all data
+ * @msk:	Bitmask holding the irqs to initialize relative to gc->irq_base
+ * @clr:	IRQ_* bits to clear
+ * @set:	IRQ_* bits to set
+ *
+ * Remove up to 32 interrupts starting from gc->irq_base.
  */
 void irq_remove_generic_chip(struct irq_chip_generic *gc, u32 msk,
 			     unsigned int clr, unsigned int set)
@@ -308,7 +308,7 @@ void irq_remove_generic_chip(struct irq_chip_generic *gc, u32 msk,
 		if (!(msk & 0x01))
 			continue;
 
-		/*                                                   */
+		/* Remove handler first. That will mask the irq line */
 		irq_set_handler(i, NULL);
 		irq_set_chip(i, &no_irq_chip);
 		irq_set_chip_data(i, NULL);

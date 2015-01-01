@@ -11,7 +11,7 @@
  * Released under the GPL version 2 only.
  *
  */
-#include <linux/slab.h>		/*              */
+#include <linux/slab.h>		/* For kmalloc. */
 #include <linux/kernel.h>
 #include <linux/kobject.h>
 #include <linux/string.h>
@@ -22,7 +22,7 @@
 #include "spk_priv.h"
 
 /*
-                                                                       
+ * This is called when a user reads the characters or chartab sys file.
  */
 static ssize_t chars_chartab_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
@@ -42,7 +42,7 @@ static ssize_t chars_chartab_show(struct kobject *kobj,
 		if (strcmp("characters", attr->attr.name) == 0) {
 			len = scnprintf(buf_pointer, bufsize, "%d\t%s\n",
 					i, characters[i]);
-		} else {	/*                    */
+		} else {	/* show chartab entry */
 			if (IS_TYPE(i, B_CTL))
 				cp = "B_CTL";
 			else if (IS_TYPE(i, WDLM))
@@ -74,8 +74,8 @@ static ssize_t chars_chartab_show(struct kobject *kobj,
 }
 
 /*
-                                                          
-                                             
+ * Print informational messages or warnings after updating
+ * character descriptions or chartab entries.
  */
 static void report_char_chartab_status(int reset, int received, int used,
 	int rejected, int do_characters)
@@ -102,16 +102,16 @@ static void report_char_chartab_status(int reset, int received, int used,
 }
 
 /*
-                                                                           
+ * This is called when a user changes the characters or chartab parameters.
  */
 static ssize_t chars_chartab_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	char *cp = (char *) buf;
-	char *end = cp + count; /*                                   */
+	char *end = cp + count; /* the null at the end of the buffer */
 	char *linefeed = NULL;
 	char keyword[MAX_DESC_LEN + 1];
-	char *outptr = NULL;	/*                            */
+	char *outptr = NULL;	/* Will hold keyword or desc. */
 	char *temp = NULL;
 	char *desc = NULL;
 	ssize_t retval = count;
@@ -172,7 +172,7 @@ static ssize_t chars_chartab_store(struct kobject *kobj,
 			desc = kmalloc(desc_length + 1, GFP_ATOMIC);
 			if (!desc) {
 				retval = -ENOMEM;
-				reset = 1;	/*                      */
+				reset = 1;	/* just reset on error. */
 				break;
 			}
 			outptr = desc;
@@ -218,7 +218,7 @@ static ssize_t chars_chartab_store(struct kobject *kobj,
 }
 
 /*
-                                                         
+ * This is called when a user reads the keymap parameter.
  */
 static ssize_t keymap_show(struct kobject *kobj, struct kobj_attribute *attr,
 	char *buf)
@@ -236,9 +236,9 @@ static ssize_t keymap_show(struct kobject *kobj, struct kobj_attribute *attr,
 	num_keys = (int)(*cp1);
 	nstates = (int)cp1[1];
 	cp += sprintf(cp, "%d, %d, %d,\n", KEY_MAP_VER, num_keys, nstates);
-	cp1 += 2; /*                              */
-	/*                                                      
-                                        */
+	cp1 += 2; /* now pointing at shift states */
+	/* dump num_keys+1 as first row is shift states + flags,
+	 * each subsequent row is key + states */
 	for (n = 0; n <= num_keys; n++) {
 		for (i = 0; i <= nstates; i++) {
 			ch = *cp1++;
@@ -252,7 +252,7 @@ static ssize_t keymap_show(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 /*
-                                                           
+ * This is called when a user changes the keymap parameter.
  */
 static ssize_t keymap_store(struct kobject *kobj, struct kobj_attribute *attr,
 	const char *buf, size_t count)
@@ -287,7 +287,7 @@ static ssize_t keymap_store(struct kobject *kobj, struct kobj_attribute *attr,
 	}
 	i = (int)cp1[-2]+1;
 	i *= (int)cp1[-1]+1;
-	i += 2; /*                    */
+	i += 2; /* 0 and last map ver */
 	if (cp1[-3] != KEY_MAP_VER || cp1[-1] > 10 ||
 			i+SHIFT_TBL_SIZE+4 >= sizeof(key_buf)) {
 		pr_warn("i %d %d %d %d\n", i,
@@ -319,7 +319,7 @@ static ssize_t keymap_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 /*
-                                                                        
+ * This is called when a user changes the value of the silent parameter.
  */
 static ssize_t silent_store(struct kobject *kobj, struct kobj_attribute *attr,
 	const char *buf, size_t count)
@@ -358,7 +358,7 @@ static ssize_t silent_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 /*
-                                                      
+ * This is called when a user reads the synth setting.
  */
 static ssize_t synth_show(struct kobject *kobj, struct kobj_attribute *attr,
 	char *buf)
@@ -373,7 +373,7 @@ static ssize_t synth_show(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 /*
-                                                              
+ * This is called when a user requests to change synthesizers.
  */
 static ssize_t synth_store(struct kobject *kobj, struct kobj_attribute *attr,
 	const char *buf, size_t count)
@@ -399,7 +399,7 @@ static ssize_t synth_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 /*
-                                                                           
+ * This is called when text is sent to the synth via the synth_direct file.
  */
 static ssize_t synth_direct_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
@@ -426,7 +426,7 @@ static ssize_t synth_direct_store(struct kobject *kobj,
 }
 
 /*
-                                                         
+ * This function is called when a user reads the version.
  */
 static ssize_t version_show(struct kobject *kobj, struct kobj_attribute *attr,
 	char *buf)
@@ -442,7 +442,7 @@ static ssize_t version_show(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 /*
-                                                             
+ * This is called when a user reads the punctuation settings.
  */
 static ssize_t punc_show(struct kobject *kobj, struct kobj_attribute *attr,
 	char *buf)
@@ -482,7 +482,7 @@ static ssize_t punc_show(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 /*
-                                                               
+ * This is called when a user changes the punctuation settings.
  */
 static ssize_t punc_store(struct kobject *kobj, struct kobj_attribute *attr,
 			 const char *buf, size_t count)
@@ -529,7 +529,7 @@ static ssize_t punc_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 /*
-                                                                            
+ * This function is called when a user reads one of the variable parameters.
  */
 ssize_t spk_var_show(struct kobject *kobj, struct kobj_attribute *attr,
 	char *buf)
@@ -585,8 +585,8 @@ ssize_t spk_var_show(struct kobject *kobj, struct kobj_attribute *attr,
 EXPORT_SYMBOL_GPL(spk_var_show);
 
 /*
-                                                                  
-                       
+ * This function is called when a user echos a value to one of the
+ * variable parameters.
  */
 ssize_t spk_var_store(struct kobject *kobj, struct kobj_attribute *attr,
 			 const char *buf, size_t count)
@@ -647,9 +647,9 @@ ssize_t spk_var_store(struct kobject *kobj, struct kobj_attribute *attr,
 	break;
 	}
 	/*
-                                                                 
-                     
-  */
+	 * If voice was just changed, we might need to reset our default
+	 * pitch and volume.
+	 */
 	if (strcmp(attr->attr.name, "voice") == 0) {
 		if (synth && synth->default_pitch) {
 			param = var_header_by_name("pitch");
@@ -677,7 +677,7 @@ ssize_t spk_var_store(struct kobject *kobj, struct kobj_attribute *attr,
 EXPORT_SYMBOL_GPL(spk_var_store);
 
 /*
-                                                                         
+ * Functions for reading and writing lists of i18n messages.  Incomplete.
  */
 
 static ssize_t message_show_helper(char *buf, enum msg_index_t first,
@@ -688,7 +688,7 @@ static ssize_t message_show_helper(char *buf, enum msg_index_t first,
 	int printed;
 	enum msg_index_t cursor;
 	int index = 0;
-	*buf_pointer = '\0'; /*                                           */
+	*buf_pointer = '\0'; /* buf_pointer always looking at a NUL byte. */
 
 	for (cursor = first; cursor <= last; cursor++, index++) {
 		if (bufsize <= 1)
@@ -776,11 +776,11 @@ static ssize_t message_store_helper(const char *buf, size_t count,
 		curmessage = firstmessage + index;
 
 		/*
-                                                           
-                                                       
-                                                       
-                                         
-   */
+		 * Note the check (curmessage < firstmessage).  It is not
+		 * redundant.  Suppose that the user gave us an index
+		 * equal to ULONG_MAX - 1.  If firstmessage > 1, then
+		 * firstmessage + index < firstmessage!
+		 */
 
 		if ((curmessage < firstmessage) || (curmessage > lastmessage)) {
 			rejected++;
@@ -834,7 +834,7 @@ static ssize_t message_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 /*
-                          
+ * Declare the attributes.
  */
 static struct kobj_attribute keymap_attribute =
 	__ATTR(keymap, ROOT_W, keymap_show, keymap_store);
@@ -886,7 +886,7 @@ static struct kobj_attribute spell_delay_attribute =
 	__ATTR(spell_delay, USER_RW, spk_var_show, spk_var_store);
 
 /*
-                                     
+ * These attributes are i18n related.
  */
 static struct kobj_attribute announcements_attribute =
 	__ATTR(announcements, USER_RW, message_show, message_store);
@@ -908,8 +908,8 @@ static struct kobj_attribute states_attribute =
 	__ATTR(states, USER_RW, message_show, message_store);
 
 /*
-                                                                         
-           
+ * Create groups of attributes so that we can create and destroy them all
+ * at once.
  */
 static struct attribute *main_attrs[] = {
 	&keymap_attribute.attr,
@@ -952,10 +952,10 @@ static struct attribute *i18n_attrs[] = {
 };
 
 /*
-                                                                        
-                                                                       
-                                                                      
-                   
+ * An unnamed attribute group will put all of the attributes directly in
+ * the kobject directory.  If we specify a name, a subdirectory will be
+ * created for the attributes with the directory being the name of the
+ * attribute group.
  */
 static struct attribute_group main_attr_group = {
 	.attrs = main_attrs,
@@ -974,14 +974,14 @@ int speakup_kobj_init(void)
 	int retval;
 
 	/*
-                                                             
-                       
-   
-                                                            
-                                                                
-                                                               
-                            
-  */
+	 * Create a simple kobject with the name of "accessibility",
+	 * located under /sys/
+	 *
+	 * As this is a simple directory, no uevent will be sent to
+	 * userspace.  That is why this function should not be used for
+	 * any type of dynamic kobjects, where the name and number are
+	 * not known ahead of time.
+	 */
 	accessibility_kobj = kobject_create_and_add("accessibility", NULL);
 	if (!accessibility_kobj) {
 		retval = -ENOMEM;
@@ -994,7 +994,7 @@ int speakup_kobj_init(void)
 		goto err_acc;
 	}
 
-	/*                                               */
+	/* Create the files associated with this kobject */
 	retval = sysfs_create_group(speakup_kobj, &main_attr_group);
 	if (retval)
 		goto err_speakup;

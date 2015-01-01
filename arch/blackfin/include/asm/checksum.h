@@ -9,8 +9,8 @@
 #define _BFIN_CHECKSUM_H
 
 /*
-                                                     
-                                                  
+ * computes the checksum of the TCP/UDP pseudo-header
+ * returns a 16-bit checksum, already complemented
  */
 
 static inline __wsum

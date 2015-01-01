@@ -18,12 +18,12 @@
  */
 #line 5
 
-/* 
-        
-  
-                                               
-  
-                                   
+/**
+ * @file
+ *
+ * @brief Virtualization extension definitions.
+ *
+ * See ARM PRD03-GENC-008353  11.0.
  */
 #ifndef _VE_DEFS_H_
 #define _VE_DEFS_H_
@@ -69,4 +69,4 @@
 #define ARM_VE_HSR_FS_PERM_L2         0xe
 #define ARM_VE_HSR_FS_PERM_L3         0xf
 
-#endif /*                    */
+#endif /* ifndef _VE_DEFS_H_ */

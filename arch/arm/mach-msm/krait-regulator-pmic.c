@@ -117,12 +117,12 @@ static bool v_overshoot_fixed(void)
 	return false;
 }
 
-/* 
-                                                                       
-  
-                                           
-  
-                                                                
+/**
+ * krait_pmic_is_ready - function to check if the driver is initialized
+ *
+ * CONTEXT: Can be called in atomic context
+ *
+ * RETURNS: true if this driver has initialized, false otherwise
  */
 bool krait_pmic_is_ready(void)
 {
@@ -136,12 +136,12 @@ EXPORT_SYMBOL(krait_pmic_is_ready);
 
 #define I_PFM_MA		2000
 
-/* 
-                                                                  
-  
-                                           
-  
-                                               
+/**
+ * krait_pmic_post_pfm_entry - workarounds after entering pfm mode
+ *
+ * CONTEXT: Can be called in atomic context
+ *
+ * RETURNS: 0 on success, error code on failure
  */
 int krait_pmic_post_pfm_entry(void)
 {
@@ -167,12 +167,12 @@ int krait_pmic_post_pfm_entry(void)
 EXPORT_SYMBOL(krait_pmic_post_pfm_entry);
 
 #define I_PWM_MA		3500
-/* 
-                                                                  
-  
-                                           
-  
-                                               
+/**
+ * krait_pmic_post_pwm_entry - workarounds after entering pwm mode
+ *
+ * CONTEXT: Can be called in atomic context
+ *
+ * RETURNS: 0 on success, error code on failure
  */
 int krait_pmic_post_pwm_entry(void)
 {
@@ -223,15 +223,15 @@ static int gang_configuration_check(struct krait_vreg_pmic_chip *chip)
 	READ_BYTE(chip, chip->ctrl_base + REG_MODE_CTL, val, rc);
 	if (rc)
 		return rc;
-	/*                             */
+	/* The Auto mode should be off */
 	BUG_ON(val & AUTO_MODE_BIT);
-	/*                           */
+	/* The NPM mode should be on */
 	BUG_ON(!(val & NPM_MODE_BIT));
 
 	READ_BYTE(chip, chip->ctrl_base + REG_EN_CTL, val, rc);
 	if (rc)
 		return rc;
-	/*                          */
+	/* The en bit should be set */
 	BUG_ON(val & EN_BIT);
 
 	READ_BYTE(chip, chip->ctrl_base + REG_PD_CTL, val, rc);

@@ -1,7 +1,7 @@
 /*
-                                   
-  
-                                                                      
+ * arch/arm/include/asm/vfpmacros.h
+ *
+ * Assembler-only file containing VFP macros and register definitions.
  */
 #include <asm/hwcap.h>
 

@@ -2,7 +2,7 @@
 #include <trace/events/syscalls.h>
 #include <linux/slab.h>
 #include <linux/kernel.h>
-#include <linux/module.h>	/*                                         */
+#include <linux/module.h>	/* for MODULE_NAME_LEN via KSYM_SYMBOL_LEN */
 #include <linux/ftrace.h>
 #include <linux/perf_event.h>
 #include <asm/syscall.h>
@@ -65,11 +65,11 @@ static struct syscall_metadata **syscalls_metadata;
 static inline bool arch_syscall_match_sym_name(const char *sym, const char *name)
 {
 	/*
-                                                       
-                                                               
-                                                       
-             
-  */
+	 * Only compare after the "sys" prefix. Archs that use
+	 * syscall wrappers may have syscalls symbols aliases prefixed
+	 * with "SyS" instead of "sys", leading to an unwanted
+	 * mismatch.
+	 */
 	return !strcmp(sym + 3, name + 3);
 }
 #endif
@@ -131,13 +131,13 @@ print_syscall_enter(struct trace_iterator *iter, int flags,
 		return TRACE_TYPE_PARTIAL_LINE;
 
 	for (i = 0; i < entry->nb_args; i++) {
-		/*                 */
+		/* parameter types */
 		if (trace_flags & TRACE_ITER_VERBOSE) {
 			ret = trace_seq_printf(s, "%s ", entry->types[i]);
 			if (!ret)
 				return TRACE_TYPE_PARTIAL_LINE;
 		}
-		/*                  */
+		/* parameter values */
 		ret = trace_seq_printf(s, "%s: %lx%s", entry->args[i],
 				       trace->args[i],
 				       i == entry->nb_args - 1 ? "" : ", ");
@@ -204,7 +204,7 @@ int  __set_enter_print_fmt(struct syscall_metadata *entry, char *buf, int len)
 	int i;
 	int pos = 0;
 
-	/*                                                 */
+	/* When len=0, we just calculate the needed length */
 #define LEN_OR_ZERO (len ? len - pos : 0)
 
 	pos += snprintf(buf + pos, LEN_OR_ZERO, "\"");
@@ -222,7 +222,7 @@ int  __set_enter_print_fmt(struct syscall_metadata *entry, char *buf, int len)
 
 #undef LEN_OR_ZERO
 
-	/*                                */
+	/* return the length of print_fmt */
 	return pos;
 }
 
@@ -237,14 +237,14 @@ static int set_syscall_print_fmt(struct ftrace_event_call *call)
 		return 0;
 	}
 
-	/*                                                            */
+	/* First: called with 0 length to calculate the needed length */
 	len = __set_enter_print_fmt(entry, NULL, 0);
 
 	print_fmt = kmalloc(len + 1, GFP_KERNEL);
 	if (!print_fmt)
 		return -ENOMEM;
 
-	/*                                       */
+	/* Second: actually write the @print_fmt */
 	__set_enter_print_fmt(entry, print_fmt, len + 1);
 	call->print_fmt = print_fmt;
 
@@ -513,7 +513,7 @@ static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
 	if (!sys_data)
 		return;
 
-	/*                                                             */
+	/* get the size after alignment with the u32 buffer size field */
 	size = sizeof(unsigned long) * sys_data->nb_args + sizeof(*rec);
 	size = ALIGN(size + sizeof(u32), sizeof(u64));
 	size -= sizeof(u32);
@@ -587,14 +587,14 @@ static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
 	if (!sys_data)
 		return;
 
-	/*                                       */
+	/* We can probably do that at build time */
 	size = ALIGN(sizeof(*rec) + sizeof(u32), sizeof(u64));
 	size -= sizeof(u32);
 
 	/*
-                                               
-                                          
-  */
+	 * Impossible, but be paranoid with the future
+	 * How to put this check outside runtime?
+	 */
 	if (WARN_ONCE(size > PERF_MAX_TRACE_SIZE,
 		"exit event has grown above perf buffer size"))
 		return;
@@ -646,7 +646,7 @@ void perf_sysexit_disable(struct ftrace_event_call *call)
 	mutex_unlock(&syscall_trace_lock);
 }
 
-#endif /*                    */
+#endif /* CONFIG_PERF_EVENTS */
 
 static int syscall_enter_register(struct ftrace_event_call *event,
 				 enum trace_reg type, void *data)

@@ -70,26 +70,26 @@
 #define FALSE 0
 #define MAX_SSR_REASON_LEN 81U
 
-/*                         */
+/* packet header structure */
 struct dm_router_header {
-	short		dm_router_size;	/*                      */
-	char		dm_router_cmd;	/*         */
-	char		dm_router_type;	/*      */
+	short		dm_router_size;	/* size = header + body */
+	char		dm_router_cmd;	/* command */
+	char		dm_router_type;	/* type */
 } __packed;
 
-/*                               */
+/* modem_response body structure */
 struct dm_router_modem_response_body {
-	short	modem_chip;		/*                   */
-	long long	local_time;		/*                  */
+	short	modem_chip;		/* modem chip number */
+	long long	local_time;		/* Linux local time */
 } __packed;
 
-/*            */
+/* modem chip */
 enum {
 	Primary_modem_chip = 1,
 	Secondary_modem_chip = 2
 };
 
-/*                   */
+/* TTY driver status */
 enum {
 	DM_TTY_INITIAL = 0,
 	DM_TTY_REGISTERED = 1,
@@ -97,14 +97,14 @@ enum {
 	DM_TTY_CLOSED = 3,
 };
 
-/*             */
+/* packet type */
 enum {
 	DM_APP_REQUEST			= 0x01,
 	DM_APP_RESPONSE		= 0x02,
 	DM_APP_NOTICE			= 0x03
 };
 
-/*                */
+/* packet command */
 enum {
 	DM_APP_AUTH						= 0x01,
 	DM_APP_OPEN						= 0x02,
@@ -120,26 +120,26 @@ enum {
 
 struct dm_tty *lge_dm_tty;
 
-#define DM_TTY_TX_MAX_PACKET_SIZE		40000 	/*                  */
-#define DM_TTY_RX_MAX_PACKET_SIZE		9000 	/*                  */
+#define DM_TTY_TX_MAX_PACKET_SIZE		40000 	/*max size = 40000B */
+#define DM_TTY_RX_MAX_PACKET_SIZE		9000 	/* max size = 9000B */
 
-/*                      */
+/* modem_request packet */
 char			*dm_modem_response;
 int			dm_modem_response_length;
 
-/*                       */
+/* modem_response packet */
 char			*dm_modem_request;
 int			dm_modem_request_length;
 
-/*                       */
+/* modem_response header */
 struct dm_router_header	*dm_modem_response_header;
 int			dm_modem_response_header_length;
 
-/*                      */
+/* modem_request header */
 struct dm_router_header	*dm_modem_request_header;
 int			dm_modem_request_header_length;
 
-/*                          */
+/* body excluding real data */
 struct dm_router_modem_response_body		*dm_modem_response_body;
 int					dm_modem_response_body_length;
 
@@ -151,7 +151,7 @@ void lge_dm_usb_fn(struct work_struct *work)
 		usb_diag_write(driver->legacy_ch, driver->write_ptr_svc);
 }
 
-/*                        */
+/*  Modem_request command */
 static int lge_dm_tty_modem_request(struct dm_tty *lge_dm_tty_drv, const unsigned char *buf, int count)
 {
 
@@ -163,15 +163,15 @@ static int lge_dm_tty_modem_request(struct dm_tty *lge_dm_tty_drv, const unsigne
 		length = dm_modem_request_header_length + sizeof(modem_chip);
 
 		if (modem_chip == Primary_modem_chip) {
-			/*                     */
+			/* send masks to modem */
 			if(buf != NULL)
 				diag_process_hdlc((void *)buf + length, count - length);
 			else
 				pr_info("[DM_APP]buf is null , lge_dm_tty_modem_request \n");
 		} else if (modem_chip == Secondary_modem_chip) {
 
-			/*                  */
-			//   
+			/* send masks to 9k */
+			//TBD
 
 		} else {
 			pr_info(DM_TTY_MODULE_NAME ": %s: lge_dm_tty_write"
@@ -190,7 +190,7 @@ static int lge_dm_tty_modem_request(struct dm_tty *lge_dm_tty_drv, const unsigne
 extern char ssr_noti[MAX_SSR_REASON_LEN];
 
 
-/*                        */
+/* Modem_response command */
 static int lge_dm_tty_modem_response(struct dm_tty *lge_dm_tty_drv,
 			const unsigned char *buf, int count)
 {
@@ -208,13 +208,13 @@ static int lge_dm_tty_modem_response(struct dm_tty *lge_dm_tty_drv,
 	if(lge_dm_tty_drv->logging_mode == DM_APP_SDM)
 	{
 
-		/*                 */
+		/* make start flag */
 		memcpy(dm_modem_response, &dm_rx_start_flag,
 			sizeof(dm_rx_start_flag));
 
 		start_flag_length = sizeof(dm_rx_start_flag);
 
-		/*             */
+		/* make header */
 		dm_modem_response_header->dm_router_size =
 			dm_modem_response_header_length +
 				dm_modem_response_body_length + count;
@@ -223,7 +223,7 @@ static int lge_dm_tty_modem_response(struct dm_tty *lge_dm_tty_drv,
 			dm_modem_response_header,
 				dm_modem_response_header_length);
 
-		/*           */
+		/* make body */
 		dm_modem_response_body->modem_chip = Primary_modem_chip;
 
 		do_gettimeofday(&time);
@@ -248,7 +248,7 @@ static int lge_dm_tty_modem_response(struct dm_tty *lge_dm_tty_drv,
 			dm_modem_response_header->dm_router_size +
 				start_flag_length;
 
-		/*               */
+		/* make end flag */
 		memcpy(dm_modem_response + dm_modem_response_length,
 			&dm_rx_end_flag, sizeof(dm_rx_end_flag));
 
@@ -257,7 +257,7 @@ static int lge_dm_tty_modem_response(struct dm_tty *lge_dm_tty_drv,
 		dm_modem_response_length = dm_modem_response_length +
 			end_flag_length;
 
-		/*                                         */
+		/* send modem_response packet to DM router */
 		total_push = 0;
 		left = dm_modem_response_length;
 
@@ -305,7 +305,7 @@ static int lge_dm_tty_read_thread(void *data)
 		if ((lge_dm_tty->set_logging == 1)
 				&& (driver->logging_mode == DM_APP_MODE)) {
 
-			/*                 */	
+			/* copy modem data */	
 			for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
 				struct diag_smd_info *data = &driver->smd_data[i];
 
@@ -413,7 +413,7 @@ static int lge_dm_tty_write(struct tty_struct *tty, const unsigned char *buf,
 	tty->driver_data = lge_dm_tty_drv;
 	lge_dm_tty_drv->tty_str = tty;
 
-	/*                       */
+	/* check the packet size */
 	if (count > DM_TTY_RX_MAX_PACKET_SIZE) {
 		pr_info(DM_TTY_MODULE_NAME ": %s:"
 		"lge_dm_tty_write error count = %d\n",
@@ -451,7 +451,7 @@ static int lge_dm_tty_open(struct tty_struct *tty, struct file *file)
 		return -EBUSY;
 	}
 
-	/*                    */
+	/* support max = 64KB */
 	set_bit(TTY_NO_WRITE_SPLIT, &lge_dm_tty_drv->tty_str->flags);
 
 	lge_dm_tty_drv->tty_ts = kthread_run(lge_dm_tty_read_thread, NULL,
@@ -549,7 +549,7 @@ static int lge_dm_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 		pr_info(DM_TTY_MODULE_NAME ": %s: lge_dm_tty_ioctl "
 		"DM_TTY_MODEM_OPEN_SDM\n", __func__);
 
-		/*                       */
+		/* change path to DM APP */
 		mutex_lock(&driver->diagchar_mutex);
 		driver->logging_mode = DM_APP_MODE;
 		mutex_unlock(&driver->diagchar_mutex);
@@ -559,7 +559,7 @@ static int lge_dm_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 			for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
 				driver->smd_data[i].in_busy_1 = 0;
 				driver->smd_data[i].in_busy_2 = 0;
-				/*                                    */
+				/* Poll SMD channels to check for data*/
 				if (driver->smd_data[i].ch)
 					queue_work(driver->diag_wq,
 						&(driver->smd_data[i].
@@ -576,7 +576,7 @@ static int lge_dm_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 			}
 		} else if (modem_number == Secondary_modem_chip) {
 
-			//      
+			//TBD...
 
 		} else {
 			pr_info(DM_TTY_MODULE_NAME ": %s: lge_dm_tty_ioctl "
@@ -602,7 +602,7 @@ static int lge_dm_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 				
 		lge_dm_tty_drv->set_logging = 0;
 		
-		/*                           */
+		/* change path to USB driver */
 		mutex_lock(&driver->diagchar_mutex);
 		driver->logging_mode = USB_MODE;
 		mutex_unlock(&driver->diagchar_mutex);
@@ -626,7 +626,7 @@ static int lge_dm_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 		pr_info(DM_TTY_MODULE_NAME ": %s: lge_dm_tty_ioctl "
 		"DM_TTY_MODEM_OPEN_ODM\n", __func__);
 		
-		/*                       */
+		/* change path to DM DEV */
 		mutex_lock(&driver->diagchar_mutex);
 		driver->logging_mode = DM_APP_MODE;
 		mutex_unlock(&driver->diagchar_mutex);
@@ -636,7 +636,7 @@ static int lge_dm_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 			driver->smd_data[i].in_busy_1 = 0;
 			driver->smd_data[i].in_busy_2 = 0;
 	
-			/*                                    */
+			/* Poll SMD channels to check for data*/
 			if (driver->smd_data[i].ch)
 				queue_work(driver->diag_wq,
 					&(driver->smd_data[i].
@@ -652,7 +652,7 @@ static int lge_dm_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 		
 		lge_dm_tty_drv->set_logging = 0;
 
-		/*                           */
+		/* change path to USB driver */
 		mutex_lock(&driver->diagchar_mutex);
 		driver->logging_mode = USB_MODE;
 		mutex_unlock(&driver->diagchar_mutex);
@@ -753,14 +753,14 @@ static int __init lge_dm_tty_init(void)
 	lge_dm_tty_drv->tty_drv->name = "lge_dm_tty";
 	lge_dm_tty_drv->tty_drv->owner = THIS_MODULE;
 	lge_dm_tty_drv->tty_drv->driver_name = "lge_dm_tty";
-	/*                                        */
+	/* uses dynamically assigned dev_t values */
 	lge_dm_tty_drv->tty_drv->type = TTY_DRIVER_TYPE_SERIAL;
 	lge_dm_tty_drv->tty_drv->subtype = SERIAL_TYPE_NORMAL;
 	lge_dm_tty_drv->tty_drv->flags = TTY_DRIVER_REAL_RAW
 		| TTY_DRIVER_DYNAMIC_DEV
 		| TTY_DRIVER_RESET_TERMIOS;
 
-	/*                             */
+	/* initializing the tty driver */
 	lge_dm_tty_drv->tty_drv->init_termios = tty_std_termios;
 	lge_dm_tty_drv->tty_drv->init_termios.c_iflag = IGNBRK | IGNPAR;
 	lge_dm_tty_drv->tty_drv->init_termios.c_oflag = 0;
@@ -799,7 +799,7 @@ static int __init lge_dm_tty_init(void)
 
 	lge_dm_tty_drv->tty_state = DM_TTY_REGISTERED;
 
-	/*                     */
+	/* data initialization */
 	dm_modem_response = kzalloc(DM_TTY_TX_MAX_PACKET_SIZE, GFP_KERNEL);
 	if (dm_modem_response == NULL)
 		pr_info(DM_TTY_MODULE_NAME ": %s: dm_modem_response ""failed\n",

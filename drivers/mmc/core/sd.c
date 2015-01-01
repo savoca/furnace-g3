@@ -66,7 +66,7 @@ static const unsigned int tacc_mant[] = {
 	})
 
 /*
-                                                                            
+ * Given the decoded CSD structure, decode the raw CID to our CID structure.
  */
 void mmc_decode_cid(struct mmc_card *card)
 {
@@ -75,9 +75,9 @@ void mmc_decode_cid(struct mmc_card *card)
 	memset(&card->cid, 0, sizeof(struct mmc_cid));
 
 	/*
-                                                        
-                                     
-  */
+	 * SD doesn't currently have a version field so we will
+	 * have to assume we can parse this.
+	 */
 	card->cid.manfid		= UNSTUFF_BITS(resp, 120, 8);
 	card->cid.oemid			= UNSTUFF_BITS(resp, 104, 16);
 	card->cid.prod_name[0]		= UNSTUFF_BITS(resp, 96, 8);
@@ -91,11 +91,11 @@ void mmc_decode_cid(struct mmc_card *card)
 	card->cid.year			= UNSTUFF_BITS(resp, 12, 8);
 	card->cid.month			= UNSTUFF_BITS(resp, 8, 4);
 
-	card->cid.year += 2000; /*                      */
+	card->cid.year += 2000; /* SD cards year offset */
 }
 
 /*
-                                                              
+ * Given a 128-bit response, decode to our card CSD structure.
  */
 static int mmc_decode_csd(struct mmc_card *card)
 {
@@ -138,15 +138,15 @@ static int mmc_decode_csd(struct mmc_card *card)
 		break;
 	case 1:
 		/*
-                                                      
-                                                 
-                                                     
-                                            
-   */
+		 * This is a block-addressed SDHC or SDXC card. Most
+		 * interesting fields are unused and have fixed
+		 * values. To avoid getting tripped by buggy cards,
+		 * we assume those fixed values ourselves.
+		 */
 		mmc_card_set_blockaddr(card);
 
-		csd->tacc_ns	 = 0; /*        */
-		csd->tacc_clks	 = 0; /*        */
+		csd->tacc_ns	 = 0; /* Unused */
+		csd->tacc_clks	 = 0; /* Unused */
 
 		m = UNSTUFF_BITS(resp, 99, 4);
 		e = UNSTUFF_BITS(resp, 96, 3);
@@ -154,7 +154,7 @@ static int mmc_decode_csd(struct mmc_card *card)
 		csd->cmdclass	  = UNSTUFF_BITS(resp, 84, 12);
 		csd->c_size	  = UNSTUFF_BITS(resp, 48, 22);
 
-		/*                                              */
+		/* SDXC cards have a minimum C_SIZE of 0x00FFFF */
 		if (csd->c_size >= 0xFFFF)
 			mmc_card_set_ext_capacity(card);
 
@@ -165,7 +165,7 @@ static int mmc_decode_csd(struct mmc_card *card)
 		csd->read_partial = 0;
 		csd->write_misalign = 0;
 		csd->read_misalign = 0;
-		csd->r2w_factor = 4; /*        */
+		csd->r2w_factor = 4; /* Unused */
 		csd->write_blkbits = 9;
 		csd->write_partial = 0;
 		csd->erase_size = 1;
@@ -182,7 +182,7 @@ static int mmc_decode_csd(struct mmc_card *card)
 }
 
 /*
-                                                             
+ * Given a 64-bit response, decode to our card SCR structure.
  */
 static int mmc_decode_scr(struct mmc_card *card)
 {
@@ -203,7 +203,7 @@ static int mmc_decode_scr(struct mmc_card *card)
 	scr->sda_vsn = UNSTUFF_BITS(resp, 56, 4);
 	scr->bus_widths = UNSTUFF_BITS(resp, 48, 4);
 	if (scr->sda_vsn == SCR_SPEC_VER_2)
-		/*                                                */
+		/* Check if Physical Layer Spec v3.0 is supported */
 		scr->sda_spec3 = UNSTUFF_BITS(resp, 47, 1);
 
 	if (UNSTUFF_BITS(resp, 55, 1))
@@ -217,7 +217,7 @@ static int mmc_decode_scr(struct mmc_card *card)
 }
 
 /*
-                                        
+ * Fetch and process SD Status register.
  */
 static int mmc_read_ssr(struct mmc_card *card)
 {
@@ -247,9 +247,9 @@ static int mmc_read_ssr(struct mmc_card *card)
 		ssr[i] = be32_to_cpu(ssr[i]);
 
 	/*
-                                                                   
-                                   
-  */
+	 * UNSTUFF_BITS only works with four u32s so we have to offset the
+	 * bitfield positions accordingly.
+	 */
 	au = UNSTUFF_BITS(ssr, 428 - 384, 4);
 	if (au > 0 || au <= 9) {
 		card->ssr.au = 1 << (au + 4);
@@ -270,7 +270,7 @@ out:
 }
 
 /*
-                                         
+ * Fetches and decodes switch information
  */
 static int mmc_read_switch(struct mmc_card *card)
 {
@@ -297,13 +297,13 @@ static int mmc_read_switch(struct mmc_card *card)
 		return -ENOMEM;
 	}
 
-	/*                                         */
+	/* Find out the supported Bus Speed Modes. */
 	err = mmc_sd_switch(card, 0, 0, 1, status);
 	if (err) {
 		/*
-                                                 
-                          
-   */
+		 * If the host or the card can't do the switch,
+		 * fail more gracefully.
+		 */
 		if (err != -EINVAL && err != -ENOSYS && err != -EFAULT)
 			goto out;
 
@@ -320,13 +320,13 @@ static int mmc_read_switch(struct mmc_card *card)
 	if (card->scr.sda_spec3) {
 		card->sw_caps.sd3_bus_mode = status[13];
 
-		/*                                                 */
+		/* Find out Driver Strengths supported by the card */
 		err = mmc_sd_switch(card, 0, 2, 1, status);
 		if (err) {
 			/*
-                                                  
-                           
-    */
+			 * If the host or the card can't do the switch,
+			 * fail more gracefully.
+			 */
 			if (err != -EINVAL && err != -ENOSYS && err != -EFAULT)
 				goto out;
 
@@ -340,13 +340,13 @@ static int mmc_read_switch(struct mmc_card *card)
 
 		card->sw_caps.sd3_drv_type = status[9];
 
-		/*                                               */
+		/* Find out Current Limits supported by the card */
 		err = mmc_sd_switch(card, 0, 3, 1, status);
 		if (err) {
 			/*
-                                                  
-                           
-    */
+			 * If the host or the card can't do the switch,
+			 * fail more gracefully.
+			 */
 			if (err != -EINVAL && err != -ENOSYS && err != -EFAULT)
 				goto out;
 
@@ -368,7 +368,7 @@ out:
 }
 
 /*
-                                                                      
+ * Test if the card supports high-speed mode and, if so, switch to it.
  */
 int mmc_sd_switch_hs(struct mmc_card *card)
 {
@@ -423,10 +423,10 @@ static int sd_select_driver_type(struct mmc_card *card, u8 *status)
 	int err;
 
 	/*
-                                                                 
-                                                             
-                   
-  */
+	 * If the host doesn't support any of the Driver Types A,C or D,
+	 * or there is no board specific handler then default Driver
+	 * Type B is used.
+	 */
 	if (!(card->host->caps & (MMC_CAP_DRIVER_TYPE_A | MMC_CAP_DRIVER_TYPE_C
 	    | MMC_CAP_DRIVER_TYPE_D)))
 		return 0;
@@ -453,11 +453,11 @@ static int sd_select_driver_type(struct mmc_card *card, u8 *status)
 		card_drv_type |= SD_DRIVER_TYPE_D;
 
 	/*
-                                                    
-                                                      
-                                                  
-                                             
-  */
+	 * The drive strength that the hardware can support
+	 * depends on the board design.  Pass the appropriate
+	 * information and let the hardware specific code
+	 * return what is possible given the options
+	 */
 	mmc_host_clk_hold(card->host);
 	drive_strength = card->host->ops->select_drive_strength(
 		card->sw_caps.uhs_max_dtr,
@@ -482,9 +482,9 @@ static int sd_select_driver_type(struct mmc_card *card, u8 *status)
 static void sd_update_bus_speed_mode(struct mmc_card *card)
 {
 	/*
-                                                                   
-                  
-  */
+	 * If the host doesn't support any of the UHS-I modes, fallback on
+	 * default speed.
+	 */
 	if (!(card->host->caps & (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
 	    MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR104 | MMC_CAP_UHS_DDR50))) {
 		card->sd_bus_speed = 0;
@@ -568,10 +568,10 @@ static int sd_set_current_limit(struct mmc_card *card, u8 *status)
 	int err;
 
 	/*
-                                                                     
-                                                                  
-                           
-  */
+	 * Current limit switch is only defined for SDR50, SDR104, and DDR50
+	 * bus speed modes. For other bus speed modes, we set the default
+	 * current limit of 200mA.
+	 */
 	if ((card->sd_bus_speed == UHS_SDR50_BUS_SPEED) ||
 	    (card->sd_bus_speed == UHS_SDR104_BUS_SPEED) ||
 	    (card->sd_bus_speed == UHS_DDR50_BUS_SPEED)) {
@@ -620,18 +620,18 @@ static int sd_set_current_limit(struct mmc_card *card, u8 *status)
 	return 0;
 }
 
-/* 
-                                                                      
-                                       
-                                                
-  
-                                                                
-                                                               
-                                                                        
-  
-                                                                     
-                                                                         
-                                                                 
+/**
+ * mmc_sd_change_bus_speed() - Change SD card bus frequency at runtime
+ * @host: pointer to mmc host structure
+ * @freq: pointer to desired frequency to be set
+ *
+ * Change the SD card bus frequency at runtime after the card is
+ * initialized. Callers are expected to make sure of the card's
+ * state (DATA/RCV/TRANSFER) beforing changing the frequency at runtime.
+ *
+ * If the frequency to change is greater than max. supported by card,
+ * *freq is changed to max. supported by card and if it is less than min.
+ * supported by host, *freq is changed to min. supported by host.
  */
 static int mmc_sd_change_bus_speed(struct mmc_host *host, unsigned long *freq)
 {
@@ -640,12 +640,12 @@ static int mmc_sd_change_bus_speed(struct mmc_host *host, unsigned long *freq)
 
 	mmc_claim_host(host);
 	/*
-                                                         
-                                                         
-  */
+	 * Assign card pointer after claiming host to avoid race
+	 * conditions that may arise during removal of the card.
+	 */
 	card = host->card;
 
-	/*               */
+	/* sanity checks */
 	if (!card || !freq) {
 		err = -EINVAL;
 		goto out;
@@ -667,10 +667,10 @@ static int mmc_sd_change_bus_speed(struct mmc_host *host, unsigned long *freq)
 	if (!mmc_host_is_spi(card->host) && mmc_sd_card_uhs(card)
 			&& card->host->ops->execute_tuning) {
 		/*
-                                                   
-                                                   
-                                              
-   */
+		 * We try to probe host driver for tuning for any
+		 * frequency, it is host driver responsibility to
+		 * perform actual tuning only when required.
+		 */
 		mmc_host_clk_hold(card->host);
 		err = card->host->ops->execute_tuning(card->host,
 				MMC_SEND_TUNING_BLOCK);
@@ -690,7 +690,7 @@ out:
 }
 
 /*
-                                          
+ * UHS-I specific initialization procedure
  */
 static int mmc_sd_init_uhs_card(struct mmc_card *card)
 {
@@ -710,7 +710,7 @@ static int mmc_sd_init_uhs_card(struct mmc_card *card)
 		return -ENOMEM;
 	}
 
-	/*                     */
+	/* Set 4-bit bus width */
 	if ((card->host->caps & MMC_CAP_4_BIT_DATA) &&
 	    (card->scr.bus_widths & SD_SCR_BUS_WIDTH_4)) {
 		err = mmc_app_set_bus_width(card, MMC_BUS_WIDTH_4);
@@ -721,27 +721,27 @@ static int mmc_sd_init_uhs_card(struct mmc_card *card)
 	}
 
 	/*
-                                               
-                        
-  */
+	 * Select the bus speed mode depending on host
+	 * and card capability.
+	 */
 	sd_update_bus_speed_mode(card);
 
-	/*                                      */
+	/* Set the driver strength for the card */
 	err = sd_select_driver_type(card, status);
 	if (err)
 		goto out;
 
-	/*                                */
+	/* Set current limit for the card */
 	err = sd_set_current_limit(card, status);
 	if (err)
 		goto out;
 
-	/*                                */
+	/* Set bus speed mode of the card */
 	err = sd_set_bus_speed_mode(card, status);
 	if (err)
 		goto out;
 
-	/*                               */
+	/* SPI mode doesn't define CMD19 */
 	if (!mmc_host_is_spi(card->host) && card->host->ops->execute_tuning) {
 		mmc_host_clk_hold(card->host);
 		err = card->host->ops->execute_tuning(card->host,
@@ -801,39 +801,39 @@ struct device_type sd_type = {
 };
 
 /*
-                       
+ * Fetch CID from card.
  */
 int mmc_sd_get_cid(struct mmc_host *host, u32 ocr, u32 *cid, u32 *rocr)
 {
 	int err;
 
 	/*
-                                                  
-                                                  
-                                             
-            
-  */
+	 * Since we're changing the OCR value, we seem to
+	 * need to tell some cards to go back to the idle
+	 * state.  We wait 1ms to give cards time to
+	 * respond.
+	 */
 	mmc_go_idle(host);
 
 	/*
-                                          
-                                           
-                                             
-                               
-  */
+	 * If SD_SEND_IF_COND indicates an SD 2.0
+	 * compliant card and we should set bit 30
+	 * of the ocr to indicate that we can handle
+	 * block-addressed SDHC cards.
+	 */
 	err = mmc_send_if_cond(host, ocr);
 	if (!err)
 		ocr |= SD_OCR_CCS;
 
 	/*
-                                                             
-                                      
-  */
+	 * If the host supports one of UHS-I modes, request the card
+	 * to switch to 1.8V signaling level.
+	 */
 	if (host->caps & (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
 	    MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_SDR104 | MMC_CAP_UHS_DDR50))
 		ocr |= SD_OCR_S18R;
 
-	/*                                                                 */
+	/* If the host can supply more than 150mA, XPC should be set to 1. */
 	if (host->caps & (MMC_CAP_SET_XPC_330 | MMC_CAP_SET_XPC_300 |
 	    MMC_CAP_SET_XPC_180))
 		ocr |= SD_OCR_XPC;
@@ -844,9 +844,9 @@ try_again:
 		return err;
 
 	/*
-                                                                     
-                                                     
-  */
+	 * In case CCS and S18A in the response is set, start Signal Voltage
+	 * Switch procedure. SPI mode doesn't support CMD11.
+	 */
 	if (!mmc_host_is_spi(host) && rocr &&
 	   ((*rocr & 0x41000000) == 0x41000000)) {
 		err = mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180, true);
@@ -870,8 +870,8 @@ int mmc_sd_get_csd(struct mmc_host *host, struct mmc_card *card)
 	int err;
 
 	/*
-                        
-  */
+	 * Fetch CSD from card.
+	 */
 	err = mmc_send_csd(card, card->raw_csd);
 	if (err)
 		return err;
@@ -893,8 +893,8 @@ int mmc_sd_setup_card(struct mmc_host *host, struct mmc_card *card,
 
 	if (!reinit) {
 		/*
-                         
-   */
+		 * Fetch SCR from card.
+		 */
 		err = mmc_app_send_scr(card, card->raw_scr);
 		if (err)
 			return err;
@@ -904,18 +904,18 @@ int mmc_sd_setup_card(struct mmc_host *host, struct mmc_card *card,
 			return err;
 
 		/*
-                                          
-   */
+		 * Fetch and process SD Status register.
+		 */
 		err = mmc_read_ssr(card);
 		if (err)
 			return err;
 
-		/*                                   */
+		/* Erase init depends on CSD and SSR */
 		mmc_init_erase(card);
 
 		/*
-                                        
-   */
+		 * Fetch switch information from card.
+		 */
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 		for (retries = 1; retries <= 3; retries++) {
 			err = mmc_read_switch(card);
@@ -941,11 +941,11 @@ int mmc_sd_setup_card(struct mmc_host *host, struct mmc_card *card,
 	}
 
 	/*
-                                       
-                                                       
-                                                       
-                                                  
-  */
+	 * For SPI, enable CRC as appropriate.
+	 * This CRC enable is located AFTER the reading of the
+	 * card registers because some SDHC cards are not able
+	 * to provide valid CRCs for non-512-byte blocks.
+	 */
 	if (mmc_host_is_spi(host)) {
 		err = mmc_spi_set_crc(host, use_spi_crc);
 		if (err)
@@ -953,8 +953,8 @@ int mmc_sd_setup_card(struct mmc_host *host, struct mmc_card *card,
 	}
 
 	/*
-                                        
-  */
+	 * Check if read-only switch is active.
+	 */
 	if (!reinit) {
 		int ro = -1;
 
@@ -998,10 +998,10 @@ void mmc_sd_go_highspeed(struct mmc_card *card)
 }
 
 /*
-                                                     
-  
-                                                           
-                                
+ * Handle the detection and initialisation of a card.
+ *
+ * In the case of a resume, "oldcard" will contain the card
+ * we're trying to reinitialise.
  */
 static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	struct mmc_card *oldcard)
@@ -1026,7 +1026,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	}
 	#endif
 
-	/*                                                         */
+	/* The initialization should be done at 3.3 V I/O voltage. */
 	mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_330, 0);
 
 	err = mmc_sd_get_cid(host, ocr, cid, &rocr);
@@ -1040,8 +1040,8 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		card = oldcard;
 	} else {
 		/*
-                             
-   */
+		 * Allocate card structure.
+		 */
 		card = mmc_alloc_card(host, &sd_type);
 		if (IS_ERR(card))
 			return PTR_ERR(card);
@@ -1051,8 +1051,8 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	}
 
 	/*
-                                                              
-  */
+	 * For native busses:  get card RCA and quit open drain mode.
+	 */
 	if (!mmc_host_is_spi(host)) {
 		err = mmc_send_relative_addr(host, &card->rca);
 		if (err)
@@ -1068,8 +1068,8 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	}
 
 	/*
-                                                        
-  */
+	 * Select card, as all following commands rely on that.
+	 */
 	if (!mmc_host_is_spi(host)) {
 		err = mmc_select_card(card);
 		if (err)
@@ -1080,19 +1080,19 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	if (err)
 		goto free_card;
 
-	/*                                         */
+	/* Initialization sequence for UHS-I cards */
 	if (rocr & SD_ROCR_S18A) {
 		err = mmc_sd_init_uhs_card(card);
 		if (err)
 			goto free_card;
 
-		/*                                  */
+		/* Card is an ultra-high-speed card */
 		mmc_card_set_uhs(card);
 
 		/*
-                                                        
-                                     
-   */
+		 * Since initialization is now complete, enable preset
+		 * value registers for UHS-I cards.
+		 */
 		if (host->ops->enable_preset_value) {
 			mmc_host_clk_hold(card->host);
 			host->ops->enable_preset_value(host, true);
@@ -1100,8 +1100,8 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		}
 	} else {
 		/*
-                                                   
-   */
+		 * Attempt to change to high-speed (if supported)
+		 */
 		err = mmc_sd_switch_hs(card);
 		if (err > 0)
 			mmc_sd_go_highspeed(card);
@@ -1109,13 +1109,13 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 			goto free_card;
 
 		/*
-                   
-   */
+		 * Set bus speed.
+		 */
 		mmc_set_clock(host, mmc_sd_get_max_clock(card));
 
 		/*
-                                        
-   */
+		 * Switch to wider bus (if supported).
+		 */
 		if ((host->caps & MMC_CAP_4_BIT_DATA) &&
 			(card->scr.bus_widths & SD_SCR_BUS_WIDTH_4)) {
 			err = mmc_app_set_bus_width(card, MMC_BUS_WIDTH_4);
@@ -1137,7 +1137,7 @@ free_card:
 }
 
 /*
-                                                   
+ * Host is being removed. Free up the current card.
  */
 static void mmc_sd_remove(struct mmc_host *host)
 {
@@ -1153,7 +1153,7 @@ static void mmc_sd_remove(struct mmc_host *host)
 }
 
 /*
-                                  
+ * Card detection - card is alive.
  */
 static int mmc_sd_alive(struct mmc_host *host)
 {
@@ -1161,7 +1161,7 @@ static int mmc_sd_alive(struct mmc_host *host)
 }
 
 /*
-                                     
+ * Card detection callback from host.
  */
 static void mmc_sd_detect(struct mmc_host *host)
 {
@@ -1183,8 +1183,8 @@ static void mmc_sd_detect(struct mmc_host *host)
 	mmc_claim_host(host);
 
 	/*
-                                            
-  */
+	 * Just check if our card has been removed.
+	 */
 
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 	while(retries) {
@@ -1208,9 +1208,9 @@ static void mmc_sd_detect(struct mmc_host *host)
 	mmc_release_host(host);
 
 	/*
-                                                        
-                                                            
-  */
+	 * if detect fails, the device would be removed anyway;
+	 * the rpm framework would mark the device state suspended.
+	 */
 	if (!err)
 		mmc_rpm_release(host, &host->card->dev);
 
@@ -1225,7 +1225,7 @@ static void mmc_sd_detect(struct mmc_host *host)
 }
 
 /*
-                              
+ * Suspend callback from host.
  */
 static int mmc_sd_suspend(struct mmc_host *host)
 {
@@ -1233,9 +1233,9 @@ static int mmc_sd_suspend(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	/*
-                                                                      
-                                                                      
-  */
+	 * Disable clock scaling before suspend and enable it after resume so
+	 * as to avoid clock scaling decisions kicking in during this window.
+	 */
 	mmc_disable_clk_scaling(host);
 
 	mmc_claim_host(host);
@@ -1248,10 +1248,10 @@ static int mmc_sd_suspend(struct mmc_host *host)
 }
 
 /*
-                             
-  
-                                                                     
-                                       
+ * Resume callback from host.
+ *
+ * This function tries to determine if the same card is still present
+ * and, if so, restore all state to it.
  */
 static int mmc_sd_resume(struct mmc_host *host)
 {
@@ -1298,9 +1298,9 @@ static int mmc_sd_resume(struct mmc_host *host)
 	mmc_release_host(host);
 
 	/*
-                                                 
-                                                    
-  */
+	 * We have done full initialization of the card,
+	 * reset the clk scale stats and current frequency.
+	 */
 	if (mmc_can_scale_clk(host))
 		mmc_init_clk_scaling(host);
 
@@ -1311,7 +1311,7 @@ static int mmc_sd_power_restore(struct mmc_host *host)
 {
 	int ret;
 
-	/*                                                                   */
+	/* Disable clk scaling to avoid switching frequencies intermittently */
 	mmc_disable_clk_scaling(host);
 
 	host->card->state &= ~MMC_STATE_HIGHSPEED;
@@ -1357,7 +1357,7 @@ static void mmc_sd_attach_bus_ops(struct mmc_host *host)
 }
 
 /*
-                                   
+ * Starting point for SD card init.
  */
 int mmc_attach_sd(struct mmc_host *host)
 {
@@ -1370,7 +1370,7 @@ int mmc_attach_sd(struct mmc_host *host)
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
 
-	/*                                                            */
+	/* Disable preset value enable if already set since last time */
 	if (host->ops->enable_preset_value) {
 		mmc_host_clk_hold(host);
 		host->ops->enable_preset_value(host, false);
@@ -1386,8 +1386,8 @@ int mmc_attach_sd(struct mmc_host *host)
 		host->ocr_avail = host->ocr_avail_sd;
 
 	/*
-                                               
-  */
+	 * We need to get OCR a different way for SPI.
+	 */
 	if (mmc_host_is_spi(host)) {
 		mmc_go_idle(host);
 
@@ -1397,9 +1397,9 @@ int mmc_attach_sd(struct mmc_host *host)
 	}
 
 	/*
-                                                     
-            
-  */
+	 * Sanity check the voltages that the card claims to
+	 * support.
+	 */
 	if (ocr & 0x7F) {
 		pr_warning("%s: card claims to support voltages "
 		       "below the defined range. These will be ignored.\n",
@@ -1418,16 +1418,16 @@ int mmc_attach_sd(struct mmc_host *host)
 	host->ocr = mmc_select_voltage(host, ocr);
 
 	/*
-                                                 
-  */
+	 * Can we support the voltage(s) of the card(s)?
+	 */
 	if (!host->ocr) {
 		err = -EINVAL;
 		goto err;
 	}
 
 	/*
-                             
-  */
+	 * Detect and init the card.
+	 */
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 	retries = 5;
 	while (retries) {

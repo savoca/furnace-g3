@@ -2,7 +2,7 @@
 #define _ASM_GENERIC_BITOPS_CONST_HWEIGHT_H_
 
 /*
-                                             
+ * Compile time versions of __arch_hweightN()
  */
 #define __const_hweight8(w)		\
       (	(!!((w) & (1ULL << 0))) +	\
@@ -19,7 +19,7 @@
 #define __const_hweight64(w) (__const_hweight32(w) + __const_hweight32((w) >> 32))
 
 /*
-                     
+ * Generic interface.
  */
 #define hweight8(w)  (__builtin_constant_p(w) ? __const_hweight8(w)  : __arch_hweight8(w))
 #define hweight16(w) (__builtin_constant_p(w) ? __const_hweight16(w) : __arch_hweight16(w))
@@ -27,7 +27,7 @@
 #define hweight64(w) (__builtin_constant_p(w) ? __const_hweight64(w) : __arch_hweight64(w))
 
 /*
-                                         
+ * Interface for known constant arguments
  */
 #define HWEIGHT8(w)  (BUILD_BUG_ON_ZERO(!__builtin_constant_p(w)) + __const_hweight8(w))
 #define HWEIGHT16(w) (BUILD_BUG_ON_ZERO(!__builtin_constant_p(w)) + __const_hweight16(w))
@@ -35,8 +35,8 @@
 #define HWEIGHT64(w) (BUILD_BUG_ON_ZERO(!__builtin_constant_p(w)) + __const_hweight64(w))
 
 /*
-                                                                           
+ * Type invariant interface to the compile time constant hweight functions.
  */
 #define HWEIGHT(w)   HWEIGHT64((u64)w)
 
-#endif /*                                      */
+#endif /* _ASM_GENERIC_BITOPS_CONST_HWEIGHT_H_ */

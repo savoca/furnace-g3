@@ -30,16 +30,16 @@
 #include "masklog.h"
 
 /*
-                                                                             
-                                                                           
-                                                                           
-                                   
+ * The first heartbeat pass had one global thread that would serialize all hb
+ * callback calls.  This global serializing sem should only be removed once
+ * we've made sure that all callees can deal with being called concurrently
+ * from multiple hb region threads.
  */
 static DECLARE_RWSEM(r2hb_callback_sem);
 
 /*
-                                                                     
-                                                                         
+ * multiple hb threads are watching multiple regions.  A node is live
+ * whenever any of the threads sees activity from the node in its region.
  */
 static DEFINE_SPINLOCK(r2hb_live_lock);
 static unsigned long r2hb_live_node_bitmap[BITS_TO_LONGS(R2NM_MAX_NODES)];
@@ -55,18 +55,18 @@ enum r2hb_heartbeat_modes {
 };
 
 char *r2hb_heartbeat_mode_desc[R2HB_HEARTBEAT_NUM_MODES] = {
-		"local",	/*                      */
-		"global",	/*                       */
+		"local",	/* R2HB_HEARTBEAT_LOCAL */
+		"global",	/* R2HB_HEARTBEAT_GLOBAL */
 };
 
 unsigned int r2hb_dead_threshold = R2HB_DEFAULT_DEAD_THRESHOLD;
 unsigned int r2hb_heartbeat_mode = R2HB_HEARTBEAT_LOCAL;
 
-/*                                                          
-  
-                                                                   
-                                                                     
-                                                     */
+/* Only sets a new threshold if there are no active regions.
+ *
+ * No locking or otherwise interesting code is required for reading
+ * r2hb_dead_threshold as it can't change once regions are active and
+ * it's not interesting to anyone until then anyway. */
 static void r2hb_dead_threshold_set(unsigned int threshold)
 {
 	if (threshold > R2HB_MIN_DEAD_THRESHOLD) {
@@ -106,7 +106,7 @@ int r2hb_init(void)
 	return 0;
 }
 
-/*                                                                         */
+/* if we're already in a callback then we're already serialized by the sem */
 static void r2hb_fill_node_map_from_callback(unsigned long *map,
 					     unsigned bytes)
 {
@@ -116,12 +116,12 @@ static void r2hb_fill_node_map_from_callback(unsigned long *map,
 }
 
 /*
-                                                              
+ * get a map of all nodes that are heartbeating in any regions
  */
 void r2hb_fill_node_map(unsigned long *map, unsigned bytes)
 {
-	/*                                                              
-                                                             */
+	/* callers want to serialize this map and callbacks so that they
+	 * can trust that they don't miss nodes coming to the party */
 	down_read(&r2hb_callback_sem);
 	spin_lock(&r2hb_live_lock);
 	r2hb_fill_node_map_from_callback(map, bytes);
@@ -131,15 +131,15 @@ void r2hb_fill_node_map(unsigned long *map, unsigned bytes)
 EXPORT_SYMBOL_GPL(r2hb_fill_node_map);
 
 /*
-                                                                     
-                                    
+ * heartbeat configfs bits.  The heartbeat set is a default set under
+ * the cluster set in nodemanager.c.
  */
 
-/*               */
+/* heartbeat set */
 
 struct r2hb_hb_group {
 	struct config_group hs_group;
-	/*             */
+	/* some stuff? */
 };
 
 static struct r2hb_hb_group *to_r2hb_hb_group(struct config_group *group)
@@ -233,7 +233,7 @@ static ssize_t r2hb_hb_group_threshold_store(struct r2hb_hb_group *group,
 	if (err)
 		return err;
 
-	/*                                   */
+	/* this will validate ranges for us. */
 	r2hb_dead_threshold_set((unsigned int) tmp);
 
 	return count;
@@ -314,8 +314,8 @@ static struct config_item_type r2hb_hb_group_type = {
 	.ct_owner	= THIS_MODULE,
 };
 
-/*                                                                   
-                               */
+/* this is just here to avoid touching group in heartbeat.h which the
+ * entire damn world #includes */
 struct config_group *r2hb_alloc_hb_set(void)
 {
 	struct r2hb_hb_group *hs = NULL;
@@ -341,7 +341,7 @@ void r2hb_free_hb_set(struct config_group *group)
 	kfree(hs);
 }
 
-/*                                      */
+/* hb callback registration and issuing */
 
 static struct r2hb_callback *hbcall_from_type(enum r2hb_callback_type type)
 {
@@ -412,7 +412,7 @@ void r2hb_unregister_callback(const char *region_uuid,
 	mlog(ML_CLUSTER, "on behalf of %p for funcs %p\n",
 	     __builtin_return_address(0), hc);
 
-	/*                                                */
+	/* XXX Can this happen _with_ a region reference? */
 	if (list_empty(&hc->hc_item))
 		return;
 
@@ -446,8 +446,8 @@ void r2hb_stop_all_regions(void)
 EXPORT_SYMBOL_GPL(r2hb_stop_all_regions);
 
 /*
-                                                                         
-                                                                   
+ * this is just a hack until we get the plumbing which flips file systems
+ * read only and drops the hb ref instead of killing the node dead.
  */
 int r2hb_global_heartbeat_active(void)
 {
@@ -455,7 +455,7 @@ int r2hb_global_heartbeat_active(void)
 }
 EXPORT_SYMBOL(r2hb_global_heartbeat_active);
 
-/*                   */
+/* added for RAMster */
 void r2hb_manual_set_node_heartbeating(int node_num)
 {
 	if (node_num < R2NM_MAX_NODES)

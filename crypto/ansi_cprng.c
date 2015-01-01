@@ -28,18 +28,18 @@
 #define DEFAULT_V_SEED "zaybxcwdveuftgsh"
 
 /*
-                                         
+ * Flags for the prng_context flags field
  */
 
 #define PRNG_FIXED_SIZE 0x1
 #define PRNG_NEED_RESET 0x2
 
 /*
-                                
-                               
-                        
-                                                                       
-                             
+ * Note: DT is our counter value
+ *	 I is our intermediate value
+ *	 V is our seed vector
+ * See http://csrc.nist.gov/groups/STM/cavp/documents/rng/931rngext.pdf
+ * for implementation details
  */
 
 
@@ -82,8 +82,8 @@ static void xor_vectors(unsigned char *in1, unsigned char *in2,
 
 }
 /*
-                                                       
-                                                                
+ * Returns DEFAULT_BLK_SZ bytes of random data per call
+ * returns 0 if generation succeeded, <0 if something went wrong
  */
 static int _get_more_prng_bytes(struct prng_context *ctx, int cont_test)
 {
@@ -100,16 +100,16 @@ static int _get_more_prng_bytes(struct prng_context *ctx, int cont_test)
 	hexdump("Input V: ", ctx->V, DEFAULT_BLK_SZ);
 
 	/*
-                                             
-  */
+	 * This algorithm is a 3 stage state machine
+	 */
 	for (i = 0; i < 3; i++) {
 
 		switch (i) {
 		case 0:
 			/*
-                                           
-                                           
-    */
+			 * Start by encrypting the counter value
+			 * This gives us an intermediate value I
+			 */
 			memcpy(tmp, ctx->DT, DEFAULT_BLK_SZ);
 			output = ctx->I;
 			hexdump("tmp stage 0: ", tmp, DEFAULT_BLK_SZ);
@@ -117,19 +117,19 @@ static int _get_more_prng_bytes(struct prng_context *ctx, int cont_test)
 		case 1:
 
 			/*
-                                         
-                                       
-                                        
-    */
+			 * Next xor I with our secret vector V
+			 * encrypt that result to obtain our
+			 * pseudo random data which we output
+			 */
 			xor_vectors(ctx->I, ctx->V, tmp, DEFAULT_BLK_SZ);
 			hexdump("tmp stage 1: ", tmp, DEFAULT_BLK_SZ);
 			output = ctx->rand_data;
 			break;
 		case 2:
 			/*
-                                                 
-                                                           
-    */
+			 * First check that we didn't produce the same
+			 * random data that we did last time around through this
+			 */
 			if (!memcmp(ctx->rand_data, ctx->last_rand_data,
 					DEFAULT_BLK_SZ)) {
 				if (cont_test) {
@@ -148,9 +148,9 @@ static int _get_more_prng_bytes(struct prng_context *ctx, int cont_test)
 				DEFAULT_BLK_SZ);
 
 			/*
-                                       
-                                                      
-    */
+			 * Lastly xor the random data with I
+			 * and encrypt that to obtain a new secret vector V
+			 */
 			xor_vectors(ctx->rand_data, ctx->I, tmp,
 				DEFAULT_BLK_SZ);
 			output = ctx->V;
@@ -159,14 +159,14 @@ static int _get_more_prng_bytes(struct prng_context *ctx, int cont_test)
 		}
 
 
-		/*                   */
+		/* do the encryption */
 		crypto_cipher_encrypt_one(ctx->tfm, output, tmp);
 
 	}
 
 	/*
-                           
-  */
+	 * Now update our DT value
+	 */
 	for (i = DEFAULT_BLK_SZ - 1; i >= 0; i--) {
 		ctx->DT[i] += 1;
 		if (ctx->DT[i] != 0)
@@ -184,7 +184,7 @@ static int _get_more_prng_bytes(struct prng_context *ctx, int cont_test)
 	return 0;
 }
 
-/*                        */
+/* Our exported functions */
 static int get_prng_bytes(char *buf, size_t nbytes, struct prng_context *ctx,
 				int do_cont_test)
 {
@@ -200,9 +200,9 @@ static int get_prng_bytes(char *buf, size_t nbytes, struct prng_context *ctx,
 		goto done;
 
 	/*
-                                                             
-                      
-  */
+	 * If the FIXED_SIZE flag is on, only return whole blocks of
+	 * pseudo random data
+	 */
 	err = -EINVAL;
 	if (ctx->flags & PRNG_FIXED_SIZE) {
 		if (nbytes < DEFAULT_BLK_SZ)
@@ -226,8 +226,8 @@ remainder:
 	}
 
 	/*
-                                           
-  */
+	 * Copy any data less than an entire block
+	 */
 	if (byte_count < DEFAULT_BLK_SZ) {
 empty_rbuf:
 		for (; ctx->rand_data_valid < DEFAULT_BLK_SZ;
@@ -241,8 +241,8 @@ empty_rbuf:
 	}
 
 	/*
-                         
-  */
+	 * Now copy whole blocks
+	 */
 	for (; byte_count >= DEFAULT_BLK_SZ; byte_count -= DEFAULT_BLK_SZ) {
 		if (ctx->rand_data_valid == DEFAULT_BLK_SZ) {
 			if (_get_more_prng_bytes(ctx, do_cont_test) < 0) {
@@ -259,8 +259,8 @@ empty_rbuf:
 	}
 
 	/*
-                                                   
-  */
+	 * Now go back and get any remaining partial block
+	 */
 	if (byte_count)
 		goto remainder;
 
@@ -336,10 +336,10 @@ static int cprng_init(struct crypto_tfm *tfm)
 		return -EINVAL;
 
 	/*
-                                                              
-                                                               
-                                       
-  */
+	 * after allocation, we should always force the user to reset
+	 * so they don't inadvertently use the insecure default values
+	 * without specifying them intentially
+	 */
 	ctx->flags |= PRNG_NEED_RESET;
 	return 0;
 }
@@ -358,10 +358,10 @@ static int cprng_get_random(struct crypto_rng *tfm, u8 *rdata,
 }
 
 /*
-                                                               
-                                        
-                                                                     
-                                                      
+ *  This is the cprng_registered reset method the seed value is
+ *  interpreted as the tuple { V KEY DT}
+ *  V and KEY are required during reset, and DT is optional, detected
+ *  as being present by testing the length of the seed
  */
 static int cprng_reset(struct crypto_rng *tfm, u8 *seed, unsigned int slen)
 {
@@ -422,7 +422,7 @@ static int fips_cprng_reset(struct crypto_rng *tfm, u8 *seed, unsigned int slen)
 	if (slen < DEFAULT_PRNG_KSZ + DEFAULT_BLK_SZ)
 		return -EINVAL;
 
-	/*                                    */
+	/* fips strictly requires seed != key */
 	if (!memcmp(seed, key, DEFAULT_PRNG_KSZ))
 		return -EINVAL;
 
@@ -431,7 +431,7 @@ static int fips_cprng_reset(struct crypto_rng *tfm, u8 *seed, unsigned int slen)
 	if (!rc)
 		goto out;
 
-	/*                                 */
+	/* this primes our continuity test */
 	rc = get_prng_bytes(rdata, DEFAULT_BLK_SZ, prng, 0);
 	prng->rand_data_valid = DEFAULT_BLK_SZ;
 
@@ -460,7 +460,7 @@ static struct crypto_alg fips_rng_alg = {
 };
 #endif
 
-/*                      */
+/* Module initalization */
 static int __init prng_mod_init(void)
 {
 	int rc = 0;

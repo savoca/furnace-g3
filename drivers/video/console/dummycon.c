@@ -1,8 +1,8 @@
 /*
-                                                            
-  
-                                                                           
-                                                      
+ *  linux/drivers/video/dummycon.c -- A dummy console driver
+ *
+ *  To be used if there's no other console driver (e.g. for plain VGA text)
+ *  available, usually until fbcon takes console over.
  */
 
 #include <linux/types.h>
@@ -14,14 +14,14 @@
 #include <linux/module.h>
 
 /*
-                        
+ *  Dummy console driver
  */
 
 #if defined(__arm__)
 #define DUMMY_COLUMNS	screen_info.orig_video_cols
 #define DUMMY_ROWS	screen_info.orig_video_lines
 #elif defined(__hppa__)
-/*                                                                */
+/* set by Kconfig. Use 80x25 for 640x480 and 160x64 for 1280x1024 */
 #define DUMMY_COLUMNS	CONFIG_DUMMY_CONSOLE_COLUMNS
 #define DUMMY_ROWS	CONFIG_DUMMY_CONSOLE_ROWS
 #else
@@ -52,9 +52,9 @@ static int dummycon_dummy(void)
 #define DUMMY	(void *)dummycon_dummy
 
 /*
-                                                        
-  
-                                       
+ *  The console `switch' structure for the dummy console
+ *
+ *  Most of the operations are dummies.
  */
 
 const struct consw dummy_con = {

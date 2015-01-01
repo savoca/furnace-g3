@@ -22,4 +22,4 @@ int mbt_dataring_avail(unsigned int buffer_id);
 void mbt_dataring_flush(unsigned int buffer_id);
 int mbt_dataring_read(unsigned int buffer_id, char * buf, int len);
 int mbt_dataring_write(unsigned int buffer_id, const char * buf, int len);
-#endif /*                */
+#endif /*_MBT_DATARING_H_*/

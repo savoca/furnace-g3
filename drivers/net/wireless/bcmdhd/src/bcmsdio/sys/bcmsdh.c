@@ -25,11 +25,11 @@
  * $Id: bcmsdh.c 373331 2012-12-07 04:46:22Z $
  */
 
-/* 
-                 
+/**
+ * @file bcmsdh.c
  */
 
-/*                                                                           */
+/* ****************** BCMSDH Interface Functions *************************** */
 
 #include <typedefs.h>
 #include <bcmdevs.h>
@@ -39,28 +39,28 @@
 #include <siutils.h>
 #include <osl.h>
 
-#include <bcmsdh.h>	/*                                             */
-#include <bcmsdbus.h>	/*                                  */
-#include <sbsdio.h>	/*                                        */
+#include <bcmsdh.h>	/* BRCM API for SDIO clients (such as wl, dhd) */
+#include <bcmsdbus.h>	/* common SDIO/controller interface */
+#include <sbsdio.h>	/* SDIO device core hardware definitions. */
 
-#include <sdio.h>	/*                                */
+#include <sdio.h>	/* SDIO Device and Protocol Specs */
 
 #define SDIOH_API_ACCESS_RETRY_LIMIT	2
 const uint bcmsdh_msglevel = BCMSDH_ERROR_VAL;
 
-/* 
-                     
+/**
+ * BCMSDH API context
  */
 struct bcmsdh_info
 {
-	bool	init_success;	/*                                         */
-	void	*sdioh;		/*                   */
-	uint32  vendevid;	/*                                       */
+	bool	init_success;	/* underlying driver successfully attached */
+	void	*sdioh;		/* handler for sdioh */
+	uint32  vendevid;	/* Target Vendor and Device ID on SD bus */
 	osl_t   *osh;
-	bool	regfail;	/*                                             */
-	uint32	sbwad;		/*                               */
+	bool	regfail;	/* Save status of last reg_read/reg_write call */
+	uint32	sbwad;		/* Save backplane window address */
 };
-/*                              */
+/* local copy of bcm sd handler */
 bcmsdh_info_t * l_bcmsdh = NULL;
 
 #if defined(OOB_INTR_ONLY) && defined(HW_OOB)
@@ -74,14 +74,14 @@ bcmsdh_enable_hw_oob_intr(bcmsdh_info_t *sdh, bool enable)
 }
 #endif
 
-/*                                                   
-  
-                         
-                                      
-                                                         
-                                                  
-  
-                                                  
+/* Attach BCMSDH layer to SDIO Host Controller Driver
+ *
+ * @param osh OSL Handle.
+ * @param cfghdl Configuration Handle.
+ * @param regsva Virtual address of controller registers.
+ * @param irq Interrupt number of SDIO controller.
+ *
+ * @return bcmsdh_info_t Handle to BCMSDH context.
  */
 bcmsdh_info_t *
 bcmsdh_attach(osl_t *osh, void *cfghdl, void **regsva, uint irq)
@@ -94,7 +94,7 @@ bcmsdh_attach(osl_t *osh, void *cfghdl, void **regsva, uint irq)
 	}
 	bzero((char *)bcmsdh, sizeof(bcmsdh_info_t));
 
-	/*                          */
+	/* save the handler locally */
 	l_bcmsdh = bcmsdh;
 
 	if (!(bcmsdh->sdioh = sdioh_attach(osh, cfghdl, irq))) {
@@ -107,7 +107,7 @@ bcmsdh_attach(osl_t *osh, void *cfghdl, void **regsva, uint irq)
 
 	*regsva = (uint32 *)SI_ENUM_BASE;
 
-	/*                                  */
+	/* Report the BAR, to fix if needed */
 	bcmsdh->sbwad = SI_ENUM_BASE;
 	return bcmsdh;
 }
@@ -159,7 +159,7 @@ bcmsdh_intr_enable(void *sdh)
 	SDIOH_API_RC status;
 #ifdef BCMSPI_ANDROID
 	uint32 data;
-#endif /*                */
+#endif /* BCMSPI_ANDROID */
 	ASSERT(bcmsdh);
 
 	status = sdioh_interrupt_set(bcmsdh->sdioh, TRUE);
@@ -167,7 +167,7 @@ bcmsdh_intr_enable(void *sdh)
 	data = bcmsdh_cfg_read_word(sdh, 0, 4, NULL);
 	data |= 0xE0E70000;
 	bcmsdh_cfg_write_word(sdh, 0, 4, data, NULL);
-#endif /*                */
+#endif /* BCMSPI_ANDROID */
 	return (SDIOH_API_SUCCESS(status) ? 0 : BCME_ERROR);
 }
 
@@ -178,7 +178,7 @@ bcmsdh_intr_disable(void *sdh)
 	SDIOH_API_RC status;
 #ifdef BCMSPI_ANDROID
 	uint32 data;
-#endif /*                */
+#endif /* BCMSPI_ANDROID */
 	ASSERT(bcmsdh);
 
 	status = sdioh_interrupt_set(bcmsdh->sdioh, FALSE);
@@ -186,7 +186,7 @@ bcmsdh_intr_disable(void *sdh)
 	data = bcmsdh_cfg_read_word(sdh, 0, 4, NULL);
 	data &= ~0xE0E70000;
 	bcmsdh_cfg_write_word(sdh, 0, 4, data, NULL);
-#endif /*                */
+#endif /* BCMSPI_ANDROID */
 	return (SDIOH_API_SUCCESS(status) ? 0 : BCME_ERROR);
 }
 
@@ -229,17 +229,17 @@ bcmsdh_devremove_reg(void *sdh, bcmsdh_cb_fn_t fn, void *argh)
 {
 	ASSERT(sdh);
 
-	/*                   */
+	/* don't support yet */
 	return BCME_UNSUPPORTED;
 }
 
-/* 
-                                     
-                                
-                                                
-                                    
-                           
-                                                    
+/**
+ * Read from SDIO Configuration Space
+ * @param sdh SDIO Host context.
+ * @param func_num Function number to read from.
+ * @param addr Address to read from.
+ * @param err Error return.
+ * @return value read from SDIO configuration space.
  */
 uint8
 bcmsdh_cfg_read(void *sdh, uint fnc_num, uint32 addr, int *err)
@@ -258,7 +258,7 @@ bcmsdh_cfg_read(void *sdh, uint fnc_num, uint32 addr, int *err)
 
 #ifdef SDIOH_API_ACCESS_RETRY_LIMIT
 	do {
-		if (retry)	/*                                         */
+		if (retry)	/* wait for 1 ms till bus get settled down */
 			OSL_DELAY(1000);
 #endif
 	status = sdioh_cfg_read(bcmsdh->sdioh, fnc_num, addr, (uint8 *)&data);
@@ -290,7 +290,7 @@ bcmsdh_cfg_write(void *sdh, uint fnc_num, uint32 addr, uint8 data, int *err)
 
 #ifdef SDIOH_API_ACCESS_RETRY_LIMIT
 	do {
-		if (retry)	/*                                         */
+		if (retry)	/* wait for 1 ms till bus get settled down */
 			OSL_DELAY(1000);
 #endif
 	status = sdioh_cfg_write(bcmsdh->sdioh, fnc_num, addr, (uint8 *)&data);
@@ -371,7 +371,7 @@ bcmsdh_cis_read(void *sdh, uint func, uint8 *cis, uint length)
 	status = sdioh_cis_read(bcmsdh->sdioh, func, cis, length);
 
 	if (ascii) {
-		/*                                                                   */
+		/* Move binary bits to tmp and format them into the provided buffer. */
 		if ((tmp_buf = (uint8 *)MALLOC(bcmsdh->osh, length)) == NULL) {
 			BCMSDH_ERROR(("%s: out of memory\n", __FUNCTION__));
 			return BCME_NOMEM;
@@ -410,7 +410,7 @@ bcmsdhsdio_set_sbaddr_window(void *sdh, uint32 address, bool force_set)
 		if (!err)
 			bcmsdh->sbwad = bar0;
 		else
-			/*                              */
+			/* invalidate cached window var */
 			bcmsdh->sbwad = 0;
 
 	}
@@ -446,7 +446,7 @@ bcmsdh_reg_read(void *sdh, uint32 addr, uint size)
 
 	BCMSDH_INFO(("uint32data = 0x%x\n", word));
 
-	/*                                         */
+	/* if ok, return appropriately masked word */
 	if (SDIOH_API_SUCCESS(status)) {
 		switch (size) {
 			case sizeof(uint8):
@@ -461,7 +461,7 @@ bcmsdh_reg_read(void *sdh, uint32 addr, uint size)
 		}
 	}
 
-	/*                                            */
+	/* otherwise, bad sdio access or invalid size */
 	BCMSDH_ERROR(("%s: error reading addr 0x%04x size %d\n", __FUNCTION__, addr, size));
 	return 0xFFFFFFFF;
 }
@@ -522,7 +522,7 @@ bcmsdh_recv_buf(void *sdh, uint32 addr, uint fn, uint flags,
 	BCMSDH_INFO(("%s:fun = %d, addr = 0x%x, size = %d\n",
 	             __FUNCTION__, fn, addr, nbytes));
 
-	/*                           */
+	/* Async not implemented yet */
 	ASSERT(!(flags & SDIO_REQ_ASYNC));
 	if (flags & SDIO_REQ_ASYNC)
 		return BCME_UNSUPPORTED;
@@ -560,7 +560,7 @@ bcmsdh_send_buf(void *sdh, uint32 addr, uint fn, uint flags,
 	BCMSDH_INFO(("%s:fun = %d, addr = 0x%x, size = %d\n",
 	            __FUNCTION__, fn, addr, nbytes));
 
-	/*                           */
+	/* Async not implemented yet */
 	ASSERT(!(flags & SDIO_REQ_ASYNC));
 	if (flags & SDIO_REQ_ASYNC)
 		return BCME_UNSUPPORTED;
@@ -636,7 +636,7 @@ bcmsdh_waitlockfree(void *sdh)
 }
 
 
-#ifdef BCMSPI /*                                 */
+#ifdef BCMSPI /* 4329 gSPI won't have CIS reads. */
 int
 bcmsdh_query_device(void *sdh)
 {
@@ -654,7 +654,7 @@ bcmsdh_query_device(void *sdh)
 	bcmsdh->vendevid = (VENDOR_BROADCOM << 16) | 0;
 	return (bcmsdh->vendevid);
 }
-#endif /*             */
+#endif /* else BCMSPI */
 
 uint
 bcmsdh_query_iofnum(void *sdh)
@@ -681,7 +681,7 @@ void *bcmsdh_get_sdioh(bcmsdh_info_t *sdh)
 	return sdh->sdioh;
 }
 
-/*                                             */
+/* Function to pass device-status bits to DHD. */
 uint32
 bcmsdh_get_dstatus(void *sdh)
 {
@@ -691,7 +691,7 @@ bcmsdh_get_dstatus(void *sdh)
 	return sdioh_get_dstatus(sd);
 #else
 	return 0;
-#endif /*        */
+#endif /* BCMSPI */
 }
 uint32
 bcmsdh_cur_sbwad(void *sdh)
@@ -713,7 +713,7 @@ bcmsdh_chipinfo(void *sdh, uint32 chip, uint32 chiprev)
 	sdioh_chipinfo(sd, chip, chiprev);
 #else
 	return;
-#endif /*        */
+#endif /* BCMSPI */
 }
 
 #ifdef BCMSPI
@@ -725,7 +725,7 @@ bcmsdh_dwordmode(void *sdh, bool set)
 	sdioh_dwordmode(sd, set);
 	return;
 }
-#endif /*        */
+#endif /* BCMSPI */
 
 int
 bcmsdh_sleep(void *sdh, bool enab)
@@ -803,4 +803,4 @@ bcmsdh_glom_enabled(void)
 {
 	return (sdioh_glom_enabled());
 }
-#endif /*                 */
+#endif /* BCMSDIOH_TXGLOM */

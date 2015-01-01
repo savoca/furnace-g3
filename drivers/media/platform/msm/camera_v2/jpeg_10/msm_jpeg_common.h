@@ -36,4 +36,4 @@ enum JPEG_ROTATION {
 	JPEG_ROTATION_270
 };
 
-#endif /*                   */
+#endif /* MSM_JPEG_COMMON_H */

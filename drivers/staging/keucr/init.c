@@ -12,7 +12,7 @@
 #include "init.h"
 
 /*
-                   
+ * ENE_InitMedia():
  */
 int ENE_InitMedia(struct us_data *us)
 {
@@ -40,7 +40,7 @@ int ENE_InitMedia(struct us_data *us)
 }
 
 /*
-                    
+ * ENE_Read_BYTE() :
  */
 int ENE_Read_BYTE(struct us_data *us, WORD index, void *buf)
 {
@@ -60,7 +60,7 @@ int ENE_Read_BYTE(struct us_data *us, WORD index, void *buf)
 }
 
 /*
-              
+ *ENE_SMInit()
  */
 int ENE_SMInit(struct us_data *us)
 {
@@ -112,16 +112,16 @@ int ENE_SMInit(struct us_data *us)
 }
 
 /*
-                    
+ * ENE_LoadBinCode()
  */
 int ENE_LoadBinCode(struct us_data *us, BYTE flag)
 {
 	struct bulk_cb_wrap *bcb = (struct bulk_cb_wrap *) us->iobuf;
 	int result;
-	/*            */
+	/* void *buf; */
 	PBYTE buf;
 
-	/*                                                      */
+	/* printk(KERN_INFO "transport --- ENE_LoadBinCode\n"); */
 	if (us->BIN_FLAG == flag)
 		return USB_STOR_TRANSPORT_GOOD;
 
@@ -129,7 +129,7 @@ int ENE_LoadBinCode(struct us_data *us, BYTE flag)
 	if (buf == NULL)
 		return USB_STOR_TRANSPORT_ERROR;
 	switch (flag) {
-	/*        */
+	/* For SS */
 	case SM_INIT_PATTERN:
 		printk(KERN_INFO "SM_INIT_PATTERN\n");
 		memcpy(buf, SM_Init, 0x800);
@@ -154,7 +154,7 @@ int ENE_LoadBinCode(struct us_data *us, BYTE flag)
 }
 
 /*
-                     
+ * ENE_SendScsiCmd():
  */
 int ENE_SendScsiCmd(struct us_data *us, BYTE fDir, void *buf, int use_sg)
 {
@@ -166,8 +166,8 @@ int ENE_SendScsiCmd(struct us_data *us, BYTE fDir, void *buf, int use_sg)
 		     cswlen = 0, partial = 0;
 	unsigned int residue;
 
-	/*                                                      */
-	/*                          */
+	/* printk(KERN_INFO "transport --- ENE_SendScsiCmd\n"); */
+	/* send cmd to out endpoint */
 	result = usb_stor_bulk_transfer_buf(us, us->send_bulk_pipe,
 					    bcb, US_BULK_CB_WRAP_LEN, NULL);
 	if (result != USB_STOR_XFER_GOOD) {
@@ -183,7 +183,7 @@ int ENE_SendScsiCmd(struct us_data *us, BYTE fDir, void *buf, int use_sg)
 		else
 			pipe = us->send_bulk_pipe;
 
-		/*      */
+		/* Bulk */
 		if (use_sg)
 			result = usb_stor_bulk_srb(us, pipe, us->srb);
 		else
@@ -195,7 +195,7 @@ int ENE_SendScsiCmd(struct us_data *us, BYTE fDir, void *buf, int use_sg)
 		}
 	}
 
-	/*                           */
+	/* Get CSW for device status */
 	result = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe, bcs,
 						US_BULK_CS_WRAP_LEN, &cswlen);
 
@@ -206,7 +206,7 @@ int ENE_SendScsiCmd(struct us_data *us, BYTE fDir, void *buf, int use_sg)
 	}
 
 	if (result == USB_STOR_XFER_STALLED) {
-		/*                      */
+		/* get the status again */
 		printk(KERN_WARNING "Attempting to get CSW (2nd try)...\n");
 		result = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe,
 						bcs, US_BULK_CS_WRAP_LEN, NULL);
@@ -215,13 +215,13 @@ int ENE_SendScsiCmd(struct us_data *us, BYTE fDir, void *buf, int use_sg)
 	if (result != USB_STOR_XFER_GOOD)
 		return USB_STOR_TRANSPORT_ERROR;
 
-	/*                   */
+	/* check bulk status */
 	residue = le32_to_cpu(bcs->Residue);
 
 	/*
-                                                             
-                                                       
-  */
+	 * try to compute the actual residue, based on how much data
+	 * was really transferred and what the device tells us
+	 */
 	if (residue && !(us->fflags & US_FL_IGNORE_RESIDUE)) {
 		residue = min(residue, transfer_length);
 		if (us->srb)
@@ -236,7 +236,7 @@ int ENE_SendScsiCmd(struct us_data *us, BYTE fDir, void *buf, int use_sg)
 }
 
 /*
-                  
+ * ENE_Read_Data()
  */
 int ENE_Read_Data(struct us_data *us, void *buf, unsigned int length)
 {
@@ -244,8 +244,8 @@ int ENE_Read_Data(struct us_data *us, void *buf, unsigned int length)
 	struct bulk_cs_wrap *bcs = (struct bulk_cs_wrap *) us->iobuf;
 	int result;
 
-	/*                                                    */
-	/*                            */
+	/* printk(KERN_INFO "transport --- ENE_Read_Data\n"); */
+	/* set up the command wrapper */
 	memset(bcb, 0, sizeof(struct bulk_cb_wrap));
 	bcb->Signature = cpu_to_le32(US_BULK_CB_SIGN);
 	bcb->DataTransferLength = length;
@@ -254,19 +254,19 @@ int ENE_Read_Data(struct us_data *us, void *buf, unsigned int length)
 	bcb->CDB[2] = 0xFF;
 	bcb->CDB[3] = 0x81;
 
-	/*                          */
+	/* send cmd to out endpoint */
 	result = usb_stor_bulk_transfer_buf(us, us->send_bulk_pipe, bcb,
 						US_BULK_CB_WRAP_LEN, NULL);
 	if (result != USB_STOR_XFER_GOOD)
 		return USB_STOR_TRANSPORT_ERROR;
 
-	/*          */
+	/* R/W data */
 	result = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe,
 						buf, length, NULL);
 	if (result != USB_STOR_XFER_GOOD)
 		return USB_STOR_TRANSPORT_ERROR;
 
-	/*                           */
+	/* Get CSW for device status */
 	result = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe, bcs,
 						US_BULK_CS_WRAP_LEN, NULL);
 	if (result != USB_STOR_XFER_GOOD)
@@ -278,7 +278,7 @@ int ENE_Read_Data(struct us_data *us, void *buf, unsigned int length)
 }
 
 /*
-                    
+ * ENE_Write_Data():
  */
 int ENE_Write_Data(struct us_data *us, void *buf, unsigned int length)
 {
@@ -286,8 +286,8 @@ int ENE_Write_Data(struct us_data *us, void *buf, unsigned int length)
 	struct bulk_cs_wrap *bcs = (struct bulk_cs_wrap *) us->iobuf;
 	int result;
 
-	/*                                           */
-	/*                            */
+	/* printk("transport --- ENE_Write_Data\n"); */
+	/* set up the command wrapper */
 	memset(bcb, 0, sizeof(struct bulk_cb_wrap));
 	bcb->Signature = cpu_to_le32(US_BULK_CB_SIGN);
 	bcb->DataTransferLength = length;
@@ -296,19 +296,19 @@ int ENE_Write_Data(struct us_data *us, void *buf, unsigned int length)
 	bcb->CDB[2] = 0xFF;
 	bcb->CDB[3] = 0x81;
 
-	/*                          */
+	/* send cmd to out endpoint */
 	result = usb_stor_bulk_transfer_buf(us, us->send_bulk_pipe, bcb,
 						US_BULK_CB_WRAP_LEN, NULL);
 	if (result != USB_STOR_XFER_GOOD)
 		return USB_STOR_TRANSPORT_ERROR;
 
-	/*          */
+	/* R/W data */
 	result = usb_stor_bulk_transfer_buf(us, us->send_bulk_pipe,
 						buf, length, NULL);
 	if (result != USB_STOR_XFER_GOOD)
 		return USB_STOR_TRANSPORT_ERROR;
 
-	/*                           */
+	/* Get CSW for device status */
 	result = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe, bcs,
 						US_BULK_CS_WRAP_LEN, NULL);
 	if (result != USB_STOR_XFER_GOOD)
@@ -320,7 +320,7 @@ int ENE_Write_Data(struct us_data *us, void *buf, unsigned int length)
 }
 
 /*
-                        
+ * usb_stor_print_cmd():
  */
 void usb_stor_print_cmd(struct scsi_cmnd *srb)
 {
@@ -334,8 +334,8 @@ void usb_stor_print_cmd(struct scsi_cmnd *srb)
 
 	switch (cmd) {
 	case TEST_UNIT_READY:
-		/*                 
-                                                      */
+		/* printk(KERN_INFO
+			 "scsi cmd %X --- SCSIOP_TEST_UNIT_READY\n", cmd); */
 		break;
 	case INQUIRY:
 		printk(KERN_INFO "scsi cmd %X --- SCSIOP_INQUIRY\n", cmd);
@@ -350,14 +350,14 @@ void usb_stor_print_cmd(struct scsi_cmnd *srb)
 		printk(KERN_INFO "scsi cmd %X --- SCSIOP_READ_CAPACITY\n", cmd);
 		break;
 	case READ_10:
-		/*                  
-                                                        
-                       */
+		/*  printk(KERN_INFO
+			   "scsi cmd %X --- SCSIOP_READ,bn = %X, blen = %X\n"
+			   ,cmd, bn, blen); */
 		break;
 	case WRITE_10:
-		/*                 
-                                   
-                                             */
+		/* printk(KERN_INFO
+			  "scsi cmd %X --- SCSIOP_WRITE,
+			  bn = %X, blen = %X\n" , cmd, bn, blen); */
 		break;
 	case ALLOW_MEDIUM_REMOVAL:
 		printk(KERN_INFO

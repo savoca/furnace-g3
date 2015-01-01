@@ -28,7 +28,7 @@
 #include "nilfs.h"
 
 /*
-                             
+ * Extended buffer state bits
  */
 enum {
 	BH_NILFS_Allocated = BH_PrivateStart,
@@ -38,10 +38,10 @@ enum {
 	BH_NILFS_Redirected,
 };
 
-BUFFER_FNS(NILFS_Node, nilfs_node)		/*                    */
+BUFFER_FNS(NILFS_Node, nilfs_node)		/* nilfs node buffers */
 BUFFER_FNS(NILFS_Volatile, nilfs_volatile)
-BUFFER_FNS(NILFS_Checked, nilfs_checked)	/*                    */
-BUFFER_FNS(NILFS_Redirected, nilfs_redirected)	/*                      */
+BUFFER_FNS(NILFS_Checked, nilfs_checked)	/* buffer is verified */
+BUFFER_FNS(NILFS_Redirected, nilfs_redirected)	/* redirected to a copy */
 
 
 int __nilfs_clear_page_dirty(struct page *);
@@ -77,4 +77,4 @@ nilfs_page_get_nth_block(struct page *page, unsigned int count)
 	return bh;
 }
 
-#endif /*               */
+#endif /* _NILFS_PAGE_H */

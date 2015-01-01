@@ -25,13 +25,13 @@
  *
  **************************************************************************/
 /*
-                                                           
+ * Authors: Thomas Hellstrom <thellstrom-at-vmware-dot-com>
  */
 
 #ifndef _TTM_PLACEMENT_H_
 #define _TTM_PLACEMENT_H_
 /*
-                                     
+ * Memory regions for data placement.
  */
 
 #define TTM_PL_SYSTEM           0
@@ -58,13 +58,13 @@
 #define TTM_PL_MASK_MEM         0x0000FFFF
 
 /*
-                                           
-                                                       
-                
-                                                        
-                        
-                                                       
-                                             
+ * Other flags that affects data placement.
+ * TTM_PL_FLAG_CACHED indicates cache-coherent mappings
+ * if available.
+ * TTM_PL_FLAG_SHARED means that another application may
+ * reference the buffer.
+ * TTM_PL_FLAG_NO_EVICT means that the buffer may never
+ * be evicted to make room for other buffers.
  */
 
 #define TTM_PL_FLAG_CACHED      (1 << 16)
@@ -80,10 +80,10 @@
 #define TTM_PL_MASK_MEMTYPE     (TTM_PL_MASK_MEM | TTM_PL_MASK_CACHING)
 
 /*
-                                                      
-                                                          
-                                                           
-                                                 
+ * Access flags to be used for CPU- and GPU- mappings.
+ * The idea is that the TTM synchronization mechanism will
+ * allow concurrent READ access and exclusive write access.
+ * Currently GPU- and CPU accesses are exclusive.
  */
 
 #define TTM_ACCESS_READ         (1 << 0)

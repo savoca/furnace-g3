@@ -17,7 +17,7 @@
 #include <asm/pmu.h>
 
 /*
-                                                                       
+ * PMU locking to ensure mutual exclusion between different subsystems.
  */
 static unsigned long pmu_lock[BITS_TO_LONGS(ARM_NUM_PMU_DEVICES)];
 

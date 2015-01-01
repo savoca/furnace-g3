@@ -13,7 +13,7 @@
 #include <asm/io.h>
 
 /*
-                                
+ * Trivial page table functions.
  */
 #define pgd_present(pgd)	(1)
 #define pgd_none(pgd)		(0)
@@ -40,18 +40,18 @@ extern void paging_init(void);
 static inline int pte_file(pte_t pte) { return 0; }
 
 /*
-                                                              
-                                     
+ * ZERO_PAGE is a global shared page that is always zero: used
+ * for zero-mapped memory areas etc..
  */
 #define ZERO_PAGE(vaddr)	(virt_to_page(0))
 
 /*
-                                                                         
+ * These would be in other places but having them here reduces the diffs.
  */
 extern unsigned int kobjsize(const void *objp);
 
 /*
-                                      
+ * No page table caches to initialise.
  */
 #define pgtable_cache_init()	do { } while (0)
 
@@ -59,8 +59,8 @@ extern unsigned int kobjsize(const void *objp);
 		remap_pfn_range(vma, vaddr, pfn, size, prot)
 
 /*
-                                                           
-                                          
+ * All 32bit addresses are effectively valid for vmalloc...
+ * Sort of meaningless for non-VM targets.
  */
 #define	VMALLOC_START	0
 #define	VMALLOC_END	0xffffffff
@@ -69,4 +69,4 @@ extern unsigned int kobjsize(const void *objp);
 
 #define check_pgt_cache()	do { } while (0)
 
-#endif /*                      */
+#endif /* _M68KNOMMU_PGTABLE_H */

@@ -104,15 +104,15 @@ static int tcf_csum_cleanup(struct tc_action *a, int bind)
 	return tcf_hash_release(&p->common, bind, &csum_hash_info);
 }
 
-/* 
-                                                  
-                       
-                                       
-                               
-                           
-  
-                                                                       
-                                                         
+/**
+ * tcf_csum_skb_nextlayer - Get next layer pointer
+ * @skb: sk_buff to use
+ * @ihl: previous summed headers length
+ * @ipl: complete packet length
+ * @jhl: next header length
+ *
+ * Check the expected next layer availability in the specified sk_buff.
+ * Return the next layer pointer if pass, NULL otherwise.
  */
 static void *tcf_csum_skb_nextlayer(struct sk_buff *skb,
 				    unsigned int ihl, unsigned int ipl,
@@ -232,11 +232,11 @@ static int tcf_csum_ipv4_udp(struct sk_buff *skb, struct iphdr *iph,
 	u16 ul;
 
 	/*
-                                                               
-                                                                
-                                             
-                                  
-  */
+	 * Support both UDP and UDPLITE checksum algorithms, Don't use
+	 * udph->len to get the real length without any protocol check,
+	 * UDPLITE uses udph->len for another thing,
+	 * Use iph->tot_len, or just ipl.
+	 */
 
 	udph = tcf_csum_skb_nextlayer(skb, ihl, ipl, sizeof(*udph));
 	if (udph == NULL)
@@ -283,11 +283,11 @@ static int tcf_csum_ipv6_udp(struct sk_buff *skb, struct ipv6hdr *ip6h,
 	u16 ul;
 
 	/*
-                                                               
-                                                                
-                                             
-                                                            
-  */
+	 * Support both UDP and UDPLITE checksum algorithms, Don't use
+	 * udph->len to get the real length without any protocol check,
+	 * UDPLITE uses udph->len for another thing,
+	 * Use ip6h->payload_len + sizeof(*ip6h) ... , or just ipl.
+	 */
 
 	udph = tcf_csum_skb_nextlayer(skb, ihl, ipl, sizeof(*udph));
 	if (udph == NULL)
@@ -403,14 +403,14 @@ static int tcf_csum_ipv6_hopopts(struct ipv6_opt_hdr *ip6xh,
 		case IPV6_TLV_JUMBO:
 			optlen = xh[off + 1] + 2;
 			if (optlen != 6 || len < 6 || (off & 3) != 2)
-				/*                                     */
+				/* wrong jumbo option length/alignment */
 				return 0;
 			*pl = ntohl(*(__be32 *)(xh + off + 2));
 			goto done;
 		default:
 			optlen = xh[off + 1] + 2;
 			if (optlen > len)
-				/*                        */
+				/* ignore obscure options */
 				goto done;
 			break;
 		}

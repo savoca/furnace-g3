@@ -100,11 +100,11 @@ static int aes_get_sizes(void)
 }
 
 /*
-                                                                             
-  
-                                                                         
-                                     
-  
+ * valid_ecryptfs_desc - verify the description of a new/loaded encrypted key
+ *
+ * The description of a encrypted key with format 'ecryptfs' must contain
+ * exactly 16 hexadecimal characters.
+ *
  */
 static int valid_ecryptfs_desc(const char *ecryptfs_desc)
 {
@@ -128,16 +128,16 @@ static int valid_ecryptfs_desc(const char *ecryptfs_desc)
 }
 
 /*
-                                                                             
-  
-                                  
-                                
-  
-                                                                         
-                                                                            
-                                 
-  
-                                           
+ * valid_master_desc - verify the 'key-type:desc' of a new/updated master-key
+ *
+ * key-type:= "trusted:" | "user:"
+ * desc:= master-key description
+ *
+ * Verify that 'key-type' is valid and that 'desc' exists. On key update,
+ * only the master key description is permitted to change, not the key-type.
+ * The key-type remains constant.
+ *
+ * On success returns 0, otherwise -EINVAL.
  */
 static int valid_master_desc(const char *new_desc, const char *orig_desc)
 {
@@ -161,18 +161,18 @@ out:
 }
 
 /*
-                                         
-  
-                   
-                                                           
-                                                            
-                            
-                               
-  
-                                                                          
-                            
-  
-                                           
+ * datablob_parse - parse the keyctl data
+ *
+ * datablob format:
+ * new [<format>] <master-key name> <decrypted data length>
+ * load [<format>] <master-key name> <decrypted data length>
+ *     <encrypted iv + data>
+ * update <new-master-key name>
+ *
+ * Tokenizes a copy of the keyctl data, returning a pointer to each token,
+ * which is null terminated.
+ *
+ * On success returns 0, otherwise -EINVAL.
  */
 static int datablob_parse(char *datablob, const char **format,
 			  char **master_desc, char **decrypted_datalen,
@@ -191,7 +191,7 @@ static int datablob_parse(char *datablob, const char **format,
 	}
 	key_cmd = match_token(keyword, key_tokens, args);
 
-	/*                                         */
+	/* Get optional format: default | ecryptfs */
 	p = strsep(&datablob, " \t");
 	if (!p) {
 		pr_err("encrypted_key: insufficient parameters specified\n");
@@ -270,7 +270,7 @@ out:
 }
 
 /*
-                                                                           
+ * datablob_format - format as an ascii string, before copying to userspace
  */
 static char *datablob_format(struct encrypted_key_payload *epayload,
 			     size_t asciiblob_len)
@@ -286,11 +286,11 @@ static char *datablob_format(struct encrypted_key_payload *epayload,
 
 	ascii_buf[asciiblob_len] = '\0';
 
-	/*                                               */
+	/* copy datablob master_desc and datalen strings */
 	len = sprintf(ascii_buf, "%s %s %s ", epayload->format,
 		      epayload->master_desc, epayload->datalen);
 
-	/*                                                              */
+	/* convert the hex encoded iv, encrypted-data and HMAC to ascii */
 	bufp = &ascii_buf[len];
 	for (i = 0; i < (asciiblob_len - len) / 2; i++)
 		bufp = hex_byte_pack(bufp, iv[i]);
@@ -299,9 +299,9 @@ out:
 }
 
 /*
-                                          
-  
-                                                               
+ * request_user_key - request the user key
+ *
+ * Use a user provided key to encrypt/decrypt an encrypted-key.
  */
 static struct key *request_user_key(const char *master_desc, u8 **master_key,
 				    size_t *master_keylen)
@@ -372,7 +372,7 @@ static int calc_hash(u8 *digest, const u8 *buf, unsigned int buflen)
 
 enum derived_key_type { ENC_KEY, AUTH_KEY };
 
-/*                                                       */
+/* Derive authentication/encryption key from trusted key */
 static int get_derived_key(u8 *derived_key, enum derived_key_type key_type,
 			   const u8 *master_key, size_t master_keylen)
 {
@@ -460,7 +460,7 @@ out:
 	return mkey;
 }
 
-/*                                                             */
+/* Before returning data to userspace, encrypt decrypted data. */
 static int derived_key_encrypt(struct encrypted_key_payload *epayload,
 			       const u8 *derived_key,
 			       unsigned int derived_keylen)
@@ -521,7 +521,7 @@ out:
 	return ret;
 }
 
-/*                                             */
+/* verify HMAC before decrypting encrypted key */
 static int datablob_hmac_verify(struct encrypted_key_payload *epayload,
 				const u8 *format, const u8 *master_key,
 				size_t master_keylen)
@@ -594,7 +594,7 @@ out:
 	return ret;
 }
 
-/*                                                 */
+/* Allocate memory for decrypted key and datablob. */
 static struct encrypted_key_payload *encrypted_key_alloc(struct key *key,
 							 const char *format,
 							 const char *master_desc,
@@ -733,10 +733,10 @@ static void __ekey_init(struct encrypted_key_payload *epayload,
 }
 
 /*
-                                               
-  
-                                                              
-                                                         
+ * encrypted_init - initialize an encrypted key
+ *
+ * For a new key, use a random number for both the iv and data
+ * itself.  For an old key, decrypt the hex encoded data.
  */
 static int encrypted_init(struct encrypted_key_payload *epayload,
 			  const char *key_desc, const char *format,
@@ -766,12 +766,12 @@ static int encrypted_init(struct encrypted_key_payload *epayload,
 }
 
 /*
-                                                       
-  
-                                                                       
-                                   
-  
-                                                
+ * encrypted_instantiate - instantiate an encrypted key
+ *
+ * Decrypt an existing encrypted datablob or create a new encrypted key
+ * based on a kernel random number.
+ *
+ * On success, return 0. Otherwise return errno.
  */
 static int encrypted_instantiate(struct key *key, const void *data,
 				 size_t datalen)
@@ -826,13 +826,13 @@ static void encrypted_rcu_free(struct rcu_head *rcu)
 }
 
 /*
-                                                       
-  
-                                                                   
-                                                                
-                          
-  
-                                                
+ * encrypted_update - update the master key description
+ *
+ * Change the master key description for an existing encrypted key.
+ * The next read will return an encrypted datablob using the new
+ * master key description.
+ *
+ * On success, return 0. Otherwise return errno.
  */
 static int encrypted_update(struct key *key, const void *data, size_t datalen)
 {
@@ -882,12 +882,12 @@ out:
 }
 
 /*
-                                                                   
-  
-                                    
-                                                                            
-  
-                                                                   
+ * encrypted_read - format and copy the encrypted data to userspace
+ *
+ * The resulting datablob format is:
+ * <master-key name> <decrypted data length> <encrypted iv> <encrypted data>
+ *
+ * On success, return to userspace the encrypted key datablob size.
  */
 static long encrypted_read(const struct key *key, char __user *buffer,
 			   size_t buflen)
@@ -903,7 +903,7 @@ static long encrypted_read(const struct key *key, char __user *buffer,
 
 	epayload = rcu_dereference_key(key);
 
-	/*                                                               */
+	/* returns the hex encoded iv, encrypted-data, and hmac as ascii */
 	asciiblob_len = epayload->datablob_len + ivsize + 1
 	    + roundup(epayload->decrypted_datalen, blksize)
 	    + (HASH_SIZE * 2);
@@ -948,10 +948,10 @@ out:
 }
 
 /*
-                                                                       
-  
-                                                                    
-            
+ * encrypted_destroy - before freeing the key, clear the decrypted data
+ *
+ * Before freeing the key, clear the memory containing the decrypted
+ * key data.
  */
 static void encrypted_destroy(struct key *key)
 {

@@ -38,7 +38,7 @@
 #include <linux/completion.h>
 #include <linux/dma-mapping.h>
 #include <linux/blkdev.h>
-#include <linux/delay.h> /*                  */
+#include <linux/delay.h> /* ssleep prototype */
 #include <linux/kthread.h>
 #include <linux/semaphore.h>
 #include <asm/uaccess.h>
@@ -46,13 +46,13 @@
 
 #include "aacraid.h"
 
-/* 
-                                             
-                                   
-                                    
-  
-                                                                    
-           
+/**
+ *	ioctl_send_fib	-	send a FIB from userspace
+ *	@dev:	adapter is being processed
+ *	@arg:	arguments to the ioctl call
+ *
+ *	This routine sends a fib to the adapter on behalf of a user level
+ *	program.
  */
 # define AAC_DEBUG_PREAMBLE	KERN_INFO
 # define AAC_DEBUG_POSTAMBLE
@@ -76,17 +76,17 @@ static int ioctl_send_fib(struct aac_dev * dev, void __user *arg)
 
 	kfib = fibptr->hw_fib_va;
 	/*
-                                                                 
-  */
+	 *	First copy in the header so that we can check the size field.
+	 */
 	if (copy_from_user((void *)kfib, arg, sizeof(struct aac_fibhdr))) {
 		aac_fib_free(fibptr);
 		return -EFAULT;
 	}
 	/*
-                                                                 
-                                                               
-                         
-  */
+	 *	Since we copy based on the fib header size, make sure that we
+	 *	will not overrun the buffer when we copy the memory. Return
+	 *	an error if we would.
+	 */
 	size = le16_to_cpu(kfib->header.Size) + sizeof(struct aac_fibhdr);
 	if (size < le16_to_cpu(kfib->header.SenderSize))
 		size = le16_to_cpu(kfib->header.SenderSize);
@@ -104,7 +104,7 @@ static int ioctl_send_fib(struct aac_dev * dev, void __user *arg)
 			goto cleanup;
 		}
 
-		/*                     */
+		/* Highjack the hw_fib */
 		hw_fib = fibptr->hw_fib_va;
 		hw_fib_pa = fibptr->hw_fib_pa;
 		fibptr->hw_fib_va = kfib;
@@ -121,9 +121,9 @@ static int ioctl_send_fib(struct aac_dev * dev, void __user *arg)
 	if (kfib->header.Command == cpu_to_le16(TakeABreakPt)) {
 		aac_adapter_interrupt(dev);
 		/*
-                                                                   
-                                
-   */
+		 * Since we didn't really send a fib, zero out the state to allow
+		 * cleanup code not to assert.
+		 */
 		kfib->header.XferState = 0;
 	} else {
 		retval = aac_fib_send(le16_to_cpu(kfib->header.Command), fibptr,
@@ -138,12 +138,12 @@ static int ioctl_send_fib(struct aac_dev * dev, void __user *arg)
 		}
 	}
 	/*
-                                                                   
-                                                                 
-                                                                   
-                                                                    
-                                         
-  */
+	 *	Make sure that the size returned by the adapter (which includes
+	 *	the header) is less than or equal to the size of a fib, so we
+	 *	don't corrupt application data. Then copy that size to the user
+	 *	buffer. (Don't try to add the header information again, since it
+	 *	was already included by the adapter.)
+	 */
 
 	retval = 0;
 	if (copy_to_user(arg, (void *)kfib, size))
@@ -159,11 +159,11 @@ cleanup:
 	return retval;
 }
 
-/* 
-                                         
-  
-                                                                               
-                           
+/**
+ *	open_getadapter_fib	-	Get the next fib
+ *
+ *	This routine will get the next Fib, if available, from the AdapterFibContext
+ *	passed in from the user.
  */
 
 static int open_getadapter_fib(struct aac_dev * dev, void __user *arg)
@@ -182,35 +182,35 @@ static int open_getadapter_fib(struct aac_dev * dev, void __user *arg)
 		fibctx->type = FSAFS_NTC_GET_ADAPTER_FIB_CONTEXT;
 		fibctx->size = sizeof(struct aac_fib_context);
 		/*
-                                                          
-                                                              
-                                                             
-                                                               
-   */
+		 *	Yes yes, I know this could be an index, but we have a
+		 * better guarantee of uniqueness for the locked loop below.
+		 * Without the aid of a persistent history, this also helps
+		 * reduce the chance that the opaque context would be reused.
+		 */
 		fibctx->unique = (u32)((ulong)fibctx & 0xFFFFFFFF);
 		/*
-                                                        
-   */
+		 *	Initialize the mutex used to wait for the next AIF.
+		 */
 		sema_init(&fibctx->wait_sem, 0);
 		fibctx->wait = 0;
 		/*
-                                                     
-                   
-   */
+		 *	Initialize the fibs and set the count of fibs on
+		 *	the list to 0.
+		 */
 		fibctx->count = 0;
 		INIT_LIST_HEAD(&fibctx->fib_list);
 		fibctx->jiffies = jiffies/HZ;
 		/*
-                                            
-                            
-   */
+		 *	Now add this context onto the adapter's
+		 *	AdapterFibContext list.
+		 */
 		spin_lock_irqsave(&dev->fib_lock, flags);
-		/*                                         */
+		/* Ensure that we have a unique identifier */
 		entry = dev->fib_list.next;
 		while (entry != &dev->fib_list) {
 			context = list_entry(entry, struct aac_fib_context, next);
 			if (context->unique == fibctx->unique) {
-				/*                      */
+				/* Not unique (32 bits) */
 				fibctx->unique++;
 				entry = dev->fib_list.next;
 			} else {
@@ -229,13 +229,13 @@ static int open_getadapter_fib(struct aac_dev * dev, void __user *arg)
 	return status;
 }
 
-/* 
-                                         
-                       
-                       
-  
-                                                                               
-                           
+/**
+ *	next_getadapter_fib	-	get the next fib
+ *	@dev: adapter to use
+ *	@arg: ioctl argument
+ *
+ *	This routine will get the next Fib, if available, from the AdapterFibContext
+ *	passed in from the user.
  */
 
 static int next_getadapter_fib(struct aac_dev * dev, void __user *arg)
@@ -250,11 +250,11 @@ static int next_getadapter_fib(struct aac_dev * dev, void __user *arg)
 	if(copy_from_user((void *)&f, arg, sizeof(struct fib_ioctl)))
 		return -EFAULT;
 	/*
-                                                                  
-   
-                                                                 
-                                      
-  */
+	 *	Verify that the HANDLE passed in was a valid AdapterFibContext
+	 *
+	 *	Search the list of AdapterFibContext addresses on the adapter
+	 *	to be sure this is a valid address
+	 */
 	spin_lock_irqsave(&dev->fib_lock, flags);
 	entry = dev->fib_list.next;
 	fibctx = NULL;
@@ -262,9 +262,9 @@ static int next_getadapter_fib(struct aac_dev * dev, void __user *arg)
 	while (entry != &dev->fib_list) {
 		fibctx = list_entry(entry, struct aac_fib_context, next);
 		/*
-                                                             
-   */
-		if (fibctx->unique == f.fibctx) { /*                   */
+		 *	Extract the AdapterFibContext from the Input parameters.
+		 */
+		if (fibctx->unique == f.fibctx) { /* We found a winner */
 			break;
 		}
 		entry = entry->next;
@@ -284,14 +284,14 @@ static int next_getadapter_fib(struct aac_dev * dev, void __user *arg)
 	}
 	status = 0;
 	/*
-                                                                 
-           
-  */
+	 *	If there are no fibs to send back, then either wait or return
+	 *	-EAGAIN
+	 */
 return_fib:
 	if (!list_empty(&fibctx->fib_list)) {
 		/*
-                                    
-   */
+		 *	Pull the next fib from the fibs
+		 */
 		entry = fibctx->fib_list.next;
 		list_del(entry);
 
@@ -304,17 +304,17 @@ return_fib:
 			return -EFAULT;
 		}
 		/*
-                                                     
-   */
+		 *	Free the space occupied by this copy of the fib.
+		 */
 		kfree(fib->hw_fib_va);
 		kfree(fib);
 		status = 0;
 	} else {
 		spin_unlock_irqrestore(&dev->fib_lock, flags);
-		/*                                                      */
+		/* If someone killed the AIF aacraid thread, restart it */
 		status = !dev->aif_thread;
 		if (status && !dev->in_reset && dev->queues && dev->fsa_dev) {
-			/*                                */
+			/* Be paranoid, be very paranoid! */
 			kthread_stop(dev->thread);
 			ssleep(1);
 			dev->aif_thread = 0;
@@ -325,7 +325,7 @@ return_fib:
 			if(down_interruptible(&fibctx->wait_sem) < 0) {
 				status = -ERESTARTSYS;
 			} else {
-				/*                      */
+				/* Lock again and retry */
 				spin_lock_irqsave(&dev->fib_lock, flags);
 				goto return_fib;
 			}
@@ -342,44 +342,44 @@ int aac_close_fib_context(struct aac_dev * dev, struct aac_fib_context * fibctx)
 	struct fib *fib;
 
 	/*
-                                                    
-  */
+	 *	First free any FIBs that have not been consumed.
+	 */
 	while (!list_empty(&fibctx->fib_list)) {
 		struct list_head * entry;
 		/*
-                                    
-   */
+		 *	Pull the next fib from the fibs
+		 */
 		entry = fibctx->fib_list.next;
 		list_del(entry);
 		fib = list_entry(entry, struct fib, fiblink);
 		fibctx->count--;
 		/*
-                                                     
-   */
+		 *	Free the space occupied by this copy of the fib.
+		 */
 		kfree(fib->hw_fib_va);
 		kfree(fib);
 	}
 	/*
-                                                      
-  */
+	 *	Remove the Context from the AdapterFibContext List
+	 */
 	list_del(&fibctx->next);
 	/*
-                      
-  */
+	 *	Invalidate context
+	 */
 	fibctx->type = 0;
 	/*
-                                          
-  */
+	 *	Free the space occupied by the Context
+	 */
 	kfree(fibctx);
 	return 0;
 }
 
-/* 
-                                                     
-                
-                        
-  
-                                                                   
+/**
+ *	close_getadapter_fib	-	close down user fib context
+ *	@dev: adapter
+ *	@arg: ioctl arguments
+ *
+ *	This routine will close down the fibctx passed in from the user.
  */
 
 static int close_getadapter_fib(struct aac_dev * dev, void __user *arg)
@@ -390,11 +390,11 @@ static int close_getadapter_fib(struct aac_dev * dev, void __user *arg)
 	struct list_head * entry;
 
 	/*
-                                                                  
-   
-                                                                 
-                                      
-  */
+	 *	Verify that the HANDLE passed in was a valid AdapterFibContext
+	 *
+	 *	Search the list of AdapterFibContext addresses on the adapter
+	 *	to be sure this is a valid address
+	 */
 
 	entry = dev->fib_list.next;
 	fibctx = NULL;
@@ -402,16 +402,16 @@ static int close_getadapter_fib(struct aac_dev * dev, void __user *arg)
 	while(entry != &dev->fib_list) {
 		fibctx = list_entry(entry, struct aac_fib_context, next);
 		/*
-                                                 
-   */
-		if (fibctx->unique == (u32)(uintptr_t)arg) /*                   */
+		 *	Extract the fibctx from the input parameters
+		 */
+		if (fibctx->unique == (u32)(uintptr_t)arg) /* We found a winner */
 			break;
 		entry = entry->next;
 		fibctx = NULL;
 	}
 
 	if (!fibctx)
-		return 0; /*              */
+		return 0; /* Already gone */
 
 	if((fibctx->type != FSAFS_NTC_GET_ADAPTER_FIB_CONTEXT) ||
 		 (fibctx->size != sizeof(struct aac_fib_context)))
@@ -422,14 +422,14 @@ static int close_getadapter_fib(struct aac_dev * dev, void __user *arg)
 	return status;
 }
 
-/* 
-                                               
-                
-                        
-  
-                                           
-                                                                        
-          
+/**
+ *	check_revision	-	close down user fib context
+ *	@dev: adapter
+ *	@arg: ioctl arguments
+ *
+ *	This routine returns the driver version.
+ *	Under Linux, there have been no version incompatibilities, so this is
+ *	simple!
  */
 
 static int check_revision(struct aac_dev *dev, void __user *arg)
@@ -456,10 +456,10 @@ static int check_revision(struct aac_dev *dev, void __user *arg)
 }
 
 
-/* 
-  
-                   
-  
+/**
+ *
+ * aac_send_raw_scb
+ *
  */
 
 static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
@@ -492,8 +492,8 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 		return -EPERM;
 	}
 	/*
-                                                          
-  */
+	 *	Allocate and initialize a Fib then setup a SRB command
+	 */
 	if (!(srbfib = aac_fib_alloc(dev))) {
 		return -ENOMEM;
 	}
@@ -501,7 +501,7 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 
 	srbcmd = (struct aac_srb*) fib_data(srbfib);
 
-	memset(sg_list, 0, sizeof(sg_list)); /*                        */
+	memset(sg_list, 0, sizeof(sg_list)); /* cleanup may take issue */
 	if(copy_from_user(&fibsize, &user_srb->count,sizeof(u32))){
 		dprintk((KERN_DEBUG"aacraid: Could not copy data size from user\n"));
 		rcode = -EFAULT;
@@ -527,16 +527,16 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 
 	user_reply = arg+fibsize;
 
-	flags = user_srbcmd->flags; /*                        */
-	//                                            
+	flags = user_srbcmd->flags; /* from user in cpu order */
+	// Fix up srb for endian and force some values
 
-	srbcmd->function = cpu_to_le32(SRBF_ExecuteScsi);	//           
+	srbcmd->function = cpu_to_le32(SRBF_ExecuteScsi);	// Force this
 	srbcmd->channel	 = cpu_to_le32(user_srbcmd->channel);
 	srbcmd->id	 = cpu_to_le32(user_srbcmd->id);
 	srbcmd->lun	 = cpu_to_le32(user_srbcmd->lun);
 	srbcmd->timeout	 = cpu_to_le32(user_srbcmd->timeout);
 	srbcmd->flags	 = cpu_to_le32(flags);
-	srbcmd->retry_limit = 0; //                   
+	srbcmd->retry_limit = 0; // Obsolete parameter
 	srbcmd->cdb_size = cpu_to_le32(user_srbcmd->cdb_size);
 	memcpy(srbcmd->cdb, user_srbcmd->cdb, sizeof(srbcmd->cdb));
 
@@ -563,7 +563,7 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 		((user_srbcmd->sg.count & 0xff) * sizeof(struct sgentry));
 	actual_fibsize64 = actual_fibsize + (user_srbcmd->sg.count & 0xff) *
 	  (sizeof(struct sgentry64) - sizeof(struct sgentry));
-	/*                                           */
+	/* User made a mistake - should not continue */
 	if ((actual_fibsize != fibsize) && (actual_fibsize64 != fibsize)) {
 		dprintk((KERN_DEBUG"aacraid: Bad Size specified in "
 		  "Raw SRB command calculated fibsize=%lu;%lu "
@@ -586,8 +586,8 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 		struct sgmap64* psg = (struct sgmap64*)&srbcmd->sg;
 
 		/*
-                                                         
-   */
+		 * This should also catch if user used the 32 bit sgmap
+		 */
 		if (actual_fibsize64 == fibsize) {
 			actual_fibsize = actual_fibsize64;
 			for (i = 0; i < upsg->count; i++) {
@@ -601,7 +601,7 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 					rcode = -EINVAL;
 					goto cleanup;
 				}
-				/*                                      */
+				/* Does this really need to be GFP_DMA? */
 				p = kmalloc(upsg->sg[i].count,GFP_KERNEL|__GFP_DMA);
 				if(!p) {
 					dprintk((KERN_DEBUG"aacraid: Could not allocate SG buffer - size = %d buffer number %d of %d\n",
@@ -612,7 +612,7 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 				addr = (u64)upsg->sg[i].addr[0];
 				addr += ((u64)upsg->sg[i].addr[1]) << 32;
 				sg_user[i] = (void __user *)(uintptr_t)addr;
-				sg_list[i] = p; //                              
+				sg_list[i] = p; // save so we can clean up later
 				sg_indx = i;
 
 				if (flags & SRB_DataOut) {
@@ -654,7 +654,7 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 					rcode = -EINVAL;
 					goto cleanup;
 				}
-				/*                                      */
+				/* Does this really need to be GFP_DMA? */
 				p = kmalloc(usg->sg[i].count,GFP_KERNEL|__GFP_DMA);
 				if(!p) {
 					dprintk((KERN_DEBUG "aacraid: Could not allocate SG buffer - size = %d buffer number %d of %d\n",
@@ -664,7 +664,7 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 					goto cleanup;
 				}
 				sg_user[i] = (void __user *)(uintptr_t)usg->sg[i].addr;
-				sg_list[i] = p; //                              
+				sg_list[i] = p; // save so we can clean up later
 				sg_indx = i;
 
 				if (flags & SRB_DataOut) {
@@ -704,7 +704,7 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 					rcode = -EINVAL;
 					goto cleanup;
 				}
-				/*                                      */
+				/* Does this really need to be GFP_DMA? */
 				p = kmalloc(usg->sg[i].count,GFP_KERNEL|__GFP_DMA);
 				if(!p) {
 					dprintk((KERN_DEBUG"aacraid: Could not allocate SG buffer - size = %d buffer number %d of %d\n",
@@ -715,7 +715,7 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 				addr = (u64)usg->sg[i].addr[0];
 				addr += ((u64)usg->sg[i].addr[1]) << 32;
 				sg_user[i] = (void __user *)addr;
-				sg_list[i] = p; //                              
+				sg_list[i] = p; // save so we can clean up later
 				sg_indx = i;
 
 				if (flags & SRB_DataOut) {
@@ -751,7 +751,7 @@ static int aac_send_raw_srb(struct aac_dev* dev, void __user * arg)
 					goto cleanup;
 				}
 				sg_user[i] = (void __user *)(uintptr_t)upsg->sg[i].addr;
-				sg_list[i] = p; //                              
+				sg_list[i] = p; // save so we can clean up later
 				sg_indx = i;
 
 				if (flags & SRB_DataOut) {
@@ -846,8 +846,8 @@ int aac_do_ioctl(struct aac_dev * dev, int cmd, void __user *arg)
 	int status;
 
 	/*
-                        
-  */
+	 *	HBA gets first crack
+	 */
 
 	status = aac_dev_ioctl(dev, cmd, arg);
 	if (status != -ENOTTY)

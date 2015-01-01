@@ -32,7 +32,7 @@
 static DEFINE_MUTEX(cbe_switch_mutex);
 
 
-/*                                              */
+/* the CBE supports an 8 step frequency scaling */
 static struct cpufreq_frequency_table cbe_freqs[] = {
 	{1,	0},
 	{2,	0},
@@ -46,7 +46,7 @@ static struct cpufreq_frequency_table cbe_freqs[] = {
 };
 
 /*
-                              
+ * hardware specific functions
  */
 
 static int set_pmode(unsigned int cpu, unsigned int slow_mode)
@@ -64,7 +64,7 @@ static int set_pmode(unsigned int cpu, unsigned int slow_mode)
 }
 
 /*
-                    
+ * cpufreq functions
  */
 
 static int cbe_cpufreq_cpu_init(struct cpufreq_policy *policy)
@@ -82,8 +82,8 @@ static int cbe_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	pr_debug("init cpufreq on CPU %d\n", policy->cpu);
 
 	/*
-                                                    
-  */
+	 * Let's check we can actually get to the CELL regs
+	 */
 	if (!cbe_get_cpu_pmd_regs(policy->cpu) ||
 	    !cbe_get_cpu_mic_tm_regs(policy->cpu)) {
 		pr_info("invalid CBE regs pointers for cpufreq\n");
@@ -97,20 +97,20 @@ static int cbe_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	if (!max_freqp)
 		return -EINVAL;
 
-	/*                         */
+	/* we need the freq in kHz */
 	max_freq = *max_freqp / 1000;
 
 	pr_debug("max clock-frequency is at %u kHz\n", max_freq);
 	pr_debug("initializing frequency table\n");
 
-	/*                            */
+	/* initialize frequency table */
 	for (i=0; cbe_freqs[i].frequency!=CPUFREQ_TABLE_END; i++) {
 		cbe_freqs[i].frequency = max_freq / cbe_freqs[i].index;
 		pr_debug("%d: %d\n", i, cbe_freqs[i].frequency);
 	}
 
-	/*                                                     
-                    */
+	/* if DEBUG is enabled set_pmode() measures the latency
+	 * of a transition */
 	policy->cpuinfo.transition_latency = 25000;
 
 	cur_pmode = cbe_cpufreq_get_pmode(policy->cpu);
@@ -124,8 +124,8 @@ static int cbe_cpufreq_cpu_init(struct cpufreq_policy *policy)
 
 	cpufreq_frequency_table_get_attr(cbe_freqs, policy->cpu);
 
-	/*                                      
-                                              */
+	/* this ensures that policy->cpuinfo_min
+	 * and policy->cpuinfo_max are set correctly */
 	return cpufreq_frequency_table_cpuinfo(policy, cbe_freqs);
 }
 
@@ -186,7 +186,7 @@ static struct cpufreq_driver cbe_cpufreq_driver = {
 };
 
 /*
-                         
+ * module init and destoy
  */
 
 static int __init cbe_cpufreq_init(void)

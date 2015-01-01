@@ -41,17 +41,17 @@
 #include <linux/ctype.h>
 
 
-/*             */
+/* Definitions */
 #define strtoul(nptr, endptr, base) bcm_strtoul((nptr), (endptr), (base))
 
 #ifndef CONFIG_BCMDHD_CONFIG_PATH
 #define CONFIG_BCMDHD_CONFIG_PATH "/data/misc/wifi/config"
 #endif
 
-/*                  */
+/* Global variables */
 bool g_pm_control;
 
-/*           */
+/* Functions */
 int dhd_preinit_config(dhd_pub_t *dhd, int ifidx);
 
 #if defined(CUSTOMER_HW4)
@@ -59,19 +59,19 @@ int dhd_preinit_config(dhd_pub_t *dhd, int ifidx);
 void *wifi_get_country_code(char *ccode);
 #else
 void *wifi_get_country_code(char *ccode) { return NULL; }
-#endif /*                          */
-#endif /*              */
+#endif /* CONFIG_WIFI_CONTROL_FUNC */
+#endif /* CUSTOMER_HW4 */
 
 struct cntry_locales_custom {
-	char iso_abbrev[WLC_CNTRY_BUF_SZ]; /*                                 */
-	char custom_locale[WLC_CNTRY_BUF_SZ]; /*                        */
-	int32 custom_locale_rev; /*                                 */
+	char iso_abbrev[WLC_CNTRY_BUF_SZ]; /* ISO 3166-1 country abbreviation */
+	char custom_locale[WLC_CNTRY_BUF_SZ]; /* Custom firmware locale */
+	int32 custom_locale_rev; /* Custom local revisin default -1 */
 };
 
-/*                      */
+/* Locale table for sec */
 const struct cntry_locales_custom translate_custom_table[] = {
 #if defined(BCM4330_CHIP) || defined(BCM4334_CHIP) || defined(BCM43241_CHIP)
-	/*                 */
+	/* 4330/4334/43241 */
 	{"AR", "AR", 1},
 	{"AT", "AT", 1},
 	{"AU", "AU", 2},
@@ -115,18 +115,18 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"SK", "SK", 1},
 	{"TW", "TW", 2},
 #ifdef BCM4330_CHIP
-	{"",   "XZ", 1},	/*                                               */
-	{"IR", "XZ", 1},	/*                                                          */
-	{"SD", "XZ", 1},	/*                                    */
-	{"SY", "XZ", 1},	/*                                                   */
-	{"GL", "XZ", 1},	/*                                        */
-	{"PS", "XZ", 1},	/*                                                              */
-	{"TL", "XZ", 1},	/*                                                       */
-	{"MH", "XZ", 1},	/*                                               */
-	{"JO", "XZ", 1},	/*                                     */
-	{"PG", "XZ", 1},	/*                                               */
-	{"SA", "XZ", 1},	/*                                           */
-	{"AF", "XZ", 1},	/*                                          */
+	{"",   "XZ", 1},	/* Universal if Country code is unknown or empty */
+	{"IR", "XZ", 1},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
+	{"SD", "XZ", 1},	/* Universal if Country code is SUDAN */
+	{"SY", "XZ", 1},	/* Universal if Country code is SYRIAN ARAB REPUBLIC */
+	{"GL", "XZ", 1},	/* Universal if Country code is GREENLAND */
+	{"PS", "XZ", 1},	/* Universal if Country code is PALESTINIAN TERRITORY, OCCUPIED */
+	{"TL", "XZ", 1},	/* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
+	{"MH", "XZ", 1},	/* Universal if Country code is MARSHALL ISLANDS */
+	{"JO", "XZ", 1},	/* Universal if Country code is Jordan */
+	{"PG", "XZ", 1},	/* Universal if Country code is Papua New Guinea */
+	{"SA", "XZ", 1},	/* Universal if Country code is Saudi Arabia */
+	{"AF", "XZ", 1},	/* Universal if Country code is Afghanistan */
 	{"US", "US", 5},
 	{"UA", "UY", 0},
 	{"AD", "AL", 0},
@@ -159,15 +159,15 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"CN", "CL", 0},
 	{"MX", "MX", 1},
 #else
-	/*            */
-	{"",   "XZ", 11},	/*                                               */
-	{"IR", "XZ", 11},	/*                                                          */
-	{"SD", "XZ", 11},	/*                                    */
-	{"SY", "XZ", 11},	/*                                                   */
-	{"GL", "XZ", 11},	/*                                        */
-	{"PS", "XZ", 11},	/*                                                              */
-	{"TL", "XZ", 11},	/*                                                       */
-	{"MH", "XZ", 11},	/*                                               */
+	/* 4334/43241 */
+	{"",   "XZ", 11},	/* Universal if Country code is unknown or empty */
+	{"IR", "XZ", 11},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
+	{"SD", "XZ", 11},	/* Universal if Country code is SUDAN */
+	{"SY", "XZ", 11},	/* Universal if Country code is SYRIAN ARAB REPUBLIC */
+	{"GL", "XZ", 11},	/* Universal if Country code is GREENLAND */
+	{"PS", "XZ", 11},	/* Universal if Country code is PALESTINIAN TERRITORY, OCCUPIED */
+	{"TL", "XZ", 11},	/* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
+	{"MH", "XZ", 11},	/* Universal if Country code is MARSHALL ISLANDS */
 	{"SG", "SG", 4},
 	{"US", "US", 46},
 	{"UA", "UA", 8},
@@ -178,27 +178,27 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"VN", "VN", 4},
 	{"MA", "MA", 1},
 	{"TR", "TR", 7},
-#endif /*                       */
+#endif /* defined(BCM4330_CHIP) */
 #ifdef BCM4334_CHIP
 	{"AE", "AE", 1},
 	{"MX", "MX", 1},
-#endif /*                       */
+#endif /* defined(BCM4334_CHIP) */
 #ifdef BCM43241_CHIP
 	{"AE", "AE", 6},
 	{"BD", "BD", 2},
 	{"CN", "CN", 38},
 	{"MX", "MX", 20},
-#endif /*                        */
-#else  /*                                                                          */
-	/*                      */
-	{"",   "XZ", 11},	/*                                               */
-	{"IR", "XZ", 11},	/*                                                          */
-	{"SD", "XZ", 11},	/*                                    */
-	{"SY", "XZ", 11},	/*                                                   */
-	{"GL", "XZ", 11},	/*                                        */
-	{"PS", "XZ", 11},	/*                                                              */
-	{"TL", "XZ", 11},	/*                                                       */
-	{"MH", "XZ", 11},	/*                                               */
+#endif /* defined(BCM43241_CHIP) */
+#else  /* defined(BCM4330_CHIP) || defined(BCM4334_CHIP) || defined(BCM43241_CHIP) */
+	/* default ccode/regrev */
+	{"",   "XZ", 11},	/* Universal if Country code is unknown or empty */
+	{"IR", "XZ", 11},	/* Universal if Country code is IRAN, (ISLAMIC REPUBLIC OF) */
+	{"SD", "XZ", 11},	/* Universal if Country code is SUDAN */
+	{"SY", "XZ", 11},	/* Universal if Country code is SYRIAN ARAB REPUBLIC */
+	{"GL", "XZ", 11},	/* Universal if Country code is GREENLAND */
+	{"PS", "XZ", 11},	/* Universal if Country code is PALESTINIAN TERRITORY, OCCUPIED */
+	{"TL", "XZ", 11},	/* Universal if Country code is TIMOR-LESTE (EAST TIMOR) */
+	{"MH", "XZ", 11},	/* Universal if Country code is MARSHALL ISLANDS */
 	{"AL", "AL", 2},
 	{"DZ", "DZ", 1},
 	{"AS", "AS", 12},
@@ -320,12 +320,12 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"FR", "FR", 5},
 	{"MN", "MN", 1},
 	{"NI", "NI", 2},
-#endif /*                      */
+#endif /* default ccode/regrev */
 };
 
-/*                            
-                                          
-                           
+/* Customized Locale convertor
+*  input : ISO 3166-1 country abbreviation
+*  output: customized cspec
 */
 void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 {
@@ -362,7 +362,7 @@ void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 		}
 	}
 	return;
-#endif /*                                                  */
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)) */
 }
 
 static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
@@ -376,7 +376,7 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 	int roam_trigger[2] = {CUSTOM_ROAM_TRIGGER_SETTING, WLC_BAND_ALL};
 #ifdef ROAM_AP_ENV_DETECTION
 	int roam_env_mode = AP_ENV_INDETERMINATE;
-#endif /*                       */
+#endif /* ROAM_AP_ENV_DETECTION */
 
 	if (!strcmp(name, "country")) {
 		revstr = strchr(value, '/');
@@ -431,7 +431,7 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 				dhd->roam_env_detection = FALSE;
 			}
 		}
-#endif /*                       */
+#endif /* ROAM_AP_ENV_DETECTION */
 		return ret;
 	} else if (!strcmp(name, "PM")) {
 		int ret = 0;
@@ -448,7 +448,7 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 			g_pm_control = FALSE;
 			printk("%s var_int=%d do control PM\n", __func__, var_int);
 		}
-#endif /*                */
+#endif /* CONFIG_PM_LOCK */
 
 		return ret;
 	}
@@ -467,7 +467,7 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 		else
 			DHD_ERROR(("%s btamp_chan %d set success\n", __FUNCTION__, btamp_chan));
 	}
-#endif /*         */
+#endif /* WLBTAMP */
 	 else if (!strcmp(name, "band")) {
 		int ret;
 		if (!strcmp(value, "auto"))
@@ -556,12 +556,12 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 		uint iovlen;
 		char iovbuf[WLC_IOCTL_SMLEN];
 
-		/*                  */
+		/* wlu_iovar_setint */
 		var_int = (int)simple_strtol(value, NULL, 0);
 
-		/*                                                    */
+		/* Setup timeout bcn_timeout from dhd driver 4.217.48 */
 		if (!strcmp(name, "roam_off")) {
-			/*                                                       */
+			/* Setup timeout if Beacons are lost to report link down */
 			if (var_int) {
 				uint bcn_timeout = 2;
 				bcm_mkiovar("bcn_timeout", (char *)&bcn_timeout, 4,
@@ -569,7 +569,7 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
 			}
 		}
-		/*                                                    */
+		/* Setup timeout bcm_timeout from dhd driver 4.217.48 */
 
 		DHD_INFO(("%s:[%s]=[%d]\n", __FUNCTION__, name, var_int));
 
@@ -653,7 +653,7 @@ err:
 	goto out;
 }
 
-/*                              */
+/* BRCM_UPDATE_E for KEEP_ALIVE */
 int wl_keep_alive_set(struct net_device *dev, char* extra, int total_len)
 {
 	char 				buf[256];
@@ -689,14 +689,14 @@ int wl_keep_alive_set(struct net_device *dev, char* extra, int total_len)
 	mkeep_alive_pkt.version = htod16(WL_MKEEP_ALIVE_VERSION);
 	mkeep_alive_pkt.length = htod16(WL_MKEEP_ALIVE_FIXED_LEN);
 
-	/*                                                  */
+	/* Setup keep alive zero for null packet generation */
 	mkeep_alive_pkt.keep_alive_id = 0;
 	mkeep_alive_pkt.len_bytes = 0;
 	buf_len += WL_MKEEP_ALIVE_FIXED_LEN;
-	/*                                                                       
-                                                                   
-                                                  
-  */
+	/* Keep-alive attributes are set in local	variable (mkeep_alive_pkt), and
+	 * then memcpy'ed into buffer (mkeep_alive_pktp) since there is no
+	 * guarantee that the buffer is properly aligned.
+	 */
 	memcpy((char *)mkeep_alive_pktp, &mkeep_alive_pkt, WL_MKEEP_ALIVE_FIXED_LEN);
 
 	if ((res = wldev_ioctl(dev, WLC_SET_VAR, buf, buf_len, TRUE)) < 0)
@@ -721,9 +721,9 @@ int wl_keep_alive_set(struct net_device *dev, char* extra, int total_len)
 #define CIS_BUF_SIZE            128
 #elif defined(BCM4334_CHIP)
 #define CIS_BUF_SIZE            256
-#else /*              */
+#else /* BCM4335_CHIP */
 #define CIS_BUF_SIZE            512
-#endif /*              */
+#endif /* BCM4330_CHIP */
 
 typedef struct {
         uint8 vid_length;
@@ -732,16 +732,16 @@ typedef struct {
         char vname[MAX_VNAME_LEN];
 } vid_info_t;
 
-//               
+// Format example
 //
-//                        
-//                 
-//                  
-//                               
-//                      
+// 80 06 81 00 07 5C 00 22
+// 80 : Tuple start
+// 06 : Tuple length
+// 00 70 5C : Changable, no check
+// 00 22 : FEM ID 0x2200
 static vid_info_t vid_info[] = {
-	{ 6, 3, { 0x00, 0x11, }, { "murata" } },          /*            */
-	{ 6, 3, { 0x00, 0x22, }, { "lgit" } },            /*          */
+	{ 6, 3, { 0x00, 0x11, }, { "murata" } },          /* Murata FEM */
+	{ 6, 3, { 0x00, 0x22, }, { "lgit" } },            /* LGIT FEM */
 };
 
 char module_vendor_id[MAX_VNAME_LEN] = { '\0' };
@@ -760,7 +760,7 @@ static void dhd_dump_cis(const unsigned char *buf, int size)
 	}
 	DHD_ERROR(("\n"));
 }
-#endif /*          */
+#endif /* DUMP_CIS */
 
 int dhd_check_module_vid(void *bus, osl_t *osh)
 {
@@ -806,10 +806,10 @@ int dhd_check_module_vid(void *bus, osl_t *osh)
 			if (cis_buf[idx + 2] == CIS_TUPLE_VENDOR) {
 				vid_length = cis_buf[idx + 1];
 				vid_start = &cis_buf[idx + 3];
-				/*                 */
+				/* found CIS tuple */
 				break;
 			} else {
-				/*                                                    */
+				/* Go to next tuple if tuple value is not vendor type */
 				idx += (cis_buf[idx + 1] + 1);
 			}
 		}
@@ -867,6 +867,6 @@ int dhd_check_module_vid(void *bus, osl_t *osh)
 	return ret;
 
 }
-#endif /*                                                                */
+#endif /* defined(CUSTOMER_HW10) && defined(SUPPORT_MULTIPLE_MODULE_VID) */
 
-#endif /*               */
+#endif /* CUSTOMER_HW10 */

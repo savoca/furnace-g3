@@ -1,6 +1,6 @@
 #ifndef _LINUX_KTHREAD_H
 #define _LINUX_KTHREAD_H
-/*                                                                         */
+/* Simple interface for creating and stopping kernel threads without mess. */
 #include <linux/err.h>
 #include <linux/sched.h>
 
@@ -14,14 +14,14 @@ struct task_struct *kthread_create_on_node(int (*threadfn)(void *data),
 	kthread_create_on_node(threadfn, data, -1, namefmt, ##arg)
 
 
-/* 
-                                          
-                                                                
-                                 
-                                              
-  
-                                                                   
-                                                               
+/**
+ * kthread_run - create and wake a thread.
+ * @threadfn: the function to run until signal_pending(current).
+ * @data: data ptr for @threadfn.
+ * @namefmt: printf-style name for the thread.
+ *
+ * Description: Convenient wrapper for kthread_create() followed by
+ * wake_up_process().  Returns the kthread or ERR_PTR(-ENOMEM).
  */
 #define kthread_run(threadfn, data, namefmt, ...)			   \
 ({									   \
@@ -43,14 +43,14 @@ extern struct task_struct *kthreadd_task;
 extern int tsk_fork_get_node(struct task_struct *tsk);
 
 /*
-                                          
-  
-                                                                    
-                                                             
-                                                                 
-                               
-  
-                                                       
+ * Simple work processor based on kthread.
+ *
+ * This provides easier way to make use of kthreads.  A kthread_work
+ * can be queued and flushed using queue/flush_kthread_work()
+ * respectively.  Queued kthread_works are processed by a kthread
+ * running kthread_worker_fn().
+ *
+ * A kthread_work can't be freed while it is executing.
  */
 struct kthread_work;
 typedef void (*kthread_work_func_t)(struct kthread_work *work);
@@ -89,9 +89,9 @@ struct kthread_work {
 	struct kthread_work work = KTHREAD_WORK_INIT(work, fn)
 
 /*
-                                                                         
-                                                                   
-                                                
+ * kthread_worker.lock and kthread_work.done need their own lockdep class
+ * keys if they are defined on stack with lockdep enabled.  Use the
+ * following macros when defining them on stack.
  */
 #ifdef CONFIG_LOCKDEP
 # define KTHREAD_WORKER_INIT_ONSTACK(worker)				\
@@ -131,4 +131,4 @@ bool queue_kthread_work(struct kthread_worker *worker,
 void flush_kthread_work(struct kthread_work *work);
 void flush_kthread_worker(struct kthread_worker *worker);
 
-#endif /*                  */
+#endif /* _LINUX_KTHREAD_H */

@@ -20,7 +20,7 @@
 #include <asm/string.h>
 
 /*
-                                                                       
+ * virtually-indexed cache management (our cache is physically indexed)
  */
 #define flush_cache_all()			do {} while (0)
 #define flush_cache_mm(mm)			do {} while (0)
@@ -35,7 +35,7 @@
 #define flush_dcache_mmap_unlock(mapping)	do {} while (0)
 
 /*
-                                      
+ * physically-indexed cache management
  */
 #define flush_icache_range(s, e)				  \
 do {								  \
@@ -62,4 +62,4 @@ do {						     \
 #define copy_from_user_page(vma, page, vaddr, dst, src, len) \
 	memcpy(dst, src, len)
 
-#endif /*                       */
+#endif /* _ASM_C6X_CACHEFLUSH_H */

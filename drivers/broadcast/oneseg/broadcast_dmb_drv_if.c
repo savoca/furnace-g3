@@ -5,18 +5,18 @@
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/kdev_t.h>
-#include <linux/uaccess.h>        /*              */
+#include <linux/uaccess.h>        /* copy_to_user */
 
 #include "broadcast_dmb_typedef.h"
 #include "broadcast_dmb_drv_ifdef.h"
 
-#define BROADCAST_DMB_NUM_DEVS 	1 /*                             */
+#define BROADCAST_DMB_NUM_DEVS 	1 /**< support this many devices */
 #define DEVICE_NAME "broadcast_isdbt"
 
 static struct class *broadcast_dmb_class;
 static dev_t broadcast_dmb_dev;
 
-static int mmbi_tuner_drv_open = -1; /*                                     */
+static int mmbi_tuner_drv_open = -1; /* for MMBI-1seg tuner use competition */
 
 struct broadcast_dmb_chdevice 
 {
@@ -61,7 +61,7 @@ static int broadcast_dmb_open(void __user *arg)
 		printk(KERN_ERR"broadcast_dmb_open copy_from_user fail!!! \n");
 		rc = ERROR;
 	}
-	else	//                                                                    
+	else	// success to get broadcast_dmb_init_info from Broadcast Framework HAL
 	{
 		rc = broadcast_drv_if_open();
 		
@@ -292,13 +292,13 @@ static ssize_t broadcast_dmb_open_control(struct inode *inode, struct file *file
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_open_control start\n");
 
 
-	if(mmbi_tuner_drv_open == 0)  /*                                     */
+	if(mmbi_tuner_drv_open == 0)  /* for MMBI-1seg tuner use competition */
 	{
 		printk(KERN_ERR"[1seg]broadcast_dmb_open_control tuner is already opened\n");
 		return -EBUSY;
 	}
 
-	mmbi_tuner_drv_open  = 0; /*                                     */
+	mmbi_tuner_drv_open  = 0; /* for MMBI-1seg tuner use competition */
 
 	file->private_data = the_dev;
 
@@ -456,7 +456,7 @@ static long broadcast_dmb_ioctl_control(struct file *filep, unsigned int cmd,	un
 static ssize_t broadcast_dmb_release_control(struct inode *inode, struct file *file)
 {
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_release_control\n");
-	mmbi_tuner_drv_open  = -1; /*                                     */
+	mmbi_tuner_drv_open  = -1; /* for MMBI-1seg tuner use competition */
 	return 0;
 }
 
@@ -472,7 +472,7 @@ static const struct file_operations broadcast_dmb_fops_control =
 static int broadcast_dmb_device_init(struct broadcast_dmb_chdevice *pbroadcast, int index)
 {
 	int rc;
-	rc = OK;	//                       
+	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_release_control index[%d]\n",index);
 
 	cdev_init(&pbroadcast->cdev, &broadcast_dmb_fops_control);
@@ -501,7 +501,7 @@ static int broadcast_dmb_device_init(struct broadcast_dmb_chdevice *pbroadcast, 
 int8 broadcast_dmb_blt_power_on(void)
 {
 	int rc;
-	rc = OK;	//                       
+	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_blt_power_on\n");
 	return rc;
 
@@ -511,7 +511,7 @@ EXPORT_SYMBOL(broadcast_dmb_blt_power_on);
 int8 broadcast_dmb_blt_power_off(void)
 {
 	int rc;
-	rc = OK;	//                       
+	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_blt_power_off\n");
 	return rc;
 
@@ -521,7 +521,7 @@ EXPORT_SYMBOL(broadcast_dmb_blt_power_off);
 int8 broadcast_dmb_blt_open(void)
 {
 	int rc;
-	rc = OK;	//                       
+	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_blt_open\n");
 	return rc;
 }
@@ -530,7 +530,7 @@ EXPORT_SYMBOL(broadcast_dmb_blt_open);
 int8 broadcast_dmb_blt_close(void)
 {
 	int rc;
-	rc = OK;	//                       
+	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_blt_close\n");
 	return rc;
 }
@@ -539,11 +539,11 @@ EXPORT_SYMBOL(broadcast_dmb_blt_close);
 int8 broadcast_dmb_blt_tune_set_ch(int32 freq_num)
 {
 	int rc;
-	//                             
-	//                     
-	//                  
-	//                                                                   
-	rc = OK;	//                       
+	//int32 freq_number = freq_num;
+	//uint8 subchannel = 0;
+	//uint8 op_mode = 2;
+	//rc = broadcast_drv_if_set_channel(freq_number, sub_ch_id, op_mode);
+	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_blt_tune_set_ch freq_num[%d]\n",freq_num);
 	return rc;
 }
@@ -554,7 +554,7 @@ int8 broadcast_dmb_blt_get_sig_info(void* sig_info)
 	int rc;
 	struct broadcast_dmb_sig_info udata;
 
-	rc = OK;	//                       
+	rc = OK;	// test code taew00k.kang
 	printk(KERN_DEBUG"[1seg]broadcast_dmb_blt_get_sig_info\n");
 
 	if(sig_info == NULL)

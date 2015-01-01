@@ -17,7 +17,7 @@ static int se7619_mode_pins(void)
 }
 
 /*
-                     
+ * The Machine Vector
  */
 
 static struct sh_machine_vector mv_se __initmv = {

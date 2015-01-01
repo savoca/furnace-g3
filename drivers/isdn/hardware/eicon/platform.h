@@ -33,7 +33,7 @@
 
 #include "cardtype.h"
 
-/*                                    */
+/* activate debuglib for modules only */
 #ifndef MODULE
 #define DIVA_NO_DEBUGLIB
 #endif
@@ -154,13 +154,13 @@ struct _ISDN_ADAPTER;
 void diva_log_info(unsigned char *, ...);
 
 /*
-                      
+**  XDI DIDD Interface
 */
 void diva_xdi_didd_register_adapter(int card);
 void diva_xdi_didd_remove_adapter(int card);
 
 /*
-                    
+** memory allocation
 */
 static __inline__ void *diva_os_malloc(unsigned long flags, unsigned long size)
 {
@@ -177,7 +177,7 @@ static __inline__ void diva_os_free(unsigned long flags, void *ptr)
 }
 
 /*
-                                 
+** use skbuffs for message buffer
 */
 typedef struct sk_buff diva_os_message_buffer_s;
 diva_os_message_buffer_s *diva_os_alloc_message_buffer(unsigned long size, void **data_buf);
@@ -186,7 +186,7 @@ void diva_os_free_message_buffer(diva_os_message_buffer_s *dmb);
 #define DIVA_MESSAGE_BUFFER_DATA(x) x->data
 
 /*
-                   
+** mSeconds waiting
 */
 static __inline__ void diva_os_sleep(dword mSec)
 {
@@ -198,18 +198,18 @@ static __inline__ void diva_os_wait(dword mSec)
 }
 
 /*
-                                  
+**  PCI Configuration space access
 */
 void PCIwrite(byte bus, byte func, int offset, void *data, int length, void *pci_dev_handle);
 void PCIread(byte bus, byte func, int offset, void *data, int length, void *pci_dev_handle);
 
 /*
-                      
+**  I/O Port utilities
 */
 int diva_os_register_io_port(void *adapter, int register, unsigned long port,
 			     unsigned long length, const char *name, int id);
 /*
-                               
+**  I/O port access abstraction
 */
 byte inpp(void __iomem *);
 word inppw(void __iomem *);
@@ -219,7 +219,7 @@ void outppw_buffer(void __iomem * , void*, int);
 void outpp(void __iomem *, word);
 
 /*
-       
+**  IRQ
 */
 typedef struct _diva_os_adapter_irq_info {
 	byte irq_nr;
@@ -232,7 +232,7 @@ void diva_os_remove_irq(void *context, byte irq);
 #define diva_os_in_irq() in_irq()
 
 /*
-                       
+**  Spin Lock framework
 */
 typedef long diva_os_spin_lock_magic_t;
 typedef spinlock_t diva_os_spin_lock_t;
@@ -248,7 +248,7 @@ static __inline__ void diva_os_leave_spin_lock(diva_os_spin_lock_t *a, \
 #define diva_os_destroy_spin_lock(a, b) do { } while (0)
 
 /*
-                                 
+**  Deffered processing framework
 */
 typedef int (*diva_os_isr_callback_t)(struct _ISDN_ADAPTER *);
 typedef void (*diva_os_soft_isr_callback_t)(struct _diva_os_soft_isr *psoft_isr, void *context);
@@ -266,12 +266,12 @@ int diva_os_cancel_soft_isr(diva_os_soft_isr_t *psoft_isr);
 void diva_os_remove_soft_isr(diva_os_soft_isr_t *psoft_isr);
 
 /*
-                  
+  Get time service
 */
 void diva_os_get_time(dword *sec, dword *usec);
 
 /*
-                                                 
+**  atomic operation, fake because we use threads
 */
 typedef int diva_os_atomic_t;
 static diva_os_atomic_t __inline__
@@ -288,7 +288,7 @@ diva_os_atomic_decrement(diva_os_atomic_t *pv)
 }
 
 /*
-                
+**  CAPI SECTION
 */
 #define NO_CORNETN
 #define IMPLEMENT_DTMF 1
@@ -310,10 +310,10 @@ diva_os_atomic_decrement(diva_os_atomic_t *pv)
 #define DIVA_IDI_RX_DMA 1
 
 /*
-                
-  
-                                                                       
-                                                      
+** endian macros
+**
+** If only...  In some cases we did use them for endianness conversion;
+** unfortunately, other uses were real iomem accesses.
 */
 #define READ_BYTE(addr)   readb(addr)
 #define READ_WORD(addr)   readw(addr)
@@ -341,7 +341,7 @@ static inline void PUT_DWORD(void *addr, __u32 v)
 }
 
 /*
-                   
+** 32/64 bit macors
 */
 #ifdef BITS_PER_LONG
 #if BITS_PER_LONG > 32
@@ -351,22 +351,22 @@ static inline void PUT_DWORD(void *addr, __u32 v)
 #endif
 
 /*
-                                        
+** undef os definitions of macros we use
 */
 #undef ID_MASK
 #undef N_DATA
 #undef ADDR
 
 /*
-            
+** dump file
 */
 #define diva_os_dump_file_t char
 #define diva_os_board_trace_t char
 #define diva_os_dump_file(__x__) do { } while (0)
 
 /*
-                          
+** size of internal arrays
 */
 #define MAX_DESCRIPTORS 64
 
-#endif	/*                */
+#endif	/* __PLATFORM_H__ */

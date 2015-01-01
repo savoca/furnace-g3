@@ -12,46 +12,46 @@
 #include "adfs.h"
 
 /*
-                                                                       
-                                                                       
-                                                                  
-                                                                     
-                                                                 
-                                                     
-  
-                                    
-                                     
-                                     
-                                     
-  
-                                                                        
-                                                                      
-        
-  
-                                                                    
-                                                                      
-                                                                        
-                             
-  
-                                                                    
-                                                                        
-                                                                      
-                                                           
-  
-                                                                       
-                                                                        
-                                                                   
-                                  
+ * The ADFS map is basically a set of sectors.  Each sector is called a
+ * zone which contains a bitstream made up of variable sized fragments.
+ * Each bit refers to a set of bytes in the filesystem, defined by
+ * log2bpmb.  This may be larger or smaller than the sector size, but
+ * the overall size it describes will always be a round number of
+ * sectors.  A fragment id is always idlen bits long.
+ *
+ *  < idlen > <       n        > <1>
+ * +---------+-------//---------+---+
+ * | frag id |  0000....000000  | 1 |
+ * +---------+-------//---------+---+
+ *
+ * The physical disk space used by a fragment is taken from the start of
+ * the fragment id up to and including the '1' bit - ie, idlen + n + 1
+ * bits.
+ *
+ * A fragment id can be repeated multiple times in the whole map for
+ * large or fragmented files.  The first map zone a fragment starts in
+ * is given by fragment id / ids_per_zone - this allows objects to start
+ * from any zone on the disk.
+ *
+ * Free space is described by a linked list of fragments.  Each free
+ * fragment describes free space in the same way as the other fragments,
+ * however, the frag id specifies an offset (in map bits) from the end
+ * of this fragment to the start of the next free fragment.
+ *
+ * Objects stored on the disk are allocated object ids (we use these as
+ * our inode numbers.)  Object ids contain a fragment id and an optional
+ * offset.  This allows a directory fragment to contain small files
+ * associated with that directory.
  */
 
 /*
-                    
+ * For the future...
  */
 static DEFINE_RWLOCK(adfs_map_lock);
 
 /*
-                                                                 
-                                                                        
+ * This is fun.  We need to load up to 19 bits from the map at an
+ * arbitrary bit alignment.  (We're limited to 19 bits by F+ version 2).
  */
 #define GET_FRAG_ID(_map,_start,_idmask)				\
 	({								\
@@ -62,10 +62,10 @@ static DEFINE_RWLOCK(adfs_map_lock);
 	})
 
 /*
-                                                                    
-                                                                  
-             
-                                                      
+ * return the map bit offset of the fragment frag_id in the zone dm.
+ * Note that the loop is optimised for best asm code - look at the
+ * output of:
+ *  gcc -D__KERNEL__ -O2 -I../../include -o - -S map.c
  */
 static int
 lookup_zone(const struct adfs_discmap *dm, const unsigned int idlen,
@@ -83,8 +83,8 @@ lookup_zone(const struct adfs_discmap *dm, const unsigned int idlen,
 		mapptr = start + idlen;
 
 		/*
-                         
-   */
+		 * find end of fragment
+		 */
 		{
 			__le32 *_map = (__le32 *)map;
 			u32 v = le32_to_cpu(_map[mapptr >> 5]) >> (mapptr & 31);
@@ -122,10 +122,10 @@ found:
 }
 
 /*
-                                                                
-                                                  
-  
-                                           
+ * Scan the free space map, for this zone, calculating the total
+ * number of map bits in each free space fragment.
+ *
+ * Note: idmask is limited to 15 bits [3.2]
  */
 static unsigned int
 scan_free_map(struct adfs_sb_info *asb, struct adfs_discmap *dm)
@@ -140,14 +140,14 @@ scan_free_map(struct adfs_sb_info *asb, struct adfs_discmap *dm)
 	unsigned long total = 0;
 
 	/*
-                   
-  */
+	 * get fragment id
+	 */
 	frag = GET_FRAG_ID(map, start, idmask);
 
 	/*
-                                                   
-                       
-  */
+	 * If the freelink is null, then no free fragments
+	 * exist in this zone.
+	 */
 	if (frag == 0)
 		return 0;
 
@@ -155,14 +155,14 @@ scan_free_map(struct adfs_sb_info *asb, struct adfs_discmap *dm)
 		start += frag;
 
 		/*
-                    
-   */
+		 * get fragment id
+		 */
 		frag = GET_FRAG_ID(map, start, idmask);
 		mapptr = start + idlen;
 
 		/*
-                         
-   */
+		 * find end of fragment
+		 */
 		{
 			__le32 *_map = (__le32 *)map;
 			u32 v = le32_to_cpu(_map[mapptr >> 5]) >> (mapptr & 31);
@@ -220,11 +220,11 @@ found:
 }
 
 /*
-                                                  
-  
-                   
-                                  
-                      
+ * calculate the amount of free blocks in the map.
+ *
+ *              n=1
+ *  total_free = E(free_in_zone_n)
+ *              nzones
  */
 unsigned int
 adfs_map_free(struct super_block *sb)
@@ -253,9 +253,9 @@ adfs_map_lookup(struct super_block *sb, unsigned int frag_id,
 	int result;
 
 	/*
-                                                                   
-                                                                  
-  */
+	 * map & root fragment is special - it starts in the center of the
+	 * disk.  The other fragments start at zone (frag / ids_per_zone)
+	 */
 	if (frag_id == ADFS_ROOT_FRAG)
 		zone = asb->s_map_size >> 1;
 	else
@@ -264,7 +264,7 @@ adfs_map_lookup(struct super_block *sb, unsigned int frag_id,
 	if (zone >= asb->s_map_size)
 		goto bad_fragment;
 
-	/*                                     */
+	/* Convert sector offset to map offset */
 	mapoff = signed_asl(offset, -asb->s_map2blk);
 
 	read_lock(&adfs_map_lock);
@@ -274,7 +274,7 @@ adfs_map_lookup(struct super_block *sb, unsigned int frag_id,
 	if (result > 0) {
 		unsigned int secoff;
 
-		/*                                        */
+		/* Calculate sector offset into map block */
 		secoff = offset - signed_asl(mapoff, asb->s_map2blk);
 		return secoff + signed_asl(result, asb->s_map2blk);
 	}

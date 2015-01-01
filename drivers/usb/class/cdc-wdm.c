@@ -26,7 +26,7 @@
 #include <linux/usb/cdc-wdm.h>
 
 /*
-                      
+ * Version Information
  */
 #define DRIVER_VERSION "v0.03"
 #define DRIVER_AUTHOR "Oliver Neukum"
@@ -43,17 +43,17 @@ static const struct usb_device_id wdm_ids[] = {
 	},
 	{
 		/* 
-                                                               
-                                                               
-                                                              
-                                                 
-   */
+		 * Huawei E392, E398 and possibly other Qualcomm based modems
+		 * embed the Qualcomm QMI protocol inside CDC on CDC ECM like
+		 * control interfaces.  Userspace access to this is required
+		 * to configure the accompanying data interface
+		 */
 		.match_flags        = USB_DEVICE_ID_MATCH_VENDOR |
 					USB_DEVICE_ID_MATCH_INT_INFO,
 		.idVendor           = HUAWEI_VENDOR_ID,
 		.bInterfaceClass    = USB_CLASS_VENDOR_SPEC,
 		.bInterfaceSubClass = 1,
-		.bInterfaceProtocol = 9, /*                                  */
+		.bInterfaceProtocol = 9, /* NOTE: CDC ECM control interface! */
 	},
 	{ }
 };
@@ -75,20 +75,20 @@ MODULE_DEVICE_TABLE (usb, wdm_ids);
 
 #define WDM_MAX			16
 
-/*                                                                        */
+/* CDC-WMC r1.1 requires wMaxCommand to be "at least 256 decimal (0x100)" */
 #define WDM_DEFAULT_BUFSIZE	256
 
 static DEFINE_MUTEX(wdm_mutex);
 static DEFINE_SPINLOCK(wdm_device_list_lock);
 static LIST_HEAD(wdm_device_list);
 
-/*                       */
+/* --- method tables --- */
 
 struct wdm_device {
-	u8			*inbuf; /*                     */
-	u8			*outbuf; /*                    */
-	u8			*sbuf; /*                   */
-	u8			*ubuf; /*                               */
+	u8			*inbuf; /* buffer for response */
+	u8			*outbuf; /* buffer for command */
+	u8			*sbuf; /* buffer for status */
+	u8			*ubuf; /* buffer for copy to user space */
 
 	struct urb		*command;
 	struct urb		*response;
@@ -122,7 +122,7 @@ struct wdm_device {
 
 static struct usb_driver wdm_driver;
 
-/*                                                                        */
+/* return intfdata if we own the interface, else look up intf in the list */
 static struct wdm_device *wdm_find_device(struct usb_interface *intf)
 {
 	struct wdm_device *desc = NULL;
@@ -149,7 +149,7 @@ static struct wdm_device *wdm_find_device_by_minor(int minor)
 	return desc;
 }
 
-/*                   */
+/* --- callbacks --- */
 static void wdm_out_callback(struct urb *urb)
 {
 	struct wdm_device *desc;
@@ -222,11 +222,11 @@ static void wdm_int_callback(struct urb *urb)
 		case -ESHUTDOWN:
 		case -ENOENT:
 		case -ECONNRESET:
-			return; /*        */
+			return; /* unplug */
 		case -EPIPE:
 			set_bit(WDM_INT_STALL, &desc->flags);
 			dev_err(&desc->intf->dev, "Stall on int endpoint\n");
-			goto sw; /*                         */
+			goto sw; /* halt is cleared in work */
 		default:
 			dev_err(&desc->intf->dev,
 				"nonzero urb status received: %d\n", status);
@@ -294,7 +294,7 @@ exit:
 
 static void kill_urbs(struct wdm_device *desc)
 {
-	/*                             */
+	/* the order here is essential */
 	usb_kill_urb(desc->command);
 	usb_kill_urb(desc->validity);
 	usb_kill_urb(desc->response);
@@ -352,7 +352,7 @@ static ssize_t wdm_write
 		goto outnl;
 	}
 
-	/*                                  */
+	/* concurrent writes and disconnect */
 	r = mutex_lock_interruptible(&desc->wlock);
 	rv = -ERESTARTSYS;
 	if (r) {
@@ -391,7 +391,7 @@ static ssize_t wdm_write
 	usb_fill_control_urb(
 		desc->command,
 		interface_to_usbdev(desc->intf),
-		/*                         */
+		/* using common endpoint 0 */
 		usb_sndctrlpipe(interface_to_usbdev(desc->intf), 0),
 		(unsigned char *)req,
 		buf,
@@ -435,7 +435,7 @@ static ssize_t wdm_read
 	struct wdm_device *desc = file->private_data;
 
 
-	rv = mutex_lock_interruptible(&desc->rlock); /*                 */
+	rv = mutex_lock_interruptible(&desc->rlock); /*concurrent reads */
 	if (rv < 0)
 		return -ERESTARTSYS;
 
@@ -459,7 +459,7 @@ retry:
 				test_bit(WDM_READ, &desc->flags));
 		}
 
-		/*                                  */
+		/* may have happened while we slept */
 		if (test_bit(WDM_DISCONNECTING, &desc->flags)) {
 			rv = -ENODEV;
 			goto err;
@@ -476,21 +476,21 @@ retry:
 
 		spin_lock_irq(&desc->iuspin);
 
-		if (desc->rerr) { /*                                */
+		if (desc->rerr) { /* read completed, error happened */
 			desc->rerr = 0;
 			spin_unlock_irq(&desc->iuspin);
 			rv = -EIO;
 			goto err;
 		}
 		/*
-                                        
-                                   
-   */
-		if (!test_bit(WDM_READ, &desc->flags)) { /*           */
+		 * recheck whether we've lost the race
+		 * against the completion handler
+		 */
+		if (!test_bit(WDM_READ, &desc->flags)) { /* lost race */
 			spin_unlock_irq(&desc->iuspin);
 			goto retry;
 		}
-		if (!desc->reslength) { /*                  */
+		if (!desc->reslength) { /* zero length read */
 			spin_unlock_irq(&desc->iuspin);
 			goto retry;
 		}
@@ -512,7 +512,7 @@ retry:
 		desc->ubuf[i] = desc->ubuf[i + cntr];
 
 	desc->length -= cntr;
-	/*                                 */
+	/* in case we had outstanding data */
 	if (!desc->length)
 		clear_bit(WDM_READ, &desc->flags);
 
@@ -586,7 +586,7 @@ static int wdm_open(struct inode *inode, struct file *file)
 		goto out;
 	}
 
-	/*                                         */
+	/* using write lock to protect desc->count */
 	mutex_lock(&desc->wlock);
 	if (!desc->count++) {
 		desc->werr = 0;
@@ -615,7 +615,7 @@ static int wdm_release(struct inode *inode, struct file *file)
 
 	mutex_lock(&wdm_mutex);
 
-	/*                                         */
+	/* using write lock to protect desc->count */
 	mutex_lock(&desc->wlock);
 	desc->count--;
 	mutex_unlock(&desc->wlock);
@@ -647,7 +647,7 @@ static struct usb_class_driver wdm_class = {
 	.minor_base =	WDM_MINOR_BASE,
 };
 
-/*                        */
+/* --- error handling --- */
 static void wdm_rxwork(struct work_struct *work)
 {
 	struct wdm_device *desc = container_of(work, struct wdm_device, rxwork);
@@ -669,7 +669,7 @@ static void wdm_rxwork(struct work_struct *work)
 	}
 }
 
-/*                 */
+/* --- hotplug --- */
 
 static int wdm_create(struct usb_interface *intf, struct usb_endpoint_descriptor *ep,
 		u16 bufsize, int (*manage_power)(struct usb_interface *, int))
@@ -686,7 +686,7 @@ static int wdm_create(struct usb_interface *intf, struct usb_endpoint_descriptor
 	spin_lock_init(&desc->iuspin);
 	init_waitqueue_head(&desc->wait);
 	desc->wMaxCommand = bufsize;
-	/*                                                         */
+	/* this will be expanded and needed in hardware endianness */
 	desc->inum = cpu_to_le16((u16)intf->cur_altsetting->desc.bInterfaceNumber);
 	desc->intf = intf;
 	INIT_WORK(&desc->rxwork, wdm_rxwork);
@@ -748,7 +748,7 @@ static int wdm_create(struct usb_interface *intf, struct usb_endpoint_descriptor
 	usb_fill_control_urb(
 		desc->response,
 		interface_to_usbdev(intf),
-		/*                         */
+		/* using common endpoint 0 */
 		usb_rcvctrlpipe(interface_to_usbdev(desc->intf), 0),
 		(unsigned char *)desc->irq,
 		desc->inbuf,
@@ -777,7 +777,7 @@ err:
 
 static int wdm_manage_power(struct usb_interface *intf, int on)
 {
-	/*                                                                   */
+	/* need autopm_get/put here to ensure the usbcore sees the new value */
 	int rv = usb_autopm_get_interface(intf);
 	if (rv < 0)
 		goto err;
@@ -837,24 +837,24 @@ err:
 	return rv;
 }
 
-/* 
-                                                  
-                                                         
-                                                       
-                                                           
-  
-                                                                   
-                                                                    
-  
-                                                                     
-                                                                  
-                                                              
-                                             
-  
-                                                                      
-                                                                     
-                                                                     
-           
+/**
+ * usb_cdc_wdm_register - register a WDM subdriver
+ * @intf: usb interface the subdriver will associate with
+ * @ep: interrupt endpoint to monitor for notifications
+ * @bufsize: maximum message size to support for read/write
+ *
+ * Create WDM usb class character device and associate it with intf
+ * without binding, allowing another driver to manage the interface.
+ *
+ * The subdriver will manage the given interrupt endpoint exclusively
+ * and will issue control requests referring to the given intf. It
+ * will otherwise avoid interferring, and in particular not do
+ * usb_set_intfdata/usb_get_intfdata on intf.
+ *
+ * The return value is a pointer to the subdriver's struct usb_driver.
+ * The registering driver is responsible for calling this subdriver's
+ * disconnect, suspend, resume, pre_reset and post_reset methods from
+ * its own.
  */
 struct usb_driver *usb_cdc_wdm_register(struct usb_interface *intf,
 					struct usb_endpoint_descriptor *ep,
@@ -882,11 +882,11 @@ static void wdm_disconnect(struct usb_interface *intf)
 	desc = wdm_find_device(intf);
 	mutex_lock(&wdm_mutex);
 
-	/*                                                                    */
+	/* the spinlock makes sure no new urbs are generated in the callbacks */
 	spin_lock_irqsave(&desc->iuspin, flags);
 	set_bit(WDM_DISCONNECTING, &desc->flags);
 	set_bit(WDM_READ, &desc->flags);
-	/*                              */
+	/* to terminate pending flushes */
 	clear_bit(WDM_IN_USE, &desc->flags);
 	spin_unlock_irqrestore(&desc->iuspin, flags);
 	wake_up_all(&desc->wait);
@@ -909,7 +909,7 @@ static int wdm_suspend(struct usb_interface *intf, pm_message_t message)
 
 	dev_dbg(&desc->intf->dev, "wdm%d_suspend\n", intf->minor);
 
-	/*                                                       */
+	/* if this is an autosuspend the caller does the locking */
 	if (!PMSG_IS_AUTO(message)) {
 		mutex_lock(&desc->rlock);
 		mutex_lock(&desc->wlock);
@@ -925,7 +925,7 @@ static int wdm_suspend(struct usb_interface *intf, pm_message_t message)
 
 		set_bit(WDM_SUSPENDING, &desc->flags);
 		spin_unlock_irq(&desc->iuspin);
-		/*                                            */
+		/* callback submits work - order is essential */
 		kill_urbs(desc);
 		cancel_work_sync(&desc->rxwork);
 	}
@@ -971,15 +971,15 @@ static int wdm_pre_reset(struct usb_interface *intf)
 	struct wdm_device *desc = wdm_find_device(intf);
 
 	/*
-                                     
-                            
-                                                   
-                                   
-  */
+	 * we notify everybody using poll of
+	 * an exceptional situation
+	 * must be done before recovery lest a spontaneous
+	 * message from the device is lost
+	 */
 	spin_lock_irq(&desc->iuspin);
-	set_bit(WDM_RESETTING, &desc->flags);	/*                   */
-	set_bit(WDM_READ, &desc->flags);	/*              */
-	clear_bit(WDM_IN_USE, &desc->flags);	/*               */
+	set_bit(WDM_RESETTING, &desc->flags);	/* inform read/write */
+	set_bit(WDM_READ, &desc->flags);	/* unblock read */
+	clear_bit(WDM_IN_USE, &desc->flags);	/* unblock write */
 	desc->rerr = -EINTR;
 	spin_unlock_irq(&desc->iuspin);
 	wake_up_all(&desc->wait);

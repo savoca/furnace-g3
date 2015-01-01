@@ -5,8 +5,8 @@
 #include <asm/cmpxchg.h>
 
 /*
-                                                           
-                          
+ * Atomic operations that C can't guarantee us.  Useful for
+ * resource counting etc..
  */
 
 #define ATOMIC_INIT(i)	{ (i) }
@@ -56,12 +56,12 @@ static __inline__ int atomic_inc_return(atomic_t *v)
 #define atomic_inc(v) atomic_inc_return(v)
 
 /*
-                                           
-                               
-  
-                                
-                                                           
-               
+ * atomic_inc_and_test - increment and test
+ * @v: pointer of type atomic_t
+ *
+ * Atomically increments @v by 1
+ * and returns true if the result is zero, or false for all
+ * other cases.
  */
 #define atomic_inc_and_test(v) (atomic_inc_return(v) == 0)
 
@@ -137,10 +137,10 @@ static __inline__ void atomic_set_mask(unsigned long mask, unsigned long *v)
                              : "=m" (*v) : "g" (mask) :"er0","er1");
 }
 
-/*                                           */
+/* Atomic operations are already serializing */
 #define smp_mb__before_atomic_dec()    barrier()
 #define smp_mb__after_atomic_dec() barrier()
 #define smp_mb__before_atomic_inc()    barrier()
 #define smp_mb__after_atomic_inc() barrier()
 
-#endif /*                        */
+#endif /* __ARCH_H8300_ATOMIC __ */

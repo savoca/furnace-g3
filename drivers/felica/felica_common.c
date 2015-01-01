@@ -1,21 +1,21 @@
 /*
-                   
-  
+ *  felica_common.c
+ *
  */
 
 /*
-                              
+ *    INCLUDE FILES FOR MODULE
  */
 #include <linux/wakelock.h>
 
 #include "felica_common.h"
 
 /*
-          
+ *  DEFINE
  */
 
 /*
-                         
+ *    INTERNAL DEFINITION
  */
 
 static struct wake_lock felica_wake_lock;
@@ -25,40 +25,40 @@ static struct wake_lock felica_rfs_wake_lock;
 #endif
 
 /*
-                         
+ *    FUNCTION DEFINITION
  */
 
 /*
-               
-              
-          
+* Description :
+* Input : None
+* Output :
 */
 void lock_felica_wake_lock(void)
 {
   wake_lock(&felica_wake_lock);
 }
 /*
-               
-              
-          
+* Description :
+* Input : None
+* Output :
 */
 void unlock_felica_wake_lock(void)
 {
   wake_unlock(&felica_wake_lock);
 }
 /*
-               
-              
-          
+* Description :
+* Input : None
+* Output :
 */
 void init_felica_wake_lock(void)
 {
   wake_lock_init(&felica_wake_lock, WAKE_LOCK_SUSPEND, "felica");
 }
 /*
-               
-              
-          
+* Description :
+* Input : None
+* Output :
 */
 void destroy_felica_wake_lock(void)
 {
@@ -66,9 +66,9 @@ void destroy_felica_wake_lock(void)
 }
 
 /*
-               
-              
-                           
+* Description :
+* Input : None
+* Output : true - available
 */
 int get_felica_uart_status(void)
 {
@@ -154,9 +154,9 @@ int get_felica_uart_status(void)
 }
 
 /*
-               
-              
-          
+* Description :
+* Input : None
+* Output :
 */
 void set_felica_uart_status(_e_snfc_uart_status uart_status)
 {
@@ -170,9 +170,9 @@ void set_felica_uart_status(_e_snfc_uart_status uart_status)
 
 
 /*
-               
-              
-                           
+* Description :
+* Input : None
+* Output : true - available
 */
 _e_snfc_i2c_status get_felica_i2c_status(void)
 {
@@ -184,9 +184,9 @@ _e_snfc_i2c_status get_felica_i2c_status(void)
 }
 
 /*
-               
-              
-          
+* Description :
+* Input : None
+* Output :
 */
 void set_felica_i2c_status(_e_snfc_i2c_status i2c_status)
 {
@@ -200,36 +200,36 @@ void set_felica_i2c_status(_e_snfc_i2c_status i2c_status)
 
 #ifdef FELICA_LED_SUPPORT
 /*
-               
-              
-          
+* Description :
+* Input : None
+* Output :
 */
 void lock_felica_rfs_wake_lock(void)
 {
   wake_lock(&felica_rfs_wake_lock);
 }
 /*
-               
-              
-          
+* Description :
+* Input : None
+* Output :
 */
 void unlock_felica_rfs_wake_lock(void)
 {
   wake_unlock(&felica_rfs_wake_lock);
 }
 /*
-               
-              
-          
+* Description :
+* Input : None
+* Output :
 */
 void init_felica_rfs_wake_lock(void)
 {
   wake_lock_init(&felica_rfs_wake_lock, WAKE_LOCK_SUSPEND, "felica_rfs");
 }
 /*
-               
-              
-          
+* Description :
+* Input : None
+* Output :
 */
 void destroy_felica_rfs_wake_lock(void)
 {

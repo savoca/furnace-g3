@@ -21,24 +21,24 @@ enum {
 
 enum {
 	/*
-                                                               
-                           
-  */
+	   Activate command is followed by a comma separated string of
+	   unprotected interfaces.
+	 */
 	KERNEL_SPD_ACTIVATE,
 
 	/*
-                                                               
-  */
+	   Insert command is followed by an encoded IP Selector Group.
+	 */
 	KERNEL_SPD_INSERT_ENTRY,
 
 	/*
-                                          
-  */
+	   Remove command has no additional data.
+	 */
 	KERNEL_SPD_REMOVE_ENTRY,
 
 	/*
-                                              
-  */
+	   Deactivate command has no additional data.
+	 */
 	KERNEL_SPD_DEACTIVATE
 };
 
@@ -57,4 +57,4 @@ struct KernelSpdCommand {
 	uint32_t bytecount;
 };
 
-#endif				/*                      */
+#endif				/* KERNEL_SPD_COMMAND_H */

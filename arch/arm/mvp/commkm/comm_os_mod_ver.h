@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-        
-  
-                                                  
+/**
+ * @file
+ *
+ * @brief Version definitions for the Comm module.
  */
 
 #ifndef _COMM_OS_MOD_VER_H_
@@ -33,5 +33,5 @@
 
 #define COMM_OS_MOD_VERSION_STRING   "1.0.0.0"
 
-#endif /*                    */
+#endif /* _COM_OS_MOD_VER_H_ */
 

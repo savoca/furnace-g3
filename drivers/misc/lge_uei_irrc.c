@@ -1,5 +1,5 @@
 /*
-                           
+UEI_IRRC_DRIVER_FOR_MSM9860
 */
 
 #include <linux/err.h>
@@ -45,7 +45,7 @@ static int uei_vdd_enable(struct device *dev, struct uei_irrc_pdata_type *pdata)
 
 	if (lge_get_board_revno() < HW_REV_B)
 	{
-		pdata->irrc_vdd_main = regulator_get(dev, "8941_l10");			/*               */
+		pdata->irrc_vdd_main = regulator_get(dev, "8941_l10");			/* +1V8_VREG_L10 */
 		if (IS_ERR(pdata->irrc_vdd_main))
 		{
 			pr_err("%s: regulator get of 8921_l10 failed (%ld)\n", __func__, PTR_ERR(pdata->irrc_vdd_main));
@@ -62,8 +62,8 @@ static int uei_vdd_enable(struct device *dev, struct uei_irrc_pdata_type *pdata)
 	}
 
 	/*
-                                             
- */
+	// uei,led-vdd = +1V8_VREG_S3A ( Reference )
+	*/
 
 	return rc;
 }

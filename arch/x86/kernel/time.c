@@ -38,10 +38,10 @@ unsigned long profile_pc(struct pt_regs *regs)
 		unsigned long *sp =
 			(unsigned long *)kernel_stack_pointer(regs);
 		/*
-                                                       
-                                                        
-                            
-   */
+		 * Return address is either directly at stack pointer
+		 * or above a saved flags. Eflags has bits 22-31 zero,
+		 * kernel addresses don't.
+		 */
 		if (sp[0] >> 22)
 			return sp[0];
 		if (sp[1] >> 22)
@@ -53,13 +53,13 @@ unsigned long profile_pc(struct pt_regs *regs)
 EXPORT_SYMBOL(profile_pc);
 
 /*
-                                               
+ * Default timer interrupt handler for PIT/HPET
  */
 static irqreturn_t timer_interrupt(int irq, void *dev_id)
 {
 	global_clock_event->event_handler(global_clock_event);
 
-	/*                                                               */
+	/* MCA bus quirk: Acknowledge irq0 by setting bit 7 in port 0x61 */
 	if (MCA_bus)
 		outb_p(inb_p(0x61)| 0x80, 0x61);
 
@@ -77,7 +77,7 @@ void __init setup_default_timer_irq(void)
 	setup_irq(0, &irq0);
 }
 
-/*                             */
+/* Default timer init function */
 void __init hpet_time_init(void)
 {
 	if (!hpet_enable())
@@ -92,8 +92,8 @@ static __init void x86_late_time_init(void)
 }
 
 /*
-                                                      
-                                              
+ * Initialize TSC and delay the periodic timer init to
+ * late x86_late_time_init() so ioremap works.
  */
 void __init time_init(void)
 {

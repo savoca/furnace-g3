@@ -38,17 +38,17 @@
 #include <asm/hardware/dec21285.h>
 
 /*
-                                                                   
+ * Define this to stop the watchdog actually rebooting the machine.
  */
 #undef ONLY_TESTING
 
-static unsigned int soft_margin = 60;		/*            */
+static unsigned int soft_margin = 60;		/* in seconds */
 static unsigned int reload;
 static unsigned long timer_alive;
 
 #ifdef ONLY_TESTING
 /*
-                         
+ *	If the timer expires..
  */
 static void watchdog_fire(int irq, void *dev_id)
 {
@@ -59,7 +59,7 @@ static void watchdog_fire(int irq, void *dev_id)
 #endif
 
 /*
-                     
+ *	Refresh the timer.
  */
 static void watchdog_ping(void)
 {
@@ -67,7 +67,7 @@ static void watchdog_ping(void)
 }
 
 /*
-                                        
+ *	Allow only one person to hold it open
  */
 static int watchdog_open(struct inode *inode, struct file *file)
 {
@@ -94,9 +94,9 @@ static int watchdog_open(struct inode *inode, struct file *file)
 	}
 #else
 	/*
-                                                            
-                                   
-  */
+	 * Setting this bit is irreversible; once enabled, there is
+	 * no way to disable the watchdog.
+	 */
 	*CSR_SA110_CNTL |= 1 << 13;
 
 	ret = 0;
@@ -106,9 +106,9 @@ static int watchdog_open(struct inode *inode, struct file *file)
 }
 
 /*
-                      
-                                                      
-                         
+ *	Shut off the timer.
+ *	Note: if we really have enabled the watchdog, there
+ *	is no way to turn off.
  */
 static int watchdog_release(struct inode *inode, struct file *file)
 {
@@ -123,8 +123,8 @@ static ssize_t watchdog_write(struct file *file, const char __user *data,
 			      size_t len, loff_t *ppos)
 {
 	/*
-                      
-  */
+	 *	Refresh the timer.
+	 */
 	if (len)
 		watchdog_ping();
 
@@ -165,7 +165,7 @@ static long watchdog_ioctl(struct file *file, unsigned int cmd,
 		if (ret)
 			break;
 
-		/*                                         */
+		/* Arbitrary, can't find the card's limits */
 		if (new_margin < 0 || new_margin > 60) {
 			ret = -EINVAL;
 			break;
@@ -174,7 +174,7 @@ static long watchdog_ioctl(struct file *file, unsigned int cmd,
 		soft_margin = new_margin;
 		reload = soft_margin * (mem_fclk_21285 / 256);
 		watchdog_ping();
-		/*      */
+		/* Fall */
 	case WDIOC_GETTIMEOUT:
 		ret = put_user(soft_margin, int_arg);
 		break;

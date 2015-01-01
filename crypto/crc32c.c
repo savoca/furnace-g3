@@ -54,8 +54,8 @@ struct chksum_desc_ctx {
 };
 
 /*
-                                                                 
-                   
+ * Steps through buffer one byte at at time, calculates reflected
+ * crc using table.
  */
 
 static int chksum_init(struct shash_desc *desc)
@@ -69,9 +69,9 @@ static int chksum_init(struct shash_desc *desc)
 }
 
 /*
-                                                                         
-                                                                    
-            
+ * Setting the seed allows arbitrary accumulators and flexible XOR policy
+ * If your algorithm starts with ~0, then XOR with ~0 before you set
+ * the seed.
  */
 static int chksum_setkey(struct crypto_shash *tfm, const u8 *key,
 			 unsigned int keylen)

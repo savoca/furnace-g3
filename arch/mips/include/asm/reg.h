@@ -43,7 +43,7 @@
 #define EF_R25			31
 
 /*
-                
+ * k0/k1 unsaved
  */
 #define EF_R26			32
 #define EF_R27			33
@@ -54,7 +54,7 @@
 #define EF_R31			37
 
 /*
-                          
+ * Saved special registers
  */
 #define EF_LO			38
 #define EF_HI			39
@@ -99,7 +99,7 @@
 #define EF_R25			25
 
 /*
-                
+ * k0/k1 unsaved
  */
 #define EF_R26			26
 #define EF_R27			27
@@ -111,7 +111,7 @@
 #define EF_R31			31
 
 /*
-                          
+ * Saved special registers
  */
 #define EF_LO			32
 #define EF_HI			33
@@ -121,8 +121,8 @@
 #define EF_CP0_STATUS		36
 #define EF_CP0_CAUSE		37
 
-#define EF_SIZE			304	/*               */
+#define EF_SIZE			304	/* size in bytes */
 
-#endif /*              */
+#endif /* CONFIG_64BIT */
 
-#endif /*                  */
+#endif /* __ASM_MIPS_REG_H */

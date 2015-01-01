@@ -176,7 +176,7 @@ void msm_isp_deinit_bandwidth_mgr(enum msm_isp_hw_client client)
 /*                                                                                          */		
 		return;
 	}
-#else //        
+#else // QMC Org
 	if (!isp_bandwidth_mgr.bus_client)
 		return;
 #endif
@@ -418,12 +418,12 @@ long msm_isp_ioctl(struct v4l2_subdev *sd,
 	long rc = 0;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 
-	/*                                                      
-                                           
-                                                   
-                                                          
-                                                        
-  */
+	/* Use real time mutex for hard real-time ioctls such as
+	 * buffer operations and register updates.
+	 * Use core mutex for other ioctls that could take
+	 * longer time to complete such as start/stop ISP streams
+	 * which blocks until the hardware start/stop streaming
+	 */
 	ISP_DBG("%s cmd: %d\n", __func__, _IOC_TYPE(cmd));
 	switch (cmd) {
 	case VIDIOC_MSM_VFE_REG_CFG: {
@@ -554,7 +554,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		break;
 	}
 /*                                                                                                                       */
-#if 0 //            
+#if 0 //QCT Original
 	case VFE_WRITE_DMI_16BIT:
 	case VFE_WRITE_DMI_32BIT:
 	case VFE_WRITE_DMI_64BIT: {
@@ -883,7 +883,7 @@ int msm_isp_cal_word_per_line(uint32_t output_format,
 	case V4L2_PIX_FMT_NV61:
 		val = CAL_WORD(pixel_per_line, 1, 8);
 		break;
-		/*                         */
+		/*TD: Add more image format*/
 	default:
 		msm_isp_print_fourcc_error(__func__, output_format);
 		break;
@@ -993,7 +993,7 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	case V4L2_PIX_FMT_NV61:
 	case V4L2_PIX_FMT_Y16:
 		return 16;
-		/*                         */
+		/*TD: Add more image format*/
 	default:
 		msm_isp_print_fourcc_error(__func__, output_format);
 		return -EINVAL;
@@ -1199,7 +1199,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		vfe_dev->soc_hw_version = msm_camera_io_r(vfe_dev->tcsr_base);
 		break;
 	default:
-		/*                                    */
+		/* SOC HARDWARE VERSION NOT SUPPORTED */
 		vfe_dev->soc_hw_version = 0x00;
 	}
 

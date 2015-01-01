@@ -58,18 +58,18 @@
 #include "common.h"
 
 /*
-                                                                              
-                 
-  
-                                                                          
-                                                                             
-                                                                           
-                                                                       
-                                     
-                                                                              
+ * ---------------------------------------------------------------------------
+ * 32KHz OS timer
+ *
+ * This currently works only on 16xx, as 1510 does not have the continuous
+ * 32KHz synchronous timer. The 32KHz synchronous timer is used to keep track
+ * of time in addition to the 32KHz OS timer. Using only the 32KHz OS timer
+ * on 1510 would be possible, but the timer would not be as accurate as
+ * with the 32KHz synchronized timer.
+ * ---------------------------------------------------------------------------
  */
 
-/*                       */
+/* 16xx specific defines */
 #define OMAP1_32K_TIMER_BASE		0xfffb9000
 #define OMAP1_32K_TIMER_CR		0x08
 #define OMAP1_32K_TIMER_TVR		0x00
@@ -78,8 +78,8 @@
 #define OMAP_32K_TICKS_PER_SEC		(32768)
 
 /*
-                                                                  
-                               
+ * TRM says 1 / HZ = ( TVR + 1) / 32768, so TRV = (32768 / HZ) - 1
+ * so with HZ = 128, TVR = 255.
  */
 #define OMAP_32K_TIMER_TICK_PERIOD	((OMAP_32K_TICKS_PER_SEC / HZ) - 1)
 
@@ -178,9 +178,9 @@ static __init void omap_init_32k_timer(void)
 }
 
 /*
-                                                                              
-                       
-                                                                              
+ * ---------------------------------------------------------------------------
+ * Timer initialization
+ * ---------------------------------------------------------------------------
  */
 bool __init omap_32k_timer_init(void)
 {

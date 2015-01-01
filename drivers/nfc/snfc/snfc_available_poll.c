@@ -1,10 +1,10 @@
 /*
-                         
-  
+ *  snfc_available_poll.c
+ *
  */
 
 /*
-                        
+ *  Inclued header files
  */
 
 #include "snfc_available_poll.h"
@@ -12,42 +12,42 @@
 #include <mach/board_lge.h>
 
 /*
-          
+ *  Define
  */
 
 /*
-                       
+ *   Function prototype
  */
 
 /*
-                        
+ *   Internal definition
  */
 
  /*
-                       
+  *   Internal variable
   */
-static int isopen_snfcavailpoll = 0; //                     
+static int isopen_snfcavailpoll = 0; // 0 : No open 1 : Open
 
 /*
-                       
+*   Function definition
 */
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int __snfc_avail_poll_get_rfs_status(void)
 {
     int return_val;
 
-    return_val = snfc_gpio_read(gpio_rfs);              //     
+    return_val = snfc_gpio_read(gpio_rfs);              //Rev.B
 
     return return_val;
 }
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int __snfc_avail_poll_get_cen_status(void)
 {
@@ -61,7 +61,7 @@ static int __snfc_avail_poll_get_cen_status(void)
         SNFC_DEBUG_MSG("[__snfc_avail_poll_get_cen_status] snfc_i2c_read : %d \n",rc);
         return -1;
     }
-    //                    
+    // check bit 7(locken)
     if(read_buf&0x01)
     {
         SNFC_DEBUG_MSG_LOW("[__snfc_avail_poll_get_cen_status] CEN = High (UNLOCK) \n");
@@ -77,9 +77,9 @@ static int __snfc_avail_poll_get_cen_status(void)
 }
 
 /*
-                                                                 
-         
-          
+ * Description: it may need to check rfs, cen gpio is initialized
+ * Input:
+ * Output:
  */
 static int snfc_avail_poll_open (struct inode *inode, struct file *fp)
 {
@@ -99,9 +99,9 @@ static int snfc_avail_poll_open (struct inode *inode, struct file *fp)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int snfc_avail_poll_release (struct inode *inode, struct file *fp)
 {
@@ -121,25 +121,25 @@ static int snfc_avail_poll_release (struct inode *inode, struct file *fp)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 extern int koto_abnormal;
 static ssize_t snfc_avail_poll_read(struct file *pf, char *pbuf, size_t size, loff_t *pos)
 {
-    //                              
+    //unsigned char read_buf = 0x00;
     int loop = 1;
     int available_poll = -1;
     int rc = -1;
     int rfs_status = -1, cen_status = -1, uart_status = -1;
     int loop_cnt;
-    //                              
+    //unsigned char restart_value=0;
 
     SNFC_DEBUG_MSG_LOW("[snfc_avail_poll] snfc_avail_poll_read - start \n");
 
-    /*                  */
-    if( NULL == pf || NULL == pbuf /*               */ /*              */)
+    /* Check parameters */
+    if( NULL == pf || NULL == pbuf /*|| size == NULL*/ /*|| pos == NULL*/)
     {
         SNFC_DEBUG_MSG("[snfc_avail_poll] file error pf = %p, pbuf = %p, size = %d, pos = %d\n", pf, pbuf, (int)size,(int)pos);
         return -1;
@@ -192,7 +192,7 @@ static int snfc_avail_poll_init(void)
 
     SNFC_DEBUG_MSG_LOW("[snfc_avail_poll] snfc_avail_poll_init - start \n");
 
-    /*                          */
+    /* Register the device file */
     rc = misc_register(&snfc_avail_poll_device);
     if (rc < 0)
     {
@@ -209,7 +209,7 @@ static void snfc_avail_poll_exit(void)
 {
     SNFC_DEBUG_MSG_LOW("[snfc_avail_poll] snfc_avail_poll_exit - start \n");
 
-    /*                            */
+    /* deregister the device file */
     misc_deregister(&snfc_avail_poll_device);
 
     SNFC_DEBUG_MSG_LOW("[snfc_avail_poll] snfc_avail_poll_exit - end \n");

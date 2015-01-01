@@ -25,15 +25,15 @@
 #include "iio.h"
 #include "sysfs.h"
 
-/*                                               */
+/* Fiddly bit of faking and irq without hardware */
 #define IIO_EVENTGEN_NO 10
-/* 
-                                       
-                                
-                           
-                                           
-                                           
-                                 
+/**
+ * struct iio_dummy_evgen - evgen state
+ * @chip: irq chip we are faking
+ * @base: base of irq range
+ * @enabled: mask of which irqs are enabled
+ * @inuse: mask of which irqs are connected
+ * @lock: protect the evgen state
  */
 struct iio_dummy_eventgen {
 	struct irq_chip chip;
@@ -43,7 +43,7 @@ struct iio_dummy_eventgen {
 	struct mutex lock;
 };
 
-/*                                                     */
+/* We can only ever have one instance of this 'device' */
 static struct iio_dummy_eventgen *iio_evgen;
 static const char *iio_evgen_name = "iio_dummy_evgen";
 
@@ -93,11 +93,11 @@ static int iio_dummy_evgen_create(void)
 	return 0;
 }
 
-/* 
-                                                                     
-  
-                                                                   
-                                                                            
+/**
+ * iio_dummy_evgen_get_irq() - get an evgen provided irq for a device
+ *
+ * This function will give a free allocated irq to a client device.
+ * That irq can then be caused to 'fire' by using the associated sysfs file.
  */
 int iio_dummy_evgen_get_irq(void)
 {
@@ -120,11 +120,11 @@ int iio_dummy_evgen_get_irq(void)
 }
 EXPORT_SYMBOL_GPL(iio_dummy_evgen_get_irq);
 
-/* 
-                                                     
-                                       
-  
-                                                                             
+/**
+ * iio_dummy_evgen_release_irq() - give the irq back.
+ * @irq: irq being returned to the pool
+ *
+ * Used by client driver instances to give the irqs back when they disconnect
  */
 int iio_dummy_evgen_release_irq(int irq)
 {

@@ -26,7 +26,7 @@
 
 
 /*
-                           
+ * definition of read queue
  */
 struct seq_oss_readq {
 	union evrec *q;

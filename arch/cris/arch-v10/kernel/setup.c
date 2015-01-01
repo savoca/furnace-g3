@@ -7,7 +7,7 @@
  */
 
 /*
-                                                                       
+ * This file handles the architecture-dependent parts of initialization
  */
 
 #include <linux/seq_file.h>
@@ -32,8 +32,8 @@ static struct cpu_info {
 	unsigned short cache;
 	unsigned short flags;
 } cpu_info[] = {
-	/*                                                            
-                            */
+	/* The first four models will never ever run this code and are
+	   only here for display.  */
 	{ "ETRAX 1",         0, 0 },
 	{ "ETRAX 2",         0, 0 },
 	{ "ETRAX 3",         0, HAS_TOKENRING },
@@ -46,7 +46,7 @@ static struct cpu_info {
 	{ "ETRAX 100",       8, HAS_ETHERNET100 | HAS_SCSI | HAS_ATA },
 	{ "ETRAX 100LX",     8, HAS_ETHERNET100 | HAS_SCSI | HAS_ATA | HAS_USB | HAS_MMU | HAS_MMU_BUG },
 	{ "ETRAX 100LX v2",  8, HAS_ETHERNET100 | HAS_SCSI | HAS_ATA | HAS_USB | HAS_MMU  },
-	{ "Unknown",         0, 0 }  /*                             */
+	{ "Unknown",         0, 0 }  /* This entry MUST be the last */
 };
 
 int show_cpuinfo(struct seq_file *m, void *v)
@@ -54,7 +54,7 @@ int show_cpuinfo(struct seq_file *m, void *v)
 	unsigned long revision;
 	struct cpu_info *info;
 
-	/*                                                           */
+	/* read the version register in the CPU and print some stuff */
 
 	revision = rdvr();
 
@@ -94,7 +94,7 @@ int show_cpuinfo(struct seq_file *m, void *v)
 		       ((loops_per_jiffy * HZ + 500) / 5000) % 100);
 }
 
-#endif /*                */
+#endif /* CONFIG_PROC_FS */
 
 void
 show_etrax_copyright(void)

@@ -1,5 +1,5 @@
 /*
-                                        
+ * wm9705.h  --  WM9705 Soc Audio driver
  */
 
 #ifndef _WM9705_H

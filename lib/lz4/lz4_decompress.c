@@ -63,7 +63,7 @@ static int lz4_uncompress(const char *source, char *dest, int osize)
 
 	while (1) {
 
-		/*               */
+		/* get runlength */
 		token = *ip++;
 		length = (token >> ML_BITS);
 		if (length == RUN_MASK) {
@@ -75,33 +75,33 @@ static int lz4_uncompress(const char *source, char *dest, int osize)
 			length += len;
 		}
 
-		/*               */
+		/* copy literals */
 		cpy = op + length;
 		if (unlikely(cpy > oend - COPYLENGTH)) {
 			/*
-                                               
-                          
-    */
+			 * Error: not enough place for another match
+			 * (min 4) + 5 literals
+			 */
 			if (cpy != oend)
 				goto _output_error;
 
 			memcpy(op, ip, length);
 			ip += length;
-			break; /*     */
+			break; /* EOF */
 		}
 		LZ4_WILDCOPY(ip, op, cpy);
 		ip -= (op - cpy);
 		op = cpy;
 
-		/*            */
+		/* get offset */
 		LZ4_READ_LITTLEENDIAN_16(ref, cpy, ip);
 		ip += 2;
 
-		/*                                                           */
+		/* Error: offset create reference outside destination buffer */
 		if (unlikely(ref < (BYTE *const) dest))
 			goto _output_error;
 
-		/*                 */
+		/* get matchlength */
 		length = token & ML_MASK;
 		if (length == ML_MASK) {
 			for (; *ip == 255; length += 255)
@@ -109,7 +109,7 @@ static int lz4_uncompress(const char *source, char *dest, int osize)
 			length += *ip++;
 		}
 
-		/*                        */
+		/* copy repeated sequence */
 		if (unlikely((op - ref) < STEPSIZE)) {
 #if LZ4_ARCH64
 			size_t dec64 = dec64table[op - ref];
@@ -132,7 +132,7 @@ static int lz4_uncompress(const char *source, char *dest, int osize)
 		cpy = op + length - (STEPSIZE - 4);
 		if (cpy > (oend - COPYLENGTH)) {
 
-			/*                                                   */
+			/* Error: request to write beyond destination buffer */
 			if (cpy > oend)
 				goto _output_error;
 			LZ4_SECURECOPY(ref, op, (oend - COPYLENGTH));
@@ -140,20 +140,20 @@ static int lz4_uncompress(const char *source, char *dest, int osize)
 				*op++ = *ref++;
 			op = cpy;
 			/*
-                                                        
-                                  
-    */
+			 * Check EOF (should never happen, since last 5 bytes
+			 * are supposed to be literals)
+			 */
 			if (op == oend)
 				goto _output_error;
 			continue;
 		}
 		LZ4_SECURECOPY(ref, op, cpy);
-		op = cpy; /*            */
+		op = cpy; /* correction */
 	}
-	/*                 */
+	/* end of decoding */
 	return (int) (((char *)ip) - source);
 
-	/*                               */
+	/* write overflow error detected */
 _output_error:
 	return (int) (-(((char *)ip) - source));
 }
@@ -175,13 +175,13 @@ static int lz4_uncompress_unknownoutputsize(const char *source, char *dest,
 	size_t dec64table[] = {0, 0, 0, -1, 0, 1, 2, 3};
 #endif
 
-	/*           */
+	/* Main Loop */
 	while (ip < iend) {
 
 		unsigned token;
 		size_t length;
 
-		/*               */
+		/* get runlength */
 		token = *ip++;
 		length = (token >> ML_BITS);
 		if (length == RUN_MASK) {
@@ -191,39 +191,39 @@ static int lz4_uncompress_unknownoutputsize(const char *source, char *dest,
 				length += s;
 			}
 		}
-		/*               */
+		/* copy literals */
 		cpy = op + length;
 		if ((cpy > oend - COPYLENGTH) ||
 			(ip + length > iend - COPYLENGTH)) {
 
 			if (cpy > oend)
-				goto _output_error;/*                      */
+				goto _output_error;/* writes beyond buffer */
 
 			if (ip + length != iend)
 				goto _output_error;/*
-                                      
-                                
-                         
-          */
+						    * Error: LZ4 format requires
+						    * to consume all input
+						    * at this stage
+						    */
 			memcpy(op, ip, length);
 			op += length;
-			break;/*                                              */
+			break;/* Necessarily EOF, due to parsing restrictions */
 		}
 		LZ4_WILDCOPY(ip, op, cpy);
 		ip -= (op - cpy);
 		op = cpy;
 
-		/*            */
+		/* get offset */
 		LZ4_READ_LITTLEENDIAN_16(ref, cpy, ip);
 		ip += 2;
 		if (ref < (BYTE * const) dest)
 			goto _output_error;
 			/*
-                                      
-                                   
-    */
+			 * Error : offset creates reference
+			 * outside of destination buffer
+			 */
 
-		/*                 */
+		/* get matchlength */
 		length = (token & ML_MASK);
 		if (length == ML_MASK) {
 			while (ip < iend) {
@@ -235,7 +235,7 @@ static int lz4_uncompress_unknownoutputsize(const char *source, char *dest,
 			}
 		}
 
-		/*                        */
+		/* copy repeated sequence */
 		if (unlikely((op - ref) < STEPSIZE)) {
 #if LZ4_ARCH64
 			size_t dec64 = dec64table[op - ref];
@@ -258,27 +258,27 @@ static int lz4_uncompress_unknownoutputsize(const char *source, char *dest,
 		cpy = op + length - (STEPSIZE-4);
 		if (cpy > oend - COPYLENGTH) {
 			if (cpy > oend)
-				goto _output_error; /*                      */
+				goto _output_error; /* write outside of buf */
 
 			LZ4_SECURECOPY(ref, op, (oend - COPYLENGTH));
 			while (op < cpy)
 				*op++ = *ref++;
 			op = cpy;
 			/*
-                                                        
-                                  
-    */
+			 * Check EOF (should never happen, since last 5 bytes
+			 * are supposed to be literals)
+			 */
 			if (op == oend)
 				goto _output_error;
 			continue;
 		}
 		LZ4_SECURECOPY(ref, op, cpy);
-		op = cpy; /*            */
+		op = cpy; /* correction */
 	}
-	/*                 */
+	/* end of decoding */
 	return (int) (((char *) op) - dest);
 
-	/*                               */
+	/* write overflow error detected */
 _output_error:
 	return (int) (-(((char *) ip) - source));
 }

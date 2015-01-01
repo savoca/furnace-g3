@@ -165,9 +165,9 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 				pr_err("%s: Couldn't allocate %d bytes\n",
 				       __func__, size);
 				/*
-                                                
-                               
-     */
+				 * Don't use -ENOMEM as userspace will check
+				 * it for increasing buffer
+				 */
 				rc = -EFAULT;
 			} else {
 				if (!access_ok(VERIFY_READ, user,

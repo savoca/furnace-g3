@@ -20,7 +20,7 @@
 #define Q6USM_EVENT_WRITE_DONE           2
 #define Q6USM_EVENT_SIGNAL_DETECT_RESULT 3
 
-/*                                  */
+/* cyclic buffer with 1 gap support */
 #define USM_MIN_BUF_CNT 3
 
 #define FORMAT_USPS_EPOS	0x00000000
@@ -38,38 +38,38 @@
 
 #define CMD_CLOSE		0x0004
 
-/*                                       */
+/* bit 0:1 represents priority of stream */
 #define STREAM_PRIORITY_NORMAL	0x0000
 #define STREAM_PRIORITY_LOW	0x0001
 #define STREAM_PRIORITY_HIGH	0x0002
 
-/*                                                     */
+/* bit 4 represents META enable of encoded data buffer */
 #define BUFFER_META_ENABLE	0x0010
 
 struct us_port_data {
 	dma_addr_t	phys;
-	/*                                     */
+	/* cyclic region of buffers with 1 gap */
 	void		*data;
-	/*                                 */
+	/* number of buffers in the region */
 	uint32_t	buf_cnt;
-	/*                */
+	/* size of buffer */
 	uint32_t	buf_size;
-	/*             */
+	/* write index */
 	uint32_t	dsp_buf;
-	/*            */
+	/* read index */
 	uint32_t	cpu_buf;
-	/*                         */
+	/* expected token from dsp */
 	uint32_t	expected_token;
-	/*                     */
+	/* read or write locks */
 	struct mutex	lock;
 	spinlock_t	dsp_lock;
-	/*                                             */
+	/* extended parameters, related to q6 variants */
 	void		*ext;
 };
 
 struct us_client {
 	int			session;
-	/*                           */
+	/* idx:1 out port, 0: in port*/
 	struct us_port_data	port[2];
 
 	struct apr_svc		*apr;
@@ -105,4 +105,4 @@ int q6usm_set_us_detection(struct us_client *usc,
 			   struct usm_session_cmd_detect_info *detect_info,
 			   uint16_t detect_info_size);
 
-#endif /*              */
+#endif /* __Q6_USM_H__ */

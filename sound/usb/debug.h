@@ -2,7 +2,7 @@
 #define __USBAUDIO_DEBUG_H
 
 /*
-                  
+ * h/w constraints
  */
 
 #ifdef HW_CONST_DEBUG
@@ -11,5 +11,5 @@
 #define hwc_debug(fmt, args...) do { } while(0)
 #endif
 
-#endif /*                    */
+#endif /* __USBAUDIO_DEBUG_H */
 

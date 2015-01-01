@@ -30,9 +30,9 @@
 
 #define V4L2_STD_PAL_SECAM (V4L2_STD_PAL|V4L2_STD_SECAM)
 
-/*                                                                       */
+/********************** card configuration *******************************/
 
-/*                                    */
+/* usual i2c tuner addresses to probe */
 static struct cx18_card_tuner_i2c cx18_i2c_std = {
 	.radio = { I2C_CLIENT_END },
 	.demod = { 0x43, I2C_CLIENT_END },
@@ -40,8 +40,8 @@ static struct cx18_card_tuner_i2c cx18_i2c_std = {
 };
 
 /*
-                                                                       
-                                                                        
+ * usual i2c tuner addresses to probe with additional demod address for
+ * an NXP TDA8295 at 0x42 (N.B. it can possibly be at 0x4b or 0x4c too).
  */
 static struct cx18_card_tuner_i2c cx18_i2c_nxp = {
 	.radio = { I2C_CLIENT_END },
@@ -49,15 +49,15 @@ static struct cx18_card_tuner_i2c cx18_i2c_nxp = {
 	.tv    = { 0x61, 0x60, I2C_CLIENT_END },
 };
 
-/*                                                  
-                                                                   
-                                                                 
-                                                               */
+/* Please add new PCI IDs to: http://pci-ids.ucw.cz/
+   This keeps the PCI ID database up to date. Note that the entries
+   must be added under vendor 0x4444 (Conexant) as subsystem IDs.
+   New vendor IDs should still be added to the vendor ID list. */
 
-/*                          */
+/* Hauppauge HVR-1600 cards */
 
-/*                                                                   
-              */
+/* Note: for Hauppauge cards the tveeprom information is used instead
+   of PCI IDs */
 static const struct cx18_card cx18_card_hvr1600_esmt = {
 	.type = CX18_CARD_HVR_1600_ESMT,
 	.name = "Hauppauge HVR-1600",
@@ -86,7 +86,7 @@ static const struct cx18_card cx18_card_hvr1600_esmt = {
 	.radio_input = { CX18_CARD_INPUT_AUD_TUNER,
 			 CX18_AV_AUDIO_SERIAL1, CS5345_IN_4 },
 	.ddr = {
-		/*                            */
+		/* ESMT M13S128324A-5B memory */
 		.chip_config = 0x003,
 		.refresh = 0x30c,
 		.timing1 = 0x44220e82,
@@ -133,7 +133,7 @@ static const struct cx18_card cx18_card_hvr1600_s5h1411 = {
 	.radio_input = { CX18_CARD_INPUT_AUD_TUNER,
 			 CX18_AV_AUDIO_SERIAL1, CS5345_IN_4 },
 	.ddr = {
-		/*                            */
+		/* ESMT M13S128324A-5B memory */
 		.chip_config = 0x003,
 		.refresh = 0x30c,
 		.timing1 = 0x44220e82,
@@ -180,7 +180,7 @@ static const struct cx18_card cx18_card_hvr1600_samsung = {
 	.radio_input = { CX18_CARD_INPUT_AUD_TUNER,
 			 CX18_AV_AUDIO_SERIAL1, CS5345_IN_4 },
 	.ddr = {
-		/*                                */
+		/* Samsung K4D263238G-VC33 memory */
 		.chip_config = 0x003,
 		.refresh = 0x30c,
 		.timing1 = 0x23230b73,
@@ -199,9 +199,9 @@ static const struct cx18_card cx18_card_hvr1600_samsung = {
 	.i2c = &cx18_i2c_std,
 };
 
-/*                                                                           */
+/* ------------------------------------------------------------------------- */
 
-/*                                                            */
+/* Compro VideoMate H900: note that this card is analog only! */
 
 static const struct cx18_card_pci_info cx18_pci_h900[] = {
 	{ PCI_DEVICE_ID_CX23418, CX18_PCI_ID_COMPRO, 0xe100 },
@@ -233,7 +233,7 @@ static const struct cx18_card cx18_card_h900 = {
 		{ .std = V4L2_STD_ALL, .tuner = TUNER_XC2028 },
 	},
 	.ddr = {
-		/*                                */
+		/* EtronTech EM6A9160TS-5G memory */
 		.chip_config = 0x50003,
 		.refresh = 0x753,
 		.timing1 = 0x24330e84,
@@ -246,9 +246,9 @@ static const struct cx18_card cx18_card_h900 = {
 	.i2c = &cx18_i2c_std,
 };
 
-/*                                                                           */
+/* ------------------------------------------------------------------------- */
 
-/*                                         */
+/* Yuan MPC718: not working at the moment! */
 
 static const struct cx18_card_pci_info cx18_pci_mpc718[] = {
 	{ PCI_DEVICE_ID_CX23418, CX18_PCI_ID_YUAN, 0x0718 },
@@ -280,13 +280,13 @@ static const struct cx18_card cx18_card_mpc718 = {
 		{ CX18_CARD_INPUT_LINE_IN2,  CX18_AV_AUDIO_SERIAL2, 1 },
 	},
 	.tuners = {
-		/*              */
+		/* XC3028 tuner */
 		{ .std = V4L2_STD_ALL, .tuner = TUNER_XC2028 },
 	},
-	/*                                                                 */
+	/* FIXME - the FM radio is just a guess and driver doesn't use SIF */
 	.radio_input = { CX18_CARD_INPUT_AUD_TUNER, CX18_AV_AUDIO5, 2 },
 	.ddr = {
-		/*                            */
+		/* Hynix HY5DU283222B DDR RAM */
 		.chip_config = 0x303,
 		.refresh = 0x3bd,
 		.timing1 = 0x36320966,
@@ -296,7 +296,7 @@ static const struct cx18_card cx18_card_mpc718 = {
 	},
 	.gpio_init.initial_value = 0x1,
 	.gpio_init.direction = 0x3,
-	/*                                       */
+	/* FIXME - these GPIO's are just guesses */
 	.gpio_audio_input = { .mask   = 0x3,
 			      .tuner  = 0x1,
 			      .linein = 0x3,
@@ -306,9 +306,9 @@ static const struct cx18_card cx18_card_mpc718 = {
 	.i2c = &cx18_i2c_std,
 };
 
-/*                                                                           */
+/* ------------------------------------------------------------------------- */
 
-/*             */
+/* GoTView PCI */
 
 static const struct cx18_card_pci_info cx18_pci_gotview_dvd3[] = {
 	{ PCI_DEVICE_ID_CX23418, CX18_PCI_ID_GOTVIEW, 0x3343 },
@@ -340,13 +340,13 @@ static const struct cx18_card cx18_card_gotview_dvd3 = {
 		{ CX18_CARD_INPUT_LINE_IN2,  CX18_AV_AUDIO_SERIAL2, 1 },
 	},
 	.tuners = {
-		/*              */
+		/* XC3028 tuner */
 		{ .std = V4L2_STD_ALL, .tuner = TUNER_XC2028 },
 	},
-	/*                                                                 */
+	/* FIXME - the FM radio is just a guess and driver doesn't use SIF */
 	.radio_input = { CX18_CARD_INPUT_AUD_TUNER, CX18_AV_AUDIO5, 2 },
 	.ddr = {
-		/*                            */
+		/* Hynix HY5DU283222B DDR RAM */
 		.chip_config = 0x303,
 		.refresh = 0x3bd,
 		.timing1 = 0x36320966,
@@ -366,9 +366,9 @@ static const struct cx18_card cx18_card_gotview_dvd3 = {
 	.i2c = &cx18_i2c_std,
 };
 
-/*                                                                           */
+/* ------------------------------------------------------------------------- */
 
-/*                                                                */
+/* Conexant Raptor PAL/SECAM: note that this card is analog only! */
 
 static const struct cx18_card_pci_info cx18_pci_cnxt_raptor_pal[] = {
 	{ PCI_DEVICE_ID_CX23418, CX18_PCI_ID_CONEXANT, 0x0009 },
@@ -402,7 +402,7 @@ static const struct cx18_card cx18_card_cnxt_raptor_pal = {
 	},
 	.radio_input = { CX18_CARD_INPUT_AUD_TUNER, CX18_AV_AUDIO_SERIAL1, 2 },
 	.ddr = {
-		/*                    */
+		/* MT 46V16M16 memory */
 		.chip_config = 0x50306,
 		.refresh = 0x753,
 		.timing1 = 0x33220953,
@@ -413,16 +413,16 @@ static const struct cx18_card cx18_card_cnxt_raptor_pal = {
 	.gpio_init.initial_value = 0x1002,
 	.gpio_init.direction = 0xf002,
 	.gpio_audio_input = { .mask   = 0xf002,
-			      .tuner  = 0x1002,   /*                   */
-			      .linein = 0x2000,   /*                   */
-			      .radio  = 0x4002 }, /*                   */
+			      .tuner  = 0x1002,   /* LED D1  Tuner AF  */
+			      .linein = 0x2000,   /* LED D2  Line In 1 */
+			      .radio  = 0x4002 }, /* LED D3  Tuner AF  */
 	.pci_list = cx18_pci_cnxt_raptor_pal,
 	.i2c = &cx18_i2c_std,
 };
 
-/*                                                                           */
+/* ------------------------------------------------------------------------- */
 
-/*                                                          */
+/* Toshiba Qosmio laptop internal DVB-T/Analog Hybrid Tuner */
 
 static const struct cx18_card_pci_info cx18_pci_toshiba_qosmio_dvbt[] = {
 	{ PCI_DEVICE_ID_CX23418, CX18_PCI_ID_TOSHIBA, 0x0110 },
@@ -463,12 +463,12 @@ static const struct cx18_card cx18_card_toshiba_qosmio_dvbt = {
 	.i2c = &cx18_i2c_std,
 };
 
-/*                                                                           */
+/* ------------------------------------------------------------------------- */
 
-/*                         */
+/* Leadtek WinFast PVR2100 */
 
 static const struct cx18_card_pci_info cx18_pci_leadtek_pvr2100[] = {
-	{ PCI_DEVICE_ID_CX23418, CX18_PCI_ID_LEADTEK, 0x6f27 }, /*           */
+	{ PCI_DEVICE_ID_CX23418, CX18_PCI_ID_LEADTEK, 0x6f27 }, /* PVR2100   */
 	{ 0, 0, 0 }
 };
 
@@ -494,12 +494,12 @@ static const struct cx18_card cx18_card_leadtek_pvr2100 = {
 		{ CX18_CARD_INPUT_LINE_IN1,  CX18_AV_AUDIO_SERIAL1, 1 },
 	},
 	.tuners = {
-		/*              */
+		/* XC2028 tuner */
 		{ .std = V4L2_STD_ALL, .tuner = TUNER_XC2028 },
 	},
 	.radio_input = { CX18_CARD_INPUT_AUD_TUNER, CX18_AV_AUDIO5, 2 },
 	.ddr = {
-		/*                                                          */
+		/* Pointer to proper DDR config values provided by Terry Wu */
 		.chip_config = 0x303,
 		.refresh = 0x3bb,
 		.timing1 = 0x24220e83,
@@ -516,12 +516,12 @@ static const struct cx18_card cx18_card_leadtek_pvr2100 = {
 	.i2c = &cx18_i2c_std,
 };
 
-/*                                                                           */
+/* ------------------------------------------------------------------------- */
 
-/*                           */
+/* Leadtek WinFast DVR3100 H */
 
 static const struct cx18_card_pci_info cx18_pci_leadtek_dvr3100h[] = {
-	{ PCI_DEVICE_ID_CX23418, CX18_PCI_ID_LEADTEK, 0x6690 }, /*           */
+	{ PCI_DEVICE_ID_CX23418, CX18_PCI_ID_LEADTEK, 0x6690 }, /* DVR3100 H */
 	{ 0, 0, 0 }
 };
 
@@ -547,12 +547,12 @@ static const struct cx18_card cx18_card_leadtek_dvr3100h = {
 		{ CX18_CARD_INPUT_LINE_IN1,  CX18_AV_AUDIO_SERIAL1, 1 },
 	},
 	.tuners = {
-		/*              */
+		/* XC3028 tuner */
 		{ .std = V4L2_STD_ALL, .tuner = TUNER_XC2028 },
 	},
 	.radio_input = { CX18_CARD_INPUT_AUD_TUNER, CX18_AV_AUDIO5, 2 },
 	.ddr = {
-		/*                                                          */
+		/* Pointer to proper DDR config values provided by Terry Wu */
 		.chip_config = 0x303,
 		.refresh = 0x3bb,
 		.timing1 = 0x24220e83,
@@ -569,7 +569,7 @@ static const struct cx18_card cx18_card_leadtek_dvr3100h = {
 	.i2c = &cx18_i2c_std,
 };
 
-/*                                                                           */
+/* ------------------------------------------------------------------------- */
 
 static const struct cx18_card *cx18_card_list[] = {
 	&cx18_card_hvr1600_esmt,

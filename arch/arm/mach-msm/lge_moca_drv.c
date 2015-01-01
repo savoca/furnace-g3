@@ -40,7 +40,7 @@
 
 #include "smd_private.h"
 
-//                  
+//#define MOCA_DEBUG
 
 #define NUM_LGE_MOCA_PORTS 1
 
@@ -77,7 +77,7 @@ struct lge_moca_dev {
 	int has_reset;
 	int do_reset_notification;
 	struct completion ch_allocated;
-	struct wake_lock pa_wake_lock;		/*                         */
+	struct wake_lock pa_wake_lock;		/* Packet Arrival Wake lock*/
 	struct work_struct packet_arrival_work;
 	struct spinlock pa_spinlock;
 	int wakelock_locked;
@@ -221,7 +221,7 @@ static void lge_moca_check_and_wakeup_reader(struct lge_moca_dev
 	if (!smd_read_avail(lge_moca_devp->ch))
 		return;
 
-	/*                                        */
+	/* here we have a packet of size sz ready */
 	spin_lock_irqsave(&lge_moca_devp->pa_spinlock, flags);
 	wake_lock(&lge_moca_devp->pa_wake_lock);
 	lge_moca_devp->wakelock_locked = 1;
@@ -277,7 +277,7 @@ static void lge_moca_ch_notify(void *priv, unsigned event)
 		break;
 	case SMD_EVENT_CLOSE:
 		lge_moca_devp->is_open = 0;
-		/*                           */
+		/* put port into reset state */
 		lge_moca_clean_and_signal(lge_moca_devp);
 		break;
 	}
@@ -310,7 +310,7 @@ static void log_modem_sfr(void)
 	pr_err("modem subsystem failure reason: %s.\n", ssr_reason);
 
 	smem_reason[0] = '\0';
-	//      
+	//wmb();
 }
 
 static long lge_moca_ioctl(struct file *file, unsigned int cmd,
@@ -324,7 +324,7 @@ static long lge_moca_ioctl(struct file *file, unsigned int cmd,
 	if (!lge_moca_devp)
 		return -EINVAL;
 	
-	//                                    
+	//mutex_lock(&lge_moca_devp->ch_lock);
 
 	
 	switch (cmd) 
@@ -362,7 +362,7 @@ static long lge_moca_ioctl(struct file *file, unsigned int cmd,
 			ret = -1;
 		}
 	}
-	//                                      
+	//mutex_unlock(&lge_moca_devp->ch_lock);
 
 	return ret;
 }
@@ -418,7 +418,7 @@ ssize_t lge_moca_write(struct file *file,
 	}
 
 	if (lge_moca_devp->do_reset_notification || lge_moca_devp->has_reset) {
-		/*                                     */
+		/* notify client that a reset occurred */
 		return lge_moca_notify_reset(lge_moca_devp);
 	}
 
@@ -507,7 +507,7 @@ ssize_t lge_moca_read(struct file *file,
 	}
 
 	if (lge_moca_devp->do_reset_notification) {
-		/*                                     */
+		/* notify client that a reset occurred */
 		return lge_moca_notify_reset(lge_moca_devp);
 	}
 
@@ -533,9 +533,9 @@ wait_for_packet:
 
 	if (r < 0) {
 		mutex_unlock(&lge_moca_devp->rx_lock);
-		/*                       */
+		/* qualify error message */
 		if (r != -ERESTARTSYS) {
-			/*                                       */
+			/* we get this anytime a signal comes in */
 			pr_err("%s: wait_event_interruptible on lge_moca_dev"
 			       " id:%d ret %i\n",
 				__func__, lge_moca_devp->i, r);
@@ -543,7 +543,7 @@ wait_for_packet:
 		return r;
 	}
 
-	/*                                            */
+	/* Here we have a whole packet waiting for us */
 	pkt_size = smd_cur_packet_size(lge_moca_devp->ch);
 
 	if (!pkt_size) {
@@ -597,7 +597,7 @@ wait_for_packet:
 	spin_unlock_irqrestore(&lge_moca_devp->pa_spinlock, flags);
 	mutex_unlock(&lge_moca_devp->ch_lock);
 
-	/*                                                      */
+	/* check and wakeup read threads waiting on this device */
 	lge_moca_check_and_wakeup_reader(lge_moca_devp);
 
 #ifdef MOCA_DEBUG
@@ -652,18 +652,18 @@ int lge_moca_open(struct inode *inode, struct file *file)
 					"- subsystem_get failed for %s\n",
 					__func__, lge_moca_devp->i, peripheral);
 				/*
-                                               
-                                               
-                              
-     */
+				 * Sleep inorder to reduce the frequency of
+				 * retry by user-space modules and to avoid
+				 * possible watchdog bite.
+				 */
 				msleep((lge_moca_devp->open_modem_wait * 1000));
 				goto release_pd;
 			}
 
 			/*
-                                                          
-                                
-    */
+			 * Wait for a packet channel to be allocated so we know
+			 * the modem is ready enough.
+			 */
 			if (lge_moca_devp->open_modem_wait) {
 				r = wait_for_completion_interruptible_timeout(
 					&lge_moca_devp->ch_allocated,
@@ -697,7 +697,7 @@ int lge_moca_open(struct inode *inode, struct file *file)
 				lge_moca_devp->is_open, (2 * HZ));
 		if (r == 0) {
 			r = -ETIMEDOUT;
-			/*                                                */
+			/* close the ch to sync smd's state with lge_moca */
 			smd_close(lge_moca_devp->ch);
 			lge_moca_devp->ch = NULL;
 		}

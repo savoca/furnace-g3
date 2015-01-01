@@ -49,5 +49,5 @@ extern fci_s32 bbm_data(HANDLE handle, fci_u16 addr, fci_u8 *data, fci_u32 lengt
 }
 #endif
 
-#endif /*               */
+#endif /* __FCI_HAL_H__ */
 

@@ -22,11 +22,11 @@
 #define _ASM_HEXAGON_UNISTD_H
 
 /*
-                                                           
-                                                        
-                                                               
-                                                                      
-                           
+ *  The kernel pulls this unistd.h in three different ways:
+ *  1.  the "normal" way which gets all the __NR defines
+ *  2.  with __SYSCALL defined to produce function declarations
+ *  3.  with __SYSCALL defined to produce syscall table initialization
+ *  See also:  syscalltab.c
  */
 
 #define sys_mmap2 sys_mmap_pgoff

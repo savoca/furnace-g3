@@ -81,8 +81,8 @@ static inline void vcpu_cache_mmio_info(struct kvm_vcpu *vcpu,
 }
 
 /*
-                                               
-                                                           
+ * Clear the mmio cache info for the given gva,
+ * specially, if gva is ~0ul, we clear all mmio cache info.
  */
 static inline void vcpu_clear_mmio_info(struct kvm_vcpu *vcpu, gva_t gva)
 {

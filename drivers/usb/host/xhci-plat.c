@@ -29,10 +29,10 @@ static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 	struct xhci_plat_data *pdata = dev->platform_data;
 
 	/*
-                                                                     
-                                                                      
-                                    
-  */
+	 * As of now platform drivers don't provide MSI support so we ensure
+	 * here that the generic code does not try to make a pci_dev from our
+	 * dev struct in order to setup MSI
+	 */
 	xhci->quirks |= XHCI_BROKEN_MSI;
 
 	if (!pdata)
@@ -45,7 +45,7 @@ static void xhci_plat_quirks(struct device *dev, struct xhci_hcd *xhci)
 		xhci->quirks |= XHCI_RESET_DELAY;
 }
 
-/*                                                  */
+/* called during probe() after chip reset completes */
 static int xhci_plat_setup(struct usb_hcd *hcd)
 {
 	return xhci_gen_setup(hcd, xhci_plat_quirks);
@@ -57,22 +57,22 @@ static const struct hc_driver xhci_plat_xhci_driver = {
 	.hcd_priv_size =	sizeof(struct xhci_hcd *),
 
 	/*
-                            
-  */
+	 * generic hardware linkage
+	 */
 	.irq =			xhci_irq,
 	.flags =		HCD_MEMORY | HCD_USB3 | HCD_SHARED,
 
 	/*
-                              
-  */
+	 * basic lifecycle operations
+	 */
 	.reset =		xhci_plat_setup,
 	.start =		xhci_run,
 	.stop =			xhci_stop,
 	.shutdown =		xhci_shutdown,
 
 	/*
-                                                         
-  */
+	 * managing i/o requests and associated device resources
+	 */
 	.urb_enqueue =		xhci_urb_enqueue,
 	.urb_dequeue =		xhci_urb_dequeue,
 	.alloc_dev =		xhci_alloc_dev,
@@ -89,11 +89,11 @@ static const struct hc_driver xhci_plat_xhci_driver = {
 	.reset_device =		xhci_discover_or_reset_device,
 
 	/*
-                      
-  */
+	 * scheduling support
+	 */
 	.get_frame_number =	xhci_get_frame,
 
-	/*                  */
+	/* Root hub support */
 	.hub_control =		xhci_hub_control,
 	.hub_status_data =	xhci_hub_status_data,
 	.bus_suspend =		xhci_bus_suspend,
@@ -152,7 +152,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (ret)
 		goto unmap_registers;
 
-	/*                                                       */
+	/* USB 2.0 roothub is stored in the platform_device now. */
 	hcd = dev_get_drvdata(&pdev->dev);
 	xhci = hcd_to_xhci(hcd);
 	xhci->shared_hcd = usb_create_shared_hcd(driver, &pdev->dev,
@@ -164,9 +164,9 @@ static int xhci_plat_probe(struct platform_device *pdev)
 
 	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
 	/*
-                                                                        
-                               
-  */
+	 * Set the xHCI pointer before xhci_plat_setup() (aka hcd_driver.reset)
+	 * is called by usb_add_hcd().
+	 */
 	*((struct xhci_hcd **) xhci->shared_hcd->hcd_priv) = xhci;
 
 	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
@@ -174,7 +174,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		goto put_usb3_hcd;
 
 	phy = usb_get_transceiver();
-	/*                                                               */
+	/* Register with OTG if present, ignore USB2 OTG using other PHY */
 	if (phy && phy->otg && !(phy->flags & ENABLE_SECONDARY_PHY)) {
 		dev_dbg(&pdev->dev, "%s otg support available\n", __func__);
 		ret = otg_set_host(phy->otg, &hcd->self);
@@ -244,9 +244,9 @@ static int xhci_msm_runtime_suspend(struct device *dev)
 {
 	dev_dbg(dev, "xhci msm runtime suspend\n");
 	/*
-                                               
-                                
-  */
+	 * Notify OTG about suspend.  It takes care of
+	 * putting the hardware in LPM.
+	 */
 	if (phy)
 		return usb_phy_set_suspend(phy, 1);
 

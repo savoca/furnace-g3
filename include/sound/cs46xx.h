@@ -30,12 +30,12 @@
 #include "cs46xx_dsp_spos.h"
 
 /*
-                    
+ *  Direct registers
  */
 
 /*
-                                                                               
-                                     
+ *  The following define the offsets of the registers accessed via base address
+ *  register zero on the CS46xx part.
  */
 #define BA0_HISR				0x00000000
 #define BA0_HSR0                                0x00000004
@@ -162,8 +162,8 @@
 #endif
 
 /*
-                                                                               
-                                                 
+ *  The following define the offsets of the registers and memories accessed via
+ *  base address register one on the CS46xx part.
  */
 #define BA1_SP_DMEM0                            0x00000000
 #define BA1_SP_DMEM1                            0x00010000
@@ -185,8 +185,8 @@
 
 
 /*
-                                                                        
-             
+ *  The following defines are for the flags in the host interrupt status
+ *  register.
  */
 #define HISR_VC_MASK                            0x0000FFFF
 #define HISR_VC0                                0x00000001
@@ -220,7 +220,7 @@
 #define HISR_INTENA                             0x80000000
 
 /*
-                                                                          
+ *  The following defines are for the flags in the host signal register 0.
  */
 #define HSR0_VC_MASK                            0xFFFFFFFF
 #define HSR0_VC16                               0x00000001
@@ -257,14 +257,14 @@
 #define HSR0_VC47                               0x80000000
 
 /*
-                                                                         
-             
+ *  The following defines are for the flags in the host interrupt control
+ *  register.
  */
 #define HICR_IEV                                0x00000001
 #define HICR_CHGM                               0x00000002
 
 /*
-                                                                       
+ *  The following defines are for the flags in the DMA status register.
  */
 #define DMSR_HP                                 0x00000001
 #define DMSR_HR                                 0x00000002
@@ -272,8 +272,8 @@
 #define DMSR_SR                                 0x00000008
 
 /*
-                                                                          
-             
+ *  The following defines are for the flags in the host DMA source address
+ *  register.
  */
 #define HSAR_HOST_ADDR_MASK                     0xFFFFFFFF
 #define HSAR_DSP_ADDR_MASK                      0x0000FFFF
@@ -287,8 +287,8 @@
 #define HSAR_ERR                                0x80000000
 
 /*
-                                                                               
-             
+ *  The following defines are for the flags in the host DMA destination address
+ *  register.
  */
 #define HDAR_HOST_ADDR_MASK                     0xFFFFFFFF
 #define HDAR_DSP_ADDR_MASK                      0x0000FFFF
@@ -302,7 +302,7 @@
 #define HDAR_ERR                                0x80000000
 
 /*
-                                                                             
+ *  The following defines are for the flags in the host DMA control register.
  */
 #define HDMR_AC_MASK                            0x0000F000
 #define HDMR_AC_8_16                            0x00001000
@@ -311,7 +311,7 @@
 #define HDMR_AC_S_U                             0x00008000
 
 /*
-                                                                             
+ *  The following defines are for the flags in the host DMA control register.
  */
 #define HDCR_COUNT_MASK                         0x000003FF
 #define HDCR_DONE                               0x00004000
@@ -341,8 +341,8 @@
 #define HDCR_COUNT_SHIFT                        0
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the performance monitor control
+ *  register.
  */
 #define PFMC_C1SS_MASK                          0x0000001F
 #define PFMC_C1EV                               0x00000020
@@ -368,21 +368,21 @@
 #define PFMC_SP_CLOCK                           13
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the performance counter value 1
+ *  register.
  */
 #define PFCV1_PC1V_MASK                         0xFFFFFFFF
 #define PFCV1_PC1V_SHIFT                        0
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the performance counter value 2
+ *  register.
  */
 #define PFCV2_PC2V_MASK                         0xFFFFFFFF
 #define PFCV2_PC2V_SHIFT                        0
 
 /*
-                                                                            
+ *  The following defines are for the flags in the clock control register 1.
  */
 #define CLKCR1_OSCS                             0x00000001
 #define CLKCR1_OSCP                             0x00000002
@@ -396,7 +396,7 @@
 #define CLKCR1_PLLOS                            0x00000040
 
 /*
-                                                                            
+ *  The following defines are for the flags in the clock control register 2.
  */
 #define CLKCR2_PDIVS_MASK                       0x0000000F
 #define CLKCR2_PDIVS_1                          0x00000001
@@ -407,14 +407,14 @@
 #define CLKCR2_PDIVS_16                         0x00000000
 
 /*
-                                                                           
+ *  The following defines are for the flags in the PLL multiplier register.
  */
 #define PLLM_MASK                               0x000000FF
 #define PLLM_SHIFT                              0
 
 /*
-                                                                            
-             
+ *  The following defines are for the flags in the PLL capacitor coefficient
+ *  register.
  */
 #define PLLCC_CDR_MASK                          0x00000007
 #ifndef NO_CS4610
@@ -456,7 +456,7 @@
 #endif
 
 /*
-                                                                              
+ *  The following defines are for the flags in the feature reporting register.
  */
 #define FRR_FAB_MASK                            0x00000003
 #define FRR_MASK_MASK                           0x0000001C
@@ -476,8 +476,8 @@
 #define FRR_CFOP_SHIFT                          5
 
 /*
-                                                                       
-             
+ *  The following defines are for the flags in the configuration load 1
+ *  register.
  */
 #define CFL1_CLOCK_SOURCE_MASK                  0x00000003
 #define CFL1_CLOCK_SOURCE_CS423X                0x00000000
@@ -487,14 +487,14 @@
 #define CFL1_VALID_DATA_MASK                    0x000000FF
 
 /*
-                                                                       
-             
+ *  The following defines are for the flags in the configuration load 2
+ *  register.
  */
 #define CFL2_VALID_DATA_MASK                    0x000000FF
 
 /*
-                                                                             
-               
+ *  The following defines are for the flags in the serial port master control
+ *  register 1.
  */
 #define SERMC1_MSPE                             0x00000001
 #define SERMC1_PTC_MASK                         0x0000000E
@@ -505,16 +505,16 @@
 #define SERMC1_XLB                              0x00000020
 
 /*
-                                                                             
-               
+ *  The following defines are for the flags in the serial port master control
+ *  register 2.
  */
 #define SERMC2_LROE                             0x00000001
 #define SERMC2_MCOE                             0x00000002
 #define SERMC2_MCDIV                            0x00000004
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the serial port 1 configuration
+ *  register.
  */
 #define SERC1_SO1EN                             0x00000001
 #define SERC1_SO1F_MASK                         0x0000000E
@@ -524,8 +524,8 @@
 #define SERC1_SO1F_SPDIF                        0x00000006
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the serial port 2 configuration
+ *  register.
  */
 #define SERC2_SI1EN                             0x00000001
 #define SERC2_SI1F_MASK                         0x0000000E
@@ -535,8 +535,8 @@
 #define SERC2_SI1F_SPDIF                        0x00000006
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the serial port 3 configuration
+ *  register.
  */
 #define SERC3_SO2EN                             0x00000001
 #define SERC3_SO2F_MASK                         0x00000006
@@ -544,8 +544,8 @@
 #define SERC3_SO2F_SPDIF                        0x00000002
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the serial port 4 configuration
+ *  register.
  */
 #define SERC4_SO3EN                             0x00000001
 #define SERC4_SO3F_MASK                         0x00000006
@@ -553,8 +553,8 @@
 #define SERC4_SO3F_SPDIF                        0x00000002
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the serial port 5 configuration
+ *  register.
  */
 #define SERC5_SI2EN                             0x00000001
 #define SERC5_SI2F_MASK                         0x00000006
@@ -562,29 +562,29 @@
 #define SERC5_SI2F_SPDIF                        0x00000002
 
 /*
-                                                                              
-                     
+ *  The following defines are for the flags in the serial port backdoor sample
+ *  pointer register.
  */
 #define SERBSP_FSP_MASK                         0x0000000F
 #define SERBSP_FSP_SHIFT                        0
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the serial port backdoor status
+ *  register.
  */
 #define SERBST_RRDY                             0x00000001
 #define SERBST_WBSY                             0x00000002
 
 /*
-                                                                               
-             
+ *  The following defines are for the flags in the serial port backdoor command
+ *  register.
  */
 #define SERBCM_RDC                              0x00000001
 #define SERBCM_WRC                              0x00000002
 
 /*
-                                                                               
-             
+ *  The following defines are for the flags in the serial port backdoor address
+ *  register.
  */
 #ifdef NO_CS4612
 #define SERBAD_FAD_MASK                         0x000000FF
@@ -594,27 +594,27 @@
 #define SERBAD_FAD_SHIFT                        0
 
 /*
-                                                                       
-                           
+ *  The following defines are for the flags in the serial port backdoor
+ *  configuration register.
  */
 #define SERBCF_HBP                              0x00000001
 
 /*
-                                                                             
-                  
+ *  The following defines are for the flags in the serial port backdoor write
+ *  port register.
  */
 #define SERBWP_FWD_MASK                         0x000FFFFF
 #define SERBWP_FWD_SHIFT                        0
 
 /*
-                                                                            
-                  
+ *  The following defines are for the flags in the serial port backdoor read
+ *  port register.
  */
 #define SERBRP_FRD_MASK                         0x000FFFFF
 #define SERBRP_FRD_SHIFT                        0
 
 /*
-                                                                               
+ *  The following defines are for the flags in the async FIFO address register.
  */
 #ifndef NO_CS4612
 #define ASER_FADDR_A1_MASK                      0x000001FF
@@ -626,7 +626,7 @@
 #endif
 
 /*
-                                                                         
+ *  The following defines are for the flags in the AC97 control register.
  */
 #define ACCTL_RSTN                              0x00000001
 #define ACCTL_ESYN                              0x00000002
@@ -639,7 +639,7 @@
 #endif
 
 /*
-                                                                        
+ *  The following defines are for the flags in the AC97 status register.
  */
 #define ACSTS_CRDY                              0x00000001
 #define ACSTS_VSTS                              0x00000002
@@ -648,8 +648,8 @@
 #endif
 
 /*
-                                                                         
-             
+ *  The following defines are for the flags in the AC97 output slot valid
+ *  register.
  */
 #define ACOSV_SLV3                              0x00000001
 #define ACOSV_SLV4                              0x00000002
@@ -663,21 +663,21 @@
 #define ACOSV_SLV12                             0x00000200
 
 /*
-                                                                       
-             
+ *  The following defines are for the flags in the AC97 command address
+ *  register.
  */
 #define ACCAD_CI_MASK                           0x0000007F
 #define ACCAD_CI_SHIFT                          0
 
 /*
-                                                                              
+ *  The following defines are for the flags in the AC97 command data register.
  */
 #define ACCDA_CD_MASK                           0x0000FFFF
 #define ACCDA_CD_SHIFT                          0
 
 /*
-                                                                        
-             
+ *  The following defines are for the flags in the AC97 input slot valid
+ *  register.
  */
 #define ACISV_ISV3                              0x00000001
 #define ACISV_ISV4                              0x00000002
@@ -691,21 +691,21 @@
 #define ACISV_ISV12                             0x00000200
 
 /*
-                                                                      
-             
+ *  The following defines are for the flags in the AC97 status address
+ *  register.
  */
 #define ACSAD_SI_MASK                           0x0000007F
 #define ACSAD_SI_SHIFT                          0
 
 /*
-                                                                             
+ *  The following defines are for the flags in the AC97 status data register.
  */
 #define ACSDA_SD_MASK                           0x0000FFFF
 #define ACSDA_SD_SHIFT                          0
 
 /*
-                                                                        
-             
+ *  The following defines are for the flags in the joystick poll/trigger
+ *  register.
  */
 #define JSPT_CAX                                0x00000001
 #define JSPT_CAY                                0x00000002
@@ -717,7 +717,7 @@
 #define JSPT_BB2                                0x00000080
 
 /*
-                                                                             
+ *  The following defines are for the flags in the joystick control register.
  */
 #define JSCTL_SP_MASK                           0x00000003
 #define JSCTL_SP_SLOW                           0x00000000
@@ -727,8 +727,8 @@
 #define JSCTL_ARE                               0x00000004
 
 /*
-                                                                             
-                      
+ *  The following defines are for the flags in the joystick coordinate pair 1
+ *  readback register.
  */
 #define JSC1_Y1V_MASK                           0x0000FFFF
 #define JSC1_X1V_MASK                           0xFFFF0000
@@ -736,8 +736,8 @@
 #define JSC1_X1V_SHIFT                          16
 
 /*
-                                                                             
-                      
+ *  The following defines are for the flags in the joystick coordinate pair 2
+ *  readback register.
  */
 #define JSC2_Y2V_MASK                           0x0000FFFF
 #define JSC2_X2V_MASK                           0xFFFF0000
@@ -745,35 +745,35 @@
 #define JSC2_X2V_SHIFT                          16
 
 /*
-                                                                         
+ *  The following defines are for the flags in the MIDI control register.
  */
-#define MIDCR_TXE                               0x00000001	/*                      */
-#define MIDCR_RXE                               0x00000002	/*                   */
-#define MIDCR_RIE                               0x00000004	/*                          */
-#define MIDCR_TIE                               0x00000008	/*                          */
-#define MIDCR_MLB                               0x00000010	/*                       */
-#define MIDCR_MRST                              0x00000020	/*                  */
+#define MIDCR_TXE                               0x00000001	/* Enable transmitting. */
+#define MIDCR_RXE                               0x00000002	/* Enable receiving. */
+#define MIDCR_RIE                               0x00000004	/* Interrupt upon tx ready. */
+#define MIDCR_TIE                               0x00000008	/* Interrupt upon rx ready. */
+#define MIDCR_MLB                               0x00000010	/* Enable midi loopback. */
+#define MIDCR_MRST                              0x00000020	/* Reset interface. */
 
 /*
-                                                                        
+ *  The following defines are for the flags in the MIDI status register.
  */
-#define MIDSR_TBF                               0x00000001	/*                  */
-#define MIDSR_RBE                               0x00000002	/*                   */
+#define MIDSR_TBF                               0x00000001	/* Tx FIFO is full. */
+#define MIDSR_RBE                               0x00000002	/* Rx FIFO is empty. */
 
 /*
-                                                                            
+ *  The following defines are for the flags in the MIDI write port register.
  */
 #define MIDWP_MWD_MASK                          0x000000FF
 #define MIDWP_MWD_SHIFT                         0
 
 /*
-                                                                           
+ *  The following defines are for the flags in the MIDI read port register.
  */
 #define MIDRP_MRD_MASK                          0x000000FF
 #define MIDRP_MRD_SHIFT                         0
 
 /*
-                                                                          
+ *  The following defines are for the flags in the joystick GPIO register.
  */
 #define JSIO_DAX                                0x00000001
 #define JSIO_DAY                                0x00000002
@@ -785,16 +785,16 @@
 #define JSIO_BYOE                               0x00000080
 
 /*
-                                                                           
-                         
+ *  The following defines are for the flags in the master async/sync serial
+ *  port enable register.
  */
 #ifndef NO_CS4612
 #define ASER_MASTER_ME                          0x00000001
 #endif
 
 /*
-                                                                          
-             
+ *  The following defines are for the flags in the configuration interface
+ *  register.
  */
 #define CFGI_CLK                                0x00000001
 #define CFGI_DOUT                               0x00000002
@@ -802,8 +802,8 @@
 #define CFGI_EELD                               0x00000008
 
 /*
-                                                                             
-             
+ *  The following defines are for the flags in the subsystem ID and vendor ID
+ *  register.
  */
 #define SSVID_VID_MASK                          0x0000FFFF
 #define SSVID_SID_MASK                          0xFFFF0000
@@ -811,7 +811,7 @@
 #define SSVID_SID_SHIFT                         16
 
 /*
-                                                                               
+ *  The following defines are for the flags in the GPIO pin interface register.
  */
 #define GPIOR_VOLDN                             0x00000001
 #define GPIOR_VOLUP                             0x00000002
@@ -819,8 +819,8 @@
 #define GPIOR_SI2OE                             0x00000008
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the extended GPIO pin direction
+ *  register.
  */
 #ifndef NO_CS4612
 #define EGPIODR_GPOE0                           0x00000001
@@ -835,8 +835,8 @@
 #endif
 
 /*
-                                                                              
-                  
+ *  The following defines are for the flags in the extended GPIO pin polarity/
+ *  type register.
  */
 #ifndef NO_CS4612
 #define EGPIOPTR_GPPT0                          0x00000001
@@ -851,8 +851,8 @@
 #endif
 
 /*
-                                                                           
-             
+ *  The following defines are for the flags in the extended GPIO pin sticky
+ *  register.
  */
 #ifndef NO_CS4612
 #define EGPIOTR_GPS0                            0x00000001
@@ -867,8 +867,8 @@
 #endif
 
 /*
-                                                                            
-             
+ *  The following defines are for the flags in the extended GPIO ping wakeup
+ *  register.
  */
 #ifndef NO_CS4612
 #define EGPIOWR_GPW0                            0x00000001
@@ -883,8 +883,8 @@
 #endif
 
 /*
-                                                                           
-             
+ *  The following defines are for the flags in the extended GPIO pin status
+ *  register.
  */
 #ifndef NO_CS4612
 #define EGPIOSR_GPS0                            0x00000001
@@ -899,16 +899,16 @@
 #endif
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the serial port 6 configuration
+ *  register.
  */
 #ifndef NO_CS4612
 #define SERC6_ASDO2EN                           0x00000001
 #endif
 
 /*
-                                                                              
-             
+ *  The following defines are for the flags in the serial port 7 configuration
+ *  register.
  */
 #ifndef NO_CS4612
 #define SERC7_ASDI2EN                           0x00000001
@@ -919,8 +919,8 @@
 #endif
 
 /*
-                                                                      
-                           
+ *  The following defines are for the flags in the serial port AC link
+ *  configuration register.
  */
 #ifndef NO_CS4612
 #define SERACC_CHIP_TYPE_MASK                  0x00000001
@@ -929,11 +929,11 @@
 #define SERACC_TWO_CODECS                      0x00000002
 #define SERACC_MDM                             0x00000004
 #define SERACC_HSP                             0x00000008
-#define SERACC_ODT                             0x00000010 /*             */
+#define SERACC_ODT                             0x00000010 /* only CS4630 */
 #endif
 
 /*
-                                                                           
+ *  The following defines are for the flags in the AC97 control register 2.
  */
 #ifndef NO_CS4612
 #define ACCTL2_RSTN                             0x00000001
@@ -945,7 +945,7 @@
 #endif
 
 /*
-                                                                          
+ *  The following defines are for the flags in the AC97 status register 2.
  */
 #ifndef NO_CS4612
 #define ACSTS2_CRDY                             0x00000001
@@ -953,8 +953,8 @@
 #endif
 
 /*
-                                                                         
-               
+ *  The following defines are for the flags in the AC97 output slot valid
+ *  register 2.
  */
 #ifndef NO_CS4612
 #define ACOSV2_SLV3                             0x00000001
@@ -970,8 +970,8 @@
 #endif
 
 /*
-                                                                       
-               
+ *  The following defines are for the flags in the AC97 command address
+ *  register 2.
  */
 #ifndef NO_CS4612
 #define ACCAD2_CI_MASK                          0x0000007F
@@ -979,8 +979,8 @@
 #endif
 
 /*
-                                                                             
-      
+ *  The following defines are for the flags in the AC97 command data register
+ *  2.
  */
 #ifndef NO_CS4612
 #define ACCDA2_CD_MASK                          0x0000FFFF
@@ -988,8 +988,8 @@
 #endif
 
 /*
-                                                                        
-               
+ *  The following defines are for the flags in the AC97 input slot valid
+ *  register 2.
  */
 #ifndef NO_CS4612
 #define ACISV2_ISV3                             0x00000001
@@ -1005,8 +1005,8 @@
 #endif
 
 /*
-                                                                      
-               
+ *  The following defines are for the flags in the AC97 status address
+ *  register 2.
  */
 #ifndef NO_CS4612
 #define ACSAD2_SI_MASK                          0x0000007F
@@ -1014,7 +1014,7 @@
 #endif
 
 /*
-                                                                               
+ *  The following defines are for the flags in the AC97 status data register 2.
  */
 #ifndef NO_CS4612
 #define ACSDA2_SD_MASK                          0x0000FFFF
@@ -1022,8 +1022,8 @@
 #endif
 
 /*
-                                                                               
-                       
+ *  The following defines are for the flags in the I/O trap address and control
+ *  registers (all 12).
  */
 #ifndef NO_CS4612
 #define IOTAC_SA_MASK                           0x0000FFFF
@@ -1042,8 +1042,8 @@
 #endif
 
 /*
-                                                                               
-            
+ *  The following defines are for the flags in the I/O trap fast read registers
+ *  (all 8).
  */
 #ifndef NO_CS4612
 #define IOTFR_D_MASK                            0x0000FFFF
@@ -1057,7 +1057,7 @@
 #endif
 
 /*
-                                                                          
+ *  The following defines are for the flags in the I/O trap FIFO register.
  */
 #ifndef NO_CS4612
 #define IOTFIFO_BA_MASK                         0x00003FFF
@@ -1069,8 +1069,8 @@
 #endif
 
 /*
-                                                                           
-             
+ *  The following defines are for the flags in the I/O trap retry read data
+ *  register.
  */
 #ifndef NO_CS4612
 #define IOTRRD_D_MASK                           0x0000FFFF
@@ -1079,8 +1079,8 @@
 #endif
 
 /*
-                                                                        
-             
+ *  The following defines are for the flags in the I/O trap FIFO pointer
+ *  register.
  */
 #ifndef NO_CS4612
 #define IOTFP_CA_MASK                           0x00003FFF
@@ -1090,7 +1090,7 @@
 #endif
 
 /*
-                                                                             
+ *  The following defines are for the flags in the I/O trap control register.
  */
 #ifndef NO_CS4612
 #define IOTCR_ITD                               0x00000001
@@ -1104,7 +1104,7 @@
 #endif
 
 /*
-                                                                            
+ *  The following defines are for the flags in the direct PCI data register.
  */
 #ifndef NO_CS4612
 #define DPCID_D_MASK                            0xFFFFFFFF
@@ -1112,7 +1112,7 @@
 #endif
 
 /*
-                                                                               
+ *  The following defines are for the flags in the direct PCI address register.
  */
 #ifndef NO_CS4612
 #define DPCIA_A_MASK                            0xFFFFFFFF
@@ -1120,7 +1120,7 @@
 #endif
 
 /*
-                                                                               
+ *  The following defines are for the flags in the direct PCI command register.
  */
 #ifndef NO_CS4612
 #define DPCIC_C_MASK                            0x0000000F
@@ -1130,7 +1130,7 @@
 #endif
 
 /*
-                                                                           
+ *  The following defines are for the flags in the PC/PCI request register.
  */
 #ifndef NO_CS4612
 #define PCPCIR_RDC_MASK                         0x00000007
@@ -1141,7 +1141,7 @@
 #endif
 
 /*
-                                                                         
+ *  The following defines are for the flags in the PC/PCI grant register.
  */ 
 #ifndef NO_CS4612
 #define PCPCIG_GDC_MASK                         0x00000007
@@ -1150,16 +1150,16 @@
 #endif
 
 /*
-                                                                       
-             
+ *  The following defines are for the flags in the PC/PCI master enable
+ *  register.
  */
 #ifndef NO_CS4612
 #define PCPCIEN_EN                              0x00000001
 #endif
 
 /*
-                                                                     
-                                
+ *  The following defines are for the flags in the extended PCI power
+ *  management control register.
  */
 #ifndef NO_CS4612
 #define EPCIPMC_GWU                             0x00000001
@@ -1167,7 +1167,7 @@
 #endif 
 
 /*
-                                                                       
+ *  The following defines are for the flags in the SP control register.
  */
 #define SPCR_RUN                                0x00000001
 #define SPCR_STPFR                              0x00000002
@@ -1183,7 +1183,7 @@
 #endif
 
 /*
-                                                                        
+ *  The following defines are for the flags in the debug index register.
  */
 #define DREG_REGID_MASK                         0x0000007F
 #define DREG_DEBUG                              0x00000080
@@ -1364,7 +1364,7 @@
 #define DREG_REGID_RSHOUT_HIGH                  0x00000630
 
 /*
-                                                                             
+ *  The following defines are for the flags in the DMA stream requestor write
  */
 #define DSRWP_DSR_MASK                          0x0000000F
 #define DSRWP_DSR_BG_RQ                         0x00000001
@@ -1376,20 +1376,20 @@
 #define DSRWP_DSR_RQ_PENDING                    0x00000008
 
 /*
-                                                                            
+ *  The following defines are for the flags in the trap write port register.
  */
 #define TWPR_TW_MASK                            0x0000FFFF
 #define TWPR_TW_SHIFT                           0
 
 /*
-                                                                      
-             
+ *  The following defines are for the flags in the stack pointer write
+ *  register.
  */
 #define SPWR_STKP_MASK                          0x0000000F
 #define SPWR_STKP_SHIFT                         0
 
 /*
-                                                                         
+ *  The following defines are for the flags in the SP interrupt register.
  */
 #define SPIR_FRI                                0x00000001
 #define SPIR_DOI                                0x00000002
@@ -1401,13 +1401,13 @@
 #define SPIR_IP3                                0x00000080
 
 /*
-                                                                               
+ *  The following defines are for the flags in the functional group 1 register.
  */
 #define FGR1_F1S_MASK                           0x0000FFFF
 #define FGR1_F1S_SHIFT                          0
 
 /*
-                                                                            
+ *  The following defines are for the flags in the SP clock status register.
  */
 #define SPCS_FRI                                0x00000001
 #define SPCS_DOI                                0x00000002
@@ -1426,36 +1426,36 @@
 #define SPCS_FGN_SHIFT                          13
 
 /*
-                                                                          
-             
+ *  The following defines are for the flags in the SP DMA requestor status
+ *  register.
  */
 #define SDSR_DCS_MASK                           0x000000FF
 #define SDSR_DCS_SHIFT                          0
 #define SDSR_DCS_NONE                           0x00000007
 
 /*
-                                                                        
+ *  The following defines are for the flags in the frame timer register.
  */
 #define FRMT_FTV_MASK                           0x0000FFFF
 #define FRMT_FTV_SHIFT                          0
 
 /*
-                                                                            
-             
+ *  The following defines are for the flags in the frame timer current count
+ *  register.
  */
 #define FRCC_FCC_MASK                           0x0000FFFF
 #define FRCC_FCC_SHIFT                          0
 
 /*
-                                                                         
-             
+ *  The following defines are for the flags in the frame timer save count
+ *  register.
  */
 #define FRSC_FCS_MASK                           0x0000FFFF
 #define FRSC_FCS_SHIFT                          0
 
 /*
-                                                                       
-                
+ *  The following define the various flags stored in the scatter/gather
+ *  descriptors.
  */
 #define DMA_SG_NEXT_ENTRY_MASK                  0x00000FF8
 #define DMA_SG_SAMPLE_END_MASK                  0x0FFF0000
@@ -1467,8 +1467,8 @@
 #define DMA_SG_SAMPLE_END_SHIFT                 16
 
 /*
-                                                                             
-                  
+ *  The following define the offsets of the fields within the on-chip generic
+ *  DMA requestor.
  */
 #define DMA_RQ_CONTROL1                         0x00000000
 #define DMA_RQ_CONTROL2                         0x00000004
@@ -1481,8 +1481,8 @@
 #define DMA_RQ_PAGE_MAP_ADDR                    0x00000020
 
 /*
-                                                                            
-                                  
+ *  The following defines are for the flags in the first control word of the
+ *  on-chip generic DMA requestor.
  */
 #define DMA_RQ_C1_COUNT_MASK                    0x000003FF
 #define DMA_RQ_C1_DESTINATION_SCATTER           0x00001000
@@ -1529,8 +1529,8 @@
 #define DMA_RQ_C1_COUNT_SHIFT                   0
 
 /*
-                                                                             
-                                  
+ *  The following defines are for the flags in the second control word of the
+ *  on-chip generic DMA requestor.
  */
 #define DMA_RQ_C2_VIRTUAL_CHANNEL_MASK          0x0000003F
 #define DMA_RQ_C2_VIRTUAL_SIGNAL_MASK           0x00000300
@@ -1556,8 +1556,8 @@
 #define DMA_RQ_C2_LOOP_END_SHIFT                16
 
 /*
-                                                                               
-                                         
+ *  The following defines are for the flags in the source and destination words
+ *  of the on-chip generic DMA requestor.
  */
 #define DMA_RQ_SD_ADDRESS_MASK                  0x0000FFFF
 #define DMA_RQ_SD_MEMORY_ID_MASK                0x000F0000
@@ -1571,8 +1571,8 @@
 #define DMA_RQ_SD_ADDRESS_SHIFT                 0
 
 /*
-                                                                               
-                                  
+ *  The following defines are for the flags in the page map address word of the
+ *  on-chip generic DMA requestor.
  */
 #define DMA_RQ_PMA_LOOP_THIRD_PAGE_ENTRY_MASK   0x00000FF8
 #define DMA_RQ_PMA_PAGE_TABLE_MASK              0xFFFFF000
@@ -1581,53 +1581,53 @@
 
 #define BA1_VARIDEC_BUF_1       0x000
 
-#define BA1_PDTC                0x0c0    /*                                    */
-#define BA1_PFIE                0x0c4    /*                                        */
-#define BA1_PBA                 0x0c8    /*                         */
-#define BA1_PVOL                0x0f8    /*                     */
-#define BA1_PSRC                0x288    /*                                     */
-#define BA1_PCTL                0x2a4    /*                      */
-#define BA1_PPI                 0x2b4    /*                              */
+#define BA1_PDTC                0x0c0    /* BA1_PLAY_DMA_TRANSACTION_COUNT_REG */
+#define BA1_PFIE                0x0c4    /* BA1_PLAY_FORMAT_&_INTERRUPT_ENABLE_REG */
+#define BA1_PBA                 0x0c8    /* BA1_PLAY_BUFFER_ADDRESS */
+#define BA1_PVOL                0x0f8    /* BA1_PLAY_VOLUME_REG */
+#define BA1_PSRC                0x288    /* BA1_PLAY_SAMPLE_RATE_CORRECTION_REG */
+#define BA1_PCTL                0x2a4    /* BA1_PLAY_CONTROL_REG */
+#define BA1_PPI                 0x2b4    /* BA1_PLAY_PHASE_INCREMENT_REG */
 
-#define BA1_CCTL                0x064    /*                         */
-#define BA1_CIE                 0x104    /*                                  */
-#define BA1_CBA                 0x10c    /*                            */
-#define BA1_CSRC                0x2c8    /*                                        */
-#define BA1_CCI                 0x2d8    /*                                       */
-#define BA1_CD                  0x2e0    /*                       */
-#define BA1_CPI                 0x2f4    /*                                 */
-#define BA1_CVOL                0x2f8    /*                        */
+#define BA1_CCTL                0x064    /* BA1_CAPTURE_CONTROL_REG */
+#define BA1_CIE                 0x104    /* BA1_CAPTURE_INTERRUPT_ENABLE_REG */
+#define BA1_CBA                 0x10c    /* BA1_CAPTURE_BUFFER_ADDRESS */
+#define BA1_CSRC                0x2c8    /* BA1_CAPTURE_SAMPLE_RATE_CORRECTION_REG */
+#define BA1_CCI                 0x2d8    /* BA1_CAPTURE_COEFFICIENT_INCREMENT_REG */
+#define BA1_CD                  0x2e0    /* BA1_CAPTURE_DELAY_REG */
+#define BA1_CPI                 0x2f4    /* BA1_CAPTURE_PHASE_INCREMENT_REG */
+#define BA1_CVOL                0x2f8    /* BA1_CAPTURE_VOLUME_REG */
 
-#define BA1_CFG1                0x134    /*                               */
-#define BA1_CFG2                0x138    /*                               */
-#define BA1_CCST                0x13c    /*                          */
-#define BA1_CSPB                0x340    /*                         */
+#define BA1_CFG1                0x134    /* BA1_CAPTURE_FRAME_GROUP_1_REG */
+#define BA1_CFG2                0x138    /* BA1_CAPTURE_FRAME_GROUP_2_REG */
+#define BA1_CCST                0x13c    /* BA1_CAPTURE_CONSTANT_REG */
+#define BA1_CSPB                0x340    /* BA1_CAPTURE_SPB_ADDRESS */
 
 /*
-  
+ *
  */
 
-#define CS46XX_MODE_OUTPUT	(1<<0)	 /*                    */ 
-#define CS46XX_MODE_INPUT	(1<<1)	 /*                   */
+#define CS46XX_MODE_OUTPUT	(1<<0)	 /* MIDI UART - output */ 
+#define CS46XX_MODE_INPUT	(1<<1)	 /* MIDI UART - input */
 
 /*
-  
+ *
  */
 
 #define SAVE_REG_MAX             0x10
 #define POWER_DOWN_ALL         0x7f0f
 
-/*                                                             */
+/* maxinum number of AC97 codecs connected, AC97 2.0 defined 4 */
 #define MAX_NR_AC97				            4
 #define CS46XX_PRIMARY_CODEC_INDEX          0
 #define CS46XX_SECONDARY_CODEC_INDEX		1
 #define CS46XX_SECONDARY_CODEC_OFFSET		0x80
 #define CS46XX_DSP_CAPTURE_CHANNEL          1
 
-/*         */
+/* capture */
 #define CS46XX_DSP_CAPTURE_CHANNEL          1
 
-/*       */
+/* mixer */
 #define CS46XX_MIXER_SPDIF_INPUT_ELEMENT    1
 #define CS46XX_MIXER_SPDIF_OUTPUT_ELEMENT   2
 
@@ -1636,13 +1636,13 @@ struct snd_cs46xx_pcm {
 	struct snd_dma_buffer hw_buf;
   
 	unsigned int ctl;
-	unsigned int shift;	/*                                         */
+	unsigned int shift;	/* Shift count to trasform frames in bytes */
 	struct snd_pcm_indirect pcm_rec;
 	struct snd_pcm_substream *substream;
 
 	struct dsp_pcm_channel_descriptor * pcm_channel;
 
-	int pcm_channel_id;    /*                            */
+	int pcm_channel_id;    /* Fron Rear, Center Lfe  ... */
 };
 
 struct snd_cs46xx_region {
@@ -1674,7 +1674,7 @@ struct snd_cs46xx {
 		struct snd_dma_buffer hw_buf;
 
 		unsigned int ctl;
-		unsigned int shift;	/*                                         */
+		unsigned int shift;	/* Shift count to trasform frames in bytes */
 		struct snd_pcm_indirect pcm_rec;
 		struct snd_pcm_substream *substream;
 	} capt;
@@ -1702,8 +1702,8 @@ struct snd_cs46xx {
   	void (*mixer_init)(struct snd_cs46xx *);
 
 	int acpi_port;
-	struct snd_kcontrol *eapd_switch; /*                    */
-	int accept_valid;	/*                             */
+	struct snd_kcontrol *eapd_switch; /* for amplifier hack */
+	int accept_valid;	/* accept mmap valid (for OSS) */
 	int in_suspend;
 
 	struct gameport *gameport;
@@ -1716,7 +1716,7 @@ struct snd_cs46xx {
 	struct snd_pcm *pcm_rear;
 	struct snd_pcm *pcm_center_lfe;
 	struct snd_pcm *pcm_iec958;
-#else /*                   */
+#else /* for compatibility */
 	struct snd_cs46xx_pcm *playback_pcm;
 	unsigned int play_ctl;
 #endif
@@ -1742,4 +1742,4 @@ int snd_cs46xx_midi(struct snd_cs46xx *chip, int device, struct snd_rawmidi **rm
 int snd_cs46xx_start_dsp(struct snd_cs46xx *chip);
 int snd_cs46xx_gameport(struct snd_cs46xx *chip);
 
-#endif /*                  */
+#endif /* __SOUND_CS46XX_H */

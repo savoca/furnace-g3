@@ -23,10 +23,10 @@
 #include "ops.h"
 #include "logging.h"
 
-/*                                            */
+/* Default length of the log ring buffer 256KB*/
 #define LOG_BUF_SIZE			(64 * PAGE_SIZE)
 
-/*                                    */
+/* Max Len of a log line for printing */
 #define LOG_LINE_SIZE			256
 
 static uint32_t log_size = LOG_BUF_SIZE;
@@ -34,31 +34,31 @@ static uint32_t log_size = LOG_BUF_SIZE;
 module_param(log_size, uint, 0);
 MODULE_PARM_DESC(log_size, "Size of the MobiCore log ringbuffer(256KB def)");
 
-/*                               */
+/* Definitions for log version 2 */
 #define LOG_TYPE_MASK			(0x0007)
 #define LOG_TYPE_CHAR			0
 #define LOG_TYPE_INTEGER		1
-/*              */
+/* Field length */
 #define LOG_LENGTH_MASK			(0x00F8)
 #define LOG_LENGTH_SHIFT		3
-/*                  */
+/* Extra attributes */
 #define LOG_EOL				(0x0100)
 #define LOG_INTEGER_DECIMAL		(0x0200)
 #define LOG_INTEGER_SIGNED		(0x0400)
 
 struct logmsg_struct {
-	uint16_t ctrl;			/*                         */
-	uint16_t source;		/*                                    */
-	uint32_t log_data;		/*               */
+	uint16_t ctrl;			/* Type and format of data */
+	uint16_t source;		/* Unique value for each event source */
+	uint32_t log_data;		/* Value, if any */
 };
 
-static bool prev_eol;			/*                         */
-static uint16_t prev_source;		/*                     */
-static uint32_t log_pos;		/*                                */
-static struct mc_trace_buf *log_buf;	/*                               */
-struct task_struct *log_thread;		/*                           */
-static char *log_line;			/*                 */
-static uint32_t log_line_len;		/*                                */
+static bool prev_eol;			/* Previous char was a EOL */
+static uint16_t prev_source;		/* Previous Log source */
+static uint32_t log_pos;		/* MobiCore log previous position */
+static struct mc_trace_buf *log_buf;	/* MobiCore log buffer structure */
+struct task_struct *log_thread;		/* Log Thread task structure */
+static char *log_line;			/* Log Line buffer */
+static uint32_t log_line_len;		/* Log Line buffer current length */
 static int thread_err;
 
 static void log_eol(uint16_t source)
@@ -66,10 +66,10 @@ static void log_eol(uint16_t source)
 	if (!strnlen(log_line, LOG_LINE_SIZE))
 		return;
 	prev_eol = true;
-	/*                    */
+	/* MobiCore Userspace */
 	if (prev_source)
 		dev_info(mcd, "%03x|%s\n", prev_source, log_line);
-	/*                 */
+	/* MobiCore kernel */
 	else
 		dev_info(mcd, "%s\n", log_line);
 
@@ -78,8 +78,8 @@ static void log_eol(uint16_t source)
 }
 
 /*
-                                                                          
-                                                                            
+ * Collect chars in log_line buffer and output the buffer when it is full.
+ * No locking needed because only "mobicore_log" thread updates this buffer.
  */
 static void log_char(char ch, uint16_t source)
 {
@@ -117,7 +117,7 @@ static void dbg_raw_nro(uint32_t format, uint32_t value, uint16_t source)
 		width--;
 	}
 
-	/*                                              */
+	/* Find length and divider to get largest digit */
 	while (value / digit_base >= base) {
 		digit_base *= base;
 		digits++;
@@ -173,7 +173,7 @@ static uint32_t process_log(void)
 	while (buff != last_msg) {
 		log_msg((struct logmsg_struct *)buff);
 		buff += sizeof(struct logmsg_struct);
-		/*             */
+		/* Wrap around */
 		if ((buff + sizeof(struct logmsg_struct)) >
 		    ((char *)log_buf + log_size))
 			buff = log_buf->buff;
@@ -181,7 +181,7 @@ static uint32_t process_log(void)
 	return buff - log_buf->buff;
 }
 
-/*                                                             */
+/* log_worker() - Worker thread processing the log_buf buffer. */
 static int log_worker(void *p)
 {
 	int ret = 0;
@@ -202,9 +202,9 @@ static int log_worker(void *p)
 			MCDRV_DBG_ERROR(mcd, "Unknown Mobicore log data");
 			log_pos = log_buf->write_pos;
 			/*
-                                             
-                  
-    */
+			 * Stop the thread as we have no idea what
+			 * happens next
+			 */
 			ret = -EFAULT;
 			goto err_kthread;
 		}
@@ -212,9 +212,9 @@ static int log_worker(void *p)
 err_kthread:
 	MCDRV_DBG(mcd, "Logging thread stopped!");
 	thread_err = ret;
-	/*                                                                
-                                                                   
-                           */
+	/* Wait until the next kthread_stop() is called, if it was already
+	 * called we just slip through, if there is an error signal it and
+	 * wait to get the signal */
 	set_current_state(TASK_INTERRUPTIBLE);
 	while (!kthread_should_stop()) {
 		schedule();
@@ -225,17 +225,17 @@ err_kthread:
 }
 
 /*
-                                
-                                                                       
-                                         
+ * Wake up the log reader thread
+ * This should be called from the places where calls into MobiCore have
+ * generated some logs(eg, yield, SIQ...)
  */
 void mobicore_log_read(void)
 {
 	if (log_thread == NULL || IS_ERR(log_thread))
 		return;
 
-	/*                                                         
-              */
+	/* The thread itself is in some error condition so just get
+	 * rid of it */
 	if (thread_err != 0) {
 		kthread_stop(log_thread);
 		log_thread = NULL;
@@ -246,8 +246,8 @@ void mobicore_log_read(void)
 }
 
 /*
-                                                                
-                                                      
+ * Setup MobiCore kernel log. It assumes it's running on CORE 0!
+ * The fastcall will complain is that is not the case!
  */
 long mobicore_log_setup(void)
 {
@@ -265,7 +265,7 @@ long mobicore_log_setup(void)
 	prev_source = 0;
 	thread_err = 0;
 
-	/*                               */
+	/* Sanity check for the log size */
 	if (log_size < PAGE_SIZE)
 		return -EFAULT;
 	else
@@ -286,9 +286,9 @@ long mobicore_log_setup(void)
 
 	sched_setscheduler(log_thread, SCHED_IDLE, &param);
 	/*
-                                                                      
-                                                           
-  */
+	 * We are going to map this buffer into virtual address space in SWd.
+	 * To reduce complexity there, we use a contiguous buffer.
+	 */
 	log_buf = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO,
 					   get_order(log_size));
 	if (!log_buf) {
@@ -309,7 +309,7 @@ long mobicore_log_setup(void)
 	mc_fastcall(&fc_log);
 	MCDRV_DBG(mcd, "fc_log out ret=0x%08x", fc_log.as_out.ret);
 
-	/*                                                       */
+	/* If the setup failed we must free the memory allocated */
 	if (fc_log.as_out.ret) {
 		MCDRV_DBG_ERROR(mcd, "MobiCore shared traces setup failed!");
 		free_pages((unsigned long)log_buf, get_order(log_size));
@@ -333,14 +333,14 @@ err_free_line:
 }
 
 /*
-                              
-                                                                              
-                                                            
+ * Free kernel log components.
+ * ATTN: We can't free the log buffer because it's also in use by MobiCore and
+ * even if the module is unloaded MobiCore is still running.
  */
 void mobicore_log_free(void)
 {
 	if (log_thread && !IS_ERR(log_thread)) {
-		/*                                                       */
+		/* We don't really care what the thread returns for exit */
 		kthread_stop(log_thread);
 	}
 

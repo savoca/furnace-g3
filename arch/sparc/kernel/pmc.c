@@ -18,10 +18,10 @@
 #include <asm/uaccess.h>
 #include <asm/auxio.h>
 
-/*      
-  
-                        
-                      
+/* Debug
+ *
+ * #define PMC_DEBUG_LED
+ * #define PMC_NO_IDLE
  */
 
 #define PMC_OBPNAME	"SUNW,pmc"
@@ -36,8 +36,8 @@ static u8 __iomem *regs;
 #define pmc_writeb(val, offs)	(sbus_writeb(val, regs+offs))
 
 /*
-                             
-                                      
+ * CPU idle callback function
+ * See .../arch/sparc/kernel/process.c
  */
 static void pmc_swift_idle(void)
 {
@@ -62,7 +62,7 @@ static int __devinit pmc_probe(struct platform_device *op)
 	}
 
 #ifndef PMC_NO_IDLE
-	/*                                      */
+	/* Assign power management IDLE handler */
 	pm_idle = pmc_swift_idle;
 #endif
 
@@ -92,8 +92,8 @@ static int __init pmc_init(void)
 	return platform_driver_register(&pmc_driver);
 }
 
-/*                                                
-                                                 
-                                               
+/* This driver is not critical to the boot process
+ * and is easiest to ioremap when SBus is already
+ * initialized, so we install ourselves thusly:
  */
 __initcall(pmc_init);

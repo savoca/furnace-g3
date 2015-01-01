@@ -34,11 +34,11 @@
 
 #include "hpsim_ssc.h"
 
-#undef SIMSERIAL_DEBUG	/*                                           */
+#undef SIMSERIAL_DEBUG	/* define this to get some debug information */
 
-#define KEYBOARD_INTR	3	/*                            */
+#define KEYBOARD_INTR	3	/* must match with simulator! */
 
-#define NR_PORTS	1	/*                       */
+#define NR_PORTS	1	/* only one port for now */
 
 struct serial_state {
 	struct tty_port port;
@@ -66,10 +66,10 @@ static void receive_chars(struct tty_struct *tty)
 			seen_esc = 2;
 			continue;
 		} else if (seen_esc == 2) {
-			if (ch == 'P') /*    */
+			if (ch == 'P') /* F1 */
 				show_state();
 #ifdef CONFIG_MAGIC_SYSRQ
-			if (ch == 'S') { /*    */
+			if (ch == 'S') { /* F4 */
 				do {
 					ch = ia64_ssc(0, 0, 0, 0, SSC_GETCHAR);
 				} while (!ch);
@@ -88,7 +88,7 @@ static void receive_chars(struct tty_struct *tty)
 }
 
 /*
-                                                                  
+ * This is the serial driver's interrupt routine for a single port
  */
 static irqreturn_t rs_interrupt_single(int irq, void *dev_id)
 {
@@ -100,18 +100,18 @@ static irqreturn_t rs_interrupt_single(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 	/*
-                                                             
-                      
-  */
+	 * pretty simple in our case, because we only get interrupts
+	 * on inbound traffic
+	 */
 	receive_chars(tty);
 	tty_kref_put(tty);
 	return IRQ_HANDLED;
 }
 
 /*
-                                                                      
-                                           
-                                                                      
+ * -------------------------------------------------------------------
+ * Here ends the serial interrupt routines.
+ * -------------------------------------------------------------------
  */
 
 static int rs_put_char(struct tty_struct *tty, unsigned char ch)
@@ -160,12 +160,12 @@ static void transmit_chars(struct tty_struct *tty, struct serial_state *info,
 		goto out;
 	}
 	/*
-                                                              
-                                                    
-   
-                                           
-                                                         
-  */
+	 * We removed the loop and try to do it in to chunks. We need
+	 * 2 operations maximum because it's a ring buffer.
+	 *
+	 * First from current to tail if possible.
+	 * Then from the beginning of the buffer until necessary
+	 */
 
 	count = min(CIRC_CNT(info->xmit.head, info->xmit.tail, SERIAL_XMIT_SIZE),
 		    SERIAL_XMIT_SIZE - info->xmit.tail);
@@ -174,8 +174,8 @@ static void transmit_chars(struct tty_struct *tty, struct serial_state *info,
 	info->xmit.tail = (info->xmit.tail+count) & (SERIAL_XMIT_SIZE-1);
 
 	/*
-                                               
-  */
+	 * We have more at the beginning of the buffer
+	 */
 	count = CIRC_CNT(info->xmit.head, info->xmit.tail, SERIAL_XMIT_SIZE);
 	if (count) {
 		console->write(console, info->xmit.buf, count);
@@ -223,8 +223,8 @@ static int rs_write(struct tty_struct * tty,
 	}
 	local_irq_restore(flags);
 	/*
-                                                   
-  */
+	 * Hey, we transmit directly from here in our case
+	 */
 	if (CIRC_CNT(info->xmit.head, info->xmit.tail, SERIAL_XMIT_SIZE) &&
 			!tty->stopped && !tty->hw_stopped)
 		transmit_chars(tty, info, NULL);
@@ -259,8 +259,8 @@ static void rs_flush_buffer(struct tty_struct *tty)
 }
 
 /*
-                                                                      
-             
+ * This function is used to send a high-priority XON/XOFF character to
+ * the device
  */
 static void rs_send_xchar(struct tty_struct *tty, char ch)
 {
@@ -269,20 +269,20 @@ static void rs_send_xchar(struct tty_struct *tty, char ch)
 	info->x_char = ch;
 	if (ch) {
 		/*
-                                                        
-                           
-   */
+		 * I guess we could call console->write() directly but
+		 * let's do that for now.
+		 */
 		transmit_chars(tty, info, NULL);
 	}
 }
 
 /*
-                                                               
-                
-  
-                                                                     
-                                           
-                                                               
+ * ------------------------------------------------------------
+ * rs_throttle()
+ *
+ * This routine is called by the upper-layer tty layer to signal that
+ * incoming characters should be throttled.
+ * ------------------------------------------------------------
  */
 static void rs_throttle(struct tty_struct * tty)
 {
@@ -321,11 +321,11 @@ static int rs_ioctl(struct tty_struct *tty, unsigned int cmd, unsigned long arg)
 	case TIOCMIWAIT:
 		return 0;
 	case TIOCSERCONFIG:
-	case TIOCSERGETLSR: /*                          */
+	case TIOCSERGETLSR: /* Get line status register */
 		return -EINVAL;
 	case TIOCSERGWILD:
 	case TIOCSERSWILD:
-		/*                                         */
+		/* "setserial -W" is called in Debian boot */
 		printk (KERN_INFO "TIOCSER?WILD ioctl obsolete, ignored.\n");
 		return 0;
 	}
@@ -336,15 +336,15 @@ static int rs_ioctl(struct tty_struct *tty, unsigned int cmd, unsigned long arg)
 
 static void rs_set_termios(struct tty_struct *tty, struct ktermios *old_termios)
 {
-	/*                            */
+	/* Handle turning off CRTSCTS */
 	if ((old_termios->c_cflag & CRTSCTS) &&
 	    !(tty->termios->c_cflag & CRTSCTS)) {
 		tty->hw_stopped = 0;
 	}
 }
 /*
-                                                                         
-                                                           
+ * This routine will shutdown a serial port; interrupts are disabled, and
+ * DTR is dropped if the hangup on close termio flag is on.
  */
 static void shutdown(struct tty_port *port)
 {
@@ -406,8 +406,8 @@ static int activate(struct tty_port *port, struct tty_struct *tty)
 	state->xmit.head = state->xmit.tail = 0;
 
 	/*
-                                    
-  */
+	 * Set up the tty->alt_speed kludge
+	 */
 	if ((port->flags & ASYNC_SPD_MASK) == ASYNC_SPD_HI)
 		tty->alt_speed = 57600;
 	if ((port->flags & ASYNC_SPD_MASK) == ASYNC_SPD_VHI)
@@ -424,10 +424,10 @@ errout:
 
 
 /*
-                                                               
-                                                                            
-                                                        
-                                        
+ * This routine is called whenever a serial port is opened.  It
+ * enables interrupts for a serial port, linking in its async structure into
+ * the IRQ chain.   It also performs the serial-specific
+ * initialization for the tty structure.
  */
 static int rs_open(struct tty_struct *tty, struct file * filp)
 {
@@ -438,8 +438,8 @@ static int rs_open(struct tty_struct *tty, struct file * filp)
 	tty->low_latency = (port->flags & ASYNC_LOW_LATENCY) ? 1 : 0;
 
 	/*
-                                                           
-  */
+	 * figure out which console to use (should be one already)
+	 */
 	console = console_drivers;
 	while (console) {
 		if ((console->flags & CON_ENABLED) && console->write) break;
@@ -450,7 +450,7 @@ static int rs_open(struct tty_struct *tty, struct file * filp)
 }
 
 /*
-                        
+ * /proc fs routines....
  */
 
 static int rs_proc_show(struct seq_file *m, void *v)
@@ -514,7 +514,7 @@ static int __init simrs_init(void)
 
 	printk(KERN_INFO "SimSerial driver with no serial options enabled\n");
 
-	/*                                     */
+	/* Initialize the tty_driver structure */
 
 	hp_simserial_driver->driver_name = "simserial";
 	hp_simserial_driver->name = "ttyS";
@@ -531,7 +531,7 @@ static int __init simrs_init(void)
 	state = rs_table;
 	tty_port_init(&state->port);
 	state->port.ops = &hp_port_ops;
-	state->port.close_delay = 0; /*               */
+	state->port.close_delay = 0; /* XXX really 0? */
 
 	retval = hpsim_get_irq(KEYBOARD_INTR);
 	if (retval < 0) {
@@ -542,7 +542,7 @@ static int __init simrs_init(void)
 
 	state->irq = retval;
 
-	/*                       */
+	/* the port is imaginary */
 	printk(KERN_INFO "ttyS0 at 0x03f8 (irq = %d) is a 16550\n", state->irq);
 
 	retval = tty_register_driver(hp_simserial_driver);

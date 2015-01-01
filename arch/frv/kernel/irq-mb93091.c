@@ -33,7 +33,7 @@
 
 
 /*
-                                     
+ * on-motherboard FPGA PIC operations
  */
 static void frv_fpga_mask(struct irq_data *d)
 {
@@ -77,7 +77,7 @@ static struct irq_chip frv_fpga_pic = {
 };
 
 /*
-                             
+ * FPGA PIC interrupt handler
  */
 static irqreturn_t fpga_interrupt(int irq, void *_mask)
 {
@@ -86,7 +86,7 @@ static irqreturn_t fpga_interrupt(int irq, void *_mask)
 	imr = __get_IMR();
 	mask = mask & ~imr & __get_IFR();
 
-	/*                             */
+	/* poll all the triggered IRQs */
 	while (mask) {
 		int irq;
 
@@ -101,8 +101,8 @@ static irqreturn_t fpga_interrupt(int irq, void *_mask)
 }
 
 /*
-                                                      
-                                                                 
+ * define an interrupt action for each FPGA PIC output
+ * - use dev_id to indicate the FPGA PIC input to output mappings
  */
 static struct irqaction fpga_irq[4]  = {
 	[0] = {
@@ -132,15 +132,15 @@ static struct irqaction fpga_irq[4]  = {
 };
 
 /*
-                                        
+ * initialise the motherboard FPGA's PIC
  */
 void __init fpga_init(void)
 {
 	int irq;
 
-	/*                                                                  
-                                                  
-  */
+	/* all PIC inputs are all set to be low-level driven, apart from the
+	 * NMI button (15) which is fixed at falling-edge
+	 */
 	__set_IMR(0x7ffe);
 	__clr_IFR(0x0000);
 
@@ -149,7 +149,7 @@ void __init fpga_init(void)
 
 	irq_set_chip_and_handler(IRQ_FPGA_NMI, &frv_fpga_pic, handle_edge_irq);
 
-	/*                                                                   */
+	/* the FPGA drives the first four external IRQ inputs on the CPU PIC */
 	setup_irq(IRQ_CPU_EXTERNAL0, &fpga_irq[0]);
 	setup_irq(IRQ_CPU_EXTERNAL1, &fpga_irq[1]);
 	setup_irq(IRQ_CPU_EXTERNAL2, &fpga_irq[2]);

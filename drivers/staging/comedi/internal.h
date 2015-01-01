@@ -1,5 +1,5 @@
 /*
-                                    
+ * various internal comedi functions
  */
 int do_rangeinfo_ioctl(struct comedi_device *dev,
 		       struct comedi_rangeinfo __user *arg);

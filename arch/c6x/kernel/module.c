@@ -40,7 +40,7 @@ static inline int fixup_pcr(u32 *ip, Elf32_Addr dest, u32 maskbits, int shift)
 }
 
 /*
-                          
+ * apply a RELA relocation
  */
 int apply_relocate_add(Elf32_Shdr *sechdrs,
 		       const char *strtab,
@@ -59,16 +59,16 @@ int apply_relocate_add(Elf32_Shdr *sechdrs,
 		 relsec, sechdrs[relsec].sh_info, offset);
 
 	for (i = 0; i < sechdrs[relsec].sh_size / sizeof(*rel); i++) {
-		/*                                  */
+		/* This is where to make the change */
 		location = (void *)sechdrs[sechdrs[relsec].sh_info].sh_addr
 			+ rel[i].r_offset - offset;
 
-		/*                                                      
-                                            */
+		/* This is the symbol it is referring to.  Note that all
+		   undefined symbols have been resolved.  */
 		sym = (Elf_Sym *)sechdrs[symindex].sh_addr
 			+ ELF32_R_SYM(rel[i].r_info);
 
-		/*                                   */
+		/* this is the adjustment to be made */
 		v = sym->st_value + rel[i].r_addend;
 
 		switch (ELF32_R_TYPE(rel[i].r_info)) {

@@ -21,15 +21,15 @@
 #define SIRFSOC_CPUIOBRG_DATA           0x0c
 
 /*
-                                                                      
-                                  
+ * suspend asm codes will access this address to make system deepsleep
+ * after DRAM becomes self-refresh
  */
 void __iomem *sirfsoc_rtciobrg_base;
 static DEFINE_SPINLOCK(rtciobrg_lock);
 
 /*
-                                                          
-                                         
+ * symbols without lock are only used by suspend asm codes
+ * and these symbols are not exported too
  */
 void sirfsoc_rtc_iobrg_wait_sync(void)
 {

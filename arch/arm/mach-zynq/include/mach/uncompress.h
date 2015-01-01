@@ -27,8 +27,8 @@ void arch_decomp_setup(void)
 static inline void flush(void)
 {
 	/*
-                                    
-  */
+	 * Wait while the FIFO is not empty
+	 */
 	while (!(__raw_readl(IOMEM(LL_UART_PADDR + UART_SR_OFFSET)) &
 		UART_SR_TXEMPTY))
 		cpu_relax();
@@ -39,8 +39,8 @@ static inline void flush(void)
 static void putc(char ch)
 {
 	/*
-                                                                
-  */
+	 * Wait for room in the FIFO, then write the char into the FIFO
+	 */
 	while (__raw_readl(IOMEM(LL_UART_PADDR + UART_SR_OFFSET)) &
 		UART_SR_TXFULL)
 		cpu_relax();

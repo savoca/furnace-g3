@@ -10,7 +10,7 @@
 #define _LINUX_SUNRPC_DEBUG_H_
 
 /*
-                       
+ * RPC debug facilities
  */
 #define RPCDBG_XPRT		0x0001
 #define RPCDBG_CALL		0x0002
@@ -29,7 +29,7 @@
 #ifdef __KERNEL__
 
 /*
-                                  
+ * Enable RPC debugging/profiling.
  */
 #ifdef CONFIG_SUNRPC_DEBUG
 #define  RPC_DEBUG
@@ -37,10 +37,10 @@
 #ifdef CONFIG_TRACEPOINTS
 #define RPC_TRACEPOINTS
 #endif
-/*                      */
+/* #define  RPC_PROFILE */
 
 /*
-                       
+ * Debugging macros etc
  */
 #ifdef RPC_DEBUG
 extern unsigned int		rpc_debug;
@@ -80,20 +80,20 @@ extern unsigned int		nlm_debug;
 #endif
 
 /*
-                                     
+ * Sysctl interface for RPC debugging
  */
 #ifdef RPC_DEBUG
 void		rpc_register_sysctl(void);
 void		rpc_unregister_sysctl(void);
 #endif
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
 /*
-                                                                       
-                                                                         
-                                                                           
-                                                
+ * Declarations for the sysctl debug interface, which allows to read or
+ * change the debug flags for rpc, nfs, nfsd, and lockd. Since the sunrpc
+ * module currently registers its sysctl table dynamically, the sysctl path
+ * for module FOO is <CTL_SUNRPC, CTL_FOODEBUG>.
  */
 
 enum {
@@ -107,4 +107,4 @@ enum {
 	CTL_MAX_RESVPORT,
 };
 
-#endif /*                        */
+#endif /* _LINUX_SUNRPC_DEBUG_H_ */

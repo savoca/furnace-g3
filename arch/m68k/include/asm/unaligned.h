@@ -12,7 +12,7 @@
 
 #else
 /*
-                                              
+ * The m68k can do unaligned accesses itself. 
  */
 #include <linux/unaligned/access_ok.h>
 #include <linux/unaligned/generic.h>
@@ -22,4 +22,4 @@
 
 #endif
 
-#endif /*                       */
+#endif /* _ASM_M68K_UNALIGNED_H */

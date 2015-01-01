@@ -11,7 +11,7 @@
  */
 
 #include <net/ip.h>
-#include <linux/genalloc.h>	/*                  */
+#include <linux/genalloc.h>	/* gen_pool_alloc() */
 #include <linux/io.h>
 #include <linux/ratelimit.h>
 #include "ipa_i.h"
@@ -34,12 +34,12 @@ static const int ep_mapping[IPA_MODE_MAX][IPA_CLIENT_MAX] = {
 	{ 19, -1, -1, -1, -1, 11, 15, 8, 6, 2, 1, 5, 14, 16, 17, 18, -1, 10, 9, 7, 3, 4 },
 };
 
-/* 
-                                        
-                    
-  
-                
-             
+/**
+ * ipa_cfg_route() - configure IPA route
+ * @route: IPA route
+ *
+ * Return codes:
+ * 0: success
  */
 int ipa_cfg_route(struct ipa_route *route)
 {
@@ -66,12 +66,12 @@ int ipa_cfg_route(struct ipa_route *route)
 
 	return 0;
 }
-/* 
-                                      
-                          
-  
-                
-             
+/**
+ * ipa_cfg_filter() - configure filter
+ * @disable: disable value
+ *
+ * Return codes:
+ * 0: success
  */
 int ipa_cfg_filter(u32 disable)
 {
@@ -89,24 +89,24 @@ int ipa_cfg_filter(u32 disable)
 	return 0;
 }
 
-/* 
-                                
-  
-                
-             
+/**
+ * ipa_init_hw() - initialize HW
+ *
+ * Return codes:
+ * 0: success
  */
 int ipa_init_hw(void)
 {
 	u32 ipa_version = 0;
 
-	/*                      */
+	/* do soft reset of IPA */
 	ipa_write_reg(ipa_ctx->mmio, IPA_COMP_SW_RESET_OFST, 1);
 	ipa_write_reg(ipa_ctx->mmio, IPA_COMP_SW_RESET_OFST, 0);
 
-	/*            */
+	/* enable IPA */
 	ipa_write_reg(ipa_ctx->mmio, IPA_COMP_CFG_OFST, 1);
 
-	/*                                                                */
+	/* Read IPA version and make sure we have access to the registers */
 	ipa_version = ipa_read_reg(ipa_ctx->mmio, IPA_VERSION_OFST);
 	if (ipa_version == 0)
 		return -EFAULT;
@@ -114,12 +114,12 @@ int ipa_init_hw(void)
 	return 0;
 }
 
-/* 
-                                                  
-                            
-                       
-  
-                                 
+/**
+ * ipa_get_ep_mapping() - provide endpoint mapping
+ * @mode: IPA operating mode
+ * @client: client type
+ *
+ * Return value: endpoint mapping
  */
 int ipa_get_ep_mapping(enum ipa_operating_mode mode,
 		enum ipa_client_type client)
@@ -127,12 +127,12 @@ int ipa_get_ep_mapping(enum ipa_operating_mode mode,
 	return ep_mapping[mode][client];
 }
 
-/* 
-                                                    
-                            
-                                  
-  
-                               
+/**
+ * ipa_get_client_mapping() - provide client mapping
+ * @mode: IPA operating mode
+ * @pipe_idx: IPA end-point number
+ *
+ * Return value: client mapping
  */
 int ipa_get_client_mapping(enum ipa_operating_mode mode, int pipe_idx)
 {
@@ -144,12 +144,12 @@ int ipa_get_client_mapping(enum ipa_operating_mode mode, int pipe_idx)
 	return i;
 }
 
-/* 
-                                                      
-                     
-                    
-  
-                                
+/**
+ * ipa_write_32() - convert 32 bit value to byte array
+ * @w: 32 bit integer
+ * @dest: byte array
+ *
+ * Return value: converted value
  */
 u8 *ipa_write_32(u32 w, u8 *dest)
 {
@@ -161,12 +161,12 @@ u8 *ipa_write_32(u32 w, u8 *dest)
 	return dest;
 }
 
-/* 
-                                                      
-                      
-                    
-  
-                                
+/**
+ * ipa_write_16() - convert 16 bit value to byte array
+ * @hw: 16 bit integer
+ * @dest: byte array
+ *
+ * Return value: converted value
  */
 u8 *ipa_write_16(u16 hw, u8 *dest)
 {
@@ -176,12 +176,12 @@ u8 *ipa_write_16(u16 hw, u8 *dest)
 	return dest;
 }
 
-/* 
-                                                    
-                     
-                    
-  
-                                
+/**
+ * ipa_write_8() - convert 8 bit value to byte array
+ * @hw: 8 bit integer
+ * @dest: byte array
+ *
+ * Return value: converted value
  */
 u8 *ipa_write_8(u8 b, u8 *dest)
 {
@@ -190,11 +190,11 @@ u8 *ipa_write_8(u8 b, u8 *dest)
 	return dest;
 }
 
-/* 
-                                                   
-                    
-  
-                             
+/**
+ * ipa_pad_to_32() - pad byte array to 32 bit value
+ * @dest: byte array
+ *
+ * Return value: padded value
  */
 u8 *ipa_pad_to_32(u8 *dest)
 {
@@ -208,16 +208,16 @@ u8 *ipa_pad_to_32(u8 *dest)
 	return dest;
 }
 
-/* 
-                                            
-                       
-                              
-                      
-                 
-  
-                
-             
-                      
+/**
+ * ipa_generate_hw_rule() - generate HW rule
+ * @ip: IP address type
+ * @attrib: IPA rule attribute
+ * @buf: output buffer
+ * @en_rule: rule
+ *
+ * Return codes:
+ * 0: success
+ * -EPERM: wrong input
  */
 int ipa_generate_hw_rule(enum ipa_ip_type ip,
 		const struct ipa_rule_attrib *attrib, u8 **buf, u16 *en_rule)
@@ -229,7 +229,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 
 	if (ip == IPA_IP_v4) {
 
-		/*             */
+		/* error check */
 		if (attrib->attrib_mask & IPA_FLT_NEXT_HDR ||
 		    attrib->attrib_mask & IPA_FLT_TC || attrib->attrib_mask &
 		    IPA_FLT_FLOW_LABEL) {
@@ -249,7 +249,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			/*                                 */
+			/* 0 => offset of TOS in v4 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32((attrib->tos_mask << 16), *buf);
 			*buf = ipa_write_32(attrib->tos_value, *buf);
@@ -269,7 +269,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			/*                                     */
+			/* 12 => offset of src ip in v4 header */
 			*buf = ipa_write_8(12, *buf);
 			*buf = ipa_write_32(attrib->u.v4.src_addr_mask, *buf);
 			*buf = ipa_write_32(attrib->u.v4.src_addr, *buf);
@@ -283,7 +283,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			/*                                     */
+			/* 16 => offset of dst ip in v4 header */
 			*buf = ipa_write_8(16, *buf);
 			*buf = ipa_write_32(attrib->u.v4.dst_addr_mask, *buf);
 			*buf = ipa_write_32(attrib->u.v4.dst_addr, *buf);
@@ -301,7 +301,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/*                                          */
+			/* 0  => offset of src port after v4 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_16(attrib->src_port_hi, *buf);
 			*buf = ipa_write_16(attrib->src_port_lo, *buf);
@@ -319,7 +319,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/*                                          */
+			/* 2  => offset of dst port after v4 header */
 			*buf = ipa_write_8(2, *buf);
 			*buf = ipa_write_16(attrib->dst_port_hi, *buf);
 			*buf = ipa_write_16(attrib->dst_port_lo, *buf);
@@ -333,7 +333,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/*                                      */
+			/* 0  => offset of type after v4 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32(0xFF, *buf);
 			*buf = ipa_write_32(attrib->type, *buf);
@@ -347,7 +347,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/*                                      */
+			/* 1  => offset of code after v4 header */
 			*buf = ipa_write_8(1, *buf);
 			*buf = ipa_write_32(0xFF, *buf);
 			*buf = ipa_write_32(attrib->code, *buf);
@@ -361,7 +361,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/*                                           */
+			/* 0  => offset of SPI after v4 header FIXME */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32(0xFFFFFFFF, *buf);
 			*buf = ipa_write_32(attrib->spi, *buf);
@@ -375,7 +375,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/*                                          */
+			/* 0  => offset of src port after v4 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_16(attrib->src_port, *buf);
 			*buf = ipa_write_16(attrib->src_port, *buf);
@@ -389,7 +389,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/*                                          */
+			/* 2  => offset of dst port after v4 header */
 			*buf = ipa_write_8(2, *buf);
 			*buf = ipa_write_16(attrib->dst_port, *buf);
 			*buf = ipa_write_16(attrib->dst_port, *buf);
@@ -399,7 +399,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_META_DATA) {
 			*en_rule |= IPA_METADATA_COMPARE;
-			*buf = ipa_write_8(0, *buf);    /*                  */
+			*buf = ipa_write_8(0, *buf);    /* offset, reserved */
 			*buf = ipa_write_32(attrib->meta_data_mask, *buf);
 			*buf = ipa_write_32(attrib->meta_data, *buf);
 			*buf = ipa_pad_to_32(*buf);
@@ -412,9 +412,9 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 
 	} else if (ip == IPA_IP_v6) {
 
-		/*                                                           */
+		/* v6 code below assumes no extension headers TODO: fix this */
 
-		/*             */
+		/* error check */
 		if (attrib->attrib_mask & IPA_FLT_TOS ||
 		    attrib->attrib_mask & IPA_FLT_PROTOCOL ||
 		    attrib->attrib_mask & IPA_FLT_FRAGMENT) {
@@ -434,7 +434,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/*                                      */
+			/* 0  => offset of type after v6 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32(0xFF, *buf);
 			*buf = ipa_write_32(attrib->type, *buf);
@@ -448,7 +448,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/*                                      */
+			/* 1  => offset of code after v6 header */
 			*buf = ipa_write_8(1, *buf);
 			*buf = ipa_write_32(0xFF, *buf);
 			*buf = ipa_write_32(attrib->code, *buf);
@@ -462,7 +462,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/*                                           */
+			/* 0  => offset of SPI after v6 header FIXME */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32(0xFFFFFFFF, *buf);
 			*buf = ipa_write_32(attrib->spi, *buf);
@@ -476,7 +476,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/*                                          */
+			/* 0  => offset of src port after v6 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_16(attrib->src_port, *buf);
 			*buf = ipa_write_16(attrib->src_port, *buf);
@@ -490,7 +490,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/*                                          */
+			/* 2  => offset of dst port after v6 header */
 			*buf = ipa_write_8(2, *buf);
 			*buf = ipa_write_16(attrib->dst_port, *buf);
 			*buf = ipa_write_16(attrib->dst_port, *buf);
@@ -508,7 +508,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/*                                          */
+			/* 0  => offset of src port after v6 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_16(attrib->src_port_hi, *buf);
 			*buf = ipa_write_16(attrib->src_port_lo, *buf);
@@ -526,7 +526,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/*                                          */
+			/* 2  => offset of dst port after v6 header */
 			*buf = ipa_write_8(2, *buf);
 			*buf = ipa_write_16(attrib->dst_port_hi, *buf);
 			*buf = ipa_write_16(attrib->dst_port_lo, *buf);
@@ -540,7 +540,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-			/*                                    */
+			/* 8 => offset of src ip in v6 header */
 			*buf = ipa_write_8(8, *buf);
 			*buf = ipa_write_32(attrib->u.v6.src_addr_mask[0],
 					*buf);
@@ -564,7 +564,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-			/*                                     */
+			/* 24 => offset of dst ip in v6 header */
 			*buf = ipa_write_8(24, *buf);
 			*buf = ipa_write_32(attrib->u.v6.dst_addr_mask[0],
 					*buf);
@@ -594,7 +594,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 				return -EPERM;
 			}
 			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			/*                                 */
+			/* 0 => offset of TOS in v4 header */
 			*buf = ipa_write_8(0, *buf);
 			*buf = ipa_write_32((attrib->tos_mask << 20), *buf);
 			*buf = ipa_write_32(attrib->tos_value, *buf);
@@ -604,14 +604,14 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 
 		if (attrib->attrib_mask & IPA_FLT_FLOW_LABEL) {
 			*en_rule |= IPA_FLT_FLOW_LABEL;
-			 /*                          */
+			 /* FIXME FL is only 20 bits */
 			*buf = ipa_write_32(attrib->u.v6.flow_label, *buf);
 			*buf = ipa_pad_to_32(*buf);
 		}
 
 		if (attrib->attrib_mask & IPA_FLT_META_DATA) {
 			*en_rule |= IPA_METADATA_COMPARE;
-			*buf = ipa_write_8(0, *buf);    /*                  */
+			*buf = ipa_write_8(0, *buf);    /* offset, reserved */
 			*buf = ipa_write_32(attrib->meta_data_mask, *buf);
 			*buf = ipa_write_32(attrib->meta_data, *buf);
 			*buf = ipa_pad_to_32(*buf);
@@ -623,18 +623,18 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 	}
 
 	/*
-                                                    
-                                                           
-  */
+	 * default "rule" means no attributes set -> map to
+	 * OFFSET_MEQ32_0 with mask of 0 and val of 0 and offset 0
+	 */
 	if (attrib->attrib_mask == 0) {
 		if (ipa_ofst_meq32[ofst_meq32] == -1) {
 			IPAERR("ran out of meq32 eq\n");
 			return -EPERM;
 		}
 		*en_rule |= ipa_ofst_meq32[ofst_meq32];
-		*buf = ipa_write_8(0, *buf);    /*        */
-		*buf = ipa_write_32(0, *buf);   /*      */
-		*buf = ipa_write_32(0, *buf);   /*     */
+		*buf = ipa_write_8(0, *buf);    /* offset */
+		*buf = ipa_write_32(0, *buf);   /* mask */
+		*buf = ipa_write_32(0, *buf);   /* val */
 		*buf = ipa_pad_to_32(*buf);
 		ofst_meq32++;
 	}
@@ -642,17 +642,17 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 	return 0;
 }
 
-/* 
-                                           
-                                                                 
-                                                       
-  
-                                                                               
-                                                
-  
-                                             
-  
-                                                 
+/**
+ * ipa_cfg_ep - IPA end-point configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * This includes nat, header, mode, aggregation and route settings and is a one
+ * shot API to configure the IPA end-point fully
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 {
@@ -690,14 +690,14 @@ int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 }
 EXPORT_SYMBOL(ipa_cfg_ep);
 
-/* 
-                                                     
-                                                                 
-                                                       
-  
-                                             
-  
-                                                 
+/**
+ * ipa_cfg_ep_nat() - IPA end-point NAT configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ipa_ep_cfg)
 {
@@ -711,10 +711,10 @@ int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ipa_ep_cfg)
 		IPAERR("NAT does not apply to IPA out EP %d\n", clnt_hdl);
 		return -EINVAL;
 	}
-	/*                  */
+	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.nat = *ipa_ep_cfg;
 	ipa_inc_client_enable_clks();
-	/*                                */
+	/* clnt_hdl is used as pipe_index */
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
 		ipa_write_reg(ipa_ctx->mmio,
 			      IPA_ENDP_INIT_NAT_n_OFST_v1(clnt_hdl),
@@ -733,14 +733,14 @@ int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ipa_ep_cfg)
 }
 EXPORT_SYMBOL(ipa_cfg_ep_nat);
 
-/* 
-                                                         
-                                                                 
-                                                       
-  
-                                             
-  
-                                                 
+/**
+ * ipa_cfg_ep_hdr() -  IPA end-point header configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ipa_ep_cfg)
 {
@@ -755,7 +755,7 @@ int ipa_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ipa_ep_cfg)
 
 	ep = &ipa_ctx->ep[clnt_hdl];
 
-	/*                  */
+	/* copy over EP cfg */
 	ep->cfg.hdr = *ipa_ep_cfg;
 
 	val = IPA_SETFIELD(ep->cfg.hdr.hdr_len,
@@ -793,14 +793,14 @@ int ipa_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ipa_ep_cfg)
 }
 EXPORT_SYMBOL(ipa_cfg_ep_hdr);
 
-/* 
-                                                       
-                                                                 
-                                                       
-  
-                                             
-  
-                                                 
+/**
+ * ipa_cfg_ep_mode() - IPA end-point mode configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ipa_ep_cfg)
 {
@@ -825,7 +825,7 @@ int ipa_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ipa_ep_cfg)
 		return -EINVAL;
 	}
 
-	/*                  */
+	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.mode = *ipa_ep_cfg;
 	ipa_ctx->ep[clnt_hdl].dst_pipe_index = ep;
 
@@ -849,14 +849,14 @@ int ipa_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ipa_ep_cfg)
 }
 EXPORT_SYMBOL(ipa_cfg_ep_mode);
 
-/* 
-                                                              
-                                                                 
-                                                       
-  
-                                             
-  
-                                                 
+/**
+ * ipa_cfg_ep_aggr() - IPA end-point aggregation configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ipa_ep_cfg)
 {
@@ -867,7 +867,7 @@ int ipa_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ipa_ep_cfg)
 		IPAERR("bad parm.\n");
 		return -EINVAL;
 	}
-	/*                  */
+	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.aggr = *ipa_ep_cfg;
 
 	val = IPA_SETFIELD(ipa_ctx->ep[clnt_hdl].cfg.aggr.aggr_en,
@@ -896,14 +896,14 @@ int ipa_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ipa_ep_cfg)
 }
 EXPORT_SYMBOL(ipa_cfg_ep_aggr);
 
-/* 
-                                                           
-                                                                 
-                                                       
-  
-                                             
-  
-                                                 
+/**
+ * ipa_cfg_ep_route() - IPA end-point routing configuration
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg)
 {
@@ -919,9 +919,9 @@ int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg)
 	}
 
 	/*
-                                                                  
-           
-  */
+	 * if DMA mode was configured previously for this EP, return with
+	 * success
+	 */
 	if (ipa_ctx->ep[clnt_hdl].cfg.mode.mode == IPA_DMA) {
 		IPADBG("DMA mode for EP %d\n", clnt_hdl);
 		return 0;
@@ -930,7 +930,7 @@ int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg)
 	if (ipa_ep_cfg->rt_tbl_hdl)
 		IPAERR("client specified non-zero RT TBL hdl - ignore it\n");
 
-	/*                                                             */
+	/* always use the "default" routing tables whose indices are 0 */
 	ipa_ctx->ep[clnt_hdl].rt_tbl_idx = 0;
 
 	ipa_inc_client_enable_clks();
@@ -953,19 +953,19 @@ int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg)
 }
 EXPORT_SYMBOL(ipa_cfg_ep_route);
 
-/* 
-                                                       
-  
-                                                                
-                                                                
-                                                                   
-                                                                   
-                                      
-  
-                                                                 
-                                                       
-  
-                                             
+/**
+ * ipa_cfg_ep_holb() - IPA end-point holb configuration
+ *
+ * If an IPA producer pipe is full, IPA HW by default will block
+ * indefinitely till space opens up. During this time no packets
+ * including those from unrelated pipes will be processed. Enabling
+ * HOLB means IPA HW will be allowed to drop packets as/when needed
+ * and indefinite blocking is avoided.
+ *
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
  */
 int ipa_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ipa_ep_cfg)
 {
@@ -1002,17 +1002,17 @@ int ipa_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ipa_ep_cfg)
 }
 EXPORT_SYMBOL(ipa_cfg_ep_holb);
 
-/* 
-                                                                 
-  
-                                                                     
-                                                                      
-                 
-  
-                            
-                                                       
-  
-                                             
+/**
+ * ipa_cfg_ep_holb_by_client() - IPA end-point holb configuration
+ *
+ * Wrapper function for ipa_cfg_ep_holb() with client name instead of
+ * client handle. This function is used for clients that does not have
+ * client handle.
+ *
+ * @client:	[in] client name
+ * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
  */
 int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
 				const struct ipa_ep_cfg_holb *ipa_ep_cfg)
@@ -1022,11 +1022,11 @@ int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
 }
 EXPORT_SYMBOL(ipa_cfg_ep_holb_by_client);
 
-/* 
-                                                             
-                             
-                                          
-                            
+/**
+ * ipa_dump_buff_internal() - dumps buffer for debug purposes
+ * @base: buffer base address
+ * @phy_base: buffer physical base address
+ * @size: size of the buffer
  */
 void ipa_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size)
 {
@@ -1042,8 +1042,8 @@ void ipa_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size)
 	IPADBG("END\n");
 }
 
-/* 
-                                                                       
+/**
+ * ipa_dump() - dumps part of driver data structures for debug purposes
  */
 void ipa_dump(void)
 {
@@ -1080,12 +1080,12 @@ void ipa_dump(void)
 	mutex_unlock(&ipa_ctx->lock);
 }
 
-/* 
-                                              
-                   
-               
-  
-                                                      
+/**
+ * ipa_search() - search for handle in RB tree
+ * @root: tree root
+ * @hdl: handle
+ *
+ * Return value: tree node corresponding to the handle
  */
 struct ipa_tree_node *ipa_search(struct rb_root *root, u32 hdl)
 {
@@ -1105,20 +1105,20 @@ struct ipa_tree_node *ipa_search(struct rb_root *root, u32 hdl)
 	return NULL;
 }
 
-/* 
-                                            
-                   
-                            
-  
-                
-             
-                                                              
+/**
+ * ipa_insert() - insert new node to RB tree
+ * @root: tree root
+ * @data: new data to insert
+ *
+ * Return value:
+ * 0: success
+ * -EPERM: tree already contains the node with provided handle
  */
 int ipa_insert(struct rb_root *root, struct ipa_tree_node *data)
 {
 	struct rb_node **new = &(root->rb_node), *parent = NULL;
 
-	/*                                  */
+	/* Figure out where to put new node */
 	while (*new) {
 		struct ipa_tree_node *this = container_of(*new,
 				struct ipa_tree_node, node);
@@ -1132,21 +1132,21 @@ int ipa_insert(struct rb_root *root, struct ipa_tree_node *data)
 			return -EPERM;
 	}
 
-	/*                                  */
+	/* Add new node and rebalance tree. */
 	rb_link_node(&data->node, parent, new);
 	rb_insert_color(&data->node, root);
 
 	return 0;
 }
 
-/* 
-                                                   
-                            
-              
-  
-                
-             
-                     
+/**
+ * ipa_pipe_mem_init() - initialize the pipe memory
+ * @start_ofst: start offset
+ * @size: size
+ *
+ * Return value:
+ * 0: success
+ * -ENOMEM: no memory
  */
 int ipa_pipe_mem_init(u32 start_ofst, u32 size)
 {
@@ -1166,7 +1166,7 @@ int ipa_pipe_mem_init(u32 start_ofst, u32 size)
 	IPADBG("start_ofst=%u aligned_start_ofst=%u size=%u aligned_size=%u\n",
 	       start_ofst, aligned_start_ofst, size, aligned_size);
 
-	/*                                                   */
+	/* allocation order of 8 i.e. 128 bytes, global pool */
 	pool = gen_pool_create(8, -1);
 	if (!pool) {
 		IPAERR("Failed to create a new memory pool.\n");
@@ -1188,13 +1188,13 @@ fail:
 	return -ENOMEM;
 }
 
-/* 
-                                              
-                
-              
-  
-                
-             
+/**
+ * ipa_pipe_mem_alloc() - allocate pipe memory
+ * @ofst: offset
+ * @size: size
+ *
+ * Return value:
+ * 0: success
  */
 int ipa_pipe_mem_alloc(u32 *ofst, u32 size)
 {
@@ -1220,13 +1220,13 @@ int ipa_pipe_mem_alloc(u32 *ofst, u32 size)
 	return res;
 }
 
-/* 
-                                         
-                
-              
-  
-                
-             
+/**
+ * ipa_pipe_mem_free() - free pipe memory
+ * @ofst: offset
+ * @size: size
+ *
+ * Return value:
+ * 0: success
  */
 int ipa_pipe_mem_free(u32 ofst, u32 size)
 {
@@ -1236,12 +1236,12 @@ int ipa_pipe_mem_free(u32 ofst, u32 size)
 	return 0;
 }
 
-/* 
-                                                                           
-                                                                          
-      
-  
-                        
+/**
+ * ipa_set_aggr_mode() - Set the aggregation mode which is a global setting
+ * @mode:	[in] the desired aggregation mode for e.g. straight MBIM, QCNCM,
+ * etc
+ *
+ * Returns:	0 on success
  */
 int ipa_set_aggr_mode(enum ipa_aggr_mode mode)
 {
@@ -1267,16 +1267,16 @@ int ipa_set_aggr_mode(enum ipa_aggr_mode mode)
 }
 EXPORT_SYMBOL(ipa_set_aggr_mode);
 
-/* 
-                                                                             
-       
-                                                                      
-         
-  
-                                                                         
-                                                                           
-  
-                                             
+/**
+ * ipa_set_qcncm_ndp_sig() - Set the NDP signature used for QCNCM aggregation
+ * mode
+ * @sig:	[in] the first 3 bytes of QCNCM NDP signature (expected to be
+ * "QND")
+ *
+ * Set the NDP signature used for QCNCM aggregation mode. The fourth byte
+ * (expected to be 'P') needs to be set using the header addition mechanism
+ *
+ * Returns:	0 on success, negative on failure
  */
 int ipa_set_qcncm_ndp_sig(char sig[3])
 {
@@ -1307,12 +1307,12 @@ int ipa_set_qcncm_ndp_sig(char sig[3])
 }
 EXPORT_SYMBOL(ipa_set_qcncm_ndp_sig);
 
-/* 
-                                                                           
-                
-                                                          
-  
-                        
+/**
+ * ipa_set_single_ndp_per_mbim() - Enable/disable single NDP per MBIM frame
+ * configuration
+ * @enable:	[in] true for single NDP/MBIM; false otherwise
+ *
+ * Returns:	0 on success
  */
 int ipa_set_single_ndp_per_mbim(bool enable)
 {
@@ -1336,12 +1336,12 @@ int ipa_set_single_ndp_per_mbim(bool enable)
 }
 EXPORT_SYMBOL(ipa_set_single_ndp_per_mbim);
 
-/* 
-                                                                     
-                        
-                                                        
-  
-                        
+/**
+ * ipa_set_hw_timer_fix_for_mbim_aggr() - Enable/disable HW timer fix
+ * for MBIM aggregation.
+ * @enable:	[in] true for enable HW fix; false otherwise
+ *
+ * Returns:	0 on success
  */
 int ipa_set_hw_timer_fix_for_mbim_aggr(bool enable)
 {
@@ -1356,15 +1356,15 @@ int ipa_set_hw_timer_fix_for_mbim_aggr(bool enable)
 }
 EXPORT_SYMBOL(ipa_set_hw_timer_fix_for_mbim_aggr);
 
-/* 
-                                                                                
-                                             
-                                         
-                      
-  
-                
-                                                     
-               
+/**
+ * ipa_straddle_boundary() - Checks whether a memory buffer straddles a boundary
+ * @start: start address of the memory buffer
+ * @end: end address of the memory buffer
+ * @boundary: boundary
+ *
+ * Return value:
+ * 1: if the interval [start, end] straddles boundary
+ * 0: otherwise
  */
 int ipa_straddle_boundary(u32 start, u32 end, u32 boundary)
 {
@@ -1385,10 +1385,10 @@ int ipa_straddle_boundary(u32 start, u32 end, u32 boundary)
 		return 0;
 }
 
-/* 
-                                                                       
-  
-                                                               
+/**
+ * ipa_bam_reg_dump() - Dump selected BAM registers for IPA and DMA-BAM
+ *
+ * Function is rate limited to avoid flooding kernel log buffer
  */
 void ipa_bam_reg_dump(void)
 {

@@ -1,11 +1,11 @@
 /*
-                                                                         
-  
-           
-                                                                
-                     
-                                                              
-                     
+ * These are the public elements of the Linux kernel X.25 implementation.
+ *
+ * 	History
+ *	mar/20/00	Daniela Squassoni Disabling/enabling of facilities 
+ *					  negotiation.
+ *	apr/02/05	Shaun Pereira Selective sub address matching with
+ *					call user data
  */
 
 #ifndef	X25_KERNEL_H
@@ -29,12 +29,12 @@
 #define SIOCX25SCAUSEDIAG	(SIOCPROTOPRIVATE + 12)
 
 /*
-                               
+ *	Values for {get,set}sockopt.
  */
 #define	X25_QBITINCL		1
 
 /*
-                           
+ *	X.25 Packet Size values.
  */
 #define	X25_PS16		4
 #define	X25_PS32		5
@@ -47,36 +47,36 @@
 #define	X25_PS4096		12
 
 /*
-                                                                        
-                                
+ * An X.121 address, it is held as ASCII text, null terminated, up to 15
+ * digits and a null terminator.
  */
 struct x25_address {
 	char x25_addr[16];
 };
 
 /*
-                                                                   
+ *	Linux X.25 Address structure, used for bind, and connect mostly.
  */
 struct sockaddr_x25 {
-	__kernel_sa_family_t sx25_family;	/*                */
-	struct x25_address sx25_addr;		/*               */
+	__kernel_sa_family_t sx25_family;	/* Must be AF_X25 */
+	struct x25_address sx25_addr;		/* X.121 Address */
 };
 
 /*
-                                
-  
-                                                                    
-                                                                     
-                                                                      
-                          
+ *	DTE/DCE subscription options.
+ *
+ *      As this is missing lots of options, user should expect major
+ *	changes of this structure in 2.5.x which might break compatibilty.
+ *      The somewhat ugly dimension 200-sizeof() is needed to maintain
+ *	backward compatibility.
  */
 struct x25_subscrip_struct {
 	char device[200-sizeof(unsigned long)];
-	unsigned long	global_facil_mask;	/*                          */
+	unsigned long	global_facil_mask;	/* 0 to disable negotiation */
 	unsigned int	extended;
 };
 
-/*                                    */
+/* values for above global_facil_mask */
 
 #define	X25_MASK_REVERSE	0x01	
 #define	X25_MASK_THROUGHPUT	0x02
@@ -88,7 +88,7 @@ struct x25_subscrip_struct {
 
 
 /*
-                                   
+ *	Routing table control structure.
  */
 struct x25_route_struct {
 	struct x25_address address;
@@ -97,7 +97,7 @@ struct x25_route_struct {
 };
 
 /*
-                        
+ *	Facilities structure.
  */
 struct x25_facilities {
 	unsigned int	winsize_in, winsize_out;
@@ -107,11 +107,11 @@ struct x25_facilities {
 };
 
 /*
-                    
-                                     
-                                      
-                                           
-                                           
+* ITU DTE facilities
+* Only the called and calling address
+* extension are currently implemented.
+* The rest are in place to avoid the struct
+* changing size if someone needs them later
 */
 
 struct x25_dte_facilities {
@@ -127,7 +127,7 @@ struct x25_dte_facilities {
 };
 
 /*
-                            
+ *	Call User Data structure.
  */
 struct x25_calluserdata {
 	unsigned int	cudlength;
@@ -135,7 +135,7 @@ struct x25_calluserdata {
 };
 
 /*
-                                                
+ *	Call clearing Cause and Diagnostic structure.
  */
 struct x25_causediag {
 	unsigned char	cause;
@@ -143,7 +143,7 @@ struct x25_causediag {
 };
 
 /*
-                                                         
+ *	Further optional call user data match length selection
  */
 struct x25_subaddr {
 	unsigned int cudmatchlength;

@@ -50,5 +50,5 @@ extern fci_s32 fc8080_data_deselect(HANDLE handle, fci_u8 subch_id, fci_u8 buf_i
 }
 #endif
 
-#endif /*                 */
+#endif /* __FC8080_BB_H__ */
 

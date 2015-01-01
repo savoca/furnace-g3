@@ -59,7 +59,7 @@ static inline int nilfs_add_nondir(struct dentry *dentry, struct inode *inode)
 }
 
 /*
-                      
+ * Methods themselves.
  */
 
 static struct dentry *
@@ -77,12 +77,12 @@ nilfs_lookup(struct inode *dir, struct dentry *dentry, struct nameidata *nd)
 }
 
 /*
-                                                      
-                                                     
-                                        
-  
-                                                           
-                        
+ * By the time this is called, we already have created
+ * the directory cache entry for the new file, but it
+ * is so far negative - it has no inode.
+ *
+ * If the create succeeds, we fill in the inode information
+ * with d_instantiate().
  */
 static int nilfs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 			struct nameidata *nd)
@@ -160,15 +160,15 @@ static int nilfs_symlink(struct inode *dir, struct dentry *dentry,
 	if (IS_ERR(inode))
 		goto out;
 
-	/*              */
+	/* slow symlink */
 	inode->i_op = &nilfs_symlink_inode_operations;
 	inode->i_mapping->a_ops = &nilfs_aops;
 	err = page_symlink(inode, symname, l);
 	if (err)
 		goto out_fail;
 
-	/*                          */
-	/*                        */
+	/* mark_inode_dirty(inode); */
+	/* page_symlink() do this */
 
 	err = nilfs_add_nondir(dentry, inode);
 out:
@@ -404,9 +404,9 @@ static int nilfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	}
 
 	/*
-                                                               
-           
-  */
+	 * Like most other Unix systems, set the ctime for inodes on a
+	 * rename.
+	 */
 	old_inode->i_ctime = CURRENT_TIME;
 
 	nilfs_delete_entry(old_de, old_page);
@@ -435,7 +435,7 @@ out:
 }
 
 /*
-                    
+ * Export operations
  */
 static struct dentry *nilfs_get_parent(struct dentry *child)
 {

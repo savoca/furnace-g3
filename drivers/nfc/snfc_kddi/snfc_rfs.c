@@ -1,6 +1,6 @@
 /*
-              
-    
+ *  snfc_rfs.c
+ *  
  */
 
 
@@ -9,9 +9,9 @@
 extern struct snfc_gp snfc_gpios;
 
 /*
-               
-          
-           
+ * Description:
+ * Input: 
+ * Output: 
  */
 static int snfc_rfs_open (struct inode *inode, struct file *fp)
 {
@@ -26,9 +26,9 @@ static int snfc_rfs_open (struct inode *inode, struct file *fp)
 
 
 /*
-               
-          
-                                   
+ * Description:
+ * Input: 
+ * Output: RFS low : 1 RFS high : 0
  */
 static ssize_t snfc_rfs_read(struct file *pf, char *pbuf, size_t size, loff_t *pos)
 {
@@ -38,14 +38,14 @@ static ssize_t snfc_rfs_read(struct file *pf, char *pbuf, size_t size, loff_t *p
 
 	SNFC_DEBUG_MSG_LOW("[snfc_rfs] snfc_rfs_read - start \n");
 
-	/*                  */
-	if(pf == NULL || pbuf == NULL /*               */ /*             */)
+	/* Check Parameters */
+	if(pf == NULL || pbuf == NULL /*|| size == NULL*/ /*||pos == NULL*/)
 	{
 		SNFC_DEBUG_MSG("[snfc_rfs] parameters ERROR pf = %p, pbuf = %p, size = %d, pos = %p\n",pf,pbuf,(int)size,pos);
 		return -1;    
 	}
 
-	/*                */
+	/* Get GPIO value */
 	getvalue = snfc_gpio_read(snfc_gpios.gpio_rfs);	
 
 	if((getvalue != GPIO_LOW_VALUE)&&(getvalue != GPIO_HIGH_VALUE))
@@ -54,8 +54,8 @@ static ssize_t snfc_rfs_read(struct file *pf, char *pbuf, size_t size, loff_t *p
 		return -2;    
 	}
 
-	/*                           */
-	//                                                      
+	/* Copy value to user memory */
+	//getvalue = getvalue ? GPIO_LOW_VALUE: GPIO_HIGH_VALUE;
 	SNFC_DEBUG_MSG_LOW("[snfc_rfs] RFS pin status : %d \n", getvalue);
 
 	if(getvalue)
@@ -78,9 +78,9 @@ static ssize_t snfc_rfs_read(struct file *pf, char *pbuf, size_t size, loff_t *p
 }
 
 /*
-                
-          
-           
+ * Description: 
+ * Input: 
+ * Output: 
  */
 static int snfc_rfs_release (struct inode *inode, struct file *fp)
 {
@@ -110,7 +110,7 @@ int snfc_rfs_probe(struct device_node *np)
 {
     int rc = 0;
 
-    	/*                          */
+    	/* register the device file */
 	rc = misc_register(&snfc_rfs_device);
 	if (rc < 0)
 	{
@@ -129,7 +129,7 @@ int snfc_rfs_probe(struct device_node *np)
 }
 void snfc_rfs_remove(void)
 {
-	/*                            */
+	/* deregister the device file */
 	misc_deregister(&snfc_rfs_device);    
 }
 #if 0

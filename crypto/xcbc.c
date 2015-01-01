@@ -29,13 +29,13 @@ static u_int32_t ks[12] = {0x01010101, 0x01010101, 0x01010101, 0x01010101,
 			   0x03030303, 0x03030303, 0x03030303, 0x03030303};
 
 /*
-                            
-                 
-                            
-                 
-                            
-                            
-                            
+ * +------------------------
+ * | <parent tfm>
+ * +------------------------
+ * | xcbc_tfm_ctx
+ * +------------------------
+ * | consts (block size * 2)
+ * +------------------------
  */
 struct xcbc_tfm_ctx {
 	struct crypto_cipher *child;
@@ -43,15 +43,15 @@ struct xcbc_tfm_ctx {
 };
 
 /*
-                            
-                 
-                            
-                  
-                            
-                      
-                            
-                      
-                            
+ * +------------------------
+ * | <shash desc>
+ * +------------------------
+ * | xcbc_desc_ctx
+ * +------------------------
+ * | odds (block size)
+ * +------------------------
+ * | prev (block size)
+ * +------------------------
  */
 struct xcbc_desc_ctx {
 	unsigned int len;
@@ -104,14 +104,14 @@ static int crypto_xcbc_digest_update(struct shash_desc *pdesc, const u8 *p,
 	u8 *odds = PTR_ALIGN(&ctx->ctx[0], alignmask + 1);
 	u8 *prev = odds + bs;
 
-	/*                                      */
+	/* checking the data can fill the block */
 	if ((ctx->len + len) <= bs) {
 		memcpy(odds + ctx->len, p, len);
 		ctx->len += len;
 		return 0;
 	}
 
-	/*                                              */
+	/* filling odds with new data and encrypting it */
 	memcpy(odds + ctx->len, p, bs - ctx->len);
 	len -= bs - ctx->len;
 	p += bs - ctx->len;
@@ -119,10 +119,10 @@ static int crypto_xcbc_digest_update(struct shash_desc *pdesc, const u8 *p,
 	crypto_xor(prev, odds, bs);
 	crypto_cipher_encrypt_one(tfm, prev, prev);
 
-	/*                     */
+	/* clearing the length */
 	ctx->len = 0;
 
-	/*                             */
+	/* encrypting the rest of data */
 	while (len > bs) {
 		crypto_xor(prev, p, bs);
 		crypto_cipher_encrypt_one(tfm, prev, prev);
@@ -130,7 +130,7 @@ static int crypto_xcbc_digest_update(struct shash_desc *pdesc, const u8 *p,
 		len -= bs;
 	}
 
-	/*                                  */
+	/* keeping the surplus of blocksize */
 	if (len) {
 		memcpy(odds, p, len);
 		ctx->len = len;

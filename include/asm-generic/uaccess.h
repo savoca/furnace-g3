@@ -2,9 +2,9 @@
 #define __ASM_GENERIC_UACCESS_H
 
 /*
-                                                        
-                                                            
-                                          
+ * User space memory access functions, these should work
+ * on a ny machine that has kernel and user data in the same
+ * address space, e.g. all NOMMU machines.
  */
 #include <linux/sched.h>
 #include <linux/mm.h>
@@ -40,8 +40,8 @@ static inline void set_fs(mm_segment_t fs)
 #define access_ok(type, addr, size) __access_ok((unsigned long)(addr),(size))
 
 /*
-                                                                     
-                                
+ * The architecture should really override this if possible, at least
+ * doing a check on the get_fs()
  */
 #ifndef __access_ok
 static inline int __access_ok(unsigned long addr, unsigned long size)
@@ -51,16 +51,16 @@ static inline int __access_ok(unsigned long addr, unsigned long size)
 #endif
 
 /*
-                                                                       
-                                                                        
-                                                                      
-                                                                        
-              
-  
-                                                                     
-                                                                       
-                                                                      
-                               
+ * The exception table consists of pairs of addresses: the first is the
+ * address of an instruction that is allowed to fault, and the second is
+ * the address at which the program should continue.  No registers are
+ * modified, so it is entirely up to the continuation code to figure out
+ * what to do.
+ *
+ * All the routines below use bits of fixup code that are out of line
+ * with the main instruction path.  This means when everything is well,
+ * we don't even have to jump over them.  Further, they do not intrude
+ * on our cache or tlb entries.
  */
 
 struct exception_table_entry
@@ -68,11 +68,11 @@ struct exception_table_entry
 	unsigned long insn, fixup;
 };
 
-/*                                                        */
+/* Returns 0 if exception not found and fixup otherwise.  */
 extern unsigned long search_exception_table(unsigned long);
 
 /*
-                                                      
+ * architectures with an MMU should override these two
  */
 #ifndef __copy_from_user
 static inline __must_check long __copy_from_user(void *to,
@@ -135,10 +135,10 @@ static inline __must_check long __copy_to_user(void __user *to,
 #endif
 
 /*
-                                                                         
-                                                             
-                                                                    
-                                        
+ * These are the main single-value transfer routines.  They automatically
+ * use the right size if we just have the right pointer type.
+ * This version just falls back to copy_{from,to}_user, which should
+ * provide a fast-path for small values.
  */
 #define __put_user(x, ptr) \
 ({								\
@@ -261,7 +261,7 @@ static inline long copy_to_user(void __user *to,
 }
 
 /*
-                                                
+ * Copy a null terminated string from userspace.
  */
 #ifndef __strncpy_from_user
 static inline long
@@ -284,18 +284,18 @@ strncpy_from_user(char *dst, const char __user *src, long count)
 }
 
 /*
-                                                       
-  
-                                                            
+ * Return the size of a string (including the ending 0)
+ *
+ * Return 0 on exception, a value greater than N if too long
  */
 #ifndef __strnlen_user
 #define __strnlen_user(s, n) (strnlen((s), (n)) + 1)
 #endif
 
 /*
-                                                              
-                                                                
-                                                          
+ * Unlike strnlen, strnlen_user includes the nul terminator in
+ * its returned count. Callers should check for a returned value
+ * greater than N as an indication the string is too long.
  */
 static inline long strnlen_user(const char __user *src, long n)
 {
@@ -310,7 +310,7 @@ static inline long strlen_user(const char __user *src)
 }
 
 /*
-                 
+ * Zero Userspace
  */
 #ifndef __clear_user
 static inline __must_check unsigned long
@@ -331,4 +331,4 @@ clear_user(void __user *to, unsigned long n)
 	return __clear_user(to, n);
 }
 
-#endif /*                         */
+#endif /* __ASM_GENERIC_UACCESS_H */

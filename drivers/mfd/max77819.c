@@ -8,8 +8,8 @@
  * published by the Free Software Foundation.
  */
 
-/*              
-                      */
+/* #define DEBUG
+#define VERBOSE_DEBUG */
 #define log_level  1
 
 #include <linux/kernel.h>
@@ -23,10 +23,10 @@
 #include <linux/interrupt.h>
 #include <linux/i2c.h>
 
-/*            */
+/* for Regmap */
 #include <linux/regmap.h>
 
-/*                 */
+/* for Device Tree */
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -45,10 +45,10 @@
 #define DRIVER_AUTHOR  "Gyungoh Yoo <jack.yoo@maximintegrated.com>"
 
 enum {
-	MAX77819_DEV_PMIC = 0,  /*                           */
-	MAX77819_DEV_PERIPH,    /*             */
-	MAX77819_DEV_FUELGAUGE, /*            */
-	/* */
+	MAX77819_DEV_PMIC = 0,  /* PMIC (Charger, Flash LED) */
+	MAX77819_DEV_PERIPH,    /* WLED, Motor */
+	MAX77819_DEV_FUELGAUGE, /* Fuel Gauge */
+	/***/
 	MAX77819_DEV_NUM_OF_DEVICES,
 };
 
@@ -94,9 +94,9 @@ static int max77819_add_devices (struct max77819_dev *me,
 	if (!dev->of_node) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 0)
 		rc = mfd_add_devices(dev, -1, cells, n_devs, NULL, 0);
-#else /*                        */
+#else /* LINUX_VERSION_CODE ... */
 		rc = mfd_add_devices(dev, -1, cells, n_devs, NULL, 0, NULL);
-#endif /*                        */
+#endif /* LINUX_VERSION_CODE ... */
 		goto out;
 	}
 
@@ -106,25 +106,25 @@ out:
 	return rc;
 }
 
-/*                                                                              
-                  
-                                                                              */
+/*******************************************************************************
+ *** MAX77819 PMIC
+ ******************************************************************************/
 
-/*              */
+/* Register map */
 #define PMICID              0x20
 #define PMICREV             0x21
 #define INTSRC              0x22
 #define INTSRC_MASK         0x23
 #define TOPSYS_INT          0x24
-/*                               */
+/*      RESERVED            0x25 */
 #define TOPSYS_INT_MASK     0x26
-/*                               */
+/*      RESERVED            0x27 */
 #define TOPSYS_STAT         0x28
-/*                               */
+/*      RESERVED            0x29 */
 #define MAINCTRL1           0x2A
 #define LSCONFIG            0x2B
 
-/*                             */
+/* Interrupt corresponding bit */
 #define CHGR_INT            BIT (0)
 #define TOP_INT             BIT (1)
 #define FLASH_INT           BIT (2)
@@ -166,7 +166,7 @@ static void *max77819_pmic_get_platdata (struct max77819_dev *pmic)
 		gpio_direction_input(gpio);
 		log_dbg("<%s> INTGPIO %u assigned\n", client->name, gpio);
 
-		/*                    */
+		/* override pdata irq */
 		pdata->irq = gpio_to_irq(gpio);
 	}
 
@@ -175,10 +175,10 @@ static void *max77819_pmic_get_platdata (struct max77819_dev *pmic)
 
 out:
 	return pdata;
-#else /*           */
+#else /* CONFIG_OF */
 	return dev_get_platdata(pmic->dev) ?
 		dev_get_platdata(pmic->dev) : ERR_PTR(-EINVAL);
-#endif /*           */
+#endif /* CONFIG_OF */
 }
 
 static struct regmap_irq max77819_pmic_regmap_irqs[] = {
@@ -208,7 +208,7 @@ static int max77819_pmic_setup_irq (struct max77819_dev *pmic)
 	struct irq_desc *irq_desc;
 	int irq_base, rc = 0;
 
-	/*                        */
+	/* disable all interrupts */
 	max77819_write(&pmic->io, INTSRC_MASK, 0xFF);
 
 	pmic->irq = pdata->irq;
@@ -245,7 +245,7 @@ static int max77819_pmic_setup_irq (struct max77819_dev *pmic)
 		rc = -EIO;
 		goto out;
 	}
-#endif /*                   */
+#endif /* CONFIG_IRQ_DOMAIN */
 
 out:
 	return rc;
@@ -285,7 +285,7 @@ static int max77819_pmic_setup (struct max77819_dev *pmic)
 		goto out;
 	}
 
-	/*                                   */
+	/* set device able to wake up system */
 	device_init_wakeup(dev, true);
 	if (likely(pmic->irq > 0)) {
 		enable_irq_wake((unsigned int)pmic->irq);
@@ -305,9 +305,9 @@ out:
 	return rc;
 }
 
-/*                                                                              
-                    
-                                                                              */
+/*******************************************************************************
+ *** MAX77819 Periph
+ ******************************************************************************/
 
 static struct mfd_cell max77819_periph_devices[] = {
 	{ .name = MAX77819_WLED_NAME,  },
@@ -327,8 +327,8 @@ static int max77819_periph_setup (struct max77819_dev *periph)
 		goto out;
 	}
 
-	/*                                   */
-	/*                                */
+	/* set device able to wake up system */
+	/* device_init_wakeup(dev, true); */
 
 	log_info("<%s> driver core "DRIVER_VERSION" installed\n", client->name);
 
@@ -336,18 +336,18 @@ out:
 	return rc;
 }
 
-/*                                                                              
-                       
-                                                                              */
+/*******************************************************************************
+ *** MAX77819 FuelGauge
+ ******************************************************************************/
 
 static int max77819_fuelgauge_setup (struct max77819_dev *fuelgauge)
 {
 	return -ENOTSUPP;
 }
 
-/*                                                                              
-                      
-                                                                              */
+/*******************************************************************************
+ *** MAX77819 MFD Core
+ ******************************************************************************/
 
 static __always_inline void max77819_destroy (struct max77819_dev *me)
 {
@@ -377,7 +377,7 @@ static __always_inline void max77819_destroy (struct max77819_dev *me)
 	if (likely(me->pdata)) {
 		devm_kfree(dev, me->pdata);
 	}
-#endif /*           */
+#endif /* CONFIG_OF */
 
 	mutex_destroy(&me->lock);
 	devm_kfree(dev, me);
@@ -391,7 +391,7 @@ static struct of_device_id max77819_of_ids[] = {
 	{ },
 };
 MODULE_DEVICE_TABLE(of, max77819_of_ids);
-#endif /*           */
+#endif /* CONFIG_OF */
 
 static const struct i2c_device_id max77819_i2c_ids[] = {
 	{ MAX77819_PMIC_NAME,      MAX77819_DEV_PMIC      },
@@ -435,7 +435,7 @@ static __devinit int max77819_i2c_probe (struct i2c_client *client,
 		goto abort;
 	}
 
-	/*                               */
+	/* detect device ID & post-probe */
 	me->dev_id = (int)id->driver_data;
 	switch (me->dev_id) {
 	case MAX77819_DEV_PMIC:
@@ -457,7 +457,7 @@ static __devinit int max77819_i2c_probe (struct i2c_client *client,
 		goto abort;
 	}
 
-	/*                       */
+	/* all done successfully */
 	core->dev[me->dev_id] = me;
 	log_dbg("<%s> probe DONE,\n", client->name);
 
@@ -507,7 +507,7 @@ static int max77819_resume (struct device *dev)
 	__unlock(me);
 	return 0;
 }
-#endif /*                 */
+#endif /* CONFIG_PM_SLEEP */
 
 static SIMPLE_DEV_PM_OPS(max77819_pm, max77819_suspend, max77819_resume);
 
@@ -517,7 +517,7 @@ static struct i2c_driver max77819_i2c_driver = {
 	.driver.pm              = &max77819_pm,
 #ifdef CONFIG_OF
 	.driver.of_match_table  = max77819_of_ids,
-#endif /*           */
+#endif /* CONFIG_OF */
 	.id_table               = max77819_i2c_ids,
 	.probe                  = max77819_i2c_probe,
 	.remove                 = __devexit_p(max77819_i2c_remove),
@@ -542,9 +542,9 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_VERSION(DRIVER_VERSION);
 
-/*                                                                              
-                    
-                                                                              */
+/*******************************************************************************
+ * EXTERNAL SERVICES
+ ******************************************************************************/
 
 struct max77819_io *max77819_get_io (struct max77819_dev *chip)
 {

@@ -19,7 +19,7 @@
 #include <asm/sn/nodepda.h>
 #include <asm/sn/shub_mmr.h>
 
-//                   
+// SGI Specific Calls
 #define  SN_SAL_POD_MODE                           0x02000001
 #define  SN_SAL_SYSTEM_RESET                       0x02000002
 #define  SN_SAL_PROBE                              0x02000003
@@ -33,8 +33,8 @@
 #define  SN_SAL_NO_FAULT_ZONE_PHYSICAL		   0x02000011
 #define  SN_SAL_PRINT_ERROR			   0x02000012
 #define  SN_SAL_REGISTER_PMI_HANDLER		   0x02000014
-#define  SN_SAL_SET_ERROR_HANDLING_FEATURES	   0x0200001a	//          
-#define  SN_SAL_GET_FIT_COMPT			   0x0200001b	//          
+#define  SN_SAL_SET_ERROR_HANDLING_FEATURES	   0x0200001a	// reentrant
+#define  SN_SAL_GET_FIT_COMPT			   0x0200001b	// reentrant
 #define  SN_SAL_GET_SAPIC_INFO                     0x0200001d
 #define  SN_SAL_GET_SN_INFO                        0x0200001e
 #define  SN_SAL_CONSOLE_PUTC                       0x02000021
@@ -63,11 +63,11 @@
 #define  SN_SAL_MEMPROTECT                         0x0200003e
 #define  SN_SAL_SYSCTL_FRU_CAPTURE		   0x0200003f
 
-#define  SN_SAL_SYSCTL_IOBRICK_PCI_OP		   0x02000042	//          
+#define  SN_SAL_SYSCTL_IOBRICK_PCI_OP		   0x02000042	// reentrant
 #define	 SN_SAL_IROUTER_OP			   0x02000043
 #define  SN_SAL_SYSCTL_EVENT                       0x02000044
 #define  SN_SAL_IOIF_INTERRUPT			   0x0200004a
-#define  SN_SAL_HWPERF_OP			   0x02000050   //     
+#define  SN_SAL_HWPERF_OP			   0x02000050   // lock
 #define  SN_SAL_IOIF_ERROR_INTERRUPT		   0x02000051
 #define  SN_SAL_IOIF_PCI_SAFE			   0x02000052
 #define  SN_SAL_IOIF_SLOT_ENABLE		   0x02000053
@@ -75,7 +75,7 @@
 #define  SN_SAL_IOIF_GET_HUBDEV_INFO		   0x02000055
 #define  SN_SAL_IOIF_GET_PCIBUS_INFO		   0x02000056
 #define  SN_SAL_IOIF_GET_PCIDEV_INFO		   0x02000057
-#define  SN_SAL_IOIF_GET_WIDGET_DMAFLUSH_LIST	   0x02000058	//           
+#define  SN_SAL_IOIF_GET_WIDGET_DMAFLUSH_LIST	   0x02000058	// deprecated
 #define  SN_SAL_IOIF_GET_DEVICE_DMAFLUSH_LIST	   0x0200005a
 
 #define SN_SAL_IOIF_INIT			   0x0200005f
@@ -94,58 +94,58 @@
 #define  SN_SAL_WATCHLIST_FREE			   0x02000071
 
 /*
-                             
+ * Service-specific constants
  */
 
-/*                                */
-	/*              */
-#define SAL_CONSOLE_INTR_OFF    0       /*                        */
-#define SAL_CONSOLE_INTR_ON     1       /*                       */
-#define SAL_CONSOLE_INTR_STATUS 2	/*                               */
-	/*                                               */
-#define SAL_CONSOLE_INTR_XMIT	1	/*                  */
-#define SAL_CONSOLE_INTR_RECV	2	/*                 */
+/* Console interrupt manipulation */
+	/* action codes */
+#define SAL_CONSOLE_INTR_OFF    0       /* turn the interrupt off */
+#define SAL_CONSOLE_INTR_ON     1       /* turn the interrupt on */
+#define SAL_CONSOLE_INTR_STATUS 2	/* retrieve the interrupt status */
+	/* interrupt specification & status return codes */
+#define SAL_CONSOLE_INTR_XMIT	1	/* output interrupt */
+#define SAL_CONSOLE_INTR_RECV	2	/* input interrupt */
 
-/*                    */
+/* interrupt handling */
 #define SAL_INTR_ALLOC		1
 #define SAL_INTR_FREE		2
 #define SAL_INTR_REDIRECT	3
 
 /*
-                                                       
-                  
+ * operations available on the generic SN_SAL_SYSCTL_OP
+ * runtime service
  */
-#define SAL_SYSCTL_OP_IOBOARD		0x0001  /*                      */
-#define SAL_SYSCTL_OP_TIO_JLCK_RST      0x0002  /*                       */
+#define SAL_SYSCTL_OP_IOBOARD		0x0001  /*  retrieve board type */
+#define SAL_SYSCTL_OP_TIO_JLCK_RST      0x0002  /* issue TIO clock reset */
 
 /*
-                                                          
+ * IRouter (i.e. generalized system controller) operations
  */
-#define SAL_IROUTER_OPEN	0	/*                   */
-#define SAL_IROUTER_CLOSE	1	/*                    */
-#define SAL_IROUTER_SEND	2	/*                                */
-#define SAL_IROUTER_RECV	3	/*                                   */
-#define SAL_IROUTER_INTR_STATUS	4	/*                               
-                          
-      */
-#define SAL_IROUTER_INTR_ON	5	/*                     */
-#define SAL_IROUTER_INTR_OFF	6	/*                      */
-#define SAL_IROUTER_INIT	7	/*                           */
+#define SAL_IROUTER_OPEN	0	/* open a subchannel */
+#define SAL_IROUTER_CLOSE	1	/* close a subchannel */
+#define SAL_IROUTER_SEND	2	/* send part of an IRouter packet */
+#define SAL_IROUTER_RECV	3	/* receive part of an IRouter packet */
+#define SAL_IROUTER_INTR_STATUS	4	/* check the interrupt status for
+					 * an open subchannel
+					 */
+#define SAL_IROUTER_INTR_ON	5	/* enable an interrupt */
+#define SAL_IROUTER_INTR_OFF	6	/* disable an interrupt */
+#define SAL_IROUTER_INIT	7	/* initialize IRouter driver */
 
-/*                             */
+/* IRouter interrupt mask bits */
 #define SAL_IROUTER_INTR_XMIT	SAL_CONSOLE_INTR_XMIT
 #define SAL_IROUTER_INTR_RECV	SAL_CONSOLE_INTR_RECV
 
 /*
-                          
+ * Error Handling Features
  */
-#define SAL_ERR_FEAT_MCA_SLV_TO_OS_INIT_SLV	0x1	//         
-#define SAL_ERR_FEAT_LOG_SBES			0x2	//         
+#define SAL_ERR_FEAT_MCA_SLV_TO_OS_INIT_SLV	0x1	// obsolete
+#define SAL_ERR_FEAT_LOG_SBES			0x2	// obsolete
 #define SAL_ERR_FEAT_MFR_OVERRIDE		0x4
 #define SAL_ERR_FEAT_SBE_THRESHOLD		0xffff0000
 
 /*
-                  
+ * SAL Error Codes
  */
 #define SALRET_MORE_PASSES	1
 #define SALRET_OK		0
@@ -155,14 +155,14 @@
 
 #define SN_SAL_FAKE_PROM			   0x02009999
 
-/* 
-                                                     
-   
-                                                                      
-                                                               
-                                  
-   
-                                                             
+/**
+  * sn_sal_revision - get the SGI SAL revision number
+  *
+  * The SGI PROM stores its version in the sal_[ab]_rev_(major|minor).
+  * This routine simply extracts the major and minor values and
+  * presents them in a u32 format.
+  *
+  * For example, version 4.05 would be represented at 0x0405.
   */
 static inline u32
 sn_sal_rev(void)
@@ -173,8 +173,8 @@ sn_sal_rev(void)
 }
 
 /*
-                                                                         
-         
+ * Returns the master console nasid, if the call fails, return an illegal
+ * value.
  */
 static inline u64
 ia64_sn_get_console_nasid(void)
@@ -190,13 +190,13 @@ ia64_sn_get_console_nasid(void)
 	if (ret_stuff.status < 0)
 		return ret_stuff.status;
 
-	/*                                 */
+	/* Master console nasid is in 'v0' */
 	return ret_stuff.v0;
 }
 
 /*
-                                                                        
-         
+ * Returns the master baseio nasid, if the call fails, return an illegal
+ * value.
  */
 static inline u64
 ia64_sn_get_master_baseio_nasid(void)
@@ -212,7 +212,7 @@ ia64_sn_get_master_baseio_nasid(void)
 	if (ret_stuff.status < 0)
 		return ret_stuff.status;
 
-	/*                                */
+	/* Master baseio nasid is in 'v0' */
 	return ret_stuff.v0;
 }
 
@@ -230,7 +230,7 @@ ia64_sn_get_klconfig_addr(nasid_t nasid)
 }
 
 /*
-                                      
+ * Returns the next console character.
  */
 static inline u64
 ia64_sn_console_getc(int *ch)
@@ -243,16 +243,16 @@ ia64_sn_console_getc(int *ch)
 	ret_stuff.v2 = 0;
 	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_CONSOLE_GETC, 0, 0, 0, 0, 0, 0, 0);
 
-	/*                      */
+	/* character is in 'v0' */
 	*ch = (int)ret_stuff.v0;
 
 	return ret_stuff.status;
 }
 
 /*
-                                                                           
-                                                                       
-              
+ * Read a character from the SAL console device, after a previous interrupt
+ * or poll operation has given us to know that a character is available
+ * to be read.
  */
 static inline u64
 ia64_sn_console_readc(void)
@@ -265,12 +265,12 @@ ia64_sn_console_readc(void)
 	ret_stuff.v2 = 0;
 	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_CONSOLE_READC, 0, 0, 0, 0, 0, 0, 0);
 
-	/*                      */
+	/* character is in 'v0' */
 	return ret_stuff.v0;
 }
 
 /*
-                                            
+ * Sends the given character to the console.
  */
 static inline u64
 ia64_sn_console_putc(char ch)
@@ -287,7 +287,7 @@ ia64_sn_console_putc(char ch)
 }
 
 /*
-                                         
+ * Sends the given buffer to the console.
  */
 static inline u64
 ia64_sn_console_putb(const char *buf, int len)
@@ -307,7 +307,7 @@ ia64_sn_console_putb(const char *buf, int len)
 }
 
 /*
-                                
+ * Print a platform error record
  */
 static inline u64
 ia64_sn_plat_specific_err_print(int (*hook)(const char*, ...), char *rec)
@@ -324,7 +324,7 @@ ia64_sn_plat_specific_err_print(int (*hook)(const char*, ...), char *rec)
 }
 
 /*
-                            
+ * Check for Platform errors
  */
 static inline u64
 ia64_sn_plat_cpei_handler(void)
@@ -341,7 +341,7 @@ ia64_sn_plat_cpei_handler(void)
 }
 
 /*
-                                         
+ * Set Error Handling Features	(Obsolete)
  */
 static inline u64
 ia64_sn_plat_set_error_handling_features(void)
@@ -360,7 +360,7 @@ ia64_sn_plat_set_error_handling_features(void)
 }
 
 /*
-                            
+ * Checks for console input.
  */
 static inline u64
 ia64_sn_console_check(int *result)
@@ -373,14 +373,14 @@ ia64_sn_console_check(int *result)
 	ret_stuff.v2 = 0;
 	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_CONSOLE_POLL, 0, 0, 0, 0, 0, 0, 0);
 
-	/*                   */
+	/* result is in 'v0' */
 	*result = (int)ret_stuff.v0;
 
 	return ret_stuff.status;
 }
 
 /*
-                                  
+ * Checks console interrupt status
  */
 static inline u64
 ia64_sn_console_intr_status(void)
@@ -403,7 +403,7 @@ ia64_sn_console_intr_status(void)
 }
 
 /*
-                                                 
+ * Enable an interrupt on the SAL console device.
  */
 static inline void
 ia64_sn_console_intr_enable(u64 intr)
@@ -420,7 +420,7 @@ ia64_sn_console_intr_enable(u64 intr)
 }
 
 /*
-                                                  
+ * Disable an interrupt on the SAL console device.
  */
 static inline void
 ia64_sn_console_intr_disable(u64 intr)
@@ -437,7 +437,7 @@ ia64_sn_console_intr_disable(u64 intr)
 }
 
 /*
-                                                          
+ * Sends a character buffer to the console asynchronously.
  */
 static inline u64
 ia64_sn_console_xmit_chars(char *buf, int len)
@@ -460,7 +460,7 @@ ia64_sn_console_xmit_chars(char *buf, int len)
 }
 
 /*
-                                
+ * Returns the iobrick module Id
  */
 static inline u64
 ia64_sn_sysctl_iobrick_module_get(nasid_t nasid, int *result)
@@ -473,18 +473,18 @@ ia64_sn_sysctl_iobrick_module_get(nasid_t nasid, int *result)
 	ret_stuff.v2 = 0;
 	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_SYSCTL_IOBRICK_MODULE_GET, nasid, 0, 0, 0, 0, 0, 0);
 
-	/*                   */
+	/* result is in 'v0' */
 	*result = (int)ret_stuff.v0;
 
 	return ret_stuff.status;
 }
 
-/* 
-                                                       
-  
-                                                              
-                                                                
-                    
+/**
+ * ia64_sn_pod_mode - call the SN_SAL_POD_MODE function
+ *
+ * SN_SAL_POD_MODE actually takes an argument, but it's always
+ * 0 when we call it from the kernel, so we don't have to expose
+ * it to the caller.
  */
 static inline u64
 ia64_sn_pod_mode(void)
@@ -496,23 +496,23 @@ ia64_sn_pod_mode(void)
 	return isrv.v0;
 }
 
-/* 
-                                              
-                          
-                                        
-                                                                               
-  
-                                                                          
-                                                                           
-                                                                        
-                                                                         
-                         
-  
-                 
-                        
-                                    
-               
-                 
+/**
+ * ia64_sn_probe_mem - read from memory safely
+ * @addr: address to probe
+ * @size: number bytes to read (1,2,4,8)
+ * @data_ptr: address to store value read by probe (-1 returned if probe fails)
+ *
+ * Call into the SAL to do a memory read.  If the read generates a machine
+ * check, this routine will recover gracefully and return -1 to the caller.
+ * @addr is usually a kernel virtual address in uncached space (i.e. the
+ * address starts with 0xc), but if called in physical mode, @addr should
+ * be a physical address.
+ *
+ * Return values:
+ *  0 - probe successful
+ *  1 - probe failed (generated MCA)
+ *  2 - Bad arg
+ * <0 - PAL error
  */
 static inline u64
 ia64_sn_probe_mem(long addr, long size, void *data_ptr)
@@ -543,7 +543,7 @@ ia64_sn_probe_mem(long addr, long size, void *data_ptr)
 }
 
 /*
-                                                        
+ * Retrieve the system serial number as an ASCII string.
  */
 static inline u64
 ia64_sn_sys_serial_get(char *buf)
@@ -591,8 +591,8 @@ sn_partition_serial_number_val(void) {
 }
 
 /*
-                                                                  
-                                                             
+ * Returns the partition id of the nasid passed in as an argument,
+ * or INVALID_PARTID if the partition id cannot be retrieved.
  */
 static inline partid_t
 ia64_sn_sysctl_partition_get(nasid_t nasid)
@@ -606,20 +606,20 @@ ia64_sn_sysctl_partition_get(nasid_t nasid)
 }
 
 /*
-                                                                        
-                                
-  
-                                                                   
-                                                                     
-                
-                                                                     
-                 
-  
-                                                                  
-                                                                   
-                                                                   
-                                                                   
-                                                               
+ * Returns the physical address of the partition's reserved page through
+ * an iterative number of calls.
+ *
+ * On first call, 'cookie' and 'len' should be set to 0, and 'addr'
+ * set to the nasid of the partition whose reserved page's address is
+ * being sought.
+ * On subsequent calls, pass the values, that were passed back on the
+ * previous call.
+ *
+ * While the return status equals SALRET_MORE_PASSES, keep calling
+ * this function after first copying 'len' bytes starting at 'addr'
+ * into 'buf'. Once the return status equals SALRET_OK, 'addr' will
+ * be the physical address of the partition's reserved page. If the
+ * return status equals neither of these, an error as occurred.
  */
 static inline s64
 sn_partition_reserved_page_pa(u64 buf, u64 *cookie, u64 *addr, u64 *len)
@@ -634,19 +634,19 @@ sn_partition_reserved_page_pa(u64 buf, u64 *cookie, u64 *addr, u64 *len)
 }
 
 /*
-                                                                          
-                                                                           
-                                                                               
-                                     
-                                           
-                                             
-   
-                                                                               
-                  
-   
-                                                                             
-                                                                         
-                                       
+ * Register or unregister a physical address range being referenced across
+ * a partition boundary for which certain SAL errors should be scanned for,
+ * cleaned up and ignored.  This is of value for kernel partitioning code only.
+ * Values for the operation argument:
+ *	1 = register this address range with SAL
+ *	0 = unregister this address range with SAL
+ * 
+ * SAL maintains a reference count on an address range in case it is registered
+ * multiple times.
+ * 
+ * On success, returns the reference count of the address range after the SAL
+ * call has performed the current registration/unregistration.  Returns a
+ * negative value if an error occurred.
  */
 static inline int
 sn_register_xp_addr_region(u64 paddr, u64 len, int operation)
@@ -658,13 +658,13 @@ sn_register_xp_addr_region(u64 paddr, u64 len, int operation)
 }
 
 /*
-                                                                          
-                                                                           
-                                                                               
-                                               
-                                                 
-  
-                                                                  
+ * Register or unregister an instruction range for which SAL errors should
+ * be ignored.  If an error occurs while in the registered range, SAL jumps
+ * to return_addr after ignoring the error.  Values for the operation argument:
+ *	1 = register this instruction range with SAL
+ *	0 = unregister this instruction range with SAL
+ *
+ * Returns 0 on success, or a negative value if an error occurred.
  */
 static inline int
 sn_register_nofault_code(u64 start_addr, u64 end_addr, u64 return_addr,
@@ -683,14 +683,14 @@ sn_register_nofault_code(u64 start_addr, u64 end_addr, u64 return_addr,
 }
 
 /*
-                                                                       
-                                                                       
-                                       
-  
-                                                                        
-                        
-  
-                                                                  
+ * Register or unregister a function to handle a PMI received by a CPU.
+ * Before calling the registered handler, SAL sets r1 to the value that
+ * was passed in as the global_pointer.
+ *
+ * If the handler pointer is NULL, then the currently registered handler
+ * will be unregistered.
+ *
+ * Returns 0 on success, or a negative value if an error occurred.
  */
 static inline int
 sn_register_pmi_handler(u64 handler, u64 global_pointer)
@@ -702,17 +702,17 @@ sn_register_pmi_handler(u64 handler, u64 global_pointer)
 }
 
 /*
-                                                                          
-                                                             
-                                                    
-                                                
-  
-                                                                      
-                                                          
-                                                                 
-                                                        
-  
-                                                                  
+ * Change or query the coherence domain for this partition. Each cpu-based
+ * nasid is represented by a bit in an array of 64-bit words:
+ *      0 = not in this partition's coherency domain
+ *      1 = in this partition's coherency domain
+ *
+ * It is not possible for the local system's nasids to be removed from
+ * the coherency domain.  Purpose of the domain arguments:
+ *      new_domain = set the coherence domain to the given nasids
+ *      old_domain = return the current coherence domain
+ *
+ * Returns 0 on success, or a negative value if an error occurred.
  */
 static inline int
 sn_change_coherence(u64 *new_domain, u64 *old_domain)
@@ -724,9 +724,9 @@ sn_change_coherence(u64 *new_domain, u64 *old_domain)
 }
 
 /*
-                                                                 
-                                                                        
-                                                                             
+ * Change memory access protections for a physical address range.
+ * nasid_array is not used on Altix, but may be in future architectures.
+ * Available memory protection access classes are defined after the function.
  */
 static inline int
 sn_change_memprotect(u64 paddr, u64 len, u64 perms, u64 *nasid_array)
@@ -745,7 +745,7 @@ sn_change_memprotect(u64 paddr, u64 len, u64 perms, u64 *nasid_array)
 #define SN_MEMPROT_ACCESS_CLASS_7		0x021080
 
 /*
-                          
+ * Turns off system power.
  */
 static inline void
 ia64_sn_power_down(void)
@@ -754,14 +754,14 @@ ia64_sn_power_down(void)
 	SAL_CALL(ret_stuff, SN_SAL_SYSTEM_POWER_DOWN, 0, 0, 0, 0, 0, 0, 0);
 	while(1)
 		cpu_relax();
-	/*               */
+	/* never returns */
 }
 
-/* 
-                                                                       
-  
-                                                                          
-                                                              
+/**
+ * ia64_sn_fru_capture - tell the system controller to capture hw state
+ *
+ * This routine will call the SAL which will tell the system controller(s)
+ * to capture hw mmr information from each SHub in the system.
  */
 static inline u64
 ia64_sn_fru_capture(void)
@@ -774,8 +774,8 @@ ia64_sn_fru_capture(void)
 }
 
 /*
-                                                                     
-            
+ * Performs an operation on a PCI bus or slot -- power up, power down
+ * or reset.
  */
 static inline u64
 ia64_sn_sysctl_iobrick_pci_op(nasid_t n, u64 connection_type, 
@@ -793,9 +793,9 @@ ia64_sn_sysctl_iobrick_pci_op(nasid_t n, u64 connection_type,
 
 
 /*
-                                                             
-                                                                      
-                                                                   
+ * Open a subchannel for sending arbitrary data to the system
+ * controller network via the system controller device associated with
+ * 'nasid'.  Return the subchannel number or a negative error code.
  */
 static inline int
 ia64_sn_irtr_open(nasid_t nasid)
@@ -807,7 +807,7 @@ ia64_sn_irtr_open(nasid_t nasid)
 }
 
 /*
-                                                                           
+ * Close system controller subchannel 'subch' previously opened on 'nasid'.
  */
 static inline int
 ia64_sn_irtr_close(nasid_t nasid, int subch)
@@ -819,12 +819,12 @@ ia64_sn_irtr_close(nasid_t nasid, int subch)
 }
 
 /*
-                                                              
-                                                                
-                                                                      
-                                                                  
-                                                                  
-                                                   
+ * Read data from system controller associated with 'nasid' on
+ * subchannel 'subch'.  The buffer to be filled is pointed to by
+ * 'buf', and its capacity is in the integer pointed to by 'len'.  The
+ * referent of 'len' is set to the number of bytes read by the SAL
+ * call.  The return value is either SALRET_OK (for bytes read) or
+ * SALRET_ERROR (for error or "no data available").
  */
 static inline int
 ia64_sn_irtr_recv(nasid_t nasid, int subch, char *buf, int *len)
@@ -837,12 +837,12 @@ ia64_sn_irtr_recv(nasid_t nasid, int subch, char *buf, int *len)
 }
 
 /*
-                                                             
-                                                                
-                                                                    
-                                                                 
-                                                                    
-        
+ * Write data to the system controller network via the system
+ * controller associated with 'nasid' on suchannel 'subch'.  The
+ * buffer to be written out is pointed to by 'buf', and 'len' is the
+ * number of bytes to be written.  The return value is either the
+ * number of bytes written (which could be zero) or a negative error
+ * code.
  */
 static inline int
 ia64_sn_irtr_send(nasid_t nasid, int subch, char *buf, int len)
@@ -855,10 +855,10 @@ ia64_sn_irtr_send(nasid_t nasid, int subch, char *buf, int len)
 }
 
 /*
-                                                                     
-                                                                  
-                                                                      
-                          
+ * Check whether any interrupts are pending for the system controller
+ * associated with 'nasid' and its subchannel 'subch'.  The return
+ * value is a mask of pending interrupts (SAL_IROUTER_INTR_XMIT and/or
+ * SAL_IROUTER_INTR_RECV).
  */
 static inline int
 ia64_sn_irtr_intr(nasid_t nasid, int subch)
@@ -870,8 +870,8 @@ ia64_sn_irtr_intr(nasid_t nasid, int subch)
 }
 
 /*
-                                                               
-                                                   
+ * Enable the interrupt indicated by the intr parameter (either
+ * SAL_IROUTER_INTR_XMIT or SAL_IROUTER_INTR_RECV).
  */
 static inline int
 ia64_sn_irtr_intr_enable(nasid_t nasid, int subch, u64 intr)
@@ -883,8 +883,8 @@ ia64_sn_irtr_intr_enable(nasid_t nasid, int subch, u64 intr)
 }
 
 /*
-                                                                
-                                                   
+ * Disable the interrupt indicated by the intr parameter (either
+ * SAL_IROUTER_INTR_XMIT or SAL_IROUTER_INTR_RECV).
  */
 static inline int
 ia64_sn_irtr_intr_disable(nasid_t nasid, int subch, u64 intr)
@@ -896,8 +896,8 @@ ia64_sn_irtr_intr_disable(nasid_t nasid, int subch, u64 intr)
 }
 
 /*
-                                                              
-                                
+ * Set up a node as the point of contact for system controller
+ * environmental event delivery.
  */
 static inline int
 ia64_sn_sysctl_event_init(nasid_t nasid)
@@ -909,8 +909,8 @@ ia64_sn_sysctl_event_init(nasid_t nasid)
 }
 
 /*
-                                                            
-                                                  
+ * Ask the system controller on the specified nasid to reset
+ * the CX corelet clock.  Only valid on TIO nodes.
  */
 static inline int
 ia64_sn_sysctl_tio_clock_reset(nasid_t nasid)
@@ -927,7 +927,7 @@ ia64_sn_sysctl_tio_clock_reset(nasid_t nasid)
 }
 
 /*
-                                                     
+ * Get the associated ioboard type for a given nasid.
  */
 static inline long
 ia64_sn_sysctl_ioboard_get(nasid_t nasid, u16 *ioboard)
@@ -947,23 +947,23 @@ ia64_sn_sysctl_ioboard_get(nasid_t nasid, u16 *ioboard)
 	return isrv.status;
 }
 
-/* 
-                                                                
-                                
-                                                 
-                                                            
-                                                 
-                                   
-  
-                                                                           
-                                                                            
-                                                   
-  
-           
-                   
-                                       
-                                                   
-                                                         
+/**
+ * ia64_sn_get_fit_compt - read a FIT entry from the PROM header
+ * @nasid: NASID of node to read
+ * @index: FIT entry index to be retrieved (0..n)
+ * @fitentry: 16 byte buffer where FIT entry will be stored.
+ * @banbuf: optional buffer for retrieving banner
+ * @banlen: length of banner buffer
+ *
+ * Access to the physical PROM chips needs to be serialized since reads and
+ * writes can't occur at the same time, so we need to call into the SAL when
+ * we want to look at the FIT entries on the chips.
+ *
+ * Returns:
+ *	%SALRET_OK if ok
+ *	%SALRET_INVALID_ARG if index too big
+ *	%SALRET_NOT_IMPLEMENTED if running on older PROM
+ *	??? if nasid invalid OR banner buffer not large enough
  */
 static inline int
 ia64_sn_get_fit_compt(u64 nasid, u64 index, void *fitentry, void *banbuf,
@@ -976,11 +976,11 @@ ia64_sn_get_fit_compt(u64 nasid, u64 index, void *fitentry, void *banbuf,
 }
 
 /*
-                                                         
-                                                                   
-                                                                     
-                                                                   
-          
+ * Initialize the SAL components of the system controller
+ * communication driver; specifically pass in a sizable buffer that
+ * can be used for allocation of subchannel queues as new subchannels
+ * are opened.  "buf" points to the buffer, and "len" specifies its
+ * length.
  */
 static inline int
 ia64_sn_irtr_init(nasid_t nasid, void *buf, int len)
@@ -992,15 +992,15 @@ ia64_sn_irtr_init(nasid_t nasid, void *buf, int len)
 }
 
 /*
-                                                                 
-  
-       
-                               
-                              
-        
-             
-               
-             
+ * Returns the nasid, subnode & slice corresponding to a SAPIC ID
+ *
+ *  In:
+ *	arg0 - SN_SAL_GET_SAPIC_INFO
+ *	arg1 - sapicid (lid >> 16) 
+ *  Out:
+ *	v0 - nasid
+ *	v1 - subnode
+ *	v2 - slice
  */
 static inline u64
 ia64_sn_get_sapic_info(int sapicid, int *nasid, int *subnode, int *slice)
@@ -1013,14 +1013,14 @@ ia64_sn_get_sapic_info(int sapicid, int *nasid, int *subnode, int *slice)
 	ret_stuff.v2 = 0;
 	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_GET_SAPIC_INFO, sapicid, 0, 0, 0, 0, 0, 0);
 
-/*                                                                */
+/***** BEGIN HACK - temp til old proms no longer supported ********/
 	if (ret_stuff.status == SALRET_NOT_IMPLEMENTED) {
 		if (nasid) *nasid = sapicid & 0xfff;
 		if (subnode) *subnode = (sapicid >> 13) & 1;
 		if (slice) *slice = (sapicid >> 12) & 3;
 		return 0;
 	}
-/*                    */
+/***** END HACK *******/
 
 	if (ret_stuff.status < 0)
 		return ret_stuff.status;
@@ -1032,22 +1032,22 @@ ia64_sn_get_sapic_info(int sapicid, int *nasid, int *subnode, int *slice)
 }
  
 /*
-                                          
-       
-                            
-                                                   
-        
-      
-                                          
-                                                                 
-                               
-                                                  
-                           
-                           
-                         
-      
-                                                      
-                                            
+ * Returns information about the HUB/SHUB.
+ *  In:
+ *	arg0 - SN_SAL_GET_SN_INFO
+ * 	arg1 - 0 (other values reserved for future use)
+ *  Out:
+ *	v0 
+ *		[7:0]   - shub type (0=shub1, 1=shub2)
+ *		[15:8]  - Log2 max number of nodes in entire system (includes
+ *			  C-bricks, I-bricks, etc)
+ *		[23:16] - Log2 of nodes per sharing domain			 
+ * 		[31:24] - partition ID
+ * 		[39:32] - coherency_id
+ * 		[47:40] - regionsize
+ *	v1 
+ *		[15:0]  - nasid mask (ex., 0x7ff for 11 bit nasid)
+ *	 	[23:15] - bit position of low nasid bit
  */
 static inline u64
 ia64_sn_get_sn_info(int fc, u8 *shubtype, u16 *nasid_bitmask, u8 *nasid_shift, 
@@ -1061,7 +1061,7 @@ ia64_sn_get_sn_info(int fc, u8 *shubtype, u16 *nasid_bitmask, u8 *nasid_shift,
 	ret_stuff.v2 = 0;
 	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_GET_SN_INFO, fc, 0, 0, 0, 0, 0, 0);
 
-/*                                                                */
+/***** BEGIN HACK - temp til old proms no longer supported ********/
 	if (ret_stuff.status == SALRET_NOT_IMPLEMENTED) {
 		int nasid = get_sapicid() & 0xfff;
 #define SH_SHUB_ID_NODES_PER_BIT_MASK 0x001f000000000000UL
@@ -1077,7 +1077,7 @@ ia64_sn_get_sn_info(int fc, u8 *shubtype, u16 *nasid_bitmask, u8 *nasid_shift,
 			SH_SHUB_ID_NODES_PER_BIT_SHFT;
 		return 0;
 	}
-/*                    */
+/***** END HACK *******/
 
 	if (ret_stuff.status < 0)
 		return ret_stuff.status;
@@ -1094,9 +1094,9 @@ ia64_sn_get_sn_info(int fc, u8 *shubtype, u16 *nasid_bitmask, u8 *nasid_shift,
 }
  
 /*
-                                                                  
-                                                               
-                                           
+ * This is the access point to the Altix PROM hardware performance
+ * and status monitoring interface. For info on using this, see
+ * arch/ia64/include/asm/sn/sn2/sn_hwperf.h
  */
 static inline int
 ia64_sn_hwperf_op(nasid_t nasid, u64 opcode, u64 a0, u64 a1, u64 a2,
@@ -1119,7 +1119,7 @@ ia64_sn_ioif_get_pci_topology(u64 buf, u64 len)
 }
 
 /*
-                                           
+ * BTE error recovery is implemented in SAL
  */
 static inline int
 ia64_sn_bte_recovery(nasid_t nasid)
@@ -1211,8 +1211,8 @@ sn_mq_watchlist_alloc(int blade, void *mq, unsigned int mq_size,
 	size_blade.blade = blade;
 
 	/*
-                                                           
-  */
+	 * bios returns watchlist number or negative error number.
+	 */
 	ia64_sal_oemcall_nolock(&rv, SN_SAL_WATCHLIST_ALLOC, addr,
 			size_blade.val, (u64)intr_mmr_offset,
 			(u64)&watchlist, 0, 0, 0);
@@ -1230,4 +1230,4 @@ sn_mq_watchlist_free(int blade, int watchlist_num)
 			watchlist_num, 0, 0, 0, 0, 0);
 	return rv.status;
 }
-#endif /*                       */
+#endif /* _ASM_IA64_SN_SN_SAL_H */

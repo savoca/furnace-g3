@@ -640,11 +640,11 @@ config SUPPORT_PHIHONG
     default n
     help
 		Chargers which is not support AICL need this feature.
-config LGE_PM_VZW_LLK
-    tristate "implementation power requirements of Verizon"
+config LGE_PM_LLK_MODE
+    tristate "implementation power requirements of retail mode"
 	default n
     help
-		power requirements for verizon
+		power requirements for retail mode
 config LGE_LOW_BATT_LIMIT
 	tristate "to prevent UVLO at low voltage"
 	default n

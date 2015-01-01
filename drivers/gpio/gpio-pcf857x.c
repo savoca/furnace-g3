@@ -45,27 +45,27 @@ static const struct i2c_device_id pcf857x_id[] = {
 MODULE_DEVICE_TABLE(i2c, pcf857x_id);
 
 /*
-                                                                       
-                                                                       
-                                                                       
-                                                                        
-                                  
-  
-                                                                    
-                                                                     
-                                                                      
-                                                                   
+ * The pcf857x, pca857x, and pca967x chips only expose one read and one
+ * write register.  Writing a "one" bit (to match the reset state) lets
+ * that pin be used as an input; it's not an open-drain model, but acts
+ * a bit like one.  This is described as "quasi-bidirectional"; read the
+ * chip documentation for details.
+ *
+ * Many other I2C GPIO expander chips (like the pca953x models) have
+ * more complex register models and more conventional circuitry using
+ * push/pull drivers.  They often use the same 0x20..0x27 addresses as
+ * pcf857x parts, making the "legacy" I2C driver model problematic.
  */
 struct pcf857x {
 	struct gpio_chip	chip;
 	struct i2c_client	*client;
-	struct mutex		lock;		/*               */
-	unsigned		out;		/*                */
+	struct mutex		lock;		/* protect 'out' */
+	unsigned		out;		/* software latch */
 };
 
-/*                                                                         */
+/*-------------------------------------------------------------------------*/
 
-/*                            */
+/* Talk to 8-bit I/O expander */
 
 static int pcf857x_input8(struct gpio_chip *chip, unsigned offset)
 {
@@ -111,9 +111,9 @@ static void pcf857x_set8(struct gpio_chip *chip, unsigned offset, int value)
 	pcf857x_output8(chip, offset, value);
 }
 
-/*                                                                         */
+/*-------------------------------------------------------------------------*/
 
-/*                             */
+/* Talk to 16-bit I/O expander */
 
 static int i2c_write_le16(struct i2c_client *client, u16 word)
 {
@@ -179,7 +179,7 @@ static void pcf857x_set16(struct gpio_chip *chip, unsigned offset, int value)
 	pcf857x_output16(chip, offset, value);
 }
 
-/*                                                                         */
+/*-------------------------------------------------------------------------*/
 
 static int pcf857x_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
@@ -193,7 +193,7 @@ static int pcf857x_probe(struct i2c_client *client,
 		dev_dbg(&client->dev, "no platform data\n");
 	}
 
-	/*                                                    */
+	/* Allocate, initialize, and register this gpio_chip. */
 	gpio = kzalloc(sizeof *gpio, GFP_KERNEL);
 	if (!gpio)
 		return -ENOMEM;
@@ -205,17 +205,17 @@ static int pcf857x_probe(struct i2c_client *client,
 	gpio->chip.dev = &client->dev;
 	gpio->chip.owner = THIS_MODULE;
 
-	/*                                                           
-                                                             
-                                                             
-                          
-  */
+	/* NOTE:  the OnSemi jlc1562b is also largely compatible with
+	 * these parts, notably for output.  It has a low-resolution
+	 * DAC instead of pin change IRQs; and its inputs can be the
+	 * result of comparators.
+	 */
 
-	/*                                                      
-                                                    
-   
-                                                             
-  */
+	/* 8574 addresses are 0x20..0x27; 8574a uses 0x38..0x3f;
+	 * 9670, 9672, 9764, and 9764a use quite a variety.
+	 *
+	 * NOTE: we don't distinguish here between *4 and *4a parts.
+	 */
 	gpio->chip.ngpio = id->driver_data;
 	if (gpio->chip.ngpio == 8) {
 		gpio->chip.direction_input = pcf857x_input8;
@@ -227,16 +227,16 @@ static int pcf857x_probe(struct i2c_client *client,
 				I2C_FUNC_SMBUS_BYTE))
 			status = -EIO;
 
-		/*                                 */
+		/* fail if there's no chip present */
 		else
 			status = i2c_smbus_read_byte(client);
 
-	/*                                                      
-                                                        
-                                                          
-   
-                                                               
-  */
+	/* '75/'75c addresses are 0x20..0x27, just like the '74;
+	 * the '75c doesn't have a current source pulling high.
+	 * 9671, 9673, and 9765 use quite a variety of addresses.
+	 *
+	 * NOTE: we don't distinguish here between '75 and '75c parts.
+	 */
 	} else if (gpio->chip.ngpio == 16) {
 		gpio->chip.direction_input = pcf857x_input16;
 		gpio->chip.get = pcf857x_get16;
@@ -246,7 +246,7 @@ static int pcf857x_probe(struct i2c_client *client,
 		if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
 			status = -EIO;
 
-		/*                                 */
+		/* fail if there's no chip present */
 		else
 			status = i2c_read_le16(client);
 
@@ -263,39 +263,39 @@ static int pcf857x_probe(struct i2c_client *client,
 	gpio->client = client;
 	i2c_set_clientdata(client, gpio);
 
-	/*                                                                
-                                                                    
-                                                                   
-                                                                   
-                                                                  
-   
-                                                                     
-                                                                   
-                                                                    
-                                                  
-   
-                                                                    
-                                                                     
-                                                                    
-  */
+	/* NOTE:  these chips have strange "quasi-bidirectional" I/O pins.
+	 * We can't actually know whether a pin is configured (a) as output
+	 * and driving the signal low, or (b) as input and reporting a low
+	 * value ... without knowing the last value written since the chip
+	 * came out of reset (if any).  We can't read the latched output.
+	 *
+	 * In short, the only reliable solution for setting up pin direction
+	 * is to do it explicitly.  The setup() method can do that, but it
+	 * may cause transient glitching since it can't know the last value
+	 * written (some pins may need to be driven low).
+	 *
+	 * Using pdata->n_latch avoids that trouble.  When left initialized
+	 * to zero, our software copy of the "latch" then matches the chip's
+	 * all-ones reset state.  Otherwise it flags pins to be driven low.
+	 */
 	gpio->out = pdata ? ~pdata->n_latch : ~0;
 
 	status = gpiochip_add(&gpio->chip);
 	if (status < 0)
 		goto fail;
 
-	/*                                                              
-                                                                
-                                                                 
-                                                   
-  */
+	/* NOTE: these chips can issue "some pin-changed" IRQs, which we
+	 * don't yet even try to use.  Among other issues, the relevant
+	 * genirq state isn't available to modular drivers; and most irq
+	 * methods can't be called from sleeping contexts.
+	 */
 
 	dev_info(&client->dev, "%s\n",
 			client->irq ? " (irq ignored)" : "");
 
-	/*                                                    
-                                                
-  */
+	/* Let platform code set up the GPIOs and their users.
+	 * Now is the first time anyone could use them.
+	 */
 	if (pdata && pdata->setup) {
 		status = pdata->setup(client,
 				gpio->chip.base, gpio->chip.ngpio,
@@ -352,8 +352,8 @@ static int __init pcf857x_init(void)
 {
 	return i2c_add_driver(&pcf857x_driver);
 }
-/*                                                
-                                                
+/* register after i2c postcore initcall and before
+ * subsys initcalls that may rely on these GPIOs
  */
 subsys_initcall(pcf857x_init);
 

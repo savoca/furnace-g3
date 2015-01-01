@@ -1,6 +1,6 @@
 /*
-               
-  
+ *  felicai2c.h
+ *
  */
 
 #ifndef __FELICA_I2C_H__
@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 /*
-                            
+ *  INCLUDE FILES FOR MODULE
  */
 
 #include <linux/list.h>
@@ -19,11 +19,11 @@ extern "C" {
 #include "felica_common.h"
 
 /*
-          
+ *  DEFINE
  */
 
 /*
-                      
+ *  FUNCTION PROTOTYPE
  */
 int felica_i2c_open (void);
 int felica_i2c_release (void);
@@ -36,4 +36,4 @@ int felica_i2c_set_slave_address (unsigned char slave_address);
 }
 #endif
 
-#endif //                 
+#endif // __FELICA_I2C_H__

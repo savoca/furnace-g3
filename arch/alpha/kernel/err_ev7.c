@@ -26,22 +26,22 @@ ev7_collect_logout_frame_subpackets(struct el_subpacket *el_ptr,
 	int i;
 
 	/*
-                                                         
-                                                    
-  */
+	 * A Marvel machine check frame is always packaged in an
+	 * el_subpacket of class HEADER, type LOGOUT_FRAME.
+	 */
 	if (el_ptr->class != EL_CLASS__HEADER || 
 	    el_ptr->type != EL_TYPE__HEADER__LOGOUT_FRAME)
 		return NULL;
 
 	/*
-                                                           
-  */
+	 * It is a logout frame header. Look at the one subpacket.
+	 */
 	el_ptr = (struct el_subpacket *)
 		((unsigned long)el_ptr + el_ptr->length);
 
 	/*
-                                              
-  */
+	 * It has to be class PAL, type LOGOUT_FRAME.
+	 */
 	if (el_ptr->class != EL_CLASS__PAL ||
 	    el_ptr->type != EL_TYPE__PAL__LOGOUT_FRAME)
 		return NULL;
@@ -50,8 +50,8 @@ ev7_collect_logout_frame_subpackets(struct el_subpacket *el_ptr,
 		el_ptr->by_type.raw.data_start;
 
 	/*
-                           
-  */
+	 * Process the subpackets.
+	 */
 	subpacket = (struct el_subpacket *)
 		((unsigned long)el_ptr + el_ptr->length);
 	for (i = 0;
@@ -59,8 +59,8 @@ ev7_collect_logout_frame_subpackets(struct el_subpacket *el_ptr,
 	     subpacket = (struct el_subpacket *)
 		     ((unsigned long)subpacket + subpacket->length), i++) {
 		/*
-                                        
-   */
+		 * All subpackets should be class PAL.
+		 */
 		if (subpacket->class != EL_CLASS__PAL) {
 			printk("%s**UNEXPECTED SUBPACKET CLASS %d "
 			       "IN LOGOUT FRAME (packet %d\n",
@@ -69,8 +69,8 @@ ev7_collect_logout_frame_subpackets(struct el_subpacket *el_ptr,
 		}
 
 		/*
-                            
-   */
+		 * Remember the subpacket.
+		 */
 		switch(subpacket->type) {
 		case EL_TYPE__PAL__EV7_PROCESSOR:
 			lf_subpackets->ev7 =
@@ -107,8 +107,8 @@ ev7_collect_logout_frame_subpackets(struct el_subpacket *el_ptr,
 				
 		default:
 			/*
-                                            
-    */
+			 * Don't know what kind of frame this is.
+			 */
 			return NULL;
 		}
 	}
@@ -123,8 +123,8 @@ ev7_machine_check(unsigned long vector, unsigned long la_ptr)
 	char *saved_err_prefix = err_print_prefix;
 
 	/*
-                      
-  */
+	 * Sync the processor
+	 */
 	mb();
 	draina();
 
@@ -137,8 +137,8 @@ ev7_machine_check(unsigned long vector, unsigned long la_ptr)
 	err_print_prefix = saved_err_prefix;
 
 	/* 
-                             
-  */
+	 * Release the logout frame 
+	 */
 	wrmces(0x7);
 	mb();
 }

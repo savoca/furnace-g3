@@ -10,7 +10,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-/*                          */
+/* in FPGA, no GPIO support */
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -113,9 +113,9 @@ void __init puv3_init_gpio(void)
 	gpio_set_value(GPO_CPU_HEALTH, 1);
 	gpio_set_value(GPO_LAN_SEL, 1);
 /*
-                                                        
-                                 
-                                 
+ * DO NOT modify the GPO_SET_V1 and GPO_SET_V2 in kernel
+ *	gpio_set_value(GPO_SET_V1, 1);
+ *	gpio_set_value(GPO_SET_V2, 1);
  */
 #endif
 	gpiochip_add(&puv3_gpio_chip);

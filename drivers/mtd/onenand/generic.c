@@ -22,11 +22,11 @@
 #include <asm/io.h>
 
 /*
-                                                                
-  
-                                                                       
-                                                                       
-                                                                   
+ * Note: Driver name and platform data format have been updated!
+ *
+ * This version of the driver is named "onenand-flash" and takes struct
+ * onenand_platform_data as platform data. The old ARM-specific version
+ * with the name "onenand" used to take struct flash_platform_data.
  */
 #define DRIVER_NAME	"onenand-flash"
 

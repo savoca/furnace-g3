@@ -11,17 +11,17 @@
 #include <linux/pnp.h>
 #include "base.h"
 
-/* 
-                                                                        
-            
-                                          
+/**
+ * pnp_is_active - Determines if a device is active based on its current
+ *	resources
+ * @dev: pointer to the desired PnP device
  */
 int pnp_is_active(struct pnp_dev *dev)
 {
 	/*
-                                                                 
-                                            
-  */
+	 * I don't think this is very reliable because pnp_disable_dev()
+	 * only clears out auto-assigned resources.
+	 */
 	if (!pnp_port_start(dev, 0) && pnp_port_len(dev, 0) <= 1 &&
 	    !pnp_mem_start(dev, 0) && pnp_mem_len(dev, 0) <= 1 &&
 	    pnp_irq(dev, 0) == -1 && pnp_dma(dev, 0) == -1)
@@ -33,8 +33,8 @@ int pnp_is_active(struct pnp_dev *dev)
 EXPORT_SYMBOL(pnp_is_active);
 
 /*
-                                                                  
-                                                                  
+ * Functionally similar to acpi_ex_eisa_id_to_string(), but that's
+ * buried in the ACPI CA, and we can't depend on it being present.
  */
 void pnp_eisa_id_to_string(u32 id, char *str)
 {

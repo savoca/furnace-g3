@@ -9,7 +9,7 @@
 
 #include <asm-generic/pgtable-nopud.h>
 
-/*                                                                    */
+/* PGDIR_SHIFT determines what a third-level page table entry can map */
 
 #ifdef CONFIG_64BIT
 #define PGDIR_SHIFT	30
@@ -19,8 +19,8 @@
 #define PGDIR_SIZE	(1UL << PGDIR_SHIFT)
 #define PGDIR_MASK	(~(PGDIR_SIZE-1))
 
-/*                                                                        
-      
+/* PMD_SHIFT determines the size of the area a second-level page table can
+ * map
  */
 
 #define PMD_SHIFT	21
@@ -28,7 +28,7 @@
 #define PMD_MASK	(~(PMD_SIZE-1))
 
 /*
-                                   
+ * entries per page directory level
  */
 
 #define PTRS_PER_PTE 512
@@ -89,7 +89,7 @@ static inline void pud_clear (pud_t *pud)
 #define pud_page(pud) phys_to_page(pud_val(pud) & PAGE_MASK)
 #define pud_page_vaddr(pud) ((unsigned long) __va(pud_val(pud) & PAGE_MASK))
 
-/*                                                */
+/* Find an entry in the second-level page table.. */
 #define pmd_offset(pud, address) ((pmd_t *) pud_page_vaddr(*(pud)) + \
 			pmd_index(address))
 
@@ -113,8 +113,8 @@ static inline pmd_t pfn_pmd(pfn_t page_nr, pgprot_t pgprot)
 }
 
 /*
-                                                         
-                                                
+ * Bits 0 through 3 are taken in the low part of the pte,
+ * put the 32 bits of offset into the high part.
  */
 #define PTE_FILE_MAX_BITS	32
 

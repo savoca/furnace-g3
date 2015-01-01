@@ -1,20 +1,20 @@
-/*                                                          */
-/*                                                                      
+/* $Id: teles_cs.c,v 1.1.2.2 2004/01/25 15:07:06 keil Exp $ */
+/*======================================================================
 
-                                 
+  A teles S0 PCMCIA client driver
 
-                                                               
-                                                   
+  Based on skeleton by David Hinds, dhinds@allegro.stanford.edu
+  Written by Christof Petig, christof.petig@wtal.de
 
-                                     
-                                                
+  Also inspired by ELSA PCMCIA driver
+  by Klaus Lichtenwalder <Lichtenwalder@ACM.org>
 
-                                                
+  Extensions to new hisax_pcmcia by Karsten Keil
 
-                                                  
-                        
+  minor changes to be compatible with kernel 2.4.x
+  by Jan.Schubert@GMX.li
 
-                                                                        */
+  ======================================================================*/
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -36,11 +36,11 @@ MODULE_AUTHOR("Christof Petig, christof.petig@wtal.de, Karsten Keil, kkeil@suse.
 MODULE_LICENSE("GPL");
 
 
-/*                                                                    */
+/*====================================================================*/
 
-/*                                          */
+/* Parameters that can be set with 'insmod' */
 
-static int protocol = 2;        /*                   */
+static int protocol = 2;        /* EURO-ISDN Default */
 module_param(protocol, int, 0);
 
 static int teles_cs_config(struct pcmcia_device *link) __devinit;
@@ -59,7 +59,7 @@ static int __devinit teles_probe(struct pcmcia_device *link)
 
 	dev_dbg(&link->dev, "teles_attach()\n");
 
-	/*                                                 */
+	/* Allocate space for private device-specific data */
 	local = kzalloc(sizeof(local_info_t), GFP_KERNEL);
 	if (!local) return -ENOMEM;
 	local->cardnr = -1;
@@ -70,7 +70,7 @@ static int __devinit teles_probe(struct pcmcia_device *link)
 	link->config_flags |= CONF_ENABLE_IRQ | CONF_AUTO_SET_IO;
 
 	return teles_cs_config(link);
-} /*              */
+} /* teles_attach */
 
 static void __devexit teles_detach(struct pcmcia_device *link)
 {
@@ -82,7 +82,7 @@ static void __devexit teles_detach(struct pcmcia_device *link)
 	teles_cs_release(link);
 
 	kfree(info);
-} /*              */
+} /* teles_detach */
 
 static int teles_cs_configcheck(struct pcmcia_device *p_dev, void *priv_data)
 {
@@ -145,7 +145,7 @@ static int __devinit teles_cs_config(struct pcmcia_device *link)
 cs_failed:
 	teles_cs_release(link);
 	return -ENODEV;
-} /*                 */
+} /* teles_cs_config */
 
 static void teles_cs_release(struct pcmcia_device *link)
 {
@@ -155,13 +155,13 @@ static void teles_cs_release(struct pcmcia_device *link)
 
 	if (local) {
 		if (local->cardnr >= 0) {
-			/*                                   */
+			/* no unregister function with hisax */
 			HiSax_closecard(local->cardnr);
 		}
 	}
 
 	pcmcia_disable_device(link);
-} /*                  */
+} /* teles_cs_release */
 
 static int teles_suspend(struct pcmcia_device *link)
 {

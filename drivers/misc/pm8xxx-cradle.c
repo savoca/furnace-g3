@@ -350,10 +350,10 @@ static void bu52014hfv_parse_dt(struct device *dev,
 {
 	struct device_node *np = dev->of_node;
 
-	/*            
-                                 
-                                                              
- */
+	/* hallic info
+		1 : only pouch (KR, ATT ~Rev.A)
+		2 : pouch and camera (KR, ATT Rev.B~, SPR, TUMS, DCM Rev.A~)
+	*/
 	if ((pdata->hallic_pouch_detect_pin = of_get_named_gpio_flags(np, "hallic-pouch-irq-gpio", 0, NULL)) > 0)
 		pdata->hallic_pouch_irq = gpio_to_irq(pdata->hallic_pouch_detect_pin);
 #if defined CONFIG_HALLIC_PEN
@@ -436,7 +436,7 @@ static int __devinit pm8xxx_cradle_probe(struct platform_device *pdev)
 
 	printk("%s : init cradle\n", __func__);
 
-	/*                             */
+	/* initialize irq of gpio_hall */
 	if (cradle->pdata->hallic_pouch_detect_pin > 0) {
 		hall_pouch_gpio_irq = gpio_to_irq(cradle->pdata->hallic_pouch_detect_pin);
 		printk("%s : hall_pouch_gpio_irq = [%d]\n", __func__, hall_pouch_gpio_irq);

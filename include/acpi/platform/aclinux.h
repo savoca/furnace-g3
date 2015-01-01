@@ -1,8 +1,8 @@
-/*                                                                             
-  
-                                                        
-  
-                                                                             */
+/******************************************************************************
+ *
+ * Name: aclinux.h - OS specific defines, etc. for Linux
+ *
+ *****************************************************************************/
 
 /*
  * Copyright (C) 2000 - 2011, Intel Corp.
@@ -44,7 +44,7 @@
 #ifndef __ACLINUX_H__
 #define __ACLINUX_H__
 
-/*                                                    */
+/* Common (in-kernel/user-space) ACPICA configuration */
 
 #define ACPI_USE_SYSTEM_CLIBRARY
 #define ACPI_USE_DO_WHILE_0
@@ -64,7 +64,7 @@
 #include <linux/spinlock_types.h>
 #include <asm/current.h>
 
-/*                                                       */
+/* Host-dependent types and defines for in-kernel ACPICA */
 
 #define ACPI_MACHINE_WIDTH          BITS_PER_LONG
 #define ACPI_EXPORT_SYMBOL(symbol)  EXPORT_SYMBOL(symbol);
@@ -74,7 +74,7 @@
 #define acpi_spinlock                       spinlock_t *
 #define acpi_cpu_flags                      unsigned long
 
-#else /*             */
+#else /* !__KERNEL__ */
 
 #include <stdarg.h>
 #include <string.h>
@@ -82,7 +82,7 @@
 #include <ctype.h>
 #include <unistd.h>
 
-/*                                                        */
+/* Host-dependent types and defines for user-space ACPICA */
 
 #define ACPI_FLUSH_CPU_CACHE()
 #define ACPI_CAST_PTHREAD_T(pthread) ((acpi_thread_id) (pthread))
@@ -102,9 +102,9 @@
 #define __cdecl
 #endif
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-/*                */
+/* Linux uses GCC */
 
 #include "acgcc.h"
 
@@ -112,7 +112,7 @@
 #ifdef __KERNEL__
 #include <acpi/actypes.h>
 /*
-                                 
+ * Overrides for in-kernel ACPICA
  */
 static inline acpi_thread_id acpi_os_get_thread_id(void)
 {
@@ -120,10 +120,10 @@ static inline acpi_thread_id acpi_os_get_thread_id(void)
 }
 
 /*
-                                                    
-                                                                 
-                                                      
-                                                             
+ * The irqs_disabled() check is for resume from RAM.
+ * Interrupts are off during resume, just like they are for boot.
+ * However, boot has  (system_state != SYSTEM_RUNNING)
+ * to quiet __might_sleep() in kmalloc() and resume does not.
  */
 static inline void *acpi_os_allocate(acpi_size size)
 {
@@ -147,8 +147,8 @@ static inline void *acpi_os_acquire_object(acpi_cache_t * cache)
 
 #ifndef CONFIG_PREEMPT
 /*
-                                                                   
-                        
+ * Used within ACPICA to show where it is safe to preempt execution
+ * when CONFIG_PREEMPT=n
  */
 #define ACPI_PREEMPTION_POINT() \
 	do { \
@@ -158,11 +158,11 @@ static inline void *acpi_os_acquire_object(acpi_cache_t * cache)
 #endif
 
 /*
-                                                                       
-                                                              
-                                                                           
-                                                                        
-                                                                    
+ * When lockdep is enabled, the spin_lock_init() macro stringifies it's
+ * argument and uses that as a name for the lock in debugging.
+ * By executing spin_lock_init() in a macro the key changes from "lock" for
+ * all locks to the name of the argument of acpi_os_create_lock(), which
+ * prevents lockdep from reporting false positives for ACPICA locks.
  */
 #define acpi_os_create_lock(__handle)				\
 ({								\
@@ -175,6 +175,6 @@ static inline void *acpi_os_acquire_object(acpi_cache_t * cache)
 	lock ? AE_OK : AE_NO_MEMORY;				\
 })
 
-#endif /*            */
+#endif /* __KERNEL__ */
 
-#endif /*               */
+#endif /* __ACLINUX_H__ */

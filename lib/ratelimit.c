@@ -14,16 +14,16 @@
 #include <linux/export.h>
 
 /*
-                              
-                            
-                                  
-  
-                                                                 
-                         
-  
-           
-                                        
-                              
+ * __ratelimit - rate limiting
+ * @rs: ratelimit_state data
+ * @func: name of calling function
+ *
+ * This enforces a rate limit: not more than @rs->burst callbacks
+ * in every @rs->interval
+ *
+ * RETURNS:
+ * 0 means callbacks will be suppressed.
+ * 1 means go ahead and do it.
  */
 int ___ratelimit(struct ratelimit_state *rs, const char *func)
 {
@@ -34,11 +34,11 @@ int ___ratelimit(struct ratelimit_state *rs, const char *func)
 		return 1;
 
 	/*
-                                                  
-                                                     
-                                                  
-                                                
-  */
+	 * If we contend on this state's lock then almost
+	 * by definition we are too busy to print a message,
+	 * in addition to the one that will be printed by
+	 * the entity that is holding the lock already:
+	 */
 	if (!raw_spin_trylock_irqsave(&rs->lock, flags))
 		return 0;
 

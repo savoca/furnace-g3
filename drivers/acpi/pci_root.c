@@ -134,12 +134,12 @@ acpi_handle acpi_get_pci_rootbridge_handle(unsigned int seg, unsigned int bus)
 
 EXPORT_SYMBOL_GPL(acpi_get_pci_rootbridge_handle);
 
-/* 
-                                                                               
-                                          
-  
-                                                                        
-                                                              
+/**
+ * acpi_is_root_bridge - determine whether an ACPI CA node is a PCI root bridge
+ * @handle - the ACPI CA node in question.
+ *
+ * Note: we could make this API take a struct acpi_device * instead, but
+ * for now, it's more convenient to operate on an acpi_handle.
  */
 int acpi_is_root_bridge(acpi_handle handle)
 {
@@ -247,7 +247,7 @@ static acpi_status acpi_pci_query_osc(struct acpi_pci_root *root,
 		*control &= OSC_PCI_CONTROL_MASKS;
 		capbuf[OSC_CONTROL_TYPE] = *control | root->osc_control_set;
 	} else {
-		/*                                           */
+		/* Run _OSC query for all possible controls. */
 		capbuf[OSC_CONTROL_TYPE] = OSC_PCI_CONTROL_MASKS;
 	}
 
@@ -291,17 +291,17 @@ struct acpi_handle_node {
 	acpi_handle handle;
 };
 
-/* 
-                                                              
-                                  
-  
-                                                                    
-                       
-  
-                                                                    
-                                                                     
-                                                          
-                                            
+/**
+ * acpi_get_pci_dev - convert ACPI CA handle to struct pci_dev
+ * @handle: the handle in question
+ *
+ * Given an ACPI CA handle, the desired PCI device is located in the
+ * list of PCI devices.
+ *
+ * If the device is found, its reference count is increased and this
+ * function returns a pointer to its data structure.  The caller must
+ * decrement the reference count by calling pci_dev_put().
+ * If no device is found, %NULL is returned.
  */
 struct pci_dev *acpi_get_pci_dev(acpi_handle handle)
 {
@@ -316,8 +316,8 @@ struct pci_dev *acpi_get_pci_dev(acpi_handle handle)
 	LIST_HEAD(device_list);
 
 	/*
-                                                                   
-  */
+	 * Walk up the ACPI CA namespace until we reach a PCI root bridge.
+	 */
 	phandle = handle;
 	while (!acpi_is_root_bridge(phandle)) {
 		node = kzalloc(sizeof(struct acpi_handle_node), GFP_KERNEL);
@@ -340,10 +340,10 @@ struct pci_dev *acpi_get_pci_dev(acpi_handle handle)
 	pbus = root->bus;
 
 	/*
-                                                                  
-                                                                 
-                                                                 
-  */
+	 * Now, walk back down the PCI device tree until we return to our
+	 * original handle. Assumes that everything between the PCI root
+	 * bridge and the device we're looking for must be a P2P bridge.
+	 */
 	list_for_each_entry(node, &device_list, node) {
 		acpi_handle hnd = node->handle;
 		status = acpi_evaluate_integer(hnd, "_ADR", NULL, &adr);
@@ -360,10 +360,10 @@ struct pci_dev *acpi_get_pci_dev(acpi_handle handle)
 		pci_dev_put(pdev);
 
 		/*
-                                                                
-                                                                  
-                                                        
-   */
+		 * This function may be called for a non-PCI device that has a
+		 * PCI parent (eg. a disk under a PCI SATA controller).  In that
+		 * case pdev->subordinate will be NULL for the parent.
+		 */
 		if (!pbus) {
 			dev_dbg(&pdev->dev, "Not a PCI-to-PCI bridge\n");
 			pdev = NULL;
@@ -378,21 +378,21 @@ out:
 }
 EXPORT_SYMBOL_GPL(acpi_get_pci_dev);
 
-/* 
-                                                                        
-                                                                    
-                                                                               
-                                                                     
-  
-                                                                           
-                                                                          
-                                          
-  
-                                                                             
-                                                                            
-                                                                              
-              
-  */
+/**
+ * acpi_pci_osc_control_set - Request control of PCI root _OSC features.
+ * @handle: ACPI handle of a PCI root bridge (or PCIe Root Complex).
+ * @mask: Mask of _OSC bits to request control of, place to store control mask.
+ * @req: Mask of _OSC bits the control of is essential to the caller.
+ *
+ * Run _OSC query for @mask and if that is successful, compare the returned
+ * mask of control bits with @req.  If all of the @req bits are set in the
+ * returned mask, run _OSC request for it.
+ *
+ * The variable at the @mask address may be modified regardless of whether or
+ * not the function returns success.  On success it will contain the mask of
+ * _OSC bits the BIOS has granted control of, but its contents are meaningless
+ * on failure.
+ **/
 acpi_status acpi_pci_osc_control_set(acpi_handle handle, u32 *mask, u32 req)
 {
 	struct acpi_pci_root *root;
@@ -418,11 +418,11 @@ acpi_status acpi_pci_osc_control_set(acpi_handle handle, u32 *mask, u32 req)
 	mutex_lock(&osc_lock);
 
 	*mask = ctrl | root->osc_control_set;
-	/*                                                              */
+	/* No need to evaluate _OSC if the control was already granted. */
 	if ((root->osc_control_set & ctrl) == ctrl)
 		goto out;
 
-	/*                                                                   */
+	/* Need to check the available controls bits before requesting them. */
 	while (*mask) {
 		status = acpi_pci_query_osc(root, root->osc_support_set, mask);
 		if (ACPI_FAILURE(status))
@@ -472,16 +472,16 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
 		goto end;
 	}
 
-	/*                                                            */
+	/* Check _CRS first, then _BBN.  If no _BBN, default to zero. */
 	root->secondary.flags = IORESOURCE_BUS;
 	status = try_get_root_bridge_busnr(device->handle, &root->secondary);
 	if (ACPI_FAILURE(status)) {
 		/*
-                                                               
-                                                               
-                                                               
-                                              
-   */
+		 * We need both the start and end of the downstream bus range
+		 * to interpret _CBA (MMCONFIG base address), so it really is
+		 * supposed to be in _CRS.  If we don't find it there, all we
+		 * can do is assume [_BBN-0xFF] or [0-0xFF].
+		 */
 		root->secondary.end = 0xFF;
 		printk(KERN_WARNING FW_BUG PREFIX
 		       "no secondary bus range in _CRS\n");
@@ -506,17 +506,17 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
 	device->driver_data = root;
 
 	/*
-                                                              
-                                                                  
-  */
+	 * All supported architectures that use ACPI have support for
+	 * PCI domains, so we indicate this in _OSC support capabilities.
+	 */
 	flags = base_flags = OSC_PCI_SEGMENT_GROUPS_SUPPORT;
 	acpi_pci_osc_support(root, flags);
 
 	/*
-                                                                   
-  */
+	 * TBD: Need PCI interface for enumeration/configuration of roots.
+	 */
 
-	/*              */
+	/* TBD: Locking */
 	list_add_tail(&root->node, &acpi_pci_roots);
 
 	printk(KERN_INFO PREFIX "%s [%s] (domain %04x %pR)\n",
@@ -524,12 +524,12 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
 	       root->segment, &root->secondary);
 
 	/*
-                        
-                        
-                                                                     
-                                                                    
-                                                   
-  */
+	 * Scan the Root Bridge
+	 * --------------------
+	 * Must do this prior to any attempt to bind the root device, as the
+	 * PCI namespace does not get created until this call is made (and 
+	 * thus the root bridge's pci_dev does not exist).
+	 */
 	root->bus = pci_acpi_scan_root(root);
 	if (!root->bus) {
 		printk(KERN_ERR PREFIX
@@ -540,30 +540,30 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
 	}
 
 	/*
-                           
-                           
-                                          
-  */
+	 * Attach ACPI-PCI Context
+	 * -----------------------
+	 * Thus binding the ACPI and PCI devices.
+	 */
 	result = acpi_pci_bind_root(device);
 	if (result)
 		goto end;
 
 	/*
-                     
-                     
-                                       
-  */
+	 * PCI Routing Table
+	 * -----------------
+	 * Evaluate and parse _PRT, if exists.
+	 */
 	status = acpi_get_handle(device->handle, METHOD_NAME__PRT, &handle);
 	if (ACPI_SUCCESS(status))
 		result = acpi_pci_irq_add_prt(device->handle, root->bus);
 
 	/*
-                                        
-  */
+	 * Scan and bind all _ADR-Based Devices
+	 */
 	list_for_each_entry(child, &device->children, node)
 		acpi_pci_bridge_scan(child);
 
-	/*                                                 */
+	/* Indicate support for various _OSC capabilities. */
 	if (pci_ext_cfg_avail(root->bus->self))
 		flags |= OSC_EXT_PCI_CONFIG_SUPPORT;
 	if (pcie_aspm_support_enabled())
@@ -598,9 +598,9 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
 				"ACPI _OSC control (0x%02x) granted\n", flags);
 			if (acpi_gbl_FADT.boot_flags & ACPI_FADT_NO_ASPM) {
 				/*
-                                                   
-                                       
-     */
+				 * We have ASPM control, but the FADT indicates
+				 * that it's unsupported. Clear it.
+				 */
 				pcie_clear_aspm(root->bus);
 			}
 		} else {

@@ -15,16 +15,16 @@
 #include "debug.h"
 
 /*
-                                         
-                                                   
-                                                                   
-                                                                      
-                              
+ * ARM Trustzone specific masks and modes
+ * Vanilla Linux is unaware of TrustZone extension.
+ * I.e. arch/arm/include/asm/ptrace.h does not define monitor mode.
+ * Also TZ bits in cpuid are not defined, ARM port uses magic numbers,
+ * see arch/arm/kernel/setup.c
  */
 #define ARM_MONITOR_MODE		(0b10110)
 #define ARM_SECURITY_EXTENSION_MASK	(0x30)
 
-/*                                                             */
+/* check if CPU supports the ARM TrustZone Security Extensions */
 inline bool has_security_extensions(void)
 {
 	u32 fea = 0;
@@ -35,16 +35,16 @@ inline bool has_security_extensions(void)
 	MCDRV_DBG_VERBOSE(mcd, "CPU Features: 0x%X", fea);
 
 	/*
-                                                                   
-                                     
-  */
+	 * If the CPU features ID has 0 for security features then the CPU
+	 * doesn't support TrustZone at all!
+	 */
 	if ((fea & ARM_SECURITY_EXTENSION_MASK) == 0)
 		return false;
 
 	return true;
 }
 
-/*                                 */
+/* check if running in secure mode */
 inline bool is_secure_mode(void)
 {
 	u32 cpsr = 0;
@@ -60,14 +60,14 @@ inline bool is_secure_mode(void)
 	MCDRV_DBG_VERBOSE(mcd, "SCR.NS = set to 0x%X\n", nsacr);
 
 	/*
-                                                                     
-                           
-                                                                
-  */
+	 * If the NSACR contains the reset value(=0) then most likely we are
+	 * running in Secure MODE.
+	 * If the cpsr mode is set to monitor mode then we cannot load!
+	 */
 	if (nsacr == 0 || ((cpsr & MODE_MASK) == ARM_MONITOR_MODE))
 		return true;
 
 	return false;
 }
 
-#endif /*            */
+#endif /* _MC_ARM_H_ */

@@ -19,11 +19,11 @@
 #include <linux/rtc.h>
 #include <linux/platform_device.h>
 
-/*                          */
+/* Platform device pointer. */
 static struct platform_device *tile_rtc_platform_device;
 
 /*
-                                                                          
+ * RTC read routine.  Gets time info from RTC chip via hypervisor syscall.
  */
 static int read_rtc_time(struct device *dev, struct rtc_time *tm)
 {
@@ -46,8 +46,8 @@ static int read_rtc_time(struct device *dev, struct rtc_time *tm)
 }
 
 /*
-                                                                       
-                       
+ * RTC write routine.  Sends time info to hypervisor via syscall, to be
+ * written to RTC chip.
  */
 static int set_rtc_time(struct device *dev, struct rtc_time *tm)
 {
@@ -66,7 +66,7 @@ static int set_rtc_time(struct device *dev, struct rtc_time *tm)
 }
 
 /*
-                      
+ * RTC read/write ops.
  */
 static const struct rtc_class_ops tile_rtc_ops = {
 	.read_time	= read_rtc_time,
@@ -74,7 +74,7 @@ static const struct rtc_class_ops tile_rtc_ops = {
 };
 
 /*
-                        
+ * Device probe routine.
  */
 static int __devinit tile_rtc_probe(struct platform_device *dev)
 {
@@ -92,7 +92,7 @@ static int __devinit tile_rtc_probe(struct platform_device *dev)
 }
 
 /*
-                          
+ * Device cleanup routine.
  */
 static int __devexit tile_rtc_remove(struct platform_device *dev)
 {
@@ -116,7 +116,7 @@ static struct platform_driver tile_rtc_platform_driver = {
 };
 
 /*
-                       
+ * Driver init routine.
  */
 static int __init tile_rtc_driver_init(void)
 {
@@ -147,7 +147,7 @@ exit_driver_unregister:
 }
 
 /*
-                          
+ * Driver cleanup routine.
  */
 static void __exit tile_rtc_driver_exit(void)
 {

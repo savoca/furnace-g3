@@ -25,7 +25,7 @@
  *
  **************************************************************************/
 /*
-                                                                  
+ * Authors: Thomas Hellström <thomas-at-tungstengraphics-dot-com>
  */
 
 #include <linux/export.h>

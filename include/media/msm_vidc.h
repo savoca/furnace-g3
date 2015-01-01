@@ -18,9 +18,9 @@ enum session_type {
 	MSM_VIDC_MAX_DEVICES,
 };
 
-/*                                                  
-                                                       
-                                   
+/* NOTE: if you change this enum you MUST update the
+ * "buffer-type-tz-usage-table" for any affected target
+ * in arch/arm/boot/dts/<arch>.dtsi
  */
 enum hal_buffer {
 	HAL_BUFFER_INPUT = 0x1,

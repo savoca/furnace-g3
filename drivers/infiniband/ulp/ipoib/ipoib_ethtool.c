@@ -60,9 +60,9 @@ static int ipoib_set_coalesce(struct net_device *dev,
 	int ret;
 
 	/*
-                                                           
-                                       
-  */
+	 * These values are saved in the private data and returned
+	 * when ipoib_get_coalesce() is called
+	 */
 	if (coal->rx_coalesce_usecs       > 0xffff ||
 	    coal->rx_max_coalesced_frames > 0xffff)
 		return -EINVAL;

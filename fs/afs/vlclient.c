@@ -15,7 +15,7 @@
 #include "internal.h"
 
 /*
-                                                
+ * map volume locator abort codes to error codes
  */
 static int afs_vl_abort_to_error(u32 abort_code)
 {
@@ -56,7 +56,7 @@ static int afs_vl_abort_to_error(u32 abort_code)
 }
 
 /*
-                                                
+ * deliver reply data to a VL.GetEntryByXXX call
  */
 static int afs_deliver_vl_get_entry_by_xxx(struct afs_call *call,
 					   struct sk_buff *skb, bool last)
@@ -75,22 +75,22 @@ static int afs_deliver_vl_get_entry_by_xxx(struct afs_call *call,
 	if (call->reply_size != call->reply_max)
 		return -EBADMSG;
 
-	/*                                                    */
+	/* unmarshall the reply once we've received all of it */
 	entry = call->reply;
 	bp = call->buffer;
 
 	for (loop = 0; loop < 64; loop++)
 		entry->name[loop] = ntohl(*bp++);
 	entry->name[loop] = 0;
-	bp++; /*           */
+	bp++; /* final NUL */
 
-	bp++; /*      */
+	bp++; /* type */
 	entry->nservers = ntohl(*bp++);
 
 	for (loop = 0; loop < 8; loop++)
 		entry->servers[loop].s_addr = *bp++;
 
-	bp += 8; /*               */
+	bp += 8; /* partition IDs */
 
 	for (loop = 0; loop < 8; loop++) {
 		tmp = ntohl(*bp++);
@@ -107,9 +107,9 @@ static int afs_deliver_vl_get_entry_by_xxx(struct afs_call *call,
 	entry->vid[1] = ntohl(*bp++);
 	entry->vid[2] = ntohl(*bp++);
 
-	bp++; /*          */
+	bp++; /* clone ID */
 
-	tmp = ntohl(*bp++); /*       */
+	tmp = ntohl(*bp++); /* flags */
 	entry->vidmask = 0;
 	if (tmp & AFS_VLF_RWEXISTS)
 		entry->vidmask |= AFS_VOL_VTM_RW;
@@ -125,7 +125,7 @@ static int afs_deliver_vl_get_entry_by_xxx(struct afs_call *call,
 }
 
 /*
-                                   
+ * VL.GetEntryByName operation type
  */
 static const struct afs_call_type afs_RXVLGetEntryByName = {
 	.name		= "VL.GetEntryByName",
@@ -135,7 +135,7 @@ static const struct afs_call_type afs_RXVLGetEntryByName = {
 };
 
 /*
-                                 
+ * VL.GetEntryById operation type
  */
 static const struct afs_call_type afs_RXVLGetEntryById = {
 	.name		= "VL.GetEntryById",
@@ -145,7 +145,7 @@ static const struct afs_call_type afs_RXVLGetEntryById = {
 };
 
 /*
-                                                
+ * dispatch a get volume entry by name operation
  */
 int afs_vl_get_entry_by_name(struct in_addr *addr,
 			     struct key *key,
@@ -172,7 +172,7 @@ int afs_vl_get_entry_by_name(struct in_addr *addr,
 	call->service_id = VL_SERVICE;
 	call->port = htons(AFS_VL_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(VLGETENTRYBYNAME);
 	*bp++ = htonl(volnamesz);
@@ -180,12 +180,12 @@ int afs_vl_get_entry_by_name(struct in_addr *addr,
 	if (padsz > 0)
 		memset((void *) bp + volnamesz, 0, padsz);
 
-	/*                   */
+	/* initiate the call */
 	return afs_make_call(addr, call, GFP_KERNEL, wait_mode);
 }
 
 /*
-                                              
+ * dispatch a get volume entry by ID operation
  */
 int afs_vl_get_entry_by_id(struct in_addr *addr,
 			   struct key *key,
@@ -208,12 +208,12 @@ int afs_vl_get_entry_by_id(struct in_addr *addr,
 	call->service_id = VL_SERVICE;
 	call->port = htons(AFS_VL_PORT);
 
-	/*                         */
+	/* marshall the parameters */
 	bp = call->request;
 	*bp++ = htonl(VLGETENTRYBYID);
 	*bp++ = htonl(volid);
 	*bp   = htonl(voltype);
 
-	/*                   */
+	/* initiate the call */
 	return afs_make_call(addr, call, GFP_KERNEL, wait_mode);
 }

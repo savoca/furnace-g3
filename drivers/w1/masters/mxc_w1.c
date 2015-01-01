@@ -29,12 +29,12 @@
 #include "../w1_int.h"
 #include "../w1_log.h"
 
-/*                                                                            
-                                                           */
+/* According to the mx27 Datasheet the reset procedure should take up to about
+ * 1350us. We set the timeout to 500*100us = 50ms for sure */
 #define MXC_W1_RESET_TIMEOUT 500
 
 /*
-                          
+ * MXC W1 Register offsets
  */
 #define MXC_W1_CONTROL          0x00
 #define MXC_W1_TIME_DIVIDER     0x02
@@ -52,9 +52,9 @@ struct mxc_w1_device {
 };
 
 /*
-                                   
-                                             
-                  
+ * this is the low level routine to
+ * reset the device on the One Wire interface
+ * on the hardware
  */
 static u8 mxc_w1_ds2_reset_bus(void *data)
 {
@@ -79,17 +79,17 @@ static u8 mxc_w1_ds2_reset_bus(void *data)
 }
 
 /*
-                                                                    
-                                                                     
-                                  
+ * this is the low level routine to read/write a bit on the One Wire
+ * interface on the hardware. It does write 0 if parameter bit is set
+ * to 0, otherwise a write 1/read.
  */
 static u8 mxc_w1_ds2_touch_bit(void *data, u8 bit)
 {
 	struct mxc_w1_device *mdev = data;
 	void __iomem *ctrl_addr = mdev->regs + MXC_W1_CONTROL;
-	unsigned int timeout_cnt = 400; /*                              
-                  
-      */
+	unsigned int timeout_cnt = 400; /* Takes max. 120us according to
+					 * datasheet.
+					 */
 
 	__raw_writeb((1 << (5 - bit)), ctrl_addr);
 
@@ -165,7 +165,7 @@ failed_clk:
 }
 
 /*
-                                             
+ * disassociate the w1 device from the driver
  */
 static int __devexit mxc_w1_remove(struct platform_device *pdev)
 {

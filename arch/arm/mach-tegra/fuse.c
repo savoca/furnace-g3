@@ -37,8 +37,8 @@ int tegra_core_process_id;
 int tegra_chip_id;
 enum tegra_revision tegra_revision;
 
-/*                                                                     
-                                                                         
+/* The BCT to use at boot is specified by board straps that can be read
+ * through a APB misc register and decoded. 2 bits, i.e. 4 possible BCTs.
  */
 int tegra_bct_strapping;
 

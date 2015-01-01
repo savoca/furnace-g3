@@ -200,7 +200,7 @@ int rmi4_power_on(struct i2c_client *client, int on)
 	static struct regulator *vreg_l22;
 	static struct regulator *vreg_lvs3;
 
-		/*                                      */
+		/* 3.3V_TOUCH_VDD, VREG_L15: 2.75 ~ 3.3 */
 		if (!vreg_l22) {
 			vreg_l22 = regulator_get(&client->dev, "vdd_ana");
 			if (IS_ERR(vreg_l22)) {
@@ -212,7 +212,7 @@ int rmi4_power_on(struct i2c_client *client, int on)
 				return rc;
 			}
 		}
-		/*                                     */
+		/* 1.8V_TOUCH_IO, VREG_L22: 1.7 ~ 2.85 */
 		if (!vreg_lvs3) {
 			vreg_lvs3 = regulator_get(&client->dev, "vcc_i2c");
 			if (IS_ERR(vreg_lvs3)) {
@@ -256,7 +256,7 @@ static int synaptics_rmi4_parse_dt(struct device *dev, struct synaptics_dsx_boar
 
 	 printk("[Touch] %s START!!!!!!!!!!!!!!\n",__func__);
 
-	 /*                */
+	 /* irq gpio  info */
 	 if (node == NULL)
 		 return -ENODEV;
 

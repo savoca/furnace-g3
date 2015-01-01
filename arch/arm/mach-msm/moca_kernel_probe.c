@@ -23,10 +23,10 @@
 
 
 
-#define EVENT_NUM		20		//                                       
-#define EVENT_PERIOD	60		//                                                
+#define EVENT_NUM		20		//The number of event time for comparison
+#define EVENT_PERIOD	60		//Maximum period to trigger MOCA, which is by secs
 
-#define TIME_ARRAY_MAX	(unsigned int)(EVENT_NUM * 3 / 2)		//                           
+#define TIME_ARRAY_MAX	(unsigned int)(EVENT_NUM * 3 / 2)		//Event time log array index 
 
 
 #define KERNEL_EVENT_NOTI_LEN 		81U
@@ -39,8 +39,8 @@ long lge_moca_kernel_probe_ioctl(struct file *file, const unsigned int cmd, unsi
 
 static struct class *kernel_probe_class;
 
-static unsigned long event_time[TIME_ARRAY_MAX];		//                   
-static unsigned int top_index;						//                          
+static unsigned long event_time[TIME_ARRAY_MAX];		//Report jiffies time
+static unsigned int top_index;						// Top index of event_time[]
 moca_km_enum_type event_type;
 struct completion km_ioctl_wait_completion;
 
@@ -67,7 +67,7 @@ void lge_moca_kernel_monitor_init(void)
 {
 
 	printk("%s: Init for moca irq monitor\n",__func__);
-	//                          
+	// Init for global variables
 	memset(event_time, 0, sizeof(event_time));
 	top_index = 0;
 	event_count = 0;
@@ -155,7 +155,7 @@ static unsigned long lge_moca_get_local_time_by_secs(void)
 int lge_moca_report_irq_time(void)
 {
 
-	//                                                       
+	//event_time[top_index] = jiffies_to_msecs(jiffies)/1000;
 
 	event_time[top_index] = lge_moca_get_local_time_by_secs();
 
@@ -165,7 +165,7 @@ int lge_moca_report_irq_time(void)
 	top_index = (top_index+1)%TIME_ARRAY_MAX;
 
 
-	if(event_count < TIME_ARRAY_MAX) //                                         
+	if(event_count < TIME_ARRAY_MAX) // Wait until events to be fulled in buffer
 	{
 		printk("%s: IRQs are not enough to compare \n",__func__);
 		event_count++;
@@ -174,7 +174,7 @@ int lge_moca_report_irq_time(void)
 	else
 	{
 
-		//                                     
+		// Designate index to compare btw them.
 		
 		int curr_index = top_index - 1;
 
@@ -187,7 +187,7 @@ int lge_moca_report_irq_time(void)
 		
 
 
-		//                
+		// Now compare it!
 
 
 		
@@ -235,8 +235,8 @@ void kernel_event_monitor(moca_km_enum_type type)
 
 EXPORT_SYMBOL(kernel_event_monitor);
 
-/* 
-               
+/**
+ * Module Init.
  */
 static int __init lge_moca_kernel_probe_init(void)
 {
@@ -285,8 +285,8 @@ static int __init lge_moca_kernel_probe_init(void)
 	return ret;
 }
 
-/* 
-               
+/**
+ * Module Exit.
  */
 static void __exit lge_moca_kernel_probe_exit(void)
 {

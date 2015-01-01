@@ -11,7 +11,7 @@
  *
  */
 
-/*                                           */
+/* Qualcomm Over the Air (OTA) Crypto driver */
 
 #include <linux/types.h>
 #include <linux/platform_device.h>
@@ -56,8 +56,8 @@ struct ota_async_req {
 };
 
 /*
-                                                                   
-                  
+ * Register ourselves as a misc device to be able to access the ota
+ * from userspace.
  */
 
 
@@ -66,7 +66,7 @@ struct ota_async_req {
 
 struct ota_dev_control {
 
-	/*             */
+	/* misc device */
 	struct miscdevice miscdevice;
 	struct list_head ready_commands;
 	unsigned magic;
@@ -79,10 +79,10 @@ struct ota_dev_control {
 
 struct ota_qce_dev {
 	struct list_head qlist;
-	/*            */
+	/* qce handle */
 	void *qce;
 
-	/*                 */
+	/* platform device */
 	struct platform_device *pdev;
 
 	struct ota_async_req *active_command;
@@ -200,7 +200,7 @@ again:
 		spin_unlock_irqrestore(&podev->lock, flags);
 
 		new_req->err = 0;
-		ret = start_req(pqce, new_req); /*                     */
+		ret = start_req(pqce, new_req); /* start a new request */
 
 	} else {
 		spin_unlock_irqrestore(&podev->lock, flags);
@@ -211,7 +211,7 @@ again:
 		areq = NULL;
 	};
 
-	/*                                */
+	/* if error from issuing request  */
 	if (unlikely(new_req && ret)) {
 		new_req->err = ret;
 		complete(&new_req->complete);
@@ -221,7 +221,7 @@ again:
 		spin_lock_irqsave(&podev->lock, flags);
 		pqce->active_command = NULL;
 
-		/*                             */
+		/* try to get next new request */
 		goto again;
 	}
 
@@ -271,7 +271,7 @@ static int start_req(struct ota_qce_dev *pqce, struct ota_async_req *areq)
 	struct qce_f8_req *pf8;
 	int ret = 0;
 
-	/*                                                */
+	/* command should be on the podev->active_command */
 	areq->pqce = pqce;
 
 	switch (areq->op) {
@@ -302,7 +302,7 @@ static int start_req(struct ota_qce_dev *pqce, struct ota_async_req *areq)
 
 static struct ota_qce_dev *schedule_qce(struct ota_dev_control *podev)
 {
-	/*                                    */
+	/* do this function with spinlock set */
 	struct ota_qce_dev *p;
 
 	if (unlikely(list_empty(&podev->qce_dev))) {
@@ -395,7 +395,7 @@ static long qcota_ioctl(struct file *file,
 		return -ENOENT;
 	}
 
-	/*                        */
+	/* Verify user arguments. */
 	if (_IOC_TYPE(cmd) != QCOTA_IOC_MAGIC)
 		return -ENOTTY;
 
@@ -466,7 +466,7 @@ static long qcota_ioctl(struct file *file,
 		if (k_buf == NULL)
 			return -ENOMEM;
 
-		/*                                                          */
+		/* k_buf returned from kmalloc should be cache line aligned */
 		if (user_src && __copy_from_user(k_buf,
 				(void __user *)user_src, total)) {
 			kfree(k_buf);
@@ -514,7 +514,7 @@ static long qcota_ioctl(struct file *file,
 		k_buf = kmalloc(total, GFP_KERNEL);
 		if (k_buf == NULL)
 			return -ENOMEM;
-		/*                                                          */
+		/* k_buf returned from kmalloc should be cache line aligned */
 		if (__copy_from_user(k_buf, (void __user *)user_src, total)) {
 			kfree(k_buf);
 
@@ -561,7 +561,7 @@ static int qcota_probe(struct platform_device *pdev)
 	pqce->active_command = NULL;
 	tasklet_init(&pqce->done_tasklet, req_done, (unsigned long)pqce);
 
-	/*          */
+	/* open qce */
 	handle = qce_open(pdev, &rc);
 	if (handle == NULL) {
 		pr_err("%s: device %s, can not open qce\n",

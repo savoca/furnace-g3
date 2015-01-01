@@ -7,10 +7,10 @@
  */
 
 /*
-                                           
-  
-                                                                 
-  
+ * Cross Partition (XP) uv-based functions.
+ *
+ *      Architecture specific implementation of common functions.
+ *
  */
 
 #include <linux/device.h>
@@ -24,7 +24,7 @@
 #include "xp.h"
 
 /*
-                                                                 
+ * Convert a virtual memory address to a physical memory address.
  */
 static unsigned long
 xp_pa_uv(void *addr)
@@ -33,7 +33,7 @@ xp_pa_uv(void *addr)
 }
 
 /*
-                                                        
+ * Convert a global physical to socket physical address.
  */
 static unsigned long
 xp_socket_pa_uv(unsigned long gpa)
@@ -82,7 +82,7 @@ xp_remote_memcpy_uv(unsigned long dst_gpa, const unsigned long src_gpa,
 static int
 xp_cpu_to_nasid_uv(int cpuid)
 {
-	/*                                                                   */
+	/* ??? Is this same as sn2 nasid in mach/part bitmaps set up by SAL? */
 	return UV_PNODE_TO_NASID(uv_cpu_to_pnode(cpuid));
 }
 

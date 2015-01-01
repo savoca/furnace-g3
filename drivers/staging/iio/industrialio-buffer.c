@@ -31,12 +31,12 @@ static const char * const iio_endian_prefix[] = {
 	[IIO_LE] = "le",
 };
 
-/* 
-                                                                  
-  
-                                                               
-                                     
-  */
+/**
+ * iio_buffer_read_first_n_outer() - chrdev read for buffer access
+ *
+ * This function relies on all buffer implementations having an
+ * iio_buffer as their first element.
+ **/
 ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 				      size_t n, loff_t *f_ps)
 {
@@ -48,8 +48,8 @@ ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 	return rb->access->read_first_n(rb, n, buf);
 }
 
-/* 
-                                                                 
+/**
+ * iio_buffer_poll() - poll the buffer to find out if it has data
  */
 unsigned int iio_buffer_poll(struct file *filp,
 			     struct poll_table_struct *wait)
@@ -60,7 +60,7 @@ unsigned int iio_buffer_poll(struct file *filp,
 	poll_wait(filp, &rb->pollq, wait);
 	if (rb->stufftoread)
 		return POLLIN | POLLRDNORM;
-	/*                                                      */
+	/* need a way of knowing if there may be enough data... */
 	return 0;
 }
 
@@ -277,9 +277,9 @@ int iio_buffer_register(struct iio_dev *indio_dev,
 	attrcount = attrcount_orig;
 	INIT_LIST_HEAD(&buffer->scan_el_dev_attr_list);
 	if (channels) {
-		/*           */
+		/* new magic */
 		for (i = 0; i < num_channels; i++) {
-			/*                                 */
+			/* Establish necessary mask length */
 			if (channels[i].scan_index >
 			    (int)indio_dev->masklength - 1)
 				indio_dev->masklength
@@ -427,7 +427,7 @@ ssize_t iio_buffer_store_enable(struct device *dev,
 				goto error_ret;
 			}
 		}
-		/*                                                          */
+		/* Definitely possible for devices to support both of these.*/
 		if (indio_dev->modes & INDIO_BUFFER_TRIGGERED) {
 			if (!indio_dev->trig) {
 				printk(KERN_INFO
@@ -438,7 +438,7 @@ ssize_t iio_buffer_store_enable(struct device *dev,
 			indio_dev->currentmode = INDIO_BUFFER_TRIGGERED;
 		} else if (indio_dev->modes & INDIO_BUFFER_HARDWARE)
 			indio_dev->currentmode = INDIO_BUFFER_HARDWARE;
-		else { /*                         */
+		else { /* should never be reached */
 			ret = -EINVAL;
 			goto error_ret;
 		}
@@ -488,7 +488,7 @@ ssize_t iio_buffer_show_enable(struct device *dev,
 }
 EXPORT_SYMBOL(iio_buffer_show_enable);
 
-/*                                                             */
+/* note NULL used as error indicator as it doesn't make sense. */
 static const unsigned long *iio_scan_mask_match(const unsigned long *av_masks,
 					  unsigned int masklength,
 					  const unsigned long *mask)
@@ -511,7 +511,7 @@ int iio_sw_buffer_preenable(struct iio_dev *indio_dev)
 	int length, i;
 	dev_dbg(&indio_dev->dev, "%s\n", __func__);
 
-	/*                                               */
+	/* How much space will the demuxed element take? */
 	for_each_set_bit(i, buffer->scan_mask,
 			 indio_dev->masklength) {
 		ch = iio_find_channel_from_si(indio_dev, i);
@@ -528,7 +528,7 @@ int iio_sw_buffer_preenable(struct iio_dev *indio_dev)
 	}
 	buffer->access->set_bytes_per_datum(buffer, bytes);
 
-	/*                                     */
+	/* What scan mask do we actually have ?*/
 	if (indio_dev->available_scan_masks)
 		indio_dev->active_scan_mask =
 			iio_scan_mask_match(indio_dev->available_scan_masks,
@@ -546,11 +546,11 @@ int iio_sw_buffer_preenable(struct iio_dev *indio_dev)
 }
 EXPORT_SYMBOL(iio_sw_buffer_preenable);
 
-/* 
-                                                            
-                                                           
-                           
-  */
+/**
+ * iio_scan_mask_set() - set particular bit in the scan mask
+ * @buffer: the buffer whose scan mask we are interested in
+ * @bit: the bit to be set.
+ **/
 int iio_scan_mask_set(struct iio_dev *indio_dev,
 		      struct iio_buffer *buffer, int bit)
 {
@@ -601,12 +601,12 @@ int iio_scan_mask_query(struct iio_dev *indio_dev,
 };
 EXPORT_SYMBOL_GPL(iio_scan_mask_query);
 
-/* 
-                                                               
-                            
-                        
-                                  
-                                     
+/**
+ * struct iio_demux_table() - table describing demux memcpy ops
+ * @from:	index to copy from
+ * @to:	index to copy to
+ * @length:	how many bytes to copy
+ * @l:		list head used for management
  */
 struct iio_demux_table {
 	unsigned from;
@@ -646,7 +646,7 @@ int iio_update_demux(struct iio_dev *indio_dev)
 	unsigned in_loc = 0, out_loc = 0;
 	struct iio_demux_table *p, *q;
 
-	/*                         */
+	/* Clear out any old demux */
 	list_for_each_entry_safe(p, q, &buffer->demux_list, l) {
 		list_del(&p->l);
 		kfree(p);
@@ -654,13 +654,13 @@ int iio_update_demux(struct iio_dev *indio_dev)
 	kfree(buffer->demux_bounce);
 	buffer->demux_bounce = NULL;
 
-	/*                                                      */
+	/* First work out which scan mode we will actually have */
 	if (bitmap_equal(indio_dev->active_scan_mask,
 			 buffer->scan_mask,
 			 indio_dev->masklength))
 		return 0;
 
-	/*                                                                   */
+	/* Now we have the two masks, work from least sig and build up sizes */
 	for_each_set_bit(out_ind,
 			 indio_dev->active_scan_mask,
 			 indio_dev->masklength) {
@@ -673,7 +673,7 @@ int iio_update_demux(struct iio_dev *indio_dev)
 					       in_ind + 1);
 			ch = iio_find_channel_from_si(indio_dev, in_ind);
 			length = ch->scan_type.storagebits/8;
-			/*                          */
+			/* Make sure we are aligned */
 			in_loc += length;
 			if (in_loc % length)
 				in_loc += length - in_loc % length;
@@ -696,7 +696,7 @@ int iio_update_demux(struct iio_dev *indio_dev)
 		out_loc += length;
 		in_loc += length;
 	}
-	/*                                     */
+	/* Relies on scan_timestamp being last */
 	if (buffer->scan_timestamp) {
 		p = kmalloc(sizeof(*p), GFP_KERNEL);
 		if (p == NULL) {

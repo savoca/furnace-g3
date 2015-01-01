@@ -21,11 +21,11 @@
 #include "wusbhc.h"
 
 /*
-                                                                
-                                                     
-  
-                                                                      
-                
+ * WUSB cluster reservations are multicast reservations with the
+ * broadcast cluster ID (BCID) as the target DevAddr.
+ *
+ * FIXME: consider adjusting the reservation depending on what devices
+ * are attached.
  */
 
 static int wusbhc_bwa_set(struct wusbhc *wusbhc, u8 stream,
@@ -36,13 +36,13 @@ static int wusbhc_bwa_set(struct wusbhc *wusbhc, u8 stream,
 	return wusbhc->bwa_set(wusbhc, stream, mas);
 }
 
-/* 
-                                                                 
-                           
-  
-                                                        
-  
-                                                                
+/**
+ * wusbhc_rsv_complete_cb - WUSB HC reservation complete callback
+ * @rsv:    the reservation
+ *
+ * Either set or clear the HC's view of the reservation.
+ *
+ * FIXME: when a reservation is denied the HC should be stopped.
  */
 static void wusbhc_rsv_complete_cb(struct uwb_rsv *rsv)
 {
@@ -69,9 +69,9 @@ static void wusbhc_rsv_complete_cb(struct uwb_rsv *rsv)
 }
 
 
-/* 
-                                                                 
-                                                          
+/**
+ * wusbhc_rsv_establish - establish a reservation for the cluster
+ * @wusbhc: the WUSB HC requesting a bandwidth reservation
  */
 int wusbhc_rsv_establish(struct wusbhc *wusbhc)
 {
@@ -90,9 +90,9 @@ int wusbhc_rsv_establish(struct wusbhc *wusbhc)
 	rsv->target.type = UWB_RSV_TARGET_DEVADDR;
 	rsv->target.devaddr = bcid;
 	rsv->type = UWB_DRP_TYPE_PRIVATE;
-	rsv->max_mas = 256; /*                                */
-	rsv->min_mas = 15;  /*                  */
-	rsv->max_interval = 1; /*                         */
+	rsv->max_mas = 256; /* try to get as much as possible */
+	rsv->min_mas = 15;  /* one MAS per zone */
+	rsv->max_interval = 1; /* max latency is one zone */
 	rsv->is_multicast = true;
 
 	ret = uwb_rsv_establish(rsv);
@@ -104,9 +104,9 @@ int wusbhc_rsv_establish(struct wusbhc *wusbhc)
 }
 
 
-/* 
-                                                           
-                                                               
+/**
+ * wusbhc_rsv_terminate - terminate the cluster reservation
+ * @wusbhc: the WUSB host whose reservation is to be terminated
  */
 void wusbhc_rsv_terminate(struct wusbhc *wusbhc)
 {

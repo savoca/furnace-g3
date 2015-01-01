@@ -37,46 +37,46 @@
 #include "c2_provider.h"
 
 /*
-                         
-  
-                                                                 
-                                                                           
-                                                                  
-                                                                   
-                                                                       
-                                                                         
-                                 
-                                               
-                                   
-                                                                   
-  
-  
-                                                                     
-                                                                           
-                                                                           
-                                                                          
-                                                                        
-                                                                           
-                                                                               
-                                                               
-                                                                            
-                                                                             
-                                                              
-  
-  
-                                                                 
-                                                                   
-                  
-  
-  
-                       
-  
-                                                  
-                                 
-                                                                                
-                                                                            
-                                                                               
-                 
+ * Verbs Request Objects:
+ *
+ * VQ Request Objects are allocated by the kernel verbs handlers.
+ * They contain a wait object, a refcnt, an atomic bool indicating that the
+ * adapter has replied, and a copy of the verb reply work request.
+ * A pointer to the VQ Request Object is passed down in the context
+ * field of the work request message, and reflected back by the adapter
+ * in the verbs reply message.  The function handle_vq() in the interrupt
+ * path will use this pointer to:
+ * 	1) append a copy of the verbs reply message
+ * 	2) mark that the reply is ready
+ * 	3) wake up the kernel verbs handler blocked awaiting the reply.
+ *
+ *
+ * The kernel verbs handlers do a "get" to put a 2nd reference on the
+ * VQ Request object.  If the kernel verbs handler exits before the adapter
+ * can respond, this extra reference will keep the VQ Request object around
+ * until the adapter's reply can be processed.  The reason we need this is
+ * because a pointer to this object is stuffed into the context field of
+ * the verbs work request message, and reflected back in the reply message.
+ * It is used in the interrupt handler (handle_vq()) to wake up the appropriate
+ * kernel verb handler that is blocked awaiting the verb reply.
+ * So handle_vq() will do a "put" on the object when it's done accessing it.
+ * NOTE:  If we guarantee that the kernel verb handler will never bail before
+ *        getting the reply, then we don't need these refcnts.
+ *
+ *
+ * VQ Request objects are freed by the kernel verbs handlers only
+ * after the verb has been processed, or when the adapter fails and
+ * does not reply.
+ *
+ *
+ * Verbs Reply Buffers:
+ *
+ * VQ Reply bufs are local host memory copies of a
+ * outstanding Verb Request reply
+ * message.  The are always allocated by the kernel verbs handlers, and _may_ be
+ * freed by either the kernel verbs handler -or- the interrupt handler.  The
+ * kernel verbs handler _must_ free the repbuf, then free the vq request object
+ * in that order.
  */
 
 int vq_init(struct c2_dev *c2dev)
@@ -97,8 +97,8 @@ void vq_term(struct c2_dev *c2dev)
 	kmem_cache_destroy(c2dev->host_msg_cache);
 }
 
-/*                                                               
-                          
+/* vq_req_alloc - allocate a VQ Request Object and initialize it.
+ * The refcnt is set to 1.
  */
 struct c2_vq_req *vq_req_alloc(struct c2_dev *c2dev)
 {
@@ -118,8 +118,8 @@ struct c2_vq_req *vq_req_alloc(struct c2_dev *c2dev)
 }
 
 
-/*                                                                           
-                                                      
+/* vq_req_free - free the VQ Request Object.  It is assumed the verbs handler
+ * has already free the VQ Reply Buffer if it existed.
  */
 void vq_req_free(struct c2_dev *c2dev, struct c2_vq_req *r)
 {
@@ -129,8 +129,8 @@ void vq_req_free(struct c2_dev *c2dev, struct c2_vq_req *r)
 	}
 }
 
-/*                                                  
-                                     
+/* vq_req_get - reference a VQ Request Object.  Done
+ * only in the kernel verbs handlers.
  */
 void vq_req_get(struct c2_dev *c2dev, struct c2_vq_req *r)
 {
@@ -138,15 +138,15 @@ void vq_req_get(struct c2_dev *c2dev, struct c2_vq_req *r)
 }
 
 
-/*                                                                   
-  
-                                            
-                                       
-                                           
-                                           
-                                          
-                                           
-                
+/* vq_req_put - dereference and potentially free a VQ Request Object.
+ *
+ * This is only called by handle_vq() on the
+ * interrupt when it is done processing
+ * a verb reply message.  If the associated
+ * kernel verbs handler has already bailed,
+ * then this put will actually free the VQ
+ * Request object _and_ the VQ Reply Buffer
+ * if it exists.
  */
 void vq_req_put(struct c2_dev *c2dev, struct c2_vq_req *r)
 {
@@ -160,7 +160,7 @@ void vq_req_put(struct c2_dev *c2dev, struct c2_vq_req *r)
 
 
 /*
-                                                
+ * vq_repbuf_alloc - allocate a VQ Reply Buffer.
  */
 void *vq_repbuf_alloc(struct c2_dev *c2dev)
 {
@@ -168,12 +168,12 @@ void *vq_repbuf_alloc(struct c2_dev *c2dev)
 }
 
 /*
-                                                                        
-                                                                              
-                                                                                
-                                                   
-                                  
-                                                       
+ * vq_send_wr - post a verbs request message to the Verbs Request Queue.
+ * If a message is not available in the MQ, then block until one is available.
+ * NOTE: handle_mq() on the interrupt context will wake up threads blocked here.
+ * When the adapter drains the Verbs Request Queue,
+ * it inserts MQ index 0 in to the
+ * adapter->host activity fifo and interrupts the host.
  */
 int vq_send_wr(struct c2_dev *c2dev, union c2wr *wr)
 {
@@ -181,20 +181,20 @@ int vq_send_wr(struct c2_dev *c2dev, union c2wr *wr)
 	wait_queue_t __wait;
 
 	/*
-                        
-  */
+	 * grab adapter vq lock
+	 */
 	spin_lock(&c2dev->vqlock);
 
 	/*
-                
-  */
+	 * allocate msg
+	 */
 	msg = c2_mq_alloc(&c2dev->req_vq);
 
 	/*
-                                           
-                                                                 
-                
-  */
+	 * If we cannot get a msg, then we'll wait
+	 * When a messages are available, the int handler will wake_up()
+	 * any waiters.
+	 */
 	while (msg == NULL) {
 		pr_debug("%s:%d no available msg in VQ, waiting...\n",
 		       __func__, __LINE__);
@@ -207,7 +207,7 @@ int vq_send_wr(struct c2_dev *c2dev, union c2wr *wr)
 				break;
 			}
 			if (!signal_pending(current)) {
-				schedule_timeout(1 * HZ);	/*             */
+				schedule_timeout(1 * HZ);	/* 1 second... */
 				continue;
 			}
 			set_current_state(TASK_RUNNING);
@@ -221,25 +221,25 @@ int vq_send_wr(struct c2_dev *c2dev, union c2wr *wr)
 	}
 
 	/*
-                            
-  */
+	 * copy wr into adapter msg
+	 */
 	memcpy(msg, wr, c2dev->req_vq.msg_size);
 
 	/*
-            
-  */
+	 * post msg
+	 */
 	c2_mq_produce(&c2dev->req_vq);
 
 	/*
-                           
-  */
+	 * release adapter vq lock
+	 */
 	spin_unlock(&c2dev->vqlock);
 	return 0;
 }
 
 
 /*
-                                                                          
+ * vq_wait_for_reply - block until the adapter posts a Verb Reply Message.
  */
 int vq_wait_for_reply(struct c2_dev *c2dev, struct c2_vq_req *req)
 {
@@ -252,7 +252,7 @@ int vq_wait_for_reply(struct c2_dev *c2dev, struct c2_vq_req *req)
 }
 
 /*
-                                              
+ * vq_repbuf_free - Free a Verbs Reply Buffer.
  */
 void vq_repbuf_free(struct c2_dev *c2dev, void *reply)
 {

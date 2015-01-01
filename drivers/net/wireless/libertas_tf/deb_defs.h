@@ -1,6 +1,6 @@
-/* 
-                                                               
-                                
+/**
+  * This header file contains global constant/enum definitions,
+  * global variable declaration.
   */
 #ifndef _LBS_DEB_DEFS_H_
 #define _LBS_DEB_DEFS_H_

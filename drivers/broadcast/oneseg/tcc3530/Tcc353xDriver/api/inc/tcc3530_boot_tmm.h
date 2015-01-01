@@ -1,8 +1,8 @@
 #ifndef __TCC353X_BOOT_ISDBT13SEG_H__
 #define __TCC353X_BOOT_ISDBT13SEG_H__
 /*
-                               
-                                
+ * asm file: TCC3530_v1.0.0.ram
+ * Created : 2012-12-12 15:56:01
  */
 #define TCC353X_BOOT_SIZE_ISDBT13SEG  11436
 
@@ -1438,4 +1438,4 @@ const unsigned char TCC353X_BOOT_DATA_ISDBT13SEG[TCC353X_BOOT_SIZE_ISDBT13SEG] =
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
 	0x00, 0x00, 0x00, 0x00,
 };
-#endif /*                              */
+#endif /* __TCC353X_BOOT_ISDBT13SEG_H__*/

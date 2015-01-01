@@ -293,11 +293,11 @@ static int ucma_event_handler(struct rdma_cm_id *cm_id,
 		ctx->backlog--;
 	} else if (!ctx->uid) {
 		/*
-                                                                 
-                                                                 
-                                                              
-                                           
-   */
+		 * We ignore events for new connections until userspace has set
+		 * their context.  This can only happen if an error occurs on a
+		 * new connection before the user accepts it.  This is okay,
+		 * since the accept will just fail later.
+		 */
 		kfree(uevent);
 		goto out;
 	}
@@ -463,9 +463,9 @@ static void ucma_cleanup_mc_events(struct ucma_multicast *mc)
 }
 
 /*
-                                                                    
-                                                                    
-                                                                  
+ * We cannot hold file->mut when calling rdma_destroy_id() or we can
+ * deadlock.  We also acquire file->mut in ucma_event_handler(), and
+ * rdma_destroy_id() will wait until all callbacks have completed.
  */
 static int ucma_free_ctx(struct ucma_context *ctx)
 {
@@ -473,12 +473,12 @@ static int ucma_free_ctx(struct ucma_context *ctx)
 	struct ucma_event *uevent, *tmp;
 	LIST_HEAD(list);
 
-	/*                                                          */
+	/* No new events will be generated after destroying the id. */
 	rdma_destroy_id(ctx->cm_id);
 
 	ucma_cleanup_multicast(ctx);
 
-	/*                                              */
+	/* Cleanup events not yet reported to the user. */
 	mutex_lock(&ctx->file->mut);
 	list_for_each_entry_safe(uevent, tmp, &ctx->file->event_list, list) {
 		if (uevent->ctx == ctx)
@@ -612,7 +612,7 @@ static void ucma_copy_ib_route(struct rdma_ucm_query_route_resp *resp,
 	case 2:
 		ib_copy_path_rec_to_user(&resp->ib_route[1],
 					 &route->path_rec[1]);
-		/*              */
+		/* fall through */
 	case 1:
 		ib_copy_path_rec_to_user(&resp->ib_route[0],
 					 &route->path_rec[0]);
@@ -648,7 +648,7 @@ static void ucma_copy_iboe_route(struct rdma_ucm_query_route_resp *resp,
 	case 2:
 		ib_copy_path_rec_to_user(&resp->ib_route[1],
 					 &route->path_rec[1]);
-		/*              */
+		/* fall through */
 	case 1:
 		ib_copy_path_rec_to_user(&resp->ib_route[0],
 					 &route->path_rec[0]);
@@ -1151,7 +1151,7 @@ out:
 
 static void ucma_lock_files(struct ucma_file *file1, struct ucma_file *file2)
 {
-	/*                                                                  */
+	/* Acquire mutex's based on pointer comparison to prevent deadlock. */
 	if (file1 < file2) {
 		mutex_lock(&file1->mut);
 		mutex_lock(&file2->mut);
@@ -1195,12 +1195,12 @@ static ssize_t ucma_migrate_id(struct ucma_file *new_file,
 	if (copy_from_user(&cmd, inbuf, sizeof(cmd)))
 		return -EFAULT;
 
-	/*                                                   */
+	/* Get current fd to protect against it being closed */
 	filp = fget(cmd.fd);
 	if (!filp)
 		return -ENOENT;
 
-	/*                                                    */
+	/* Validate current fd and prevent destruction of id. */
 	ctx = ucma_get_ctx(filp->private_data, cmd.id);
 	if (IS_ERR(ctx)) {
 		ret = PTR_ERR(ctx);
@@ -1214,9 +1214,9 @@ static ssize_t ucma_migrate_id(struct ucma_file *new_file,
 	}
 
 	/*
-                                                                    
-                                              
-  */
+	 * Migrate events between fd's, maintaining order, and avoiding new
+	 * events being added before existing events.
+	 */
 	ucma_lock_files(cur_file, new_file);
 	mutex_lock(&mut);
 
@@ -1306,12 +1306,12 @@ static unsigned int ucma_poll(struct file *filp, struct poll_table_struct *wait)
 }
 
 /*
-                                     
-  
-                                     
-                                               
-                                                                   
-                                     
+ * ucma_open() does not need the BKL:
+ *
+ *  - no global state is referred to;
+ *  - there is no ioctl method to race against;
+ *  - no further module initialization is required for open to work
+ *    after the device is registered.
  */
 static int ucma_open(struct inode *inode, struct file *filp)
 {

@@ -24,7 +24,7 @@ static inline void flush_tlb_kernel_page(void *addr)
 }
 
 /*
-                                    
+ * flush all user-space atc entries.
  */
 static inline void __flush_tlb(void)
 {
@@ -60,7 +60,7 @@ static inline void __flush_tlb_one(unsigned long addr)
 #define flush_tlb() __flush_tlb()
 
 /*
-                                                              
+ * flush all atc entries (both kernel and user-space entries).
  */
 static inline void flush_tlb_all(void)
 {
@@ -106,14 +106,14 @@ static inline void flush_tlb_kernel_range(unsigned long start, unsigned long end
 #else
 
 
-/*                 */
+/* Reserved PMEGs. */
 extern char sun3_reserved_pmeg[SUN3_PMEGS_NUM];
 extern unsigned long pmeg_vaddr[SUN3_PMEGS_NUM];
 extern unsigned char pmeg_alloc[SUN3_PMEGS_NUM];
 extern unsigned char pmeg_ctx[SUN3_PMEGS_NUM];
 
-/*                                                                   
-         */
+/* Flush all userspace mappings one by one...  (why no flush command,
+   sun?) */
 static inline void flush_tlb_all(void)
 {
        unsigned long addr;
@@ -128,8 +128,8 @@ static inline void flush_tlb_all(void)
        }
 
        sun3_put_context(oldctx);
-       /*                                                           
-              */
+       /* erase all of the userspace pmeg maps, we've clobbered them
+	  all anyway */
        for(addr = 0; addr < SUN3_INVALID_PMEG; addr++) {
 	       if(pmeg_alloc[addr] == 1) {
 		       pmeg_alloc[addr] = 0;
@@ -140,7 +140,7 @@ static inline void flush_tlb_all(void)
 
 }
 
-/*                                                       */
+/* Clear user TLB entries within the context named in mm */
 static inline void flush_tlb_mm (struct mm_struct *mm)
 {
      unsigned char oldctx;
@@ -165,8 +165,8 @@ static inline void flush_tlb_mm (struct mm_struct *mm)
 
 }
 
-/*                                                                   
-               */
+/* Flush a single TLB page. In this case, we're limited to flushing a
+   single PMEG */
 static inline void flush_tlb_page (struct vm_area_struct *vma,
 				   unsigned long addr)
 {
@@ -186,7 +186,7 @@ static inline void flush_tlb_page (struct vm_area_struct *vma,
 	sun3_put_context(oldctx);
 
 }
-/*                                  */
+/* Flush a range of pages from TLB. */
 
 static inline void flush_tlb_range (struct vm_area_struct *vma,
 		      unsigned long start, unsigned long end)
@@ -219,7 +219,7 @@ static inline void flush_tlb_kernel_range(unsigned long start, unsigned long end
 	flush_tlb_all();
 }
 
-/*                             */
+/* Flush kernel page from TLB. */
 static inline void flush_tlb_kernel_page (unsigned long addr)
 {
 	sun3_put_segmap (addr & ~(SUN3_PMEG_SIZE - 1), SUN3_INVALID_PMEG);
@@ -227,10 +227,10 @@ static inline void flush_tlb_kernel_page (unsigned long addr)
 
 #endif
 
-#else /*             */
+#else /* !CONFIG_MMU */
 
 /*
-                                    
+ * flush all user-space atc entries.
  */
 static inline void __flush_tlb(void)
 {
@@ -245,7 +245,7 @@ static inline void __flush_tlb_one(unsigned long addr)
 #define flush_tlb() __flush_tlb()
 
 /*
-                                                              
+ * flush all atc entries (both kernel and user-space entries).
  */
 static inline void flush_tlb_all(void)
 {
@@ -273,6 +273,6 @@ static inline void flush_tlb_kernel_page(unsigned long addr)
 	BUG();
 }
 
-#endif /*            */
+#endif /* CONFIG_MMU */
 
-#endif /*                  */
+#endif /* _M68K_TLBFLUSH_H */

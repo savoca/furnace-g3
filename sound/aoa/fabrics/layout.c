@@ -22,15 +22,15 @@ MODULE_DESCRIPTION("Layout-ID fabric for snd-aoa");
 
 #define MAX_CODECS_PER_BUS	2
 
-/*                                            
-                                                
-                                              
-                                               
-                                                   
-                                                   
-                                                  
-                                                   
-                   */
+/* These are the connections the layout fabric
+ * knows about. It doesn't really care about the
+ * input ones, but I thought I'd separate them
+ * to give them proper names. The thing is that
+ * Apple usually will distinguish the active output
+ * by GPIOs, while the active input is set directly
+ * on the codec. Hence we here tell the codec what
+ * we think is connected. This information is hard-
+ * coded below ... */
 #define CC_SPEAKERS	(1<<0)
 #define CC_HEADPHONE	(1<<1)
 #define CC_LINEOUT	(1<<2)
@@ -38,19 +38,19 @@ MODULE_DESCRIPTION("Layout-ID fabric for snd-aoa");
 #define CC_LINEIN	(1<<4)
 #define CC_MICROPHONE	(1<<5)
 #define CC_DIGITALIN	(1<<6)
-/*                                   
-                                         
-                                  
-                                    */
+/* pretty bogus but users complain...
+ * This is a flag saying that the LINEOUT
+ * should be renamed to HEADPHONE.
+ * be careful with input detection! */
 #define CC_LINEOUT_LABELLED_HEADPHONE	(1<<7)
 
 struct codec_connection {
-	/*                      */
+	/* CC_ flags from above */
 	int connected;
-	/*                                                                
-                                                                 
-                                                                 
-                         */
+	/* codec dependent bit to be set in the aoa_codec.connected field.
+	 * This intentionally doesn't have any generic flags because the
+	 * fabric has to know the codec anyway and all codecs might have
+	 * different connectors */
 	int codec_bit;
 };
 
@@ -66,12 +66,12 @@ struct layout {
 	struct codec_connect_info codecs[MAX_CODECS_PER_BUS];
 	int flags;
 
-	/*                                                   
-                                                      
-             
-                                                      
-                                                  
-                        */
+	/* if busname is not assigned, we use 'Master' below,
+	 * so that our layout table doesn't need to be filled
+	 * too much.
+	 * We only assign these two if we expect to find more
+	 * than one soundbus, i.e. on those machines with
+	 * multiple layout-ids */
 	char *busname;
 	int pcmid;
 };
@@ -114,7 +114,7 @@ MODULE_ALIAS("aoa-device-id-14");
 MODULE_ALIAS("aoa-device-id-22");
 MODULE_ALIAS("aoa-device-id-35");
 
-/*                                        */
+/* onyx with all but microphone connected */
 static struct codec_connection onyx_connections_nomic[] = {
 	{
 		.connected = CC_SPEAKERS | CC_HEADPHONE | CC_LINEOUT,
@@ -128,10 +128,10 @@ static struct codec_connection onyx_connections_nomic[] = {
 		.connected = CC_LINEIN,
 		.codec_bit = 2,
 	},
-	{} /*                                    */
+	{} /* terminate array by .connected == 0 */
 };
 
-/*                                    */
+/* onyx on machines without headphone */
 static struct codec_connection onyx_connections_noheadphones[] = {
 	{
 		.connected = CC_SPEAKERS | CC_LINEOUT |
@@ -142,8 +142,8 @@ static struct codec_connection onyx_connections_noheadphones[] = {
 		.connected = CC_DIGITALOUT,
 		.codec_bit = 1,
 	},
-	/*                                                            
-                                                */
+	/* FIXME: are these correct? probably not for all the machines
+	 * below ... If not this will need separating. */
 	{
 		.connected = CC_LINEIN,
 		.codec_bit = 2,
@@ -152,10 +152,10 @@ static struct codec_connection onyx_connections_noheadphones[] = {
 		.connected = CC_MICROPHONE,
 		.codec_bit = 3,
 	},
-	{} /*                                    */
+	{} /* terminate array by .connected == 0 */
 };
 
-/*                                     */
+/* onyx on machines with real line-out */
 static struct codec_connection onyx_connections_reallineout[] = {
 	{
 		.connected = CC_SPEAKERS | CC_LINEOUT | CC_HEADPHONE,
@@ -169,10 +169,10 @@ static struct codec_connection onyx_connections_reallineout[] = {
 		.connected = CC_LINEIN,
 		.codec_bit = 2,
 	},
-	{} /*                                    */
+	{} /* terminate array by .connected == 0 */
 };
 
-/*                                  */
+/* tas on machines without line out */
 static struct codec_connection tas_connections_nolineout[] = {
 	{
 		.connected = CC_SPEAKERS | CC_HEADPHONE,
@@ -186,10 +186,10 @@ static struct codec_connection tas_connections_nolineout[] = {
 		.connected = CC_MICROPHONE,
 		.codec_bit = 3,
 	},
-	{} /*                                    */
+	{} /* terminate array by .connected == 0 */
 };
 
-/*                                                   */
+/* tas on machines with neither line out nor line in */
 static struct codec_connection tas_connections_noline[] = {
 	{
 		.connected = CC_SPEAKERS | CC_HEADPHONE,
@@ -199,10 +199,10 @@ static struct codec_connection tas_connections_noline[] = {
 		.connected = CC_MICROPHONE,
 		.codec_bit = 3,
 	},
-	{} /*                                    */
+	{} /* terminate array by .connected == 0 */
 };
 
-/*                                    */
+/* tas on machines without microphone */
 static struct codec_connection tas_connections_nomic[] = {
 	{
 		.connected = CC_SPEAKERS | CC_HEADPHONE | CC_LINEOUT,
@@ -212,10 +212,10 @@ static struct codec_connection tas_connections_nomic[] = {
 		.connected = CC_LINEIN,
 		.codec_bit = 2,
 	},
-	{} /*                                    */
+	{} /* terminate array by .connected == 0 */
 };
 
-/*                                           */
+/* tas on machines with everything connected */
 static struct codec_connection tas_connections_all[] = {
 	{
 		.connected = CC_SPEAKERS | CC_HEADPHONE | CC_LINEOUT,
@@ -229,7 +229,7 @@ static struct codec_connection tas_connections_all[] = {
 		.connected = CC_MICROPHONE,
 		.codec_bit = 3,
 	},
-	{} /*                                    */
+	{} /* terminate array by .connected == 0 */
 };
 
 static struct codec_connection toonie_connections[] = {
@@ -237,7 +237,7 @@ static struct codec_connection toonie_connections[] = {
 		.connected = CC_SPEAKERS | CC_HEADPHONE,
 		.codec_bit = 0,
 	},
-	{} /*                                    */
+	{} /* terminate array by .connected == 0 */
 };
 
 static struct codec_connection topaz_input[] = {
@@ -245,7 +245,7 @@ static struct codec_connection topaz_input[] = {
 		.connected = CC_DIGITALIN,
 		.codec_bit = 0,
 	},
-	{} /*                                    */
+	{} /* terminate array by .connected == 0 */
 };
 
 static struct codec_connection topaz_output[] = {
@@ -253,7 +253,7 @@ static struct codec_connection topaz_output[] = {
 		.connected = CC_DIGITALOUT,
 		.codec_bit = 1,
 	},
-	{} /*                                    */
+	{} /* terminate array by .connected == 0 */
 };
 
 static struct codec_connection topaz_inout[] = {
@@ -265,11 +265,11 @@ static struct codec_connection topaz_inout[] = {
 		.connected = CC_DIGITALOUT,
 		.codec_bit = 1,
 	},
-	{} /*                                    */
+	{} /* terminate array by .connected == 0 */
 };
 
 static struct layout layouts[] = {
-	/*                                */
+	/* last PowerBooks (15" Oct 2005) */
 	{ .layout_id = 82,
 	  .flags = LAYOUT_FLAG_COMBO_LINEOUT_SPDIF,
 	  .codecs[0] = {
@@ -281,21 +281,21 @@ static struct layout layouts[] = {
 		.connections = topaz_input,
 	  },
 	},
-	/*             */
+	/* PowerMac9,1 */
 	{ .layout_id = 60,
 	  .codecs[0] = {
 		.name = "onyx",
 		.connections = onyx_connections_reallineout,
 	  },
 	},
-	/*             */
+	/* PowerMac9,1 */
 	{ .layout_id = 61,
 	  .codecs[0] = {
 		.name = "topaz",
 		.connections = topaz_input,
 	  },
 	},
-	/*              */
+	/* PowerBook5,7 */
 	{ .layout_id = 64,
 	  .flags = LAYOUT_FLAG_COMBO_LINEOUT_SPDIF,
 	  .codecs[0] = {
@@ -303,14 +303,14 @@ static struct layout layouts[] = {
 		.connections = onyx_connections_noheadphones,
 	  },
 	},
-	/*              */
+	/* PowerBook5,7 */
 	{ .layout_id = 65,
 	  .codecs[0] = {
 		.name = "topaz",
 		.connections = topaz_input,
 	  },
 	},
-	/*                             */
+	/* PowerBook5,9 [17" Oct 2005] */
 	{ .layout_id = 84,
 	  .flags = LAYOUT_FLAG_COMBO_LINEOUT_SPDIF,
 	  .codecs[0] = {
@@ -322,7 +322,7 @@ static struct layout layouts[] = {
 		.connections = topaz_input,
 	  },
 	},
-	/*             */
+	/* PowerMac8,1 */
 	{ .layout_id = 45,
 	  .codecs[0] = {
 		.name = "onyx",
@@ -333,49 +333,49 @@ static struct layout layouts[] = {
 		.connections = topaz_input,
 	  },
 	},
-	/*                                               */
+	/* Quad PowerMac (analog in, analog/digital out) */
 	{ .layout_id = 68,
 	  .codecs[0] = {
 		.name = "onyx",
 		.connections = onyx_connections_nomic,
 	  },
 	},
-	/*                            */
+	/* Quad PowerMac (digital in) */
 	{ .layout_id = 69,
 	  .codecs[0] = {
 		.name = "topaz",
 		.connections = topaz_input,
 	  },
 	  .busname = "digital in", .pcmid = 1 },
-	/*                                      */
+	/* Early 2005 PowerBook (PowerBook 5,6) */
 	{ .layout_id = 70,
 	  .codecs[0] = {
 		.name = "tas",
 		.connections = tas_connections_nolineout,
 	  },
 	},
-	/*               */
+	/* PowerBook 5,4 */
 	{ .layout_id = 51,
 	  .codecs[0] = {
 		.name = "tas",
 		.connections = tas_connections_nolineout,
 	  },
 	},
-	/*              */
+	/* PowerBook6,7 */
 	{ .layout_id = 80,
 	  .codecs[0] = {
 		.name = "tas",
 		.connections = tas_connections_noline,
 	  },
 	},
-	/*              */
+	/* PowerBook6,8 */
 	{ .layout_id = 72,
 	  .codecs[0] = {
 		.name = "tas",
 		.connections = tas_connections_nolineout,
 	  },
 	},
-	/*             */
+	/* PowerMac8,2 */
 	{ .layout_id = 86,
 	  .codecs[0] = {
 		.name = "onyx",
@@ -386,14 +386,14 @@ static struct layout layouts[] = {
 		.connections = topaz_input,
 	  },
 	},
-	/*              */
+	/* PowerBook6,7 */
 	{ .layout_id = 92,
 	  .codecs[0] = {
 		.name = "tas",
 		.connections = tas_connections_nolineout,
 	  },
 	},
-	/*                         */
+	/* PowerMac10,1 (Mac Mini) */
 	{ .layout_id = 58,
 	  .codecs[0] = {
 		.name = "toonie",
@@ -407,7 +407,7 @@ static struct layout layouts[] = {
 	  	.connections = onyx_connections_noheadphones,
 	  },
 	},
-	/*                                              */
+	/* unknown, untested, but this comes from Apple */
 	{ .layout_id = 41,
 	  .codecs[0] = {
 		.name = "tas",
@@ -501,7 +501,7 @@ static struct layout layouts[] = {
 	{ .layout_id = 94,
 	  .codecs[0] = {
 		.name = "onyx",
-		/*                                             */
+		/* but it has an external mic?? how to select? */
 		.connections = onyx_connections_noheadphones,
 	  },
 	},
@@ -521,21 +521,21 @@ static struct layout layouts[] = {
 		.connections = onyx_connections_noheadphones,
 	  },
 	},
-	/*             */
+	/* PowerMac3,4 */
 	{ .device_id = 14,
 	  .codecs[0] = {
 		.name = "tas",
 		.connections = tas_connections_noline,
 	  },
 	},
-	/*             */
+	/* PowerMac3,6 */
 	{ .device_id = 22,
 	  .codecs[0] = {
 		.name = "tas",
 		.connections = tas_connections_all,
 	  },
 	},
-	/*              */
+	/* PowerBook5,2 */
 	{ .device_id = 35,
 	  .codecs[0] = {
 		.name = "tas",
@@ -580,7 +580,7 @@ static void use_layout(struct layout *l)
 			request_module("snd-aoa-codec-%s", l->codecs[i].name);
 		}
 	}
-	/*                                            */
+	/* now we wait for the codecs to call us back */
 }
 
 struct layout_dev;
@@ -597,7 +597,7 @@ struct layout_dev {
 	struct layout *layout;
 	struct gpio_runtime gpio;
 
-	/*                                               */
+	/* we need these for headphone/lineout detection */
 	struct snd_kcontrol *headphone_ctrl;
 	struct snd_kcontrol *lineout_ctrl;
 	struct snd_kcontrol *speaker_ctrl;
@@ -616,8 +616,8 @@ struct layout_dev {
 
 static LIST_HEAD(layouts_list);
 static int layouts_list_items;
-/*                                                      
-                                                     */
+/* this can go away but only if we allow multiple cards,
+ * make the fabric handle all the card stuff, etc... */
 static struct layout_dev *layout_device;
 
 #define control_info	snd_ctl_boolean_mono_info
@@ -759,7 +759,7 @@ static int check_codec(struct aoa_codec *codec,
 	char propname[32];
 	struct codec_connection *cc;
 
-	/*                                                         */
+	/* if the codec has a 'codec' node, we require a reference */
 	if (codec->node && (strcmp(codec->node->name, "codec") == 0)) {
 		snprintf(propname, sizeof(propname),
 			 "platform-%s-codec-ref", codec->name);
@@ -824,8 +824,8 @@ static int layout_found_codec(struct aoa_codec *codec)
 static void layout_remove_codec(struct aoa_codec *codec)
 {
 	int i;
-	/*                                            
-                    */
+	/* here remove the codec from the layout dev's
+	 * codec reference */
 
 	codec->soundbus_dev = NULL;
 	codec->gpio = NULL;
@@ -885,7 +885,7 @@ static void layout_attached_codec(struct aoa_codec *codec)
 	int headphones, lineout;
 	struct layout_dev *ldev = layout_device;
 
-	/*                                            */
+	/* need to add this codec to our codec array! */
 
 	cc = codec->fabric_data;
 
@@ -964,7 +964,7 @@ static void layout_attached_codec(struct aoa_codec *codec)
 		}
 		cc++;
 	}
-	/*                          */
+	/* now update initial state */
 	if (ldev->have_headphone_detect)
 		layout_notify(&ldev->selfptr_headphone);
 	if (ldev->have_lineout_detect)
@@ -987,11 +987,11 @@ static int aoa_fabric_layout_probe(struct soundbus_dev *sdev)
 	struct layout_dev *ldev = NULL;
 	int err;
 
-	/*                                        */
+	/* hm, currently we can only have one ... */
 	if (layout_device)
 		return -ENODEV;
 
-	/*                                     */
+	/* by breaking out we keep a reference */
 	while ((sound = of_get_next_child(sdev->ofdev.dev.of_node, sound))) {
 		if (sound->type && strcasecmp(sound->type, "soundchip") == 0)
 			break;
@@ -1023,10 +1023,10 @@ static int aoa_fabric_layout_probe(struct soundbus_dev *sdev)
 	ldev->layout = layout;
 	ldev->gpio.node = sound->parent;
 	switch (layout->layout_id) {
-	case 0:  /*                                        */
-	case 41: /*                                           */
-	case 51: /*              */
-	case 58: /*          */
+	case 0:  /* anything with device_id, not layout_id */
+	case 41: /* that unknown machine no one seems to have */
+	case 51: /* PowerBook5,4 */
+	case 58: /* Mac Mini */
 		ldev->gpio.methods = ftr_gpio_methods;
 		printk(KERN_DEBUG
 		       "snd-aoa-fabric-layout: Using direct GPIOs\n");
@@ -1042,9 +1042,9 @@ static int aoa_fabric_layout_probe(struct soundbus_dev *sdev)
 	list_add(&ldev->list, &layouts_list);
 	layouts_list_items++;
 
-	/*                                              
-                                               
-                            */
+	/* assign these before registering ourselves, so
+	 * callbacks that are done during registration
+	 * already have the values */
 	sdev->pcmid = ldev->layout->pcmid;
 	if (ldev->layout->busname) {
 		sdev->pcmname = ldev->layout->busname;
@@ -1066,9 +1066,9 @@ static int aoa_fabric_layout_probe(struct soundbus_dev *sdev)
 	ldev->switch_on_lineout = 1;
 	return 0;
  outlistdel:
-	/*                                 */
+	/* we won't be using these then... */
 	ldev->gpio.methods->exit(&ldev->gpio);
-	/*                           */
+	/* reset if we didn't use it */
 	sdev->pcmname = NULL;
 	sdev->pcmid = -1;
 	list_del(&ldev->list);

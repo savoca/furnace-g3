@@ -40,19 +40,19 @@
 #include "uwb-internal.h"
 
 
-/* 
-                                            
-  
-                                 
-                                                              
-                                    
-                                                             
-                                          
-                                             
-  
-                                                                   
-                                                                      
-                                                                    
+/**
+ * Start/stop scanning in a radio controller
+ *
+ * @rc:      UWB Radio Controller
+ * @channel: Channel to scan; encodings in WUSB1.0[Table 5.12]
+ * @type:    Type of scanning to do.
+ * @bpst_offset: value at which to start scanning (if type ==
+ *                UWB_SCAN_ONLY_STARTTIME)
+ * @returns: 0 if ok, < 0 errno code on error
+ *
+ * We put the command on kmalloc'ed memory as some arches cannot do
+ * USB from the stack. The reply event is copied from an stage buffer,
+ * so it can be in the stack. See WUSB1.0[8.6.2.4] for more details.
  */
 int uwb_rc_scan(struct uwb_rc *rc,
 		unsigned channel, enum uwb_scan_type type,
@@ -95,7 +95,7 @@ error_kzalloc:
 }
 
 /*
-                       
+ * Print scanning state
  */
 static ssize_t uwb_rc_scan_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -111,7 +111,7 @@ static ssize_t uwb_rc_scan_show(struct device *dev,
 }
 
 /*
-  
+ *
  */
 static ssize_t uwb_rc_scan_store(struct device *dev,
 				 struct device_attribute *attr,
@@ -131,5 +131,5 @@ static ssize_t uwb_rc_scan_store(struct device *dev,
 	return result < 0 ? result : size;
 }
 
-/*                                              */
+/** Radio Control sysfs interface (declaration) */
 DEVICE_ATTR(scan, S_IRUGO | S_IWUSR, uwb_rc_scan_show, uwb_rc_scan_store);

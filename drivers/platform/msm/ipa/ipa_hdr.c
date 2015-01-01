@@ -14,11 +14,11 @@
 
 static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 24, 36 };
 
-/* 
-                                                          
-                                             
-  
-                                             
+/**
+ * ipa_generate_hdr_hw_tbl() - generates the headers table
+ * @mem:	[out] buffer to put the header table
+ *
+ * Returns:	0 on success, negative on failure
  */
 int ipa_generate_hdr_hw_tbl(struct ipa_mem_buffer *mem)
 {
@@ -52,8 +52,8 @@ int ipa_generate_hdr_hw_tbl(struct ipa_mem_buffer *mem)
 }
 
 /*
-                                             
-                                                        
+ * __ipa_commit_hdr() commits hdr to hardware
+ * This function needs to be called with a locked mutex.
  */
 static int __ipa_commit_hdr(void)
 {
@@ -68,13 +68,13 @@ static int __ipa_commit_hdr(void)
 		goto fail_alloc_mem;
 	}
 
-	/*                                                                    */
+	/* the immediate command param size is same for both local and system */
 	len = sizeof(struct ipa_hdr_init_local);
 
 	/*
-                                                                  
-          
-  */
+	 * we can use init_local ptr for init_system due to layout of the
+	 * struct
+	 */
 	cmd = kmalloc(len, GFP_KERNEL);
 	if (!cmd) {
 		IPAERR("failed to alloc immediate command object\n");
@@ -192,16 +192,16 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 		}
 		INIT_LIST_HEAD(&offset->link);
 		/*
-                                                                
-             
-   */
+		 * for a first item grow, set the bin and offset which are set
+		 * in stone
+		 */
 		offset->offset = htbl->end;
 		offset->bin = bin;
 		htbl->end += ipa_hdr_bin_sz[bin];
 		list_add(&offset->link,
 				&htbl->head_offset_list[bin]);
 	} else {
-		/*                         */
+		/* get the first free slot */
 		offset =
 		    list_first_entry(&htbl->head_free_offset_list[bin],
 				     struct ipa_hdr_offset_entry, link);
@@ -261,7 +261,7 @@ int __ipa_del_hdr(u32 hdr_hdl)
 		return 0;
 	}
 
-	/*                                                */
+	/* move the offset entry to appropriate free list */
 	list_move(&entry->offset_entry->link,
 		  &htbl->head_free_offset_list[entry->offset_entry->bin]);
 	list_del(&entry->link);
@@ -269,21 +269,21 @@ int __ipa_del_hdr(u32 hdr_hdl)
 	entry->cookie = 0;
 	kmem_cache_free(ipa_ctx->hdr_cache, entry);
 
-	/*                                     */
+	/* remove the handle from the database */
 	rb_erase(&node->node, &ipa_ctx->hdr_hdl_tree);
 	kmem_cache_free(ipa_ctx->tree_node_cache, node);
 
 	return 0;
 }
 
-/* 
-                                                                                
-         
-                                       
-  
-                                             
-  
-                                                 
+/**
+ * ipa_add_hdr() - add the specified headers to SW and optionally commit them to
+ * IPA HW
+ * @hdrs:	[inout] set of headers to add
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
 {
@@ -318,14 +318,14 @@ bail:
 }
 EXPORT_SYMBOL(ipa_add_hdr);
 
-/* 
-                                                                                  
-            
-                                          
-  
-                                             
-  
-                                                 
+/**
+ * ipa_del_hdr() - Remove the specified headers from SW and optionally commit them
+ * to IPA HW
+ * @hdls:	[inout] set of headers to delete
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_del_hdr(struct ipa_ioc_del_hdr *hdls)
 {
@@ -360,10 +360,10 @@ bail:
 }
 EXPORT_SYMBOL(ipa_del_hdr);
 
-/* 
-                                                                    
-  
-                                                 
+/**
+ * ipa_dump_hdr() - prints all the headers in the header table in SW
+ *
+ * Note:	Should not be called from atomic context
  */
 void ipa_dump_hdr(void)
 {
@@ -381,21 +381,21 @@ void ipa_dump_hdr(void)
 	IPADBG("END\n");
 }
 
-/* 
-                                                                     
-  
-                                             
-  
-                                                 
+/**
+ * ipa_commit_hdr() - commit to IPA HW the current header table in SW
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_commit_hdr(void)
 {
 	int result = -EFAULT;
 
 	/*
-                                                                     
-                        
-  */
+	 * issue a commit on the routing module since routing rules point to
+	 * header table entries
+	 */
 	if (ipa_commit_rt(IPA_IP_v4))
 		return -EPERM;
 	if (ipa_commit_rt(IPA_IP_v6))
@@ -413,13 +413,13 @@ bail:
 }
 EXPORT_SYMBOL(ipa_commit_hdr);
 
-/* 
-                                                                             
-      
-  
-                                             
-  
-                                                 
+/**
+ * ipa_reset_hdr() - reset the current header table in SW (does not commit to
+ * HW)
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_reset_hdr(void)
 {
@@ -431,9 +431,9 @@ int ipa_reset_hdr(void)
 	int i;
 
 	/*
-                                                                    
-                        
-  */
+	 * issue a reset on the routing module since routing rules point to
+	 * header table entries
+	 */
 	if (ipa_reset_rt(IPA_IP_v4))
 		IPAERR("fail to reset v4 rt\n");
 	if (ipa_reset_rt(IPA_IP_v6))
@@ -444,7 +444,7 @@ int ipa_reset_hdr(void)
 	list_for_each_entry_safe(entry, next,
 			&ipa_ctx->hdr_tbl.head_hdr_entry_list, link) {
 
-		/*                                            */
+		/* do not remove the default exception header */
 		if (!strncmp(entry->name, IPA_DFLT_HDR_NAME,
 					IPA_RESOURCE_NAME_MAX))
 			continue;
@@ -459,7 +459,7 @@ int ipa_reset_hdr(void)
 		entry->cookie = 0;
 		kmem_cache_free(ipa_ctx->hdr_cache, entry);
 
-		/*                                     */
+		/* remove the handle from the database */
 		rb_erase(&node->node, &ipa_ctx->hdr_hdl_tree);
 		kmem_cache_free(ipa_ctx->tree_node_cache, node);
 
@@ -470,9 +470,9 @@ int ipa_reset_hdr(void)
 					 link) {
 
 			/*
-                                                         
-                 
-    */
+			 * do not remove the default exception header which is
+			 * at offset 0
+			 */
 			if (off_entry->offset == 0)
 				continue;
 
@@ -486,7 +486,7 @@ int ipa_reset_hdr(void)
 			kmem_cache_free(ipa_ctx->hdr_offset_cache, off_entry);
 		}
 	}
-	/*                               */
+	/* there is one header of size 8 */
 	ipa_ctx->hdr_tbl.end = 8;
 	ipa_ctx->hdr_tbl.hdr_cnt = 1;
 	mutex_unlock(&ipa_ctx->lock);
@@ -508,16 +508,16 @@ static struct ipa_hdr_entry *__ipa_find_hdr(const char *name)
 	return NULL;
 }
 
-/* 
-                                                       
-                                                   
-  
-                                                                      
-  
-                                             
-  
-                                                 
-                                                                  
+/**
+ * ipa_get_hdr() - Lookup the specified header resource
+ * @lookup:	[inout] header to lookup and its handle
+ *
+ * lookup the specified header resource and return handle if it exists
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ *		Caller should call ipa_put_hdr later if this function succeeds
  */
 int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup)
 {
@@ -540,12 +540,12 @@ int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup)
 }
 EXPORT_SYMBOL(ipa_get_hdr);
 
-/* 
-                                                           
-                                      
-                                                 
-  
-                                             
+/**
+ * __ipa_release_hdr() - drop reference to header and cause
+ * deletion if reference count permits
+ * @hdr_hdl:	[in] handle of header to be released
+ *
+ * Returns:	0 on success, negative on failure
  */
 int __ipa_release_hdr(u32 hdr_hdl)
 {
@@ -557,7 +557,7 @@ int __ipa_release_hdr(u32 hdr_hdl)
 		goto bail;
 	}
 
-	/*                */
+	/* commit for put */
 	if (__ipa_commit_hdr()) {
 		IPAERR("fail to commit hdr\n");
 		result = -EFAULT;
@@ -568,13 +568,13 @@ bail:
 	return result;
 }
 
-/* 
-                                                      
-                                              
-  
-                                             
-  
-                                                 
+/**
+ * ipa_put_hdr() - Release the specified header handle
+ * @hdr_hdl:	[in] the header handle to release
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_put_hdr(u32 hdr_hdl)
 {
@@ -603,16 +603,16 @@ bail:
 }
 EXPORT_SYMBOL(ipa_put_hdr);
 
-/* 
-                                                                                
-                                               
-  
-                                                                               
-                                                                     
-  
-                                             
-  
-                                                 
+/**
+ * ipa_copy_hdr() - Lookup the specified header resource and return a copy of it
+ * @copy:	[inout] header to lookup and its copy
+ *
+ * lookup the specified header resource and return a copy of it (along with its
+ * attributes) if it exists, this would be called for partial headers
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
  */
 int ipa_copy_hdr(struct ipa_ioc_copy_hdr *copy)
 {

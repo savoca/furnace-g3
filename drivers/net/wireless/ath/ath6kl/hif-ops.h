@@ -93,8 +93,8 @@ static inline int ath6kl_hif_suspend(struct ath6kl *ar,
 }
 
 /*
-                                                                          
-                                   
+ * Read from the ATH6KL through its diagnostic window. No cooperation from
+ * the Target is required for this.
  */
 static inline int ath6kl_hif_diag_read32(struct ath6kl *ar, u32 address,
 					 u32 *value)
@@ -103,8 +103,8 @@ static inline int ath6kl_hif_diag_read32(struct ath6kl *ar, u32 address,
 }
 
 /*
-                                                                         
-                                   
+ * Write to the ATH6KL through its diagnostic window. No cooperation from
+ * the Target is required for this.
  */
 static inline int ath6kl_hif_diag_write32(struct ath6kl *ar, u32 address,
 					  __le32 value)

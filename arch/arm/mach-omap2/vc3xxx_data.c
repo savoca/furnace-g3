@@ -26,8 +26,8 @@
 #include "vc.h"
 
 /*
-                                    
-                                                                  
+ * VC data common to 34xx/36xx chips
+ * XXX This stuff presumably belongs in the vc3xxx.c or vc.c file.
  */
 static struct omap_vc_common omap3_vc_common = {
 	.bypass_val_reg	 = OMAP3_PRM_VC_BYPASS_VAL_OFFSET,

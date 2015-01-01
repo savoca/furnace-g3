@@ -78,32 +78,32 @@
 #define ADSP1_CONTROL_31                  0x26
 
 /*
-                   
+ * ADSP1 Control 19
  */
-#define ADSP1_WDMA_BUFFER_LENGTH_MASK     0x00FF  /*                                 */
-#define ADSP1_WDMA_BUFFER_LENGTH_SHIFT         0  /*                                 */
-#define ADSP1_WDMA_BUFFER_LENGTH_WIDTH         8  /*                                 */
+#define ADSP1_WDMA_BUFFER_LENGTH_MASK     0x00FF  /* DSP1_WDMA_BUFFER_LENGTH - [7:0] */
+#define ADSP1_WDMA_BUFFER_LENGTH_SHIFT         0  /* DSP1_WDMA_BUFFER_LENGTH - [7:0] */
+#define ADSP1_WDMA_BUFFER_LENGTH_WIDTH         8  /* DSP1_WDMA_BUFFER_LENGTH - [7:0] */
 
 
 /*
-                   
+ * ADSP1 Control 30
  */
-#define ADSP1_DBG_CLK_ENA                 0x0008  /*                  */
-#define ADSP1_DBG_CLK_ENA_MASK            0x0008  /*                  */
-#define ADSP1_DBG_CLK_ENA_SHIFT                3  /*                  */
-#define ADSP1_DBG_CLK_ENA_WIDTH                1  /*                  */
-#define ADSP1_SYS_ENA                     0x0004  /*              */
-#define ADSP1_SYS_ENA_MASK                0x0004  /*              */
-#define ADSP1_SYS_ENA_SHIFT                    2  /*              */
-#define ADSP1_SYS_ENA_WIDTH                    1  /*              */
-#define ADSP1_CORE_ENA                    0x0002  /*               */
-#define ADSP1_CORE_ENA_MASK               0x0002  /*               */
-#define ADSP1_CORE_ENA_SHIFT                   1  /*               */
-#define ADSP1_CORE_ENA_WIDTH                   1  /*               */
-#define ADSP1_START                       0x0001  /*            */
-#define ADSP1_START_MASK                  0x0001  /*            */
-#define ADSP1_START_SHIFT                      0  /*            */
-#define ADSP1_START_WIDTH                      1  /*            */
+#define ADSP1_DBG_CLK_ENA                 0x0008  /* DSP1_DBG_CLK_ENA */
+#define ADSP1_DBG_CLK_ENA_MASK            0x0008  /* DSP1_DBG_CLK_ENA */
+#define ADSP1_DBG_CLK_ENA_SHIFT                3  /* DSP1_DBG_CLK_ENA */
+#define ADSP1_DBG_CLK_ENA_WIDTH                1  /* DSP1_DBG_CLK_ENA */
+#define ADSP1_SYS_ENA                     0x0004  /* DSP1_SYS_ENA */
+#define ADSP1_SYS_ENA_MASK                0x0004  /* DSP1_SYS_ENA */
+#define ADSP1_SYS_ENA_SHIFT                    2  /* DSP1_SYS_ENA */
+#define ADSP1_SYS_ENA_WIDTH                    1  /* DSP1_SYS_ENA */
+#define ADSP1_CORE_ENA                    0x0002  /* DSP1_CORE_ENA */
+#define ADSP1_CORE_ENA_MASK               0x0002  /* DSP1_CORE_ENA */
+#define ADSP1_CORE_ENA_SHIFT                   1  /* DSP1_CORE_ENA */
+#define ADSP1_CORE_ENA_WIDTH                   1  /* DSP1_CORE_ENA */
+#define ADSP1_START                       0x0001  /* DSP1_START */
+#define ADSP1_START_MASK                  0x0001  /* DSP1_START */
+#define ADSP1_START_SHIFT                      0  /* DSP1_START */
+#define ADSP1_START_WIDTH                      1  /* DSP1_START */
 
 #define ADSP2_CONTROL        0x0
 #define ADSP2_CLOCKING       0x1
@@ -113,42 +113,42 @@
 #define ADSP2_RDMA_CONFIG_1 0x34
 
 /*
-                
+ * ADSP2 Control
  */
 
-#define ADSP2_MEM_ENA                     0x0010  /*              */
-#define ADSP2_MEM_ENA_MASK                0x0010  /*              */
-#define ADSP2_MEM_ENA_SHIFT                    4  /*              */
-#define ADSP2_MEM_ENA_WIDTH                    1  /*              */
-#define ADSP2_SYS_ENA                     0x0004  /*              */
-#define ADSP2_SYS_ENA_MASK                0x0004  /*              */
-#define ADSP2_SYS_ENA_SHIFT                    2  /*              */
-#define ADSP2_SYS_ENA_WIDTH                    1  /*              */
-#define ADSP2_CORE_ENA                    0x0002  /*               */
-#define ADSP2_CORE_ENA_MASK               0x0002  /*               */
-#define ADSP2_CORE_ENA_SHIFT                   1  /*               */
-#define ADSP2_CORE_ENA_WIDTH                   1  /*               */
-#define ADSP2_START                       0x0001  /*            */
-#define ADSP2_START_MASK                  0x0001  /*            */
-#define ADSP2_START_SHIFT                      0  /*            */
-#define ADSP2_START_WIDTH                      1  /*            */
+#define ADSP2_MEM_ENA                     0x0010  /* DSP1_MEM_ENA */
+#define ADSP2_MEM_ENA_MASK                0x0010  /* DSP1_MEM_ENA */
+#define ADSP2_MEM_ENA_SHIFT                    4  /* DSP1_MEM_ENA */
+#define ADSP2_MEM_ENA_WIDTH                    1  /* DSP1_MEM_ENA */
+#define ADSP2_SYS_ENA                     0x0004  /* DSP1_SYS_ENA */
+#define ADSP2_SYS_ENA_MASK                0x0004  /* DSP1_SYS_ENA */
+#define ADSP2_SYS_ENA_SHIFT                    2  /* DSP1_SYS_ENA */
+#define ADSP2_SYS_ENA_WIDTH                    1  /* DSP1_SYS_ENA */
+#define ADSP2_CORE_ENA                    0x0002  /* DSP1_CORE_ENA */
+#define ADSP2_CORE_ENA_MASK               0x0002  /* DSP1_CORE_ENA */
+#define ADSP2_CORE_ENA_SHIFT                   1  /* DSP1_CORE_ENA */
+#define ADSP2_CORE_ENA_WIDTH                   1  /* DSP1_CORE_ENA */
+#define ADSP2_START                       0x0001  /* DSP1_START */
+#define ADSP2_START_MASK                  0x0001  /* DSP1_START */
+#define ADSP2_START_SHIFT                      0  /* DSP1_START */
+#define ADSP2_START_WIDTH                      1  /* DSP1_START */
 
 /*
-                 
+ * ADSP2 clocking
  */
-#define ADSP2_CLK_SEL_MASK                0x0007  /*             */
-#define ADSP2_CLK_SEL_SHIFT                    0  /*             */
-#define ADSP2_CLK_SEL_WIDTH                    3  /*             */
+#define ADSP2_CLK_SEL_MASK                0x0007  /* CLK_SEL_ENA */
+#define ADSP2_CLK_SEL_SHIFT                    0  /* CLK_SEL_ENA */
+#define ADSP2_CLK_SEL_WIDTH                    3  /* CLK_SEL_ENA */
 
 /*
-                 
+ * ADSP2 Status 1
  */
 #define ADSP2_RAM_RDY                     0x0001
 #define ADSP2_RAM_RDY_MASK                0x0001
 #define ADSP2_RAM_RDY_SHIFT                    0
 #define ADSP2_RAM_RDY_WIDTH                    1
 
-/*                            */
+/* Must remain a power of two */
 #define WM_ADSP_CAPTURE_BUFFER_SIZE      1048576
 
 #define WM_ADSP_NUM_FW 5
@@ -1090,7 +1090,7 @@ static int wm_adsp_setup_algs(struct wm_adsp *dsp, struct snd_soc_codec *codec)
 		return -EINVAL;
 	}
 
-	/*                                                  */
+	/* Read the terminator first to validate the length */
 	ret = regmap_raw_read(regmap, mem->base + term, &val, sizeof(val));
 	if (ret != 0) {
 		adsp_err(dsp, "Failed to read algorithm list end: %d\n",
@@ -1315,9 +1315,9 @@ static int wm_adsp_load_coeff(struct wm_adsp *dsp)
 			break;
 		case (WMFW_ABSOLUTE << 8):
 			/*
-                                       
-                   
-    */
+			 * Old files may use this for global
+			 * coefficients.
+			 */
 			if (le32_to_cpu(blk->id) == dsp->fw_id &&
 			    offset == 0) {
 				region_name = "global coefficients";
@@ -1436,24 +1436,24 @@ int wm_adsp1_event(struct snd_soc_dapm_widget *w,
 		if (ret != 0)
 			goto err;
 
-		/*                                                  */
+		/* Initialize caches for enabled and unset controls */
 		ret = wm_coeff_init_control_caches(dsp->wm_coeff);
 		if (ret != 0)
 			goto err;
 
-		/*                   */
+		/* Sync set controls */
 		ret = wm_coeff_sync_controls(dsp->wm_coeff);
 		if (ret != 0)
 			goto err;
 
-		/*                        */
+		/* Start the core running */
 		regmap_update_bits(dsp->regmap, dsp->base + ADSP1_CONTROL_30,
 				   ADSP1_CORE_ENA | ADSP1_START,
 				   ADSP1_CORE_ENA | ADSP1_START);
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
-		/*               */
+		/* Halt the core */
 		regmap_update_bits(dsp->regmap, dsp->base + ADSP1_CONTROL_30,
 				   ADSP1_CORE_ENA | ADSP1_START, 0);
 
@@ -1492,7 +1492,7 @@ static int wm_adsp2_ena(struct wm_adsp *dsp)
 	if (ret != 0)
 		return ret;
 
-	/*                                                         */
+	/* Wait for the RAM to start, should be near instantaneous */
 	count = 0;
 	do {
 		ret = regmap_read(dsp->regmap, dsp->base + ADSP2_STATUS1,
@@ -1525,9 +1525,9 @@ int wm_adsp2_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/*
-                                                    
-                                                    
-   */
+		 * For simplicity set the DSP clock rate to be the
+		 * SYSCLK rate rather than making it configurable.
+		 */
 		ret = regmap_read(dsp->regmap, ARIZONA_SYSTEM_CLOCK_1, &val);
 		if (ret != 0) {
 			adsp_err(dsp, "Failed to read SYSCLK state: %d\n",
@@ -1592,12 +1592,12 @@ int wm_adsp2_event(struct snd_soc_dapm_widget *w,
 		if (ret != 0)
 			goto err;
 
-		/*                                                  */
+		/* Initialize caches for enabled and unset controls */
 		ret = wm_coeff_init_control_caches(dsp->wm_coeff);
 		if (ret != 0)
 			goto err;
 
-		/*                   */
+		/* Sync set controls */
 		ret = wm_coeff_sync_controls(dsp->wm_coeff);
 		if (ret != 0)
 			goto err;
@@ -1619,7 +1619,7 @@ int wm_adsp2_event(struct snd_soc_dapm_widget *w,
 				   ADSP2_SYS_ENA | ADSP2_CORE_ENA |
 				   ADSP2_START, 0);
 
-		/*                             */
+		/* Make sure DMAs are quiesced */
 		regmap_write(dsp->regmap, dsp->base + ADSP2_WDMA_CONFIG_1, 0);
 		regmap_write(dsp->regmap, dsp->base + ADSP2_WDMA_CONFIG_2, 0);
 		regmap_write(dsp->regmap, dsp->base + ADSP2_RDMA_CONFIG_1, 0);
@@ -1670,9 +1670,9 @@ int wm_adsp2_init(struct wm_adsp *adsp, bool dvfs)
 	int ret;
 
 	/*
-                                                               
-                 
-  */
+	 * Disable the DSP memory by default when in reset for a small
+	 * power saving.
+	 */
 	ret = regmap_update_bits(adsp->regmap, adsp->base + ADSP2_CONTROL,
 				 ADSP2_MEM_ENA, 0);
 	if (ret != 0) {
@@ -1959,7 +1959,7 @@ static int wm_adsp_read_samples(struct wm_adsp *adsp, int32_t read_index,
 	int num_samps;
 	int i, ret;
 
-	/*                           */
+	/* Calculate read parameters */
 	for (i = 0; i < wm_adsp_fw[adsp->fw].caps->num_host_regions; ++i) {
 		if (read_index < adsp->host_regions[i].cumulative_samps)
 			break;
@@ -1987,14 +1987,14 @@ static int wm_adsp_read_samples(struct wm_adsp *adsp, int32_t read_index,
 	if (!num_samps)
 		return 0;
 
-	/*                    */
+	/* Read data from DSP */
 	adsp_read_len = wm_adsp_samps_to_words(adsp, num_samps, group_offset);
 	ret = wm_adsp_read_data_block(adsp, mem_type, adsp_addr,
 				      adsp_read_len, adsp->raw_capt_buf);
 	if (ret != 0)
 		return ret;
 
-	/*                                                         */
+	/* Extract samples from raw buffer into the capture buffer */
 	switch (adsp->sample_size) {
 	case 2:
 		wm_adsp_extract_16bit(adsp, num_samps, group_offset);
@@ -2016,7 +2016,7 @@ static int wm_adsp_capture_block(struct wm_adsp *adsp, int* avail)
 	int32_t write_index, read_index;
 	int ret;
 
-	/*                                */
+	/* Get current host buffer status */
 	ret = wm_adsp_host_buffer_read(adsp,
 				       HOST_BUFFER_FIELD(next_read_index),
 				       &next_read_index);
@@ -2032,18 +2032,18 @@ static int wm_adsp_capture_block(struct wm_adsp *adsp, int* avail)
 	write_index = sign_extend32(next_write_index, 23);
 
 	if (read_index < 0)
-		return -EIO;	/*                            */
+		return -EIO;	/* stream has not yet started */
 
 	*avail = write_index - read_index;
 	if (*avail < 0)
 		*avail += host_size_samps;
 
-	/*                    */
+	/* Read data from DSP */
 	num_samps = wm_adsp_read_samples(adsp, read_index, *avail);
 	if (num_samps <= 0)
 		return num_samps;
 
-	/*                                               */
+	/* update read index to account for samples read */
 	next_read_index += num_samps;
 	if (next_read_index == host_size_samps)
 		next_read_index = 0;

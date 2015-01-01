@@ -54,10 +54,10 @@ void cxgb3_set_dummy_ops(struct t3cdev *dev);
 struct t3cdev *dev2t3cdev(struct net_device *dev);
 
 /*
-                                                                     
-                                                                       
-                                                                          
-                                                       
+ * Client registration.  Users of T3 driver must register themselves.
+ * The T3 driver will call the add function of every client for each T3
+ * adapter activated, passing up the t3cdev ptr.  Each client fills out an
+ * array of callback functions to process CPL messages.
  */
 
 void cxgb3_register_client(struct cxgb3_client *client);
@@ -91,7 +91,7 @@ struct cxgb3_client {
 };
 
 /*
-                           
+ * TID allocation services.
  */
 int cxgb3_alloc_atid(struct t3cdev *dev, struct cxgb3_client *client,
 		     void *ctx);
@@ -109,28 +109,28 @@ struct t3c_tid_entry {
 	void *ctx;
 };
 
-/*                             */
+/* CPL message priority levels */
 enum {
-	CPL_PRIORITY_DATA = 0,	/*               */
-	CPL_PRIORITY_SETUP = 1,	/*                           */
-	CPL_PRIORITY_TEARDOWN = 0,	/*                              */
-	CPL_PRIORITY_LISTEN = 1,	/*                            */
-	CPL_PRIORITY_ACK = 1,	/*                 */
-	CPL_PRIORITY_CONTROL = 1	/*                          */
+	CPL_PRIORITY_DATA = 0,	/* data messages */
+	CPL_PRIORITY_SETUP = 1,	/* connection setup messages */
+	CPL_PRIORITY_TEARDOWN = 0,	/* connection teardown messages */
+	CPL_PRIORITY_LISTEN = 1,	/* listen start/stop messages */
+	CPL_PRIORITY_ACK = 1,	/* RX ACK messages */
+	CPL_PRIORITY_CONTROL = 1	/* offload control messages */
 };
 
-/*                                                */
+/* Flags for return value of CPL message handlers */
 enum {
-	CPL_RET_BUF_DONE = 1, /*                                             */
-	CPL_RET_BAD_MSG = 2,  /*                                        */
-	CPL_RET_UNKNOWN_TID = 4	/*                        */
+	CPL_RET_BUF_DONE = 1, /* buffer processing done, buffer may be freed */
+	CPL_RET_BAD_MSG = 2,  /* bad CPL message (e.g., unknown opcode) */
+	CPL_RET_UNKNOWN_TID = 4	/* unexpected unknown TID */
 };
 
 typedef int (*cpl_handler_func)(struct t3cdev *dev, struct sk_buff *skb);
 
 /*
-                                                                           
-                          
+ * Returns a pointer to the first byte of the CPL header in an sk_buff that
+ * contains a CPL message.
  */
 static inline void *cplhdr(struct sk_buff *skb)
 {
@@ -150,9 +150,9 @@ union active_open_entry {
 };
 
 /*
-                                                                             
-                                                   
-                                                   
+ * Holds the size, base address, free list start, etc of the TID, server TID,
+ * and active-open TID tables for a offload device.
+ * The tables themselves are allocated dynamically.
  */
 struct tid_info {
 	struct t3c_tid_entry *tid_tab;
@@ -168,13 +168,13 @@ struct tid_info {
 	unsigned int atid_base;
 
 	/*
-                                                                      
-                
-   
-                                                                       
-                                                                      
-                                    
-  */
+	 * The following members are accessed R/W so we put them in their own
+	 * cache lines.
+	 *
+	 * XXX We could combine the atid fields above with the lock here since
+	 * atids are use once (unlike other tids).  OTOH the above fields are
+	 * usually in cache due to tid_tab.
+	 */
 	spinlock_t atid_lock ____cacheline_aligned_in_smp;
 	union active_open_entry *afree;
 	unsigned int atids_in_use;
@@ -187,8 +187,8 @@ struct tid_info {
 struct t3c_data {
 	struct list_head list_node;
 	struct t3cdev *dev;
-	unsigned int tx_max_chunk;	/*                         */
-	unsigned int max_wrs;	/*                                  */
+	unsigned int tx_max_chunk;	/* max payload for TX_DATA */
+	unsigned int max_wrs;	/* max in-flight WRs per connection */
 	unsigned int nmtus;
 	const unsigned short *mtus;
 	struct tid_info tid_maps;
@@ -202,7 +202,7 @@ struct t3c_data {
 };
 
 /*
-                              
+ * t3cdev -> t3c_data accessor
  */
 #define T3C_DATA(dev) (*(struct t3c_data **)&(dev)->l4opt)
 

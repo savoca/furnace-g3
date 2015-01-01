@@ -68,9 +68,9 @@
 #define SUCCESS 1
 
 struct st_fw_head {
-	u8  hw_info[4];		/*               */
-	u8  pid[8];		/*              */
-	u16 vid;		/*              */
+	u8  hw_info[4];		/* hardware info */
+	u8  pid[8];		/* product id   */
+	u16 vid;		/* version id   */
 } __packed;
 
 struct st_update_msg {
@@ -87,18 +87,18 @@ u16 show_len;
 u16 total_len;
 u8 got_file_flag;
 u8 searching_file;
-/*                                                      
-         
-                                        
-      
-                           
-                                   
-                                     
-                                              
-       
-                                    
-                                   
-                                                        */
+/*******************************************************
+Function:
+    Read data from the i2c slave device.
+Input:
+    client:     i2c device.
+    buf[0~1]:   read start address.
+    buf[2~len-1]:   read data buffer.
+    len:    GTP_ADDR_LENGTH + read bytes count
+Output:
+    numbers of i2c_msgs to transfer:
+      2: succeed, otherwise: failed
+*********************************************************/
 static s32 gup_i2c_read(struct i2c_client *client, u8 *buf, s32 len)
 {
 	s32 ret = -1;
@@ -133,18 +133,18 @@ static s32 gup_i2c_read(struct i2c_client *client, u8 *buf, s32 len)
 	return ret;
 }
 
-/*                                                      
-         
-                                       
-      
-                           
-                                    
-                               
-                                               
-       
-                                    
-                              
-                                                        */
+/*******************************************************
+Function:
+    Write data to the i2c slave device.
+Input:
+    client:     i2c device.
+    buf[0~1]:   write start address.
+    buf[2~len-1]:   data buffer
+    len:    GTP_ADDR_LENGTH + write bytes count
+Output:
+    numbers of i2c_msgs to transfer:
+	1: succeed, otherwise: failed
+*********************************************************/
 s32 gup_i2c_write(struct i2c_client *client, u8 *buf, s32 len)
 {
 	s32 ret = -1;
@@ -238,9 +238,9 @@ static s32 gup_init_panel(struct goodix_ts_data *ts)
 	config_data[RESOLUTION_LOC + 2] = (u8)GTP_MAX_HEIGHT;
 	config_data[RESOLUTION_LOC + 3] = (u8)(GTP_MAX_HEIGHT>>8);
 
-	if (GTP_INT_TRIGGER == 0)  /*        */
+	if (GTP_INT_TRIGGER == 0)  /* RISING */
 		config_data[TRIGGER_LOC] &= 0xfe;
-	else if (GTP_INT_TRIGGER == 1)  /*         */
+	else if (GTP_INT_TRIGGER == 1)  /* FALLING */
 		config_data[TRIGGER_LOC] |= 0x01;
 
 	check_sum = 0;
@@ -306,7 +306,7 @@ static u8 gup_get_ic_fw_msg(struct i2c_client *client)
 	u8  buf[16];
 	u8  i;
 
-	/*                         */
+	/* step1:get hardware info */
 	ret = gtp_i2c_read_dbl_check(client, GUP_REG_HW_INFO,
 					&buf[GTP_ADDR_LENGTH], 4);
 	if (ret == FAIL) {
@@ -314,8 +314,8 @@ static u8 gup_get_ic_fw_msg(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                        */
-	/*                      */
+	/*  buf[2~5]: 00 06 90 00 */
+	/* hw_info: 00 90 06 00 */
 	for (i = 0; i < 4; i++)
 		update_msg.ic_fw_msg.hw_info[i] = buf[GTP_ADDR_LENGTH + 3 - i];
 
@@ -325,7 +325,7 @@ static u8 gup_get_ic_fw_msg(struct i2c_client *client)
 		update_msg.ic_fw_msg.hw_info[2],
 		update_msg.ic_fw_msg.hw_info[3]);
 
-	/*                            */
+	/* step2:get firmware message */
 	for (retry = 0; retry < 2; retry++) {
 		ret = gup_get_ic_msg(client, GUP_REG_FW_MSG, buf, 1);
 		if (ret == FAIL) {
@@ -343,7 +343,7 @@ static u8 gup_get_ic_fw_msg(struct i2c_client *client)
 	}
 	pr_debug("IC force update flag:0x%x", update_msg.force_update);
 
-	/*                      */
+	/*  step3:get pid & vid */
 	ret = gtp_i2c_read_dbl_check(client, GUP_REG_PID_VID,
 						&buf[GTP_ADDR_LENGTH], 6);
 	if (ret == FAIL) {
@@ -355,16 +355,16 @@ static u8 gup_get_ic_fw_msg(struct i2c_client *client)
 	memcpy(update_msg.ic_fw_msg.pid, &buf[GTP_ADDR_LENGTH], 4);
 	pr_debug("IC Product id:%s", update_msg.ic_fw_msg.pid);
 
-	/*                  
-                          
-                          
-                          
-                          
-                          
-                          
-                          
-                          
-                          */
+	/* GT9XX PID MAPPING
+	|-----FLASH-----RAM-----|
+	|------918------918-----|
+	|------968------968-----|
+	|------913------913-----|
+	|------913P-----913P----|
+	|------927------927-----|
+	|------927P-----927P----|
+	|------9110-----9110----|
+	|------9110P----9111----|*/
 	if (update_msg.ic_fw_msg.pid[0] != 0) {
 		if (!memcmp(update_msg.ic_fw_msg.pid, "9111", 4)) {
 			pr_debug("IC Mapping Product id:%s",
@@ -387,29 +387,29 @@ s32 gup_enter_update_mode(struct i2c_client *client)
 	u8 rd_buf[3];
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
 
-	/*                                        */
+	/* step1:RST output low last at least 2ms */
 	gpio_direction_output(ts->pdata->reset_gpio, 0);
 	usleep(20000);
 
-	/*                                                  */
+	/* step2:select I2C slave addr,INT:0--0xBA;1--0x28. */
 	gpio_direction_output(ts->pdata->irq_gpio,
 			(client->addr == GTP_I2C_ADDRESS_HIGH));
 	msleep(20);
 
-	/*                                    */
+	/* step3:RST output high reset guitar */
 	gpio_direction_output(ts->pdata->reset_gpio, 1);
 
-	/*                       */
+	/* 20121211 modify start */
 	msleep(20);
 	while (retry++ < 200) {
-		/*                       */
+		/* step4:Hold ss51 & dsp */
 		ret = gup_set_ic_msg(client, _rRW_MISCTL__SWRST_B0_, 0x0C);
 		if (ret <= 0) {
 			pr_debug("Hold ss51 & dsp I2C error,retry:%d", retry);
 			continue;
 		}
 
-		/*                    */
+		/* step5:Confirm hold */
 		ret = gup_get_ic_msg(client, _rRW_MISCTL__SWRST_B0_, rd_buf, 1);
 		if (ret <= 0) {
 			pr_debug("Hold ss51 & dsp I2C error,retry:%d", retry);
@@ -427,10 +427,10 @@ s32 gup_enter_update_mode(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                     */
+	/* step6:DSP_CK and DSP_ALU_CK PowerOn */
 	ret = gup_set_ic_msg(client, 0x4010, 0x00);
 
-	/*                     */
+	/* 20121211 modify end */
 	return ret;
 }
 
@@ -443,22 +443,22 @@ void gup_leave_update_mode(struct i2c_client *client)
 	gtp_reset_guitar(ts, 20);
 }
 
-/*                           
-                        
-                                 
-                              
-                                                                    
-                                              
+/*	Get the correct nvram data
+	The correct conditions:
+	1. the hardware info is the same
+	2. the product id is the same
+	3. the firmware version in update file is greater than the firmware
+	version in ic or the check sum in ic is wrong
 
-                   
-                      
-            
-                     
+	Update Conditions:
+	1. Same hardware info
+	2. Same PID
+	3. File PID > IC PID
 
-                         
-                              
-                         
-                                      
+	Force Update Conditions:
+	1. Wrong ic firmware checksum
+	2. INVALID IC PID or VID
+	3. IC PID == 91XX || File PID == 91XX
 */
 
 static u8 gup_enter_update_judge(struct i2c_client *client,
@@ -483,7 +483,7 @@ static u8 gup_enter_update_judge(struct i2c_client *client,
 	pr_debug("IC PID:%s", update_msg.ic_fw_msg.pid);
 	pr_debug("IC VID:%04x", update_msg.ic_fw_msg.vid);
 
-	/*                      */
+	/* First two conditions */
 	if (!memcmp(fw_head->hw_info, update_msg.ic_fw_msg.hw_info,
 			sizeof(update_msg.ic_fw_msg.hw_info))) {
 		pr_debug("Get the same hardware info.");
@@ -492,7 +492,7 @@ static u8 gup_enter_update_judge(struct i2c_client *client,
 			return SUCCESS;
 		}
 
-		/*                */
+		/* 20130523 start */
 		if (strlen(update_msg.ic_fw_msg.pid) < 3) {
 			pr_info("Illegal IC pid, need enter update");
 			return SUCCESS;
@@ -505,7 +505,7 @@ static u8 gup_enter_update_judge(struct i2c_client *client,
 				}
 			}
 		}
-		/*              */
+		/* 20130523 end */
 
 		if ((!memcmp(fw_head->pid, update_msg.ic_fw_msg.pid,
 		(strlen(fw_head->pid) < 3 ? 3 : strlen(fw_head->pid)))) ||
@@ -516,7 +516,7 @@ static u8 gup_enter_update_judge(struct i2c_client *client,
 			else
 				pr_debug("Get the same pid.");
 
-			/*                     */
+			/* The third condition */
 			if (fw_head->vid > update_msg.ic_fw_msg.vid) {
 				pr_info("Need enter update.");
 				return SUCCESS;
@@ -724,7 +724,7 @@ static u8 gup_check_update_file(struct i2c_client *client,
 
 	memcpy(fw_head, update_msg.fw_data, FW_HEAD_LENGTH);
 
-	/*                         */
+	/* check firmware legality */
 	fw_checksum = 0;
 	for (i = 0; i < FW_SECTION_LENGTH * 4 + FW_DSP_ISP_LENGTH +
 			FW_DSP_LENGTH + FW_BOOT_LENGTH; i += 2) {
@@ -858,21 +858,21 @@ static u8 gup_burn_fw_section(struct i2c_client *client, u8 *fw_section,
 	s32 ret = 0;
 	u8  rd_buf[5];
 
-	/*                       */
+	/* step1:hold ss51 & dsp */
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__SWRST_B0_, 0x0C);
 	if (ret <= 0) {
 		pr_err("hold ss51 & dsp fail.");
 		return FAIL;
 	}
 
-	 /*                    */
+	 /* step2:set scramble */
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__BOOT_OPT_B0_, 0x00);
 	if (ret <= 0) {
 		pr_err("set scramble fail.");
 		return FAIL;
 	}
 
-	/*                   */
+	/* step3:select bank */
 	ret = gup_set_ic_msg(client, _bRW_MISCTL__SRAM_BANK,
 						(bank_cmd >> 4)&0x0F);
 	if (ret <= 0) {
@@ -881,30 +881,30 @@ static u8 gup_burn_fw_section(struct i2c_client *client, u8 *fw_section,
 		return FAIL;
 	}
 
-	/*                             */
+	/* step4:enable accessing code */
 	ret = gup_set_ic_msg(client, _bRW_MISCTL__MEM_CD_EN, 0x01);
 	if (ret <= 0) {
 		pr_err("enable accessing code fail.");
 		return FAIL;
 	}
 
-	/*                          */
+	/* step5:burn 8k fw section */
 	ret = gup_burn_proc(client, fw_section, start_addr, FW_SECTION_LENGTH);
 	if (ret == FAIL)  {
 		pr_err("burn fw_section fail.");
 		return FAIL;
 	}
 
-	/*                               */
+	/* step6:hold ss51 & release dsp */
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__SWRST_B0_, 0x04);
 	if (ret <= 0) {
 		pr_err("hold ss51 & release dsp fail.");
 		return FAIL;
 	}
-	/*            */
+	/* must delay */
 	msleep(20);
 
-	/*                                                     */
+	/* step7:send burn cmd to move data to flash from sram */
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__BOOT_CTL_, bank_cmd&0x0f);
 	if (ret <= 0) {
 		pr_err("send burn cmd fail.");
@@ -920,7 +920,7 @@ static u8 gup_burn_fw_section(struct i2c_client *client, u8 *fw_section,
 		msleep(20);
 	} while (rd_buf[GTP_ADDR_LENGTH]);
 
-	/*                   */
+	/* step8:select bank */
 	ret = gup_set_ic_msg(client, _bRW_MISCTL__SRAM_BANK,
 							(bank_cmd >> 4)&0x0F);
 	if (ret <= 0) {
@@ -929,14 +929,14 @@ static u8 gup_burn_fw_section(struct i2c_client *client, u8 *fw_section,
 		return FAIL;
 	}
 
-	/*                             */
+	/* step9:enable accessing code */
 	ret = gup_set_ic_msg(client, _bRW_MISCTL__MEM_CD_EN, 0x01);
 	if (ret <= 0) {
 		pr_err("enable accessing code fail.");
 		return FAIL;
 	}
 
-	/*                             */
+	/* step10:recall 8k fw section */
 	ret = gup_recall_check(client, fw_section, start_addr,
 							FW_SECTION_LENGTH);
 	if (ret == FAIL) {
@@ -944,7 +944,7 @@ static u8 gup_burn_fw_section(struct i2c_client *client, u8 *fw_section,
 		return FAIL;
 	}
 
-	/*                               */
+	/* step11:disable accessing code */
 	ret = gup_set_ic_msg(client, _bRW_MISCTL__MEM_CD_EN, 0x00);
 	if (ret <= 0) {
 		pr_err("disable accessing code fail.");
@@ -962,7 +962,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 
 	pr_debug("Begin burn dsp isp.");
 
-	/*                    */
+	/* step1:alloc memory */
 	pr_debug("step1:alloc memory");
 	while (retry++ < 5) {
 		fw_dsp_isp = devm_kzalloc(&client->dev, FW_DSP_ISP_LENGTH,
@@ -980,7 +980,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                              */
+	/* step2:load dsp isp file data */
 	pr_debug("step2:load dsp isp file data");
 	ret = gup_load_section_file(fw_dsp_isp, (4 * FW_SECTION_LENGTH +
 		FW_DSP_LENGTH + FW_BOOT_LENGTH), FW_DSP_ISP_LENGTH);
@@ -989,7 +989,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                      */
+	/* step3:disable wdt,clear cache enable */
 	pr_debug("step3:disable wdt,clear cache enable");
 	ret = gup_set_ic_msg(client, _bRW_MISCTL__TMR0_EN, 0x00);
 	if (ret <= 0) {
@@ -1002,7 +1002,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                       */
+	/* step4:hold ss51 & dsp */
 	pr_debug("step4:hold ss51 & dsp");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__SWRST_B0_, 0x0C);
 	if (ret <= 0) {
@@ -1010,7 +1010,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                          */
+	/* step5:set boot from sram */
 	pr_debug("step5:set boot from sram");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__BOOTCTL_B0_, 0x02);
 	if (ret <= 0) {
@@ -1018,7 +1018,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                       */
+	/* step6:software reboot */
 	pr_debug("step6:software reboot");
 	ret = gup_set_ic_msg(client, _bWO_MISCTL__CPU_SWRST_PULSE, 0x01);
 	if (ret <= 0) {
@@ -1026,7 +1026,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                    */
+	/* step7:select bank2 */
 	pr_debug("step7:select bank2");
 	ret = gup_set_ic_msg(client, _bRW_MISCTL__SRAM_BANK, 0x02);
 	if (ret <= 0) {
@@ -1034,7 +1034,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                             */
+	/* step8:enable accessing code */
 	pr_debug("step8:enable accessing code");
 	ret = gup_set_ic_msg(client, _bRW_MISCTL__MEM_CD_EN, 0x01);
 	if (ret <= 0) {
@@ -1042,7 +1042,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                       */
+	/* step9:burn 4k dsp_isp */
 	pr_debug("step9:burn 4k dsp_isp");
 	ret = gup_burn_proc(client, fw_dsp_isp, 0xC000, FW_DSP_ISP_LENGTH);
 	if (ret == FAIL) {
@@ -1050,7 +1050,7 @@ static u8 gup_burn_dsp_isp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                     */
+	/* step10:set scramble */
 	pr_debug("step10:set scramble");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__BOOT_OPT_B0_, 0x00);
 	if (ret <= 0) {
@@ -1069,7 +1069,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
 
 	pr_debug("Begin burn ss51 firmware.");
 
-	/*                    */
+	/* step1:alloc memory */
 	pr_debug("step1:alloc memory");
 	while (retry++ < 5) {
 		fw_ss51 = devm_kzalloc(&client->dev, FW_SECTION_LENGTH,
@@ -1087,7 +1087,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                              */
+	/* step2:load ss51 firmware section 1 file data */
 	pr_debug("step2:load ss51 firmware section 1 file data");
 	ret = gup_load_section_file(fw_ss51, 0, FW_SECTION_LENGTH);
 	if (ret == FAIL) {
@@ -1095,7 +1095,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                          */
+	/* step3:clear control flag */
 	pr_debug("step3:clear control flag");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__BOOT_CTL_, 0x00);
 	if (ret <= 0) {
@@ -1103,7 +1103,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                    */
+	/* step4:burn ss51 firmware section 1 */
 	pr_debug("step4:burn ss51 firmware section 1");
 	ret = gup_burn_fw_section(client, fw_ss51, 0xC000, 0x01);
 	if (ret == FAIL) {
@@ -1111,7 +1111,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                              */
+	/* step5:load ss51 firmware section 2 file data */
 	pr_debug("step5:load ss51 firmware section 2 file data");
 	ret = gup_load_section_file(fw_ss51, FW_SECTION_LENGTH,
 							FW_SECTION_LENGTH);
@@ -1120,7 +1120,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                    */
+	/* step6:burn ss51 firmware section 2 */
 	pr_debug("step6:burn ss51 firmware section 2");
 	ret = gup_burn_fw_section(client, fw_ss51, 0xE000, 0x02);
 	if (ret == FAIL) {
@@ -1128,7 +1128,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                              */
+	/* step7:load ss51 firmware section 3 file data */
 	pr_debug("step7:load ss51 firmware section 3 file data");
 	ret = gup_load_section_file(fw_ss51, 2*FW_SECTION_LENGTH,
 							FW_SECTION_LENGTH);
@@ -1137,7 +1137,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                    */
+	/* step8:burn ss51 firmware section 3 */
 	pr_debug("step8:burn ss51 firmware section 3");
 	ret = gup_burn_fw_section(client, fw_ss51, 0xC000, 0x13);
 	if (ret == FAIL) {
@@ -1145,7 +1145,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                              */
+	/* step9:load ss51 firmware section 4 file data */
 	pr_debug("step9:load ss51 firmware section 4 file data");
 	ret = gup_load_section_file(fw_ss51, 3*FW_SECTION_LENGTH,
 							FW_SECTION_LENGTH);
@@ -1154,7 +1154,7 @@ static u8 gup_burn_fw_ss51(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                     */
+	/* step10:burn ss51 firmware section 4 */
 	pr_debug("step10:burn ss51 firmware section 4");
 	ret = gup_burn_fw_section(client, fw_ss51, 0xE000, 0x14);
 	if (ret == FAIL) {
@@ -1173,7 +1173,7 @@ static u8 gup_burn_fw_dsp(struct i2c_client *client)
 	u8  rd_buf[5];
 
 	pr_debug("Begin burn dsp firmware.");
-	/*                    */
+	/* step1:alloc memory */
 	pr_debug("step1:alloc memory");
 	while (retry++ < 5) {
 		fw_dsp = devm_kzalloc(&client->dev, FW_DSP_LENGTH,
@@ -1191,7 +1191,7 @@ static u8 gup_burn_fw_dsp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                         */
+	/* step2:load firmware dsp */
 	pr_debug("step2:load firmware dsp");
 	ret = gup_load_section_file(fw_dsp, 4*FW_SECTION_LENGTH, FW_DSP_LENGTH);
 	if (ret == FAIL) {
@@ -1199,7 +1199,7 @@ static u8 gup_burn_fw_dsp(struct i2c_client *client)
 		return ret;
 	}
 
-	/*                    */
+	/* step3:select bank3 */
 	pr_debug("step3:select bank3");
 	ret = gup_set_ic_msg(client, _bRW_MISCTL__SRAM_BANK, 0x03);
 	if (ret <= 0) {
@@ -1207,7 +1207,7 @@ static u8 gup_burn_fw_dsp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                       */
+	/* Step4:hold ss51 & dsp */
 	pr_debug("step4:hold ss51 & dsp");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__SWRST_B0_, 0x0C);
 	if (ret <= 0) {
@@ -1215,7 +1215,7 @@ static u8 gup_burn_fw_dsp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                    */
+	/* step5:set scramble */
 	pr_debug("step5:set scramble");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__BOOT_OPT_B0_, 0x00);
 	if (ret <= 0) {
@@ -1223,17 +1223,17 @@ static u8 gup_burn_fw_dsp(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                          */
+	/* step6:release ss51 & dsp */
 	pr_debug("step6:release ss51 & dsp");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__SWRST_B0_, 0x04);
 	if (ret <= 0) {
 		pr_err("release ss51 & dsp fail.");
 		return FAIL;
 	}
-	/*            */
+	/* must delay */
 	msleep(20);
 
-	/*                            */
+	/* step7:burn 4k dsp firmware */
 	pr_debug("step7:burn 4k dsp firmware");
 	ret = gup_burn_proc(client, fw_dsp, 0x9000, FW_DSP_LENGTH);
 	if (ret == FAIL) {
@@ -1241,7 +1241,7 @@ static u8 gup_burn_fw_dsp(struct i2c_client *client)
 		return ret;
 	}
 
-	/*                                                     */
+	/* step8:send burn cmd to move data to flash from sram */
 	pr_debug("step8:send burn cmd to move data to flash from sram");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__BOOT_CTL_, 0x05);
 	if (ret <= 0) {
@@ -1258,7 +1258,7 @@ static u8 gup_burn_fw_dsp(struct i2c_client *client)
 		msleep(20);
 	} while (rd_buf[GTP_ADDR_LENGTH]);
 
-	/*                                    */
+	/* step9:recall check 4k dsp firmware */
 	pr_debug("step9:recall check 4k dsp firmware");
 	ret = gup_recall_check(client, fw_dsp, 0x9000, FW_DSP_LENGTH);
 	if (ret == FAIL) {
@@ -1278,7 +1278,7 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
 
 	pr_debug("Begin burn bootloader firmware.");
 
-	/*                    */
+	/* step1:Alloc memory */
 	pr_debug("step1:Alloc memory");
 	while (retry++ < 5) {
 		fw_boot = devm_kzalloc(&client->dev, FW_BOOT_LENGTH,
@@ -1296,7 +1296,7 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                */
+	/* step2:load firmware bootloader */
 	pr_debug("step2:load firmware bootloader");
 	ret = gup_load_section_file(fw_boot, (4 * FW_SECTION_LENGTH +
 				FW_DSP_LENGTH), FW_BOOT_LENGTH);
@@ -1305,7 +1305,7 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
 		return ret;
 	}
 
-	/*                       */
+	/* step3:hold ss51 & dsp */
 	pr_debug("step3:hold ss51 & dsp");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__SWRST_B0_, 0x0C);
 	if (ret <= 0) {
@@ -1313,7 +1313,7 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                    */
+	/* step4:set scramble */
 	pr_debug("step4:set scramble");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__BOOT_OPT_B0_, 0x00);
 	if (ret <= 0) {
@@ -1321,17 +1321,17 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                          */
+	/* step5:release ss51 & dsp */
 	pr_debug("step5:release ss51 & dsp");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__SWRST_B0_, 0x04);
 	if (ret <= 0) {
 		pr_err("release ss51 & dsp fail.");
 		return FAIL;
 	}
-	/*            */
+	/* must delay */
 	msleep(20);
 
-	/*                    */
+	/* step6:select bank3 */
 	pr_debug("step6:select bank3");
 	ret = gup_set_ic_msg(client, _bRW_MISCTL__SRAM_BANK, 0x03);
 	if (ret <= 0) {
@@ -1339,7 +1339,7 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                   */
+	/* step7:burn 2k bootloader firmware */
 	pr_debug("step7:burn 2k bootloader firmware");
 	ret = gup_burn_proc(client, fw_boot, 0x9000, FW_BOOT_LENGTH);
 	if (ret == FAIL) {
@@ -1347,7 +1347,7 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
 		return ret;
 	}
 
-	/*                                                     */
+	/* step7:send burn cmd to move data to flash from sram */
 	pr_debug("step7:send burn cmd to flash data from sram");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__BOOT_CTL_, 0x06);
 	if (ret <= 0) {
@@ -1364,7 +1364,7 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
 		msleep(20);
 	} while (rd_buf[GTP_ADDR_LENGTH]);
 
-	/*                                           */
+	/* step8:recall check 2k bootloader firmware */
 	pr_debug("step8:recall check 2k bootloader firmware");
 	ret = gup_recall_check(client, fw_boot, 0x9000, FW_BOOT_LENGTH);
 	if (ret == FAIL) {
@@ -1372,7 +1372,7 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
 		return ret;
 	}
 
-	/*                                 */
+	/* step9:enable download DSP code  */
 	pr_debug("step9:enable download DSP code ");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__BOOT_CTL_, 0x99);
 	if (ret <= 0) {
@@ -1380,7 +1380,7 @@ static u8 gup_burn_fw_boot(struct i2c_client *client)
 		return FAIL;
 	}
 
-	/*                                */
+	/* step10:release ss51 & hold dsp */
 	pr_debug("step10:release ss51 & hold dsp");
 	ret = gup_set_ic_msg(client, _rRW_MISCTL__SWRST_B0_, 0x08);
 	if (ret <= 0) {
@@ -1411,10 +1411,10 @@ s32 gup_update_proc(void *dir)
 	ts = i2c_get_clientdata(i2c_connect_client);
 
 	if (searching_file) {
-		/*                                  */
+		/* exit .bin update file searching  */
 		searching_file = 0;
 		pr_info("Exiting searching .bin update file.");
-		/*                                         */
+		/* wait for auto update quitted completely */
 		while ((show_len != 200) && (show_len != 100))
 			msleep(100);
 	}
@@ -1425,7 +1425,7 @@ s32 gup_update_proc(void *dir)
 		goto file_fail;
 	}
 
-	/*                                           */
+	/* gtp_reset_guitar(i2c_connect_client, 20); */
 	ret = gup_get_ic_fw_msg(i2c_connect_client);
 	if (ret == FAIL) {
 		pr_err("get ic message fail.");

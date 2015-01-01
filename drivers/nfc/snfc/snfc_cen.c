@@ -1,38 +1,38 @@
 /*
-                
-    
+ *  felica_cen.c
+ *  
  */
  
 /*
-                          
+ *    Include header files
  */
-//                         
+//#include <linux/module.h>
 #include <linux/kernel.h>
 
 
 #include "snfc_cen.h"
 
 /*
-                         
+ *    Internal definition
  */
 
- //                         
+ //#define FEATURE_DEBUG_LOW
 #define SNFC_I2C_SLAVE_ADDRESS  0x56
 #define SNFC_I2C_REG_ADDRSS_01  0x01
 #define SNFC_I2C_REG_ADDRSS_02  0x02
 
 static DEFINE_MUTEX(nfc_cen_mutex);
 
-static int isopen = 0; //                     
+static int isopen = 0; // 0 : No open 1 : Open
 
 /*
-                         
+ *    Function definition
  */
 
 /*
-              
-        
-         
+* Description:
+* Input:
+* Output:
 */
 static int snfc_cen_open (struct inode *inode, struct file *fp)
 {
@@ -51,9 +51,9 @@ static int snfc_cen_open (struct inode *inode, struct file *fp)
 
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int snfc_cen_release (struct inode *inode, struct file *fp)
 {
@@ -77,9 +77,9 @@ static int snfc_cen_release (struct inode *inode, struct file *fp)
 
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static ssize_t snfc_cen_read(struct file *fp, char *buf, size_t count, loff_t *pos)
 {
@@ -88,7 +88,7 @@ static ssize_t snfc_cen_read(struct file *fp, char *buf, size_t count, loff_t *p
 
   SNFC_DEBUG_MSG_LOW("[snfc_cen] snfc_cen_read - start \n");
 
-/*             */
+/* Check error */
   if(NULL == fp)
   {
     SNFC_DEBUG_MSG("[snfc_cen][read] ERROR fp \n");
@@ -104,13 +104,13 @@ static ssize_t snfc_cen_read(struct file *fp, char *buf, size_t count, loff_t *p
   if(1 != count)
   {
     SNFC_DEBUG_MSG("[snfc_cen][read] ERROR count, count = %d \n", count);
-    //              
+    //return -1;    
   }
 
   if(NULL == pos)
   {
     SNFC_DEBUG_MSG("[snfc_cen][read] ERROR file \n");
-    //              
+    //return -1;    
   }
 
 
@@ -124,13 +124,13 @@ static ssize_t snfc_cen_read(struct file *fp, char *buf, size_t count, loff_t *p
     return -1;
   }
 
-  //                    
-  if(read_buf&0x01)  //       
+  // check bit 7(locken)
+  if(read_buf&0x01)  // unlock
   {
     SNFC_DEBUG_MSG_MIDDLE("[snfc_cen][read] CEN = High (UNLOCK) \n");
     snfc_cen = (char)GPIO_HIGH_VALUE;
   }
-  else  //     
+  else  // lock
   {
     SNFC_DEBUG_MSG_MIDDLE("[snfc_cen][read] CEN = Low (LOCK) \n");
     snfc_cen = (char)GPIO_LOW_VALUE;
@@ -149,19 +149,19 @@ static ssize_t snfc_cen_read(struct file *fp, char *buf, size_t count, loff_t *p
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static ssize_t snfc_cen_write(struct file *fp, const char *buf, size_t count, loff_t *pos)
 {
-	unsigned char write_buf = 0x00/*                 */;
+	unsigned char write_buf = 0x00/*, read_buf = 0x00*/;
 	int rc = -1;
 
 
 	SNFC_DEBUG_MSG_LOW("[snfc_cen][write] snfc_cen_write - start \n");
 
-	/*             */
+	/* Check error */
 	if(NULL == fp)
 	{
 		SNFC_DEBUG_MSG("[snfc_cen][write] ERROR file \n");
@@ -177,16 +177,16 @@ static ssize_t snfc_cen_write(struct file *fp, const char *buf, size_t count, lo
 	if(1 != count)
 	{
 		SNFC_DEBUG_MSG("[snfc_cen][write] ERROR count, count = %d \n", count);
-		//              
+		//return -1;    
 	}
 
 	if(NULL == pos)
 	{
 		SNFC_DEBUG_MSG("[snfc_cen][write] ERROR file \n");
-		//              
+		//return -1;    
 	}
 
-	/*                     */
+	/* copy from user data */
 	rc = copy_from_user(&write_buf, buf, count);
 	if(rc)
 	{
@@ -196,12 +196,12 @@ static ssize_t snfc_cen_write(struct file *fp, const char *buf, size_t count, lo
 
 	SNFC_DEBUG_MSG_LOW("[snfc_cen][write] copy_from_user(%d) \n",*buf);
 
-	/*                 */
+	/* check user data */
 	if(*buf == 1) 
 	{
 		SNFC_DEBUG_MSG_MIDDLE("[snfc_cen][write] CEN = High (UNLOCK) \n");
 		
-		write_buf = 0x81; //             
+		write_buf = 0x81; // set unlock  
 		mutex_lock(&nfc_cen_mutex);	
 		rc = snfc_i2c_write(0x02, &write_buf, 1);
 		mutex_unlock(&nfc_cen_mutex);   
@@ -211,7 +211,7 @@ static ssize_t snfc_cen_write(struct file *fp, const char *buf, size_t count, lo
 	{
 		SNFC_DEBUG_MSG_MIDDLE("[snfc_cen][write] CEN = Low (LOCK) \n");
 		
-		write_buf = 0x80; //         
+		write_buf = 0x80; // set lock
 		mutex_lock(&nfc_cen_mutex);
 		rc = snfc_i2c_write(0x02, &write_buf, 1);
 		mutex_unlock(&nfc_cen_mutex);  
@@ -219,7 +219,7 @@ static ssize_t snfc_cen_write(struct file *fp, const char *buf, size_t count, lo
 	}
 	else if(*buf == 2)
 	{
-		write_buf = 0x80; //         
+		write_buf = 0x80; // set lock
 		mutex_lock(&nfc_cen_mutex);
 		rc = snfc_i2c_write(0x02, &write_buf, 1);
 		mutex_unlock(&nfc_cen_mutex);  
@@ -227,7 +227,7 @@ static ssize_t snfc_cen_write(struct file *fp, const char *buf, size_t count, lo
 	
 		mdelay(1);	
 
-		write_buf = 0x81; //           
+		write_buf = 0x81; // set unlock
 		mutex_lock(&nfc_cen_mutex);
 		rc = snfc_i2c_write(0x02, &write_buf, 1);
 		mutex_unlock(&nfc_cen_mutex);  
@@ -256,9 +256,9 @@ static struct miscdevice snfc_cen_device =
 };
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int snfc_cen_init(void)
 {
@@ -266,7 +266,7 @@ static int snfc_cen_init(void)
 
   SNFC_DEBUG_MSG_LOW("[snfc_cen] snfc_cen_init - start \n");
 
-  /*                          */
+  /* register the device file */
   rc = misc_register(&snfc_cen_device);
   if (rc < 0)
   {
@@ -280,15 +280,15 @@ static int snfc_cen_init(void)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static void snfc_cen_exit(void)
 {
   SNFC_DEBUG_MSG_LOW("[snfc_cen] snfc_cen_exit - start \n");
 
-  /*                            */
+  /* deregister the device file */
   misc_deregister(&snfc_cen_device);
 
   SNFC_DEBUG_MSG_LOW("[snfc_cen] snfc_cen_exit - end \n");

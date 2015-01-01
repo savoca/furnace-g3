@@ -58,7 +58,7 @@ static struct inet_protosw pingv6_protosw = {
 };
 
 
-/*                                                                          */
+/* Compatibility glue so we can support IPv6 when it's compiled as a module */
 int dummy_ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
 {
 	return -EAFNOSUPPORT;
@@ -90,8 +90,8 @@ int __init pingv6_init(void)
 	return inet6_register_protosw(&pingv6_protosw);
 }
 
-/*                                                                            
-                    
+/* This never gets called because it's not possible to unload the ipv6 module,
+ * but just in case.
  */
 void pingv6_exit(void)
 {
@@ -153,7 +153,7 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	if (addr_type & IPV6_ADDR_MAPPED)
 		return -EINVAL;
 
-	/*                                                          */
+	/* TODO: use ip6_datagram_send_ctl to get options from cmsg */
 
 	memset(&fl6, 0, sizeof(fl6));
 
@@ -199,9 +199,9 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	if (hlimit < 0)
 		hlimit = ip6_dst_hoplimit(dst);
 
-/*                                                           */
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [START] */
 	lock_sock(sk);
-/*                                                         */
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [END] */
 
 	err = ip6_append_data(sk, ping_getfrag, &pfh, len,
 			      0, hlimit,
@@ -217,13 +217,13 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 						 (struct icmp6hdr *) &pfh.icmph,
 						 len);
 	}
-/*                                                           */
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [START] */
 	release_sock(sk);
 	if(err)
-/*                                                         */		
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [END] */		
 		return err;
 
-/*                                                           */
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [START] */
 	return len;
-/*                                                         */
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [END] */
 }

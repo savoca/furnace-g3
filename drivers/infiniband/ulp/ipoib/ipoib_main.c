@@ -41,7 +41,7 @@
 #include <linux/kernel.h>
 #include <linux/vmalloc.h>
 
-#include <linux/if_arp.h>	/*                */
+#include <linux/if_arp.h>	/* For ARPHRD_xxx */
 
 #include <linux/ip.h>
 #include <linux/in.h>
@@ -111,7 +111,7 @@ int ipoib_open(struct net_device *dev)
 	if (!test_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags)) {
 		struct ipoib_dev_priv *cpriv;
 
-		/*                                   */
+		/* Bring up any child interfaces too */
 		mutex_lock(&priv->vlan_mutex);
 		list_for_each_entry(cpriv, &priv->child_intfs, list) {
 			int flags;
@@ -154,7 +154,7 @@ static int ipoib_stop(struct net_device *dev)
 	if (!test_bit(IPOIB_FLAG_SUBINTERFACE, &priv->flags)) {
 		struct ipoib_dev_priv *cpriv;
 
-		/*                                     */
+		/* Bring down any child interfaces too */
 		mutex_lock(&priv->vlan_mutex);
 		list_for_each_entry(cpriv, &priv->child_intfs, list) {
 			int flags;
@@ -185,7 +185,7 @@ static int ipoib_change_mtu(struct net_device *dev, int new_mtu)
 {
 	struct ipoib_dev_priv *priv = netdev_priv(dev);
 
-	/*                                  */
+	/* dev->mtu > 2K ==> connected mode */
 	if (ipoib_cm_admin_enabled(dev)) {
 		if (new_mtu > ipoib_cm_max_mtu(dev))
 			return -EINVAL;
@@ -276,11 +276,11 @@ static void path_free(struct net_device *dev, struct ipoib_path *path)
 
 	list_for_each_entry_safe(neigh, tn, &path->neigh_list, list) {
 		/*
-                                                       
-                                                    
-                                                    
-                                                
-   */
+		 * It's safe to call ipoib_put_ah() inside priv->lock
+		 * here, because we know that path->ah will always
+		 * hold one more reference, so ipoib_put_ah() will
+		 * never do more than decrement the ref count.
+		 */
 		if (neigh->ah)
 			ipoib_put_ah(neigh->ah);
 
@@ -351,7 +351,7 @@ void ipoib_path_iter_read(struct ipoib_path_iter *iter,
 	*path = iter->path;
 }
 
-#endif /*                               */
+#endif /* CONFIG_INFINIBAND_IPOIB_DEBUG */
 
 void ipoib_mark_paths_invalid(struct net_device *dev)
 {
@@ -448,12 +448,12 @@ static void path_rec_completion(int status,
 			if (neigh->ah) {
 				WARN_ON(neigh->ah != old_ah);
 				/*
-                                       
-                                          
-                                        
-                                         
-               
-     */
+				 * Dropping the ah reference inside
+				 * priv->lock is safe here, because we
+				 * will hold one more reference from
+				 * the original value of path->ah (ie
+				 * old_ah).
+				 */
 				ipoib_put_ah(neigh->ah);
 			}
 			kref_get(&path->ah->ref);
@@ -555,7 +555,7 @@ static int path_rec_start(struct net_device *dev,
 	return 0;
 }
 
-/*                           */
+/* called with rcu_read_lock */
 static void neigh_add_path(struct sk_buff *skb, struct neighbour *n, struct net_device *dev)
 {
 	struct ipoib_dev_priv *priv = netdev_priv(dev);
@@ -635,18 +635,18 @@ err_drop:
 	spin_unlock_irqrestore(&priv->lock, flags);
 }
 
-/*                           */
+/* called with rcu_read_lock */
 static void ipoib_path_lookup(struct sk_buff *skb, struct neighbour *n, struct net_device *dev)
 {
 	struct ipoib_dev_priv *priv = netdev_priv(skb->dev);
 
-	/*                                  */
+	/* Look up path record for unicasts */
 	if (n->ha[4] != 0xff) {
 		neigh_add_path(skb, n, dev);
 		return;
 	}
 
-	/*                                 */
+	/* Add in the P_Key for multicasts */
 	n->ha[8] = (priv->pkey >> 8) & 0xff;
 	n->ha[9] = priv->pkey & 0xff;
 	ipoib_mcast_send(dev, n->ha + 4, skb);
@@ -736,12 +736,12 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
 			     (neigh->dev != dev))) {
 			spin_lock_irqsave(&priv->lock, flags);
 			/*
-                                             
-                                           
-                                                   
-                                               
-                              
-    */
+			 * It's safe to call ipoib_put_ah() inside
+			 * priv->lock here, because we know that
+			 * path->ah will always hold one more reference,
+			 * so ipoib_put_ah() will never do more than
+			 * decrement the ref count.
+			 */
 			if (neigh->ah)
 				ipoib_put_ah(neigh->ah);
 			list_del(&neigh->list);
@@ -773,13 +773,13 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		struct ipoib_cb *cb = (struct ipoib_cb *) skb->cb;
 
 		if (cb->hwaddr[4] == 0xff) {
-			/*                               */
+			/* Add in the P_Key for multicast*/
 			cb->hwaddr[8] = (priv->pkey >> 8) & 0xff;
 			cb->hwaddr[9] = priv->pkey & 0xff;
 
 			ipoib_mcast_send(dev, cb->hwaddr + 4, skb);
 		} else {
-			/*                                            */
+			/* unicast GID -- should be ARP or RARP reply */
 
 			if ((be16_to_cpup((__be16 *) skb->data) != ETH_P_ARP) &&
 			    (be16_to_cpup((__be16 *) skb->data) != ETH_P_RARP)) {
@@ -810,7 +810,7 @@ static void ipoib_timeout(struct net_device *dev)
 	ipoib_warn(priv, "queue stopped %d, tx_head %u, tx_tail %u\n",
 		   netif_queue_stopped(dev),
 		   priv->tx_head, priv->tx_tail);
-	/*                    */
+	/* XXX reset QP, etc. */
 }
 
 static int ipoib_hard_header(struct sk_buff *skb,
@@ -826,10 +826,10 @@ static int ipoib_hard_header(struct sk_buff *skb,
 	header->reserved = 0;
 
 	/*
-                                                     
-                                                               
-                             
-  */
+	 * If we don't have a dst_entry structure, stuff the
+	 * destination address into skb->cb so we can figure out where
+	 * to send the packet later.
+	 */
 	if (!skb_dst(skb)) {
 		struct ipoib_cb *cb = (struct ipoib_cb *) skb->cb;
 		memcpy(cb->hwaddr, daddr, INFINIBAND_ALEN);
@@ -923,7 +923,7 @@ int ipoib_dev_init(struct net_device *dev, struct ib_device *ca, int port)
 {
 	struct ipoib_dev_priv *priv = netdev_priv(dev);
 
-	/*                                            */
+	/* Allocate RX/TX "rings" to hold queued skbs */
 	priv->rx_ring =	kzalloc(ipoib_recvq_size * sizeof *priv->rx_ring,
 				GFP_KERNEL);
 	if (!priv->rx_ring) {
@@ -939,7 +939,7 @@ int ipoib_dev_init(struct net_device *dev, struct ib_device *ca, int port)
 		goto out_rx_ring_cleanup;
 	}
 
-	/*                                                       */
+	/* priv->tx_head, tx_tail & tx_outstanding are already 0 */
 
 	if (ipoib_ib_dev_init(dev, ca, port))
 		goto out_tx_ring_cleanup;
@@ -962,7 +962,7 @@ void ipoib_dev_cleanup(struct net_device *dev)
 
 	ipoib_delete_debug_files(dev);
 
-	/*                                   */
+	/* Delete any child interfaces first */
 	list_for_each_entry_safe(cpriv, tcpriv, &priv->child_intfs, list) {
 		unregister_netdev(cpriv->dev);
 		ipoib_dev_cleanup(cpriv->dev);
@@ -1107,9 +1107,9 @@ static ssize_t create_child(struct device *dev,
 		return -EINVAL;
 
 	/*
-                                                          
-                         
-  */
+	 * Set the full membership bit, so that we join the right
+	 * broadcast group, etc.
+	 */
 	pkey |= 0x8000;
 
 	ret = ipoib_vlan_add(to_net_dev(dev), pkey);
@@ -1201,7 +1201,7 @@ static struct net_device *ipoib_add_port(const char *format,
 		goto device_init_failed;
 	}
 
-	/*                                           */
+	/* MTU will be reset when mcast join happens */
 	priv->dev->mtu  = IPOIB_UD_MTU(priv->max_ib_mtu);
 	priv->mcast_mtu  = priv->admin_mtu = priv->dev->mtu;
 
@@ -1218,9 +1218,9 @@ static struct net_device *ipoib_add_port(const char *format,
 		goto device_init_failed;
 
 	/*
-                                                          
-                         
-  */
+	 * Set the full membership bit, so that we join the right
+	 * broadcast group, etc.
+	 */
 	priv->pkey |= 0x8000;
 
 	priv->dev->broadcast[8] = priv->pkey >> 8;
@@ -1371,9 +1371,9 @@ static int __init ipoib_init_module(void)
 #endif
 
 	/*
-                                                              
-                                                              
-  */
+	 * When copying small received packets, we only copy from the
+	 * linear data part of the SKB, so we rely on this condition.
+	 */
 	BUILD_BUG_ON(IPOIB_CM_COPYBREAK > IPOIB_CM_HEAD_SIZE);
 
 	ret = ipoib_register_debugfs();
@@ -1381,13 +1381,13 @@ static int __init ipoib_init_module(void)
 		return ret;
 
 	/*
-                                                            
-                                                              
-                                                           
-                                                               
-                                                        
-            
-  */
+	 * We create our own workqueue mainly because we want to be
+	 * able to flush it when devices are being removed.  We can't
+	 * use schedule_work()/flush_scheduled_work() because both
+	 * unregister_netdev() and linkwatch_event take the rtnl lock,
+	 * so flush_scheduled_work() can deadlock during device
+	 * removal.
+	 */
 	ipoib_workqueue = create_singlethread_workqueue("ipoib");
 	if (!ipoib_workqueue) {
 		ret = -ENOMEM;

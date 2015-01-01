@@ -15,7 +15,7 @@
 #include <unit/fpga-regs.h>
 
 /*
-                      
+ * FPGA PIC operations
  */
 static void asb2364_fpga_mask(struct irq_data *d)
 {
@@ -52,7 +52,7 @@ static struct irq_chip asb2364_fpga_pic = {
 };
 
 /*
-                             
+ * FPGA PIC interrupt handler
  */
 static irqreturn_t fpga_interrupt(int irq, void *_mask)
 {
@@ -71,7 +71,7 @@ static irqreturn_t fpga_interrupt(int irq, void *_mask)
 }
 
 /*
-                                                      
+ * Define an interrupt action for each FPGA PIC output
  */
 static struct irqaction fpga_irq[]  = {
 	[0] = {
@@ -82,7 +82,7 @@ static struct irqaction fpga_irq[]  = {
 };
 
 /*
-                            
+ * Initialise the FPGA's PIC
  */
 void __init irq_fpga_init(void)
 {
@@ -103,6 +103,6 @@ void __init irq_fpga_init(void)
 		irq_set_chip_and_handler(irq, &asb2364_fpga_pic,
 					 handle_level_irq);
 
-	/*                                                */
+	/* the FPGA drives the XIRQ1 input on the CPU PIC */
 	setup_irq(XIRQ1, &fpga_irq[0]);
 }

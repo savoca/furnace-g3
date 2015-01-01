@@ -44,7 +44,7 @@
 
 
 /*
-                                                     
+ *  Initialize the nuc900 video (dual) buffer address
  */
 static void nuc900fb_set_lcdaddr(struct fb_info *info)
 {
@@ -56,7 +56,7 @@ static void nuc900fb_set_lcdaddr(struct fb_info *info)
 	vbaddr2  = info->fix.smem_start;
 	vbaddr2 += info->fix.line_length * info->var.yres;
 
-	/*                              */
+	/* set frambuffer start phy addr*/
 	writel(vbaddr1, regs + REG_LCM_VA_BADDR0);
 	writel(vbaddr2, regs + REG_LCM_VA_BADDR1);
 
@@ -65,7 +65,7 @@ static void nuc900fb_set_lcdaddr(struct fb_info *info)
 }
 
 /*
-                                
+ *	calculate divider for lcd div
  */
 static unsigned int nuc900fb_calc_pixclk(struct nuc900fb_info *fbi,
 					 unsigned long pixclk)
@@ -73,8 +73,8 @@ static unsigned int nuc900fb_calc_pixclk(struct nuc900fb_info *fbi,
 	unsigned long clk = fbi->clk_rate;
 	unsigned long long div;
 
-	/*                                            */
-	/*                            */
+	/* pixclk is in picseconds. our clock is in Hz*/
+	/* div = (clk * pixclk)/10^12 */
 	div = (unsigned long long)clk * pixclk;
 	div >>= 12;
 	do_div(div, 625 * 625UL * 625);
@@ -85,7 +85,7 @@ static unsigned int nuc900fb_calc_pixclk(struct nuc900fb_info *fbi,
 }
 
 /*
-                                   
+ *	Check the video params of 'var'.
  */
 static int nuc900fb_check_var(struct fb_var_screeninfo *var,
 			       struct fb_info *info)
@@ -99,8 +99,8 @@ static int nuc900fb_check_var(struct fb_var_screeninfo *var,
 
 	dev_dbg(fbi->dev, "check_var(var=%p, info=%p)\n", var, info);
 
-	/*                         */
-	/*                                 */
+	/* validate x/y resolution */
+	/* choose default mode if possible */
 	if (var->xres == default_display->xres &&
 	    var->yres == default_display->yres &&
 	    var->bits_per_pixel == default_display->bpp)
@@ -120,13 +120,13 @@ static int nuc900fb_check_var(struct fb_var_screeninfo *var,
 		return -EINVAL;
 	}
 
-	/*                                           */
+	/* it should be the same size as the display */
 	var->xres_virtual	= display->xres;
 	var->yres_virtual	= display->yres;
 	var->height		= display->height;
 	var->width		= display->width;
 
-	/*                   */
+	/* copy lcd settings */
 	var->pixclock		= display->pixclock;
 	var->left_margin	= display->left_margin;
 	var->right_margin	= display->right_margin;
@@ -143,7 +143,7 @@ static int nuc900fb_check_var(struct fb_var_screeninfo *var,
 	fbi->regs.lcd_va_fbctrl = display->fbctrl;
 	fbi->regs.lcd_va_scale = display->scale;
 
-	/*                    */
+	/* set R/G/B possions */
 	switch (var->bits_per_pixel) {
 	case 1:
 	case 2:
@@ -193,7 +193,7 @@ static int nuc900fb_check_var(struct fb_var_screeninfo *var,
 }
 
 /*
-                                                                
+ *	Calculate lcd register values from var setting & save into hw
  */
 static void nuc900fb_calculate_lcd_regs(const struct fb_info *info,
 					struct nuc900fb_hw *regs)
@@ -218,8 +218,8 @@ static void nuc900fb_calculate_lcd_regs(const struct fb_info *info,
 }
 
 /*
-                                                           
-              
+ *	Activate (set) the controller from the given framebuffer
+ *	information
  */
 static void nuc900fb_activate_var(struct fb_info *info)
 {
@@ -234,7 +234,7 @@ static void nuc900fb_activate_var(struct fb_info *info)
 
 	nuc900fb_calculate_lcd_regs(info, &fbi->regs);
 
-	/*                          */
+	/* set the new lcd registers*/
 
 	dev_dbg(fbi->dev, "new lcd register set:\n");
 	dev_dbg(fbi->dev, "dccs       = 0x%08x\n", fbi->regs.lcd_dccs);
@@ -252,15 +252,15 @@ static void nuc900fb_activate_var(struct fb_info *info)
 	writel(fbi->regs.lcd_crtc_hsync, regs + REG_LCM_CRTC_HSYNC);
 	writel(fbi->regs.lcd_crtc_vr, regs + REG_LCM_CRTC_VR);
 
-	/*                          */
+	/* set lcd address pointers */
 	nuc900fb_set_lcdaddr(info);
 
 	writel(fbi->regs.lcd_dccs, regs + REG_LCM_DCCS);
 }
 
 /*
-                                  
-  
+ *      Alters the hardware state.
+ *
  */
 static int nuc900fb_set_par(struct fb_info *info)
 {
@@ -284,7 +284,7 @@ static int nuc900fb_set_par(struct fb_info *info)
 
 	info->fix.line_length = (var->xres_virtual * var->bits_per_pixel) / 8;
 
-	/*                                 */
+	/* activate this new configuration */
 	nuc900fb_activate_var(info);
 	return 0;
 }
@@ -305,7 +305,7 @@ static int nuc900fb_setcolreg(unsigned regno,
 
 	switch (info->fix.visual) {
 	case FB_VISUAL_TRUECOLOR:
-		/*                                */
+		/* true-colour, use pseuo-palette */
 		if (regno < 16) {
 			u32 *pal = info->pseudo_palette;
 
@@ -317,14 +317,14 @@ static int nuc900fb_setcolreg(unsigned regno,
 		break;
 
 	default:
-		return 1;   /*              */
+		return 1;   /* unknown type */
 	}
 	return 0;
 }
 
-/* 
-                      
-  
+/**
+ *      nuc900fb_blank
+ *
  */
 static int nuc900fb_blank(int blank_mode, struct fb_info *info)
 {
@@ -353,7 +353,7 @@ static inline void modify_gpio(void __iomem *reg,
 }
 
 /*
-                                   
+ * Initialise LCD-related registers
  */
 static int nuc900fb_init_registers(struct fb_info *info)
 {
@@ -361,7 +361,7 @@ static int nuc900fb_init_registers(struct fb_info *info)
 	struct nuc900fb_mach_info *mach_info = fbi->dev->platform_data;
 	void __iomem *regs = fbi->io;
 
-	/*                        */
+	/*reset the display engine*/
 	writel(0, regs + REG_LCM_DCCS);
 	writel(readl(regs + REG_LCM_DCCS) | LCM_DCCS_ENG_RST,
 	       regs + REG_LCM_DCCS);
@@ -372,7 +372,7 @@ static int nuc900fb_init_registers(struct fb_info *info)
 
 	writel(0, regs + REG_LCM_DEV_CTRL);
 
-	/*                    */
+	/* config gpio output */
 	modify_gpio(W90X900_VA_GPIO + 0x54, mach_info->gpio_dir,
 		    mach_info->gpio_dir_mask);
 	modify_gpio(W90X900_VA_GPIO + 0x58, mach_info->gpio_data,
@@ -383,9 +383,9 @@ static int nuc900fb_init_registers(struct fb_info *info)
 
 
 /*
-                                                            
-                                                                    
-                                                                   
+ *    Alloc the SDRAM region of NUC900 for the frame buffer.
+ *    The buffer should be a non-cached, non-buffered, memory region
+ *    to allow palette and pixel writes without flushing the cache.
  */
 static int __init nuc900fb_map_video_memory(struct fb_info *info)
 {
@@ -425,16 +425,16 @@ static irqreturn_t nuc900fb_irqhandler(int irq, void *dev_id)
 	if (lcdirq & LCM_INT_CS_DISP_F_STATUS) {
 		writel(readl(irq_base) | 1<<30, irq_base);
 
-		/*                */
+		/* wait VA_EN low */
 		if ((readl(regs + REG_LCM_DCCS) &
 		    LCM_DCCS_SINGLE) == LCM_DCCS_SINGLE)
 			while ((readl(regs + REG_LCM_DCCS) &
 			       LCM_DCCS_VA_EN) == LCM_DCCS_VA_EN)
 				;
-		/*                    */
+		/* display_out-enable */
 		writel(readl(regs + REG_LCM_DCCS) | LCM_DCCS_DISP_OUT_EN,
 			regs + REG_LCM_DCCS);
-		/*          */
+		/* va-enable*/
 		writel(readl(regs + REG_LCM_DCCS) | LCM_DCCS_VA_EN,
 			regs + REG_LCM_DCCS);
 	} else if (lcdirq & LCM_INT_CS_UNDERRUN_INT) {
@@ -568,10 +568,10 @@ static int __devinit nuc900fb_probe(struct platform_device *pdev)
 	fbi->irq_base = fbi->io + REG_LCM_INT_CS;
 
 
-	/*              */
+	/* Stop the LCD */
 	writel(0, fbi->io + REG_LCM_DCCS);
 
-	/*                */
+	/* fill the fbinfo*/
 	strcpy(fbinfo->fix.id, driver_name);
 	fbinfo->fix.type		= FB_TYPE_PACKED_PIXELS;
 	fbinfo->fix.type_aux		= 0;
@@ -608,7 +608,7 @@ static int __devinit nuc900fb_probe(struct platform_device *pdev)
 
 	fbi->clk_rate = clk_get_rate(fbi->clk);
 
-	/*                                */
+	/* calutate the video buffer size */
 	for (i = 0; i < mach_info->num_displays; i++) {
 		unsigned long smem_len = mach_info->displays[i].xres;
 		smem_len *= mach_info->displays[i].yres;
@@ -618,7 +618,7 @@ static int __devinit nuc900fb_probe(struct platform_device *pdev)
 			fbinfo->fix.smem_len = smem_len;
 	}
 
-	/*                         */
+	/* Initialize Video Memory */
 	ret = nuc900fb_map_video_memory(fbinfo);
 	if (ret) {
 		printk(KERN_ERR "Failed to allocate video RAM: %x\n", ret);
@@ -672,7 +672,7 @@ free_fb:
 }
 
 /*
-                              
+ * shutdown the lcd controller
  */
 static void nuc900fb_stop_lcd(struct fb_info *info)
 {
@@ -684,7 +684,7 @@ static void nuc900fb_stop_lcd(struct fb_info *info)
 }
 
 /*
-           
+ *  Cleanup
  */
 static int nuc900fb_remove(struct platform_device *pdev)
 {
@@ -716,7 +716,7 @@ static int nuc900fb_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 
 /*
-                                                    
+ *	suspend and resume support for the lcd controller
  */
 
 static int nuc900fb_suspend(struct platform_device *dev, pm_message_t state)

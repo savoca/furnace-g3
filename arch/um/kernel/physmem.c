@@ -16,7 +16,7 @@
 
 static int physmem_fd = -1;
 
-/*                           */
+/* Changed during early boot */
 unsigned long high_physmem;
 EXPORT_SYMBOL(high_physmem);
 
@@ -98,9 +98,9 @@ void __init setup_physmem(unsigned long start, unsigned long reserve_end,
 	}
 
 	/*
-                                                                       
-                                                         
-  */
+	 * Special kludge - This page will be mapped in to userspace processes
+	 * from physmem_fd, so it needs to be written out there.
+	 */
 	os_seek_file(physmem_fd, __pa(&__syscall_stub_start));
 	os_write_file(physmem_fd, &__syscall_stub_start, PAGE_SIZE);
 
@@ -162,13 +162,13 @@ __uml_setup("iomem=", parse_iomem,
 );
 
 /*
-                                                                     
-                                                                      
-             
+ * This list is constructed in parse_iomem and addresses filled in in
+ * setup_iomem, both of which run during early boot.  Afterwards, it's
+ * unchanged.
  */
 struct iomem_region *iomem_regions;
 
-/*                                                     */
+/* Initialized in parse_iomem and unchanged thereafter */
 int iomem_size;
 
 unsigned long find_iomem(char *driver, unsigned long *len_out)

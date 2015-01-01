@@ -28,13 +28,13 @@
 
 #include "mpi-internal.h"
 
-/*                                                                      
-                                                                    
-                                                               
-  
-                        
-                                
-                                                                      
+/* Shift U (pointed to by UP and USIZE digits long) CNT bits to the left
+ * and store the USIZE least significant digits of the result at WP.
+ * Return the bits shifted out from the most significant digit.
+ *
+ * Argument constraints:
+ * 1. 0 < CNT < BITS_PER_MP_LIMB
+ * 2. If the result is to be written over the input, WP must be >= UP.
  */
 
 mpi_limb_t

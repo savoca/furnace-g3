@@ -57,13 +57,13 @@
 
 typedef __s32 sctp_assoc_t;
 
-/*                                                               
-                                             
+/* The following symbols come from the Sockets API Extensions for
+ * SCTP <draft-ietf-tsvwg-sctpsocket-07.txt>.
  */
 #define SCTP_RTOINFO	0
 #define SCTP_ASSOCINFO  1
 #define SCTP_INITMSG	2
-#define SCTP_NODELAY	3		/*                         */
+#define SCTP_NODELAY	3		/* Get/set nodelay option. */
 #define SCTP_AUTOCLOSE	4
 #define SCTP_SET_PEER_PRIMARY_ADDR 5
 #define SCTP_PRIMARY_ADDR	6
@@ -72,8 +72,8 @@ typedef __s32 sctp_assoc_t;
 #define SCTP_PEER_ADDR_PARAMS	9
 #define SCTP_DEFAULT_SEND_PARAM	10
 #define SCTP_EVENTS	11
-#define SCTP_I_WANT_MAPPED_V4_ADDR 12	/*                                  */
-#define SCTP_MAXSEG	13		/*                           */
+#define SCTP_I_WANT_MAPPED_V4_ADDR 12	/* Turn on/off mapped v4 addresses  */
+#define SCTP_MAXSEG	13		/* Get/set maximum fragment. */
 #define SCTP_STATUS	14
 #define SCTP_GET_PEER_ADDR_INFO	15
 #define SCTP_DELAYED_ACK_TIME	16
@@ -81,44 +81,44 @@ typedef __s32 sctp_assoc_t;
 #define SCTP_DELAYED_SACK SCTP_DELAYED_ACK_TIME
 #define SCTP_CONTEXT	17
 #define SCTP_FRAGMENT_INTERLEAVE	18
-#define SCTP_PARTIAL_DELIVERY_POINT	19 /*                                */
-#define SCTP_MAX_BURST	20		/*                   */
-#define SCTP_AUTH_CHUNK	21	/*                                            */
+#define SCTP_PARTIAL_DELIVERY_POINT	19 /* Set/Get partial delivery point */
+#define SCTP_MAX_BURST	20		/* Set/Get max burst */
+#define SCTP_AUTH_CHUNK	21	/* Set only: add a chunk type to authenticate */
 #define SCTP_HMAC_IDENT	22
 #define SCTP_AUTH_KEY	23
 #define SCTP_AUTH_ACTIVE_KEY	24
 #define SCTP_AUTH_DELETE_KEY	25
-#define SCTP_PEER_AUTH_CHUNKS	26	/*           */
-#define SCTP_LOCAL_AUTH_CHUNKS	27	/*           */
-#define SCTP_GET_ASSOC_NUMBER	28	/*           */
-#define SCTP_GET_ASSOC_ID_LIST	29	/*           */
+#define SCTP_PEER_AUTH_CHUNKS	26	/* Read only */
+#define SCTP_LOCAL_AUTH_CHUNKS	27	/* Read only */
+#define SCTP_GET_ASSOC_NUMBER	28	/* Read only */
+#define SCTP_GET_ASSOC_ID_LIST	29	/* Read only */
 #define SCTP_AUTO_ASCONF       30
 
-/*                                                                
-                                          
+/* Internal Socket Options. Some of the sctp library functions are
+ * implemented using these socket options.
  */
-#define SCTP_SOCKOPT_BINDX_ADD	100	/*                                 */
-#define SCTP_SOCKOPT_BINDX_REM	101	/*                                    */
-#define SCTP_SOCKOPT_PEELOFF	102	/*                       */
-/*                                                                   */
-#define SCTP_SOCKOPT_CONNECTX_OLD	107	/*                        */
-#define SCTP_GET_PEER_ADDRS	108		/*                       */
-#define SCTP_GET_LOCAL_ADDRS	109		/*                        */
-#define SCTP_SOCKOPT_CONNECTX	110		/*                    */
-#define SCTP_SOCKOPT_CONNECTX3	111	/*                             */
+#define SCTP_SOCKOPT_BINDX_ADD	100	/* BINDX requests for adding addrs */
+#define SCTP_SOCKOPT_BINDX_REM	101	/* BINDX requests for removing addrs. */
+#define SCTP_SOCKOPT_PEELOFF	102	/* peel off association. */
+/* Options 104-106 are deprecated and removed. Do not use this space */
+#define SCTP_SOCKOPT_CONNECTX_OLD	107	/* CONNECTX old requests. */
+#define SCTP_GET_PEER_ADDRS	108		/* Get all peer address. */
+#define SCTP_GET_LOCAL_ADDRS	109		/* Get all local address. */
+#define SCTP_SOCKOPT_CONNECTX	110		/* CONNECTX requests. */
+#define SCTP_SOCKOPT_CONNECTX3	111	/* CONNECTX requests (updated) */
 
 /*
-                                              
-  
-                                                                     
-                                                                      
-                                                                   
-               
-  
-                                             
-                                                        
-                                                     
-  
+ * 5.2.1 SCTP Initiation Structure (SCTP_INIT)
+ *
+ *   This cmsghdr structure provides information for initializing new
+ *   SCTP associations with sendmsg().  The SCTP_INITMSG socket option
+ *   uses this same data structure.  This structure is not used for
+ *   recvmsg().
+ *
+ *   cmsg_level    cmsg_type      cmsg_data[]
+ *   ------------  ------------   ----------------------
+ *   IPPROTO_SCTP  SCTP_INIT      struct sctp_initmsg
+ *
  */
 struct sctp_initmsg {
 	__u16 sinit_num_ostreams;
@@ -128,16 +128,16 @@ struct sctp_initmsg {
 };
 
 /*
-                                                        
-  
-                                                                    
-                                                                       
-               
-  
-                                             
-                                                        
-                                                        
-  
+ * 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
+ *
+ *   This cmsghdr structure specifies SCTP options for sendmsg() and
+ *   describes SCTP header information about a received message through
+ *   recvmsg().
+ *
+ *   cmsg_level    cmsg_type      cmsg_data[]
+ *   ------------  ------------   ----------------------
+ *   IPPROTO_SCTP  SCTP_SNDRCV    struct sctp_sndrcvinfo
+ *
  */
 struct sctp_sndrcvinfo {
 	__u16 sinfo_stream;
@@ -152,36 +152,36 @@ struct sctp_sndrcvinfo {
 };
 
 /*
-                                           
-  
-                                                                         
-                                  
+ *  sinfo_flags: 16 bits (unsigned integer)
+ *
+ *   This field may contain any of the following flags and is composed of
+ *   a bitwise OR of these values.
  */
 
 enum sctp_sinfo_flags {
-	SCTP_UNORDERED = 1,  /*                                 */
-	SCTP_ADDR_OVER = 2,  /*                                   */
-	SCTP_ABORT=4,        /*                                    */
-	SCTP_SACK_IMMEDIATELY = 8,	/*                                   */
-	SCTP_EOF=MSG_FIN,    /*                                     */	
+	SCTP_UNORDERED = 1,  /* Send/receive message unordered. */
+	SCTP_ADDR_OVER = 2,  /* Override the primary destination. */
+	SCTP_ABORT=4,        /* Send an ABORT message to the peer. */
+	SCTP_SACK_IMMEDIATELY = 8,	/* SACK should be sent without delay */
+	SCTP_EOF=MSG_FIN,    /* Initiate graceful shutdown process. */	
 };
 
 
-/*                        */
+/* These are cmsg_types.  */
 typedef enum sctp_cmsg_type {
-	SCTP_INIT,              /*                                 */
-	SCTP_SNDRCV,            /*                                         */
+	SCTP_INIT,              /* 5.2.1 SCTP Initiation Structure */
+	SCTP_SNDRCV,            /* 5.2.2 SCTP Header Information Structure */
 } sctp_cmsg_t;
 
 
 /*
-                            
-  
-                                                                        
-                                                                       
-                                                                       
-                      
-  
+ * 5.3.1.1 SCTP_ASSOC_CHANGE
+ *
+ *   Communication notifications inform the ULP that an SCTP association
+ *   has either begun or ended. The identifier for a new association is
+ *   provided by this notificaion. The notification information has the
+ *   following format:
+ *
  */
 struct sctp_assoc_change {
 	__u16 sac_type;
@@ -196,13 +196,13 @@ struct sctp_assoc_change {
 };
 
 /*
-                                        
-  
-                                                                    
-                                                           
-  
-                                                                   
-                                                          
+ *   sac_state: 32 bits (signed integer)
+ *
+ *   This field holds one of a number of values that communicate the
+ *   event that happened to the association.  They include:
+ *
+ *   Note:  The following state names deviate from the API draft as
+ *   the names clash too easily with other kernel symbols.
  */
 enum sctp_sac_state {
 	SCTP_COMM_UP,
@@ -213,11 +213,11 @@ enum sctp_sac_state {
 };
 
 /*
-                                
-  
-                                                                         
-                                                                 
-                         
+ * 5.3.1.2 SCTP_PEER_ADDR_CHANGE
+ *
+ *   When a destination address on a multi-homed peer encounters a change
+ *   an interface details event is sent.  The information has the
+ *   following structure:
  */
 struct sctp_paddr_change {
 	__u16 spc_type;
@@ -230,10 +230,10 @@ struct sctp_paddr_change {
 } __attribute__((packed, aligned(4)));
 
 /*
-                                          
-  
-                                                                    
-                                                       
+ *    spc_state:  32 bits (signed integer)
+ *
+ *   This field holds one of a number of values that communicate the
+ *   event that happened to the address.  They include:
  */
 enum sctp_spc_state {
 	SCTP_ADDR_AVAILABLE,
@@ -246,14 +246,14 @@ enum sctp_spc_state {
 
 
 /*
-                            
-  
-                                                                     
-                                                               
-                                                                   
-                                                                     
-                                                                   
-                                                    
+ * 5.3.1.3 SCTP_REMOTE_ERROR
+ *
+ *   A remote peer may send an Operational Error message to its peer.
+ *   This message indicates a variety of error conditions on an
+ *   association. The entire error TLV as it appears on the wire is
+ *   included in a SCTP_REMOTE_ERROR event.  Please refer to the SCTP
+ *   specification [SCTP] and any extensions for a list of possible
+ *   error formats. SCTP error TLVs have the format:
  */
 struct sctp_remote_error {
 	__u16 sre_type;
@@ -266,10 +266,10 @@ struct sctp_remote_error {
 
 
 /*
-                           
-  
-                                                                    
-                  
+ * 5.3.1.4 SCTP_SEND_FAILED
+ *
+ *   If SCTP cannot deliver a message it may return the message as a
+ *   notification.
  */
 struct sctp_send_failed {
 	__u16 ssf_type;
@@ -282,16 +282,16 @@ struct sctp_send_failed {
 };
 
 /*
-                                          
-  
-                                                         
-  
-                                                                 
-                                  
-  
-                                                                     
-                                                                          
-                                                                      
+ *   ssf_flags: 16 bits (unsigned integer)
+ *
+ *   The flag value will take one of the following values
+ *
+ *   SCTP_DATA_UNSENT  - Indicates that the data was never put on
+ *                       the wire.
+ *
+ *   SCTP_DATA_SENT    - Indicates that the data was put on the wire.
+ *                       Note that this does not necessarily mean that the
+ *                       data was (or was not) successfully delivered.
  */
 enum sctp_ssf_flags {
 	SCTP_DATA_UNSENT,
@@ -299,10 +299,10 @@ enum sctp_ssf_flags {
 };
 
 /*
-                              
-  
-                                                                     
-                                                              
+ * 5.3.1.5 SCTP_SHUTDOWN_EVENT
+ *
+ *   When a peer sends a SHUTDOWN, SCTP delivers this notification to
+ *   inform the application that it should cease sending data.
  */
 struct sctp_shutdown_event {
 	__u16 sse_type;
@@ -312,11 +312,11 @@ struct sctp_shutdown_event {
 };
 
 /*
-                                     
-  
-                                                                     
-                                                         
-                                                  
+ * 5.3.1.6 SCTP_ADAPTATION_INDICATION
+ *
+ *   When a peer sends a Adaptation Layer Indication parameter , SCTP
+ *   delivers this notification to inform the application
+ *   that of the peers requested adaptation layer.
  */
 struct sctp_adaptation_event {
 	__u16 sai_type;
@@ -327,11 +327,11 @@ struct sctp_adaptation_event {
 };
 
 /*
-                                      
-  
-                                                          
-                                                       
-                    
+ * 5.3.1.7 SCTP_PARTIAL_DELIVERY_EVENT
+ *
+ *   When a receiver is engaged in a partial delivery of a
+ *   message this notification will be used to indicate
+ *   various events.
  */
 struct sctp_pdapi_event {
 	__u16 pdapi_type;
@@ -356,12 +356,12 @@ struct sctp_authkey_event {
 enum { SCTP_AUTH_NEWKEY = 0, };
 
 /*
-                               
-  
-                                                                        
-                                                                       
-                                                              
-                                                                    
+ * 6.1.9. SCTP_SENDER_DRY_EVENT
+ *
+ * When the SCTP stack has no more user data to send or retransmit, this
+ * notification is given to the user. Also, at the time when a user app
+ * subscribes to this event, if there is no data to be sent or
+ * retransmit, the stack will immediately send up this notification.
  */
 struct sctp_sender_dry_event {
 	__u16 sender_dry_type;
@@ -371,8 +371,8 @@ struct sctp_sender_dry_event {
 };
 
 /*
-                           
-                                                     
+ * Described in Section 7.3
+ *   Ancillary Data and Notification Interest Options
  */
 struct sctp_event_subscribe {
 	__u8 sctp_data_io_event;
@@ -388,15 +388,15 @@ struct sctp_event_subscribe {
 };
 
 /*
-                                    
-  
-                                                              
-                        
-  
+ * 5.3.1 SCTP Notification Structure
+ *
+ *   The notification structure is defined as the union of all
+ *   notification types.
+ *
  */
 union sctp_notification {
 	struct {
-		__u16 sn_type;             /*                    */
+		__u16 sn_type;             /* Notification type. */
 		__u16 sn_flags;
 		__u32 sn_length;
 	} sn_header;
@@ -411,9 +411,9 @@ union sctp_notification {
 	struct sctp_sender_dry_event sn_sender_dry_event;
 };
 
-/*              
-                                                               
-                                          
+/* Section 5.3.1
+ * All standard values for sn_type flags are greater than 2^15.
+ * Values from 2^15 and down are reserved.
  */
 
 enum sctp_sn_type {
@@ -430,12 +430,12 @@ enum sctp_sn_type {
 	SCTP_SENDER_DRY_EVENT,
 };
 
-/*                                                                  
-                 
-                                       
-                                 
-                                                                         
-                             
+/* Notification error codes used to fill up the error fields in some
+ * notifications.
+ * SCTP_PEER_ADDRESS_CHAGE 	: spc_error
+ * SCTP_ASSOC_CHANGE		: sac_error
+ * These names should be potentially included in the draft 04 of the SCTP
+ * sockets API specification.
  */
 typedef enum sctp_sn_error {
 	SCTP_FAILED_THRESHOLD,
@@ -448,11 +448,11 @@ typedef enum sctp_sn_error {
 } sctp_sn_error_t;
 
 /*
-                                                         
-  
-                                                                        
-                                                                       
-                                                   
+ * 7.1.1 Retransmission Timeout Parameters (SCTP_RTOINFO)
+ *
+ *   The protocol parameters used to initialize and bound retransmission
+ *   timeout (RTO) are tunable.  See [SCTP] for more information on how
+ *   these parameters are used in RTO calculation. 
  */
 struct sctp_rtoinfo {
 	sctp_assoc_t	srto_assoc_id;
@@ -462,10 +462,10 @@ struct sctp_rtoinfo {
 };
 
 /*
-                                                
-  
-                                                                        
-                         
+ * 7.1.2 Association Parameters (SCTP_ASSOCINFO)
+ *
+ *   This option is used to both examine and set various association and
+ *   endpoint parameters.
  */
 struct sctp_assocparams {
 	sctp_assoc_t	sasoc_assoc_id;
@@ -477,12 +477,12 @@ struct sctp_assocparams {
 };
 
 /*
-                                                              
-  
-                                                                       
-                                                                  
-                                                                      
-                         
+ * 7.1.9 Set Peer Primary Address (SCTP_SET_PEER_PRIMARY_ADDR)
+ *
+ *  Requests that the peer mark the enclosed address as the association
+ *  primary. The enclosed address must be one of the association's
+ *  locally bound addresses. The following structure is used to make a
+ *   set primary request:
  */
 struct sctp_setpeerprim {
 	sctp_assoc_t            sspp_assoc_id;
@@ -490,12 +490,12 @@ struct sctp_setpeerprim {
 } __attribute__((packed, aligned(4)));
 
 /*
-                                                 
-  
-                                                                       
-                                                                    
-                                                                    
-                                    
+ * 7.1.10 Set Primary Address (SCTP_PRIMARY_ADDR)
+ *
+ *  Requests that the local SCTP stack use the enclosed peer address as
+ *  the association primary. The enclosed address must be one of the
+ *  association peer's addresses. The following structure is used to
+ *  make a set peer primary request:
  */
 struct sctp_prim {
 	sctp_assoc_t            ssp_assoc_id;
@@ -503,37 +503,37 @@ struct sctp_prim {
 } __attribute__((packed, aligned(4)));
 
 /*
-                                                                
-  
-                                                                      
-                                                                   
+ * 7.1.11 Set Adaptation Layer Indicator (SCTP_ADAPTATION_LAYER)
+ *
+ * Requests that the local endpoint set the specified Adaptation Layer
+ * Indication parameter for all future INIT and INIT-ACK exchanges.
  */
 struct sctp_setadaptation {
 	__u32	ssb_adaptation_ind;
 };
 
 /*
-                                                          
-  
-                                                                       
-                                                                       
-                                                                       
-                                                                   
-                                                                         
-                          
+ * 7.1.13 Peer Address Parameters  (SCTP_PEER_ADDR_PARAMS)
+ *
+ *   Applications can enable or disable heartbeats for any peer address
+ *   of an association, modify an address's heartbeat interval, force a
+ *   heartbeat to be sent immediately, and adjust the address's maximum
+ *   number of retransmissions sent before an address is considered
+ *   unreachable. The following structure is used to access and modify an
+ *   address's parameters:
  */
 enum  sctp_spp_flags {
-	SPP_HB_ENABLE = 1<<0,		/*                 */
-	SPP_HB_DISABLE = 1<<1,		/*                  */
+	SPP_HB_ENABLE = 1<<0,		/*Enable heartbeats*/
+	SPP_HB_DISABLE = 1<<1,		/*Disable heartbeats*/
 	SPP_HB = SPP_HB_ENABLE | SPP_HB_DISABLE,
-	SPP_HB_DEMAND = 1<<2,		/*                          */
-	SPP_PMTUD_ENABLE = 1<<3,	/*                     */
-	SPP_PMTUD_DISABLE = 1<<4,	/*                      */
+	SPP_HB_DEMAND = 1<<2,		/*Send heartbeat immediately*/
+	SPP_PMTUD_ENABLE = 1<<3,	/*Enable PMTU discovery*/
+	SPP_PMTUD_DISABLE = 1<<4,	/*Disable PMTU discovery*/
 	SPP_PMTUD = SPP_PMTUD_ENABLE | SPP_PMTUD_DISABLE,
-	SPP_SACKDELAY_ENABLE = 1<<5,	/*           */
-	SPP_SACKDELAY_DISABLE = 1<<6,	/*            */
+	SPP_SACKDELAY_ENABLE = 1<<5,	/*Enable SACK*/
+	SPP_SACKDELAY_DISABLE = 1<<6,	/*Disable SACK*/
 	SPP_SACKDELAY = SPP_SACKDELAY_ENABLE | SPP_SACKDELAY_DISABLE,
-	SPP_HB_TIME_IS_ZERO = 1<<7,	/*                   */
+	SPP_HB_TIME_IS_ZERO = 1<<7,	/* Set HB delay to 0 */
 };
 
 struct sctp_paddrparams {
@@ -547,21 +547,21 @@ struct sctp_paddrparams {
 } __attribute__((packed, aligned(4)));
 
 /*
-                                                                    
-  
-                                                                      
-                                                                        
-                                                      
+ * 7.1.18.  Add a chunk that must be authenticated (SCTP_AUTH_CHUNK)
+ *
+ * This set option adds a chunk type that the user is requesting to be
+ * received only in an authenticated way.  Changes to the list of chunks
+ * will only effect future associations on the socket.
  */
 struct sctp_authchunk {
 	__u8		sauth_chunk;
 };
 
 /*
-                                                                               
-  
-                                                                      
-                                     
+ * 7.1.19.  Get or set the list of supported HMAC Identifiers (SCTP_HMAC_IDENT)
+ *
+ * This option gets or sets the list of HMAC algorithms that the local
+ * endpoint requires the peer to use.
 */
 struct sctp_hmacalgo {
 	__u32		shmac_num_idents;
@@ -569,10 +569,10 @@ struct sctp_hmacalgo {
 };
 
 /*
-                                            
-  
-                                                                     
-                          
+ * 7.1.20.  Set a shared key (SCTP_AUTH_KEY)
+ *
+ * This option will set a shared secret key which is used to build an
+ * association shared key.
  */
 struct sctp_authkey {
 	sctp_assoc_t	sca_assoc_id;
@@ -582,10 +582,10 @@ struct sctp_authkey {
 };
 
 /*
-                                                                   
-  
-                                                                        
-                              
+ * 7.1.21.  Get or set the active shared key (SCTP_AUTH_ACTIVE_KEY)
+ *
+ * This option will get or set the active shared key to be used to build
+ * the association shared key.
  */
 
 struct sctp_authkeyid {
@@ -595,18 +595,18 @@ struct sctp_authkeyid {
 
 
 /*
-                                                            
-  
-                                                                    
-                                                           
-                                                                    
-                                                                       
-                                                                  
-                                                                  
-                                                                   
-                                                                    
-                                                                   
-                                        
+ * 7.1.23.  Get or set delayed ack timer (SCTP_DELAYED_SACK)
+ *
+ * This option will effect the way delayed acks are performed.  This
+ * option allows you to get or set the delayed ack time, in
+ * milliseconds.  It also allows changing the delayed ack frequency.
+ * Changing the frequency to 1 disables the delayed sack algorithm.  If
+ * the assoc_id is 0, then this sets or gets the endpoints default
+ * values.  If the assoc_id field is non-zero, then the set or get
+ * effects the specified association for the one to many model (the
+ * assoc_id field is ignored by the one to one model).  Note that if
+ * sack_delay or sack_freq are 0 when setting this option, then the
+ * current values will remain unchanged.
  */
 struct sctp_sack_info {
 	sctp_assoc_t	sack_assoc_id;
@@ -620,13 +620,13 @@ struct sctp_assoc_value {
 };
 
 /*
-                                 
-  
-                                                                        
-                                                                    
-                                                                  
-                                                              
-                 
+ * 7.2.2 Peer Address Information
+ *
+ *   Applications can retrieve information about a specific peer address
+ *   of an association, including its reachability state, congestion
+ *   window, and retransmission timer values.  This information is
+ *   read-only. The following structure is used to access this
+ *   information:
  */
 struct sctp_paddrinfo {
 	sctp_assoc_t		spinfo_assoc_id;
@@ -638,30 +638,30 @@ struct sctp_paddrinfo {
 	__u32			spinfo_mtu;
 } __attribute__((packed, aligned(4)));
 
-/*                         */
-/*                                                                         
-         
-                                                                          
-                                                                           
-              
-                                                                            
-                                                                        
+/* Peer addresses's state. */
+/* UNKNOWN: Peer address passed by the upper layer in sendmsg or connect[x]
+ * calls.
+ * UNCONFIRMED: Peer address received in INIT/INIT-ACK address parameters.
+ *              Not yet confirmed by a heartbeat and not available for data
+ *		transfers.
+ * ACTIVE : Peer address confirmed, active and available for data transfers.
+ * INACTIVE: Peer address inactive and not available for data transfers.
  */
 enum sctp_spinfo_state {
 	SCTP_INACTIVE,
 	SCTP_ACTIVE,
 	SCTP_UNCONFIRMED,
-	SCTP_UNKNOWN = 0xffff  /*                                        */
+	SCTP_UNKNOWN = 0xffff  /* Value used for transport state unknown */
 };
 
 /*
-                                         
-  
-                                                                  
-                                                                         
-                                                                     
-                                                                         
-                                     
+ * 7.2.1 Association Status (SCTP_STATUS)
+ *
+ *   Applications can retrieve current status information about an
+ *   association, including association state, peer receiver window size,
+ *   number of unacked data chunks, and number of data chunks pending
+ *   receipt.  This information is read-only.  The following structure is
+ *   used to access this information:
  */
 struct sctp_status {
 	sctp_assoc_t		sstat_assoc_id;
@@ -676,11 +676,11 @@ struct sctp_status {
 };
 
 /*
-                                                                       
-                                  
-  
-                                                                     
-                                                       
+ * 7.2.3.  Get the list of chunks the peer requires to be authenticated
+ *         (SCTP_PEER_AUTH_CHUNKS)
+ *
+ * This option gets a list of chunks for a specified association that
+ * the peer requires to be received authenticated only.
  */
 struct sctp_authchunks {
 	sctp_assoc_t	gauth_assoc_id;
@@ -689,11 +689,11 @@ struct sctp_authchunks {
 };
 
 /*
-                                                     
-                                  
-  
-                                                                       
-                                                               
+ * 8.2.6. Get the Current Identifiers of Associations
+ *        (SCTP_GET_ASSOC_ID_LIST)
+ *
+ * This option gets the current list of SCTP association identifiers of
+ * the SCTP associations handled by a one-to-many style socket.
  */
 struct sctp_assoc_ids {
 	__u32		gaids_number_of_ids;
@@ -701,10 +701,10 @@ struct sctp_assoc_ids {
 };
 
 /*
-                                                           
-                                                            
-                                                                   
-                                              
+ * 8.3, 8.5 get all peer/local addresses in an association.
+ * This parameter struct is used by SCTP_GET_PEER_ADDRS and 
+ * SCTP_GET_LOCAL_ADDRS socket options used internally to implement
+ * sctp_getpaddrs() and sctp_getladdrs() API. 
  */
 struct sctp_getaddrs_old {
 	sctp_assoc_t            assoc_id;
@@ -712,33 +712,33 @@ struct sctp_getaddrs_old {
 	struct sockaddr		__user *addrs;
 };
 struct sctp_getaddrs {
-	sctp_assoc_t		assoc_id; /*     */
-	__u32			addr_num; /*      */
-	__u8			addrs[0]; /*                     */
+	sctp_assoc_t		assoc_id; /*input*/
+	__u32			addr_num; /*output*/
+	__u8			addrs[0]; /*output, variable size*/
 };
 
-/*                                                                */
-/*                                                                 */
+/* These are bit fields for msghdr->msg_flags.  See section 5.1.  */
+/* On user space Linux, these live in <bits/socket.h> as an enum.  */
 enum sctp_msg_flags {
 	MSG_NOTIFICATION = 0x8000,
 #define MSG_NOTIFICATION MSG_NOTIFICATION
 };
 
 /*
-                   
-  
-                                                                           
-                                     
+ * 8.1 sctp_bindx()
+ *
+ * The flags parameter is formed from the bitwise OR of zero or more of the
+ * following currently defined flags:
  */
 #define SCTP_BINDX_ADD_ADDR 0x01
 #define SCTP_BINDX_REM_ADDR 0x02
 
-/*                                                               
-                                    
+/* This is the structure that is passed as an argument(optval) to
+ * getsockopt(SCTP_SOCKOPT_PEELOFF).
  */
 typedef struct {
 	sctp_assoc_t associd;
 	int sd;
 } sctp_peeloff_arg_t;
 
-#endif /*                     */
+#endif /* __net_sctp_user_h__ */

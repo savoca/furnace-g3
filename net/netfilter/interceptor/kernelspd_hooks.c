@@ -62,11 +62,11 @@ make_spd_lookup(int hook,
 		fields->source_port = IP_SELECTOR_PORT_OPAQUE;
 		fields->destination_port = IP_SELECTOR_PORT_OPAQUE;
 	} else if (fields->ip_protocol == 1 || fields->ip_protocol == 58) {
-		/*                                                        
-                        */
+		/* ICMP Type and Code are located in the same place as udp
+		   source port would. */
 		fields->destination_port = ntohs(udph->source);
 
-		/*                                                 */
+		/* ICMP only used "destination port" in selectors. */
 		fields->source_port = IP_SELECTOR_PORT_NONE;
 	} else {
 		fields->source_port = ntohs(udph->source);

@@ -31,7 +31,7 @@
 
 #include "otg_fsm.h"
 
-/*                                                     */
+/* Change USB protocol when there is a protocol change */
 static int otg_set_protocol(struct otg_fsm *fsm, int protocol)
 {
 	int ret = 0;
@@ -39,7 +39,7 @@ static int otg_set_protocol(struct otg_fsm *fsm, int protocol)
 	if (fsm->protocol != protocol) {
 		VDBG("Changing role fsm->protocol= %d; new protocol= %d\n",
 			fsm->protocol, protocol);
-		/*                   */
+		/* stop old protocol */
 		if (fsm->protocol == PROTO_HOST)
 			ret = fsm->ops->start_host(fsm, 0);
 		else if (fsm->protocol == PROTO_GADGET)
@@ -47,7 +47,7 @@ static int otg_set_protocol(struct otg_fsm *fsm, int protocol)
 		if (ret)
 			return ret;
 
-		/*                    */
+		/* start new protocol */
 		if (protocol == PROTO_HOST)
 			ret = fsm->ops->start_host(fsm, 1);
 		else if (protocol == PROTO_GADGET)
@@ -64,7 +64,7 @@ static int otg_set_protocol(struct otg_fsm *fsm, int protocol)
 
 static int state_changed;
 
-/*                                                           */
+/* Called when leaving a state.  Do state clean up jobs here */
 void otg_leave_state(struct otg_fsm *fsm, enum usb_otg_state old_state)
 {
 	switch (old_state) {
@@ -113,7 +113,7 @@ void otg_leave_state(struct otg_fsm *fsm, enum usb_otg_state old_state)
 	}
 }
 
-/*                              */
+/* Called when entering a state */
 int otg_set_state(struct otg_fsm *fsm, enum usb_otg_state new_state)
 {
 	state_changed = 1;
@@ -185,9 +185,9 @@ int otg_set_state(struct otg_fsm *fsm, enum usb_otg_state new_state)
 		otg_loc_sof(fsm, 1);
 		otg_set_protocol(fsm, PROTO_HOST);
 		/*
-                                                           
-                                                
-   */
+		 * When HNP is triggered while a_bus_req = 0, a_host will
+		 * suspend too fast to complete a_set_b_hnp_en
+		 */
 		if (!fsm->a_bus_req || fsm->a_suspend_req)
 			otg_add_timer(fsm, a_wait_enum_tmr);
 		break;
@@ -225,7 +225,7 @@ int otg_set_state(struct otg_fsm *fsm, enum usb_otg_state new_state)
 	return 0;
 }
 
-/*                        */
+/* State change judgement */
 int otg_statemachine(struct otg_fsm *fsm)
 {
 	enum usb_otg_state state;
@@ -235,7 +235,7 @@ int otg_statemachine(struct otg_fsm *fsm)
 
 	state = fsm->otg->phy->state;
 	state_changed = 0;
-	/*                                      */
+	/* State machine state change judgement */
 
 	switch (state) {
 	case OTG_STATE_UNDEFINED:

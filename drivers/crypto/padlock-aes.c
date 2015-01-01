@@ -25,8 +25,8 @@
 #include <asm/i387.h>
 
 /*
-                                                               
-                                                           
+ * Number of data blocks actually fetched for each xcrypt insn.
+ * Processors with prefetch errata will fetch extra blocks.
  */
 static unsigned int ecb_fetch_blocks = 2;
 #define MAX_ECB_FETCH_BLOCKS (8)
@@ -36,7 +36,7 @@ static unsigned int cbc_fetch_blocks = 1;
 #define MAX_CBC_FETCH_BLOCKS (4)
 #define cbc_fetch_bytes (cbc_fetch_blocks * AES_BLOCK_SIZE)
 
-/*               */
+/* Control word. */
 struct cword {
 	unsigned int __attribute__ ((__packed__))
 		rounds:4,
@@ -47,12 +47,12 @@ struct cword {
 		ksize:2;
 } __attribute__ ((__aligned__(PADLOCK_ALIGNMENT)));
 
-/*                                             
-                                           
-                                               
-                                                        
-                                                        
-         
+/* Whenever making any changes to the following
+ * structure *make sure* you keep E, d_data
+ * and cword aligned on 16 Bytes boundaries and
+ * the Hardware can access 16 * 16 bytes of E and d_data
+ * (only the first 15 * 16 bytes matter but the HW reads
+ * more).
  */
 struct aes_ctx {
 	u32 E[AES_MAX_KEYLENGTH_U32]
@@ -68,14 +68,14 @@ struct aes_ctx {
 
 static DEFINE_PER_CPU(struct cword *, paes_last_cword);
 
-/*                                             
-                                         */
+/* Tells whether the ACE is capable to generate
+   the extended key for a given key_len. */
 static inline int
 aes_hw_extkey_available(uint8_t key_len)
 {
-	/*                                                    
-                                                      
-                                           */
+	/* TODO: We should check the actual CPU model/stepping
+	         as it's possible that the capability will be
+	         added in the next CPU revisions. */
 	if (key_len == 16)
 		return 1;
 	return 0;
@@ -116,10 +116,10 @@ static int aes_set_key(struct crypto_tfm *tfm, const u8 *in_key,
 	}
 
 	/*
-                                                             
-                                                           
-                   
-  */
+	 * If the hardware is capable of generating the extended key
+	 * itself we must supply the plain key for both encryption
+	 * and decryption.
+	 */
 	ctx->D = ctx->E;
 
 	ctx->E[0] = le32_to_cpu(key[0]);
@@ -127,7 +127,7 @@ static int aes_set_key(struct crypto_tfm *tfm, const u8 *in_key,
 	ctx->E[2] = le32_to_cpu(key[2]);
 	ctx->E[3] = le32_to_cpu(key[3]);
 
-	/*                        */
+	/* Prepare control words. */
 	memset(&ctx->cword, 0, sizeof(ctx->cword));
 
 	ctx->cword.decrypt.encdec = 1;
@@ -136,7 +136,7 @@ static int aes_set_key(struct crypto_tfm *tfm, const u8 *in_key,
 	ctx->cword.encrypt.ksize = (key_len - 16) / 8;
 	ctx->cword.decrypt.ksize = ctx->cword.encrypt.ksize;
 
-	/*                                                         */
+	/* Don't generate extended keys if the hardware can do it. */
 	if (aes_hw_extkey_available(key_len))
 		goto ok;
 
@@ -161,9 +161,9 @@ ok:
 	return 0;
 }
 
-/*                                              */
+/* ====== Encryption/decryption routines ====== */
 
-/*                                     */
+/* These are the real call to PadLock. */
 static inline void padlock_reset_key(struct cword *cword)
 {
 	int cpu = raw_smp_processor_id();
@@ -182,15 +182,15 @@ static inline void padlock_store_cword(struct cword *cword)
 }
 
 /*
-                                                                  
-                                                                       
-                                                               
+ * While the padlock instructions don't use FP/SSE registers, they
+ * generate a spurious DNA fault when cr0.ts is '1'. These instructions
+ * should be used only inside the irq_ts_save/restore() context
  */
 
 static inline void rep_xcrypt_ecb(const u8 *input, u8 *output, void *key,
 				  struct cword *control_word, int count)
 {
-	asm volatile (".byte 0xf3,0x0f,0xa7,0xc8"	/*               */
+	asm volatile (".byte 0xf3,0x0f,0xa7,0xc8"	/* rep xcryptecb */
 		      : "+S"(input), "+D"(output)
 		      : "d"(control_word), "b"(key), "c"(count));
 }
@@ -198,7 +198,7 @@ static inline void rep_xcrypt_ecb(const u8 *input, u8 *output, void *key,
 static inline u8 *rep_xcrypt_cbc(const u8 *input, u8 *output, void *key,
 				 u8 *iv, struct cword *control_word, int count)
 {
-	asm volatile (".byte 0xf3,0x0f,0xa7,0xd0"	/*               */
+	asm volatile (".byte 0xf3,0x0f,0xa7,0xd0"	/* rep xcryptcbc */
 		      : "+S" (input), "+D" (output), "+a" (iv)
 		      : "d" (control_word), "b" (key), "c" (count));
 	return iv;
@@ -208,9 +208,9 @@ static void ecb_crypt_copy(const u8 *in, u8 *out, u32 *key,
 			   struct cword *cword, int count)
 {
 	/*
-                                                                          
-                                                               
-  */
+	 * Padlock prefetches extra data so we must provide mapped input buffers.
+	 * Assume there are at least 16 bytes of stack already in use.
+	 */
 	u8 buf[AES_BLOCK_SIZE * (MAX_ECB_FETCH_BLOCKS - 1) + PADLOCK_ALIGNMENT - 1];
 	u8 *tmp = PTR_ALIGN(&buf[0], PADLOCK_ALIGNMENT);
 
@@ -222,9 +222,9 @@ static u8 *cbc_crypt_copy(const u8 *in, u8 *out, u32 *key,
 			   u8 *iv, struct cword *cword, int count)
 {
 	/*
-                                                                          
-                                                               
-  */
+	 * Padlock prefetches extra data so we must provide mapped input buffers.
+	 * Assume there are at least 16 bytes of stack already in use.
+	 */
 	u8 buf[AES_BLOCK_SIZE * (MAX_CBC_FETCH_BLOCKS - 1) + PADLOCK_ALIGNMENT - 1];
 	u8 *tmp = PTR_ALIGN(&buf[0], PADLOCK_ALIGNMENT);
 
@@ -235,9 +235,9 @@ static u8 *cbc_crypt_copy(const u8 *in, u8 *out, u32 *key,
 static inline void ecb_crypt(const u8 *in, u8 *out, u32 *key,
 			     struct cword *cword, int count)
 {
-	/*                                                              
-                                                                    
-  */
+	/* Padlock in ECB mode fetches at least ecb_fetch_bytes of data.
+	 * We could avoid some copying here but it's probably not worth it.
+	 */
 	if (unlikely(((unsigned long)in & ~PAGE_MASK) + ecb_fetch_bytes > PAGE_SIZE)) {
 		ecb_crypt_copy(in, out, key, cword, count);
 		return;
@@ -249,7 +249,7 @@ static inline void ecb_crypt(const u8 *in, u8 *out, u32 *key,
 static inline u8 *cbc_crypt(const u8 *in, u8 *out, u32 *key,
 			    u8 *iv, struct cword *cword, int count)
 {
-	/*                                                               */
+	/* Padlock in CBC mode fetches at least cbc_fetch_bytes of data. */
 	if (unlikely(((unsigned long)in & ~PAGE_MASK) + cbc_fetch_bytes > PAGE_SIZE))
 		return cbc_crypt_copy(in, out, key, iv, cword, count);
 
@@ -267,11 +267,11 @@ static inline void padlock_xcrypt_ecb(const u8 *input, u8 *output, void *key,
 	}
 
 	if (initial)
-		asm volatile (".byte 0xf3,0x0f,0xa7,0xc8"	/*               */
+		asm volatile (".byte 0xf3,0x0f,0xa7,0xc8"	/* rep xcryptecb */
 			      : "+S"(input), "+D"(output)
 			      : "d"(control_word), "b"(key), "c"(initial));
 
-	asm volatile (".byte 0xf3,0x0f,0xa7,0xc8"	/*               */
+	asm volatile (".byte 0xf3,0x0f,0xa7,0xc8"	/* rep xcryptecb */
 		      : "+S"(input), "+D"(output)
 		      : "d"(control_word), "b"(key), "c"(count - initial));
 }
@@ -285,11 +285,11 @@ static inline u8 *padlock_xcrypt_cbc(const u8 *input, u8 *output, void *key,
 		return cbc_crypt(input, output, key, iv, control_word, count);
 
 	if (initial)
-		asm volatile (".byte 0xf3,0x0f,0xa7,0xd0"	/*               */
+		asm volatile (".byte 0xf3,0x0f,0xa7,0xd0"	/* rep xcryptcbc */
 			      : "+S" (input), "+D" (output), "+a" (iv)
 			      : "d" (control_word), "b" (key), "c" (initial));
 
-	asm volatile (".byte 0xf3,0x0f,0xa7,0xd0"	/*               */
+	asm volatile (".byte 0xf3,0x0f,0xa7,0xd0"	/* rep xcryptcbc */
 		      : "+S" (input), "+D" (output), "+a" (iv)
 		      : "d" (control_word), "b" (key), "c" (count-initial));
 	return iv;

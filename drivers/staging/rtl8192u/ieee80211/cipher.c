@@ -12,7 +12,7 @@
  *
  */
 #include <linux/kernel.h>
-//                         
+//#include <linux/crypto.h>
 #include "rtl_crypto.h"
 #include <linux/errno.h>
 #include <linux/mm.h>
@@ -41,9 +41,9 @@ static inline void xor_128(u8 *a, const u8 *b)
 
 
 /*
-                                                                         
-                                                                        
-                                                              
+ * Generic encrypt/decrypt wrapper for ciphers, handles operations across
+ * multiple page boundaries by using temporary blocks.  In user context,
+ * the kernel is given a chance to schedule us once per block.
  */
 static int crypt(struct crypto_tfm *tfm,
 		 struct scatterlist *dst,
@@ -101,7 +101,7 @@ static void cbc_process(struct crypto_tfm *tfm, u8 *dst, u8 *src,
 {
 	u8 *iv = info;
 
-	/*                 */
+	/* Null encryption */
 	if (!iv)
 		return;
 

@@ -1,4 +1,4 @@
-/*                                                                         */
+/***************************************************************************/
 
 /*
  *	linux/arch/m68knommu/platform/5249/config.c
@@ -6,7 +6,7 @@
  *	Copyright (C) 2002, Greg Ungerer (gerg@snapgear.com)
  */
 
-/*                                                                         */
+/***************************************************************************/
 
 #include <linux/kernel.h>
 #include <linux/param.h>
@@ -17,7 +17,7 @@
 #include <asm/coldfire.h>
 #include <asm/mcfsim.h>
 
-/*                                                                         */
+/***************************************************************************/
 
 #ifdef CONFIG_M5249C3
 
@@ -41,7 +41,7 @@ static struct platform_device m5249_smc91x = {
 	.resource		= m5249_smc91x_resources,
 };
 
-#endif /*                */
+#endif /* CONFIG_M5249C3 */
 
 static struct platform_device *m5249_devices[] __initdata = {
 #ifdef CONFIG_M5249C3
@@ -49,21 +49,21 @@ static struct platform_device *m5249_devices[] __initdata = {
 #endif
 };
 
-/*                                                                         */
+/***************************************************************************/
 
 #if IS_ENABLED(CONFIG_SPI_COLDFIRE_QSPI)
 
 static void __init m5249_qspi_init(void)
 {
-	/*                */
+	/* QSPI irq setup */
 	writeb(MCFSIM_ICR_AUTOVEC | MCFSIM_ICR_LEVEL4 | MCFSIM_ICR_PRI0,
 	       MCF_MBAR + MCFSIM_QSPIICR);
 	mcf_mapirq2imr(MCF_IRQ_QSPI, MCFINTC_QSPI);
 }
 
-#endif /*                                      */
+#endif /* IS_ENABLED(CONFIG_SPI_COLDFIRE_QSPI) */
 
-/*                                                                         */
+/***************************************************************************/
 
 #ifdef CONFIG_M5249C3
 
@@ -71,7 +71,7 @@ static void __init m5249_smc91x_init(void)
 {
 	u32  gpio;
 
-	/*                                                         */
+	/* Set the GPIO line as interrupt source for smc91x device */
 	gpio = readl(MCF_MBAR2 + MCFSIM2_GPIOINTENABLE);
 	writel(gpio | 0x40, MCF_MBAR2 + MCFSIM2_GPIOINTENABLE);
 
@@ -79,9 +79,9 @@ static void __init m5249_smc91x_init(void)
 	writel(gpio | 0x04000000, MCF_MBAR2 + MCFSIM2_INTLEVEL5);
 }
 
-#endif /*                */
+#endif /* CONFIG_M5249C3 */
 
-/*                                                                         */
+/***************************************************************************/
 
 void __init config_BSP(char *commandp, int size)
 {
@@ -95,7 +95,7 @@ void __init config_BSP(char *commandp, int size)
 #endif
 }
 
-/*                                                                         */
+/***************************************************************************/
 
 static int __init init_BSP(void)
 {
@@ -105,4 +105,4 @@ static int __init init_BSP(void)
 
 arch_initcall(init_BSP);
 
-/*                                                                         */
+/***************************************************************************/

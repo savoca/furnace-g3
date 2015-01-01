@@ -1141,11 +1141,11 @@ SND_SOC_DAPM_OUTPUT("SPKDAT2R"),
 	{ name, "DSP4.6", "DSP4" }
 
 static const struct snd_soc_dapm_route wm5110_dapm_routes[] = {
-//                                    
-//                                     
+//	{ "AIF2 Capture", NULL, "DBVDD2" },
+//	{ "AIF2 Playback", NULL, "DBVDD2" },
 
-//                                    
-//                                     
+//	{ "AIF3 Capture", NULL, "DBVDD3" },
+//	{ "AIF3 Playback", NULL, "DBVDD3" },
 
 	{ "OUT1L", NULL, "CPVDD" },
 	{ "OUT1R", NULL, "CPVDD" },
@@ -1180,39 +1180,39 @@ static const struct snd_soc_dapm_route wm5110_dapm_routes[] = {
 	{ "Mic Mute Mixer", NULL, "Noise Mixer" },
 	{ "Mic Mute Mixer", NULL, "Mic Mixer" },
 
-//                                     
-//                                     
-//                                     
-//                                     
-//                                     
-//                                     
-//                                     
-//                                     
+//	{ "AIF1 Capture", NULL, "AIF1TX1" },
+//	{ "AIF1 Capture", NULL, "AIF1TX2" },
+//	{ "AIF1 Capture", NULL, "AIF1TX3" },
+//	{ "AIF1 Capture", NULL, "AIF1TX4" },
+//	{ "AIF1 Capture", NULL, "AIF1TX5" },
+//	{ "AIF1 Capture", NULL, "AIF1TX6" },
+//	{ "AIF1 Capture", NULL, "AIF1TX7" },
+//	{ "AIF1 Capture", NULL, "AIF1TX8" },
 
-//                                      
-//                                      
-//                                      
-//                                      
-//                                      
-//                                      
-//                                      
-//                                      
+//	{ "AIF1RX1", NULL, "AIF1 Playback" },
+//	{ "AIF1RX2", NULL, "AIF1 Playback" },
+//	{ "AIF1RX3", NULL, "AIF1 Playback" },
+//	{ "AIF1RX4", NULL, "AIF1 Playback" },
+//	{ "AIF1RX5", NULL, "AIF1 Playback" },
+//	{ "AIF1RX6", NULL, "AIF1 Playback" },
+//	{ "AIF1RX7", NULL, "AIF1 Playback" },
+//	{ "AIF1RX8", NULL, "AIF1 Playback" },
 
-//                                     
-//                                     
+//	{ "AIF2 Capture", NULL, "AIF2TX1" },
+//	{ "AIF2 Capture", NULL, "AIF2TX2" },
 
-//                                      
-//                                      
+//	{ "AIF2RX1", NULL, "AIF2 Playback" },
+//	{ "AIF2RX2", NULL, "AIF2 Playback" },
 
-//                                     
-//                                     
+//	{ "AIF3 Capture", NULL, "AIF3TX1" },
+//	{ "AIF3 Capture", NULL, "AIF3TX2" },
 
-//                                      
-//                                      
+//	{ "AIF3RX1", NULL, "AIF3 Playback" },
+//	{ "AIF3RX2", NULL, "AIF3 Playback" },
 
-//                                     
-//                                     
-//                                     
+//	{ "AIF1 Playback", NULL, "SYSCLK" },
+//	{ "AIF2 Playback", NULL, "SYSCLK" },
+//	{ "AIF3 Playback", NULL, "SYSCLK" },
 
 	{ "SLIMRX1", NULL, "SYSCLK" },
 	{ "SLIMRX2", NULL, "SYSCLK" },
@@ -1231,9 +1231,9 @@ static const struct snd_soc_dapm_route wm5110_dapm_routes[] = {
 	{ "SLIMTX7", NULL, "SYSCLK" },
 	{ "SLIMTX8", NULL, "SYSCLK" },
 
-//                                    
-//                                    
-//                                    
+//	{ "AIF1 Capture", NULL, "SYSCLK" },
+//	{ "AIF2 Capture", NULL, "SYSCLK" },
+//	{ "AIF3 Capture", NULL, "SYSCLK" },
 
 	{ "VoiceCtrlTX", NULL, "DSP3" },
 	{ "VoiceCtrlRX", NULL, "SYSCLK" },
@@ -1634,7 +1634,7 @@ out:
 
 static int wm5110_free(struct snd_compr_stream *stream)
 {
-#if 0 //                        
+#if 0 //#ifndef SLEEP_EZ2CONTROL
 	struct snd_soc_pcm_runtime *rtd = stream->private_data;
 	struct wm5110_priv *wm5110 = snd_soc_codec_get_drvdata(rtd->codec);
 	struct arizona *arizona = wm5110->core.arizona;
@@ -1887,9 +1887,9 @@ static int __devinit wm5110_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, wm5110);
 
-	/*                                                 
-                                               
-                    */
+	/* Pass of_node from SPI device to the codec to let
+	   the regulator frameworks find supplies from
+	   the device tree.*/
 
 	pdev->dev.of_node = arizona->dev->of_node;
 	mutex_init(&wm5110->compr_info.lock);
@@ -1925,7 +1925,7 @@ static int __devinit wm5110_probe(struct platform_device *pdev)
 			 ARIZONA_IRQ_FLL2_LOCK, ARIZONA_IRQ_FLL2_CLOCK_OK,
 			 &wm5110->fll[1]);
 
-	/*                                       */
+	/* SR2 fixed at 8kHz, SR3 fixed at 16kHz */
 	regmap_update_bits(arizona->regmap, ARIZONA_SAMPLE_RATE_2,
 			   ARIZONA_SAMPLE_RATE_2_MASK, 0x11);
 	regmap_update_bits(arizona->regmap, ARIZONA_SAMPLE_RATE_3,
@@ -1934,7 +1934,7 @@ static int __devinit wm5110_probe(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(wm5110_dai); i++)
 		arizona_init_dai(&wm5110->core, i);
 
-	/*                          */
+	/* Latch volume update bits */
 	for (i = 0; i < ARRAY_SIZE(wm5110_digital_vu); i++)
 		regmap_update_bits(arizona->regmap, wm5110_digital_vu[i],
 				   WM5110_DIG_VU, WM5110_DIG_VU);

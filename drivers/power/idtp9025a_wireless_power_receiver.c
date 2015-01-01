@@ -302,7 +302,7 @@ static int __devinit idtp9025_probe(struct i2c_client *client, const struct i2c_
 		return -EIO;
 	}
 	idtp9025_client = client;
-	/*                 */	
+	/* need dts parser */	
 	if (dev_node) {
 		ret = idtp9025a_parse_dt(dev_node);
 	}

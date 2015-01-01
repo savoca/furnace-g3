@@ -7,10 +7,10 @@
 #include <asm/asm-compat.h>
 
 /*
-                  
-  
-                                                           
-                                   
+ * Atomic exchange
+ *
+ * Changes the memory location '*ptr' to be val and returns
+ * the previous value stored there.
  */
 static __always_inline unsigned long
 __xchg_u32(volatile void *p, unsigned long val)
@@ -32,10 +32,10 @@ __xchg_u32(volatile void *p, unsigned long val)
 }
 
 /*
-                  
-  
-                                                           
-                                   
+ * Atomic exchange
+ *
+ * Changes the memory location '*ptr' to be val and returns
+ * the previous value stored there.
  */
 static __always_inline unsigned long
 __xchg_u32_local(volatile void *p, unsigned long val)
@@ -93,8 +93,8 @@ __xchg_u64_local(volatile void *p, unsigned long val)
 #endif
 
 /*
-                                                            
-                                              
+ * This function doesn't exist, so you'll get a linker error
+ * if something tries to do an invalid xchg().
  */
 extern void __xchg_called_with_bad_pointer(void);
 
@@ -141,8 +141,8 @@ __xchg_local(volatile void *ptr, unsigned long x, unsigned int size)
   })
 
 /*
-                                                      
-                                  
+ * Compare and exchange - if *p == old, set it to new,
+ * and return the old value of *p.
  */
 #define __HAVE_ARCH_CMPXCHG	1
 
@@ -236,8 +236,8 @@ __cmpxchg_u64_local(volatile unsigned long *p, unsigned long old,
 }
 #endif
 
-/*                                                          
-                                                   */
+/* This function doesn't exist, so you'll get a linker error
+   if something tries to do an invalid cmpxchg().  */
 extern void __cmpxchg_called_with_bad_pointer(void);
 
 static __always_inline unsigned long
@@ -305,5 +305,5 @@ __cmpxchg_local(volatile void *ptr, unsigned long old, unsigned long new,
 #define cmpxchg64_local(ptr, o, n) __cmpxchg64_local_generic((ptr), (o), (n))
 #endif
 
-#endif /*            */
-#endif /*                         */
+#endif /* __KERNEL__ */
+#endif /* _ASM_POWERPC_CMPXCHG_H_ */

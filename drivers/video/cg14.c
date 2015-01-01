@@ -24,7 +24,7 @@
 #include "sbuslib.h"
 
 /*
-                   
+ * Local functions.
  */
 
 static int cg14_setcolreg(unsigned, unsigned, unsigned, unsigned,
@@ -35,7 +35,7 @@ static int cg14_ioctl(struct fb_info *, unsigned int, unsigned long);
 static int cg14_pan_display(struct fb_var_screeninfo *, struct fb_info *);
 
 /*
-                           
+ *  Frame buffer operations
  */
 
 static struct fb_ops cg14_ops = {
@@ -98,65 +98,65 @@ static struct fb_ops cg14_ops = {
 #define CG14_MCR_PIXMODE_32		3
 
 struct cg14_regs{
-	u8 mcr;	/*                    */
-	u8 ppr;	/*                  */
-	u8 tms[2];	/*                       */
-	u8 msr;	/*                   */
-	u8 fsr;	/*                  */
-	u8 rev;	/*                 */
-	u8 ccr;	/*                   */
-	u32 tmr;	/*                     */
-	u8 mod;	/*                            */
-	u8 acr;	/*             */
+	u8 mcr;	/* Master Control Reg */
+	u8 ppr;	/* Packed Pixel Reg */
+	u8 tms[2];	/* Test Mode Status Regs */
+	u8 msr;	/* Master Status Reg */
+	u8 fsr;	/* Fault Status Reg */
+	u8 rev;	/* Revision & Impl */
+	u8 ccr;	/* Clock Control Reg */
+	u32 tmr;	/* Test Mode Read Back */
+	u8 mod;	/* Monitor Operation Data Reg */
+	u8 acr;	/* Aux Control */
 	u8 xxx0[6];
-	u16 hct;	/*             */
-	u16 vct;	/*              */
-	u16 hbs;	/*                 */
-	u16 hbc;	/*                 */
-	u16 hss;	/*                */
-	u16 hsc;	/*                */
-	u16 csc;	/*                      */
-	u16 vbs;	/*                  */
-	u16 vbc;	/*                  */
-	u16 vss;	/*                 */
-	u16 vsc;	/*                 */
+	u16 hct;	/* Hor Counter */
+	u16 vct;	/* Vert Counter */
+	u16 hbs;	/* Hor Blank Start */
+	u16 hbc;	/* Hor Blank Clear */
+	u16 hss;	/* Hor Sync Start */
+	u16 hsc;	/* Hor Sync Clear */
+	u16 csc;	/* Composite Sync Clear */
+	u16 vbs;	/* Vert Blank Start */
+	u16 vbc;	/* Vert Blank Clear */
+	u16 vss;	/* Vert Sync Start */
+	u16 vsc;	/* Vert Sync Clear */
 	u16 xcs;
 	u16 xcc;
-	u16 fsa;	/*                      */
-	u16 adr;	/*                   */
+	u16 fsa;	/* Fault Status Address */
+	u16 adr;	/* Address Registers */
 	u8 xxx1[0xce];
-	u8 pcg[0x100]; /*                       */
-	u32 vbr;	/*                */
-	u32 vmcr;	/*                    */
-	u32 vcr;	/*             */
-	u32 vca;	/*            */
+	u8 pcg[0x100]; /* Pixel Clock Generator */
+	u32 vbr;	/* Frame Base Row */
+	u32 vmcr;	/* VBC Master Control */
+	u32 vcr;	/* VBC refresh */
+	u32 vca;	/* VBC Config */
 };
 
 #define CG14_CCR_ENABLE	0x04
-#define CG14_CCR_SELECT 0x02	/*                */
+#define CG14_CCR_SELECT 0x02	/* HW/Full screen */
 
 struct cg14_cursor {
-	u32 cpl0[32];	/*                */
-	u32 cpl1[32];  /*                       */
-	u8 ccr;	/*                    */
+	u32 cpl0[32];	/* Enable plane 0 */
+	u32 cpl1[32];  /* Color selection plane */
+	u8 ccr;	/* Cursor Control Reg */
 	u8 xxx0[3];
-	u16 cursx;	/*                     */
-	u16 cursy;	/*                     */
+	u16 cursx;	/* Cursor x,y position */
+	u16 cursy;	/* Cursor x,y position */
 	u32 color0;
 	u32 color1;
 	u32 xxx1[0x1bc];
-	u32 cpl0i[32];	/*                        */
-	u32 cpl1i[32]; /*                         */
+	u32 cpl0i[32];	/* Enable plane 0 autoinc */
+	u32 cpl1i[32]; /* Color selection autoinc */
 };
 
 struct cg14_dac {
-	u8 addr;	/*                  */
+	u8 addr;	/* Address Register */
 	u8 xxx0[255];
-	u8 glut;	/*             */
+	u8 glut;	/* Gamma table */
 	u8 xxx1[255];
-	u8 select;	/*                 */
+	u8 select;	/* Register Select */
 	u8 xxx2[255];
-	u8 mode;	/*               */
+	u8 mode;	/* Mode Register */
 };
 
 struct cg14_xlut{
@@ -167,7 +167,7 @@ struct cg14_xlut{
 	u8 x_xlutd_inc [256];
 };
 
-/*                            */
+/* Color look up table (clut) */
 /* Each one of these arrays hold the color lookup table (for 256
  * colors) for each MDI page (I assume then there should be 4 MDI
  * pages, I still wonder what they are.  I have seen NeXTStep split
@@ -179,7 +179,7 @@ struct cg14_xlut{
  */
 struct cg14_clut {
 	u32 c_clut [256];
-	u32 c_clutd [256];    /*                              */
+	u32 c_clutd [256];    /* i wonder what the 'd' is for */
 	u32 c_clut_inc [256];
 	u32 c_clutd_inc [256];
 };
@@ -218,9 +218,9 @@ static int cg14_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	struct cg14_par *par = (struct cg14_par *) info->par;
 	unsigned long flags;
 
-	/*                                          
-                  
-  */
+	/* We just use this to catch switches out of
+	 * graphics mode.
+	 */
 	spin_lock_irqsave(&par->lock, flags);
 	__cg14_reset(par);
 	spin_unlock_irqrestore(&par->lock, flags);
@@ -230,14 +230,14 @@ static int cg14_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	return 0;
 }
 
-/* 
-                                                                  
-                                                            
-                                             
-                                                               
-                                                               
-                                                                              
-                                          
+/**
+ *      cg14_setcolreg - Optional function. Sets a color register.
+ *      @regno: boolean, 0 copy local, 1 get_user() function
+ *      @red: frame buffer colormap structure
+ *      @green: The green value which can be up to 16 bits wide
+ *      @blue:  The blue value which can be up to 16 bits wide.
+ *      @transp: If supported the alpha value which can be up to 16 bits wide.
+ *      @info: frame buffer info structure
  */
 static int cg14_setcolreg(unsigned regno,
 			  unsigned red, unsigned green, unsigned blue,
@@ -295,7 +295,7 @@ static int cg14_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 		kmdi.mdi_height = info->var.yres;
 		kmdi.mdi_width = info->var.xres;
 		kmdi.mdi_mode = par->mode;
-		kmdi.mdi_pixfreq = 72; /*       */
+		kmdi.mdi_pixfreq = 72; /* FIXME */
 		kmdi.mdi_size = par->ramsize;
 		spin_unlock_irqrestore(&par->lock, flags);
 
@@ -349,7 +349,7 @@ static int cg14_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 }
 
 /*
-                  
+ *  Initialisation
  */
 
 static void __devinit cg14_init_fix(struct fb_info *info, int linebytes,

@@ -78,11 +78,11 @@ enum msm_isp_reset_type {
 };
 
 struct msm_isp_timestamp {
-	/*                               */
+	/*Monotonic clock for v4l2 buffer*/
 	struct timeval buf_time;
-	/*                       */
+	/*Monotonic clock for VT */
 	struct timeval vt_time;
-	/*                              */
+	/*Wall clock for userspace event*/
 	struct timeval event_time;
 };
 
@@ -267,7 +267,7 @@ struct msm_vfe_axi_stream {
 	enum msm_vfe_axi_stream_src stream_src;
 	uint8_t num_planes;
 	uint8_t wm[MAX_PLANES_PER_STREAM];
-	uint32_t output_format;/*               */
+	uint32_t output_format;/*Planar/RAW/Misc*/
 	struct msm_vfe_axi_plane_cfg plane_cfg[MAX_PLANES_PER_STREAM];
 	uint8_t comp_mask_index;
 	struct msm_isp_buffer *buf[2];
@@ -281,21 +281,21 @@ struct msm_vfe_axi_stream {
 	uint32_t frame_based;
 	uint32_t framedrop_period;
 	uint32_t framedrop_pattern;
-	uint32_t num_burst_capture;/*                          */
+	uint32_t num_burst_capture;/*number of frame to capture*/
 	uint32_t init_frame_drop;
-	uint32_t burst_frame_count;/*                               */
+	uint32_t burst_frame_count;/*number of sof before burst stop*/
 	uint8_t framedrop_update;
 	spinlock_t lock;
 
-	/*                          */
+	/*Bandwidth calculation info*/
 	uint32_t max_width;
-	/*                                                */
+	/*Based on format plane size in Q2. e.g NV12 = 1.5*/
 	uint32_t format_factor;
 	uint32_t bandwidth;
 
-	/*                         */
+	/*Run time update variables*/
 	uint32_t runtime_init_frame_drop;
-	uint32_t runtime_burst_frame_count;/*                               */
+	uint32_t runtime_burst_frame_count;/*number of sof before burst stop*/
 	uint32_t runtime_num_burst_capture;
 	uint8_t runtime_framedrop_update;
 	uint32_t runtime_output_format;
@@ -314,7 +314,7 @@ struct msm_vfe_src_info {
 	enum msm_vfe_inputmux input_mux;
 	uint32_t width;
 	long pixel_clock;
-	uint32_t input_format;/*                                  */
+	uint32_t input_format;/*V4L2 pix format with bayer pattern*/
 };
 
 enum msm_wm_ub_cfg_type {

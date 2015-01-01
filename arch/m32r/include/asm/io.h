@@ -3,23 +3,23 @@
 
 #include <linux/string.h>
 #include <linux/compiler.h>
-#include <asm/page.h>  /*      */
+#include <asm/page.h>  /* __va */
 
 #ifdef __KERNEL__
 
 #define IO_SPACE_LIMIT  0xFFFFFFFF
 
-/* 
-                                                   
-                             
-  
-                                                                  
-                                                                     
-                                                      
-  
-                                                                 
-                                                                   
-                
+/**
+ *	virt_to_phys	-	map virtual addresses to physical
+ *	@address: address to remap
+ *
+ *	The returned physical address is the physical (CPU) mapping for
+ *	the memory address given. It is only valid to use this function on
+ *	addresses directly mapped or allocated via kmalloc.
+ *
+ *	This function does not give bus mappings for DMA transfers. In
+ *	almost all conceivable cases a device driver should not be using
+ *	this function
  */
 
 static inline unsigned long virt_to_phys(volatile void * address)
@@ -27,17 +27,17 @@ static inline unsigned long virt_to_phys(volatile void * address)
 	return __pa(address);
 }
 
-/* 
-                                                 
-                             
-  
-                                                            
-                                                                     
-                                       
-  
-                                                                   
-                                                                   
-                
+/**
+ *	phys_to_virt	-	map physical address to virtual
+ *	@address: address to remap
+ *
+ *	The returned virtual address is a current CPU mapping for
+ *	the memory address given. It is only valid to use this function on
+ *	addresses that have a kernel mapping
+ *
+ *	This function does not handle bus mappings for DMA transfers. In
+ *	almost all conceivable cases a device driver should not be using
+ *	this function
  */
 
 static inline void *phys_to_virt(unsigned long address)
@@ -48,16 +48,16 @@ static inline void *phys_to_virt(unsigned long address)
 extern void __iomem *
 __ioremap(unsigned long offset, unsigned long size, unsigned long flags);
 
-/* 
-                                           
-                                     
-                                      
-  
-                                                                 
-                                                                   
-                                                                   
-                                                               
-           
+/**
+ *	ioremap		-	map bus memory into CPU space
+ *	@offset:	bus address of the memory
+ *	@size:		size of the resource to map
+ *
+ *	ioremap performs a platform specific sequence of operations to
+ *	make bus memory CPU accessible via the readb/readw/readl/writeb/
+ *	writew/writel functions and the other mmio helpers. The returned
+ *	address is not guaranteed to be usable directly as a virtual
+ *	address.
  */
 
 static inline void __iomem *ioremap(unsigned long offset, unsigned long size)
@@ -69,7 +69,7 @@ extern void iounmap(volatile void __iomem *addr);
 #define ioremap_nocache(off,size) ioremap(off,size)
 
 /*
-                                                                 
+ * IO bus memory addresses are also 1:1 with the physical address
  */
 #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
 #define page_to_bus	page_to_phys
@@ -171,7 +171,7 @@ static inline void _writel(unsigned long l, unsigned long addr)
 
 #define mmiowb()
 
-#define flush_write_buffers() do { } while (0)  /*            */
+#define flush_write_buffers() do { } while (0)  /* M32R_FIXME */
 
 static inline void
 memset_io(volatile void __iomem *addr, unsigned char val, int count)
@@ -192,16 +192,16 @@ memcpy_toio(volatile void __iomem *dst, const void *src, int count)
 }
 
 /*
-                                                                      
-         
+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
+ * access
  */
 #define xlate_dev_mem_ptr(p)	__va(p)
 
 /*
-                                                          
+ * Convert a virtual cached pointer to an uncached pointer
  */
 #define xlate_dev_kmem_ptr(p)	p
 
-#endif  /*            */
+#endif  /* __KERNEL__ */
 
-#endif  /*                */
+#endif  /* _ASM_M32R_IO_H */

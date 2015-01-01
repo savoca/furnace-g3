@@ -124,12 +124,12 @@ err_nomem:
 	return ERR_PTR(-ENOMEM);
 }
 
-/* 
-                                                
-  
-                                  
-                                  
-  
+/**
+ * dm_send_uevents - send uevents for given list
+ *
+ * @events:	list of events to send
+ * @kobj:	kobject generating event
+ *
  */
 void dm_send_uevents(struct list_head *events, struct kobject *kobj)
 {
@@ -140,9 +140,9 @@ void dm_send_uevents(struct list_head *events, struct kobject *kobj)
 		list_del_init(&event->elist);
 
 		/*
-                                                          
-                                 
-   */
+		 * When a device is being removed this copy fails and we
+		 * discard these unsent events.
+		 */
 		if (dm_copy_name_and_uuid(event->md, event->name,
 					  event->uuid)) {
 			DMINFO("%s: skipping sending uevent for lost device",
@@ -171,14 +171,14 @@ uevent_free:
 }
 EXPORT_SYMBOL_GPL(dm_send_uevents);
 
-/* 
-                                                                  
-  
-                                    
-                                
-                                     
-                                                   
-  
+/**
+ * dm_path_uevent - called to create a new path event and queue it
+ *
+ * @event_type:	path event type enum
+ * @ti:			pointer to a dm_target
+ * @path:		string containing pathname
+ * @nr_valid_paths:	number of valid paths remaining
+ *
  */
 void dm_path_uevent(enum dm_uevent_type event_type, struct dm_target *ti,
 		   const char *path, unsigned nr_valid_paths)

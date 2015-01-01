@@ -96,11 +96,11 @@ static struct s3c2410_uartcfg smdk2410_uartcfgs[] = {
 	}
 };
 
-/*                 */
+/* LCD driver info */
 
 static struct s3c2410fb_display qt2410_lcd_cfg[] __initdata = {
 	{
-		/*                                             */
+		/* Configuration for 640x480 SHARP LQ080V3DG01 */
 		.lcdcon5 = S3C2410_LCDCON5_FRM565 |
 			   S3C2410_LCDCON5_INVVLINE |
 			   S3C2410_LCDCON5_INVVFRAME |
@@ -111,7 +111,7 @@ static struct s3c2410fb_display qt2410_lcd_cfg[] __initdata = {
 		.width		= 640,
 		.height		= 480,
 
-		.pixclock	= 40000, /*        */
+		.pixclock	= 40000, /* HCLK/4 */
 		.xres		= 640,
 		.yres		= 480,
 		.bpp		= 16,
@@ -123,7 +123,7 @@ static struct s3c2410fb_display qt2410_lcd_cfg[] __initdata = {
 		.vsync_len	= 15,
 	},
 	{
-		/*                                              */
+		/* Configuration for 480x640 toppoly TD028TTEC1 */
 		.lcdcon5 = S3C2410_LCDCON5_FRM565 |
 			   S3C2410_LCDCON5_INVVLINE |
 			   S3C2410_LCDCON5_INVVFRAME |
@@ -133,7 +133,7 @@ static struct s3c2410fb_display qt2410_lcd_cfg[] __initdata = {
 		.type		= S3C2410_LCDCON1_TFT,
 		.width		= 480,
 		.height		= 640,
-		.pixclock	= 40000, /*        */
+		.pixclock	= 40000, /* HCLK/4 */
 		.xres		= 480,
 		.yres		= 640,
 		.bpp		= 16,
@@ -145,7 +145,7 @@ static struct s3c2410fb_display qt2410_lcd_cfg[] __initdata = {
 		.vsync_len	= 2,
 	},
 	{
-		/*                        */
+		/* Config for 240x320 LCD */
 		.lcdcon5 = S3C2410_LCDCON5_FRM565 |
 			   S3C2410_LCDCON5_INVVLINE |
 			   S3C2410_LCDCON5_INVVFRAME |
@@ -155,7 +155,7 @@ static struct s3c2410fb_display qt2410_lcd_cfg[] __initdata = {
 		.type		= S3C2410_LCDCON1_TFT,
 		.width		= 240,
 		.height		= 320,
-		.pixclock	= 100000, /*         */
+		.pixclock	= 100000, /* HCLK/10 */
 		.xres		= 240,
 		.yres		= 320,
 		.bpp		= 16,
@@ -177,7 +177,7 @@ static struct s3c2410fb_mach_info qt2410_fb_info __initdata = {
 	.lpcsel		= ((0xCE6) & ~7) | 1<<4,
 };
 
-/*        */
+/* CS8900 */
 
 static struct resource qt2410_cs89x0_resources[] = {
 	[0] = {
@@ -198,7 +198,7 @@ static struct platform_device qt2410_cs89x0 = {
 	.resource	= qt2410_cs89x0_resources,
 };
 
-/*     */
+/* LED */
 
 static struct s3c24xx_led_platdata qt2410_pdata_led = {
 	.gpio		= S3C2410_GPB(0),
@@ -215,7 +215,7 @@ static struct platform_device qt2410_led = {
 	},
 };
 
-/*     */
+/* SPI */
 
 static struct spi_gpio_platform_data spi_gpio_cfg = {
 	.sck		= S3C2410_GPG(7),
@@ -229,7 +229,7 @@ static struct platform_device qt2410_spi = {
 	.dev.platform_data = &spi_gpio_cfg,
 };
 
-/*               */
+/* Board devices */
 
 static struct platform_device *qt2410_devices[] __initdata = {
 	&s3c_device_ohci,
@@ -281,8 +281,8 @@ static struct s3c2410_nand_set __initdata qt2410_nand_sets[] = {
 	},
 };
 
-/*                                                       
-                    
+/* choose a set of timings which should suit most 512Mbit
+ * chips and beyond.
  */
 
 static struct s3c2410_platform_nand __initdata qt2410_nand_info = {
@@ -293,7 +293,7 @@ static struct s3c2410_platform_nand __initdata qt2410_nand_info = {
 	.sets		= qt2410_nand_sets,
 };
 
-/*     */
+/* UDC */
 
 static struct s3c2410_udc_mach_info qt2410_udc_cfg = {
 };
@@ -320,13 +320,13 @@ static void __init qt2410_machine_init(void)
 	s3c_nand_set_platdata(&qt2410_nand_info);
 
 	switch (tft_type) {
-	case 'p': /*            */
+	case 'p': /* production */
 		qt2410_fb_info.default_display = 1;
 		break;
-	case 'b': /*     */
+	case 'b': /* big */
 		qt2410_fb_info.default_display = 0;
 		break;
-	case 's': /*       */
+	case 's': /* small */
 	default:
 		qt2410_fb_info.default_display = 2;
 		break;

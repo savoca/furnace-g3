@@ -1,7 +1,7 @@
 /*
-                                         
-  
-              
+ * linux/arch/arm/mach-sa1100/leds-cerf.c
+ *
+ * Author: ???
  */
 #include <linux/init.h>
 

@@ -58,9 +58,9 @@ static inline unsigned long __xchg(unsigned long x, __volatile__ void * ptr,
 }
 
 /*
-                                                                    
-                                                                  
-                                          
+ * Atomic compare and exchange.  Compare OLD with MEM, if identical,
+ * store NEW in MEM.  Return the initial value in MEM.  Success is
+ * indicated by comparing RETURN with OLD.
  */
 
 #include <asm-generic/cmpxchg-local.h>
@@ -89,8 +89,8 @@ __cmpxchg_u64(volatile long *m, unsigned long old, unsigned long new)
 	return new;
 }
 
-/*                                                          
-                                                   */
+/* This function doesn't exist, so you'll get a linker error
+   if something tries to do an invalid cmpxchg().  */
 extern void __cmpxchg_called_with_bad_pointer(void);
 
 static inline unsigned long
@@ -115,8 +115,8 @@ __cmpxchg(volatile void *ptr, unsigned long old, unsigned long new, int size)
   })
 
 /*
-                                                                            
-                  
+ * cmpxchg_local and cmpxchg64_local are atomic wrt current CPU. Always make
+ * them available.
  */
 
 static inline unsigned long __cmpxchg_local(volatile void *ptr,
@@ -142,4 +142,4 @@ static inline unsigned long __cmpxchg_local(volatile void *ptr,
 	cmpxchg_local((ptr), (o), (n));					\
   })
 
-#endif /*                          */
+#endif /* __ARCH_SPARC64_CMPXCHG__ */

@@ -27,8 +27,8 @@
  **************************************************************************/
 
 /*
-           
-                                                            
+ * Authors:
+ *    Thomas Hellström <thomas-at-tungstengraphics-dot-com>
  */
 
 #include "drmP.h"
@@ -48,17 +48,17 @@ struct sis_memblock {
 };
 
 #if defined(CONFIG_FB_SIS) || defined(CONFIG_FB_SIS_MODULE)
-/*                             */
+/* fb management via fb device */
 
 #define SIS_MM_ALIGN_SHIFT 0
 #define SIS_MM_ALIGN_MASK 0
 
-#else /*                        */
+#else /* CONFIG_FB_SIS[_MODULE] */
 
 #define SIS_MM_ALIGN_SHIFT 4
 #define SIS_MM_ALIGN_MASK ((1 << SIS_MM_ALIGN_SHIFT) - 1)
 
-#endif /*                        */
+#endif /* CONFIG_FB_SIS[_MODULE] */
 
 static int sis_fb_init(struct drm_device *dev, void *data, struct drm_file *file_priv)
 {
@@ -66,8 +66,8 @@ static int sis_fb_init(struct drm_device *dev, void *data, struct drm_file *file
 	drm_sis_fb_t *fb = data;
 
 	mutex_lock(&dev->struct_mutex);
-	/*                                                                      
-                                                      */
+	/* Unconditionally init the drm_mm, even though we don't use it when the
+	 * fb sis driver is available - make cleanup easier. */
 	drm_mm_init(&dev_priv->vram_mm, 0, fb->size >> SIS_MM_ALIGN_SHIFT);
 
 	dev_priv->vram_initialized = 1;
@@ -260,16 +260,16 @@ int sis_idle(struct drm_device *dev)
 	}
 
 	/*
-                                            
-  */
+	 * Implement a device switch here if needed
+	 */
 
 	if (dev_priv->chipset != SIS_CHIP_315)
 		return 0;
 
 	/*
-                                                           
-                                             
-  */
+	 * Timeout after 3 seconds. We cannot use DRM_WAIT_ON here
+	 * because its polling frequency is too low.
+	 */
 
 	end = jiffies + (DRM_HZ * 3);
 
@@ -287,9 +287,9 @@ int sis_idle(struct drm_device *dev)
 	}
 
 	/*
-                                                        
-              
-  */
+	 * The caller never sees an error code. It gets trapped
+	 * in libdrm.
+	 */
 
 	return 0;
 }

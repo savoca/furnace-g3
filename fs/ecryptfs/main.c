@@ -39,8 +39,8 @@
 #include <linux/magic.h>
 #include "ecryptfs_kernel.h"
 
-/* 
-                                                              
+/**
+ * Module parameter that defines the ecryptfs_verbosity level.
  */
 int ecryptfs_verbosity = 0;
 
@@ -49,8 +49,8 @@ MODULE_PARM_DESC(ecryptfs_verbosity,
 		 "Initial verbosity level (0 or 1; defaults to "
 		 "0, which is Quiet)");
 
-/* 
-                                                                      
+/**
+ * Module parameter that defines the number of message buffer elements
  */
 unsigned int ecryptfs_message_buf_len = ECRYPTFS_DEFAULT_MSG_CTX_ELEMS;
 
@@ -58,11 +58,11 @@ module_param(ecryptfs_message_buf_len, uint, 0);
 MODULE_PARM_DESC(ecryptfs_message_buf_len,
 		 "Number of message buffer elements");
 
-/* 
-                                                                              
-                                                                           
-                                                                             
-                                    
+/**
+ * Module parameter that defines the maximum guaranteed amount of time to wait
+ * for a response from ecryptfsd.  The actual sleep time will be, more than
+ * likely, a small amount greater than this specified value, but only less if
+ * the message successfully arrives.
  */
 signed long ecryptfs_message_wait_timeout = ECRYPTFS_MAX_MSG_CTX_TTL / HZ;
 
@@ -72,10 +72,10 @@ MODULE_PARM_DESC(ecryptfs_message_wait_timeout,
 		 "sleep while waiting for a message response from "
 		 "userspace");
 
-/* 
-                                                                      
-                                                                  
-                                               
+/**
+ * Module parameter that is an estimate of the maximum number of users
+ * that will be concurrently using eCryptfs. Set this to the right
+ * value to balance performance and memory use.
  */
 unsigned int ecryptfs_number_of_users = ECRYPTFS_DEFAULT_NUM_USERS;
 
@@ -87,7 +87,7 @@ void __ecryptfs_printk(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	if (fmt[1] == '7') { /*            */
+	if (fmt[1] == '7') { /* KERN_DEBUG */
 		if (ecryptfs_verbosity >= 1)
 			vprintk(fmt, args);
 	} else
@@ -95,26 +95,26 @@ void __ecryptfs_printk(const char *fmt, ...)
 	va_end(args);
 }
 
-/* 
-                           
-                                                                   
-                                                             
-  
-                                                              
-                                                                  
-                                                                      
-                                                                    
-                                                        
-                                                                             
-                  
-  
-                                                                
-                                               
-  
-                                                        
-                                      
-  
-                                              
+/**
+ * ecryptfs_init_lower_file
+ * @ecryptfs_dentry: Fully initialized eCryptfs dentry object, with
+ *                   the lower dentry and the lower mount set
+ *
+ * eCryptfs only ever keeps a single open file for every lower
+ * inode. All I/O operations to the lower inode occur through that
+ * file. When the first eCryptfs dentry that interposes with the first
+ * lower dentry for that inode is created, this function creates the
+ * lower file struct and associates it with the eCryptfs
+ * inode. When all eCryptfs files associated with the inode are released, the
+ * file is closed.
+ *
+ * The lower file will be opened with read/write permissions, if
+ * possible. Otherwise, it is opened read-only.
+ *
+ * This function does nothing if a lower file is already
+ * associated with the eCryptfs inode.
+ *
+ * Returns zero on success; non-zero otherwise
  */
 static int ecryptfs_init_lower_file(struct dentry *dentry,
 				    struct file **lower_file)
@@ -176,7 +176,7 @@ enum { ecryptfs_opt_sig, ecryptfs_opt_ecryptfs_sig,
        ecryptfs_opt_fn_cipher, ecryptfs_opt_fn_cipher_key_bytes,
        ecryptfs_opt_unlink_sigs, ecryptfs_opt_mount_auth_tok_only,
        ecryptfs_opt_check_dev_ruid,
-       ecryptfs_opt_decryption_only, //                          
+       ecryptfs_opt_decryption_only, // FEATURE_SDCARD_ENCRYPTION
        ecryptfs_opt_err };
 
 static const match_table_t tokens = {
@@ -194,7 +194,7 @@ static const match_table_t tokens = {
 	{ecryptfs_opt_unlink_sigs, "ecryptfs_unlink_sigs"},
 	{ecryptfs_opt_mount_auth_tok_only, "ecryptfs_mount_auth_tok_only"},
 	{ecryptfs_opt_check_dev_ruid, "ecryptfs_check_dev_ruid"},
-	{ecryptfs_opt_decryption_only, "decryption_only"}, //                          
+	{ecryptfs_opt_decryption_only, "decryption_only"}, // FEATURE_SDCARD_ENCRYPTION
 	{ecryptfs_opt_err, NULL}
 };
 
@@ -236,25 +236,25 @@ static void ecryptfs_init_mount_crypt_stat(
 	mount_crypt_stat->flags |= ECRYPTFS_MOUNT_CRYPT_STAT_INITIALIZED;
 }
 
-/* 
-                         
-                                
-                                             
-                                                                         
-  
-                       
-                                                          
-                                                        
-  
-                                                                  
-                                                                  
-                        
-  
-                                                                   
-                                                                   
-         
-  
-                                             
+/**
+ * ecryptfs_parse_options
+ * @sb: The ecryptfs super block
+ * @options: The options passed to the kernel
+ * @check_ruid: set to 1 if device uid should be checked against the ruid
+ *
+ * Parse mount options:
+ * debug=N 	   - ecryptfs_verbosity level for debug output
+ * sig=XXX	   - description(signature) of the key to use
+ *
+ * Returns the dentry object of the lower-level (lower/interposed)
+ * directory; We want to mount our stackable file system on top of
+ * that lower directory.
+ *
+ * The signature of the key to use must be the description of a key
+ * already in the keyring. Mounting will fail if the key can not be
+ * found.
+ *
+ * Returns zero on success; non-zero on error
  */
 static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 				  uid_t *check_ruid)
@@ -388,7 +388,7 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 			mount_crypt_stat->flags |=
 				ECRYPTFS_GLOBAL_MOUNT_AUTH_TOK_ONLY;
 			break;
-		case ecryptfs_opt_decryption_only: //                          
+		case ecryptfs_opt_decryption_only: // FEATURE_SDCARD_ENCRYPTION
 			mount_crypt_stat->flags |= ECRYPTFS_DECRYPTION_ONLY;
 			break;
 		case ecryptfs_opt_check_dev_ruid:
@@ -473,12 +473,12 @@ out:
 struct kmem_cache *ecryptfs_sb_info_cache;
 static struct file_system_type ecryptfs_fs_type;
 
-/* 
-                  
-           
-         
-                                    
-                                                
+/**
+ * ecryptfs_get_sb
+ * @fs_type
+ * @flags
+ * @dev_name: The path to mount over
+ * @raw_data: The options passed into the kernel
  */
 static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags,
 			const char *dev_name, void *raw_data)
@@ -518,7 +518,7 @@ static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags
 	ecryptfs_set_superblock_private(s, sbi);
 	s->s_bdi = &sbi->bdi;
 
-	/*                                                    */
+	/* ->kill_sb() will take care of sbi after that point */
 	sbi = NULL;
 	s->s_op = &ecryptfs_sops;
 	s->s_d_op = &ecryptfs_dops;
@@ -566,7 +566,7 @@ static struct dentry *ecryptfs_mount(struct file_system_type *fs_type, int flags
 	if (!root_info)
 		goto out_free;
 
-	/*                                         */
+	/* ->kill_sb() will take care of root_info */
 	ecryptfs_set_dentry_private(s->s_root, root_info);
 	ecryptfs_set_dentry_lower(s->s_root, path.dentry);
 	ecryptfs_set_dentry_lower_mnt(s->s_root, path.mnt);
@@ -587,11 +587,11 @@ out:
 	return ERR_PTR(rc);
 }
 
-/* 
-                            
-                                
-  
-                                                               
+/**
+ * ecryptfs_kill_block_super
+ * @sb: The ecryptfs super block
+ *
+ * Used to bring the superblock down and free the private data.
  */
 static void ecryptfs_kill_block_super(struct super_block *sb)
 {
@@ -612,10 +612,10 @@ static struct file_system_type ecryptfs_fs_type = {
 	.fs_flags = 0
 };
 
-/* 
-                       
-  
-                                                               
+/**
+ * inode_info_init_once
+ *
+ * Initializes the ecryptfs_inode_info_cache when it is created
  */
 static void
 inode_info_init_once(void *vptr)
@@ -711,9 +711,9 @@ static void ecryptfs_free_kmem_caches(void)
 	int i;
 
 	/*
-                                                               
-                  
-  */
+	 * Make sure all delayed rcu free inodes are flushed before we
+	 * destroy cache.
+	 */
 	rcu_barrier();
 
 	for (i = 0; i < ARRAY_SIZE(ecryptfs_cache_infos); i++) {
@@ -725,10 +725,10 @@ static void ecryptfs_free_kmem_caches(void)
 	}
 }
 
-/* 
-                            
-  
-                                              
+/**
+ * ecryptfs_init_kmem_caches
+ *
+ * Returns zero on success; non-zero otherwise
  */
 static int ecryptfs_init_kmem_caches(void)
 {

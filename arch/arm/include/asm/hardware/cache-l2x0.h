@@ -48,8 +48,8 @@
 #define L2X0_CLEAN_INV_LINE_IDX		0x7F8
 #define L2X0_CLEAN_INV_WAY		0x7FC
 /*
-                                                                        
-                                                      
+ * The lockdown registers repeat 8 times for L310, the L210 has only one
+ * D and one I lockdown register at 0x0900 and 0x0904.
  */
 #define L2X0_LOCKDOWN_WAY_D_BASE	0x900
 #define L2X0_LOCKDOWN_WAY_I_BASE	0x904
@@ -65,7 +65,7 @@
 #define   L2X0_DYNAMIC_CLK_GATING_EN	(1 << 1)
 #define   L2X0_STNDBY_MODE_EN		(1 << 0)
 
-/*                            */
+/* Registers shifts and masks */
 #define L2X0_CACHE_ID_REV_MASK		(0x3f)
 #define L2X0_CACHE_ID_PART_MASK		(0xf << 6)
 #define L2X0_CACHE_ID_PART_L210		(1 << 6)
@@ -130,9 +130,9 @@ struct l2x0_regs {
 	unsigned long phy_base;
 	unsigned long aux_ctrl;
 	/*
-                                                             
-                       
-  */
+	 * Whether the following registers need to be saved/restored
+	 * depends on platform
+	 */
 	unsigned long tag_latency;
 	unsigned long data_latency;
 	unsigned long filter_start;
@@ -143,6 +143,6 @@ struct l2x0_regs {
 
 extern struct l2x0_regs l2x0_saved_regs;
 
-#endif /*              */
+#endif /* __ASSEMBLY__ */
 
 #endif

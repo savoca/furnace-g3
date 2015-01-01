@@ -25,13 +25,13 @@
 #include <asm/scatterlist.h>
 
 /*
-                                                 
-                                                             
+ * Architecture-specific constants for drivers to
+ * extract attributes of the device using vio_get_attribute()
  */
 #define VETH_MAC_ADDR "local-mac-address"
 #define VETH_MCAST_FILTER_SIZE "ibm,mac-address-filters"
 
-/*                                     */
+/* End architecture-specific constants */
 
 #define h_vio_signal(ua, mode) \
   plpar_hcall_norets(H_VIO_SIGNAL, ua, mode)
@@ -40,19 +40,19 @@
 #define VIO_IRQ_ENABLE		1UL
 
 /*
-                                                                    
+ * VIO CMO minimum entitlement for all devices and spare entitlement
  */
 #define VIO_CMO_MIN_ENT 1562624
 
 struct iommu_table;
 
-/* 
-                                                                    
-  
-                                                                   
-                                                                      
-                                                               
-                                                                          
+/**
+ * vio_dev - This structure is used to describe virtual I/O devices.
+ *
+ * @desired: set from return of driver's get_desired_dma() function
+ * @entitled: bytes of IO data that has been reserved for this device.
+ * @allocated: bytes of IO data currently in use by the device.
+ * @allocs_failed: number of DMA failures due to insufficient entitlement.
  */
 struct vio_dev {
 	const char *name;
@@ -73,9 +73,9 @@ struct vio_driver {
 	const struct vio_device_id *id_table;
 	int (*probe)(struct vio_dev *dev, const struct vio_device_id *id);
 	int (*remove)(struct vio_dev *dev);
-	/*                                                   
-                                                  
-  */
+	/* A driver must have a get_desired_dma() function to
+	 * be loaded in a CMO environment if it uses DMA.
+	 */
 	unsigned long (*get_desired_dma)(struct vio_dev *dev);
 	const struct dev_pm_ops *pm;
 	struct device_driver driver;
@@ -84,7 +84,7 @@ struct vio_driver {
 extern int __vio_register_driver(struct vio_driver *drv, struct module *owner,
 				 const char *mod_name);
 /*
-                                                                             
+ * vio_register_driver must be a macro so that KBUILD_MODNAME can be expanded
  */
 #define vio_register_driver(driver)		\
 	__vio_register_driver(driver, THIS_MODULE, KBUILD_MODNAME)
@@ -122,5 +122,5 @@ static inline struct vio_dev *to_vio_dev(struct device *dev)
 	return container_of(dev, struct vio_dev, dev);
 }
 
-#endif /*            */
-#endif /*                    */
+#endif /* __KERNEL__ */
+#endif /* _ASM_POWERPC_VIO_H */

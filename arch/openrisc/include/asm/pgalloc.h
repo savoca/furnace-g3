@@ -39,7 +39,7 @@ static inline void pmd_populate(struct mm_struct *mm, pmd_t *pmd,
 }
 
 /*
-                                 
+ * Allocate and free page tables.
  */
 static inline pgd_t *pgd_alloc(struct mm_struct *mm)
 {
@@ -56,9 +56,9 @@ static inline pgd_t *pgd_alloc(struct mm_struct *mm)
 }
 
 #if 0
-/*                                                              
-                                                                
-                                              
+/* FIXME: This seems to be the preferred style, but we are using
+ * current_pgd (from mm->pgd) to load kernel pages so we need it
+ * initialized.  This needs to be looked into.
  */
 extern inline pgd_t *pgd_alloc(struct mm_struct *mm)
 {

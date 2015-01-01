@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-        
-  
-                                                                      
+/**
+ * @file
+ *
+ * @brief The monitor-kernel socket interface kernel-only definitions.
  */
 
 #ifndef _MONITOR_TIMER_KERNEL_H
@@ -33,12 +33,12 @@
 
 #include <linux/hrtimer.h>
 
-/* 
-                                 
+/**
+ * @brief Monitor Timer structure
  */
 struct MonTimer {
-	struct MvpkmVM *vm;         /*                 */
-	struct hrtimer  timer;      /*               */
+	struct MvpkmVM *vm;         /**< Associated vm */
+	struct hrtimer  timer;      /**< Linux timer */
 };
 
 void MonitorTimer_Setup(struct MvpkmVM *vm);

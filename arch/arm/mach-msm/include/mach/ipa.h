@@ -18,8 +18,8 @@
 #include <linux/types.h>
 #include <mach/sps.h>
 
-/* 
-                                                           
+/**
+ * enum ipa_nat_en_type - NAT setting type in IPA end-point
  */
 enum ipa_nat_en_type {
 	IPA_BYPASS_NAT,
@@ -27,11 +27,11 @@ enum ipa_nat_en_type {
 	IPA_DST_NAT,
 };
 
-/* 
-                                                          
-                     
-                                                
-                                                  
+/**
+ * enum ipa_mode_type - mode setting type in IPA end-point
+ * @BASIC: basic mode
+ * @ENABLE_FRAMING_HDLC: not currently supported
+ * @ENABLE_DEFRAMING_HDLC: not currently supported
  */
 enum ipa_mode_type {
 	IPA_BASIC,
@@ -40,9 +40,9 @@ enum ipa_mode_type {
 	IPA_DMA,
 };
 
-/* 
-                                                           
-             
+/**
+ *  enum ipa_aggr_en_type - aggregation setting type in IPA
+ *  end-point
  */
 enum ipa_aggr_en_type {
 	IPA_BYPASS_AGGR,
@@ -50,8 +50,8 @@ enum ipa_aggr_en_type {
 	IPA_ENABLE_DEAGGR,
 };
 
-/* 
-                                                             
+/**
+ *  enum ipa_aggr_type - type of aggregation in IPA end-point
  */
 enum ipa_aggr_type {
 	IPA_MBIM_16,
@@ -59,71 +59,71 @@ enum ipa_aggr_type {
 	IPA_TLP,
 };
 
-/* 
-                                               
+/**
+ * enum ipa_aggr_mode - global aggregation mode
  */
 enum ipa_aggr_mode {
 	IPA_MBIM,
 	IPA_QCNCM,
 };
 
-/* 
-                                                          
-                           
-                                       
-                                          
+/**
+ * enum ipa_dp_evt_type - type of event client callback is
+ * invoked for on data path
+ * @IPA_RECEIVE: data is struct sk_buff
+ * @IPA_WRITE_DONE: data is struct sk_buff
  */
 enum ipa_dp_evt_type {
 	IPA_RECEIVE,
 	IPA_WRITE_DONE,
 };
 
-/* 
-                                                             
-                                                                      
-                                                                   
-                                                            
+/**
+ * struct ipa_ep_cfg_nat - NAT configuration in IPA end-point
+ * @nat_en:	This defines the default NAT mode for the pipe: in case of
+ *		filter miss - the default NAT mode defines the NATing operation
+ *		on the packet. Valid for Input Pipes only (IPA consumer)
  */
 struct ipa_ep_cfg_nat {
 	enum ipa_nat_en_type nat_en;
 };
 
-/* 
-                                                                
-                                                                            
-                                                                   
-                                                                         
-                             
-                                                      
-                                                    
-                                                     
-                                                    
-                                                                     
-                              
-                                      
-                                                           
-                                                   
-                                                                              
-                                                      
-                                                  
-                                                    
-                                           
-                                                                             
-                                             
-                                                   
-                                                   
-                                           
-                                                                             
-                                                            
-                                                       
-                                                       
-                                          
-                                                                               
-                                                           
-                                               
-                                  
-                           
-                                         
+/**
+ * struct ipa_ep_cfg_hdr - header configuration in IPA end-point
+ * @hdr_len:	Header length in bytes to be added/removed. Assuming header len
+ *		is constant per endpoint. Valid for both Input and Output Pipes
+ * @hdr_ofst_metadata_valid:	0: Metadata_Ofst  value is invalid, i.e., no
+ *				metadata within header.
+ *				1: Metadata_Ofst  value is valid, i.e., metadata
+ *				within header is in offset Metadata_Ofst Valid
+ *				for Input Pipes only (IPA Consumer) (for output
+ *				pipes, metadata already set within the header)
+ * @hdr_ofst_metadata:	Offset within header in which metadata resides
+ *			Size of metadata - 4bytes
+ *			Example -  Stream ID/SSID/mux ID.
+ *			Valid for  Input Pipes only (IPA Consumer) (for output
+ *			pipes, metadata already set within the header)
+ * @hdr_additional_const_len:	Defines the constant length that should be added
+ *				to the payload length in order for IPA to update
+ *				correctly the length field within the header
+ *				(valid only in case Hdr_Ofst_Pkt_Size_Valid=1)
+ *				Valid for Output Pipes (IPA Producer)
+ * @hdr_ofst_pkt_size_valid:	0: Hdr_Ofst_Pkt_Size  value is invalid, i.e., no
+ *				length field within the inserted header
+ *				1: Hdr_Ofst_Pkt_Size  value is valid, i.e., a
+ *				packet length field resides within the header
+ *				Valid for Output Pipes (IPA Producer)
+ * @hdr_ofst_pkt_size:	Offset within header in which packet size reside. Upon
+ *			Header Insertion, IPA will update this field within the
+ *			header with the packet length . Assumption is that
+ *			header length field size is constant and is 2Bytes
+ *			Valid for Output Pipes (IPA Producer)
+ * @hdr_a5_mux:	Determines whether A5 Mux header should be added to the packet.
+ *		This bit is valid only when Hdr_En=01(Header Insertion)
+ *		SW should set this bit for IPA-to-A5 pipes.
+ *		0: Do not insert A5 Mux Header
+ *		1: Insert A5 Mux Header
+ *		Valid for Output Pipes (IPA Producer)
  */
 struct ipa_ep_cfg_hdr {
 	u32 hdr_len;
@@ -135,36 +135,36 @@ struct ipa_ep_cfg_hdr {
 	u32 hdr_a5_mux;
 };
 
-/* 
-                                                               
-                                                   
-                                                                      
-                      
-                                                          
-              
-                                             
+/**
+ * struct ipa_ep_cfg_mode - mode configuration in IPA end-point
+ * @mode:	Valid for Input Pipes only (IPA Consumer)
+ * @dst:	This parameter specifies the output pipe to which the packets
+ *		will be routed to.
+ *		This parameter is valid for Mode=DMA and not valid for
+ *		Mode=Basic
+ *		Valid for Input Pipes only (IPA Consumer)
  */
 struct ipa_ep_cfg_mode {
 	enum ipa_mode_type mode;
 	enum ipa_client_type dst;
 };
 
-/* 
-                                                                      
-                                                  
-                                               
-                                                                            
-                                                          
-                                                           
-                                                        
-                                                         
-                                                
-                                                                             
-                                                          
-                                                            
-                                                  
-                                                         
-                                               
+/**
+ * struct ipa_ep_cfg_aggr - aggregation configuration in IPA end-point
+ * @aggr_en:	Valid for both Input and Output Pipes
+ * @aggr:	Valid for both Input and Output Pipes
+ * @aggr_byte_limit:	Limit of aggregated packet size in KB (<=32KB) When set
+ *			to 0, there is no size limitation on the aggregation.
+ *			When both, Aggr_Byte_Limit and Aggr_Time_Limit are set
+ *			to 0, there is no aggregation, every packet is sent
+ *			independently according to the aggregation structure
+ *			Valid for Output Pipes only (IPA Producer )
+ * @aggr_time_limit:	Timer to close aggregated packet (<=32ms) When set to 0,
+ *			there is no time limitation on the aggregation.  When
+ *			both, Aggr_Byte_Limit and Aggr_Time_Limit are set to 0,
+ *			there is no aggregation, every packet is sent
+ *			independently according to the aggregation structure
+ *			Valid for Output Pipes only (IPA Producer)
  */
 struct ipa_ep_cfg_aggr {
 	enum ipa_aggr_en_type aggr_en;
@@ -173,35 +173,35 @@ struct ipa_ep_cfg_aggr {
 	u32 aggr_time_limit;
 };
 
-/* 
-                                                                 
-                                                                                
-                                                               
-                                                                    
-                                                                  
-                  
+/**
+ * struct ipa_ep_cfg_route - route configuration in IPA end-point
+ * @rt_tbl_hdl:	Defines the default routing table index to be used in case there
+ *		is no filter rule matching, valid for Input Pipes only (IPA
+ *		Consumer). Clients should set this to 0 which will cause default
+ *		v4 and v6 routes setup internally by IPA driver to be used for
+ *		this end-point
  */
 struct ipa_ep_cfg_route {
 	u32 rt_tbl_hdl;
 };
 
-/* 
-                                                                                
-                                                                
-                                                                               
+/**
+ * struct ipa_ep_cfg_holb - head of line blocking configuration in IPA end-point
+ * @en: enable(1 => ok to drop pkt)/disable(0 => never drop pkt)
+ * @tmr_val: duration in units of 128 IPA clk clock cyles [0,511], 1 clk=1.28us
  */
 struct ipa_ep_cfg_holb {
 	u16 en;
 	u16 tmr_val;
 };
 
-/* 
-                                                     
-                      
-                          
-                         
-                                
-                             
+/**
+ * struct ipa_ep_cfg - configuration of IPA end-point
+ * @nat:	NAT parmeters
+ * @hdr:	Header parameters
+ * @mode:	Mode parameters
+ * @aggr:	Aggregation parameters
+ * @route:	Routing parameters
  */
 struct ipa_ep_cfg {
 	struct ipa_ep_cfg_nat nat;
@@ -214,26 +214,26 @@ struct ipa_ep_cfg {
 typedef void (*ipa_notify_cb)(void *priv, enum ipa_dp_evt_type evt,
 		       unsigned long data);
 
-/* 
-                                                                                
-                                                                             
-                                                                 
-  
-                                    
-                            
-                                      
-                                       
-                         
-                    
-                                                                   
-                                                              
-          
-                                   
-                                   
-                                                                             
-                                       
-                                                          
-                                                          
+/**
+ * struct ipa_connect_params - low-level client connect input parameters. Either
+ * client allocates the data and desc FIFO and specifies that in data+desc OR
+ * specifies sizes and pipe_mem pref and IPA does the allocation.
+ *
+ * @ipa_ep_cfg:	IPA EP configuration
+ * @client:	type of "client"
+ * @client_bam_hdl:	 client SPS handle
+ * @client_ep_idx:	 client PER EP index
+ * @priv:	callback cookie
+ * @notify:	callback
+ *		priv - callback cookie evt - type of event data - data relevant
+ *		to event.  May not be valid. See event_type enum for valid
+ *		cases.
+ * @desc_fifo_sz:	size of desc FIFO
+ * @data_fifo_sz:	size of data FIFO
+ * @pipe_mem_preferred:	if true, try to alloc the FIFOs in pipe mem, fallback
+ *			to sys mem if pipe mem alloc fails
+ * @desc:	desc FIFO meta-data when client has allocated it
+ * @data:	data FIFO meta-data when client has allocated it
  */
 struct ipa_connect_params {
 	struct ipa_ep_cfg ipa_ep_cfg;
@@ -249,13 +249,13 @@ struct ipa_connect_params {
 	struct sps_mem_buffer data;
 };
 
-/* 
-                                                                        
-                                 
-                                
-                                 
-                              
-                              
+/**
+ *  struct ipa_sps_params - SPS related output parameters resulting from
+ *  low/high level client connect
+ *  @ipa_bam_hdl:	IPA SPS handle
+ *  @ipa_ep_idx:	IPA PER EP index
+ *  @desc:	desc FIFO meta-data
+ *  @data:	data FIFO meta-data
  */
 struct ipa_sps_params {
 	u32 ipa_bam_hdl;
@@ -264,38 +264,38 @@ struct ipa_sps_params {
 	struct sps_mem_buffer data;
 };
 
-/* 
-                                               
-                                      
-                                 
+/**
+ * struct ipa_tx_intf - interface tx properties
+ * @num_props:	number of tx properties
+ * @prop:	the tx properties array
  */
 struct ipa_tx_intf {
 	u32 num_props;
 	struct ipa_ioc_tx_intf_prop *prop;
 };
 
-/* 
-                                               
-                                      
-                                 
+/**
+ * struct ipa_rx_intf - interface rx properties
+ * @num_props:	number of rx properties
+ * @prop:	the rx properties array
  */
 struct ipa_rx_intf {
 	u32 num_props;
 	struct ipa_ioc_rx_intf_prop *prop;
 };
 
-/* 
-                                                                               
-                     
-                                    
-                                                
-                                   
-                         
-                    
-                          
-                       
-                                                                    
-                         
+/**
+ * struct ipa_sys_connect_params - information needed to setup an IPA end-point
+ * in system-BAM mode
+ * @ipa_ep_cfg:	IPA EP configuration
+ * @client:	the type of client who "owns" the EP
+ * @desc_fifo_sz:	size of desc FIFO
+ * @priv:	callback cookie
+ * @notify:	callback
+ *		priv - callback cookie
+ *		evt - type of event
+ *		data - data relevant to event.  May not be valid. See event_type
+ *		enum for valid cases.
  */
 struct ipa_sys_connect_params {
 	struct ipa_ep_cfg ipa_ep_cfg;
@@ -305,47 +305,47 @@ struct ipa_sys_connect_params {
 	ipa_notify_cb notify;
 };
 
-/* 
-                                                   
-                                                       
-                                                
+/**
+ * struct ipa_tx_meta - meta-data for the TX packet
+ * @mbim_stream_id:	the stream ID used in NDP signature
+ * @mbim_stream_id_valid:	 is above field valid?
  */
 struct ipa_tx_meta {
 	u8 mbim_stream_id;
 	bool mbim_stream_id_valid;
 };
 
-/* 
-                                              
-                                                 
-                                            
-                                      
-  
-                                                                  
-                                                               
-  
-                  
+/**
+ * typedef ipa_msg_free_fn - callback function
+ * @param buff - [in] the message payload to free
+ * @param len - [in] size of message payload
+ * @param type - [in] the message type
+ *
+ * Message callback registered by kernel client with IPA driver to
+ * free message payload after IPA driver processing is complete
+ *
+ * No return value
  */
 typedef void (*ipa_msg_free_fn)(void *buff, u32 len, u32 type);
 
-/* 
-                                              
-                                                   
-                                                        
-                                      
-  
-                                                                   
-                                                                      
-             
-  
-                                                      
+/**
+ * typedef ipa_msg_pull_fn - callback function
+ * @param buff - [in] where to copy message payload
+ * @param len - [in] size of buffer to copy payload into
+ * @param type - [in] the message type
+ *
+ * Message callback registered by kernel client with IPA driver for
+ * IPA driver to pull messages from the kernel client upon demand from
+ * user-space
+ *
+ * Returns how many bytes were copied into the buffer.
  */
 typedef int (*ipa_msg_pull_fn)(void *buff, u32 len, u32 type);
 
-/* 
-                                                                               
-  
-                       
+/**
+ * enum ipa_bridge_dir - direction of the bridge from air interface perspective
+ *
+ * IPA bridge direction
  */
 enum ipa_bridge_dir {
 	IPA_BRIDGE_DIR_DL,
@@ -353,10 +353,10 @@ enum ipa_bridge_dir {
 	IPA_BRIDGE_DIR_MAX
 };
 
-/* 
-                                           
-  
-                  
+/**
+ * enum ipa_bridge_type - type of SW bridge
+ *
+ * IPA bridge type
  */
 enum ipa_bridge_type {
 	IPA_BRIDGE_TYPE_TETHERED,
@@ -364,10 +364,10 @@ enum ipa_bridge_type {
 	IPA_BRIDGE_TYPE_MAX
 };
 
-/* 
-                                    
-  
-                                     
+/**
+ * enum ipa_rm_event - IPA RM events
+ *
+ * Indicate the resource state change
  */
 enum ipa_rm_event {
 	IPA_RM_RESOURCE_GRANTED,
@@ -377,39 +377,39 @@ enum ipa_rm_event {
 typedef void (*ipa_rm_notify_cb)(void *user_data,
 		enum ipa_rm_event event,
 		unsigned long data);
-/* 
-                                                        
-                                          
-  
-                                                 
-                                            
-                                                   
-                                               
-                                                   
-                                             
-                                           
-             
+/**
+ * struct ipa_rm_register_params - information needed to
+ *      register IPA RM client with IPA RM
+ *
+ * @user_data: IPA RM client provided information
+ *		to be passed to notify_cb callback below
+ * @notify_cb: callback which is called by resource
+ *		to notify the IPA RM client about its state
+ *		change IPA RM client is expected to perform non
+ *		blocking operations only in notify_cb and
+ *		release notification context as soon as
+ *		possible.
  */
 struct ipa_rm_register_params {
 	void *user_data;
 	ipa_rm_notify_cb notify_cb;
 };
 
-/* 
-                                                                 
-                  
-                       
-                                                         
-                                                 
-                         
-                                                                          
-                                                  
-                                                                          
-                                                  
-  
-                                                                    
-                                                         
-                                                    
+/**
+ * struct ipa_rm_create_params - information needed to initialize
+ *				the resource
+ * @name: resource name
+ * @reg_params: register parameters, contains are ignored
+ *		for consumer resource NULL should be provided
+ *		for consumer resource
+ * @request_resource: function which should be called to request resource,
+ *			NULL should be provided for producer resource
+ * @release_resource: function which should be called to release resource,
+ *			NULL should be provided for producer resource
+ *
+ * IPA RM client is expected to perform non blocking operations only
+ * in request_resource and release_resource functions and
+ * release notification context as soon as possible.
  */
 struct ipa_rm_create_params {
 	enum ipa_rm_resource_name name;
@@ -443,8 +443,8 @@ typedef void (*a2_mux_notify_cb)(void *user_data,
 		enum a2_mux_event_type event,
 		unsigned long data);
 
-/* 
-                                                           
+/**
+ * enum teth_tethering_mode - Tethering mode (Rmnet / MBIM)
  */
 enum teth_tethering_mode {
 	TETH_TETHERING_MODE_RMNET,
@@ -452,11 +452,11 @@ enum teth_tethering_mode {
 	TETH_TETHERING_MODE_MAX,
 };
 
-/* 
-                                                                               
-                                                                         
-                                                                         
-                                 
+/**
+ * struct teth_bridge_connect_params - Parameters used in teth_bridge_connect()
+ * @ipa_usb_pipe_hdl:	IPA to USB pipe handle, returned from ipa_connect()
+ * @usb_ipa_pipe_hdl:	USB to IPA pipe handle, returned from ipa_connect()
+ * @tethering_mode:	Rmnet or MBIM
  */
 struct teth_bridge_connect_params {
 	u32 ipa_usb_pipe_hdl;
@@ -467,21 +467,21 @@ struct teth_bridge_connect_params {
 #ifdef CONFIG_IPA
 
 /*
-                       
+ * Connect / Disconnect
  */
 int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		u32 *clnt_hdl);
 int ipa_disconnect(u32 clnt_hdl);
 
 /*
-                   
+ * Resume / Suspend
  */
 int ipa_resume(u32 clnt_hdl);
 
 int ipa_suspend(u32 clnt_hdl);
 
 /*
-                
+ * Configuration
  */
 int ipa_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg);
 
@@ -501,7 +501,7 @@ int ipa_cfg_ep_holb_by_client(enum ipa_client_type client,
 				const struct ipa_ep_cfg_holb *ipa_ep_cfg);
 
 /*
-                            
+ * Header removal / addition
  */
 int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs);
 
@@ -518,7 +518,7 @@ int ipa_put_hdr(u32 hdr_hdl);
 int ipa_copy_hdr(struct ipa_ioc_copy_hdr *copy);
 
 /*
-          
+ * Routing
  */
 int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules);
 
@@ -533,7 +533,7 @@ int ipa_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup);
 int ipa_put_rt_tbl(u32 rt_tbl_hdl);
 
 /*
-            
+ * Filtering
  */
 int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules);
 
@@ -544,7 +544,7 @@ int ipa_commit_flt(enum ipa_ip_type ip);
 int ipa_reset_flt(enum ipa_ip_type ip);
 
 /*
-      
+ * NAT
  */
 int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem);
 
@@ -555,7 +555,7 @@ int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
 int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del);
 
 /*
-            
+ * Messaging
  */
 int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
 		  ipa_msg_free_fn callback);
@@ -563,14 +563,14 @@ int ipa_register_pull_msg(struct ipa_msg_meta *meta, ipa_msg_pull_fn callback);
 int ipa_deregister_pull_msg(struct ipa_msg_meta *meta);
 
 /*
-            
+ * Interface
  */
 int ipa_register_intf(const char *name, const struct ipa_tx_intf *tx,
 		       const struct ipa_rx_intf *rx);
 int ipa_deregister_intf(const char *name);
 
 /*
-              
+ * Aggregation
  */
 int ipa_set_aggr_mode(enum ipa_aggr_mode mode);
 
@@ -579,7 +579,7 @@ int ipa_set_qcncm_ndp_sig(char sig[3]);
 int ipa_set_single_ndp_per_mbim(bool enable);
 
 /*
-                                 
+ * SW bridge (between IPA and A2)
  */
 int ipa_bridge_setup(enum ipa_bridge_dir dir, enum ipa_bridge_type type,
 		     struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl);
@@ -588,20 +588,20 @@ int ipa_bridge_teardown(enum ipa_bridge_dir dir, enum ipa_bridge_type type,
 
 
 /*
-            
+ * Data path
  */
 int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		struct ipa_tx_meta *metadata);
 
 /*
-               
+ * System pipes
  */
 int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl);
 
 int ipa_teardown_sys_pipe(u32 clnt_hdl);
 
 /*
-                   
+ * Resource manager
  */
 int ipa_rm_create_resource(struct ipa_rm_create_params *create_params);
 
@@ -638,7 +638,7 @@ int ipa_rm_inactivity_timer_release_resource(
 				enum ipa_rm_resource_name resource_name);
 
 /*
-             
+ * a2 service
  */
 int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
 			void *user_data,
@@ -659,7 +659,7 @@ int a2_mux_get_tethered_client_handles(enum a2_mux_logical_channel_id lcid,
 		unsigned int *clnt_prod_handle);
 
 /*
-                                  
+ * Tethering bridge (Rmnet / MBIM)
  */
 int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr);
 
@@ -672,7 +672,7 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params);
 void ipa_bam_reg_dump(void);
 bool ipa_emb_ul_pipes_empty(void);
 
-#else /*            */
+#else /* CONFIG_IPA */
 
 static inline int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
 	void *user_data, a2_mux_notify_cb notify_cb)
@@ -714,7 +714,7 @@ static inline int a2_mux_get_tethered_client_handles(
 }
 
 /*
-                       
+ * Connect / Disconnect
  */
 static inline int ipa_connect(const struct ipa_connect_params *in,
 		struct ipa_sps_params *sps,	u32 *clnt_hdl)
@@ -728,7 +728,7 @@ static inline int ipa_disconnect(u32 clnt_hdl)
 }
 
 /*
-                   
+ * Resume / Suspend
  */
 static inline int ipa_resume(u32 clnt_hdl)
 {
@@ -741,7 +741,7 @@ static inline int ipa_suspend(u32 clnt_hdl)
 }
 
 /*
-                
+ * Configuration
  */
 static inline int ipa_cfg_ep(u32 clnt_hdl,
 		const struct ipa_ep_cfg *ipa_ep_cfg)
@@ -786,7 +786,7 @@ static inline int ipa_cfg_ep_holb(u32 clnt_hdl,
 }
 
 /*
-                            
+ * Header removal / addition
  */
 static inline int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
 {
@@ -824,7 +824,7 @@ static inline int ipa_copy_hdr(struct ipa_ioc_copy_hdr *copy)
 }
 
 /*
-          
+ * Routing
  */
 static inline int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 {
@@ -857,7 +857,7 @@ static inline int ipa_put_rt_tbl(u32 rt_tbl_hdl)
 }
 
 /*
-            
+ * Filtering
  */
 static inline int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 {
@@ -880,7 +880,7 @@ static inline int ipa_reset_flt(enum ipa_ip_type ip)
 }
 
 /*
-      
+ * NAT
  */
 static inline int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 {
@@ -906,7 +906,7 @@ static inline int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 }
 
 /*
-            
+ * Messaging
  */
 static inline int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
 		ipa_msg_free_fn callback)
@@ -926,7 +926,7 @@ static inline int ipa_deregister_pull_msg(struct ipa_msg_meta *meta)
 }
 
 /*
-            
+ * Interface
  */
 static inline int ipa_register_intf(const char *name,
 				     const struct ipa_tx_intf *tx,
@@ -941,7 +941,7 @@ static inline int ipa_deregister_intf(const char *name)
 }
 
 /*
-              
+ * Aggregation
  */
 static inline int ipa_set_aggr_mode(enum ipa_aggr_mode mode)
 {
@@ -959,7 +959,7 @@ static inline int ipa_set_single_ndp_per_mbim(bool enable)
 }
 
 /*
-                                 
+ * SW bridge (between IPA and A2)
  */
 static inline int ipa_bridge_setup(enum ipa_bridge_dir dir,
 				    enum ipa_bridge_type type,
@@ -977,7 +977,7 @@ static inline int ipa_bridge_teardown(enum ipa_bridge_dir dir,
 }
 
 /*
-            
+ * Data path
  */
 static inline int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		struct ipa_tx_meta *metadata)
@@ -986,7 +986,7 @@ static inline int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 }
 
 /*
-               
+ * System pipes
  */
 static inline int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in,
 		u32 *clnt_hdl)
@@ -1000,7 +1000,7 @@ static inline int ipa_teardown_sys_pipe(u32 clnt_hdl)
 }
 
 /*
-                   
+ * Resource manager
  */
 static inline int ipa_rm_create_resource(
 		struct ipa_rm_create_params *create_params)
@@ -1084,7 +1084,7 @@ static inline int ipa_rm_inactivity_timer_release_resource(
 }
 
 /*
-                                   
+ * Tethering bridge (Rmnetm / MBIM)
  */
 static inline int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr,
 				   void **private_data_ptr)
@@ -1119,6 +1119,6 @@ static inline bool ipa_emb_ul_pipes_empty(void)
 	return false;
 }
 
-#endif /*           */
+#endif /* CONFIG_IPA*/
 
-#endif /*         */
+#endif /* _IPA_H_ */

@@ -1,7 +1,7 @@
 /*
-                                          
-  
-                          
+ * Functions for saving/restoring console.
+ *
+ * Originally from swsusp.
  */
 
 #include <linux/vt_kern.h>

@@ -42,8 +42,8 @@ struct stat {
 	unsigned long  __unused5;
 };
 
-/*                                                             
-                                            
+/* This matches struct stat64 in glibc2.1, hence the absolutely
+ * insane amounts of padding around dev_t's.
  */
 struct stat64 {
 	unsigned long long	st_dev;
@@ -64,11 +64,11 @@ struct stat64 {
 	unsigned long	st_blksize;
 
 #if defined(__BIG_ENDIAN)
-	unsigned long	__pad4;		/*                                     */
-	unsigned long	st_blocks;	/*                                   */
+	unsigned long	__pad4;		/* future possible st_blocks high bits */
+	unsigned long	st_blocks;	/* Number 512-byte blocks allocated. */
 #elif defined(__LITTLE_ENDIAN)
-	unsigned long	st_blocks;	/*                                   */
-	unsigned long	__pad4;		/*                                     */
+	unsigned long	st_blocks;	/* Number 512-byte blocks allocated. */
+	unsigned long	__pad4;		/* future possible st_blocks high bits */
 #else
 #error no endian defined
 #endif
@@ -84,4 +84,4 @@ struct stat64 {
 	unsigned long long	st_ino;
 };
 
-#endif  /*                  */
+#endif  /* _ASM_M32R_STAT_H */

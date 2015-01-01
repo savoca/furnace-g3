@@ -49,9 +49,9 @@ static unsigned int intc_dist_data(struct intc_desc *desc,
 		mr = desc->hw.mask_regs + i;
 
 		/*
-                                                    
-                                 
-   */
+		 * Skip this entry if there's no auto-distribution
+		 * register associated with it.
+		 */
 		if (!mr->dist_reg)
 			continue;
 
@@ -74,9 +74,9 @@ static unsigned int intc_dist_data(struct intc_desc *desc,
 	}
 
 	/*
-                                                                
-                                                                  
-  */
+	 * It's possible we've gotten here with no distribution options
+	 * available for the IRQ in question, so we just skip over those.
+	 */
 	return 0;
 }
 
@@ -86,8 +86,8 @@ void intc_set_dist_handle(unsigned int irq, struct intc_desc *desc,
 	unsigned long flags;
 
 	/*
-                               
-  */
+	 * Nothing to do for this IRQ.
+	 */
 	if (!desc->hw.mask_regs)
 		return;
 

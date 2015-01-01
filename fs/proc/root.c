@@ -179,9 +179,9 @@ void __init proc_root_init(void)
 #endif
 	proc_mkdir("fs", NULL);
 	proc_mkdir("driver", NULL);
-	proc_mkdir("fs/nfsd", NULL); /*                                                 */
+	proc_mkdir("fs/nfsd", NULL); /* somewhere for the nfsd filesystem to be mounted */
 #if defined(CONFIG_SUN_OPENPROMFS) || defined(CONFIG_SUN_OPENPROMFS_MODULE)
-	/*                           */
+	/* just give it a mountpoint */
 	proc_mkdir("openprom", NULL);
 #endif
 	proc_tty_init();
@@ -227,9 +227,9 @@ static int proc_root_readdir(struct file * filp,
 }
 
 /*
-                                                     
-                                                   
-                                          
+ * The root /proc directory is special, as it has the
+ * <pid> directories. Thus we don't use the generic
+ * directory handling functions for that..
  */
 static const struct file_operations proc_root_operations = {
 	.read		 = generic_read_dir,
@@ -238,7 +238,7 @@ static const struct file_operations proc_root_operations = {
 };
 
 /*
-                                    
+ * proc root can do almost nothing..
  */
 static const struct inode_operations proc_root_inode_operations = {
 	.lookup		= proc_root_lookup,
@@ -246,7 +246,7 @@ static const struct inode_operations proc_root_inode_operations = {
 };
 
 /*
-                                               
+ * This is the root "inode" in the /proc tree..
  */
 struct proc_dir_entry proc_root = {
 	.low_ino	= PROC_ROOT_INO, 

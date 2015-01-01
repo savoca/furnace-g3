@@ -18,7 +18,7 @@
 #define copy_user_page(vto, vfrom, vaddr, topg)	memcpy((vto), (vfrom), PAGE_SIZE)
 
 /*
-                                                  
+ * These are used to make use of C type-checking..
  */
 typedef struct { unsigned long	pte;	} pte_t;
 typedef struct { unsigned long	ste[64];} pmd_t;
@@ -68,9 +68,9 @@ extern unsigned long max_pfn;
 	((current->personality & READ_IMPLIES_EXEC) ? VM_EXEC : 0 ) | \
 		 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
 
-#endif /*              */
+#endif /* __ASSEMBLY__ */
 
 #include <asm-generic/memory_model.h>
 #include <asm-generic/getorder.h>
 
-#endif /*             */
+#endif /* _ASM_PAGE_H */

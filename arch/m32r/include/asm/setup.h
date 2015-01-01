@@ -2,7 +2,7 @@
 #define _ASM_M32R_SETUP_H
 
 /*
-                                                   
+ * This is set up by the setup-routine at boot-time
  */
 
 #define COMMAND_LINE_SIZE       512
@@ -33,6 +33,6 @@
 extern unsigned long memory_start;
 extern unsigned long memory_end;
 
-#endif  /*              */
+#endif  /*  __KERNEL__  */
 
-#endif /*                   */
+#endif /* _ASM_M32R_SETUP_H */

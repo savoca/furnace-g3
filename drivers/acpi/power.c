@@ -24,15 +24,15 @@
  */
 
 /*
-                                                            
-                                             
-                                   
-                                                                           
-   
-                                                                          
-                                                                        
-                                                                      
-                                     
+ * ACPI power-managed devices may be controlled in two ways:
+ * 1. via "Device Specific (D-State) Control"
+ * 2. via "Power Resource Control".
+ * This module is used to manage devices relying on Power Resource Control.
+ * 
+ * An ACPI "power resource object" describes a software controllable power
+ * plane, clock plane, or other resource used by a power managed device.
+ * A device may rely on multiple power resources, and a power resource
+ * may be shared by multiple devices.
  */
 
 #include <linux/kernel.h>
@@ -80,11 +80,11 @@ static struct acpi_driver acpi_power_driver = {
 };
 
 /*
-                         
-                                                 
-   */
+ * A power managed device
+ * A device may rely on multiple power resources.
+ * */
 struct acpi_power_managed_device {
-	struct device *dev; /*                     */
+	struct device *dev; /* The physical device */
 	acpi_handle *handle;
 };
 
@@ -101,15 +101,15 @@ struct acpi_power_resource {
 	unsigned int ref_count;
 	struct mutex resource_lock;
 
-	/*                                                */
+	/* List of devices relying on this power resource */
 	struct acpi_power_resource_device *devices;
 };
 
 static struct list_head acpi_power_resource_list;
 
-/*                                                                           
-                                                      
-                                                                              */
+/* --------------------------------------------------------------------------
+                             Power Resource Management
+   -------------------------------------------------------------------------- */
 
 static int
 acpi_power_get_context(acpi_handle handle,
@@ -170,7 +170,7 @@ static int acpi_power_get_list_state(struct acpi_handle_list *list, int *state)
 	if (!list || !state)
 		return -EINVAL;
 
-	/*                                                           */
+	/* The state of the list is 'on' IFF all resources are 'on'. */
 
 	for (i = 0; i < list->count; i++) {
 		struct acpi_power_resource *resource;
@@ -202,7 +202,7 @@ static int acpi_power_get_list_state(struct acpi_handle_list *list, int *state)
 	return 0;
 }
 
-/*                                                           */
+/* Resume the device when all power resources in _PR0 are on */
 static void acpi_power_on_device(struct acpi_power_managed_device *device)
 {
 	struct acpi_device *acpi_dev;
@@ -228,7 +228,7 @@ static int __acpi_power_on(struct acpi_power_resource *resource)
 	if (ACPI_FAILURE(status))
 		return -ENODEV;
 
-	/*                                                  */
+	/* Update the power resource's _device_ power state */
 	resource->device->power.state = ACPI_STATE_D0;
 
 	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "Power resource [%s] turned on\n",
@@ -299,7 +299,7 @@ static int acpi_power_off(acpi_handle handle)
 	if (ACPI_FAILURE(status)) {
 		result = -ENODEV;
 	} else {
-		/*                                                  */
+		/* Update the power resource's _device_ power state */
 		resource->device->power.state = ACPI_STATE_D3;
 
 		ACPI_DEBUG_PRINT((ACPI_DB_INFO,
@@ -371,7 +371,7 @@ static void __acpi_power_resource_unregister_device(struct device *dev,
 	mutex_unlock(&resource->resource_lock);
 }
 
-/*                                             */
+/* Unlink dev from all power resources in _PR0 */
 void acpi_power_resource_unregister_device(struct device *dev, acpi_handle handle)
 {
 	struct acpi_device *acpi_dev;
@@ -417,7 +417,7 @@ static int __acpi_power_resource_register_device(
 	return 0;
 }
 
-/*                                         */
+/* Link dev to all power resources in _PR0 */
 int acpi_power_resource_register_device(struct device *dev, acpi_handle handle)
 {
 	struct acpi_device *acpi_dev;
@@ -461,22 +461,22 @@ no_power_resource:
 	return -ENODEV;
 }
 
-/* 
-                                                                              
-                                                             
-                          
-                                                                        
-                                                  
-                                                
-  
-                                                                           
-                                                                         
-                           
-  
-                
-                                                          
-                                            
-                                                             
+/**
+ * acpi_device_sleep_wake - execute _DSW (Device Sleep Wake) or (deprecated in
+ *                          ACPI 3.0) _PSW (Power State Wake)
+ * @dev: Device to handle.
+ * @enable: 0 - disable, 1 - enable the wake capabilities of the device.
+ * @sleep_state: Target sleep state of the system.
+ * @dev_state: Target power state of the device.
+ *
+ * Execute _DSW (Device Sleep Wake) or (deprecated in ACPI 3.0) _PSW (Power
+ * State Wake) for the device, if present.  On failure reset the device's
+ * wakeup.flags.valid flag.
+ *
+ * RETURN VALUE:
+ * 0 if either _DSW or _PSW has been successfully executed
+ * 0 if neither _DSW nor _PSW has been found
+ * -ENODEV if the execution of either _DSW or _PSW has failed
  */
 int acpi_device_sleep_wake(struct acpi_device *dev,
                            int enable, int sleep_state, int dev_state)
@@ -486,16 +486,16 @@ int acpi_device_sleep_wake(struct acpi_device *dev,
 	acpi_status status = AE_OK;
 
 	/*
-                              
-   
-                                                   
-                                                    
-                                   
-                                   
-                                                                      
-                                                                       
-                    
-  */
+	 * Try to execute _DSW first.
+	 *
+	 * Three agruments are needed for the _DSW object:
+	 * Argument 0: enable/disable the wake capabilities
+	 * Argument 1: target system state
+	 * Argument 2: target device state
+	 * When _DSW object is called to disable the wake capabilities, maybe
+	 * the first argument is filled. The values of the other two agruments
+	 * are meaningless.
+	 */
 	in_arg[0].type = ACPI_TYPE_INTEGER;
 	in_arg[0].integer.value = enable;
 	in_arg[1].type = ACPI_TYPE_INTEGER;
@@ -511,7 +511,7 @@ int acpi_device_sleep_wake(struct acpi_device *dev,
 		return -ENODEV;
 	}
 
-	/*              */
+	/* Execute _PSW */
 	arg_list.count = 1;
 	in_arg[0].integer.value = enable;
 	status = acpi_evaluate_object(dev->handle, "_PSW", &arg_list, NULL);
@@ -525,10 +525,10 @@ int acpi_device_sleep_wake(struct acpi_device *dev,
 }
 
 /*
-                                                          
-                                                                  
-                                                                              
-                                            
+ * Prepare a wakeup device, two steps (Ref ACPI 2.0:P229):
+ * 1. Power on the power resources required for the wakeup device 
+ * 2. Execute _DSW (Device Sleep Wake) or (deprecated in ACPI 3.0) _PSW (Power
+ *    State Wake) for the device, if present
  */
 int acpi_enable_wakeup_device_power(struct acpi_device *dev, int sleep_state)
 {
@@ -542,7 +542,7 @@ int acpi_enable_wakeup_device_power(struct acpi_device *dev, int sleep_state)
 	if (dev->wakeup.prepare_count++)
 		goto out;
 
-	/*                     */
+	/* Open power resource */
 	for (i = 0; i < dev->wakeup.resources.count; i++) {
 		int ret = acpi_power_on(dev->wakeup.resources.handles[i]);
 		if (ret) {
@@ -554,9 +554,9 @@ int acpi_enable_wakeup_device_power(struct acpi_device *dev, int sleep_state)
 	}
 
 	/*
-                                                                        
-                                        
-  */
+	 * Passing 3 as the third argument below means the device may be placed
+	 * in arbitrary power state afterwards.
+	 */
 	err = acpi_device_sleep_wake(dev, 1, sleep_state, 3);
 
  err_out:
@@ -569,10 +569,10 @@ int acpi_enable_wakeup_device_power(struct acpi_device *dev, int sleep_state)
 }
 
 /*
-                                                        
-                                                                              
-                                            
-                                       
+ * Shutdown a wakeup device, counterpart of above method
+ * 1. Execute _DSW (Device Sleep Wake) or (deprecated in ACPI 3.0) _PSW (Power
+ *    State Wake) for the device, if present
+ * 2. Shutdown down the power resources
  */
 int acpi_disable_wakeup_device_power(struct acpi_device *dev)
 {
@@ -587,9 +587,9 @@ int acpi_disable_wakeup_device_power(struct acpi_device *dev)
 		goto out;
 
 	/*
-                                                                       
-                                                                         
-  */
+	 * Executing the code below even if prepare_count is already zero when
+	 * the function is called may be useful, for example for initialisation.
+	 */
 	if (dev->wakeup.prepare_count < 0)
 		dev->wakeup.prepare_count = 0;
 
@@ -597,7 +597,7 @@ int acpi_disable_wakeup_device_power(struct acpi_device *dev)
 	if (err)
 		goto out;
 
-	/*                      */
+	/* Close power resource */
 	for (i = 0; i < dev->wakeup.resources.count; i++) {
 		int ret = acpi_power_off(dev->wakeup.resources.handles[i]);
 		if (ret) {
@@ -613,9 +613,9 @@ int acpi_disable_wakeup_device_power(struct acpi_device *dev)
 	return err;
 }
 
-/*                                                                           
-                                                    
-                                                                              */
+/* --------------------------------------------------------------------------
+                             Device Power Management
+   -------------------------------------------------------------------------- */
 
 int acpi_power_get_inferred_state(struct acpi_device *device, int *state)
 {
@@ -628,9 +628,9 @@ int acpi_power_get_inferred_state(struct acpi_device *device, int *state)
 		return -EINVAL;
 
 	/*
-                                                                  
-                                          
-  */
+	 * We know a device's inferred power state when all the resources
+	 * required for a given D-state are 'on'.
+	 */
 	for (i = ACPI_STATE_D0; i < ACPI_STATE_D3_HOT; i++) {
 		list = &device->power.states[i].resources;
 		if (list->count < 1)
@@ -672,13 +672,13 @@ int acpi_power_transition(struct acpi_device *device, int state)
 	    || (device->power.state > ACPI_STATE_D3_COLD))
 		return -ENODEV;
 
-	/*                                 */
+	/* TBD: Resources must be ordered. */
 
 	/*
-                                                                      
-                                                                       
-                                                                
-  */
+	 * First we reference all power resources required in the target list
+	 * (e.g. so the device doesn't lose power while transitioning).  Then,
+	 * we dereference all power resources used in the current list.
+	 */
 	if (state < ACPI_STATE_D3_COLD)
 		result = acpi_power_on_list(
 			&device->power.states[state].resources);
@@ -687,15 +687,15 @@ int acpi_power_transition(struct acpi_device *device, int state)
 		acpi_power_off_list(
 			&device->power.states[device->power.state].resources);
 
-	/*                                                                    */
+	/* We shouldn't change the state unless the above operations succeed. */
 	device->power.state = result ? ACPI_STATE_UNKNOWN : state;
 
 	return result;
 }
 
-/*                                                                           
-                                                
-                                                                              */
+/* --------------------------------------------------------------------------
+                                Driver Interface
+   -------------------------------------------------------------------------- */
 
 static int acpi_power_add(struct acpi_device *device)
 {
@@ -720,7 +720,7 @@ static int acpi_power_add(struct acpi_device *device)
 	strcpy(acpi_device_class(device), ACPI_POWER_CLASS);
 	device->driver_data = resource;
 
-	/*                                                                */
+	/* Evalute the object to get the system level and resource order. */
 	status = acpi_evaluate_object(device->handle, NULL, NULL, &buffer);
 	if (ACPI_FAILURE(status)) {
 		result = -ENODEV;

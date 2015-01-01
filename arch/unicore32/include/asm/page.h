@@ -12,7 +12,7 @@
 #ifndef __UNICORE_PAGE_H__
 #define __UNICORE_PAGE_H__
 
-/*                                     */
+/* PAGE_SHIFT determines the page size */
 #define PAGE_SHIFT		12
 #define PAGE_SIZE		(_AC(1, UL) << PAGE_SHIFT)
 #define PAGE_MASK		(~(PAGE_SIZE-1))
@@ -32,7 +32,7 @@ extern void copy_page(void *to, const void *from);
 
 #ifdef STRICT_MM_TYPECHECKS
 /*
-                                                  
+ * These are used to make use of C type-checking..
  */
 typedef struct { unsigned long pte; } pte_t;
 typedef struct { unsigned long pgd; } pgd_t;
@@ -48,7 +48,7 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 
 #else
 /*
-                                                
+ * .. while these make it easier on the compiler
  */
 typedef unsigned long pte_t;
 typedef unsigned long pgd_t;
@@ -62,7 +62,7 @@ typedef unsigned long pgprot_t;
 #define __pgd(x)	(x)
 #define __pgprot(x)     (x)
 
-#endif /*                      */
+#endif /* STRICT_MM_TYPECHECKS */
 
 typedef struct page *pgtable_t;
 
@@ -70,7 +70,7 @@ extern int pfn_valid(unsigned long);
 
 #include <asm/memory.h>
 
-#endif /*               */
+#endif /* !__ASSEMBLY__ */
 
 #define VM_DATA_DEFAULT_FLAGS \
 	(VM_READ | VM_WRITE | VM_EXEC | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)

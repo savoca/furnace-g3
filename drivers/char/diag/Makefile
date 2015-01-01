@@ -7,3 +7,4 @@ diagchar-objs := diagchar_core.o diagchar_hdlc.o diagfwd.o diagmem.o diagfwd_cnt
 # LGE Add: mts driver
 obj-y += diagchar_mts.o
 obj-$(CONFIG_LGE_DM_APP) += lg_dm_tty.o
+obj-$(CONFIG_LGE_ACG_CARRIER_CODE) += diag_acg.o

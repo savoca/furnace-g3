@@ -43,7 +43,7 @@ struct msm_bus_noc_info {
 	uint32_t nmasters;
 	uint32_t nqos_masters;
 	uint32_t nslaves;
-	uint32_t qos_freq; /*                  */
+	uint32_t qos_freq; /* QOS Clock in KHz */
 	uint32_t qos_baseoffset;
 	uint32_t *mas_modes;
 	struct msm_bus_noc_commit cdata[NUM_CTX];
@@ -59,8 +59,8 @@ struct msm_bus_noc_qos_priority {
 };
 
 struct msm_bus_noc_qos_bw {
-	uint64_t bw; /*                               */
-	uint32_t ws; /*                             */
+	uint64_t bw; /* Bandwidth in bytes per second */
+	uint32_t ws; /* Window size in nano seconds */
 };
 
 void msm_bus_noc_init(struct msm_bus_noc_info *ninfo);
@@ -71,4 +71,4 @@ void msm_bus_noc_get_qos_priority(struct msm_bus_noc_info *ninfo,
 void msm_bus_noc_get_qos_bw(struct msm_bus_noc_info *ninfo,
 	uint32_t mport, uint8_t perm_mode, struct msm_bus_noc_qos_bw *qbw);
 
-#endif /*                             */
+#endif /*_ARCH_ARM_MACH_MSM_BUS_NOC_H */

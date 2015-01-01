@@ -22,8 +22,8 @@
 #ifdef CONFIG_GPIOLIB
 
 /*
-                                                                     
-                     
+ * We don't (yet) implement inlined/rapid versions for on-chip gpios.
+ * Just call gpiolib.
  */
 static inline int gpio_get_value(unsigned int gpio)
 {
@@ -50,6 +50,6 @@ static inline int irq_to_gpio(unsigned int irq)
 	return -EINVAL;
 }
 
-#endif /*                */
+#endif /* CONFIG_GPIOLIB */
 
-#endif /*                   */
+#endif /* _ASM_ALPHA_GPIO_H */

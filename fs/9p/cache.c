@@ -38,11 +38,11 @@ struct fscache_netfs v9fs_cache_netfs = {
 	.version 	= 0,
 };
 
-/* 
-                                                                
-                                
-  
-                                                                
+/**
+ * v9fs_random_cachetag - Generate a random tag to be associated
+ *			  with a new cache session.
+ *
+ * The value of jiffies is used for a fairly randomly cache tag.
  */
 
 static
@@ -84,7 +84,7 @@ const struct fscache_cookie_def v9fs_cache_session_index_def = {
 
 void v9fs_cache_session_get_cookie(struct v9fs_session_info *v9ses)
 {
-	/*                                                                  */
+	/* If no cache session tag was specified, we generate a random one. */
 	if (!v9ses->cachetag)
 		v9fs_random_cachetag(v9ses);
 
@@ -311,11 +311,11 @@ static void v9fs_vfs_readpage_complete(struct page *page, void *data,
 	unlock_page(page);
 }
 
-/* 
-                                                        
-  
-                                                              
-                                                        
+/**
+ * __v9fs_readpage_from_fscache - read a page from cache
+ *
+ * Returns 0 if the pages are in cache and a BIO is submitted,
+ * 1 if the pages are not in cache and -error otherwise.
  */
 
 int __v9fs_readpage_from_fscache(struct inode *inode, struct page *page)
@@ -346,11 +346,11 @@ int __v9fs_readpage_from_fscache(struct inode *inode, struct page *page)
 	}
 }
 
-/* 
-                                                                 
-  
-                                                              
-                                                        
+/**
+ * __v9fs_readpages_from_fscache - read multiple pages from cache
+ *
+ * Returns 0 if the pages are in cache and a BIO is submitted,
+ * 1 if the pages are not in cache and -error otherwise.
  */
 
 int __v9fs_readpages_from_fscache(struct inode *inode,
@@ -386,9 +386,9 @@ int __v9fs_readpages_from_fscache(struct inode *inode,
 	}
 }
 
-/* 
-                                                         
-  
+/**
+ * __v9fs_readpage_to_fscache - write a page to the cache
+ *
  */
 
 void __v9fs_readpage_to_fscache(struct inode *inode, struct page *page)
@@ -404,7 +404,7 @@ void __v9fs_readpage_to_fscache(struct inode *inode, struct page *page)
 }
 
 /*
-                                                   
+ * wait for a page to complete writing to the cache
  */
 void __v9fs_fscache_wait_on_page_write(struct inode *inode, struct page *page)
 {

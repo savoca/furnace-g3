@@ -1,10 +1,10 @@
 /*
-                 
-  
+ *  felica_test.c
+ *
  */
 
 /*
-                              
+ *    INCLUDE FILES FOR MODULE
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -12,12 +12,12 @@
 #include "felica_test.h"
 
 /*
-                         
+ *    INTERNAL DEFINITION
  */
 #define ON 1
 #define OFF 0
 
-//                 
+//int val_uart = 0;
 int result_open_uart = 0;
 int result_close_uart = 0;
 int result_available_uart = 0;
@@ -42,22 +42,22 @@ int result_read_rws = 0;
 
 
 /*
-                         
+ *    FUNCTION DEFINITION
  */
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */static int felica_test_open (struct inode *inode, struct file *fp)
 {
   return 0;
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int felica_test_release (struct inode *inode, struct file *fp)
 {
@@ -65,9 +65,9 @@ static int felica_test_release (struct inode *inode, struct file *fp)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static ssize_t felica_test_read(struct file *fp, char *buf, size_t count, loff_t *pos)
 {
@@ -77,23 +77,23 @@ static ssize_t felica_test_read(struct file *fp, char *buf, size_t count, loff_t
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static ssize_t felica_test_write(struct file *fp, const char *buf, size_t count, loff_t *pos)
 {
   unsigned char case_buf[3] = {0,};
   int rc = -1;
 
-  /*             */
+  /* Check error */
   if(NULL == buf)
   {
     FELICA_DEBUG_MSG("[FELICA_TEST] ERROR - start \n");
     return -1;
   }
 
-  /*                     */
+  /* copy from user data */
   rc = copy_from_user(case_buf, buf, count);
   if(rc)
   {
@@ -273,11 +273,11 @@ static ssize_t felica_test_write(struct file *fp, const char *buf, size_t count,
   return 1;
 }
 
-//         
+//2 FFI&FFO
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_open_uart(bool val)
 {
@@ -292,9 +292,9 @@ void disable_open_uart(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_close_uart(bool val)
 {
@@ -309,9 +309,9 @@ void disable_close_uart(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_available_uart(bool val)
 {
@@ -326,9 +326,9 @@ void disable_available_uart(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_read_uart(bool val)
 {
@@ -343,9 +343,9 @@ void disable_read_uart(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_write_uart(bool val)
 {
@@ -360,11 +360,11 @@ void disable_write_uart(bool val)
 }
 
 
-//     
+//2 PFO
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_open_pon(bool val)
 {
@@ -379,9 +379,9 @@ void disable_open_pon(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_close_pon(bool val)
 {
@@ -396,9 +396,9 @@ void disable_close_pon(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_write_pon(bool val)
 {
@@ -412,11 +412,11 @@ void disable_write_pon(bool val)
   #endif
 }
 
-//     
+//2 CFI
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_open_cen(bool val)
 {
@@ -431,9 +431,9 @@ void disable_open_cen(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_close_cen(bool val)
 {
@@ -448,9 +448,9 @@ void disable_close_cen(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_read_cen(bool val)
 {
@@ -464,11 +464,11 @@ void disable_read_cen(bool val)
   #endif
 }
 
-//     
+//2 RFS
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_open_rfs(bool val)
 {
@@ -483,9 +483,9 @@ void disable_open_rfs(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_close_rfs(bool val)
 {
@@ -500,9 +500,9 @@ void disable_close_rfs(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_read_rfs(bool val)
 {
@@ -516,11 +516,11 @@ void disable_read_rfs(bool val)
   #endif
 }
 
-//      
+//2 RWFI
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_open_rws(bool val)
 {
@@ -535,9 +535,9 @@ void disable_open_rws(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_close_rws(bool val)
 {
@@ -552,9 +552,9 @@ void disable_close_rws(bool val)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 void disable_read_rws(bool val)
 {
@@ -570,7 +570,7 @@ void disable_read_rws(bool val)
 
 
 /*
-                       
+ *    STRUCT DEFINITION
  */
 
 
@@ -591,15 +591,15 @@ static struct miscdevice felica_test_device =
 };
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static int felica_test_init(void)
 {
   int rc;
 
-  /*                          */
+  /* register the device file */
   rc = misc_register(&felica_test_device);
   if (rc < 0)
   {
@@ -610,13 +610,13 @@ static int felica_test_init(void)
 }
 
 /*
-               
-         
-          
+ * Description:
+ * Input:
+ * Output:
  */
 static void felica_test_exit(void)
 {
-  /*                            */
+  /* deregister the device file */
   misc_deregister(&felica_test_device);
 }
 

@@ -6,8 +6,8 @@
 #include <arch/tlb.h>
 
 /*
-                                           
-                     
+ * cris doesn't need any special per-pte or
+ * per-vma handling..
  */
 #define tlb_start_vma(tlb, vma) do { } while (0)
 #define tlb_end_vma(tlb, vma) do { } while (0)

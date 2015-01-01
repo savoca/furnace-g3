@@ -24,7 +24,7 @@ static inline int notify_page_fault(struct pt_regs *regs, int trap)
 	int ret = 0;
 
 	if (!user_mode(regs)) {
-		/*                                           */
+		/* kprobe_running() needs smp_processor_id() */
 		preempt_disable();
 		if (kprobe_running() && kprobe_fault_handler(regs, trap))
 			ret = 1;
@@ -41,8 +41,8 @@ static inline int notify_page_fault(struct pt_regs *regs, int trap)
 #endif
 
 /*
-                                                                         
-                                                       
+ * Return TRUE if ADDRESS points at a page in the kernel's mapped segment
+ * (inside region 5, on ia64) and that page is present.
  */
 static int
 mapped_kernel_page_is_present (unsigned long address)
@@ -82,30 +82,30 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
 	unsigned long mask;
 	int fault;
 
-	/*                                      */
+	/* mmap_sem is performance critical.... */
 	prefetchw(&mm->mmap_sem);
 
 	/*
-                                                                                  
-  */
+	 * If we're in an interrupt or have no user context, we must not take the fault..
+	 */
 	if (in_atomic() || !mm)
 		goto no_context;
 
 #ifdef CONFIG_VIRTUAL_MEM_MAP
 	/*
-                                                                    
-                                                                    
-                                                                       
-                                                   
-  */
+	 * If fault is in region 5 and we are in the kernel, we may already
+	 * have the mmap_sem (pfn_valid macro is called during mmap). There
+	 * is no vma for region 5 addr's anyway, so skip getting the semaphore
+	 * and go directly to the exception handling code.
+	 */
 
 	if ((REGION_NUMBER(address) == 5) && !user_mode(regs))
 		goto bad_area_no_up;
 #endif
 
 	/*
-                                                                   
-  */
+	 * This is to handle the kprobes on user space access instructions
+	 */
 	if (notify_page_fault(regs, TRAP_BRKPT))
 		return;
 
@@ -116,11 +116,11 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
 		goto bad_area;
 
         /*
-                                                                              
-          
-                                                                     
-                                                                  
-                                                                    
+         * find_vma_prev() returns vma such that address < vma->vm_end or NULL
+         *
+         * May find no vma, but could be that the last vm area is the
+         * register backing store that needs to expand upwards, in
+         * this case vma will be null, but prev_vma will ne non-null
          */
         if (( !vma && prev_vma ) || (address < vma->vm_start) )
 		goto check_expansion;
@@ -128,7 +128,7 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
   good_area:
 	code = SEGV_ACCERR;
 
-	/*                                                                                   */
+	/* OK, we've got a good vm_area for this memory area.  Check the access permissions: */
 
 #	define VM_READ_BIT	0
 #	define VM_WRITE_BIT	1
@@ -149,17 +149,17 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
 		goto bad_area;
 
 	/*
-                                                               
-                                                          
-          
-  */
+	 * If for any reason at all we couldn't handle the fault, make
+	 * sure we exit gracefully rather than endlessly redo the
+	 * fault.
+	 */
 	fault = handle_mm_fault(mm, vma, address, (mask & VM_WRITE) ? FAULT_FLAG_WRITE : 0);
 	if (unlikely(fault & VM_FAULT_ERROR)) {
 		/*
-                                                       
-                                                       
-                
-   */
+		 * We ran out of memory, or some other thing happened
+		 * to us that made us unable to handle the page fault
+		 * gracefully.
+		 */
 		if (fault & VM_FAULT_OOM) {
 			goto out_of_memory;
 		} else if (fault & VM_FAULT_SIGBUS) {
@@ -192,9 +192,9 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
 		    || REGION_OFFSET(address) >= RGN_MAP_LIMIT)
 			goto bad_area;
 		/*
-                                                               
-                                                          
-   */
+		 * Since the register backing store is accessed sequentially,
+		 * we disallow growing it by more than a page at a time.
+		 */
 		if (address > vma->vm_end + PAGE_SIZE - sizeof(long))
 			goto bad_area;
 		if (expand_upwards(vma, address))
@@ -211,10 +211,10 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
 	    || ((isr & IA64_ISR_NA) && (isr & IA64_ISR_CODE_MASK) == IA64_ISR_CODE_LFETCH))
 	{
 		/*
-                                                                           
-                                                                            
-                                            
-   */
+		 * This fault was due to a speculative load or lfetch.fault, set the "ed"
+		 * bit in the psr to ensure forward progress.  (Target register will get a
+		 * NaT for ld.s, lfetch will be canceled.)
+		 */
 		ia64_psr(regs)->ed = 1;
 		return;
 	}
@@ -234,21 +234,21 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
 	    || ((isr & IA64_ISR_NA) && (isr & IA64_ISR_CODE_MASK) == IA64_ISR_CODE_LFETCH))
 	{
 		/*
-                                                                           
-                                                                            
-                                            
-   */
+		 * This fault was due to a speculative load or lfetch.fault, set the "ed"
+		 * bit in the psr to ensure forward progress.  (Target register will get a
+		 * NaT for ld.s, lfetch will be canceled.)
+		 */
 		ia64_psr(regs)->ed = 1;
 		return;
 	}
 
 	/*
-                                                                                 
-                                                                                  
-                                                                                  
-                                                                                   
-                               
-  */
+	 * Since we have no vma's for region 5, we might get here even if the address is
+	 * valid, due to the VHPT walker inserting a non present translation that becomes
+	 * stale. If that happens, the non present fault handler already purged the stale
+	 * translation, which fixed the problem. So, we check to see if the translation is
+	 * valid, and return if it is.
+	 */
 	if (REGION_NUMBER(address) == 5 && mapped_kernel_page_is_present(address))
 		return;
 
@@ -256,9 +256,9 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
 		return;
 
 	/*
-                                                                                  
-                           
-  */
+	 * Oops. The kernel tried to access some bad page. We'll have to terminate things
+	 * with extreme prejudice.
+	 */
 	bust_spinlocks(1);
 
 	if (address < PAGE_SIZE)

@@ -50,7 +50,7 @@
 #define IA_L2PMXEVFILTER_BASE	0x423
 #define IA_L2PMXEVCNTR_BASE	0x421
 
-/*                                                */
+/* event format is -e rsRCCG See get_event_desc() */
 
 #define EVENT_PREFIX_MASK	0xf0000
 #define EVENT_REG_MASK		0x0f000

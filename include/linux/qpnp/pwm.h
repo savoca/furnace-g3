@@ -15,20 +15,20 @@
 
 #include <linux/pwm.h>
 
-/*                              */
+/* usec: 19.2M, n=6, m=0, pre=2 */
 #define PM_PWM_PERIOD_MIN			7
-/*                     */
+/* 1K, n=9, m=7, pre=6 */
 #define PM_PWM_PERIOD_MAX			(384 * USEC_PER_SEC)
 #define PM_PWM_LUT_RAMP_STEP_TIME_MAX		499
 #define PM_PWM_MAX_PAUSE_CNT			8191
 /*
-                     
-                                                  
+ * Formula from HSID,
+ * pause_time (hi/lo) = (pause_code - 1)*(duty_ms)
  */
 #define PM_PWM_LUT_PAUSE_MAX \
-	((PM_PWM_MAX_PAUSE_CNT - 1) * PM_PWM_LUT_RAMP_STEP_TIME_MAX) /*    */
+	((PM_PWM_MAX_PAUSE_CNT - 1) * PM_PWM_LUT_RAMP_STEP_TIME_MAX) /* ms */
 
-/*                         */
+/* Flags for Look Up Table */
 #define PM_PWM_LUT_LOOP			0x01
 #define PM_PWM_LUT_RAMP_UP		0x02
 #define PM_PWM_LUT_REVERSE		0x04
@@ -39,20 +39,20 @@
 #define PM_PWM_LUT_USE_RAW_VALUE	0x40
 
 /*
-                               
-  
-                                           
-       
-                                      
-          
-                                             
-                                            
+ * PWM frequency/period control
+ *
+ * PWM Frequency = ClockFrequency / (N * T)
+ *   or
+ * PWM Period = Clock Period * (N * T)
+ *   where
+ * N = 2^9 or 2^6 for 9-bit or 6-bit PWM size
+ * T = Pre-divide * 2^m, m = 0..7 (exponent)
  */
 
 /*
-                                            
-                                                   
-                                                    
+ * enum pm_pwm_size - PWM bit mode selection
+ * %PM_PWM_SIZE_6BIT - Select 6 bit mode; 64 levels
+ * %PM_PWM_SIZE_9BIT - Select 9 bit mode; 512 levels
  */
 enum pm_pwm_size {
 	PM_PWM_SIZE_6BIT =	6,
@@ -60,11 +60,11 @@ enum pm_pwm_size {
 };
 
 /*
-                                        
-                                
-                                  
-                                      
-                           
+ * enum pm_pwm_clk - PWM clock selection
+ * %PM_PWM_CLK_1KHZ - 1KHz clock
+ * %PM_PWM_CLK_32KHZ - 32KHz clock
+ * %PM_PWM_CLK_19P2MHZ - 19.2MHz clock
+ * Note: Here 1KHz = 1024Hz
  */
 enum pm_pwm_clk {
 	PM_PWM_CLK_1KHZ,
@@ -72,7 +72,7 @@ enum pm_pwm_clk {
 	PM_PWM_CLK_19P2MHZ,
 };
 
-/*                           */
+/* PWM pre-divider selection */
 enum pm_pwm_pre_div {
 	PM_PWM_PDIV_2,
 	PM_PWM_PDIV_3,
@@ -81,11 +81,11 @@ enum pm_pwm_pre_div {
 };
 
 /*
-                                                      
-                              
-                        
-                                
-                                                           
+ * struct pwm_period_config - PWM period configuration
+ * @pwm_size: enum pm_pwm_size
+ * @clk: enum pm_pwm_clk
+ * @pre_div: enum pm_pwm_pre_div
+ * @pre_div_exp: exponent of 2 as part of pre-divider: 0..7
  */
 struct pwm_period_config {
 	enum pm_pwm_size	pwm_size;
@@ -95,11 +95,11 @@ struct pwm_period_config {
 };
 
 /*
-                                               
-                                                                      
-                                                   
-                                  
-                               
+ * struct pwm_duty_cycles - PWM duty cycle info
+ * duty_pcts - pointer to an array of duty percentage for a pwm period
+ * num_duty_pcts - total entries in duty_pcts array
+ * duty_ms - duty cycle time in ms
+ * start_idx - index in the LUT
  */
 struct pwm_duty_cycles {
 #ifdef CONFIG_LEDS_PM8941_EMOTIONAL
@@ -148,9 +148,9 @@ int pwm_config_period(struct pwm_device *pwm,
 int pwm_config_pwm_value(struct pwm_device *pwm, int pwm_value);
 
 /*
-                                        
-                                     
-                                     
+ * enum pm_pwm_mode - PWM mode selection
+ * %PM_PWM_MODE_PWM - Select PWM mode
+ * %PM_PWM_MODE_LPG - Select LPG mode
  */
 enum pm_pwm_mode {
 	PM_PWM_MODE_PWM,
@@ -160,13 +160,13 @@ enum pm_pwm_mode {
 int pwm_change_mode(struct pwm_device *pwm, enum pm_pwm_mode mode);
 
 /*
-                                            
-                                                          
-                            
-                                                    
-                                                     
-                                                                     
-                        
+ * lut_params: Lookup table (LUT) parameters
+ * @start_idx: start index in lookup table from 0 to MAX-1
+ * @idx_len: number of index
+ * @pause_lo: pause time in millisecond at low index
+ * @pause_hi: pause time in millisecond at high index
+ * @ramp_step_ms: time before loading next LUT pattern in millisecond
+ * @flags: control flags
  */
 struct lut_params {
 	int start_idx;
@@ -181,38 +181,38 @@ int pwm_lut_config(struct pwm_device *pwm, int period_us,
 		int duty_pct[], struct lut_params lut_params);
 
 /*
-                                          
+ * support microsecond level configuration
  */
 int pwm_config_us(struct pwm_device *pwm,
 		int duty_us, int period_us);
 
-/*                         */
+/* Standard APIs supported */
 /*
-                                     
-                             
-                                         
+ * pwm_request - request a PWM device
+ * @pwm_id: PWM id or channel
+ * @label: the label to identify the user
  */
 
 /*
-                               
-                       
+ * pwm_free - free a PWM device
+ * @pwm: the PWM device
  */
 
 /*
-                                                 
-                       
-                                   
-                                     
+ * pwm_config - change a PWM device configuration
+ * @pwm: the PWM device
+ * @period_ns: period in nanosecond
+ * @duty_ns: duty cycle in nanosecond
  */
 
 /*
-                                           
-                       
+ * pwm_enable - start a PWM output toggling
+ * @pwm: the PWM device
  */
 
 /*
-                                           
-                       
+ * pwm_disable - stop a PWM output toggling
+ * @pwm: the PWM device
  */
 
-#endif /*                */
+#endif /* __QPNP_PWM_H__ */

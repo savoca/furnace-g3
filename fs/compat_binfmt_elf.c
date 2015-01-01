@@ -21,7 +21,7 @@
 #include <linux/time.h>
 
 /*
-                                                                           
+ * Rename the basic ELF layout types to refer to the 32-bit class of files.
  */
 #undef	ELF_CLASS
 #define ELF_CLASS	ELFCLASS32
@@ -38,15 +38,15 @@
 #define elf_addr_t	Elf32_Addr
 
 /*
-                                                                                
-                                                                 
+ * The machine-dependent core note format types are defined in elfcore-compat.h,
+ * which requires asm/elf.h to define compat_elf_gregset_t et al.
  */
 #define elf_prstatus	compat_elf_prstatus
 #define elf_prpsinfo	compat_elf_prpsinfo
 
 /*
-                                                            
-                                           
+ * Compat version of cputime_to_compat_timeval, perhaps this
+ * should be an inline in <linux/compat.h>.
  */
 static void cputime_to_compat_timeval(const cputime_t cputime,
 				      struct compat_timeval *value)
@@ -62,9 +62,9 @@ static void cputime_to_compat_timeval(const cputime_t cputime,
 
 
 /*
-                                                                 
-                                                                   
-                                                           
+ * To use this file, asm/elf.h must define compat_elf_check_arch.
+ * The other following macros can be defined if the compat versions
+ * differ from the native ones, or omitted when they match.
  */
 
 #undef	ELF_ARCH
@@ -119,15 +119,15 @@ static void cputime_to_compat_timeval(const cputime_t cputime,
 #endif
 
 /*
-                                                             
-                                                               
-                                                                  
+ * Rename a few of the symbols that binfmt_elf.c will define.
+ * These are all local so the names don't really matter, but it
+ * might make some debugging less confusing not to duplicate them.
  */
 #define elf_format		compat_elf_format
 #define init_elf_binfmt		init_compat_elf_binfmt
 #define exit_elf_binfmt		exit_compat_elf_binfmt
 
 /*
-                                                                 
+ * We share all the actual code with the native (64-bit) version.
  */
 #include "binfmt_elf.c"

@@ -18,18 +18,18 @@
  */
 
 /*
-                                                      
-  
-                                                              
-                                                             
-                                                          
-                  
-  
-                                                                
-                                                                    
-                                                                     
-           
-  
+ * BCM1480/1455-specific HT support (looking like PCI)
+ *
+ * This module provides the glue between Linux's PCI subsystem
+ * and the hardware.  We basically provide glue for accessing
+ * configuration space, and set up the translation for I/O
+ * space accesses.
+ *
+ * To access configuration space, we use ioremap.  In the 32-bit
+ * kernel, this consumes either 4 or 8 page table pages, and 16MB of
+ * kernel mapped memory.  Hopefully neither of these should be a huge
+ * problem.
+ *
  */
 #include <linux/types.h>
 #include <linux/pci.h>
@@ -45,8 +45,8 @@
 #include <asm/io.h>
 
 /*
-                                                                  
-                           
+ * Macros for calculating offsets into config space given a device
+ * structure or dev/fun/reg
  */
 #define CFGOFFSET(bus, devfn, where) (((bus)<<16)+((devfn)<<8)+(where))
 #define CFGADDR(bus, devfn, where)   CFGOFFSET((bus)->number, (devfn), where)
@@ -62,13 +62,13 @@ static int bcm1480ht_bus_status;
 #define HT_BRIDGE_DEVICE   1
 
 /*
-                                                                  
-                                     
+ * HT's level-sensitive interrupts require EOI, which is generated
+ * through a 4MB memory-mapped region
  */
 unsigned long ht_eoi_space;
 
 /*
-                                            
+ * Read/write 32-bit values in config space.
  */
 static inline u32 READCFG32(u32 addr)
 {
@@ -81,9 +81,9 @@ static inline void WRITECFG32(u32 addr, u32 data)
 }
 
 /*
-                                          
-                                                                   
-                                                                    
+ * Some checks before doing config cycles:
+ * In PCI Device Mode, hide everything on bus 0 except the LDT host
+ * bridge.  Otherwise, access is controlled by bridge MasterEn bits.
  */
 static int bcm1480ht_can_access(struct pci_bus *bus, int devfn)
 {
@@ -101,9 +101,9 @@ static int bcm1480ht_can_access(struct pci_bus *bus, int devfn)
 }
 
 /*
-                                                          
-                                                           
-                                                         
+ * Read/write access functions for various sizes of values
+ * in config space.  Return all 1's for disallowed accesses
+ * for a kludgy but adequate simulation of master aborts.
  */
 
 static int bcm1480ht_pcibios_read(struct pci_bus *bus, unsigned int devfn,
@@ -198,7 +198,7 @@ static int __init bcm1480ht_pcibios_init(void)
 {
 	ht_cfg_space = ioremap(A_BCM1480_PHYS_HT_CFG_MATCH_BITS, 16*1024*1024);
 
-	/*                                                         */
+	/* CFE doesn't always init all HT paths, so we always scan */
 	bcm1480ht_bus_status |= PCI_BUS_ENABLED;
 
 	ht_eoi_space = (unsigned long)

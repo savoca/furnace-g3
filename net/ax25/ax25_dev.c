@@ -47,8 +47,8 @@ ax25_dev *ax25_addr_ax25dev(ax25_address *addr)
 }
 
 /*
-                                                            
-                       
+ *	This is called when an interface is brought up. These are
+ *	reasonable defaults.
  */
 void ax25_dev_device_up(struct net_device *dev)
 {
@@ -109,8 +109,8 @@ void ax25_dev_device_down(struct net_device *dev)
 #endif
 
 	/*
-                                                            
-  */
+	 *	Remove any packet forwarding that points to this device.
+	 */
 	for (s = ax25_dev_list; s != NULL; s = s->next)
 		if (s->forward == dev)
 			s->forward = NULL;
@@ -185,7 +185,7 @@ struct net_device *ax25_fwd_dev(struct net_device *dev)
 }
 
 /*
-                                                     
+ *	Free all memory associated with device structures.
  */
 void __exit ax25_dev_free(void)
 {

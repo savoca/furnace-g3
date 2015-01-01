@@ -17,7 +17,7 @@
 #include "msm_cci.h"
 #include "msm_eeprom.h"
 
-//                        
+//#define MSM_EEPROM_DEBUG
 
 #undef CDBG
 #ifdef MSM_EEPROM_DEBUG
@@ -473,7 +473,7 @@ int32_t msm_eeprom_i2c_probe(struct i2c_client *client,
 	e_ctrl->i2c_client.client = client;
 	e_ctrl->is_supported = 0;
 
-	/*                        */
+	/* Set device type as I2C */
 	e_ctrl->eeprom_device_type = MSM_CAMERA_I2C_DEVICE;
 	e_ctrl->i2c_client.i2c_func_tbl = &msm_eeprom_qup_func_tbl;
 
@@ -523,8 +523,8 @@ int32_t msm_eeprom_i2c_probe(struct i2c_client *client,
 		goto power_down;
 	}
 
-	/*                      */
-	/*                       */
+	/*IMPLEMENT READING PART*/
+	/* Initialize sub device */
 	v4l2_i2c_subdev_init(&e_ctrl->msm_sd.sd,
 		e_ctrl->i2c_client.client,
 		e_ctrl->eeprom_v4l2_subdev_ops);
@@ -692,7 +692,7 @@ static int msm_eeprom_spi_setup(struct spi_device *spi)
 	if (rc)
 		goto board_free;
 
-	/*                          */
+	/* set spi instruction info */
 	spi_client->retry_delay = 1;
 	spi_client->retries = 0;
 
@@ -713,13 +713,13 @@ static int msm_eeprom_spi_setup(struct spi_device *spi)
 		goto memmap_free;
 	}
 
-	/*                 */
+	/* check eeprom id */
 	rc = msm_eeprom_check_id(e_ctrl);
 	if (rc) {
 		CDBG("%s: eeprom not matching %d\n", __func__, rc);
 		goto power_down;
 	}
-	/*             */
+	/* read eeprom */
 	rc = read_eeprom_memory(e_ctrl);
 	if (rc) {
 		dev_err(&spi->dev, "%s: read eeprom memory failed\n", __func__);
@@ -733,7 +733,7 @@ static int msm_eeprom_spi_setup(struct spi_device *spi)
 		goto memmap_free;
 	}
 
-	/*                   */
+	/* initiazlie subdev */
 	v4l2_spi_subdev_init(&e_ctrl->msm_sd.sd,
 		e_ctrl->i2c_client.spi_client->spi_master,
 		e_ctrl->eeprom_v4l2_subdev_ops);
@@ -817,7 +817,7 @@ struct msm_eeprom_board_info *global_eb_info = NULL;
 int32_t msm_eeprom_read(void)
 {
 	int32_t rc = 0;
-	int i=0, /*    */ n_res=0;
+	int i=0, /*j=0,*/ n_res=0;
 	uint8_t af_value1, af_value2;/*                                                          */
 
 /*                                                                */
@@ -839,8 +839,8 @@ int32_t msm_eeprom_read(void)
 	}
 
 	if(n_res == 1){
-//                                                
-//                                                                        
+//		for (j = 0; j < global_e_ctrl->num_bytes; j++)
+//			pr_err("memory_data[%d] = 0x%X\n", j, global_e_ctrl->memory_data[j]);
 
 /*                                                            */
 		af_value1 = (uint8_t)(global_e_ctrl->memory_data[9]<<8) |(global_e_ctrl->memory_data[10]);
@@ -921,9 +921,9 @@ static int32_t msm_eeprom_platform_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	/*                            */
+	/* Set platform device handle */
 	e_ctrl->pdev = pdev;
-	/*                                    */
+	/* Set device type as platform device */
 	e_ctrl->eeprom_device_type = MSM_CAMERA_PLATFORM_DEVICE;
 	e_ctrl->i2c_client.i2c_func_tbl = &msm_eeprom_cci_func_tbl;
 	e_ctrl->i2c_client.cci_client = kzalloc(sizeof(

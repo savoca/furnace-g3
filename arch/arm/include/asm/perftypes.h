@@ -12,9 +12,9 @@
  */
 
 /*
-               
-               
-                                       
+**  perftypes.h
+**  DESCRIPTION
+**  ksapi.ko function hooks header file
 */
 
 #ifndef __PERFTYPES_H__

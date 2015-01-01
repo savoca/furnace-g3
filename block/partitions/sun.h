@@ -1,5 +1,5 @@
 /*
-                       
+ *  fs/partitions/sun.h
  */
 
 #define SUN_LABEL_MAGIC          0xDABE

@@ -15,48 +15,48 @@
 #include <linux/in6.h>
 
 /*
-                                                               
-                             
-  
-                                                           
-                       
-  
-                                                         
-                                          
-  
-                                                      
+ * computes the checksum of a memory block at buff, length len,
+ * and adds in "sum" (32-bit)
+ *
+ * returns a 32-bit number suitable for feeding into itself
+ * or csum_tcpudp_magic
+ *
+ * this function must be called with even lengths, except
+ * for the last fragment, which may be odd
+ *
+ * it's best to have buff aligned on a 32-bit boundary
  */
 __wsum csum_partial(const void *buff, int len, __wsum sum);
 
 /*
-                                                         
-            
-  
-                                                                     
-                          
+ * the same as csum_partial, but copies from src while it
+ * checksums
+ *
+ * here even more important to align src and dst on a 32-bit (or even
+ * better 64-bit) boundary
  */
 __wsum csum_partial_copy_nocheck(const void *src, void *dst, int len, __wsum sum);
 
 /*
-                                                             
-  
-                                                                     
-                          
+ * the same as csum_partial_copy, but copies from user space.
+ *
+ * here even more important to align src and dst on a 32-bit (or even
+ * better 64-bit) boundary
  */
 extern __wsum csum_partial_copy_from_user(const void __user *src, void *dst,
 						int len, __wsum sum, int *csum_err);
 
 /*
-                                                                   
-                                               
-  
+ *	This is a version of ip_compute_csum() optimized for IP headers,
+ *	which always checksum on 4 octet boundaries.
+ *
  */
 static inline
 __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
 {
 	unsigned int tmp, inc, sum = 0;
 
-	asm("	addcc		gr0,gr0,gr0,icc0\n" /*              */
+	asm("	addcc		gr0,gr0,gr0,icc0\n" /* clear icc0.C */
 	    "	subi		%1,#4,%1	\n"
 	    "0:					\n"
 	    "	ldu.p		@(%1,%3),%4	\n"
@@ -64,7 +64,7 @@ __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
 	    "	addxcc.p	%4,%0,%0,icc0	\n"
 	    "	bhi		icc1,#2,0b	\n"
 
-	    /*                                     */
+	    /* fold the 33-bit result into 16-bits */
 	    "	addxcc		gr0,%0,%0,icc0	\n"
 	    "	srli		%0,#16,%1	\n"
 	    "	sethi		#0,%0		\n"
@@ -82,7 +82,7 @@ __sum16 ip_fast_csum(const void *iph, unsigned int ihl)
 }
 
 /*
-                          
+ *	Fold a partial checksum
  */
 static inline __sum16 csum_fold(__wsum sum)
 {
@@ -101,8 +101,8 @@ static inline __sum16 csum_fold(__wsum sum)
 }
 
 /*
-                                                     
-                                                  
+ * computes the checksum of the TCP/UDP pseudo-header
+ * returns a 16-bit checksum, already complemented
  */
 static inline __wsum
 csum_tcpudp_nofold(__be32 saddr, __be32 daddr, unsigned short len,
@@ -127,8 +127,8 @@ csum_tcpudp_magic(__be32 saddr, __be32 daddr, unsigned short len,
 }
 
 /*
-                                                                   
-            
+ * this routine is used for miscellaneous IP-like checksums, mainly
+ * in icmp.c
  */
 extern __sum16 ip_compute_csum(const void *buff, int len);
 
@@ -141,7 +141,7 @@ csum_ipv6_magic(const struct in6_addr *saddr, const struct in6_addr *daddr,
 
 	asm("	addcc		%2,%0,%0,icc0	\n"
 
-	    /*                        */
+	    /* add up the source addr */
 	    "	ldi		@(%3,0),%1	\n"
 	    "	addxcc		%1,%0,%0,icc0	\n"
 	    "	ldi		@(%3,4),%2	\n"
@@ -151,7 +151,7 @@ csum_ipv6_magic(const struct in6_addr *saddr, const struct in6_addr *daddr,
 	    "	ldi		@(%3,12),%2	\n"
 	    "	addxcc		%2,%0,%0,icc0	\n"
 
-	    /*                      */
+	    /* add up the dest addr */
 	    "	ldi		@(%4,0),%1	\n"
 	    "	addxcc		%1,%0,%0,icc0	\n"
 	    "	ldi		@(%4,4),%2	\n"
@@ -161,7 +161,7 @@ csum_ipv6_magic(const struct in6_addr *saddr, const struct in6_addr *daddr,
 	    "	ldi		@(%4,12),%2	\n"
 	    "	addxcc		%2,%0,%0,icc0	\n"
 
-	    /*                                     */
+	    /* fold the 33-bit result into 16-bits */
 	    "	addxcc		gr0,%0,%0,icc0	\n"
 	    "	srli		%0,#16,%1	\n"
 	    "	sethi		#0,%0		\n"
@@ -177,4 +177,4 @@ csum_ipv6_magic(const struct in6_addr *saddr, const struct in6_addr *daddr,
 	return (__force __sum16)~sum;
 }
 
-#endif /*                 */
+#endif /* _ASM_CHECKSUM_H */

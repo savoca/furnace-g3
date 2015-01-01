@@ -62,12 +62,12 @@
 #define CUMANASCSI2_FAS216_SHIFT	2
 
 /*
-          
+ * Version
  */
 #define VERSION "1.00 (13/11/2002 2.5.47)"
 
 /*
-                                                
+ * Use term=0,1,0,0,0 to turn terminators on/off
  */
 static int term[MAX_ECARDS] = { 1, 1, 1, 1, 1, 1, 1, 1 };
 
@@ -77,17 +77,17 @@ struct cumanascsi2_info {
 	FAS216_Info		info;
 	struct expansion_card	*ec;
 	void __iomem		*base;
-	unsigned int		terms;		/*                  */
-	struct scatterlist	sg[NR_SG];	/*                  */
+	unsigned int		terms;		/* Terminator state	*/
+	struct scatterlist	sg[NR_SG];	/* Scatter DMA list	*/
 };
 
 #define CSTATUS_IRQ	(1 << 0)
 #define CSTATUS_DRQ	(1 << 1)
 
-/*                                                  
-                                                     
-                                              
-                                      
+/* Prototype: void cumanascsi_2_irqenable(ec, irqnr)
+ * Purpose  : Enable interrupts on Cumana SCSI 2 card
+ * Params   : ec    - expansion card structure
+ *          : irqnr - interrupt number
  */
 static void
 cumanascsi_2_irqenable(struct expansion_card *ec, int irqnr)
@@ -96,10 +96,10 @@ cumanascsi_2_irqenable(struct expansion_card *ec, int irqnr)
 	writeb(ALATCH_ENA_INT, info->base + CUMANASCSI2_ALATCH);
 }
 
-/*                                                   
-                                                      
-                                              
-                                      
+/* Prototype: void cumanascsi_2_irqdisable(ec, irqnr)
+ * Purpose  : Disable interrupts on Cumana SCSI 2 card
+ * Params   : ec    - expansion card structure
+ *          : irqnr - interrupt number
  */
 static void
 cumanascsi_2_irqdisable(struct expansion_card *ec, int irqnr)
@@ -113,10 +113,10 @@ static const expansioncard_ops_t cumanascsi_2_ops = {
 	.irqdisable	= cumanascsi_2_irqdisable,
 };
 
-/*                                                          
-                                                          
-                                          
-                                                   
+/* Prototype: void cumanascsi_2_terminator_ctl(host, on_off)
+ * Purpose  : Turn the Cumana SCSI 2 terminators on or off
+ * Params   : host   - card to turn on/off
+ *          : on_off - !0 to turn on, 0 to turn off
  */
 static void
 cumanascsi_2_terminator_ctl(struct Scsi_Host *host, int on_off)
@@ -132,10 +132,10 @@ cumanascsi_2_terminator_ctl(struct Scsi_Host *host, int on_off)
 	}
 }
 
-/*                                                       
-                                                       
-                                       
-                                                    
+/* Prototype: void cumanascsi_2_intr(irq, *dev_id, *regs)
+ * Purpose  : handle interrupts from Cumana SCSI 2 card
+ * Params   : irq    - interrupt number
+ *	      dev_id - user-defined (Scsi_Host structure)
  */
 static irqreturn_t
 cumanascsi_2_intr(int irq, void *dev_id)
@@ -145,13 +145,13 @@ cumanascsi_2_intr(int irq, void *dev_id)
 	return fas216_intr(&info->info);
 }
 
-/*                                                                                 
-                                 
-                              
-                            
-                                          
-                                                                            
-                                              
+/* Prototype: fasdmatype_t cumanascsi_2_dma_setup(host, SCpnt, direction, min_type)
+ * Purpose  : initialises DMA/PIO
+ * Params   : host      - host
+ *	      SCpnt     - command
+ *	      direction - DMA on to/off of card
+ *	      min_type  - minimum DMA support that we must have for this transfer
+ * Returns  : type of transfer to be performed
  */
 static fasdmatype_t
 cumanascsi_2_dma_setup(struct Scsi_Host *host, struct scsi_pointer *SCp,
@@ -191,19 +191,19 @@ cumanascsi_2_dma_setup(struct Scsi_Host *host, struct scsi_pointer *SCp,
 	}
 
 	/*
-                           
-                        
-  */
+	 * If we're not doing DMA,
+	 *  we'll do pseudo DMA
+	 */
 	return fasdma_pio;
 }
 
 /*
-                                                                            
-                                
-                              
-                            
-                                          
-                                                                  
+ * Prototype: void cumanascsi_2_dma_pseudo(host, SCpnt, direction, transfer)
+ * Purpose  : handles pseudo DMA
+ * Params   : host      - host
+ *	      SCpnt     - command
+ *	      direction - DMA on to/off of card
+ *	      transfer  - minimum number of bytes we expect to transfer
  */
 static void
 cumanascsi_2_dma_pseudo(struct Scsi_Host *host, struct scsi_pointer *SCp,
@@ -274,10 +274,10 @@ cumanascsi_2_dma_pseudo(struct Scsi_Host *host, struct scsi_pointer *SCp,
 	}
 }
 
-/*                                                  
-                           
-                          
-                        
+/* Prototype: int cumanascsi_2_dma_stop(host, SCpnt)
+ * Purpose  : stops DMA/PIO
+ * Params   : host  - host
+ *	      SCpnt - command
  */
 static void
 cumanascsi_2_dma_stop(struct Scsi_Host *host, struct scsi_pointer *SCp)
@@ -289,10 +289,10 @@ cumanascsi_2_dma_stop(struct Scsi_Host *host, struct scsi_pointer *SCp)
 	}
 }
 
-/*                                                                  
-                                                                
-                                                              
-                                                                           
+/* Prototype: const char *cumanascsi_2_info(struct Scsi_Host * host)
+ * Purpose  : returns a descriptive string about this interface,
+ * Params   : host - driver host structure to return info for.
+ * Returns  : pointer to a static buffer containing null terminated string.
  */
 const char *cumanascsi_2_info(struct Scsi_Host *host)
 {
@@ -306,12 +306,12 @@ const char *cumanascsi_2_info(struct Scsi_Host *host)
 	return string;
 }
 
-/*                                                                                            
-                                            
-                                    
-                                                                    
-                                       
-                           
+/* Prototype: int cumanascsi_2_set_proc_info(struct Scsi_Host *host, char *buffer, int length)
+ * Purpose  : Set a driver specific function
+ * Params   : host   - host to setup
+ *          : buffer - buffer containing string describing operation
+ *          : length - length of string
+ * Returns  : -EINVAL, or 0
  */
 static int
 cumanascsi_2_set_proc_info(struct Scsi_Host *host, char *buffer, int length)
@@ -337,18 +337,18 @@ cumanascsi_2_set_proc_info(struct Scsi_Host *host, char *buffer, int length)
 	return ret;
 }
 
-/*                                                                                
-                                           
-                                                                             
-                              
-                                                       
-                                                                             
-                                       
-                                                                  
-                                  
-                                                        
-                                               
-                                               
+/* Prototype: int cumanascsi_2_proc_info(char *buffer, char **start, off_t offset,
+ *					 int length, int host_no, int inout)
+ * Purpose  : Return information about the driver to a user process accessing
+ *	      the /proc filesystem.
+ * Params   : buffer - a buffer to write information to
+ *	      start  - a pointer into this buffer set by this routine to the start
+ *		       of the required information.
+ *	      offset - offset into information that we have read up to.
+ *	      length - length of buffer
+ *	      host_no - host number to return information for
+ *	      inout  - 0 for reading, 1 for writing.
+ * Returns  : length of data written to buffer.
  */
 int cumanascsi_2_proc_info (struct Scsi_Host *host, char *buffer, char **start, off_t offset,
 			    int length, int inout)
@@ -434,9 +434,9 @@ cumanascsi2_probe(struct expansion_card *ec, const struct ecard_id *id)
 	info->info.scsi.io_shift	= CUMANASCSI2_FAS216_SHIFT;
 	info->info.scsi.irq		= ec->irq;
 	info->info.scsi.dma		= ec->dma;
-	info->info.ifcfg.clockrate	= 40; /*     */
+	info->info.ifcfg.clockrate	= 40; /* MHz */
 	info->info.ifcfg.select_timeout	= 255;
-	info->info.ifcfg.asyncperiod	= 200; /*    */
+	info->info.ifcfg.asyncperiod	= 200; /* ns */
 	info->info.ifcfg.sync_max_depth	= 7;
 	info->info.ifcfg.cntl3		= CNTL3_BS8 | CNTL3_FASTSCSI | CNTL3_FASTCLK;
 	info->info.ifcfg.disconnect_ok	= 1;

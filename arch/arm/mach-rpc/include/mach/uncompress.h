@@ -39,12 +39,12 @@ struct param_struct {
 static const unsigned long palette_4[16] = {
 	0x00000000,
 	0x000000cc,
-	0x0000cc00,             /*         */
-	0x0000cccc,             /*         */
-	0x00cc0000,             /*         */
-	0x00cc00cc,             /*         */
-	0x00cccc00,             /*         */
-	0x00cccccc,             /*         */
+	0x0000cc00,             /* Green   */
+	0x0000cccc,             /* Yellow  */
+	0x00cc0000,             /* Blue    */
+	0x00cc00cc,             /* Magenta */
+	0x00cccc00,             /* Cyan    */
+	0x00cccccc,             /* White   */
 	0x00000000,
 	0x000000ff,
 	0x0000ff00,
@@ -59,8 +59,8 @@ static const unsigned long palette_4[16] = {
 #define palette_write(v)	*(unsigned long *)(IO_START+0x00400000) = 0x00000000|((v) & 0x00ffffff)
 
 /*
-                                               
-                                    
+ * params_phys is a linker defined symbol - see
+ * arch/arm/boot/compressed/Makefile
  */
 extern __attribute__((pure)) struct param_struct *params(void);
 #define params (params())
@@ -74,7 +74,7 @@ unsigned char bytes_per_char_v;
 int white;
 
 /*
-                                 
+ * This does not append a newline
  */
 static void putc(int c)
 {
@@ -110,7 +110,7 @@ static inline void flush(void)
 }
 
 /*
-                          
+ * Setup for decompression
  */
 static void arch_decomp_setup(void)
 {
@@ -191,6 +191,6 @@ static void arch_decomp_setup(void)
 #endif
 
 /*
-                
+ * nothing to do
  */
 #define arch_decomp_wdog()

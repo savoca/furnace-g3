@@ -1,9 +1,9 @@
 /*
-                       
-  
-                                                                 
-  
-                                                         
+ *  linux/fs/hpfs/map.c
+ *
+ *  Mikulas Patocka (mikulas@artax.karlin.mff.cuni.cz), 1998-1999
+ *
+ *  mapping structures to memory with some minimal checks
  */
 
 #include "hpfs_fn.h"
@@ -30,9 +30,9 @@ unsigned int *hpfs_map_bitmap(struct super_block *s, unsigned bmp_block,
 }
 
 /*
-                                                                             
-                                                                              
-                    
+ * Load first code page into kernel memory, return pointer to 256-byte array,
+ * first 128 bytes are uppercasing table for chars 128-255, next 128 bytes are
+ * lowercasing table
  */
 
 unsigned char *hpfs_load_code_page(struct super_block *s, secno cps)
@@ -80,7 +80,7 @@ unsigned char *hpfs_load_code_page(struct super_block *s, secno cps)
 	memcpy(cp_table, ptr, 128);
 	brelse(bh);
 
-	/*                                                     */
+	/* Try to build lowercasing table from uppercasing one */
 
 	for (i=128; i<256; i++) cp_table[i]=i;
 	for (i=128; i<256; i++) if (cp_table[i-128]!=i && cp_table[i-128]>=128)
@@ -112,7 +112,7 @@ secno *hpfs_load_bitmap_directory(struct super_block *s, secno bmp)
 }
 
 /*
-                       
+ * Load fnode to memory
  */
 
 struct fnode *hpfs_map_fnode(struct super_block *s, ino_t ino, struct buffer_head **bhp)
@@ -204,7 +204,7 @@ struct anode *hpfs_map_anode(struct super_block *s, anode_secno ano, struct buff
 }
 
 /*
-                                          
+ * Load dnode to memory and do some checks
  */
 
 struct dnode *hpfs_map_dnode(struct super_block *s, unsigned secno,
@@ -229,8 +229,8 @@ struct dnode *hpfs_map_dnode(struct super_block *s, unsigned secno,
 			}
 			if (le32_to_cpu(dnode->self) != secno)
 				hpfs_error(s, "bad self pointer on dnode %08x self = %08x", secno, le32_to_cpu(dnode->self));
-			/*                                                 
-                                  */
+			/* Check dirents - bad dirents would cause infinite
+			   loops or shooting to memory */
 			if (le32_to_cpu(dnode->first_free) > 2048) {
 				hpfs_error(s, "dnode %08x has first_free == %08x", secno, le32_to_cpu(dnode->first_free));
 				goto bail;

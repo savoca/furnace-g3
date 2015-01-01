@@ -56,8 +56,8 @@ score_fork(struct pt_regs *regs)
 }
 
 /*
-                                                         
-                                                
+ * Clone a task - this clones the calling program thread.
+ * This is called indirectly via a small wrapper
  */
 asmlinkage long
 score_clone(struct pt_regs *regs)
@@ -85,8 +85,8 @@ score_vfork(struct pt_regs *regs)
 }
 
 /*
-                                       
-                                                
+ * sys_execve() executes a new program.
+ * This is called indirectly via a small wrapper
  */
 asmlinkage long
 score_execve(struct pt_regs *regs)
@@ -109,8 +109,8 @@ score_execve(struct pt_regs *regs)
 }
 
 /*
-                                                                   
-                              
+ * Do a system call from kernel instead of calling sys_execve so we
+ * end up with proper pt_regs.
  */
 int kernel_execve(const char *filename,
 		  const char *const argv[],

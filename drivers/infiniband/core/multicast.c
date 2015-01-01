@@ -220,10 +220,10 @@ static void queue_join(struct mcast_member *member)
 }
 
 /*
-                                                                             
-                                                                            
-                                                                              
-                             
+ * A multicast group has three types of members: full member, non member, and
+ * send only member.  We need to keep track of the number of members of each
+ * type based on their join state.  Adjust the number of members the belong to
+ * the specified join states.
  */
 static void adjust_membership(struct mcast_group *group, u8 join_state, int inc)
 {
@@ -235,10 +235,10 @@ static void adjust_membership(struct mcast_group *group, u8 join_state, int inc)
 }
 
 /*
-                                                                              
-                                                                             
-                                                                           
-                  
+ * If a multicast group has zero members left for a particular join state, but
+ * the group is still a member with the SA, we need to leave that join state.
+ * Determine which join states we still belong to, but that do not have any
+ * active members.
  */
 static u8 get_leave_state(struct mcast_group *group)
 {
@@ -283,7 +283,7 @@ static int check_selector(ib_sa_comp_mask comp_mask,
 static int cmp_rec(struct ib_sa_mcmember_rec *src,
 		   struct ib_sa_mcmember_rec *dst, ib_sa_comp_mask comp_mask)
 {
-	/*                         */
+	/* MGID must already match */
 
 	if (comp_mask & IB_SA_MCMEMBER_REC_PORT_GID &&
 	    memcmp(&src->port_gid, &dst->port_gid, sizeof src->port_gid))
@@ -322,7 +322,7 @@ static int cmp_rec(struct ib_sa_mcmember_rec *src,
 	if (comp_mask & IB_SA_MCMEMBER_REC_SCOPE && src->scope != dst->scope)
 		return -EINVAL;
 
-	/*                                                   */
+	/* join_state checked separately, proxy_join ignored */
 
 	return 0;
 }
@@ -494,7 +494,7 @@ retest:
 }
 
 /*
-                                                                                
+ * Fail a join request if it is still active - at the head of the pending queue.
  */
 static void process_join_error(struct mcast_group *group, int status)
 {
@@ -597,11 +597,11 @@ found:
 }
 
 /*
-                                                                          
-                                                                 
-                                                                           
-                                                                       
-             
+ * We serialize all join requests to a single group to make our lives much
+ * easier.  Otherwise, two users could try to join the same group
+ * simultaneously, with different configurations, one could leave while the
+ * join is in progress, etc., which makes locking around error recovery
+ * difficult.
  */
 struct ib_sa_multicast *
 ib_sa_join_multicast(struct ib_sa_client *client,
@@ -643,11 +643,11 @@ ib_sa_join_multicast(struct ib_sa_client *client,
 	}
 
 	/*
-                                                                      
-                                                                     
-                                                                  
-                 
-  */
+	 * The user will get the multicast structure in their callback.  They
+	 * could then free the multicast structure before we can return from
+	 * this routine.  So we save the pointer to return before queuing
+	 * any callback.
+	 */
 	multicast = &member->multicast;
 	queue_join(member);
 	return multicast;
@@ -676,7 +676,7 @@ void ib_sa_free_multicast(struct ib_sa_multicast *multicast)
 	if (group->state == MCAST_IDLE) {
 		group->state = MCAST_BUSY;
 		spin_unlock_irq(&group->lock);
-		/*                                                    */
+		/* Continue to hold reference on group until callback */
 		queue_work(mcast_wq, &group->work);
 	} else {
 		spin_unlock_irq(&group->lock);

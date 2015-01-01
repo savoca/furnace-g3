@@ -29,8 +29,8 @@
 static DEFINE_SPINLOCK(die_lock);
 
 /*
-                                                     
-                                                    
+ * this must be called very early as the kernel might
+ * use some instruction that are emulated on the 060
  */
 
 void __init base_trap_init(void)
@@ -47,7 +47,7 @@ asmlinkage void set_esp0 (unsigned long ssp)
 }
 
 /*
-                                                  
+ *	Generic dumping code. Used for panic and debug.
  */
 
 static void dump(struct pt_regs *fp)
@@ -143,13 +143,13 @@ void show_stack(struct task_struct *task, unsigned long *esp)
 	while (((unsigned long)stack & (THREAD_SIZE - 1)) != 0) {
 		addr = *stack++;
 		/*
-                                                        
-                                                       
-                                                 
-                                                     
-                                                       
-                                      
-   */
+		 * If the address is either in the text segment of the
+		 * kernel, or in the region which contains vmalloc'ed
+		 * memory, it *may* be the address of a calling
+		 * routine; if so, print it so that someone tracing
+		 * down the cause of the crash will be able to figure
+		 * out the call path that was taken.
+		 */
 		if (check_kernel_text(addr)) {
 			if (i % 4 == 0)
 				printk("\n       ");

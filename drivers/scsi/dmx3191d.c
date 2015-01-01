@@ -31,7 +31,7 @@
 #include <scsi/scsi_host.h>
 
 /*
-                                           
+ * Definitions for the generic 5380 driver.
  */
 #define AUTOSENSE
 
@@ -43,7 +43,7 @@
 #define NCR5380_setup(instance)		port = instance->io_port
 
 /*
-                                                                 
+ * Includes needed for NCR5380.[ch] (XXX: Move them to NCR5380.h)
  */
 #include <linux/delay.h>
 #include "scsi.h"
@@ -97,8 +97,8 @@ static int __devinit dmx3191d_probe_one(struct pci_dev *pdev,
 	if (request_irq(pdev->irq, NCR5380_intr, IRQF_SHARED,
 				DMX3191D_DRIVER_NAME, shost)) {
 		/*
-                                                             
-   */
+		 * Steam powered scsi controllers run without an IRQ anyway
+		 */
 		printk(KERN_WARNING "dmx3191: IRQ %d not available - "
 				    "switching to polled mode.\n", pdev->irq);
 		shost->irq = SCSI_IRQ_NONE;

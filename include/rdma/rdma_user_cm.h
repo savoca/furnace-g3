@@ -65,7 +65,7 @@ enum {
 };
 
 /*
-                          
+ * command ABI structures.
  */
 struct rdma_ucm_cmd_hdr {
 	__u32 cmd;
@@ -193,7 +193,7 @@ struct rdma_ucm_notify {
 };
 
 struct rdma_ucm_join_mcast {
-	__u64 response;		/*                         */
+	__u64 response;		/* rdma_ucm_create_id_resp */
 	__u64 uid;
 	struct sockaddr_in6 addr;
 	__u32 id;
@@ -214,13 +214,13 @@ struct rdma_ucm_event_resp {
 	} param;
 };
 
-/*               */
+/* Option levels */
 enum {
 	RDMA_OPTION_ID		= 0,
 	RDMA_OPTION_IB		= 1
 };
 
-/*                */
+/* Option details */
 enum {
 	RDMA_OPTION_ID_TOS	 = 0,
 	RDMA_OPTION_ID_REUSEADDR = 1,
@@ -245,4 +245,4 @@ struct rdma_ucm_migrate_resp {
 	__u32 events_reported;
 };
 
-#endif /*                */
+#endif /* RDMA_USER_CM_H */

@@ -39,7 +39,7 @@
 #include <linux/spinlock.h>
 
 #ifdef CONFIG_NET_9P_DEBUG
-unsigned int p9_debug_level = 0;	/*                                   */
+unsigned int p9_debug_level = 0;	/* feature-rific global debug level  */
 EXPORT_SYMBOL(p9_debug_level);
 module_param_named(debug, p9_debug_level, uint, 0);
 MODULE_PARM_DESC(debug, "9P debugging level");
@@ -69,17 +69,17 @@ EXPORT_SYMBOL(_p9_debug);
 #endif
 
 /*
-                                          
-  
+ * Dynamic Transport Registration Routines
+ *
  */
 
 static DEFINE_SPINLOCK(v9fs_trans_lock);
 static LIST_HEAD(v9fs_trans_list);
 
-/* 
-                                                         
-                                                                 
-  
+/**
+ * v9fs_register_trans - register a new transport with 9p
+ * @m: structure describing the transport module and entry points
+ *
  */
 void v9fs_register_trans(struct p9_trans_module *m)
 {
@@ -89,10 +89,10 @@ void v9fs_register_trans(struct p9_trans_module *m)
 }
 EXPORT_SYMBOL(v9fs_register_trans);
 
-/* 
-                                                    
-                              
-  
+/**
+ * v9fs_unregister_trans - unregister a 9p transport
+ * @m: the transport to remove
+ *
  */
 void v9fs_unregister_trans(struct p9_trans_module *m)
 {
@@ -102,10 +102,10 @@ void v9fs_unregister_trans(struct p9_trans_module *m)
 }
 EXPORT_SYMBOL(v9fs_unregister_trans);
 
-/* 
-                                                                
-                                      
-  
+/**
+ * v9fs_get_trans_by_name - get transport with the matching name
+ * @name: string identifying transport
+ *
  */
 struct p9_trans_module *v9fs_get_trans_by_name(char *s)
 {
@@ -125,9 +125,9 @@ struct p9_trans_module *v9fs_get_trans_by_name(char *s)
 }
 EXPORT_SYMBOL(v9fs_get_trans_by_name);
 
-/* 
-                                                     
-  
+/**
+ * v9fs_get_default_trans - get the default transport
+ *
  */
 
 struct p9_trans_module *v9fs_get_default_trans(void)
@@ -154,10 +154,10 @@ struct p9_trans_module *v9fs_get_default_trans(void)
 }
 EXPORT_SYMBOL(v9fs_get_default_trans);
 
-/* 
-                             
-                       
-  
+/**
+ * v9fs_put_trans - put trans
+ * @m: transport to put
+ *
  */
 void v9fs_put_trans(struct p9_trans_module *m)
 {
@@ -165,9 +165,9 @@ void v9fs_put_trans(struct p9_trans_module *m)
 		module_put(m->owner);
 }
 
-/* 
-                              
-  
+/**
+ * init_p9 - Initialize module
+ *
  */
 static int __init init_p9(void)
 {
@@ -180,9 +180,9 @@ static int __init init_p9(void)
 	return ret;
 }
 
-/* 
-                            
-  
+/**
+ * exit_p9 - shutdown module
+ *
  */
 
 static void __exit exit_p9(void)

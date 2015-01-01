@@ -40,20 +40,20 @@
 
 enum {
 	/*
-                                                                     
-                                                                  
-                                          
-  */
+	 * See also section 13.4.7 Status Field, table 115 MAD Common Status
+	 * Field Bit Values and also section 16.3.1.1 Status Field in the
+	 * InfiniBand Architecture Specification.
+	 */
 	DM_MAD_STATUS_UNSUP_METHOD = 0x0008,
 	DM_MAD_STATUS_UNSUP_METHOD_ATTR = 0x000c,
 	DM_MAD_STATUS_INVALID_FIELD = 0x001c,
 	DM_MAD_STATUS_NO_IOC = 0x0100,
 
 	/*
-                                                                      
-                                                            
-                               
-  */
+	 * See also the Device Management chapter, section 16.3.3 Attributes,
+	 * table 279 Device Management Attributes in the InfiniBand
+	 * Architecture Specification.
+	 */
 	DM_ATTR_CLASS_PORT_INFO = 0x01,
 	DM_ATTR_IOU_INFO = 0x10,
 	DM_ATTR_IOC_PROFILE = 0x11,
@@ -65,15 +65,15 @@ struct ib_dm_hdr {
 };
 
 /*
-                                                                          
-                                                                           
-                                               
-                                                                              
-                          
-                                                                              
-                                                                            
-                                                                             
-                                                                              
+ * Structure of management datagram sent by the SRP target implementation.
+ * Contains a management datagram header, reliable multi-packet transaction
+ * protocol (RMPP) header and ib_dm_hdr. Notes:
+ * - The SRP target implementation does not use RMPP or ib_dm_hdr when sending
+ *   management datagrams.
+ * - The header size must be exactly 64 bytes (IB_MGMT_DEVICE_HDR), since this
+ *   is the header size that is passed to ib_create_send_mad() in ib_srpt.c.
+ * - The maximum supported size for a management datagram when not using RMPP
+ *   is 256 bytes -- 64 bytes header and 192 (IB_MGMT_DEVICE_DATA) bytes data.
  */
 struct ib_dm_mad {
 	struct ib_mad_hdr mad_hdr;
@@ -83,8 +83,8 @@ struct ib_dm_mad {
 };
 
 /*
-                                                                         
-                              
+ * IOUnitInfo as defined in section 16.3.3.3 IOUnitInfo of the InfiniBand
+ * Architecture Specification.
  */
 struct ib_dm_iou_info {
 	__be16 change_id;
@@ -94,8 +94,8 @@ struct ib_dm_iou_info {
 };
 
 /*
-                                                                            
-                                             
+ * IOControllerprofile as defined in section 16.3.3.4 IOControllerProfile of
+ * the InfiniBand Architecture Specification.
  */
 struct ib_dm_ioc_profile {
 	__be64 guid;
@@ -129,8 +129,8 @@ struct ib_dm_svc_entry {
 };
 
 /*
-                                                                          
-                                                                               
+ * See also section 16.3.3.5 ServiceEntries in the InfiniBand Architecture
+ * Specification. See also section B.7, table B.8 in the T10 SRP r16a document.
  */
 struct ib_dm_svc_entries {
 	struct ib_dm_svc_entry service_entries[4];

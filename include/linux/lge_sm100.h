@@ -14,7 +14,7 @@
 #ifndef __LINUX_ANDROID_VIBRATOR_H
 #define __LINUX_ANDROID_VIBRATOR_H
 
-/*                    */
+/* Debug Mask setting */
 #define VIBRATOR_DEBUG_PRINT   (1)
 #define VIBRATOR_ERROR_PRINT   (1)
 #define VIBRATOR_INFO_PRINT    (0)

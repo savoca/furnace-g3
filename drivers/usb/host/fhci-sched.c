@@ -40,7 +40,7 @@ static void recycle_frame(struct fhci_usb *usb, struct packet *pkt)
 	cq_put(&usb->ep0->empty_frame_Q, pkt);
 }
 
-/*                          */
+/* confirm submitted packet */
 void fhci_transaction_confirm(struct fhci_usb *usb, struct packet *pkt)
 {
 	struct td *td;
@@ -76,10 +76,10 @@ void fhci_transaction_confirm(struct fhci_usb *usb, struct packet *pkt)
 	} else if ((td->status & USB_TD_ERROR) &&
 			!(td->status & USB_TD_TX_ER_NAK)) {
 		/*
-                                                         
-                                                             
-                                            
-   */
+		 * There was an error on the transaction (but not NAK).
+		 * If it is fatal error (data underrun, stall, bad pid or 3
+		 * errors exceeded), mark this TD as done.
+		 */
 		if ((td->status & USB_TD_RX_DATA_UNDERUN) ||
 				(td->status & USB_TD_TX_ER_STALL) ||
 				(td->status & USB_TD_RX_ER_PID) ||
@@ -96,19 +96,19 @@ void fhci_transaction_confirm(struct fhci_usb *usb, struct packet *pkt)
 			}
 		} else {
 			fhci_dbg(usb->fhci, "td err !f\n");
-			/*                                                 */
+			/* it is not a fatal error -retry this transaction */
 			td->nak_cnt = 0;
 			td->error_cnt++;
 			td->status = USB_TD_OK;
 		}
 	} else if (td->status & USB_TD_TX_ER_NAK) {
-		/*                          */
+		/* there was a NAK response */
 		fhci_vdbg(usb->fhci, "td nack\n");
 		td->nak_cnt++;
 		td->error_cnt = 0;
 		td->status = USB_TD_OK;
 	} else {
-		/*                                   */
+		/* there was no error on transaction */
 		td->error_cnt = 0;
 		td->nak_cnt = 0;
 		td->toggle = !td->toggle;
@@ -123,9 +123,9 @@ void fhci_transaction_confirm(struct fhci_usb *usb, struct packet *pkt)
 }
 
 /*
-                                         
-                                                                  
-                                                      
+ * Flush all transmitted packets from BDs
+ * This routine is called when disabling the USB port to flush all
+ * transmissions that are already scheduled in the BDs
  */
 void fhci_flush_all_transmissions(struct fhci_usb *usb)
 {
@@ -146,15 +146,15 @@ void fhci_flush_all_transmissions(struct fhci_usb *usb)
 
 	usb->actual_frame->frame_status = FRAME_END_TRANSMISSION;
 
-	/*                          */
+	/* reset the event register */
 	out_be16(&usb->fhci->regs->usb_event, 0xffff);
-	/*                           */
+	/* enable the USB controller */
 	out_8(&usb->fhci->regs->usb_mod, mode | USB_MODE_EN);
 }
 
 /*
-                                                                        
-                                                               
+ * This function forms the packet and transmit the packet. This function
+ * will handle all endpoint type:ISO,interrupt,control and bulk
  */
 static int add_packet(struct fhci_usb *usb, struct ed *ed, struct td *td)
 {
@@ -162,7 +162,7 @@ static int add_packet(struct fhci_usb *usb, struct ed *ed, struct td *td)
 	struct packet *pkt;
 	u8 *data = NULL;
 
-	/*                                                                    */
+	/* calcalate data address,len and toggle and then add the transaction */
 	if (td->toggle == USB_TD_TOGGLE_CARRY)
 		td->toggle = ed->toggle_carry;
 
@@ -194,7 +194,7 @@ static int add_packet(struct fhci_usb *usb, struct ed *ed, struct td *td)
 	else
 		fw_transaction_time = ((len + PROTOCOL_OVERHEAD) * 6);
 
-	/*                                                               */
+	/* check if there's enough space in this frame to submit this TD */
 	if (usb->actual_frame->total_bytes + len + PROTOCOL_OVERHEAD >=
 			usb->max_bytes_per_frame) {
 		fhci_vdbg(usb->fhci, "not enough space in this frame: "
@@ -203,7 +203,7 @@ static int add_packet(struct fhci_usb *usb, struct ed *ed, struct td *td)
 		return -1;
 	}
 
-	/*                                                              */
+	/* check if there's enough time in this frame to submit this TD */
 	if (usb->actual_frame->frame_status != FRAME_IS_PREPARED &&
 	    (usb->actual_frame->frame_status & FRAME_END_TRANSMISSION ||
 	     (fw_transaction_time + usb->sw_transaction_time >=
@@ -212,7 +212,7 @@ static int add_packet(struct fhci_usb *usb, struct ed *ed, struct td *td)
 		return -1;
 	}
 
-	/*                                                */
+	/* update frame object fields before transmitting */
 	pkt = cq_get(&usb->ep0->empty_frame_Q);
 	if (!pkt) {
 		fhci_dbg(usb->fhci, "there is no empty frame\n");
@@ -229,9 +229,9 @@ static int add_packet(struct fhci_usb *usb, struct ed *ed, struct td *td)
 	pkt->data = data;
 	pkt->len = len;
 	pkt->status = USB_TD_OK;
-	/*                                            */
+	/* update TD status field before transmitting */
 	td->status = USB_TD_INPROGRESS;
-	/*                                                              */
+	/* update actual frame time object with the actual transmission */
 	usb->actual_frame->total_bytes += (len + PROTOCOL_OVERHEAD);
 	fhci_add_td_to_frame(usb->actual_frame, td);
 
@@ -242,7 +242,7 @@ static int add_packet(struct fhci_usb *usb, struct ed *ed, struct td *td)
 		fhci_transaction_confirm(usb, pkt);
 	} else if (fhci_host_transaction(usb, pkt, td->type, ed->dev_addr,
 			ed->ep_addr, ed->mode, ed->speed, td->toggle)) {
-		/*                             */
+		/* remove TD from actual frame */
 		list_del_init(&td->frame_lh);
 		td->status = USB_TD_OK;
 		if (pkt->info & PKT_DUMMY_PACKET)
@@ -267,8 +267,8 @@ static void move_head_to_tail(struct list_head *list)
 }
 
 /*
-                                                                 
-                                
+ * This function goes through the endpoint list and schedules the
+ * transactions within this list
  */
 static int scan_ed_list(struct fhci_usb *usb,
 			struct list_head *list, enum fhci_tf_mode list_type)
@@ -302,9 +302,9 @@ static int scan_ed_list(struct fhci_usb *usb,
 		}
 
 		/*
-                                                             
-                         
-   */
+		 * if it isn't interrupt pipe or it is not iso pipe and the
+		 * interval time passed
+		 */
 		if ((list_type == FHCI_TF_INTR || list_type == FHCI_TF_ISO) &&
 				(((usb->actual_frame->frame_num -
 				   td->start_frame) & 0x7ff) < td->interval))
@@ -313,7 +313,7 @@ static int scan_ed_list(struct fhci_usb *usb,
 		if (add_packet(usb, ed, td) < 0)
 			continue;
 
-		/*                              */
+		/* update time stamps in the TD */
 		td->start_frame = usb->actual_frame->frame_num;
 		usb->sw_transaction_time += save_transaction_time;
 
@@ -330,7 +330,7 @@ static int scan_ed_list(struct fhci_usb *usb,
 			break;
 	}
 
-	/*                                           */
+	/* be fair to each ED(move list head around) */
 	move_head_to_tail(list);
 	usb->sw_transaction_time = save_transaction_time;
 
@@ -357,8 +357,8 @@ static u32 rotate_frames(struct fhci_usb *usb)
 }
 
 /*
-                                                                  
-                                                                     
+ * This function schedule the USB transaction and will process the
+ * endpoint in the following order: iso, interrupt, control and bulk.
  */
 void fhci_schedule_transactions(struct fhci_usb *usb)
 {
@@ -373,34 +373,34 @@ void fhci_schedule_transactions(struct fhci_usb *usb)
 
 	if (usb->actual_frame->total_bytes == 0) {
 		/*
-                                             
-                                     
-   */
+		 * schedule the next available ISO transfer
+		 *or next stage of the ISO transfer
+		 */
 		scan_ed_list(usb, &usb->hc_list->iso_list, FHCI_TF_ISO);
 
 		/*
-                                                      
-                                             
-   */
+		 * schedule the next available interrupt transfer or
+		 * the next stage of the interrupt transfer
+		 */
 		scan_ed_list(usb, &usb->hc_list->intr_list, FHCI_TF_INTR);
 
 		/*
-                                                 
-                                              
-   */
+		 * schedule the next available control transfer
+		 * or the next stage of the control transfer
+		 */
 		left = scan_ed_list(usb, &usb->hc_list->ctrl_list,
 				    FHCI_TF_CTRL);
 	}
 
 	/*
-                                                                      
-                 
-  */
+	 * schedule the next available bulk transfer or the next stage of the
+	 * bulk transfer
+	 */
 	if (left > 0)
 		scan_ed_list(usb, &usb->hc_list->bulk_list, FHCI_TF_BULK);
 }
 
-/*                       */
+/* Handles SOF interrupt */
 static void sof_interrupt(struct fhci_hcd *fhci)
 {
 	struct fhci_usb *usb = fhci->usb_lld;
@@ -412,7 +412,7 @@ static void sof_interrupt(struct fhci_hcd *fhci)
 			usb->port_status = FHCI_PORT_LOW;
 		else
 			usb->port_status = FHCI_PORT_FULL;
-		/*              */
+		/* Disable IDLE */
 		usb->saved_msk &= ~USB_E_IDLE_MASK;
 		out_be16(&usb->fhci->regs->usb_mask, usb->saved_msk);
 	}
@@ -425,7 +425,7 @@ static void sof_interrupt(struct fhci_hcd *fhci)
 	fhci_schedule_transactions(usb);
 }
 
-/*                                               */
+/* Handles device disconnected interrupt on port */
 void fhci_device_disconnected_interrupt(struct fhci_hcd *fhci)
 {
 	struct fhci_usb *usb = fhci->usb_lld;
@@ -438,7 +438,7 @@ void fhci_device_disconnected_interrupt(struct fhci_hcd *fhci)
 
 	fhci_stop_sof_timer(fhci);
 
-	/*                                                            */
+	/* Enable IDLE since we want to know if something comes along */
 	usb->saved_msk |= USB_E_IDLE_MASK;
 	out_be16(&usb->fhci->regs->usb_mask, usb->saved_msk);
 
@@ -450,7 +450,7 @@ void fhci_device_disconnected_interrupt(struct fhci_hcd *fhci)
 	fhci_dbg(fhci, "<- %s\n", __func__);
 }
 
-/*                                               */
+/* detect a new device connected on the USB port */
 void fhci_device_connected_interrupt(struct fhci_hcd *fhci)
 {
 
@@ -463,7 +463,7 @@ void fhci_device_connected_interrupt(struct fhci_hcd *fhci)
 	fhci_usb_disable_interrupt(usb);
 	state = fhci_ioports_check_bus_state(fhci);
 
-	/*                                                */
+	/* low-speed device was connected to the USB port */
 	if (state == 1) {
 		ret = qe_usb_clock_set(fhci->lowspeed_clk, USB_CLOCK >> 3);
 		if (ret) {
@@ -528,18 +528,18 @@ irqreturn_t fhci_frame_limit_timer_irq(int irq, void *_hcd)
 	return IRQ_HANDLED;
 }
 
-/*                                         */
+/* Cancel transmission on the USB endpoint */
 static void abort_transmission(struct fhci_usb *usb)
 {
 	fhci_dbg(usb->fhci, "-> %s\n", __func__);
-	/*                       */
+	/* issue stop Tx command */
 	qe_issue_cmd(QE_USB_STOP_TX, QE_CR_SUBBLOCK_USB, EP_ZERO, 0);
-	/*                */
+	/* flush Tx FIFOs */
 	out_8(&usb->fhci->regs->usb_comm, USB_CMD_FLUSH_FIFO | EP_ZERO);
 	udelay(1000);
-	/*              */
+	/* reset Tx BDs */
 	fhci_flush_bds(usb);
-	/*                          */
+	/* issue restart Tx command */
 	qe_issue_cmd(QE_USB_RESTART_TX, QE_CR_SUBBLOCK_USB, EP_ZERO, 0);
 	fhci_dbg(usb->fhci, "<- %s\n", __func__);
 }
@@ -558,7 +558,7 @@ irqreturn_t fhci_irq(struct usb_hcd *hcd)
 	usb_er |= in_be16(&usb->fhci->regs->usb_event) &
 		  in_be16(&usb->fhci->regs->usb_mask);
 
-	/*                                */
+	/* clear event bits for next time */
 	out_be16(&usb->fhci->regs->usb_event, usb_er);
 
 	fhci_dbg_isr(fhci, usb_er);
@@ -571,7 +571,7 @@ irqreturn_t fhci_irq(struct usb_hcd *hcd)
 		} else if (usb->port_status == FHCI_PORT_WAITING) {
 			usb->port_status = FHCI_PORT_DISCONNECTING;
 
-			/*                                          */
+			/* Turn on IDLE since we want to disconnect */
 			usb->saved_msk |= USB_E_IDLE_MASK;
 			out_be16(&usb->fhci->regs->usb_event,
 				 usb->saved_msk);
@@ -608,8 +608,8 @@ irqreturn_t fhci_irq(struct usb_hcd *hcd)
 			fhci_device_connected_interrupt(fhci);
 		} else if (usb->port_status ==
 				FHCI_PORT_DISCONNECTING) {
-			/*                                           */
-			/*              */
+			/* XXX usb->port_status = FHCI_PORT_WAITING; */
+			/* Disable IDLE */
 			usb->saved_msk &= ~USB_E_IDLE_MASK;
 			out_be16(&usb->fhci->regs->usb_mask,
 				 usb->saved_msk);
@@ -627,11 +627,11 @@ irqreturn_t fhci_irq(struct usb_hcd *hcd)
 
 
 /*
-                                                                       
-  
-                                                                               
-                                                                               
-                                            
+ * Process normal completions(error or success) and clean the schedule.
+ *
+ * This is the main path for handing urbs back to drivers. The only other patth
+ * is process_del_list(),which unlinks URBs by scanning EDs,instead of scanning
+ * the (re-reversed) done list as this does.
  */
 static void process_done_list(unsigned long data)
 {
@@ -651,16 +651,16 @@ static void process_done_list(unsigned long data)
 		urb_priv = urb->hcpriv;
 		ed = td->ed;
 
-		/*                                        */
+		/* update URB's length and status from TD */
 		fhci_done_td(urb, td);
 		urb_priv->tds_cnt++;
 
 		/*
-                                                    
-                                                    
-                                                        
-                                                        
-   */
+		 * if all this urb's TDs are done, call complete()
+		 * Interrupt transfers are the onley special case:
+		 * they are reissued,until "deleted" by usb_unlink_urb
+		 * (real work done in a SOF intr, by process_del_list)
+		 */
 		if (urb_priv->tds_cnt == urb_priv->num_of_tds) {
 			fhci_urb_complete_free(fhci, urb);
 		} else if (urb_priv->state == URB_DEL &&
@@ -684,7 +684,7 @@ static void process_done_list(unsigned long data)
 
 DECLARE_TASKLET(fhci_tasklet, process_done_list, 0);
 
-/*                            */
+/* transfer complted callback */
 u32 fhci_transfer_confirm_callback(struct fhci_hcd *fhci)
 {
 	if (!fhci->process_done_task->state)
@@ -693,11 +693,11 @@ u32 fhci_transfer_confirm_callback(struct fhci_hcd *fhci)
 }
 
 /*
-                                           
-             
-                                                         
-                                       
-                                        
+ * adds urb to the endpoint descriptor list
+ * arguments:
+ * fhci		data structure for the Low level host controller
+ * ep		USB Host endpoint data structure
+ * urb		USB request block data structure
  */
 void fhci_queue_urb(struct fhci_hcd *fhci, struct urb *urb)
 {
@@ -739,15 +739,15 @@ void fhci_queue_urb(struct fhci_hcd *fhci, struct urb *urb)
 			 ed->speed, ed->max_pkt_size);
 	}
 
-	/*                                              */
+	/* for ISO transfer calculate start frame index */
 	if (ed->mode == FHCI_TF_ISO && urb->transfer_flags & URB_ISO_ASAP)
 		urb->start_frame = ed->td_head ? ed->last_iso + 1 :
 						 get_frame_num(fhci);
 
 	/*
-                                                           
-               
-  */
+	 * OHCI handles the DATA toggle itself,we just use the USB
+	 * toggle bits
+	 */
 	if (usb_gettoggle(urb->dev, usb_pipeendpoint(urb->pipe),
 			  usb_pipeout(urb->pipe)))
 		toggle = USB_TD_TOGGLE_CARRY;
@@ -810,11 +810,11 @@ void fhci_queue_urb(struct fhci_hcd *fhci, struct urb *urb)
 		ed->dev_addr = usb_pipedevice(urb->pipe);
 		ed->max_pkt_size = usb_maxpacket(urb->dev, urb->pipe,
 			usb_pipeout(urb->pipe));
-		/*             */
+		/* setup stage */
 		td = fhci_td_fill(fhci, urb, urb_priv, ed, cnt++, FHCI_TA_SETUP,
 			USB_TD_TOGGLE_DATA0, urb->setup_packet, 8, 0, 0, true);
 
-		/*            */
+		/* data stage */
 		if (data_len > 0) {
 			td = fhci_td_fill(fhci, urb, urb_priv, ed, cnt++,
 				usb_pipeout(urb->pipe) ? FHCI_TA_OUT :
@@ -823,7 +823,7 @@ void fhci_queue_urb(struct fhci_hcd *fhci, struct urb *urb)
 				true);
 		}
 
-		/*              */
+		/* status stage */
 		if (data_len > 0)
 			td = fhci_td_fill(fhci, urb, urb_priv, ed, cnt++,
 				(usb_pipeout(urb->pipe) ? FHCI_TA_IN :
@@ -841,10 +841,10 @@ void fhci_queue_urb(struct fhci_hcd *fhci, struct urb *urb)
 			u16 frame = urb->start_frame;
 
 			/*
-                                                  
-                                               
-                                                 
-    */
+			 * FIXME scheduling should handle frame counter
+			 * roll-around ... exotic case (and OHCI has
+			 * a 2^16 iso range, vs other HCs max of 2^10)
+			 */
 			frame += cnt * urb->interval;
 			frame &= 0x07ff;
 			td = fhci_td_fill(fhci, urb, urb_priv, ed, cnt,
@@ -861,10 +861,10 @@ void fhci_queue_urb(struct fhci_hcd *fhci, struct urb *urb)
 	}
 
 	/*
-                        
-                                              
-                                           
-  */
+	 * set the state of URB
+	 * control pipe:3 states -- setup,data,status
+	 * interrupt and bulk pipe:1 state -- data
+	 */
 	urb->pipe &= ~0x1f;
 	urb->pipe |= urb_state & 0x1f;
 

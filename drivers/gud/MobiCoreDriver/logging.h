@@ -12,17 +12,17 @@
 #ifndef _MC_LOGGING_H_
 #define _MC_LOGGING_H_
 
-/*                                           */
+/* MobiCore internal trace buffer structure. */
 struct mc_trace_buf {
-	uint32_t version; /*                         */
-	uint32_t length; /*                                             */
-	uint32_t write_pos; /*                     */
-	char  buff[1]; /*                         */
+	uint32_t version; /* version of trace buffer */
+	uint32_t length; /* length of allocated buffer(includes header) */
+	uint32_t write_pos; /* last write position */
+	char  buff[1]; /* start of the log buffer */
 };
 
-/*                                    */
+/* MobiCore internal trace log setup. */
 void mobicore_log_read(void);
 long mobicore_log_setup(void);
 void mobicore_log_free(void);
 
-#endif /*                */
+#endif /* _MC_LOGGING_H_ */

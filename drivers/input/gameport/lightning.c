@@ -3,7 +3,7 @@
  */
 
 /*
-                                              
+ * PDPI Lightning 4 gamecard driver for Linux.
  */
 
 /*
@@ -44,7 +44,7 @@
 #define L4_CMD_SETCAL		0x93
 #define L4_ID			0x04
 #define L4_BUSY			0x01
-#define L4_TIMEOUT		80	/*       */
+#define L4_TIMEOUT		80	/* 80 us */
 
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@ucw.cz>");
 MODULE_DESCRIPTION("PDPI Lightning 4 gamecard driver");
@@ -58,7 +58,7 @@ struct l4 {
 static struct l4 l4_ports[8];
 
 /*
-                                                    
+ * l4_wait_ready() waits for the L4 to become ready.
  */
 
 static int l4_wait_ready(void)
@@ -70,7 +70,7 @@ static int l4_wait_ready(void)
 }
 
 /*
-                                                    
+ * l4_cooked_read() reads data from the Lightning 4.
  */
 
 static int l4_cooked_read(struct gameport *gameport, int *axes, int *buttons)
@@ -117,7 +117,7 @@ static int l4_open(struct gameport *gameport, int mode)
 }
 
 /*
-                                                    
+ * l4_getcal() reads the L4 with calibration values.
  */
 
 static int l4_getcal(int port, int *cal)
@@ -153,7 +153,7 @@ out:	outb(L4_SELECT_ANALOG, L4_PORT);
 }
 
 /*
-                                                       
+ * l4_setcal() programs the L4 with calibration values.
  */
 
 static int l4_setcal(int port, int *cal)
@@ -189,8 +189,8 @@ out:	outb(L4_SELECT_ANALOG, L4_PORT);
 }
 
 /*
-                                                               
-                                                               
+ * l4_calibrate() calibrates the L4 for the attached device, so
+ * that the device's resistance fits into the L4's 8-bit range.
  */
 
 static int l4_calibrate(struct gameport *gameport, int *axes, int *max)
@@ -293,7 +293,7 @@ static int __init l4_add_card(int card_no)
 	for (i = 0; i < 4; i++) {
 		l4 = &l4_ports[card_no * 4 + i];
 
-		if (rev > 0x28)		/*                                            */
+		if (rev > 0x28)		/* on 2.9+ the setcal command works correctly */
 			l4_setcal(l4->port, cal);
 		gameport_register_port(l4->gameport);
 	}

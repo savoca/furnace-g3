@@ -41,7 +41,7 @@ static void __init mpc836x_rdk_setup_arch(void)
 }
 
 /*
-                                                                
+ * Called very early, MMU is off, device-tree isn't unflattened.
  */
 static int __init mpc836x_rdk_probe(void)
 {

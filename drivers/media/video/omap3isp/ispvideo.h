@@ -42,16 +42,16 @@ struct v4l2_mbus_framefmt;
 struct v4l2_pix_format;
 
 /*
-                                                            
-                                    
-                                                                             
-                                                                  
-                                                                               
-                                                                   
-                                                                    
-                                                                 
-                                                 
-                       
+ * struct isp_format_info - ISP media bus format information
+ * @code: V4L2 media bus format code
+ * @truncated: V4L2 media bus format code for the same format truncated to 10
+ *	bits. Identical to @code if the format is 10 bits wide or less.
+ * @uncompressed: V4L2 media bus format code for the corresponding uncompressed
+ *	format. Identical to @code if the format is not DPCM compressed.
+ * @flavor: V4L2 media bus format code for the same pixel layout but
+ *	shifted to be 8 bits per pixel. =0 if format is not shiftable.
+ * @pixelformat: V4L2 pixel format FCC identifier
+ * @bpp: Bits per pixel
  */
 struct isp_format_info {
 	enum v4l2_mbus_pixelcode code;
@@ -69,29 +69,29 @@ enum isp_pipeline_stream_state {
 };
 
 enum isp_pipeline_state {
-	/*                                                      */
+	/* The stream has been started on the input video node. */
 	ISP_PIPELINE_STREAM_INPUT = 1,
-	/*                                                       */
+	/* The stream has been started on the output video node. */
 	ISP_PIPELINE_STREAM_OUTPUT = 2,
-	/*                                                        */
+	/* At least one buffer is queued on the input video node. */
 	ISP_PIPELINE_QUEUE_INPUT = 4,
-	/*                                                         */
+	/* At least one buffer is queued on the output video node. */
 	ISP_PIPELINE_QUEUE_OUTPUT = 8,
-	/*                                                */
+	/* The input entity is idle, ready to be started. */
 	ISP_PIPELINE_IDLE_INPUT = 16,
-	/*                                                 */
+	/* The output entity is idle, ready to be started. */
 	ISP_PIPELINE_IDLE_OUTPUT = 32,
-	/*                                      */
+	/* The pipeline is currently streaming. */
 	ISP_PIPELINE_STREAM = 64,
 };
 
 /*
-                                                 
-                                                   
+ * struct isp_pipeline - An ISP hardware pipeline
+ * @error: A hardware error occurred during capture
  */
 struct isp_pipeline {
 	struct media_pipeline pipe;
-	spinlock_t lock;		/*                                */
+	spinlock_t lock;		/* Pipeline state and queue flags */
 	unsigned int state;
 	enum isp_pipeline_stream_state stream_state;
 	struct isp_video *input;
@@ -99,7 +99,7 @@ struct isp_pipeline {
 	unsigned long l3_ick;
 	unsigned int max_rate;
 	atomic_t frame_number;
-	bool do_propagation; /*                 */
+	bool do_propagation; /* of frame number */
 	bool error;
 	struct v4l2_fract max_timeperframe;
 };
@@ -118,9 +118,9 @@ static inline int isp_pipeline_ready(struct isp_pipeline *pipe)
 }
 
 /*
-                                 
-                            
-                                                                       
+ * struct isp_buffer - ISP buffer
+ * @buffer: ISP video buffer
+ * @isp_addr: MMU mapped address (a.k.a. device address) of the buffer.
  */
 struct isp_buffer {
 	struct isp_video_buffer buffer;
@@ -130,9 +130,9 @@ struct isp_buffer {
 #define to_isp_buffer(buf)	container_of(buf, struct isp_buffer, buffer)
 
 enum isp_video_dmaqueue_flags {
-	/*                                                                    */
+	/* Set if DMA queue becomes empty when ISP_PIPELINE_STREAM_CONTINUOUS */
 	ISP_VIDEO_DMAQUEUE_UNDERRUN = (1 << 0),
-	/*                                               */
+	/* Set when queuing buffer to an empty DMA queue */
 	ISP_VIDEO_DMAQUEUE_QUEUED = (1 << 1),
 };
 
@@ -140,9 +140,9 @@ enum isp_video_dmaqueue_flags {
 			({ (video)->dmaqueue_flags = 0; })
 
 /*
-                                                     
-                                                                          
-                                             
+ * struct isp_video_operations - ISP video operations
+ * @queue:	Resume streaming when a buffer is queued. Called on VIDIOC_QBUF
+ *		if there was no buffer previously queued.
  */
 struct isp_video_operations {
 	int(*queue)(struct isp_video *video, struct isp_buffer *buffer);
@@ -153,26 +153,26 @@ struct isp_video {
 	enum v4l2_buf_type type;
 	struct media_pad pad;
 
-	struct mutex mutex;		/*                          */
+	struct mutex mutex;		/* format and crop settings */
 	atomic_t active;
 
 	struct isp_device *isp;
 
 	unsigned int capture_mem;
-	unsigned int bpl_alignment;	/*                 */
-	unsigned int bpl_zero_padding;	/*                                   */
-	unsigned int bpl_max;		/*                              */
-	unsigned int bpl_value;		/*                      */
-	unsigned int bpl_padding;	/*                        */
+	unsigned int bpl_alignment;	/* alignment value */
+	unsigned int bpl_zero_padding;	/* whether the alignment is optional */
+	unsigned int bpl_max;		/* maximum bytes per line value */
+	unsigned int bpl_value;		/* bytes per line value */
+	unsigned int bpl_padding;	/* padding at end of line */
 
-	/*                             */
+	/* Entity video node streaming */
 	unsigned int streaming:1;
 
-	/*                */
+	/* Pipeline state */
 	struct isp_pipeline pipe;
-	struct mutex stream_lock;	/*                            */
+	struct mutex stream_lock;	/* pipeline and stream states */
 
-	/*                     */
+	/* Video buffers queue */
 	struct isp_video_queue *queue;
 	struct list_head dmaqueue;
 	enum isp_video_dmaqueue_flags dmaqueue_flags;
@@ -206,4 +206,4 @@ struct media_pad *omap3isp_video_remote_pad(struct isp_video *video);
 const struct isp_format_info *
 omap3isp_video_format_info(enum v4l2_mbus_pixelcode code);
 
-#endif /*                   */
+#endif /* OMAP3_ISP_VIDEO_H */

@@ -25,21 +25,21 @@
 #include <linux/errno.h>
 #include <sound/core.h>
 
-/* 
-                                                   
-                           
-                                        
-                                                
-                           
-  
-                                                             
-                                                               
-               
-  
-                                                               
-                                                
-  
-                                                                   
+/**
+ * snd_device_new - create an ALSA device component
+ * @card: the card instance
+ * @type: the device type, SNDRV_DEV_XXX
+ * @device_data: the data pointer of this device
+ * @ops: the operator table
+ *
+ * Creates a new device component for the given data pointer.
+ * The device will be assigned to the card and managed together
+ * by the card.
+ *
+ * The data pointer plays a role as the identifier, too, so the
+ * pointer address must be unique and unchanged.
+ *
+ * Returns zero if successful, or a negative error code on failure.
  */
 int snd_device_new(struct snd_card *card, snd_device_type_t type,
 		   void *device_data, struct snd_device_ops *ops)
@@ -58,23 +58,23 @@ int snd_device_new(struct snd_card *card, snd_device_type_t type,
 	dev->state = SNDRV_DEV_BUILD;
 	dev->device_data = device_data;
 	dev->ops = ops;
-	list_add(&dev->list, &card->devices);	/*                         */
+	list_add(&dev->list, &card->devices);	/* add to the head of list */
 	return 0;
 }
 
 EXPORT_SYMBOL(snd_device_new);
 
-/* 
-                                                     
-                           
-                                            
-  
-                                                               
-                                                                      
-                           
-  
-                                                                            
-                    
+/**
+ * snd_device_free - release the device from the card
+ * @card: the card instance
+ * @device_data: the data pointer to release
+ *
+ * Removes the device from the list on the card and invokes the
+ * callbacks, dev_disconnect and dev_free, corresponding to the state.
+ * Then release the device.
+ *
+ * Returns zero if successful, or a negative error code on failure or if the
+ * device not found.
  */
 int snd_device_free(struct snd_card *card, void *device_data)
 {
@@ -85,7 +85,7 @@ int snd_device_free(struct snd_card *card, void *device_data)
 	list_for_each_entry(dev, &card->devices, list) {
 		if (dev->device_data != device_data)
 			continue;
-		/*        */
+		/* unlink */
 		list_del(&dev->list);
 		if (dev->state == SNDRV_DEV_REGISTERED &&
 		    dev->ops->dev_disconnect)
@@ -106,18 +106,18 @@ int snd_device_free(struct snd_card *card, void *device_data)
 
 EXPORT_SYMBOL(snd_device_free);
 
-/* 
-                                                
-                           
-                                               
-  
-                                                          
-                                                                 
-  
-                                             
-  
-                                                                            
-                    
+/**
+ * snd_device_disconnect - disconnect the device
+ * @card: the card instance
+ * @device_data: the data pointer to disconnect
+ *
+ * Turns the device into the disconnection state, invoking
+ * dev_disconnect callback, if the device was already registered.
+ *
+ * Usually called from snd_card_disconnect().
+ *
+ * Returns zero if successful, or a negative error code on failure or if the
+ * device not found.
  */
 int snd_device_disconnect(struct snd_card *card, void *device_data)
 {
@@ -141,18 +141,18 @@ int snd_device_disconnect(struct snd_card *card, void *device_data)
 	return -ENXIO;
 }
 
-/* 
-                                            
-                           
-                                             
-  
-                                                     
-                                                                      
-                                                                  
-                                     
-  
-                                                                            
-                    
+/**
+ * snd_device_register - register the device
+ * @card: the card instance
+ * @device_data: the data pointer to register
+ *
+ * Registers the device which was already created via
+ * snd_device_new().  Usually this is called from snd_card_register(),
+ * but it can be called later if any new devices are created after
+ * invocation of snd_card_register().
+ *
+ * Returns zero if successful, or a negative error code on failure or if the
+ * device not found.
  */
 int snd_device_register(struct snd_card *card, void *device_data)
 {
@@ -180,8 +180,8 @@ int snd_device_register(struct snd_card *card, void *device_data)
 EXPORT_SYMBOL(snd_device_register);
 
 /*
-                                        
-                     
+ * register all the devices on the card.
+ * called from init.c
  */
 int snd_device_register_all(struct snd_card *card)
 {
@@ -201,8 +201,8 @@ int snd_device_register_all(struct snd_card *card)
 }
 
 /*
-                                          
-                     
+ * disconnect all the devices on the card.
+ * called from init.c
  */
 int snd_device_disconnect_all(struct snd_card *card)
 {
@@ -219,8 +219,8 @@ int snd_device_disconnect_all(struct snd_card *card)
 }
 
 /*
-                                       
-                     
+ * release all the devices on the card.
+ * called from init.c
  */
 int snd_device_free_all(struct snd_card *card, snd_device_cmd_t cmd)
 {

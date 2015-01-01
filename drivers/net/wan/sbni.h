@@ -13,7 +13,7 @@
 #endif
 
 
-/*                                         */
+/* We don't have official vendor id yet... */
 #define SBNI_PCI_VENDOR 	0x55 
 #define SBNI_PCI_DEVICE 	0x9f
 
@@ -28,7 +28,7 @@ enum sbni_reg {
 	DAT  = 2
 };
 
-/*              */
+/* CSR0 mapping */
 enum {
 	BU_EMP = 0x02,
 	RC_CHK = 0x04,
@@ -40,7 +40,7 @@ enum {
 };
 
 
-/*              */
+/* CSR1 mapping */
 #define PR_RES 0x80
 
 struct sbni_csr1 {
@@ -55,7 +55,7 @@ struct sbni_csr1 {
 #endif
 };
 
-/*                        */
+/* fields in frame header */
 #define FRAME_ACK_MASK  (unsigned short)0x7000
 #define FRAME_LEN_MASK  (unsigned short)0x03FF
 #define FRAME_FIRST     (unsigned short)0x8000
@@ -65,7 +65,7 @@ struct sbni_csr1 {
 #define FRAME_SENT_OK   (unsigned short)0x3000
 
 
-/*             */
+/* state flags */
 enum {
 	FL_WAIT_ACK    = 0x01,
 	FL_NEED_RESEND = 0x02,
@@ -91,7 +91,7 @@ enum {
 
 #define SBNI_SIG 0x5a
 
-#define	SBNI_MIN_LEN	60	/*                                     */
+#define	SBNI_MIN_LEN	60	/* Shortest Ethernet frame without FCS */
 #define SBNI_MAX_FRAME	1023
 #define ETHER_MAX_LEN	1518
 
@@ -102,7 +102,7 @@ enum {
 
 #define SBNI_MAX_NUM_CARDS	16
 
-/*                                   */
+/* internal SBNI-specific statistics */
 struct sbni_in_stats {
 	u32	all_rx_number;
 	u32	bad_rx_number;
@@ -111,7 +111,7 @@ struct sbni_in_stats {
 	u32	resend_tx_number;
 };
 
-/*                   */
+/* SBNI ioctl params */
 #define SIOCDEVGETINSTATS 	SIOCDEVPRIVATE
 #define SIOCDEVRESINSTATS 	SIOCDEVPRIVATE+1
 #define SIOCDEVGHWSTATE   	SIOCDEVPRIVATE+2
@@ -120,7 +120,7 @@ struct sbni_in_stats {
 #define SIOCDEVEMANSIPATE  	SIOCDEVPRIVATE+5
 
 
-/*                                                                */
+/* data packet for SIOCDEVGHWSTATE/SIOCDEVSHWSTATE ioctl requests */
 struct sbni_flags {
 	u32	rxl		: 4;
 	u32	rate		: 2;
@@ -130,12 +130,12 @@ struct sbni_flags {
 };
 
 /*
-               
+ * CRC-32 stuff
  */
 #define CRC32(c,crc) (crc32tab[((size_t)(crc) ^ (c)) & 0xff] ^ (((crc) >> 8) & 0x00FFFFFF))
-      /*                          */
-      /*                          */
-      /*                              */
+      /* CRC generator 0xEDB88320 */
+      /* CRC remainder 0x2144DF1C */
+      /* CRC initial value 0x00000000 */
 #define CRC32_REMAINDER 0x2144DF1C
 #define CRC32_INITIAL 0x00000000
 

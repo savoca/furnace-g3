@@ -12,7 +12,7 @@
 #include <linux/gfp.h>
 
 /*
-                  
+ * Managed DMA API
  */
 struct dma_devres {
 	size_t		size;
@@ -46,18 +46,18 @@ static int dmam_match(struct device *dev, void *res, void *match_data)
 	return 0;
 }
 
-/* 
-                                                     
-                                               
-                            
-                                                     
-                         
-  
-                                                                      
-                                                   
-  
-           
-                                                           
+/**
+ * dmam_alloc_coherent - Managed dma_alloc_coherent()
+ * @dev: Device to allocate coherent memory for
+ * @size: Size of allocation
+ * @dma_handle: Out argument for allocated DMA handle
+ * @gfp: Allocation flags
+ *
+ * Managed dma_alloc_coherent().  Memory allocated using this function
+ * will be automatically released on driver detach.
+ *
+ * RETURNS:
+ * Pointer to allocated memory on success, NULL on failure.
  */
 void * dmam_alloc_coherent(struct device *dev, size_t size,
 			   dma_addr_t *dma_handle, gfp_t gfp)
@@ -85,14 +85,14 @@ void * dmam_alloc_coherent(struct device *dev, size_t size,
 }
 EXPORT_SYMBOL(dmam_alloc_coherent);
 
-/* 
-                                                   
-                                           
-                            
-                                                
-                                                
-  
-                               
+/**
+ * dmam_free_coherent - Managed dma_free_coherent()
+ * @dev: Device to free coherent memory for
+ * @size: Size of allocation
+ * @vaddr: Virtual address of the memory to free
+ * @dma_handle: DMA handle of the memory to free
+ *
+ * Managed dma_free_coherent().
  */
 void dmam_free_coherent(struct device *dev, size_t size, void *vaddr,
 			dma_addr_t dma_handle)
@@ -105,18 +105,18 @@ void dmam_free_coherent(struct device *dev, size_t size, void *vaddr,
 }
 EXPORT_SYMBOL(dmam_free_coherent);
 
-/* 
-                                                             
-                                                   
-                            
-                                                     
-                         
-  
-                                                                 
-                                                            
-  
-           
-                                                           
+/**
+ * dmam_alloc_non_coherent - Managed dma_alloc_non_coherent()
+ * @dev: Device to allocate non_coherent memory for
+ * @size: Size of allocation
+ * @dma_handle: Out argument for allocated DMA handle
+ * @gfp: Allocation flags
+ *
+ * Managed dma_alloc_non_coherent().  Memory allocated using this
+ * function will be automatically released on driver detach.
+ *
+ * RETURNS:
+ * Pointer to allocated memory on success, NULL on failure.
  */
 void *dmam_alloc_noncoherent(struct device *dev, size_t size,
 			     dma_addr_t *dma_handle, gfp_t gfp)
@@ -144,14 +144,14 @@ void *dmam_alloc_noncoherent(struct device *dev, size_t size,
 }
 EXPORT_SYMBOL(dmam_alloc_noncoherent);
 
-/* 
-                                                      
-                                              
-                            
-                                                
-                                                
-  
-                                  
+/**
+ * dmam_free_coherent - Managed dma_free_noncoherent()
+ * @dev: Device to free noncoherent memory for
+ * @size: Size of allocation
+ * @vaddr: Virtual address of the memory to free
+ * @dma_handle: DMA handle of the memory to free
+ *
+ * Managed dma_free_noncoherent().
  */
 void dmam_free_noncoherent(struct device *dev, size_t size, void *vaddr,
 			   dma_addr_t dma_handle)
@@ -171,18 +171,18 @@ static void dmam_coherent_decl_release(struct device *dev, void *res)
 	dma_release_declared_memory(dev);
 }
 
-/* 
-                                                                       
-                                              
-                                                           
-                                                                 
-                                                
-                
-  
-                                         
-  
-           
-                                   
+/**
+ * dmam_declare_coherent_memory - Managed dma_declare_coherent_memory()
+ * @dev: Device to declare coherent memory for
+ * @bus_addr: Bus address of coherent memory to be declared
+ * @device_addr: Device address of coherent memory to be declared
+ * @size: Size of coherent memory to be declared
+ * @flags: Flags
+ *
+ * Managed dma_declare_coherent_memory().
+ *
+ * RETURNS:
+ * 0 on success, -errno on failure.
  */
 int dmam_declare_coherent_memory(struct device *dev, dma_addr_t bus_addr,
 				 dma_addr_t device_addr, size_t size, int flags)
@@ -205,11 +205,11 @@ int dmam_declare_coherent_memory(struct device *dev, dma_addr_t bus_addr,
 }
 EXPORT_SYMBOL(dmam_declare_coherent_memory);
 
-/* 
-                                                                        
-                                                       
-  
-                                          
+/**
+ * dmam_release_declared_memory - Managed dma_release_declared_memory().
+ * @dev: Device to release declared coherent memory for
+ *
+ * Managed dmam_release_declared_memory().
  */
 void dmam_release_declared_memory(struct device *dev)
 {

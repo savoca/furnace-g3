@@ -124,7 +124,7 @@ static const int arizona_micd_levels[] = {
 	1257,
 };
 
-/*                                                             */
+/* These values are copied from Android WiredAccessoryObserver */
 enum headset_state {
 	BIT_NO_HEADSET = 0,
 	BIT_HEADSET = (1 << 0),
@@ -143,7 +143,7 @@ static void arizona_extcon_do_magic(struct arizona_extcon_info *info,
 	mutex_lock(&arizona->dapm->card->mutex);
 
 	pr_debug("%s:enter\n",__func__);
-	/*                                                          */
+	/* Keep the HP output stages disabled while doing the magic */
 	if (magic) {
 		ret = regmap_update_bits(arizona->regmap,
 					 ARIZONA_OUTPUT_ENABLES_1,
@@ -167,7 +167,7 @@ static void arizona_extcon_do_magic(struct arizona_extcon_info *info,
 		dev_warn(arizona->dev, "Failed to do magic: %d\n",
 			 ret);
 
-	/*                                                     */
+	/* Restore the desired state while not doing the magic */
 	if (!magic) {
 		ret = regmap_update_bits(arizona->regmap,
 					 ARIZONA_OUTPUT_ENABLES_1,
@@ -257,7 +257,7 @@ static void arizona_start_mic(struct arizona_extcon_info *info)
 	bool change;
 	int ret;
 
-	/*                                          */
+	/* Microphone detection can't use idle mode */
 	pr_debug("%s:enter\n",__func__);
 	pm_runtime_get(info->dev);
 
@@ -403,7 +403,7 @@ static int arizona_hpdet_read(struct arizona_extcon_info *info)
 			return -EAGAIN;
 		}
 
-		/*                                           */
+		/* If we go out of range report top of range */
 		if (val < 100 || val >= 0x3fb) {
 			dev_dbg(arizona->dev, "Measurement out of range: %x\n",
 				val);
@@ -438,7 +438,7 @@ static int arizona_hpdet_read(struct arizona_extcon_info *info)
 		range = (range & ARIZONA_HP_IMPEDANCE_RANGE_MASK)
 			   >> ARIZONA_HP_IMPEDANCE_RANGE_SHIFT;
 
-		/*                          */
+		/* Skip up or down a range? */
 		if (range && (val < arizona_hpdet_c_ranges[range].min)) {
 			range--;
 			dev_dbg(arizona->dev, "Moving to HPDET range %d-%d\n",
@@ -478,14 +478,14 @@ static int arizona_hpdet_do_id(struct arizona_extcon_info *info, int *reading,
 	int id_gpio = arizona->pdata.hpdet_id_gpio;
 
 	/*
-                                                             
-                                                                 
-  */
+	 * If we're using HPDET for accessory identification we need
+	 * to take multiple measurements, step through them in sequence.
+	 */
 	pr_debug("%s:enter\n",__func__);
 	if (arizona->pdata.hpdet_acc_id) {
 		info->hpdet_res[info->num_hpdet_res++] = *reading;
 
-		/*                                                        */
+		/* Only check the mic directly if we didn't already ID it */
 		if (id_gpio && info->num_hpdet_res == 1) {
 			dev_dbg(arizona->dev, "Measuring mic\n");
 
@@ -504,14 +504,14 @@ static int arizona_hpdet_do_id(struct arizona_extcon_info *info, int *reading,
 			return -EAGAIN;
 		}
 
-		/*                                */
+		/* OK, got both.  Now, compare... */
 		dev_dbg(arizona->dev, "HPDET measured %d %d\n",
 			info->hpdet_res[0], info->hpdet_res[1]);
 
-		/*                                                  */
+		/* Take the headphone impedance for the main report */
 		*reading = info->hpdet_res[0];
 
-		/*                                                    */
+		/* Sometimes we get false readings due to slow insert */
 		if (*reading >= ARIZONA_HPDET_MAX && !info->hpdet_retried) {
 			dev_dbg(arizona->dev, "Retrying high impedance\n");
 			info->num_hpdet_res = 0;
@@ -522,8 +522,8 @@ static int arizona_hpdet_do_id(struct arizona_extcon_info *info, int *reading,
 		}
 
 		/*
-                             
-   */
+		 * If we measure the mic as
+		 */
 		if (!id_gpio || info->hpdet_res[1] > 50) {
 			dev_dbg(arizona->dev, "Detected mic\n");
 			*mic = true;
@@ -532,7 +532,7 @@ static int arizona_hpdet_do_id(struct arizona_extcon_info *info, int *reading,
 			dev_dbg(arizona->dev, "Detected headphone\n");
 		}
 
-		/*                                                         */
+		/* Make sure everything is reset back to the real polarity */
 		regmap_update_bits(arizona->regmap,
 				   ARIZONA_ACCESSORY_DETECT_MODE_1,
 				   ARIZONA_ACCDET_SRC,
@@ -552,7 +552,7 @@ static irqreturn_t arizona_hpdet_irq(int irq, void *data)
 
 	mutex_lock(&info->lock);
 	pr_debug("%s:enter\n",__func__);
-	/*                                                         */
+	/* If we got a spurious IRQ for some reason then ignore it */
 	if (!info->hpdet_active) {
 		dev_warn(arizona->dev, "Spurious HPDET IRQ\n");
 		mutex_unlock(&info->lock);
@@ -562,7 +562,7 @@ static irqreturn_t arizona_hpdet_irq(int irq, void *data)
 	if (!info->cable) {
 		dev_dbg(arizona->dev, "Ignoring HPDET for removed cable\n");
 
-		/*                              */
+		/* Reset back to starting range */
 		regmap_update_bits(arizona->regmap,
 				   ARIZONA_HEADPHONE_DETECT_1,
 				   ARIZONA_HP_IMPEDANCE_RANGE_MASK |
@@ -579,7 +579,7 @@ static irqreturn_t arizona_hpdet_irq(int irq, void *data)
 	}
 	reading = ret;
 
-	/*                              */
+	/* Reset back to starting range */
 	regmap_update_bits(arizona->regmap,
 			   ARIZONA_HEADPHONE_DETECT_1,
 			   ARIZONA_HP_IMPEDANCE_RANGE_MASK | ARIZONA_HP_POLL,
@@ -601,12 +601,12 @@ done:
 	if (id_gpio)
 		gpio_set_value_cansleep(id_gpio, 0);
 
-	/*                            */
+	/* Revert back to MICDET mode */
 	regmap_update_bits(arizona->regmap,
 			   ARIZONA_ACCESSORY_DETECT_MODE_1,
 			   ARIZONA_ACCDET_MODE_MASK, ARIZONA_ACCDET_MODE_MIC);
 
-	/*                                       */
+	/* If we have a mic then reenable MICDET */
 	if (mic || info->mic)
 		arizona_start_mic(info);
 	else{
@@ -629,8 +629,8 @@ out:
 
 static void arizona_identify_headphone(struct arizona_extcon_info *info)
 {
-//                                         
-//         
+//	struct arizona *arizona = info->arizona;
+//	int ret;
 
 #if 0
 	if (info->hpdet_done)
@@ -638,7 +638,7 @@ static void arizona_identify_headphone(struct arizona_extcon_info *info)
 
 	dev_dbg(arizona->dev, "Starting HPDET\n");
 
-	/*                                                             */
+	/* Make sure we keep the device enabled during the measurement */
 	pm_runtime_get(info->dev);
 
 	info->hpdet_active = true;
@@ -672,7 +672,7 @@ err:
 			   ARIZONA_ACCDET_MODE_MASK, ARIZONA_ACCDET_MODE_MIC);
 
 #endif
-	/*                       */
+	/* Just report headphone */
 	pr_debug("%s:enter\n",__func__);
 	if (info->mic){
 		pr_debug("%s:detect 4pole\n",__func__);
@@ -697,7 +697,7 @@ static void arizona_start_hpdet_acc_id(struct arizona_extcon_info *info)
 
 	pr_debug("%s:Starting identification via HPDET\n",__func__);
 
-	/*                                                             */
+	/* Make sure we keep the device enabled during the measurement */
 	pm_runtime_get_sync(info->dev);
 
 	info->hpdet_active = true;
@@ -734,7 +734,7 @@ err:
 	regmap_update_bits(arizona->regmap, ARIZONA_ACCESSORY_DETECT_MODE_1,
 			   ARIZONA_ACCDET_MODE_MASK, ARIZONA_ACCDET_MODE_MIC);
 
-	/*                       */
+	/* Just report headphone */
 	if (info->mic){
 		pr_debug("%s:detect 4pole\n",__func__);
 		input_report_switch(info->input, SW_HEADPHONE_INSERT, 1);
@@ -804,37 +804,37 @@ static void arizona_micd_detect(struct work_struct *work)
 		return;
 	}
 
-	/*                                             */
+	/* Due to jack detect this should never happen */
 	if (!(val & ARIZONA_MICD_STS)) {
 		dev_warn(arizona->dev, "Detected open circuit\n");
 		info->detecting = false;
 		goto handled;
 	}
 
-	/*                                                                 */
+	/* If we got a high impedence we should have a headset, report it. */
 	if (info->detecting && (val & 0x400)) {
 		info->mic = true;
 
 		arizona_identify_headphone(info);
-		//       
+		//check_S
 		pr_debug("%s:detect 4pole\n",__func__);
 		input_report_switch(info->input, SW_HEADPHONE_INSERT, 1);
 		input_sync(info->input);
 		input_report_switch(info->input, SW_MICROPHONE_INSERT, 1);
 		input_sync(info->input);
-		//       
+		//check_E
 
 		info->detecting = false;
 
 		goto handled;
 	}
 
-	/*                                                        
-                                                             
-                                                              
-                                                      
-                                                 
-  */
+	/* If we detected a lower impedence during initial startup
+	 * then we probably have the wrong polarity, flip it.  Don't
+	 * do this for the lowest impedences to speed up detection of
+	 * plain headphones.  If both polarities report a low
+	 * impedence then give up and report headphones.
+	 */
 	if (info->detecting && (val & 0x3f8)) {
 		if (info->jack_flips >= info->micd_num_modes * 10) {
 			dev_dbg(arizona->dev, "Detected HP/line\n");
@@ -856,9 +856,9 @@ static void arizona_micd_detect(struct work_struct *work)
 	}
 
 	/*
-                                                             
-                                                    
-  */
+	 * If we're still detecting and we detect a short then we've
+	 * got a headphone.  Otherwise it's a button press.
+	 */
 	if (val & 0x3fc) {
 		if (info->mic) {
 			dev_dbg(arizona->dev, "Mic button detected\n");
@@ -1037,12 +1037,12 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 
 		if (switch_get_state(&info->sdev) != BIT_NO_HEADSET) {
 			switch_set_state(&info->sdev, BIT_NO_HEADSET);
-		//       
+		//check_S
 		input_report_switch(info->input, SW_HEADPHONE_INSERT, 0);
 		input_sync(info->input);
 		input_report_switch(info->input, SW_MICROPHONE_INSERT, 0);
 		input_sync(info->input);
-		//       
+		//check_E
 		}
 
 		regmap_update_bits(arizona->regmap,
@@ -1053,7 +1053,7 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 
 out:
 #if 0
-	/*                                                    */
+	/* Clear trig_sts to make sure DCVDD is not forced up */
 	regmap_write(arizona->regmap, ARIZONA_AOD_WKUP_AND_TRIG,
 		     ARIZONA_MICD_CLAMP_FALL_TRIG_STS |
 		     ARIZONA_MICD_CLAMP_RISE_TRIG_STS |
@@ -1068,7 +1068,7 @@ out:
 	return IRQ_HANDLED;
 }
 
-/*                                              */
+/* Map a level onto a slot in the register bank */
 static void arizona_micd_set_level(struct arizona *arizona, int index,
 				   unsigned int level)
 {
@@ -1084,7 +1084,7 @@ static void arizona_micd_set_level(struct arizona *arizona, int index,
 		mask = 0x3f;
 	}
 
-	/*                          */
+	/* Program the level itself */
 	regmap_update_bits(arizona->regmap, reg, mask, level);
 }
 
@@ -1165,7 +1165,7 @@ static void arizona_probe_work(struct work_struct *work)
 	dev_dbg(arizona->dev,"arizona_probe_work");
 
 
-	/*                                   */
+	/* Defer until the audio has come up */
 	if (!info->arizona->dapm) {
 		pr_debug("Waiting for DAPM to initialise...\n");
 		schedule_delayed_work(&info->probe_work,
@@ -1225,14 +1225,14 @@ static void arizona_probe_work(struct work_struct *work)
 	info->input->phys = "arizona/extcon";
 	info->input->dev.parent = info->dev;
 
-	//       
-	/*                                                            */
+	//check_S
+	/*input_set_capability(hi->input, EV_SW, SW_HEADPHONE_INSERT);*/
 	set_bit(EV_SYN, info->input->evbit);
 	set_bit(EV_KEY, info->input->evbit);
 	set_bit(EV_SW, info->input->evbit);
 	set_bit(SW_HEADPHONE_INSERT, info->input->swbit);
 	set_bit(SW_MICROPHONE_INSERT, info->input->swbit);
-	//       
+	//check_E
 
 	if (arizona->pdata.micd_bias_start_time)
 		regmap_update_bits(arizona->regmap, ARIZONA_MIC_DETECT_1,
@@ -1279,11 +1279,11 @@ static void arizona_probe_work(struct work_struct *work)
 		}
 	}
 
-	/*                                */
+	/* Disable all buttons by default */
 	regmap_update_bits(arizona->regmap, ARIZONA_MIC_DETECT_2,
 			   ARIZONA_MICD_LVL_SEL_MASK, 0x81);
 
-	/*                                           */
+	/* Set up all the buttons the user specified */
 	for (i = 0; i < info->num_micd_ranges; i++) {
 		for (j = 0; j < ARRAY_SIZE(arizona_micd_levels); j++)
 			if (arizona_micd_levels[j] >= info->micd_ranges[i].max)
@@ -1303,22 +1303,22 @@ static void arizona_probe_work(struct work_struct *work)
 		input_set_capability(info->input, EV_KEY,
 				     info->micd_ranges[i].key);
 
-		/*                                */
+		/* Enable reporting of that range */
 		regmap_update_bits(arizona->regmap, ARIZONA_MIC_DETECT_2,
 				   1 << i, 1 << i);
 	}
 
-	/*                                         */
+	/* Set all the remaining keys to a maximum */
 	for (; i < ARIZONA_MAX_MICD_RANGE; i++)
 		arizona_micd_set_level(arizona, i, 0x3f);
 
 	/*
-                                                             
-                                                         
-  */
+	 * If we have a clamp use it, activating in conjunction with
+	 * GPIO5 if that is connected for jack detect operation.
+	 */
 	if (info->micd_clamp) {
 		if (arizona->pdata.jd_gpio5) {
-			/*                                                 */
+			/* Put the GPIO into input mode with optional pull */
 			val = 0xc101;
 			if (arizona->pdata.jd_gpio5_nopull)
 				val &= ~ARIZONA_GPN_PU;

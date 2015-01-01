@@ -81,4 +81,4 @@ typedef long long wpt_int64;
 #define WPT_STATIC static
 
 
-#endif //                     
+#endif // __WLAN_QCT_OS_TYPE_H

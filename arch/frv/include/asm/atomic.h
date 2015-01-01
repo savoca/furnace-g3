@@ -23,13 +23,13 @@
 #endif
 
 /*
-                                                           
-                          
-  
-                                                                  
+ * Atomic operations that C can't guarantee us.  Useful for
+ * resource counting etc..
+ *
+ * We do not have SMP systems, so we don't have to deal with that.
  */
 
-/*                                           */
+/* Atomic operations are already serializing */
 #define smp_mb__before_atomic_dec()	barrier()
 #define smp_mb__after_atomic_dec()	barrier()
 #define smp_mb__before_atomic_inc()	barrier()
@@ -45,13 +45,13 @@ static inline int atomic_add_return(int i, atomic_t *v)
 	unsigned long val;
 
 	asm("0:						\n"
-	    "	orcc		gr0,gr0,gr0,icc3	\n"	/*            */
+	    "	orcc		gr0,gr0,gr0,icc3	\n"	/* set ICC3.Z */
 	    "	ckeq		icc3,cc7		\n"
-	    "	ld.p		%M0,%1			\n"	/*                          */
-	    "	orcr		cc7,cc7,cc3		\n"	/*                 */
+	    "	ld.p		%M0,%1			\n"	/* LD.P/ORCR must be atomic */
+	    "	orcr		cc7,cc7,cc3		\n"	/* set CC3 to true */
 	    "	add%I2		%1,%2,%1		\n"
 	    "	cst.p		%1,%M0		,cc3,#1	\n"
-	    "	corcc		gr29,gr29,gr0	,cc3,#1	\n"	/*                               */
+	    "	corcc		gr29,gr29,gr0	,cc3,#1	\n"	/* clear ICC3.Z if store happens */
 	    "	beq		icc3,#0,0b		\n"
 	    : "+U"(v->counter), "=&r"(val)
 	    : "NPr"(i)
@@ -66,13 +66,13 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 	unsigned long val;
 
 	asm("0:						\n"
-	    "	orcc		gr0,gr0,gr0,icc3	\n"	/*            */
+	    "	orcc		gr0,gr0,gr0,icc3	\n"	/* set ICC3.Z */
 	    "	ckeq		icc3,cc7		\n"
-	    "	ld.p		%M0,%1			\n"	/*                          */
-	    "	orcr		cc7,cc7,cc3		\n"	/*                 */
+	    "	ld.p		%M0,%1			\n"	/* LD.P/ORCR must be atomic */
+	    "	orcr		cc7,cc7,cc3		\n"	/* set CC3 to true */
 	    "	sub%I2		%1,%2,%1		\n"
 	    "	cst.p		%1,%M0		,cc3,#1	\n"
-	    "	corcc		gr29,gr29,gr0	,cc3,#1	\n"	/*                               */
+	    "	corcc		gr29,gr29,gr0	,cc3,#1	\n"	/* clear ICC3.Z if store happens */
 	    "	beq		icc3,#0,0b		\n"
 	    : "+U"(v->counter), "=&r"(val)
 	    : "NPr"(i)
@@ -122,7 +122,7 @@ static inline void atomic_dec(atomic_t *v)
 #define atomic_inc_and_test(v)		(atomic_add_return(1, (v)) == 0)
 
 /*
-                    
+ * 64-bit atomic ops
  */
 typedef struct {
 	volatile long long counter;
@@ -202,4 +202,4 @@ static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
 }
 
 
-#endif /*               */
+#endif /* _ASM_ATOMIC_H */

@@ -40,9 +40,9 @@ static int edb93xx_hw_params(struct snd_pcm_substream *substream,
 	unsigned int rate = params_rate(params);
 
 	/*
-                                                          
-                                                     
-  */
+	 * According to CS4271 datasheet we use MCLK/LRCK=256 for
+	 * rates below 50kHz and 128 for higher sample rates
+	 */
 	if (rate < 50000)
 		mclk_rate = rate * 64 * 4;
 	else

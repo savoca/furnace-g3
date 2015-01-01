@@ -103,12 +103,12 @@ typedef struct
 
 typedef struct
 {
-	int lock;	/*                                            */
-	int cn;		/*                                               */
-	int ber; 	/*                                */
-	int per;  	/*                                    */
-	int agc;  	/*                                 */
-	int rssi;  	/*                                               */
+	int lock;	/*baseband lock state 					(1: Lock, 0:Unlock)*/
+	int cn;		/*Signal Level (C/N) 					(0 ~ 2800) - 100 scale */
+	int ber; 	/*Bit Error rate 					(0 ~ 100000)*/
+	int per;  	/*Packet Error rate  					(0 ~ 100000)*/
+	int agc;  	/*Auto Gain control  					(0 ~ 255)*/
+	int rssi;  	/*Received Signal Strength Indication  	(0 ~ -99)*/
 	int ErrTSP;
 	int TotalTSP;
 	int antenna_level;
@@ -263,12 +263,12 @@ extern int	broadcast_drv_if_isr(void);
 extern int	broadcast_drv_if_read_control(char *buf, unsigned int size);
 extern int	broadcast_drv_if_get_mode (unsigned short *mode);
 
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/* sample control functions                                                 */
 
 /*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 #endif
 

@@ -19,8 +19,8 @@
 #include <linux/scatterlist.h>
 #include "trans_common.h"
 
-/* 
-                                                               
+/**
+ *  p9_release_req_pages - Release pages after the transaction.
  */
 void p9_release_pages(struct page **pages, int nr_pages)
 {
@@ -32,8 +32,8 @@ void p9_release_pages(struct page **pages, int nr_pages)
 }
 EXPORT_SYMBOL(p9_release_pages);
 
-/* 
-                                                                          
+/**
+ * p9_nr_pages - Return number of pages needed to accommodate the payload.
  */
 int p9_nr_pages(char *data, int len)
 {
@@ -44,14 +44,14 @@ int p9_nr_pages(char *data, int len)
 }
 EXPORT_SYMBOL(p9_nr_pages);
 
-/* 
-                                                             
-                                                                 
-                                      
-                                                                       
-                                                                               
-                                                        
-                                                     
+/**
+ * payload_gup - Translates user buffer into kernel pages and
+ * pins them either for read/write through get_user_pages_fast().
+ * @req: Request to be sent to server.
+ * @pdata_off: data offset into the first page after translation (gup).
+ * @pdata_len: Total length of the IO. gup may not return requested # of pages.
+ * @nr_pages: number of pages to accommodate the payload
+ * @rw: Indicates if the pages are for read or write.
  */
 
 int p9_payload_gup(char *data, int *nr_pages, struct page **pages, int write)

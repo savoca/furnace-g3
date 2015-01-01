@@ -16,7 +16,7 @@
 #include <mach/irqs.h>
 
 /*
-            
+ * PXA GPIOs
  */
 
 #define GPIO0_MAGICIAN_KEY_POWER		0
@@ -64,7 +64,7 @@
 #define GPIO120_MAGICIAN_UNKNOWN		120
 
 /*
-            
+ * CPLD IRQs
  */
 
 #define IRQ_MAGICIAN_SD		(IRQ_BOARD_START + 0)
@@ -75,14 +75,14 @@
 #define MAGICIAN_NR_IRQS	(IRQ_BOARD_START + 8)
 
 /*
-              
+ * CPLD EGPIOs
  */
 
 #define MAGICIAN_EGPIO_BASE			PXA_NR_BUILTIN_GPIO
 #define MAGICIAN_EGPIO(reg,bit) \
 	(MAGICIAN_EGPIO_BASE + 8*reg + bit)
 
-/*        */
+/* output */
 
 #define EGPIO_MAGICIAN_TOPPOLY_POWER		MAGICIAN_EGPIO(0, 2)
 #define EGPIO_MAGICIAN_LED_POWER		MAGICIAN_EGPIO(0, 5)
@@ -104,7 +104,7 @@
 #define EGPIO_MAGICIAN_BQ24022_ISET2		MAGICIAN_EGPIO(2, 5)
 #define EGPIO_MAGICIAN_GSM_POWER		MAGICIAN_EGPIO(2, 7)
 
-/*       */
+/* input */
 
 #define EGPIO_MAGICIAN_CABLE_STATE_AC		MAGICIAN_EGPIO(4, 0)
 #define EGPIO_MAGICIAN_CABLE_STATE_USB		MAGICIAN_EGPIO(4, 1)
@@ -117,4 +117,4 @@
 
 #define EGPIO_MAGICIAN_EP_INSERT		MAGICIAN_EGPIO(6, 1)
 
-#endif /*              */
+#endif /* _MAGICIAN_H_ */

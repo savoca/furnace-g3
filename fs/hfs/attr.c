@@ -1,9 +1,9 @@
 /*
-                       
-  
-                                                    
-  
-                            
+ *  linux/fs/hfs/attr.c
+ *
+ * (C) 2003 Ardis Technologies <roman@ardistech.com>
+ *
+ * Export hfs data via xattr
  */
 
 

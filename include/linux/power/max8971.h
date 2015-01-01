@@ -13,7 +13,7 @@
 
 #define MAX8971_NAME  "max8971"
 
-/*                           */
+/* Constant of special cases */
 #define MAX8971_CURRENT_SUSPEND  (0)
 #define MAX8971_CURRENT_UNLIMIT  (1)
 #define MAX8971_CURRENT_MAXIMUM  (2)
@@ -28,27 +28,27 @@ struct max8971_platform_data {
     char **supplied_to;
     size_t num_supplicants;
 
-    int fast_charge_current;        /*                      */
-    int charge_termination_voltage; /*                      */
-    int topoff_timer;               /*                      */
-    int topoff_current;             /*                     */
-    int charge_restart_threshold;   /*                      */
+    int fast_charge_current;        /* in uA; 0.00A ~ 1.80A */
+    int charge_termination_voltage; /* in uV; 4.10V ~ 4.35V */
+    int topoff_timer;               /* in min; 0min ~ 70min */
+    int topoff_current;             /* in uA; 50mA ~ 200mA */
+    int charge_restart_threshold;   /* in uV; 100mV ~ 150mV */
 
-    /*                      */
+    /* Co-operating charger */
     bool enable_coop;
     char *coop_psy_name;
 
-    /*                        */
+    /* Temperature regulation */
     bool enable_thermistor;
 
-    /*              */
+    /* AICL control */
     bool enable_aicl;
 
-    /*             */
+    /* Run time PM */
     atomic_t suspened;
 };
 
-/*                                                           */
+/* for compatibility with kernel not from android/kernel/msm */
 #if !defined(CONFIG_LGE_PM)
 #ifndef POWER_SUPPLY_PROP_CHARGING_ENABLED
 #define POWER_SUPPLY_PROP_CHARGING_ENABLED_REPLACED
@@ -65,4 +65,4 @@ struct max8971_platform_data {
 		POWER_SUPPLY_PROP_CURRENT_MAX
 #endif
 
-#endif /*               */
+#endif /* __MAX8971_H__ */

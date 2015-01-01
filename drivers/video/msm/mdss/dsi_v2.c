@@ -313,7 +313,7 @@ static int dsi_parse_vreg(struct device *dev, struct dss_module_power *mp)
 		if (!strncmp(supply_node->name, "qcom,platform-supply-entry",
 					strlen("qcom,platform-supply-entry"))) {
 			const char *st = NULL;
-			/*           */
+			/* vreg-name */
 			rc = of_property_read_string(supply_node,
 				"qcom,supply-name", &st);
 			if (rc) {
@@ -323,7 +323,7 @@ static int dsi_parse_vreg(struct device *dev, struct dss_module_power *mp)
 			}
 			strlcpy(mp->vreg_config[i].vreg_name, st,
 				sizeof(mp->vreg_config[i].vreg_name));
-			/*                  */
+			/* vreg-min-voltage */
 			rc = of_property_read_u32(supply_node,
 				"qcom,supply-min-voltage", &tmp);
 			if (rc) {
@@ -333,7 +333,7 @@ static int dsi_parse_vreg(struct device *dev, struct dss_module_power *mp)
 			}
 			mp->vreg_config[i].min_voltage = tmp;
 
-			/*                  */
+			/* vreg-max-voltage */
 			rc = of_property_read_u32(supply_node,
 				"qcom,supply-max-voltage", &tmp);
 			if (rc) {
@@ -343,7 +343,7 @@ static int dsi_parse_vreg(struct device *dev, struct dss_module_power *mp)
 			}
 			mp->vreg_config[i].max_voltage = tmp;
 
-			/*             */
+			/* enable-load */
 			rc = of_property_read_u32(supply_node,
 				"qcom,supply-enable-load", &tmp);
 			if (rc) {
@@ -353,7 +353,7 @@ static int dsi_parse_vreg(struct device *dev, struct dss_module_power *mp)
 			}
 			mp->vreg_config[i].enable_load = tmp;
 
-			/*              */
+			/* disable-load */
 			rc = of_property_read_u32(supply_node,
 				"qcom,supply-disable-load", &tmp);
 			if (rc) {
@@ -363,7 +363,7 @@ static int dsi_parse_vreg(struct device *dev, struct dss_module_power *mp)
 			}
 			mp->vreg_config[i].disable_load = tmp;
 
-			/*           */
+			/* pre-sleep */
 			rc = of_property_read_u32(supply_node,
 				"qcom,supply-pre-on-sleep", &tmp);
 			if (rc) {
@@ -380,7 +380,7 @@ static int dsi_parse_vreg(struct device *dev, struct dss_module_power *mp)
 			}
 			mp->vreg_config[i].pre_off_sleep = (!rc ? tmp : 0);
 
-			/*            */
+			/* post-sleep */
 			rc = of_property_read_u32(supply_node,
 				"qcom,supply-post-on-sleep", &tmp);
 			if (rc) {
@@ -542,7 +542,7 @@ int dsi_panel_device_register_v2(struct platform_device *dev,
 		|| (mipi->dst_format == DSI_VIDEO_DST_FORMAT_RGB565))
 		bpp = 2;
 	else
-		bpp = 3; /*                              */
+		bpp = 3; /* Default format set to RGB888 */
 
 	if (pinfo->type == MIPI_VIDEO_PANEL &&
 		!pinfo->clk_rate) {
@@ -564,8 +564,8 @@ int dsi_panel_device_register_v2(struct platform_device *dev,
 	ctrl_pdata->panel_data.event_handler = dsi_event_handler;
 
 	/*
-                          
-  */
+	 * register in mdp driver
+	 */
 	rc = mdss_register_panel(dev, &(ctrl_pdata->panel_data));
 	if (rc) {
 		dev_err(&dev->dev, "unable to register MIPI DSI panel\n");

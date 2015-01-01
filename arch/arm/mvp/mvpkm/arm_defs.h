@@ -18,12 +18,12 @@
  */
 #line 5
 
-/* 
-         
-  
-                                                                   
-                                                                    
-                                                       
+/**
+ *  @file
+ *
+ *  @brief Umbrella header file for all ARM-related definitions. By
+ *         including this you gain access to all such definitions in
+ *         lib/arm and are guaranteed a stable include.
  */
 
 #ifndef _ARM_DEFS_H_
@@ -51,4 +51,4 @@
 #include "ve_defs.h"
 #include "psr_defs.h"
 
-#endif /*              */
+#endif /* _ARM_DEFS_H_ */

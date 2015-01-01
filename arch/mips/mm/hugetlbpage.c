@@ -58,7 +58,7 @@ int huge_pmd_unshare(struct mm_struct *mm, unsigned long *addr, pte_t *ptep)
 }
 
 /*
-                                                                              
+ * This function checks for proper alignment of input addr and len parameters.
  */
 int is_aligned_hugepage_range(unsigned long addr, unsigned long len)
 {

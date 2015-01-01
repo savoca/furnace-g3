@@ -33,25 +33,25 @@
 
 
 /*
-                                                                  
-                                                                 
-                                                                     
-                                                            
-                                                                  
-                                                                  
-                                          
-  
-                                                                   
-                                                                    
-                                                                   
-                                                               
-                                                                   
-                          
+** The single, 16 megabyte flash bank is divided into four virtual
+** partitions.  The first partition is 768 KiB and is intended to
+** store the kernel image loaded by the bootstrap loader.  The second
+** partition is 256 KiB and holds the BIOS image.  The third
+** partition is 14.5 MiB and is intended for the flash file system
+** image.  The last partition is 512 KiB and contains another copy
+** of the BIOS image and the reset vector.
+**
+** Only the third partition should be mounted.  The first partition
+** should not be mounted, but it can erased and written to using the
+** MTD character routines.  The second and fourth partitions should
+** not be touched - it is possible to corrupt the BIOS image by
+** mounting these partitions, and potentially the board will not be
+** recoverable afterwards.
 */
 
-/*                                                                          
-                                                                            
-           */
+/* partition_info gives details on the logical partitions that the split the
+ * single flash device into. If the size if zero we use up to the end of the
+ * device. */
 static struct mtd_partition partition_info[]={
     {
 	    .name = "NetSc520 boot kernel",

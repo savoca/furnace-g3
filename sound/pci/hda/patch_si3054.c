@@ -30,11 +30,11 @@
 #include "hda_codec.h"
 #include "hda_local.h"
 
-/*              */
+/* si3054 verbs */
 #define SI3054_VERB_READ_NODE  0x900
 #define SI3054_VERB_WRITE_NODE 0x100
 
-/*                          */
+/* si3054 nodes (registers) */
 #define SI3054_EXTENDED_MID    2
 #define SI3054_LINE_RATE       3
 #define SI3054_LINE_LEVEL      4
@@ -56,25 +56,25 @@
 #define SI3054_RING_CTRL1     20
 #define SI3054_RING_CTRL2     21
 
-/*              */
+/* extended MID */
 #define SI3054_MEI_READY 0xf
 
-/*            */
+/* line level */
 #define SI3054_ATAG_MASK 0x00f0
 #define SI3054_DTAG_MASK 0xf000
 
-/*           */
+/* GPIO bits */
 #define SI3054_GPIO_OH    0x0001
 #define SI3054_GPIO_CID   0x0002
 
-/*                      */
+/* chipid and revisions */
 #define SI3054_CHIPID_CODEC_REV_MASK 0x000f
 #define SI3054_CHIPID_DAA_REV_MASK   0x00f0
 #define SI3054_CHIPID_INTERNATIONAL  0x0100
 #define SI3054_CHIPID_DAA_ID         0x0f00
 #define SI3054_CHIPID_CODEC_ID      (1<<12)
 
-/*                                              */
+/* si3054 codec registers (nodes) access macros */
 #define GET_REG(codec,reg) (snd_hda_codec_read(codec,reg,0,SI3054_VERB_READ_NODE,0))
 #define SET_REG(codec,reg,val) (snd_hda_codec_write(codec,reg,0,SI3054_VERB_WRITE_NODE,val))
 #define SET_REG_CACHE(codec,reg,val) \
@@ -88,7 +88,7 @@ struct si3054_spec {
 
 
 /*
-              
+ * Modem mixer
  */
 
 #define PRIVATE_VALUE(reg,mask) ((reg<<16)|(mask&0xffff))
@@ -144,7 +144,7 @@ static int si3054_build_controls(struct hda_codec *codec)
 
 
 /*
-                
+ * PCM callbacks
  */
 
 static int si3054_pcm_prepare(struct hda_pcm_stream *hinfo,
@@ -214,7 +214,7 @@ static int si3054_build_pcms(struct hda_codec *codec)
 
 
 /*
-            
+ * Init part
  */
 
 static int si3054_init(struct hda_codec *codec)
@@ -237,8 +237,8 @@ static int si3054_init(struct hda_codec *codec)
 
 	if((val&SI3054_MEI_READY) != SI3054_MEI_READY) {
 		snd_printk(KERN_ERR "si3054: cannot initialize. EXT MID = %04x\n", val);
-		/*                                        */
-		/*                 */
+		/* let's pray that this is no fatal error */
+		/* return -EACCES; */
 	}
 
 	SET_REG(codec, SI3054_GPIO_POLARITY, 0xffff);
@@ -283,7 +283,7 @@ static int patch_si3054(struct hda_codec *codec)
 }
 
 /*
-                
+ * patch entries
  */
 static const struct hda_codec_preset snd_hda_preset_si3054[] = {
  	{ .id = 0x163c3055, .name = "Si3054", .patch = patch_si3054 },
@@ -294,11 +294,11 @@ static const struct hda_codec_preset snd_hda_preset_si3054[] = {
  	{ .id = 0x10573055, .name = "Si3054", .patch = patch_si3054 },
  	{ .id = 0x10573057, .name = "Si3054", .patch = patch_si3054 },
  	{ .id = 0x10573155, .name = "Si3054", .patch = patch_si3054 },
-	/*                       */
+	/* VIA HDA on Clevo m540 */
 	{ .id = 0x11063288, .name = "Si3054", .patch = patch_si3054 },
-	/*                       */
+	/* Asus A8J Modem (SM56) */
 	{ .id = 0x15433155, .name = "Si3054", .patch = patch_si3054 },
-	/*               */
+	/* LG LW20 modem */
 	{ .id = 0x18540018, .name = "Si3054", .patch = patch_si3054 },
 	{}
 };

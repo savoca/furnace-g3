@@ -1,19 +1,19 @@
 /*
-                          
-  
-                                
-                                                    
-                                               
-                                  
-  
-                                                     
+ *	drivers/pci/setup-res.c
+ *
+ * Extruded from code written by
+ *      Dave Rusling (david.rusling@reo.mts.dec.com)
+ *      David Mosberger (davidm@cs.arizona.edu)
+ *	David Miller (davem@redhat.com)
+ *
+ * Support routines for initializing a PCI subsystem.
  */
 
-/*                                                                      */
+/* fixed for multiple pci buses, 1999 Andrea Arcangeli <andrea@suse.de> */
 
 /*
-                                                       
-                        
+ * Nov 2000, Ivan Kokshaysky <ink@jurassic.park.msu.ru>
+ *	     Resource sorting
  */
 
 #include <linux/init.h>
@@ -36,17 +36,17 @@ void pci_update_resource(struct pci_dev *dev, int resno)
 	struct resource *res = dev->resource + resno;
 
 	/*
-                                                                     
-                    
-  */
+	 * Ignore resources for unimplemented BARs and unused resource slots
+	 * for 64 bit BARs.
+	 */
 	if (!res->flags)
 		return;
 
 	/*
-                                                                      
-                                                                
-                                             
-  */
+	 * Ignore non-moveable resources.  This might be legacy resources for
+	 * which no functional BAR register exists or another important
+	 * system resource we shouldn't move around.
+	 */
 	if (res->flags & IORESOURCE_PCI_FIXED)
 		return;
 
@@ -118,10 +118,10 @@ void pci_disable_bridge_window(struct pci_dev *dev)
 {
 	dev_info(&dev->dev, "disabling bridge mem windows\n");
 
-	/*                 */
+	/* MMIO Base/Limit */
 	pci_write_config_dword(dev, PCI_MEMORY_BASE, 0x0000fff0);
 
-	/*                              */
+	/* Prefetchable MMIO Base/Limit */
 	pci_write_config_dword(dev, PCI_PREF_LIMIT_UPPER32, 0);
 	pci_write_config_dword(dev, PCI_PREF_MEMORY_BASE, 0x0000fff0);
 	pci_write_config_dword(dev, PCI_PREF_BASE_UPPER32, 0xffffffff);
@@ -136,18 +136,18 @@ static int __pci_assign_resource(struct pci_bus *bus, struct pci_dev *dev,
 
 	min = (res->flags & IORESOURCE_IO) ? PCIBIOS_MIN_IO : PCIBIOS_MIN_MEM;
 
-	/*                                      */
+	/* First, try exact prefetching match.. */
 	ret = pci_bus_alloc_resource(bus, res, size, align, min,
 				     IORESOURCE_PREFETCH,
 				     pcibios_align_resource, dev);
 
 	if (ret < 0 && (res->flags & IORESOURCE_PREFETCH)) {
 		/*
-                 
-    
-                                                        
-                                               
-   */
+		 * That failed.
+		 *
+		 * But a prefetching area can handle a non-prefetching
+		 * window (it will just not perform as well).
+		 */
 		ret = pci_bus_alloc_resource(bus, res, size, align, min, 0,
 					     pcibios_align_resource, dev);
 	}
@@ -155,13 +155,13 @@ static int __pci_assign_resource(struct pci_bus *bus, struct pci_dev *dev,
 }
 
 /*
-                                                                     
-                                                                      
-                 
-  
-                                                                   
-                                                                   
-                                   
+ * Generic function that returns a value indicating that the device's
+ * original BIOS BAR address was not saved and so is not available for
+ * reinstatement.
+ *
+ * Can be over-ridden by architecture specific code that implements
+ * reinstatement functionality rather than leaving it disabled when
+ * normal allocation attempts fail.
  */
 resource_size_t __weak pcibios_retrieve_fw_addr(struct pci_dev *dev, int idx)
 {
@@ -251,7 +251,7 @@ int pci_reassign_resource(struct pci_dev *dev, int resno, resource_size_t addsiz
 		return -EINVAL;
 	}
 
-	/*                                */
+	/* already aligned with min_align */
 	new_size = resource_size(res) + addsize;
 	ret = _pci_assign_resource(dev, resno, new_size, min_align);
 	if (!ret) {
@@ -282,10 +282,10 @@ int pci_assign_resource(struct pci_dev *dev, int resno)
 	ret = _pci_assign_resource(dev, resno, size, align);
 
 	/*
-                                                          
-                                                          
-                                                           
-  */
+	 * If we failed to assign anything, let's try the address
+	 * where firmware left it.  That at least has a chance of
+	 * working, which is better than just leaving it disabled.
+	 */
 	if (ret < 0)
 		ret = pci_revert_fw_address(res, dev, resno, size);
 

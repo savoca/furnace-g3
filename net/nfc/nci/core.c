@@ -44,7 +44,7 @@ static void nci_cmd_work(struct work_struct *work);
 static void nci_rx_work(struct work_struct *work);
 static void nci_tx_work(struct work_struct *work);
 
-/*                        */
+/* ---- NCI requests ---- */
 
 void nci_req_complete(struct nci_dev *ndev, int result)
 {
@@ -64,7 +64,7 @@ static void nci_req_cancel(struct nci_dev *ndev, int err)
 	}
 }
 
-/*                                          */
+/* Execute request and wait for completion. */
 static int __nci_request(struct nci_dev *ndev,
 			 void (*req)(struct nci_dev *ndev, unsigned long opt),
 			 unsigned long opt, __u32 timeout)
@@ -118,7 +118,7 @@ static inline int nci_request(struct nci_dev *ndev,
 	if (!test_bit(NCI_UP, &ndev->flags))
 		return -ENETDOWN;
 
-	/*                        */
+	/* Serialize all requests */
 	mutex_lock(&ndev->req_lock);
 	rc = __nci_request(ndev, req, opt, timeout);
 	mutex_unlock(&ndev->req_lock);
@@ -146,10 +146,10 @@ static void nci_init_complete_req(struct nci_dev *ndev, unsigned long opt)
 	__u8 *num = &cmd.num_mapping_configs;
 	int i;
 
-	/*                               */
+	/* set rf mapping configurations */
 	*num = 0;
 
-	/*                                                     */
+	/* by default mapping is set to NCI_RF_INTERFACE_FRAME */
 	for (i = 0; i < ndev->num_supported_rf_interfaces; i++) {
 		if (ndev->supported_rf_interfaces[i] ==
 		    NCI_RF_INTERFACE_ISO_DEP) {
@@ -297,7 +297,7 @@ static int nci_open_device(struct nci_dev *ndev)
 		nci_clear_target_list(ndev);
 		atomic_set(&ndev->state, NCI_IDLE);
 	} else {
-		/*                      */
+		/* Init failed, cleanup */
 		skb_queue_purge(&ndev->cmd_q);
 		skb_queue_purge(&ndev->rx_q);
 		skb_queue_purge(&ndev->tx_q);
@@ -323,15 +323,15 @@ static int nci_close_device(struct nci_dev *ndev)
 		return 0;
 	}
 
-	/*                       */
+	/* Drop RX and TX queues */
 	skb_queue_purge(&ndev->rx_q);
 	skb_queue_purge(&ndev->tx_q);
 
-	/*                    */
+	/* Flush RX and TX wq */
 	flush_workqueue(ndev->rx_wq);
 	flush_workqueue(ndev->tx_wq);
 
-	/*              */
+	/* Reset device */
 	skb_queue_purge(&ndev->cmd_q);
 	atomic_set(&ndev->cmd_cnt, 1);
 
@@ -340,14 +340,14 @@ static int nci_close_device(struct nci_dev *ndev)
 		      msecs_to_jiffies(NCI_RESET_TIMEOUT));
 	clear_bit(NCI_INIT, &ndev->flags);
 
-	/*              */
+	/* Flush cmd wq */
 	flush_workqueue(ndev->cmd_wq);
 
-	/*                                      
-                                */
+	/* After this point our queues are empty
+	 * and no works are scheduled. */
 	ndev->ops->close(ndev);
 
-	/*             */
+	/* Clear flags */
 	ndev->flags = 0;
 
 	mutex_unlock(&ndev->req_lock);
@@ -355,7 +355,7 @@ static int nci_close_device(struct nci_dev *ndev)
 	return 0;
 }
 
-/*                            */
+/* NCI command timer function */
 static void nci_cmd_timer(unsigned long arg)
 {
 	struct nci_dev *ndev = (void *) arg;
@@ -364,7 +364,7 @@ static void nci_cmd_timer(unsigned long arg)
 	queue_work(ndev->cmd_wq, &ndev->cmd_work);
 }
 
-/*                                  */
+/* NCI data exchange timer function */
 static void nci_data_timer(unsigned long arg)
 {
 	struct nci_dev *ndev = (void *) arg;
@@ -537,7 +537,7 @@ static int nci_data_exchange(struct nfc_dev *nfc_dev, __u32 target_idx,
 	if (test_and_set_bit(NCI_DATA_EXCHANGE, &ndev->flags))
 		return -EBUSY;
 
-	/*                                                   */
+	/* store cb and context to be used on receiving data */
 	ndev->data_exchange_cb = cb;
 	ndev->data_exchange_cb_context = cb_context;
 
@@ -558,13 +558,13 @@ static struct nfc_ops nci_nfc_ops = {
 	.data_exchange = nci_data_exchange,
 };
 
-/*                                    */
+/* ---- Interface to NCI drivers ---- */
 
-/* 
-                                                  
-  
-                          
-                                                              
+/**
+ * nci_allocate_device - allocate a new nci device
+ *
+ * @ops: device operations
+ * @supported_protocols: NFC protocols supported by the device
  */
 struct nci_dev *nci_allocate_device(struct nci_ops *ops,
 				    __u32 supported_protocols,
@@ -605,10 +605,10 @@ free_exit:
 }
 EXPORT_SYMBOL(nci_allocate_device);
 
-/* 
-                                          
-  
-                                      
+/**
+ * nci_free_device - deallocate nci device
+ *
+ * @ndev: The nci device to deallocate
  */
 void nci_free_device(struct nci_dev *ndev)
 {
@@ -617,10 +617,10 @@ void nci_free_device(struct nci_dev *ndev)
 }
 EXPORT_SYMBOL(nci_free_device);
 
-/* 
-                                                                   
-  
-                                   
+/**
+ * nci_register_device - register a nci device in the nfc subsystem
+ *
+ * @dev: The nci device to register
  */
 int nci_register_device(struct nci_dev *ndev)
 {
@@ -685,10 +685,10 @@ exit:
 }
 EXPORT_SYMBOL(nci_register_device);
 
-/* 
-                                                                       
-  
-                                     
+/**
+ * nci_unregister_device - unregister a nci device in the nfc subsystem
+ *
+ * @dev: The nci device to unregister
  */
 void nci_unregister_device(struct nci_dev *ndev)
 {
@@ -702,10 +702,10 @@ void nci_unregister_device(struct nci_dev *ndev)
 }
 EXPORT_SYMBOL(nci_unregister_device);
 
-/* 
-                                                  
-  
-                               
+/**
+ * nci_recv_frame - receive frame from NCI drivers
+ *
+ * @skb: The sk_buff to receive
  */
 int nci_recv_frame(struct sk_buff *skb)
 {
@@ -719,7 +719,7 @@ int nci_recv_frame(struct sk_buff *skb)
 		return -ENXIO;
 	}
 
-	/*                                  */
+	/* Queue frame for rx worker thread */
 	skb_queue_tail(&ndev->rx_q, skb);
 	queue_work(ndev->rx_wq, &ndev->rx_work);
 
@@ -738,13 +738,13 @@ static int nci_send_frame(struct sk_buff *skb)
 		return -ENODEV;
 	}
 
-	/*                                                       */
+	/* Get rid of skb owner, prior to sending to the driver. */
 	skb_orphan(skb);
 
 	return ndev->ops->send(skb);
 }
 
-/*                  */
+/* Send NCI command */
 int nci_send_cmd(struct nci_dev *ndev, __u16 opcode, __u8 plen, void *payload)
 {
 	struct nci_ctrl_hdr *hdr;
@@ -777,7 +777,7 @@ int nci_send_cmd(struct nci_dev *ndev, __u16 opcode, __u8 plen, void *payload)
 	return 0;
 }
 
-/*                                     */
+/* ---- NCI TX Data worker thread ---- */
 
 static void nci_tx_work(struct work_struct *work)
 {
@@ -786,13 +786,13 @@ static void nci_tx_work(struct work_struct *work)
 
 	pr_debug("credits_cnt %d\n", atomic_read(&ndev->credits_cnt));
 
-	/*                     */
+	/* Send queued tx data */
 	while (atomic_read(&ndev->credits_cnt)) {
 		skb = skb_dequeue(&ndev->tx_q);
 		if (!skb)
 			return;
 
-		/*                                    */
+		/* Check if data flow control is used */
 		if (atomic_read(&ndev->credits_cnt) !=
 		    NCI_DATA_FLOW_CONTROL_NOT_USED)
 			atomic_dec(&ndev->credits_cnt);
@@ -809,7 +809,7 @@ static void nci_tx_work(struct work_struct *work)
 	}
 }
 
-/*                                                   */
+/* ----- NCI RX worker thread (data & control) ----- */
 
 static void nci_rx_work(struct work_struct *work)
 {
@@ -817,7 +817,7 @@ static void nci_rx_work(struct work_struct *work)
 	struct sk_buff *skb;
 
 	while ((skb = skb_dequeue(&ndev->rx_q))) {
-		/*               */
+		/* Process frame */
 		switch (nci_mt(skb->data)) {
 		case NCI_MT_RSP_PKT:
 			nci_rsp_packet(ndev, skb);
@@ -838,9 +838,9 @@ static void nci_rx_work(struct work_struct *work)
 		}
 	}
 
-	/*                                              */
+	/* check if a data exchange timout has occurred */
 	if (test_bit(NCI_DATA_EXCHANGE_TO, &ndev->flags)) {
-		/*                                                   */
+		/* complete the data exchange transaction, if exists */
 		if (test_bit(NCI_DATA_EXCHANGE, &ndev->flags))
 			nci_data_exchange_complete(ndev, NULL, -ETIMEDOUT);
 
@@ -848,7 +848,7 @@ static void nci_rx_work(struct work_struct *work)
 	}
 }
 
-/*                                      */
+/* ----- NCI TX CMD worker thread ----- */
 
 static void nci_cmd_work(struct work_struct *work)
 {
@@ -857,7 +857,7 @@ static void nci_cmd_work(struct work_struct *work)
 
 	pr_debug("cmd_cnt %d\n", atomic_read(&ndev->cmd_cnt));
 
-	/*                     */
+	/* Send queued command */
 	if (atomic_read(&ndev->cmd_cnt)) {
 		skb = skb_dequeue(&ndev->cmd_q);
 		if (!skb)

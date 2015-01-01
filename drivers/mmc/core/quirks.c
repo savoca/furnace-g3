@@ -51,7 +51,7 @@
 #endif
 
 /*
-                                                   
+ * This hook just adds a quirk for all sdio devices
  */
 static void add_quirk_for_sdio_devices(struct mmc_card *card, int data)
 {
@@ -60,8 +60,8 @@ static void add_quirk_for_sdio_devices(struct mmc_card *card, int data)
 }
 
 static const struct mmc_fixup mmc_fixup_methods[] = {
-	/*                                                          */
-	/*                                                   */
+	/* by default sdio devices are considered CLK_GATING broken */
+	/* good cards will be whitelisted as they are tested */
 	SDIO_FIXUP(SDIO_ANY_ID, SDIO_ANY_ID,
 		   add_quirk_for_sdio_devices,
 		   MMC_QUIRK_BROKEN_CLK_GATING),
@@ -95,7 +95,7 @@ void mmc_fixup_device(struct mmc_card *card, const struct mmc_fixup *table)
 	const struct mmc_fixup *f;
 	u64 rev = cid_rev_card(card);
 
-	/*                                */
+	/* Non-core specific workarounds. */
 	if (!table)
 		table = mmc_fixup_methods;
 

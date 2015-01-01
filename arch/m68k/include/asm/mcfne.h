@@ -1,4 +1,4 @@
-/*                                                                          */
+/****************************************************************************/
 
 /*
  *	mcfne.h -- NE2000 in ColdFire eval boards.
@@ -13,25 +13,25 @@
  *      Fred Stevens (fred.stevens@pemstar.com) 13 April 1999
  */
 
-/*                                                                          */
+/****************************************************************************/
 #ifndef	mcfne_h
 #define	mcfne_h
-/*                                                                          */
+/****************************************************************************/
 
 
 /*
-                                                              
-                                                              
-                                                                 
-                                                              
-                 
+ *	Support for NE2000 clones devices in ColdFire based boards.
+ *	Not all boards address these parts the same way, some use a
+ *	direct addressing method, others use a side-band address space
+ *	to access odd address registers, some require byte swapping
+ *	others do not.
  */
 #define	BSWAP(w)	(((w) << 8) | ((w) >> 8))
 #define	RSWAP(w)	(w)
 
 
 /*
-                                                        
+ *	Define the basic hardware resources of NE2000 boards.
  */
 
 #if defined(CONFIG_ARN5206)
@@ -118,11 +118,11 @@
 #define	NE2000_BYTE		volatile unsigned short
 #endif
 
-/*                                                                          */
+/****************************************************************************/
 
 /*
-                                                              
-                                             
+ *	Side-band address space for odd address requires re-mapping
+ *	many of the standard ISA access functions.
  */
 #ifdef NE2000_ODDOFFSET
 
@@ -157,10 +157,10 @@ void ne2000_outsw(unsigned int addr, void *vbuf, unsigned long len);
 #else
 
 /*
-                                                               
-                                                   
-                                                                
-                                                  
+ *	This macro converts a conventional register address into the
+ *	real memory pointer of the mapped NE2000 device.
+ *	On most NE2000 implementations on ColdFire boards the chip is
+ *	mapped in kinda funny, due to its ISA heritage.
  */
 #define	NE2000_PTR(addr)	((addr&0x1)?(NE2000_ODDOFFSET+addr-1):(addr))
 #define	NE2000_DATA_PTR(addr)	(addr)
@@ -235,8 +235,8 @@ void ne2000_outsw(unsigned int addr, const void *vbuf, unsigned long len)
 	}
 }
 
-#endif /*                       */
-#endif /*                  */
+#endif /* COLDFIRE_NE2000_FUNCS */
+#endif /* NE2000_OFFOFFSET */
 
-/*                                                                          */
-#endif	/*         */
+/****************************************************************************/
+#endif	/* mcfne_h */

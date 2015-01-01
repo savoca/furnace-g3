@@ -21,10 +21,10 @@
 #ifndef _VMID_H
 #define _VMID_H
 
-/* 
-        
-  
-                             
+/**
+ * @file
+ *
+ * @brief The vmid definition
  */
 
 

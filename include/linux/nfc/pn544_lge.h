@@ -49,18 +49,18 @@
 #endif
 /*                                                             */
 
-//                                          
-//                                             
-//                                              
-//                                                     
+//#define NFC_GPIO_VEN	47		// byunggu       
+//#define NFC_GPIO_IRQ	59    	// byunggu       
+//#define NFC_GPIO_FIRM	48    	// byunggu       
+//#define NFC_I2C_SLAVE_ADDR 	0x28    // byunggu       
 
 
 
 /*
-                                
-                              
-                             
-                                                                      
+ * PN544 power control via ioctl
+ * PN544_SET_PWR(0): power off
+ * PN544_SET_PWR(1): power on
+ * PN544_SET_PWR(2): reset and power on with firmware download enabled
  */
 #define PN544_SET_PWR	_IOW(PN544_MAGIC, 0x01, unsigned int)
 
@@ -91,16 +91,16 @@ struct pn544_dev	{
 };
 
 struct pn544_gpio {
-	unsigned int 		sda_gpio;	//        
-	unsigned int		scl_gpio;	//        
+	unsigned int 		sda_gpio;	// byunggu
+	unsigned int		scl_gpio;	// byunggu
 	unsigned int 		ven_gpio;
 	unsigned int 		firm_gpio;
 	unsigned int		irq_gpio;	
 };
 
-#define LGE_NFC_READ_IRQ_MODIFY//       
+#define LGE_NFC_READ_IRQ_MODIFY//DY_TEST
 
-/*                             */
+/* seokmin added for debugging */
 #define PN544_INTERRUPT_CMD	2
 #define PN544_READ_POLLING_CMD 3
 

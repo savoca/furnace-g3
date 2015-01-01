@@ -301,25 +301,25 @@ static void vid_dec_output_frame_done(struct video_client_ctx *client_ctx,
 			}
 		}
 
-		/*                              */
+		/* Buffer address in user space */
 		vdec_msg->vdec_msg_info.msgdata.output_frame.bufferaddr =
 		    (u8 *) user_vaddr;
-		/*             */
+		/* Data length */
 		vdec_msg->vdec_msg_info.msgdata.output_frame.len =
 		    vcd_frame_data->data_len;
 		vdec_msg->vdec_msg_info.msgdata.output_frame.flags =
 		    vcd_frame_data->flags;
-		/*                                         */
+		/* Timestamp pass-through from input frame */
 		vdec_msg->vdec_msg_info.msgdata.output_frame.time_stamp =
 		    vcd_frame_data->time_stamp;
-		/*                          */
+		/* Output frame client data */
 		vdec_msg->vdec_msg_info.msgdata.output_frame.client_data =
 		    (void *)vcd_frame_data->frm_clnt_data;
-		/*                                    */
+		/* Associated input frame client data */
 		vdec_msg->vdec_msg_info.msgdata.output_frame.
 		    input_frame_clientdata =
 		    (void *)vcd_frame_data->ip_frm_tag;
-		/*                                  */
+		/* Decoded picture width and height */
 		vdec_msg->vdec_msg_info.msgdata.output_frame.framesize.
 		bottom =
 		    vcd_frame_data->dec_op_prop.disp_frm.bottom;
@@ -338,7 +338,7 @@ static void vid_dec_output_frame_done(struct video_client_ctx *client_ctx,
 				output_frame.interlaced_format =
 				VDEC_InterlaceFrameProgressive;
 		}
-		/*                      */
+		/* Decoded picture type */
 		switch (vcd_frame_data->frame) {
 		case VCD_FRAME_I:
 			pic_type = PICTURE_TYPE_I;
@@ -1015,7 +1015,7 @@ static u32 vid_dec_set_meta_buffers(struct video_client_ctx *client_ctx,
 		}
 	}
 
-	/*                        */
+	/*fill the meta addr table*/
 	num_buffers = vcd_meta_buffer->count;
 	buf_size = vcd_meta_buffer->size/num_buffers;
 	ker_vir_addr = vcd_meta_buffer->kernel_virtual_addr;
@@ -1372,7 +1372,7 @@ static u32 vid_dec_set_buffer(struct video_client_ctx *client_ctx,
 		buf_adr_offset = (unsigned long)buffer_info->buffer.offset;
 	}
 	length = buffer_info->buffer.buffer_len;
-	/*                                */
+	/*If buffer cannot be set, ignore */
 	if (!vidc_insert_addr_table(client_ctx, dir_buffer,
 		(unsigned long)buffer_info->buffer.bufferaddr,
 		&kernel_vaddr, buffer_info->buffer.pmem_fd,
@@ -1408,7 +1408,7 @@ static u32 vid_dec_free_buffer(struct video_client_ctx *client_ctx,
 		buffer = VCD_BUFFER_OUTPUT;
 	}
 
-	/*                          */
+	/*If buffer NOT set, ignore */
 	if (!vidc_delete_addr_table(client_ctx, dir_buffer,
 				(unsigned long)buffer_info->buffer.bufferaddr,
 				&kernel_vaddr)) {
@@ -1539,7 +1539,7 @@ static u32 vid_dec_decode_frame(struct video_client_ctx *client_ctx,
 				      &phy_addr, &pmem_fd, &file,
 				      &buffer_index)) {
 
-		/*                                               */
+		/* kernel_vaddr  is found. send the frame to VCD */
 		memset((void *)&vcd_input_buffer, 0,
 		       sizeof(struct vcd_frame_data));
 		vcd_input_buffer.virtual =
@@ -1551,7 +1551,7 @@ static u32 vid_dec_decode_frame(struct video_client_ctx *client_ctx,
 		    (u32) input_frame_info->client_data;
 		vcd_input_buffer.data_len = input_frame_info->datalen;
 		vcd_input_buffer.time_stamp = input_frame_info->timestamp;
-		/*                                         */
+		/* Rely on VCD using the same flags as OMX */
 		vcd_input_buffer.flags = input_frame_info->flags;
 		vcd_input_buffer.desc_buf = desc_buf;
 		vcd_input_buffer.desc_size = desc_size;
@@ -2559,7 +2559,7 @@ static int vid_dec_vcd_init(void)
 	struct vcd_init_config vcd_init_config;
 	u32 i;
 
-	/*                        */
+	/* init_timer(&hw_timer); */
 	DBG("msm_vidc_dec: Inside %s()", __func__);
 	vid_dec_device_p->num_clients = 0;
 

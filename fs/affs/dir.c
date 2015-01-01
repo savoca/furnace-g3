@@ -1,16 +1,16 @@
 /*
-                       
-  
-                                               
-  
-                                                           
-  
-                                                              
-  
-                                               
-  
-                                     
-  
+ *  linux/fs/affs/dir.c
+ *
+ *  (c) 1996  Hans-Joachim Widmaier - Rewritten
+ *
+ *  (C) 1993  Ray Burr - Modified for Amiga FFS filesystem.
+ *
+ *  (C) 1992  Eric Youngdale Modified for ISO 9660 filesystem.
+ *
+ *  (C) 1991  Linus Torvalds - minix filesystem
+ *
+ *  affs directory handling functions
+ *
  */
 
 #include "affs.h"
@@ -25,7 +25,7 @@ const struct file_operations affs_dir_operations = {
 };
 
 /*
-                                            
+ * directories can handle most operations...
  */
 const struct inode_operations affs_dir_inode_operations = {
 	.create		= affs_create,
@@ -91,9 +91,9 @@ affs_readdir(struct file *filp, void *dirent, filldir_t filldir)
 	if (!dir_bh)
 		goto readdir_out;
 
-	/*                                                                  
-                                              
-  */
+	/* If the directory hasn't changed since the last call to readdir(),
+	 * we can jump directly to where we left off.
+	 */
 	ino = (u32)(long)filp->private_data;
 	if (ino && filp->f_version == inode->i_version) {
 		pr_debug("AFFS: readdir() left off=%d\n", ino);

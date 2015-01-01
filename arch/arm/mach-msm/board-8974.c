@@ -85,10 +85,10 @@ static void __init msm8974_early_memory(void)
 }
 
 /*
-                                                           
-                                                                           
-                                                                        
-                                                     
+ * Used to satisfy dependencies for devices that need to be
+ * run early or in a particular order. Most likely your device doesn't fall
+ * into this category, and thus the driver should not be added here. The
+ * EPROBE_DEFER can satisfy most dependency problems.
  */
 void __init msm8974_add_drivers(void)
 {

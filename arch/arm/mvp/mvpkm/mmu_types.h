@@ -18,10 +18,10 @@
  */
 #line 5
 
-/* 
-         
-  
-                             
+/**
+ *  @file
+ *
+ *  @brief MMU-related types.
  */
 
 #ifndef _MMU_TYPES_H_
@@ -39,8 +39,8 @@
 
 #include "mmu_defs.h"
 
-/* 
-                                                                    
+/**
+ * @brief ARM level 1 page table descriptor. See B3-8 ARM DDI 0406B.
  */
 typedef union {
 	uint32 u;
@@ -94,8 +94,8 @@ typedef union {
 	} supersection;
 } ARM_L1D;
 
-/* 
-                                                                     
+/**
+ * @brief ARM level 2 page table descriptor. See B3-10 ARM DDI 0406B.
  */
 typedef union {
 	uint32   u;
@@ -132,12 +132,12 @@ typedef union {
 	} small;
 } ARM_L2D;
 
-/* 
-                                                                           
-  
-                                     
-  
-                                         
+/**
+ * @brief Get the simplified access permissions from a small L2 descriptor.
+ *
+ * @param l2D value of L2 descriptor.
+ *
+ * @return Simplified access permissions.
  */
 static inline uint8
 ARM_L2DSimpleAP(ARM_L2D l2D)
@@ -146,8 +146,8 @@ ARM_L2DSimpleAP(ARM_L2D l2D)
 	return (l2D.small.apx << 1) | (l2D.small.ap >> 1);
 }
 
-/* 
-                                                       
+/**
+ * @brief Permissions for a page - intermediate format.
  */
 typedef struct {
 	uint8 ap:2;
@@ -155,29 +155,29 @@ typedef struct {
 	uint8 xn:1;
 } ARM_AccessPerms;
 
-/* 
-                            
+/**
+ * @brief ARM domain (0-15).
  */
 typedef uint8 ARM_Domain;
 
-/* 
-                                                                       
+/**
+ * @brief ARM Domain Access Control Register, see B4.9.4 ARM DDI 0100I.
  */
 typedef uint32 ARM_DACR;
 
-/* 
-                                       
-                                      
-                  
+/**
+ * @brief ARM address space identifier.
+ * 8-bits with an "invalid ASID" value
+ * representation.
  */
 typedef uint32 ARM_ASID;
 
 #define ARM_INVALID_ASID ((uint32)(-1))
 
-/* 
-                                     
-  
-                                                    
+/**
+ * @brief Page shareability property.
+ *
+ * LPAE encoding, see p8 ARM PRD03-GENC-008469 11.0.
  */
 typedef enum {
 	ARM_SHARE_ATTR_NONE,
@@ -186,10 +186,10 @@ typedef enum {
 	ARM_SHARE_ATTR_INNER,
 } PACKED ARM_ShareAttr;
 
-/* 
-                                                          
-  
-                                          
+/**
+ * @brief Page cacheability property (TEX Remap disabled).
+ *
+ * ARM C/B bits, see B4.4.1 ARM DDI 0100I.
  */
 typedef enum {
 	ARM_CB_UNBUFFERED   = 0,
@@ -198,10 +198,10 @@ typedef enum {
 	ARM_CB_WRITEBACK    = 3
 } PACKED ARM_CB;
 
-/* 
-                                                                
-  
-                                           
+/**
+ * @brief Normal page cacheability property (TEX Remap enabled).
+ *
+ * NMRR encoding, see B3-146 ARM DDI 0406B.
  */
 typedef enum {
 	ARM_CACHE_ATTR_NORMAL_NONE,
@@ -210,12 +210,12 @@ typedef enum {
 	ARM_CACHE_ATTR_NORMAL_WB
 } PACKED ARM_CacheAttrNormal;
 
-/* 
-                                        
-  
-                                                                               
-                                                                       
-                           
+/**
+ * @brief Normal page memory attributes.
+ *
+ * Captures the general case of distinct inner/outer cacheability/shareability.
+ * See A3-30 ARM DDI 0406B for a discussion of shareability domains and
+ * cacheability attributes.
  */
 typedef struct {
 	ARM_ShareAttr share;
@@ -223,4 +223,4 @@ typedef struct {
 	ARM_CacheAttrNormal outerCache;
 } ARM_MemAttrNormal;
 
-#endif /*               */
+#endif /* _MMU_TYPES_H_ */

@@ -39,7 +39,7 @@ static const struct ath6kl_hw hw_list[] = {
 		.refclk_hz			= 26000000,
 		.uarttx_pin			= 8,
 
-		/*                                        */
+		/* hw2.0 needs override address hardcoded */
 		.app_start_override_addr	= 0x944C00,
 
 		.fw = {
@@ -118,27 +118,27 @@ static const struct ath6kl_hw hw_list[] = {
 };
 
 /*
-                                                                    
-                                                                          
-        
+ * Include definitions here that can be used to tune the WLAN module
+ * behavior. Different customers can tune the behavior as per their needs,
+ * here.
  */
 
 /*
-                                                            
-                                                                    
-                                                                              
-                                                                 
-                                                 
-                      
+ * This configuration item enable/disable keepalive support.
+ * Keepalive support: In the absence of any data traffic to AP, null
+ * frames will be sent to the AP at periodic interval, to keep the association
+ * active. This configuration item defines the periodic interval.
+ * Use value of zero to disable keepalive support
+ * Default: 60 seconds
  */
 #define WLAN_CONFIG_KEEP_ALIVE_INTERVAL 60
 
 /*
-                                                               
-                                                                   
-                                                          
-                                                                
-                               
+ * This configuration item sets the value of disconnect timeout
+ * Firmware delays sending the disconnec event to the host for this
+ * timeout after is gets disconnected from the current AP.
+ * If the firmware successly roams within the disconnect timeout
+ * it sends a new connect event
  */
 #define WLAN_CONFIG_DISCONNECT_TIMEOUT 10
 
@@ -149,7 +149,7 @@ struct sk_buff *ath6kl_buf_alloc(int size)
 	struct sk_buff *skb;
 	u16 reserved;
 
-	/*                                                  */
+	/* Add chacheline space at front and back of buffer */
 	reserved = (2 * L1_CACHE_BYTES) + ATH6KL_DATA_OFFSET +
 		   sizeof(struct htc_packet) + ATH6KL_HTC_ALIGN_BYTES;
 	skb = dev_alloc_skb(size + reserved);
@@ -181,8 +181,8 @@ static int ath6kl_set_host_app_area(struct ath6kl *ar)
 	u32 address, data;
 	struct host_app_area host_app_area;
 
-	/*                                         
-                                       */
+	/* Fetch the address of the host_app_area_s
+	 * instance in the host interest area */
 	address = ath6kl_get_hi_item_addr(ar, HI_ITEM(hi_app_host_interest));
 	address = TARG_VTOP(ar->target_type, address);
 
@@ -206,7 +206,7 @@ static inline void set_ac2_ep_map(struct ath6kl *ar,
 	ar->ep2ac_map[ep] = ac;
 }
 
-/*                      */
+/* connect to a service */
 static int ath6kl_connectservice(struct ath6kl *ar,
 				 struct htc_service_connect_req  *con_req,
 				 char *desc)
@@ -255,21 +255,21 @@ static int ath6kl_init_service_ep(struct ath6kl *ar)
 
 	memset(&connect, 0, sizeof(connect));
 
-	/*                                                     */
+	/* these fields are the same for all service endpoints */
 	connect.ep_cb.rx = ath6kl_rx;
 	connect.ep_cb.rx_refill = ath6kl_rx_refill;
 	connect.ep_cb.tx_full = ath6kl_tx_queue_full;
 
 	/*
-                                                                    
-                
- */
+	 * Set the max queue depth so that our ath6kl_tx_queue_full handler
+	 * gets called.
+	*/
 	connect.max_txq_depth = MAX_DEFAULT_SEND_QUEUE_DEPTH;
 	connect.ep_cb.rx_refill_thresh = ATH6KL_MAX_RX_BUFFERS / 4;
 	if (!connect.ep_cb.rx_refill_thresh)
 		connect.ep_cb.rx_refill_thresh++;
 
-	/*                            */
+	/* connect to control service */
 	connect.svc_id = WMI_CONTROL_SVC;
 	if (ath6kl_connectservice(ar, &connect, "WMI CONTROL"))
 		return -EIO;
@@ -277,24 +277,24 @@ static int ath6kl_init_service_ep(struct ath6kl *ar)
 	connect.flags |= HTC_FLGS_TX_BNDL_PAD_EN;
 
 	/*
-                                                               
-                                                                 
-                                    
-  */
+	 * Limit the HTC message size on the send path, although e can
+	 * receive A-MSDU frames of 4K, we will only send ethernet-sized
+	 * (802.3) frames on the send path.
+	 */
 	connect.max_rxmsg_sz = WMI_MAX_TX_DATA_FRAME_LENGTH;
 
 	/*
-                                                              
-                                                             
-            
-  */
+	 * To reduce the amount of committed memory for larger A_MSDU
+	 * frames, use the recv-alloc threshold mechanism for larger
+	 * packets.
+	 */
 	connect.ep_cb.rx_alloc_thresh = ATH6KL_BUFFER_SIZE;
 	connect.ep_cb.rx_allocthresh = ath6kl_alloc_amsdu_rxbuf;
 
 	/*
-                                                              
-                                             
-  */
+	 * For the remaining data services set the connection flag to
+	 * reduce dribbling, if configured to do so.
+	 */
 	connect.conn_flags |= HTC_CONN_FLGS_REDUCE_CRED_DRIB;
 	connect.conn_flags &= ~HTC_CONN_FLGS_THRESH_MASK;
 	connect.conn_flags |= HTC_CONN_FLGS_THRESH_LVL_HALF;
@@ -304,23 +304,23 @@ static int ath6kl_init_service_ep(struct ath6kl *ar)
 	if (ath6kl_connectservice(ar, &connect, "WMI DATA BE"))
 		return -EIO;
 
-	/*                                                */
+	/* connect to back-ground map this to WMI LOW_PRI */
 	connect.svc_id = WMI_DATA_BK_SVC;
 	if (ath6kl_connectservice(ar, &connect, "WMI DATA BK"))
 		return -EIO;
 
-	/*                                                 */
+	/* connect to Video service, map this to to HI PRI */
 	connect.svc_id = WMI_DATA_VI_SVC;
 	if (ath6kl_connectservice(ar, &connect, "WMI DATA VI"))
 		return -EIO;
 
 	/*
-                                                                
-                                                             
-                                                                 
-                                                           
-              
-  */
+	 * Connect to VO service, this is currently not mapped to a WMI
+	 * priority stream due to historical reasons. WMI originally
+	 * defined 3 priorities over 3 mailboxes We can change this when
+	 * WMI is reworked so that priorities are not dependent on
+	 * mailboxes.
+	 */
 	connect.svc_id = WMI_DATA_VO_SVC;
 	if (ath6kl_connectservice(ar, &connect, "WMI DATA VO"))
 		return -EIO;
@@ -337,8 +337,8 @@ void ath6kl_init_control_info(struct ath6kl_vif *vif)
 }
 
 /*
-                                                                        
-                              
+ * Set HTC/Mbox operational parameters, this can only be called when the
+ * target is in the BMI phase.
  */
 static int ath6kl_set_htc_params(struct ath6kl *ar, u32 mbox_isr_yield_val,
 				 u8 htc_ctrl_buf)
@@ -351,7 +351,7 @@ static int ath6kl_set_htc_params(struct ath6kl *ar, u32 mbox_isr_yield_val,
 	if (htc_ctrl_buf)
 		blk_size |=  ((u32)htc_ctrl_buf) << 16;
 
-	/*                                               */
+	/* set the host interest area for the block size */
 	status = ath6kl_bmi_write_hi32(ar, hi_mbox_io_block_sz, blk_size);
 	if (status) {
 		ath6kl_err("bmi_write_memory for IO block size failed\n");
@@ -363,7 +363,7 @@ static int ath6kl_set_htc_params(struct ath6kl *ar, u32 mbox_isr_yield_val,
 		   ath6kl_get_hi_item_addr(ar, HI_ITEM(hi_mbox_io_block_sz)));
 
 	if (mbox_isr_yield_val) {
-		/*                                                         */
+		/* set the host interest area for the mbox ISR yield limit */
 		status = ath6kl_bmi_write_hi32(ar, hi_mbox_isr_yield_limit,
 					       mbox_isr_yield_val);
 		if (status) {
@@ -381,10 +381,10 @@ static int ath6kl_target_config_wlan_params(struct ath6kl *ar, int idx)
 	int ret;
 
 	/*
-                                                                 
-                                                               
-                       
-  */
+	 * Configure the device for rx dot11 header rules. "0,0" are the
+	 * default values. Required if checksum offload is needed. Set
+	 * RxMetaVersion to 2.
+	 */
 	ret = ath6kl_wmi_set_rx_frame_format_cmd(ar->wmi, idx,
 						 ar->rx_meta_ver, 0, 0);
 	if (ret) {
@@ -448,7 +448,7 @@ static int ath6kl_target_config_wlan_params(struct ath6kl *ar, int idx)
 	}
 
 	if (ar->p2p && (ar->vif_max == 1 || idx)) {
-		/*                                        */
+		/* Enable Probe Request reporting for P2P */
 		ret = ath6kl_wmi_probe_report_req_cmd(ar->wmi, idx, true);
 		if (ret) {
 			ath6kl_dbg(ATH6KL_DBG_TRC, "failed to enable Probe "
@@ -472,24 +472,24 @@ int ath6kl_configure_target(struct ath6kl *ar)
 	}
 
 	/*
-                                                    
-                                                   
-                                                      
-                                                   
-                                                             
-                       
-  */
+	 * Note: Even though the firmware interface type is
+	 * chosen as BSS_STA for all three interfaces, can
+	 * be configured to IBSS/AP as long as the fw submode
+	 * remains normal mode (0 - AP, STA and IBSS). But
+	 * due to an target assert in firmware only one interface is
+	 * configured for now.
+	 */
 	fw_iftype = HI_OPTION_FW_MODE_BSS_STA;
 
 	for (i = 0; i < ar->vif_max; i++)
 		fw_mode |= fw_iftype << (i * HI_OPTION_FW_MODE_BITS);
 
 	/*
-                          
-                         
-                                             
-                                             
-  */
+	 * By default, submodes :
+	 *		vif[0] - AP/STA/IBSS
+	 *		vif[1] - "P2P dev"/"P2P GO"/"P2P Client"
+	 *		vif[2] - "P2P dev"/"P2P GO"/"P2P Client"
+	 */
 
 	for (i = 0; i < ar->max_norm_iface; i++)
 		fw_submode |= HI_OPTION_FW_SUBMODE_NONE <<
@@ -508,7 +508,7 @@ int ath6kl_configure_target(struct ath6kl *ar)
 		return -EIO;
 	}
 
-	/*                                      */
+	/* set the firmware mode to STA/IBSS/AP */
 	param = 0;
 
 	if (ath6kl_bmi_read_hi32(ar, hi_option_flag, &param) != 0) {
@@ -531,13 +531,13 @@ int ath6kl_configure_target(struct ath6kl *ar)
 	ath6kl_dbg(ATH6KL_DBG_TRC, "firmware mode set\n");
 
 	/*
-                                                        
-                                                              
-                                                          
-                                                       
-                                                    
-                           
-  */
+	 * Hardcode the address use for the extended board data
+	 * Ideally this should be pre-allocate by the OS at boot time
+	 * But since it is a new feature and board data is loaded
+	 * at init time, we have to workaround this from host.
+	 * It is difficult to patch the firmware boot code,
+	 * but possible in theory.
+	 */
 
 	param = ar->hw.board_ext_data_addr;
 	ram_reserved_size = ar->hw.reserved_ram_size;
@@ -553,18 +553,18 @@ int ath6kl_configure_target(struct ath6kl *ar)
 		return -EIO;
 	}
 
-	/*                                   */
+	/* set the block size for the target */
 	if (ath6kl_set_htc_params(ar, MBOX_YIELD_LIMIT, 0))
-		/*                                       */
+		/* use default number of control buffers */
 		return -EIO;
 
-	/*                            */
+	/* Configure GPIO AR600x UART */
 	status = ath6kl_bmi_write_hi32(ar, hi_dbg_uart_txpin,
 				       ar->hw.uarttx_pin);
 	if (status)
 		return status;
 
-	/*                            */
+	/* Configure target refclk_hz */
 	status = ath6kl_bmi_write_hi32(ar, hi_refclk_hz, ar->hw.refclk_hz);
 	if (status)
 		return status;
@@ -572,7 +572,7 @@ int ath6kl_configure_target(struct ath6kl *ar)
 	return 0;
 }
 
-/*                 */
+/* firmware upload */
 static int ath6kl_get_fw(struct ath6kl *ar, const char *filename,
 			 u8 **fw, size_t *fw_len)
 {
@@ -596,10 +596,10 @@ static int ath6kl_get_fw(struct ath6kl *ar, const char *filename,
 
 #ifdef CONFIG_OF
 /*
-                                                               
-                                                               
-                                                               
-                                   
+ * Check the device tree for a board-id and use it to construct
+ * the pathname to the firmware file.  Used (for now) to find a
+ * fallback to the "bdata.bin" file--typically a symlink to the
+ * appropriate board-specific file.
  */
 static bool check_device_tree(struct ath6kl *ar)
 {
@@ -635,7 +635,7 @@ static bool check_device_tree(struct ath6kl *ar)
 {
 	return false;
 }
-#endif /*           */
+#endif /* CONFIG_OF */
 
 static int ath6kl_fetch_board_file(struct ath6kl *ar)
 {
@@ -653,16 +653,16 @@ static int ath6kl_fetch_board_file(struct ath6kl *ar)
 	ret = ath6kl_get_fw(ar, filename, &ar->fw_board,
 			    &ar->fw_board_len);
 	if (ret == 0) {
-		/*                                  */
+		/* managed to get proper board file */
 		return 0;
 	}
 
 	if (check_device_tree(ar)) {
-		/*                                 */
+		/* got board file from device tree */
 		return 0;
 	}
 
-	/*                                                            */
+	/* there was no proper board file, try to use default instead */
 	ath6kl_warn("Failed to get board file %s (%d), trying to find default board file.\n",
 		    filename, ret);
 
@@ -758,7 +758,7 @@ static int ath6kl_fetch_fw_file(struct ath6kl *ar)
 	if (ar->fw != NULL)
 		return 0;
 
-	/*                                                               */
+	/* FIXME: remove WARN_ON() as we won't support FW API 1 for long */
 	if (WARN_ON(ar->hw.fw.fw == NULL))
 		return -EINVAL;
 
@@ -870,7 +870,7 @@ static int ath6kl_fetch_fw_apin(struct ath6kl *ar, const char *name)
 	data = fw->data;
 	len = fw->size;
 
-	/*                                                       */
+	/* magic also includes the null byte, check that as well */
 	magic_len = strlen(ATH6KL_FIRMWARE_MAGIC) + 1;
 
 	if (len < magic_len) {
@@ -886,9 +886,9 @@ static int ath6kl_fetch_fw_apin(struct ath6kl *ar, const char *name)
 	len -= magic_len;
 	data += magic_len;
 
-	/*               */
+	/* loop elements */
 	while (len > sizeof(struct ath6kl_fw_ie)) {
-		/*                   */
+		/* hdr is unaligned! */
 		hdr = (struct ath6kl_fw_ie *) data;
 
 		ie_id = le32_to_cpup(&hdr->id);
@@ -920,7 +920,7 @@ static int ath6kl_fetch_fw_apin(struct ath6kl *ar, const char *name)
 			ath6kl_dbg(ATH6KL_DBG_BOOT, "found fw image ie (%zd B)\n",
 				   ie_len);
 
-			/*                                             */
+			/* in testmode we already might have a fw file */
 			if (ar->fw != NULL)
 				break;
 
@@ -1073,10 +1073,10 @@ static int ath6kl_upload_board_file(struct ath6kl *ar)
 		return -ENOENT;
 
 	/*
-                                                      
-                                                     
-                       
-  */
+	 * Determine where in Target RAM to write Board Data.
+	 * For AR6004, host determine Target RAM address for
+	 * writing board data.
+	 */
 	if (ar->hw.board_addr != 0) {
 		board_address = ar->hw.board_addr;
 		ath6kl_bmi_write_hi32(ar, hi_board_data,
@@ -1085,7 +1085,7 @@ static int ath6kl_upload_board_file(struct ath6kl *ar)
 		ath6kl_bmi_read_hi32(ar, hi_board_data, &board_address);
 	}
 
-	/*                                                            */
+	/* determine where in target ram to write extended board data */
 	ath6kl_bmi_read_hi32(ar, hi_board_ext_data, &board_ext_address);
 
 	if (ar->target_type == TARGET_TYPE_AR6003 &&
@@ -1114,7 +1114,7 @@ static int ath6kl_upload_board_file(struct ath6kl *ar)
 	if (board_ext_address &&
 	    ar->fw_board_len == (board_data_size + board_ext_data_size)) {
 
-		/*                           */
+		/* write extended board data */
 		ath6kl_dbg(ATH6KL_DBG_BOOT,
 			   "writing extended board data to 0x%x (%d B)\n",
 			   board_ext_address, board_ext_data_size);
@@ -1128,7 +1128,7 @@ static int ath6kl_upload_board_file(struct ath6kl *ar)
 			return ret;
 		}
 
-		/*                                                */
+		/* record that extended board data is initialized */
 		param = (board_ext_data_size << 16) | 1;
 
 		ath6kl_bmi_write_hi32(ar, hi_board_ext_data_config, param);
@@ -1151,7 +1151,7 @@ static int ath6kl_upload_board_file(struct ath6kl *ar)
 		return ret;
 	}
 
-	/*                                                */
+	/* record the fact that Board Data IS initialized */
 	ath6kl_bmi_write_hi32(ar, hi_board_data_initialized, 1);
 
 	return ret;
@@ -1178,7 +1178,7 @@ static int ath6kl_upload_otp(struct ath6kl *ar)
 		return ret;
 	}
 
-	/*                             */
+	/* read firmware start address */
 	ret = ath6kl_bmi_read_hi32(ar, hi_app_start, &address);
 
 	if (ret) {
@@ -1195,7 +1195,7 @@ static int ath6kl_upload_otp(struct ath6kl *ar)
 		   from_hw ? " (from hw)" : "",
 		   ar->hw.app_start_override_addr);
 
-	/*                      */
+	/* execute the OTP code */
 	ath6kl_dbg(ATH6KL_DBG_BOOT, "executing OTP at 0x%x\n",
 		   ar->hw.app_start_override_addr);
 	param = 0;
@@ -1225,9 +1225,9 @@ static int ath6kl_upload_firmware(struct ath6kl *ar)
 	}
 
 	/*
-                                     
-                                                         
-  */
+	 * Set starting address for firmware
+	 * Don't need to setup app_start override addr on AR6004
+	 */
 	if (ar->target_type != TARGET_TYPE_AR6004) {
 		address = ar->hw.app_start_override_addr;
 		ath6kl_bmi_set_app_start(ar, address);
@@ -1298,7 +1298,7 @@ static int ath6kl_init_upload(struct ath6kl *ar)
 	    ar->target_type != TARGET_TYPE_AR6004)
 		return -EINVAL;
 
-	/*                                  */
+	/* temporarily disable system sleep */
 	address = MBOX_BASE_ADDRESS + LOCAL_SCRATCH_ADDRESS;
 	status = ath6kl_bmi_reg_read(ar, address, &param);
 	if (status)
@@ -1326,8 +1326,8 @@ static int ath6kl_init_upload(struct ath6kl *ar)
 	ath6kl_dbg(ATH6KL_DBG_TRC, "old options: %d, old sleep: %d\n",
 		   options, sleep);
 
-	/*                             */
-	/*                                             */
+	/* program analog PLL register */
+	/* no need to control 40/44MHz clock on AR6004 */
 	if (ar->target_type != TARGET_TYPE_AR6004) {
 		status = ath6kl_bmi_reg_write(ar, ATH6KL_ANALOG_PLL_REGISTER,
 					      0xF9104001);
@@ -1335,7 +1335,7 @@ static int ath6kl_init_upload(struct ath6kl *ar)
 		if (status)
 			return status;
 
-		/*                            */
+		/* Run at 80/88MHz by default */
 		param = SM(CPU_CLOCK_STANDARD, 1);
 
 		address = RTC_BASE_ADDRESS + CPU_CLOCK_ADDRESS;
@@ -1351,7 +1351,7 @@ static int ath6kl_init_upload(struct ath6kl *ar)
 	if (status)
 		return status;
 
-	/*                           */
+	/* WAR to avoid SDIO CRC err */
 	if (ar->version.target_ver == AR6003_HW_2_0_VERSION ||
 	    ar->version.target_ver == AR6003_HW_2_1_1_VERSION) {
 		ath6kl_err("temporary war to avoid sdio crc error\n");
@@ -1379,17 +1379,17 @@ static int ath6kl_init_upload(struct ath6kl *ar)
 			return status;
 	}
 
-	/*                                 */
+	/* write EEPROM data to Target RAM */
 	status = ath6kl_upload_board_file(ar);
 	if (status)
 		return status;
 
-	/*                                     */
+	/* transfer One time Programmable data */
 	status = ath6kl_upload_otp(ar);
 	if (status)
 		return status;
 
-	/*                          */
+	/* Download Target firmware */
 	status = ath6kl_upload_firmware(ar);
 	if (status)
 		return status;
@@ -1398,12 +1398,12 @@ static int ath6kl_init_upload(struct ath6kl *ar)
 	if (status)
 		return status;
 
-	/*                          */
+	/* Download the test script */
 	status = ath6kl_upload_testscript(ar);
 	if (status)
 		return status;
 
-	/*                      */
+	/* Restore system sleep */
 	address = RTC_BASE_ADDRESS + SYSTEM_SLEEP_ADDRESS;
 	status = ath6kl_bmi_reg_write(ar, address, sleep);
 	if (status)
@@ -1484,18 +1484,18 @@ int ath6kl_init_hw_start(struct ath6kl *ar)
 	if (ret)
 		goto err_power_off;
 
-	/*                                    */
-	/*                                            */
+	/* Do we need to finish the BMI phase */
+	/* FIXME: return error from ath6kl_bmi_done() */
 	if (ath6kl_bmi_done(ar)) {
 		ret = -EIO;
 		goto err_power_off;
 	}
 
 	/*
-                                                              
-                                                               
-         
-  */
+	 * The reason we have to wait for the target here is that the
+	 * driver layer has to init BMI in order to set the host block
+	 * size.
+	 */
 	if (ath6kl_htc_wait_target(ar->htc_target)) {
 		ret = -EIO;
 		goto err_power_off;
@@ -1506,18 +1506,18 @@ int ath6kl_init_hw_start(struct ath6kl *ar)
 		goto err_cleanup_scatter;
 	}
 
-	/*                           */
+	/* setup credit distribution */
 	ath6kl_credit_setup(ar->htc_target, &ar->credit_state_info);
 
-	/*           */
+	/* start HTC */
 	ret = ath6kl_htc_start(ar->htc_target);
 	if (ret) {
-		/*                  */
+		/* FIXME: call this */
 		ath6kl_cookie_cleanup(ar);
 		goto err_cleanup_scatter;
 	}
 
-	/*                                */
+	/* Wait for Wmi event to be ready */
 	timeleft = wait_event_interruptible_timeout(ar->event_wq,
 						    test_bit(WMI_READY,
 							     &ar->flag),
@@ -1550,8 +1550,8 @@ int ath6kl_init_hw_start(struct ath6kl *ar)
 
 	ath6kl_dbg(ATH6KL_DBG_TRC, "%s: wmi is ready\n", __func__);
 
-	/*                                                     */
-	/*                     */
+	/* communicate the wmi protocol verision to the target */
+	/* FIXME: return error */
 	if ((ath6kl_set_host_app_area(ar)) != 0)
 		ath6kl_err("unable to set the host app area\n");
 
@@ -1596,7 +1596,7 @@ int ath6kl_init_hw_stop(struct ath6kl *ar)
 	return 0;
 }
 
-/*                                                                         */
+/* FIXME: move this to cfg80211.c and rename to ath6kl_cfg80211_vif_stop() */
 void ath6kl_cleanup_vif(struct ath6kl_vif *vif, bool wmi_ready)
 {
 	static u8 bcast_mac[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -1655,14 +1655,14 @@ void ath6kl_stop_txrx(struct ath6kl *ar)
 	clear_bit(WMI_READY, &ar->flag);
 
 	/*
-                                                        
-                                                        
-                                                        
-                                                            
-                                                     
-                                                         
-                  
-  */
+	 * After wmi_shudown all WMI events will be dropped. We
+	 * need to cleanup the buffers allocated in AP mode and
+	 * give disconnect notification to stack, which usually
+	 * happens in the disconnect_event. Simulate the disconnect
+	 * event by calling the function directly. Sometimes
+	 * disconnect_event will be received when the debug logs
+	 * are collected.
+	 */
 	ath6kl_wmi_shutdown(ar->wmi);
 
 	clear_bit(WMI_ENABLED, &ar->flag);
@@ -1672,9 +1672,9 @@ void ath6kl_stop_txrx(struct ath6kl *ar)
 	}
 
 	/*
-                                                               
-                                                             
-  */
+	 * Try to reset the device if we can. The driver may have been
+	 * configure NOT to reset the target during a debug session.
+	 */
 	ath6kl_dbg(ATH6KL_DBG_TRC,
 		   "attempting to reset target on instance destroy\n");
 	ath6kl_reset_device(ar, ar->target_type, true, true);

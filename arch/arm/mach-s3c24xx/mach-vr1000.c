@@ -54,13 +54,13 @@
 #include "simtec.h"
 #include "common.h"
 
-/*                                                          */
+/* macros for virtual address mods for the io space entries */
 #define VA_C5(item) ((unsigned long)(item) + BAST_VAM_CS5)
 #define VA_C4(item) ((unsigned long)(item) + BAST_VAM_CS4)
 #define VA_C3(item) ((unsigned long)(item) + BAST_VAM_CS3)
 #define VA_C2(item) ((unsigned long)(item) + BAST_VAM_CS2)
 
-/*                                                      */
+/* macros to modify the physical addresses for io space */
 
 #define PA_CS2(item) (__phys_to_pfn((item) + S3C2410_CS2))
 #define PA_CS3(item) (__phys_to_pfn((item) + S3C2410_CS3))
@@ -68,7 +68,7 @@
 #define PA_CS5(item) (__phys_to_pfn((item) + S3C2410_CS5))
 
 static struct map_desc vr1000_iodesc[] __initdata = {
-  /*              */
+  /* ISA IO areas */
   {
 	  .virtual	= (u32)S3C24XX_VA_ISA_BYTE,
 	  .pfn		= PA_CS2(BAST_PA_ISAIO),
@@ -81,7 +81,7 @@ static struct map_desc vr1000_iodesc[] __initdata = {
 	  .type		= MT_DEVICE,
   },
 
-  /*                                                          */
+  /*  CPLD control registers, and external interrupt controls */
   {
 	  .virtual	= (u32)VR1000_VA_CTRL1,
 	  .pfn		= __phys_to_pfn(VR1000_PA_CTRL1),
@@ -124,7 +124,7 @@ static struct s3c2410_uartcfg vr1000_uartcfgs[] __initdata = {
 		.ulcon	     = ULCON,
 		.ufcon	     = UFCON,
 	},
-	/*                             */
+	/* port 2 is not actually used */
 	[2] = {
 		.hwport	     = 2,
 		.flags	     = 0,
@@ -134,7 +134,7 @@ static struct s3c2410_uartcfg vr1000_uartcfgs[] __initdata = {
 	}
 };
 
-/*                                                     */
+/* definitions for the vr1000 extra 16550 serial ports */
 
 #define VR1000_BAUDBASE (3692307)
 
@@ -184,7 +184,7 @@ static struct platform_device serial_device = {
 	},
 };
 
-/*                         */
+/* DM9000 ethernet devices */
 
 static struct resource vr1000_dm9k0_resource[] = {
 	[0] = {
@@ -223,8 +223,8 @@ static struct resource vr1000_dm9k1_resource[] = {
 	}
 };
 
-/*                                                         
-                                               
+/* for the moment we limit ourselves to 16bit IO until some
+ * better IO routines can be written and tested
 */
 
 static struct dm9000_plat_data vr1000_dm9k_platdata = {
@@ -251,7 +251,7 @@ static struct platform_device vr1000_dm9k1 = {
 	}
 };
 
-/*      */
+/* LEDS */
 
 static struct s3c24xx_led_platdata vr1000_led1_pdata = {
 	.name		= "led1",
@@ -295,7 +295,7 @@ static struct platform_device vr1000_led3 = {
 	},
 };
 
-/*              */
+/* I2C devices. */
 
 static struct i2c_board_info vr1000_i2c_devs[] __initdata = {
 	{
@@ -307,7 +307,7 @@ static struct i2c_board_info vr1000_i2c_devs[] __initdata = {
 	},
 };
 
-/*                        */
+/* devices for this board */
 
 static struct platform_device *vr1000_devices[] __initdata = {
 	&s3c_device_ohci,
@@ -338,7 +338,7 @@ static void vr1000_power_off(void)
 
 static void __init vr1000_map_io(void)
 {
-	/*                          */
+	/* initialise clock sources */
 
 	s3c24xx_dclk0.parent = &clk_upll;
 	s3c24xx_dclk0.rate   = 12*1000*1000;
@@ -375,7 +375,7 @@ static void __init vr1000_init(void)
 }
 
 MACHINE_START(VR1000, "Thorcom-VR1000")
-	/*                                          */
+	/* Maintainer: Ben Dooks <ben@simtec.co.uk> */
 	.atag_offset	= 0x100,
 	.map_io		= vr1000_map_io,
 	.init_machine	= vr1000_init,

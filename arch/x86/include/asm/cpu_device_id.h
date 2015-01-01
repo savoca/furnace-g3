@@ -2,8 +2,8 @@
 #define _CPU_DEVICE_ID 1
 
 /*
-                                                 
-                                                               
+ * Declare drivers belonging to specific x86 CPUs
+ * Similar in spirit to pci_device_id and related PCI functions
  */
 
 #include <linux/mod_devicetable.h>

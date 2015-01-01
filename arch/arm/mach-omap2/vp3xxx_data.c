@@ -33,8 +33,8 @@ static const struct omap_vp_ops omap3_vp_ops = {
 };
 
 /*
-                                    
-                                                                  
+ * VP data common to 34xx/36xx chips
+ * XXX This stuff presumably belongs in the vp3xxx.c or vp.c file.
  */
 static const struct omap_vp_common omap3_vp_common = {
 	.vpconfig_erroroffset_mask = OMAP3430_ERROROFFSET_MASK,

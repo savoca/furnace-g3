@@ -1,12 +1,12 @@
 #ifndef A2091_H
 #define A2091_H
 
-/*                                                   
-  
-                                                                         
-  
-                                                                    
-  
+/* $Id: a2091.h,v 1.4 1997/01/19 23:07:09 davem Exp $
+ *
+ * Header file for the Commodore A2091 Zorro II SCSI controller for Linux
+ *
+ * Written and (C) 1993, Hamish Macdonald, see a2091.c for more info
+ *
  */
 
 #include <linux/types.h>
@@ -20,8 +20,8 @@
 #endif
 
 /*
-                                                                
-                                 
+ * if the transfer address ANDed with this results in a non-zero
+ * result, then we can't use DMA.
  */
 #define A2091_XFER_MASK		(0xff000001)
 
@@ -48,14 +48,14 @@ struct a2091_scsiregs {
 
 #define DAWR_A2091		(3)
 
-/*            */
+/* CNTR bits. */
 #define CNTR_TCEN		(1<<7)
 #define CNTR_PREST		(1<<6)
 #define CNTR_PDMD		(1<<5)
 #define CNTR_INTEN		(1<<4)
 #define CNTR_DDIR		(1<<3)
 
-/*            */
+/* ISTR bits. */
 #define ISTR_INTX		(1<<8)
 #define ISTR_INT_F		(1<<7)
 #define ISTR_INTS		(1<<6)
@@ -66,4 +66,4 @@ struct a2091_scsiregs {
 #define ISTR_FF_FLG		(1<<1)
 #define ISTR_FE_FLG		(1<<0)
 
-#endif /*         */
+#endif /* A2091_H */

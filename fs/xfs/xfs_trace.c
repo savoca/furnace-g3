@@ -49,8 +49,8 @@
 #include "xfs_inode_item.h"
 
 /*
-                                                                         
-                         
+ * We include this last to have the helpers above available for the trace
+ * event implementations.
  */
 #define CREATE_TRACE_POINTS
 #include "xfs_trace.h"

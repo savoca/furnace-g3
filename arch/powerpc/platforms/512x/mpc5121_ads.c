@@ -34,8 +34,8 @@ static void __init mpc5121_ads_setup_arch(void)
 #endif
 	printk(KERN_INFO "MPC5121 ADS board from Freescale Semiconductor\n");
 	/*
-                              
-  */
+	 * cpld regs are needed early
+	 */
 	mpc5121_ads_cpld_map();
 
 #ifdef CONFIG_PCI
@@ -52,7 +52,7 @@ static void __init mpc5121_ads_init_IRQ(void)
 }
 
 /*
-                                                               
+ * Called very early, MMU is off, device-tree isn't unflattened
  */
 static int __init mpc5121_ads_probe(void)
 {

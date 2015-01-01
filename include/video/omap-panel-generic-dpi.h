@@ -22,11 +22,11 @@
 
 struct omap_dss_device;
 
-/* 
-                                                                  
-                    
-                                                            
-                                                              
+/**
+ * struct panel_generic_dpi_data - panel driver configuration data
+ * @name: panel name
+ * @platform_enable: platform specific panel enable function
+ * @platform_disable: platform specific panel disable function
  */
 struct panel_generic_dpi_data {
 	const char *name;
@@ -34,4 +34,4 @@ struct panel_generic_dpi_data {
 	void (*platform_disable)(struct omap_dss_device *dssdev);
 };
 
-#endif /*                            */
+#endif /* __OMAP_PANEL_GENERIC_DPI_H */

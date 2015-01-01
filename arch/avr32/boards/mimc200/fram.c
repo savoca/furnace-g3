@@ -19,7 +19,7 @@
 #define FRAM_SIZE	0x20000
 
 /*
-                                                                   
+ * The are the file operation function for user access to /dev/fram
  */
 
 static int fram_mmap(struct file *filp, struct vm_area_struct *vma)

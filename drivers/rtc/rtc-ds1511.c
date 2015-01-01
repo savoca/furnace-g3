@@ -88,8 +88,8 @@ enum ds1511reg {
 
 struct rtc_plat_data {
 	struct rtc_device *rtc;
-	void __iomem *ioaddr;		/*                      */
-	int size;				/*                         */
+	void __iomem *ioaddr;		/* virtual base address */
+	int size;				/* amount of memory mapped */
 	int irq;
 	unsigned int irqen;
 	int alrm_sec;
@@ -135,31 +135,31 @@ rtc_enable_update(void)
 }
 
 /*
-                                    
-  
-                                                      
-                      
+ * #define DS1511_WDOG_RESET_SUPPORT
+ *
+ * Uncomment this if you want to use these routines in
+ * some platform code.
  */
 #ifdef DS1511_WDOG_RESET_SUPPORT
 /*
-                                                        
-                         
+ * just enough code to set the watchdog timer so that it
+ * will reboot the system
  */
  void
 ds1511_wdog_set(unsigned long deciseconds)
 {
 	/*
-                                         
-  */
+	 * the wdog timer can take 99.99 seconds
+	 */
 	deciseconds %= 10000;
 	/*
-                                             
-  */
+	 * set the wdog values in the wdog registers
+	 */
 	rtc_write(bin2bcd(deciseconds % 100), DS1511_WD_MSEC);
 	rtc_write(bin2bcd(deciseconds / 100), DS1511_WD_SEC);
 	/*
-                                                            
-  */
+	 * set wdog enable and wdog 'steering' bit to issue a reset
+	 */
 	rtc_write(DS1511_WDE | DS1511_WDS, RTC_CMD);
 }
 
@@ -167,21 +167,21 @@ ds1511_wdog_set(unsigned long deciseconds)
 ds1511_wdog_disable(void)
 {
 	/*
-                                              
-  */
+	 * clear wdog enable and wdog 'steering' bits
+	 */
 	rtc_write(rtc_read(RTC_CMD) & ~(DS1511_WDE | DS1511_WDS), RTC_CMD);
 	/*
-                          
-  */
+	 * clear the wdog counter
+	 */
 	rtc_write(0, DS1511_WD_MSEC);
 	rtc_write(0, DS1511_WD_SEC);
 }
 #endif
 
 /*
-                                       
-                                                    
-                                                   
+ * set the rtc chip's idea of the time.
+ * stupidly, some callers call with year unmolested;
+ * and some call with  year = year - 1900.  thanks.
  */
 static int ds1511_rtc_set_time(struct device *dev, struct rtc_time *rtc_tm)
 {
@@ -189,8 +189,8 @@ static int ds1511_rtc_set_time(struct device *dev, struct rtc_time *rtc_tm)
 	unsigned long flags;
 
 	/*
-                                         
-  */
+	 * won't have to change this for a while
+	 */
 	if (rtc_tm->tm_year < 1900) {
 		rtc_tm->tm_year += 1900;
 	}
@@ -200,9 +200,9 @@ static int ds1511_rtc_set_time(struct device *dev, struct rtc_time *rtc_tm)
 	}
 	yrs = rtc_tm->tm_year % 100;
 	cen = rtc_tm->tm_year / 100;
-	mon = rtc_tm->tm_mon + 1;   /*                       */
+	mon = rtc_tm->tm_mon + 1;   /* tm_mon starts at zero */
 	day = rtc_tm->tm_mday;
-	dow = rtc_tm->tm_wday & 0x7; /*               */
+	dow = rtc_tm->tm_wday & 0x7; /* automatic BCD */
 	hrs = rtc_tm->tm_hour;
 	min = rtc_tm->tm_min;
 	sec = rtc_tm->tm_sec;
@@ -220,8 +220,8 @@ static int ds1511_rtc_set_time(struct device *dev, struct rtc_time *rtc_tm)
 	}
 
 	/*
-                                                     
-  */
+	 * each register is a different number of valid bits
+	 */
 	sec = bin2bcd(sec) & 0x7f;
 	min = bin2bcd(min) & 0x7f;
 	hrs = bin2bcd(hrs) & 0x3f;
@@ -276,9 +276,9 @@ static int ds1511_rtc_read_time(struct device *dev, struct rtc_time *rtc_tm)
 	century = bcd2bin(century) * 100;
 
 	/*
-                                                               
-                                                  
-  */
+	 * Account for differences between how the RTC uses the values
+	 * and how they are defined in a struct rtc_time;
+	 */
 	century += rtc_tm->tm_year;
 	rtc_tm->tm_year = century - 1900;
 
@@ -292,12 +292,12 @@ static int ds1511_rtc_read_time(struct device *dev, struct rtc_time *rtc_tm)
 }
 
 /*
-                                    
-  
-                                                            
-                                                               
-                                                          
-                                        
+ * write the alarm register settings
+ *
+ * we only have the use to interrupt every second, otherwise
+ * known as the update interrupt, or the interrupt if the whole
+ * date/hours/mins/secs matches.  the ds1511 has many more
+ * permutations, but the kernel doesn't.
  */
  static void
 ds1511_rtc_update_alarm(struct rtc_plat_data *pdata)
@@ -318,7 +318,7 @@ ds1511_rtc_update_alarm(struct rtc_plat_data *pdata)
 	       0x80 : bin2bcd(pdata->alrm_sec) & 0x7f,
 	       RTC_ALARM_SEC);
 	rtc_write(rtc_read(RTC_CMD) | (pdata->irqen ? RTC_TIE : 0), RTC_CMD);
-	rtc_read(RTC_CMD1);	/*                  */
+	rtc_read(RTC_CMD1);	/* clear interrupts */
 	spin_unlock_irqrestore(&pdata->lock, flags);
 }
 
@@ -368,8 +368,8 @@ ds1511_interrupt(int irq, void *dev_id)
 
 	spin_lock(&pdata->lock);
 	/*
-                            
-  */
+	 * read and clear interrupt
+	 */
 	if (rtc_read(RTC_CMD1) & DS1511_IRQF) {
 		events = RTC_IRQF;
 		if (rtc_read(RTC_ALARM_SEC) & 0x80)
@@ -414,9 +414,9 @@ ds1511_nvram_read(struct file *filp, struct kobject *kobj,
 	ssize_t count;
 
 	/*
-                                                   
-                                
-  */
+	 * if count is more than one, turn on "burst" mode
+	 * turn it off when you're done
+	 */
 	if (size > 1) {
 		rtc_write((rtc_read(RTC_CMD) | DS1511_BME), RTC_CMD);
 	}
@@ -444,9 +444,9 @@ ds1511_nvram_write(struct file *filp, struct kobject *kobj,
 	ssize_t count;
 
 	/*
-                                                   
-                                
-  */
+	 * if count is more than one, turn on "burst" mode
+	 * turn it off when you're done
+	 */
 	if (size > 1) {
 		rtc_write((rtc_read(RTC_CMD) | DS1511_BME), RTC_CMD);
 	}
@@ -502,23 +502,23 @@ ds1511_rtc_probe(struct platform_device *pdev)
 	pdata->irq = platform_get_irq(pdev, 0);
 
 	/*
-                                           
-  */
+	 * turn on the clock and the crystal, etc.
+	 */
 	rtc_write(0, RTC_CMD);
 	rtc_write(0, RTC_CMD1);
 	/*
-                          
-  */
+	 * clear the wdog counter
+	 */
 	rtc_write(0, DS1511_WD_MSEC);
 	rtc_write(0, DS1511_WD_SEC);
 	/*
-                   
-  */
+	 * start the clock
+	 */
 	rtc_enable_update();
 
 	/*
-                              
-  */
+	 * check for a dying bat-tree
+	 */
 	if (rtc_read(RTC_CMD1) & DS1511_BLF1) {
 		dev_warn(&pdev->dev, "voltage-low detected.\n");
 	}
@@ -526,9 +526,9 @@ ds1511_rtc_probe(struct platform_device *pdev)
 	spin_lock_init(&pdata->lock);
 	platform_set_drvdata(pdev, pdata);
 	/*
-                                                             
-                             
-  */
+	 * if the platform has an interrupt in mind for this device,
+	 * then by all means, set it
+	 */
 	if (pdata->irq > 0) {
 		rtc_read(RTC_CMD1);
 		if (devm_request_irq(&pdev->dev, pdata->irq, ds1511_interrupt,
@@ -560,15 +560,15 @@ ds1511_rtc_remove(struct platform_device *pdev)
 	rtc_device_unregister(pdata->rtc);
 	if (pdata->irq > 0) {
 		/*
-                                
-   */
+		 * disable the alarm interrupt
+		 */
 		rtc_write(rtc_read(RTC_CMD) & ~RTC_TIE, RTC_CMD);
 		rtc_read(RTC_CMD1);
 	}
 	return 0;
 }
 
-/*                                */
+/* work with hotplug and coldplug */
 MODULE_ALIAS("platform:ds1511");
 
 static struct platform_driver ds1511_rtc_driver = {

@@ -32,7 +32,7 @@
 #define AMBA_UART_FR(base)	(*(volatile unsigned char *)((base) + 0x18))
 
 /*
-                               
+ * Return the UART base address
  */
 static inline unsigned long get_uart_base(void)
 {
@@ -51,7 +51,7 @@ static inline unsigned long get_uart_base(void)
 }
 
 /*
-                                 
+ * This does not append a newline
  */
 static inline void putc(int c)
 {
@@ -72,7 +72,7 @@ static inline void flush(void)
 }
 
 /*
-                
+ * nothing to do
  */
 #define arch_decomp_setup()
 #define arch_decomp_wdog()

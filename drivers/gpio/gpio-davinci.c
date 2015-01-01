@@ -67,9 +67,9 @@ static inline struct davinci_gpio_regs __iomem *irq2regs(int irq)
 
 static int __init davinci_gpio_irq_setup(void);
 
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
-/*                                                                 */
+/* board setup code *MUST* setup pinmux and enable the GPIO clock. */
 static inline int __davinci_direction(struct gpio_chip *chip,
 			unsigned offset, bool out, int value)
 {
@@ -105,11 +105,11 @@ davinci_direction_out(struct gpio_chip *chip, unsigned offset, int value)
 }
 
 /*
-                                                              
-                        
-  
-                                                                          
-                                                   
+ * Read the pin's value (works even if it's set up as output);
+ * returns zero/nonzero.
+ *
+ * Note that changes are synched to the GPIO clock, so reading values back
+ * right after you've set them may give old values.
  */
 static int davinci_gpio_get(struct gpio_chip *chip, unsigned offset)
 {
@@ -120,7 +120,7 @@ static int davinci_gpio_get(struct gpio_chip *chip, unsigned offset)
 }
 
 /*
-                                                                    
+ * Assuming the pin is muxed as a gpio output, set its output value.
  */
 static void
 davinci_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
@@ -142,10 +142,10 @@ static int __init davinci_gpio_setup(void)
 		return 0;
 
 	/*
-                                                          
-                                                       
-                           
-  */
+	 * The gpio banks conceptually expose a segmented bitmap,
+	 * and "ngpio" is one more than the largest zero-based
+	 * bit index that's valid.
+	 */
 	ngpio = soc_info->gpio_num;
 	if (ngpio == 0) {
 		pr_err("GPIO setup:  how many GPIOs?\n");
@@ -191,16 +191,16 @@ static int __init davinci_gpio_setup(void)
 }
 pure_initcall(davinci_gpio_setup);
 
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 /*
-                                                                             
-                                                           
-  
-                                                                       
-                                                   
-  
-                                                                   
-                                
+ * We expect irqs will normally be set up as input pins, but they can also be
+ * used as output pins ... which is convenient for testing.
+ *
+ * NOTE:  The first few GPIOs also have direct INTC hookups in addition
+ * to their GPIOBNK0 irq, with a bit less overhead.
+ *
+ * All those INTC hookups (direct, plus several IRQ banks) can also
+ * serve as EDMA event triggers.
  */
 
 static void gpio_irq_disable(struct irq_data *d)
@@ -254,11 +254,11 @@ gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 	d = (struct davinci_gpio_controller *)irq_desc_get_handler_data(desc);
 	g = (struct davinci_gpio_regs __iomem *)d->regs;
 
-	/*                             */
+	/* we only care about one bank */
 	if (irq & 1)
 		mask <<= 16;
 
-	/*                                               */
+	/* temporarily mask (level sensitive) parent IRQ */
 	desc->irq_data.chip->irq_mask(&desc->irq_data);
 	desc->irq_data.chip->irq_ack(&desc->irq_data);
 	while (1) {
@@ -266,13 +266,13 @@ gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 		int		n;
 		int		res;
 
-		/*              */
+		/* ack any irqs */
 		status = __raw_readl(&g->intstat) & mask;
 		if (!status)
 			break;
 		__raw_writel(status, &g->intstat);
 
-		/*                                              */
+		/* now demux them to the right lowlevel handler */
 		n = d->irq_base;
 		if (irq & 1) {
 			n += 16;
@@ -287,7 +287,7 @@ gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 		}
 	}
 	desc->irq_data.chip->irq_unmask(&desc->irq_data);
-	/*                       */
+	/* now it may re-trigger */
 }
 
 static int gpio_to_irq_banked(struct gpio_chip *chip, unsigned offset)
@@ -304,9 +304,9 @@ static int gpio_to_irq_unbanked(struct gpio_chip *chip, unsigned offset)
 {
 	struct davinci_soc_info *soc_info = &davinci_soc_info;
 
-	/*                                                               
-                                                             
-  */
+	/* NOTE:  we assume for now that only irqs in the first gpio_chip
+	 * can provide direct-mapped IRQs to AINTC (up to 32 GPIOs).
+	 */
 	if (offset < soc_info->gpio_unbanked)
 		return soc_info->gpio_irq + offset;
 	else
@@ -336,11 +336,11 @@ static int gpio_irq_type_unbanked(struct irq_data *data, unsigned trigger)
 }
 
 /*
-                                                                          
-                                                                          
-                                                                        
-                                                                          
-                                                      
+ * NOTE:  for suspend/resume, probably best to make a platform_device with
+ * suspend_late/resume_resume calls hooking into results of the set_wake()
+ * calls ... so if no gpios are wakeup events the clock can be disabled,
+ * with outputs left at previously set levels, and so that VDD3P3V.IOPWDN0
+ * (dm6446) can be set appropriately for GPIOV33 pins.
  */
 
 static int __init davinci_gpio_irq_setup(void)
@@ -368,11 +368,11 @@ static int __init davinci_gpio_irq_setup(void)
 	}
 	clk_enable(clk);
 
-	/*                                                              
-                                                                
-                                                                 
-                                                   
-  */
+	/* Arrange gpio_to_irq() support, handling either direct IRQs or
+	 * banked IRQs.  Having GPIOs in the first GPIO bank use direct
+	 * IRQs, while the others use banked IRQs, would need some setup
+	 * tweaks to recognize hardware which can do that.
+	 */
 	for (gpio = 0, bank = 0; gpio < ngpio; bank++, gpio += 32) {
 		chips[bank].chip.to_irq = gpio_to_irq_banked;
 		chips[bank].irq_base = soc_info->gpio_unbanked
@@ -381,30 +381,30 @@ static int __init davinci_gpio_irq_setup(void)
 	}
 
 	/*
-                                                                  
-                                                                   
-                                                                  
-  */
+	 * AINTC can handle direct/unbanked IRQs for GPIOs, with the GPIO
+	 * controller only handling trigger modes.  We currently assume no
+	 * IRQ mux conflicts; gpio_irq_type_unbanked() is only for GPIOs.
+	 */
 	if (soc_info->gpio_unbanked) {
 		static struct irq_chip_type gpio_unbanked;
 
-		/*                                  */
+		/* pass "bank 0" GPIO IRQs to AINTC */
 		chips[0].chip.to_irq = gpio_to_irq_unbanked;
 		binten = BIT(0);
 
-		/*                                                    */
+		/* AINTC handles mask/unmask; GPIO handles triggering */
 		irq = bank_irq;
 		gpio_unbanked = *container_of(irq_get_chip(irq),
 					      struct irq_chip_type, chip);
 		gpio_unbanked.chip.name = "GPIO-AINTC";
 		gpio_unbanked.chip.irq_set_type = gpio_irq_type_unbanked;
 
-		/*                             */
+		/* default trigger: both edges */
 		g = gpio2regs(0);
 		__raw_writel(~0, &g->set_falling);
 		__raw_writel(~0, &g->set_rising);
 
-		/*                                            */
+		/* set the direct IRQs up to use that irqchip */
 		for (gpio = 0; gpio < soc_info->gpio_unbanked; gpio++, irq++) {
 			irq_set_chip(irq, &gpio_unbanked.chip);
 			irq_set_handler_data(irq, &chips[gpio / 32]);
@@ -415,27 +415,27 @@ static int __init davinci_gpio_irq_setup(void)
 	}
 
 	/*
-                                                                 
-                                       
-  */
+	 * Or, AINTC can handle IRQs for banks of 16 GPIO IRQs, which we
+	 * then chain through our own handler.
+	 */
 	for (gpio = 0, irq = gpio_to_irq(0), bank = 0;
 			gpio < ngpio;
 			bank++, bank_irq++) {
 		unsigned		i;
 
-		/*                                             */
+		/* disabled by default, enabled only as needed */
 		g = gpio2regs(gpio);
 		__raw_writel(~0, &g->clr_falling);
 		__raw_writel(~0, &g->clr_rising);
 
-		/*                              */
+		/* set up all irqs in this bank */
 		irq_set_chained_handler(bank_irq, gpio_irq_handler);
 
 		/*
-                                                                 
-                                                               
-                             
-   */
+		 * Each chip handles 32 gpios, and each irq bank consists of 16
+		 * gpio irqs. Pass the irq bank's corresponding controller to
+		 * the chained irq handler.
+		 */
 		irq_set_handler_data(bank_irq, &chips[gpio / 32]);
 
 		for (i = 0; i < 16 && gpio < ngpio; i++, irq++, gpio++) {
@@ -450,9 +450,9 @@ static int __init davinci_gpio_irq_setup(void)
 	}
 
 done:
-	/*                                                                 
-                                    
-  */
+	/* BINTEN -- per-bank interrupt enable. genirq would also let these
+	 * bits be set/cleared dynamically.
+	 */
 	__raw_writel(binten, gpio_base + 0x08);
 
 	printk(KERN_INFO "DaVinci: %d gpio irqs\n", irq - gpio_to_irq(0));

@@ -2,7 +2,7 @@
 #define _LINUX_REBOOT_H
 
 /*
-                                                      
+ * Magic values required to use _reboot() system call.
  */
 
 #define	LINUX_REBOOT_MAGIC1	0xfee1dead
@@ -13,16 +13,16 @@
 
 
 /*
-                                                  
-  
-                                                             
-                                                                      
-                                                            
-                                                               
-                                                                     
-                                                         
-                                                                    
-                                                                    
+ * Commands accepted by the _reboot() system call.
+ *
+ * RESTART     Restart system using default command and mode.
+ * HALT        Stop OS and give system control to ROM monitor, if any.
+ * CAD_ON      Ctrl-Alt-Del sequence causes RESTART command.
+ * CAD_OFF     Ctrl-Alt-Del sequence sends SIGINT to init task.
+ * POWER_OFF   Stop OS and remove all power from system, if possible.
+ * RESTART2    Restart system using given command string.
+ * SW_SUSPEND  Suspend system using software suspend if compiled in.
+ * KEXEC       Restart system using a previously loaded Linux kernel
  */
 
 #define	LINUX_REBOOT_CMD_RESTART	0x01234567
@@ -39,17 +39,17 @@
 
 #include <linux/notifier.h>
 
-#define SYS_DOWN	0x0001	/*                       */
+#define SYS_DOWN	0x0001	/* Notify of system down */
 #define SYS_RESTART	SYS_DOWN
-#define SYS_HALT	0x0002	/*                       */
-#define SYS_POWER_OFF	0x0003	/*                            */
+#define SYS_HALT	0x0002	/* Notify of system halt */
+#define SYS_POWER_OFF	0x0003	/* Notify of system power off */
 
 extern int register_reboot_notifier(struct notifier_block *);
 extern int unregister_reboot_notifier(struct notifier_block *);
 
 
 /*
-                                                                
+ * Architecture-specific implementations of sys_reboot commands.
  */
 
 extern void machine_restart(char *cmd);
@@ -61,7 +61,7 @@ struct pt_regs;
 extern void machine_crash_shutdown(struct pt_regs *);
 
 /* 
-                                                                  
+ * Architecture independent implemenations of sys_reboot commands.
  */
 
 extern void kernel_restart_prepare(char *cmd);
@@ -69,7 +69,7 @@ extern void kernel_restart(char *cmd);
 extern void kernel_halt(void);
 extern void kernel_power_off(void);
 
-extern int C_A_D; /*            */
+extern int C_A_D; /* for sysctl */
 void ctrl_alt_del(void);
 
 #define POWEROFF_CMD_PATH_LEN	256
@@ -78,7 +78,7 @@ extern char poweroff_cmd[POWEROFF_CMD_PATH_LEN];
 extern int orderly_poweroff(bool force);
 
 /*
-                                                         
+ * Emergency restart, callable from an interrupt handler.
  */
 
 extern void emergency_restart(void);
@@ -86,4 +86,4 @@ extern void emergency_restart(void);
 
 #endif
 
-#endif /*                 */
+#endif /* _LINUX_REBOOT_H */

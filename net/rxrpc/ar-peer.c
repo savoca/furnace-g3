@@ -30,8 +30,8 @@ static DECLARE_WAIT_QUEUE_HEAD(rxrpc_peer_wq);
 static void rxrpc_destroy_peer(struct work_struct *work);
 
 /*
-                                                                           
-          
+ * assess the MTU size for the network interface through which this peer is
+ * reached
  */
 static void rxrpc_assess_MTU_size(struct rxrpc_peer *peer)
 {
@@ -56,7 +56,7 @@ static void rxrpc_assess_MTU_size(struct rxrpc_peer *peer)
 }
 
 /*
-                      
+ * allocate a new peer
  */
 static struct rxrpc_peer *rxrpc_alloc_peer(struct sockaddr_rxrpc *srx,
 					   gfp_t gfp)
@@ -101,7 +101,7 @@ static struct rxrpc_peer *rxrpc_alloc_peer(struct sockaddr_rxrpc *srx,
 }
 
 /*
-                                                               
+ * obtain a remote transport endpoint for the specified address
  */
 struct rxrpc_peer *rxrpc_get_peer(struct sockaddr_rxrpc *srx, gfp_t gfp)
 {
@@ -115,7 +115,7 @@ struct rxrpc_peer *rxrpc_get_peer(struct sockaddr_rxrpc *srx, gfp_t gfp)
 	       &srx->transport.sin.sin_addr,
 	       ntohs(srx->transport.sin.sin_port));
 
-	/*                            */
+	/* search the peer list first */
 	read_lock_bh(&rxrpc_peer_lock);
 	list_for_each_entry(peer, &rxrpc_peers, link) {
 		_debug("check PEER %d { u=%d t=%d l=%d }",
@@ -134,8 +134,8 @@ struct rxrpc_peer *rxrpc_get_peer(struct sockaddr_rxrpc *srx, gfp_t gfp)
 	}
 	read_unlock_bh(&rxrpc_peer_lock);
 
-	/*                                                               
-                    */
+	/* not yet present - create a candidate for a new record and then
+	 * redo the search */
 	candidate = rxrpc_alloc_peer(srx, gfp);
 	if (!candidate) {
 		_leave(" = -ENOMEM");
@@ -154,7 +154,7 @@ struct rxrpc_peer *rxrpc_get_peer(struct sockaddr_rxrpc *srx, gfp_t gfp)
 			goto found_extant_second;
 	}
 
-	/*                                              */
+	/* we can now add the new candidate to the list */
 	peer = candidate;
 	candidate = NULL;
 	usage = atomic_read(&peer->usage);
@@ -175,13 +175,13 @@ success:
 	_leave(" = %p {u=%d}", peer, usage);
 	return peer;
 
-	/*                                           */
+	/* we found the peer in the list immediately */
 found_extant_peer:
 	usage = atomic_inc_return(&peer->usage);
 	read_unlock_bh(&rxrpc_peer_lock);
 	goto success;
 
-	/*                                                       */
+	/* we found the peer on the second time through the list */
 found_extant_second:
 	usage = atomic_inc_return(&peer->usage);
 	write_unlock_bh(&rxrpc_peer_lock);
@@ -190,7 +190,7 @@ found_extant_second:
 }
 
 /*
-                                         
+ * find the peer associated with a packet
  */
 struct rxrpc_peer *rxrpc_find_peer(struct rxrpc_local *local,
 				   __be32 addr, __be16 port)
@@ -199,7 +199,7 @@ struct rxrpc_peer *rxrpc_find_peer(struct rxrpc_local *local,
 
 	_enter("");
 
-	/*                      */
+	/* search the peer list */
 	read_lock_bh(&rxrpc_peer_lock);
 
 	if (local->srx.transport.family == AF_INET &&
@@ -236,7 +236,7 @@ new_UDP_peer:
 }
 
 /*
-                                      
+ * release a remote transport endpoint
  */
 void rxrpc_put_peer(struct rxrpc_peer *peer)
 {
@@ -254,7 +254,7 @@ void rxrpc_put_peer(struct rxrpc_peer *peer)
 }
 
 /*
-                                      
+ * destroy a remote transport endpoint
  */
 static void rxrpc_destroy_peer(struct work_struct *work)
 {
@@ -276,8 +276,8 @@ static void rxrpc_destroy_peer(struct work_struct *work)
 }
 
 /*
-                                                                             
-                                    
+ * preemptively destroy all the peer records from a transport endpoint rather
+ * than waiting for them to time out
  */
 void __exit rxrpc_destroy_all_peers(void)
 {
@@ -285,7 +285,7 @@ void __exit rxrpc_destroy_all_peers(void)
 
 	_enter("");
 
-	/*                                            */
+	/* we simply have to wait for them to go away */
 	if (!list_empty(&rxrpc_peers)) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		add_wait_queue(&rxrpc_peer_wq, &myself);

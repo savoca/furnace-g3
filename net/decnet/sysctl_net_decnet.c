@@ -37,7 +37,7 @@ int decnet_dr_count = 3;
 int decnet_log_martians = 1;
 int decnet_no_fc_max_cwnd = NSP_MIN_WINDOW;
 
-/*                                                      */
+/* Reasonable defaults, I hope, based on tcp's defaults */
 long sysctl_decnet_mem[3] = { 768 << 3, 1024 << 3, 1536 << 3 };
 int sysctl_decnet_wmem[3] = { 4 * 1024, 16 * 1024, 128 * 1024 };
 int sysctl_decnet_rmem[3] = { 4 * 1024, 87380, 87380 * 2 };
@@ -57,7 +57,7 @@ static char node_name[7] = "???";
 static struct ctl_table_header *dn_table_header = NULL;
 
 /*
-              
+ * ctype.h :-)
  */
 #define ISNUM(x) (((x) >= '0') && ((x) <= '9'))
 #define ISLOWER(x) (((x) >= 'a') && ((x) <= 'z'))
@@ -74,7 +74,7 @@ static void strip_it(char *str)
 		case '\r':
 		case ':':
 			*str = 0;
-			/*             */
+			/* Fallthrough */
 		case 0:
 			return;
 		}
@@ -83,8 +83,8 @@ static void strip_it(char *str)
 }
 
 /*
-                                                  
-                                
+ * Simple routine to parse an ascii DECnet address
+ * into a network order address.
  */
 static int parse_addr(__le16 *addr, char *str)
 {
@@ -367,7 +367,7 @@ void dn_unregister_sysctl(void)
 	unregister_sysctl_table(dn_table_header);
 }
 
-#else  /*               */
+#else  /* CONFIG_SYSCTL */
 void dn_unregister_sysctl(void)
 {
 }

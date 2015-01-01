@@ -8,11 +8,11 @@
 #ifndef __MACH_UX500_ID
 #define __MACH_UX500_ID
 
-/* 
-                                                
-                                                                        
-                                           
-                                        
+/**
+ * struct dbx500_asic_id - fields of the ASIC ID
+ * @process: the manufacturing process, 0x40 is 40 nm 0x00 is "standard"
+ * @partnumber: hithereto 0x8500 for DB8500
+ * @revision: version code in the series
  */
 struct dbx500_asic_id {
 	u16	partnumber;
@@ -33,7 +33,7 @@ static inline unsigned int __attribute_const__ dbx500_revision(void)
 }
 
 /*
-       
+ * SOCs
  */
 
 static inline bool __attribute_const__ cpu_is_u8500(void)
@@ -47,7 +47,7 @@ static inline bool __attribute_const__ cpu_is_u5500(void)
 }
 
 /*
-                 
+ * 5500 revisions
  */
 
 static inline bool __attribute_const__ cpu_is_u5500v1(void)
@@ -71,7 +71,7 @@ static inline bool __attribute_const__ cpu_is_u5500v21(void)
 }
 
 /*
-                 
+ * 8500 revisions
  */
 
 static inline bool __attribute_const__ cpu_is_u8500ed(void)

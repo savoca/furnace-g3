@@ -21,7 +21,7 @@
 #include <asm/bfin5xx_spi.h>
 #include <asm/bfin_twi.h>
 
-/*                                                                      */
+/* Common code defines PORT_MUX on us, so redirect the MMR back locally */
 #ifdef BFIN_PORT_MUX
 #undef PORT_MUX
 #define PORT_MUX BFIN_PORT_MUX
@@ -62,7 +62,7 @@
 	})
 
 /*
-                                     
+ * Core registers (not memory mapped)
  */
 extern u32 last_seqstat;
 
@@ -106,7 +106,7 @@ DEFINE_SYSREG(syscfg, , CSYNC());
 #define D_SYSREG(sr) debugfs_create_file(#sr, S_IRUSR|S_IWUSR, parent, NULL, &fops_sysreg_##sr)
 
 /*
-      
+ * CAN
  */
 #define CAN_OFF(mmr)  REGS_OFF(can, mmr)
 #define __CAN(uname, lname) __REGS(can, #uname, lname)
@@ -164,7 +164,7 @@ bfin_debug_mmrs_can(struct dentry *parent, unsigned long base, int num)
 	__CAN(MBTD, mbtd);
 	__CAN(EWR, ewr);
 	__CAN(ESR, esr);
-	/*                                      */
+	/*__CAN(UCREG, ucreg); no longer exists */
 	__CAN(UCCNT, uccnt);
 	__CAN(UCRC, ucrc);
 	__CAN(UCCNF, uccnf);
@@ -200,7 +200,7 @@ bfin_debug_mmrs_can(struct dentry *parent, unsigned long base, int num)
 #define CAN(num) bfin_debug_mmrs_can(parent, CAN##num##_MC1, num)
 
 /*
-      
+ * DMA
  */
 #define __DMA(uname, lname) __REGS(dma, #uname, lname)
 static void __init __maybe_unused
@@ -239,7 +239,7 @@ bfin_debug_mmrs_dma(struct dentry *parent, unsigned long base, int num, char mdm
 #define IMDMA(num) _MDMA(num, IM)
 
 /*
-       
+ * EPPI
  */
 #define __EPPI(uname, lname) __REGS(eppi, #uname, lname)
 static void __init __maybe_unused
@@ -264,7 +264,7 @@ bfin_debug_mmrs_eppi(struct dentry *parent, unsigned long base, int num)
 #define EPPI(num) bfin_debug_mmrs_eppi(parent, EPPI##num##_STATUS, num)
 
 /*
-                         
+ * General Purpose Timers
  */
 #define __GPTIMER(uname, lname) __REGS(gptimer, #uname, lname)
 static void __init __maybe_unused
@@ -291,7 +291,7 @@ bfin_debug_mmrs_gptimer_group(struct dentry *parent, unsigned long base, int num
 		__GPTIMER_GROUP(DISABLE, disable);
 		__GPTIMER_GROUP(STATUS, status);
 	} else {
-		/*                                                     */
+		/* These MMRs are a bit odd as the group # is a suffix */
 		_buf = buf + sprintf(buf, "TIMER_ENABLE%i", num);
 		d(buf, 16, base + GPTIMER_GROUP_OFF(enable));
 
@@ -305,7 +305,7 @@ bfin_debug_mmrs_gptimer_group(struct dentry *parent, unsigned long base, int num
 #define GPTIMER_GROUP(mmr, num) bfin_debug_mmrs_gptimer_group(parent, mmr, num)
 
 /*
-                 
+ * Handshake MDMA
  */
 #define __HMDMA(uname, lname) __REGS(hmdma, #uname, lname)
 static void __init __maybe_unused
@@ -323,7 +323,7 @@ bfin_debug_mmrs_hmdma(struct dentry *parent, unsigned long base, int num)
 #define HMDMA(num) bfin_debug_mmrs_hmdma(parent, HMDMA##num##_CONTROL, num)
 
 /*
-                                    
+ * Peripheral Interrupts (PINT/GPIO)
  */
 #ifdef PINT0_MASK_SET
 #define __PINT(uname, lname) __REGS(pint, #uname, lname)
@@ -346,7 +346,7 @@ bfin_debug_mmrs_pint(struct dentry *parent, unsigned long base, int num)
 #endif
 
 /*
-            
+ * Port/GPIO
  */
 #define bfin_gpio_regs gpio_port_t
 #define __PORT(uname, lname) __REGS(gpio, #uname, lname)
@@ -388,7 +388,7 @@ bfin_debug_mmrs_port(struct dentry *parent, unsigned long base, int num)
 #define PORT(base, num) bfin_debug_mmrs_port(parent, base, num)
 
 /*
-      
+ * PPI
  */
 #define __PPI(uname, lname) __REGS(ppi, #uname, lname)
 static void __init __maybe_unused
@@ -404,7 +404,7 @@ bfin_debug_mmrs_ppi(struct dentry *parent, unsigned long base, int num)
 #define PPI(num) bfin_debug_mmrs_ppi(parent, PPI##num##_CONTROL, num)
 
 /*
-      
+ * SPI
  */
 #define __SPI(uname, lname) __REGS(spi, #uname, lname)
 static void __init __maybe_unused
@@ -422,18 +422,18 @@ bfin_debug_mmrs_spi(struct dentry *parent, unsigned long base, int num)
 #define SPI(num) bfin_debug_mmrs_spi(parent, SPI##num##_REGBASE, num)
 
 /*
-        
+ * SPORT
  */
 static inline int sport_width(void *mmr)
 {
 	unsigned long lmmr = (unsigned long)mmr;
 	if ((lmmr & 0xff) == 0x10)
-		/*                                                          */
+		/* SPORT#_TX has 0x10 offset -> SPORT#_TCR2 has 0x04 offset */
 		lmmr -= 0xc;
 	else
-		/*                                                          */
+		/* SPORT#_RX has 0x18 offset -> SPORT#_RCR2 has 0x24 offset */
 		lmmr += 0xc;
-	/*                                                      */
+	/* extract SLEN field from control register 2 and add 1 */
 	return (bfin_read16(lmmr) & 0x1f) + 1;
 }
 static int sport_set(void *mmr, u64 val)
@@ -459,7 +459,7 @@ static int sport_get(void *mmr, u64 *val)
 	return 0;
 }
 DEFINE_SIMPLE_ATTRIBUTE(fops_sport, sport_get, sport_set, "0x%08llx\n");
-/*                                                                      */
+/*DEFINE_SIMPLE_ATTRIBUTE(fops_sport_ro, sport_get, NULL, "0x%08llx\n");*/
 DEFINE_SIMPLE_ATTRIBUTE(fops_sport_wo, NULL, sport_set, "0x%08llx\n");
 #define SPORT_OFF(mmr) (SPORT0_##mmr - SPORT0_TCR1)
 #define _D_SPORT(name, perms, fops) \
@@ -505,7 +505,7 @@ bfin_debug_mmrs_sport(struct dentry *parent, unsigned long base, int num)
 #define SPORT(num) bfin_debug_mmrs_sport(parent, SPORT##num##_TCR1, num)
 
 /*
-      
+ * TWI
  */
 #define __TWI(uname, lname) __REGS(twi, #uname, lname)
 static void __init __maybe_unused
@@ -532,7 +532,7 @@ bfin_debug_mmrs_twi(struct dentry *parent, unsigned long base, int num)
 #define TWI(num) bfin_debug_mmrs_twi(parent, TWI##num##_CLKDIV, num)
 
 /*
-       
+ * UART
  */
 #define __UART(uname, lname) __REGS(uart, #uname, lname)
 static void __init __maybe_unused
@@ -570,7 +570,7 @@ bfin_debug_mmrs_uart(struct dentry *parent, unsigned long base, int num)
 #define UART(num) bfin_debug_mmrs_uart(parent, UART##num##_DLL, num)
 
 /*
-                                
+ * The actual debugfs generation
  */
 static struct dentry *debug_mmrs_dentry;
 
@@ -594,7 +594,7 @@ static int __init bfin_debug_mmrs_init(void)
 	D_SYSREG(seqstat);
 	D_SYSREG(syscfg);
 
-	/*           */
+	/* Core MMRs */
 	parent = debugfs_create_dir("ctimer", top);
 	D32(TCNTL);
 	D32(TCOUNT);
@@ -741,7 +741,7 @@ static int __init bfin_debug_mmrs_init(void)
 	D32(WPDACNT1);
 	D32(WPSTAT);
 
-	/*             */
+	/* System MMRs */
 #ifdef ATAPI_CONTROL
 	parent = debugfs_create_dir("atapi", top);
 	D16(ATAPI_CONTROL);
@@ -814,7 +814,7 @@ static int __init bfin_debug_mmrs_init(void)
 #endif
 
 #ifdef __ADSPBF561__
-	/*                                 */
+	/* XXX: should rewrite the MMR map */
 # define DMA0_NEXT_DESC_PTR DMA2_0_NEXT_DESC_PTR
 # define DMA1_NEXT_DESC_PTR DMA2_1_NEXT_DESC_PTR
 # define DMA2_NEXT_DESC_PTR DMA2_2_NEXT_DESC_PTR
@@ -1064,7 +1064,7 @@ static int __init bfin_debug_mmrs_init(void)
 #ifdef TIMER_ENABLE1
 	GPTIMER_GROUP(TIMER_ENABLE1, 1);
 #endif
-	/*                                     */
+	/* XXX: Should convert BF561 MMR names */
 #ifdef TMRS4_DISABLE
 	GPTIMER_GROUP(TMRS4_ENABLE, 0);
 	GPTIMER_GROUP(TMRS8_ENABLE, 1);
@@ -1330,7 +1330,7 @@ static int __init bfin_debug_mmrs_init(void)
 	D16(PLL_LOCKCNT);
 	D16(PLL_STAT);
 	D16(VR_CTL);
-	D32(CHIPID);	/*                                  */
+	D32(CHIPID);	/* it's part of this hardware block */
 
 #if defined(PPI_CONTROL) || defined(PPI0_CONTROL) || defined(PPI1_CONTROL)
 	parent = debugfs_create_dir("ppi", top);
@@ -1758,11 +1758,11 @@ static int __init bfin_debug_mmrs_init(void)
 	D32(WDOGB_STAT);
 #endif
 
-	/*            */
+	/* BF533 glue */
 #ifdef FIO_FLAG_D
 #define PORTFIO FIO_FLAG_D
 #endif
-	/*            */
+	/* BF561 glue */
 #ifdef FIO0_FLAG_D
 #define PORTFIO FIO0_FLAG_D
 #endif
@@ -1801,7 +1801,7 @@ static int __init bfin_debug_mmrs_init(void)
 
 	D16(MISCPORT_DRIVE);
 	D16(MISCPORT_HYSTERESIS);
-#endif	/*       */
+#endif	/* BF51x */
 
 #ifdef __ADSPBF52x__
 	D16(PORTF_FER);
@@ -1825,14 +1825,14 @@ static int __init bfin_debug_mmrs_init(void)
 	D16(MISCPORT_DRIVE);
 	D16(MISCPORT_HYSTERESIS);
 	D16(MISCPORT_SLEW);
-#endif	/*       */
+#endif	/* BF52x */
 
 #ifdef BF537_FAMILY
 	D16(PORTF_FER);
 	D16(PORTG_FER);
 	D16(PORTH_FER);
 	D16(PORT_MUX);
-#endif	/*                   */
+#endif	/* BF534 BF536 BF537 */
 
 #ifdef BF538_FAMILY
 	D16(PORTCIO_FER);
@@ -1858,7 +1858,7 @@ static int __init bfin_debug_mmrs_init(void)
 	D16(PORTEIO_INEN);
 	D16(PORTEIO_SET);
 	D16(PORTEIO_TOGGLE);
-#endif	/*             */
+#endif	/* BF538 BF539 */
 
 #ifdef __ADSPBF54x__
 	{
@@ -1872,7 +1872,7 @@ static int __init bfin_debug_mmrs_init(void)
 		}
 
 	}
-#endif	/*       */
+#endif	/* BF54x */
 
 	debug_mmrs_dentry = top;
 

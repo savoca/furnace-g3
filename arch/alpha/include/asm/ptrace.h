@@ -3,17 +3,17 @@
 
 
 /*
-                                                              
-                                                          
-  
-                                                                 
-                                                                 
-  
-                                                          
-                                    
-  
-                                                                  
-                                   
+ * This struct defines the way the registers are stored on the
+ * kernel stack during a system call or other kernel entry
+ *
+ * NOTE! I want to minimize the overhead of system calls, so this
+ * struct has as little information as possible.  I does not have
+ *
+ *  - floating point regs: the kernel doesn't change those
+ *  - r9-15: saved by the C compiler
+ *
+ * This makes "fork()" and "exec()" a bit more complex, but should
+ * give us low system call latency.
  */
 
 struct pt_regs {
@@ -37,11 +37,11 @@ struct pt_regs {
 	unsigned long r27;
 	unsigned long r28;
 	unsigned long hae;
-/*                                                         */
+/* JRP - These are the values provided to a0-a2 by PALcode */
 	unsigned long trap_a0;
 	unsigned long trap_a1;
 	unsigned long trap_a2;
-/*                              */
+/* These are saved by PAL-code: */
 	unsigned long ps;
 	unsigned long pc;
 	unsigned long gp;
@@ -51,8 +51,8 @@ struct pt_regs {
 };
 
 /*
-                                                                     
-                                                           
+ * This is the extended stack used by signal handlers and the context
+ * switcher: it's pushed after the normal "struct pt_regs".
  */
 struct switch_stack {
 	unsigned long r9;
@@ -63,7 +63,7 @@ struct switch_stack {
 	unsigned long r14;
 	unsigned long r15;
 	unsigned long r26;
-	unsigned long fp[32];	/*                */
+	unsigned long fp[32];	/* fp[31] is fpcr */
 };
 
 #ifdef __KERNEL__

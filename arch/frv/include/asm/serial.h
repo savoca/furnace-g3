@@ -9,7 +9,7 @@
 #include <asm/serial-regs.h>
 
 /*
-                                                                   
+ * the base baud is derived from the clock speed and so is variable
  */
 #define BASE_BAUD 0
 

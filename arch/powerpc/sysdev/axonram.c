@@ -81,10 +81,10 @@ axon_ram_sysfs_ecc(struct device *dev, struct device_attribute *attr, char *buf)
 
 static DEVICE_ATTR(ecc, S_IRUGO, axon_ram_sysfs_ecc, NULL);
 
-/* 
-                                                            
-                     
-                             
+/**
+ * axon_ram_irq_handler - interrupt handler for Axon RAM ECC
+ * @irq: interrupt ID
+ * @dev: pointer to of_device
  */
 static irqreturn_t
 axon_ram_irq_handler(int irq, void *dev)
@@ -99,9 +99,9 @@ axon_ram_irq_handler(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-/* 
-                                                                 
-                                             
+/**
+ * axon_ram_make_request - make_request() method for block device
+ * @queue, @bio: see blk_queue_make_request()
  */
 static void
 axon_ram_make_request(struct request_queue *queue, struct bio *bio)
@@ -134,9 +134,9 @@ axon_ram_make_request(struct request_queue *queue, struct bio *bio)
 	bio_endio(bio, 0);
 }
 
-/* 
-                                                                   
-                                                              
+/**
+ * axon_ram_direct_access - direct_access() method for block device
+ * @device, @sector, @data: see block_device_operations method
  */
 static int
 axon_ram_direct_access(struct block_device *device, sector_t sector,
@@ -165,9 +165,9 @@ static const struct block_device_operations axon_ram_devops = {
 	.direct_access	= axon_ram_direct_access
 };
 
-/* 
-                                                      
-                                      
+/**
+ * axon_ram_probe - probe() method for platform driver
+ * @device: see platform_driver method
  */
 static int axon_ram_probe(struct platform_device *device)
 {
@@ -293,9 +293,9 @@ failed:
 	return rc;
 }
 
-/* 
-                                                        
-                                         
+/**
+ * axon_ram_remove - remove() method for platform driver
+ * @device: see of_platform_driver method
  */
 static int
 axon_ram_remove(struct platform_device *device)
@@ -330,8 +330,8 @@ static struct platform_driver axon_ram_driver = {
 	},
 };
 
-/* 
-                
+/**
+ * axon_ram_init
  */
 static int __init
 axon_ram_init(void)
@@ -347,8 +347,8 @@ axon_ram_init(void)
 	return platform_driver_register(&axon_ram_driver);
 }
 
-/* 
-                
+/**
+ * axon_ram_exit
  */
 static void __exit
 axon_ram_exit(void)

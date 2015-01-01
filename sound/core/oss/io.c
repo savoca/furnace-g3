@@ -31,7 +31,7 @@
 #define pcm_readv(plug,vec,count) snd_pcm_oss_readv3(plug,vec,count,1)
 
 /*
-                   
+ *  Basic io plugin
  */
  
 static snd_pcm_sframes_t io_playback_transfer(struct snd_pcm_plugin *plugin,

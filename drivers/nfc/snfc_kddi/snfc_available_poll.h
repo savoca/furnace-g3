@@ -1,12 +1,12 @@
 /*
-                       
+*	snfc_available_poll.h
 */
 
 #ifndef __SNFC_AVAILABLE_POLL__
 #define __SNFC_AVAILABLE_POLL__
 
 /*
-                        
+ *  Inclued header files
  */
 #include "snfc_common.h"
 #include "snfc_i2c.h"
@@ -17,7 +17,7 @@ int snfc_avail_poll_probe(struct device_node *np);
 void snfc_avail_poll_remove(void);
 
 /*
-           
+ *  Defines
  */
 
-#endif //                       
+#endif //__SNFC_AVAILABLE_POLL__

@@ -4,9 +4,9 @@
 #include <linux/irqflags.h>
 
 /*
-                                                                    
-                                                                  
-                                        
+ * To get proper branch prediction for the main line, we must branch
+ * forward to code at the end of this object's .text section, then
+ * branch back to restart the operation.
  */
 static inline void atomic_add(int i, atomic_t *v)
 {
@@ -70,4 +70,4 @@ static inline void atomic_set_mask(unsigned int mask, atomic_t *v)
 	raw_local_irq_restore(flags);
 }
 
-#endif /*                       */
+#endif /* __ASM_SH_ATOMIC_IRQ_H */

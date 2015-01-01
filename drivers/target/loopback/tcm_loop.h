@@ -3,19 +3,19 @@
 #define TL_TPGS_PER_HBA			32
 
 /*
-                                                                    
+ * Used in tcm_loop_driver_probe() for struct Scsi_Host->max_cmd_len
  */
 #define TL_SCSI_MAX_CMD_LEN		32
 
 struct tcm_loop_cmd {
-	/*                                         */
+	/* State of Linux/SCSI CDB+Data descriptor */
 	u32 sc_cmd_state;
-	/*                                                              */
+	/* Pointer to the CDB+Data descriptor from Linux/SCSI subsystem */
 	struct scsi_cmnd *sc;
-	/*                                                            */
+	/* The TCM I/O descriptor that is accessed via container_of() */
 	struct se_cmd tl_se_cmd;
 	struct work_struct work;
-	/*                                                       */
+	/* Sense buffer that will be mapped into outgoing status */
 	unsigned char tl_sense_buf[TRANSPORT_SENSE_BUFFER];
 };
 
@@ -27,12 +27,12 @@ struct tcm_loop_tmr {
 struct tcm_loop_nexus {
 	int it_nexus_active;
 	/*
-                                                            
-  */
+	 * Pointer to Linux/SCSI HBA from linux/include/scsi_host.h
+	 */
 	struct scsi_host *sh;
 	/*
-                                        
-  */
+	 * Pointer to TCM session for I_T Nexus
+	 */
 	struct se_session *se_sess;
 };
 

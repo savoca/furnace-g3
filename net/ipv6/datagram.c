@@ -79,8 +79,8 @@ int ip6_datagram_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 
 	if (addr_type == IPV6_ADDR_ANY) {
 		/*
-                    
-   */
+		 *	connect to self
+		 */
 		usin->sin6_addr.s6_addr[15] = 0x01;
 	}
 
@@ -136,7 +136,7 @@ ipv4_connected:
 		if (!sk->sk_bound_dev_if && (addr_type & IPV6_ADDR_MULTICAST))
 			sk->sk_bound_dev_if = np->mcast_oif;
 
-		/*                                                     */
+		/* Connect to link-local address requires an interface */
 		if (!sk->sk_bound_dev_if) {
 			err = -EINVAL;
 			goto out;
@@ -149,9 +149,9 @@ ipv4_connected:
 	inet->inet_dport = usin->sin6_port;
 
 	/*
-                                                  
-                             
-  */
+	 *	Check for a route to destination an obtain the
+	 *	destination cache for it.
+	 */
 
 	fl6.flowi6_proto = sk->sk_protocol;
 	fl6.daddr = np->daddr;
@@ -176,7 +176,7 @@ ipv4_connected:
 		goto out;
 	}
 
-	/*                                              */
+	/* source address lookup done in ip6_dst_lookup */
 
 	if (ipv6_addr_any(&np->saddr))
 		np->saddr = fl6.saddr;
@@ -313,7 +313,7 @@ void ipv6_local_rxpmtu(struct sock *sk, struct flowi6 *fl6, u32 mtu)
 }
 
 /*
-                      
+ *	Handle MSG_ERRQUEUE
  */
 int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
 {
@@ -393,12 +393,12 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
 
 	put_cmsg(msg, SOL_IPV6, IPV6_RECVERR, sizeof(errhdr), &errhdr);
 
-	/*                                                  */
+	/* Now we could try to dump offended packet options */
 
 	msg->msg_flags |= MSG_ERRQUEUE;
 	err = copied;
 
-	/*                                   */
+	/* Reset and regenerate socket error */
 	spin_lock_bh(&sk->sk_error_queue.lock);
 	sk->sk_err = 0;
 	if ((skb2 = skb_peek(&sk->sk_error_queue)) != NULL) {
@@ -416,7 +416,7 @@ out:
 }
 
 /*
-                          
+ *	Handle IPV6_RECVPATHMTU
  */
 int ipv6_recv_rxpmtu(struct sock *sk, struct msghdr *msg, int len)
 {
@@ -494,7 +494,7 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
 		put_cmsg(msg, SOL_IPV6, IPV6_FLOWINFO, sizeof(flowinfo), &flowinfo);
 	}
 
-	/*                          */
+	/* HbH is allowed only once */
 	if (np->rxopt.bits.hopopts && opt->hop) {
 		u8 *ptr = nh + opt->hop;
 		put_cmsg(msg, SOL_IPV6, IPV6_HOPOPTS, (ptr[1]+1)<<3, ptr);
@@ -503,14 +503,14 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
 	if (opt->lastopt &&
 	    (np->rxopt.bits.dstopts || np->rxopt.bits.srcrt)) {
 		/*
-                                                     
-                                              
-              
-    
-                                                
-                                      
-                                                 
-   */
+		 * Silly enough, but we need to reparse in order to
+		 * report extension headers (except for HbH)
+		 * in order.
+		 *
+		 * Also note that IPV6_RECVRTHDRDSTOPTS is NOT
+		 * (and WILL NOT be) defined because
+		 * IPV6_RECVDSTOPTS is more generic. --yoshfuji
+		 */
 		unsigned int off = sizeof(struct ipv6hdr);
 		u8 nexthdr = ipv6_hdr(skb)->nexthdr;
 
@@ -545,7 +545,7 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
 		}
 	}
 
-	/*                             */
+	/* socket options in old style */
 	if (np->rxopt.bits.rxoinfo) {
 		struct in6_pktinfo src_info;
 
@@ -578,10 +578,10 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
 		__be16 *ports = (__be16 *) skb_transport_header(skb);
 
 		if (skb_transport_offset(skb) + 4 <= skb->len) {
-			/*                                                             
-                                                                   
-                                           
-    */
+			/* All current transport protocols have the port numbers in the
+			 * first four bytes of the transport header and this function is
+			 * written with this assumption in mind.
+			 */
 
 			sin6.sin6_family = AF_INET6;
 			sin6.sin6_addr = ipv6_hdr(skb)->daddr;
@@ -787,7 +787,7 @@ int datagram_send_ctl(struct net *net, struct sock *sk,
 				goto exit_f;
 			}
 
-			/*                               */
+			/* segments left must also match */
 			if ((rthdr->hdrlen >> 1) != rthdr->segments_left) {
 				err = -EINVAL;
 				goto exit_f;

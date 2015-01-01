@@ -22,7 +22,7 @@
 #include "msm.h"
 #include "msm_camera_io_util.h"
 
-/*                          */
+/*#define CONFIG_MSM_ISP_DBG*/
 #undef CDBG
 #ifdef CONFIG_MSM_ISP_DBG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
@@ -341,16 +341,16 @@ static void msm_vfe40_init_hardware_reg(struct vfe_device *vfe_dev)
 {
 	msm_vfe40_init_qos_parms(vfe_dev);
 	msm_vfe40_init_vbif_parms(vfe_dev);
-	/*              */
+	/* CGC_OVERRIDE */
 	msm_camera_io_w(0x3FFFFFFF, vfe_dev->vfe_base + 0x14);
 	msm_camera_io_w(0xC001FF7F, vfe_dev->vfe_base + 0x974);
-	/*         */
+	/* BUS_CFG */
 	msm_camera_io_w(0x10000001, vfe_dev->vfe_base + 0x50);
 
 /*                                                                                          */
 #if 1
 	msm_camera_io_w(0xF80000F3, vfe_dev->vfe_base + 0x28);
-#else //         
+#else // original
 	msm_camera_io_w(0xE00000F3, vfe_dev->vfe_base + 0x28);
 #endif
 /*                                                                                          */
@@ -541,8 +541,8 @@ static void msm_vfe40_read_irq_status(struct vfe_device *vfe_dev,
 	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x38);
 	*irq_status1 = msm_camera_io_r(vfe_dev->vfe_base + 0x3C);
 	/*
-                                                            
-  */
+	 * Ignore composite 2/3 irq which is used for dual VFE only
+	 */
 	if (*irq_status0 & 0x6000000)
 		*irq_status0 &= ~(0x18000000);
 	msm_camera_io_w(*irq_status0, vfe_dev->vfe_base + 0x30);
@@ -599,8 +599,8 @@ static void msm_vfe40_reg_update(struct vfe_device *vfe_dev)
 
 static uint32_t msm_vfe40_reset_values[ISP_RST_MAX] =
 {
-	0x1FF, /*                               */
-	0x1EF /*                                            */
+	0x1FF, /* ISP_RST_HARD reset everything */
+	0x1EF /* ISP_RST_SOFT all modules without registers */
 };
 
 
@@ -655,9 +655,9 @@ static void msm_vfe40_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
 	irq_mask |= 1 << (comp_mask_index + 25);
 
 	/*
-                                                            
-                                                   
-  */
+	 * For dual VFE, composite 2/3 interrupt is used to trigger
+	 * microcontroller to update certain VFE registers
+	 */
 
 /*                                                                                          */
 #if 1
@@ -672,7 +672,7 @@ static void msm_vfe40_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
 		stream_composite_mask << 24);
 		irq_mask |= BIT(28);
 	}
-#else //         
+#else // original
 	if (stream_info->plane_cfg[0].plane_addr_offset &&
 		stream_info->stream_src == PIX_VIEWFINDER) {
 		comp_mask |= (axi_data->composite_info[comp_mask_index].
@@ -720,7 +720,7 @@ static void msm_vfe40_axi_clear_comp_mask(struct vfe_device *vfe_dev,
 		stream_composite_mask << 24);
 		irq_mask &= ~BIT(28);
 	}
-#else //         
+#else // original
 	if (stream_info->plane_cfg[0].plane_addr_offset &&
 		stream_info->stream_src == PIX_VIEWFINDER) {
 		comp_mask &= ~(axi_data->composite_info[comp_mask_index].
@@ -803,7 +803,7 @@ static int32_t msm_vfe40_cfg_io_format(struct vfe_device *vfe_dev,
 {
 	int bpp, bpp_reg = 0, pack_reg = 0;
 	enum msm_isp_pack_fmt pack_fmt = 0;
-	uint32_t io_format_reg; /*                      */
+	uint32_t io_format_reg; /*io format register bit*/
 	bpp = msm_isp_get_bit_per_pixel(io_format);
 	if (bpp < 0) {
 		pr_err("%s:%d invalid io_format %d bpp %d", __func__, __LINE__,
@@ -827,7 +827,7 @@ static int32_t msm_vfe40_cfg_io_format(struct vfe_device *vfe_dev,
 	}
 
 	if (stream_src == IDEAL_RAW) {
-		/*                                              */
+		/*use io_format(v4l2_pix_fmt) to get pack format*/
 		pack_fmt = msm_isp_get_pack_format(io_format);
 		switch (pack_fmt) {
 		case QCOM:
@@ -985,7 +985,7 @@ static void msm_vfe40_axi_cfg_wm_reg(
 
 	if (!stream_info->frame_based) {
 		msm_camera_io_w(0x0, vfe_dev->vfe_base + wm_base);
-		/*             */
+		/*WR_IMAGE_SIZE*/
 		val =
 			((msm_isp_cal_word_per_line(
 				stream_info->output_format,
@@ -995,7 +995,7 @@ static void msm_vfe40_axi_cfg_wm_reg(
 				output_height - 1);
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x14);
 
-		/*             */
+		/*WR_BUFFER_CFG*/
 		val =
 			msm_isp_cal_word_per_line(stream_info->output_format,
 			stream_info->plane_cfg[
@@ -1016,10 +1016,10 @@ static void msm_vfe40_axi_cfg_wm_reg(
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
 	}
 
-	/*                        */
+	/*WR_IRQ_SUBSAMPLE_PATTERN*/
 	msm_camera_io_w(0xFFFFFFFF,
 		vfe_dev->vfe_base + wm_base + 0x20);
-	/*                               */
+	/* TD: Add IRQ subsample pattern */
 	return;
 }
 
@@ -1029,13 +1029,13 @@ static void msm_vfe40_axi_clear_wm_reg(
 {
 	uint32_t val = 0;
 	uint32_t wm_base = VFE40_WM_BASE(stream_info->wm[plane_idx]);
-	/*           */
+	/*WR_ADDR_CFG*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0xC);
-	/*             */
+	/*WR_IMAGE_SIZE*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x14);
-	/*             */
+	/*WR_BUFFER_CFG*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
-	/*                        */
+	/*WR_IRQ_SUBSAMPLE_PATTERN*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x20);
 	return;
 }
@@ -1056,20 +1056,20 @@ static void msm_vfe40_axi_cfg_wm_xbar_reg(
 	case PIX_VIEWFINDER: {
 		if (plane_cfg->output_plane_format != CRCB_PLANE &&
 			plane_cfg->output_plane_format != CBCR_PLANE) {
-			/*                 */
+			/*SINGLE_STREAM_SEL*/
 			xbar_cfg |= plane_cfg->output_plane_format << 8;
 		} else {
 			switch (stream_info->output_format) {
 			case V4L2_PIX_FMT_NV12:
 			case V4L2_PIX_FMT_NV14:
 			case V4L2_PIX_FMT_NV16:
-				xbar_cfg |= 0x3 << 4; /*                     */
+				xbar_cfg |= 0x3 << 4; /*PAIR_STREAM_SWAP_CTRL*/
 				break;
 			}
-			xbar_cfg |= 0x1 << 1; /*              */
+			xbar_cfg |= 0x1 << 1; /*PAIR_STREAM_EN*/
 		}
 		if (stream_info->stream_src == PIX_VIEWFINDER)
-			xbar_cfg |= 0x1; /*              */
+			xbar_cfg |= 0x1; /*VIEW_STREAM_EN*/
 		break;
 	}
 	case CAMIF_RAW:
@@ -1277,13 +1277,13 @@ static void msm_vfe40_stats_cfg_wm_reg(
 	int stats_idx = STATS_IDX(stream_info->stream_handle);
 	uint32_t stats_base = VFE40_STATS_BASE(stats_idx);
 
-	/*           */
+	/*WR_ADDR_CFG*/
 	msm_camera_io_w(stream_info->framedrop_period << 2,
 		vfe_dev->vfe_base + stats_base + 0x8);
-	/*                        */
+	/*WR_IRQ_FRAMEDROP_PATTERN*/
 	msm_camera_io_w(stream_info->framedrop_pattern,
 		vfe_dev->vfe_base + stats_base + 0x10);
-	/*                        */
+	/*WR_IRQ_SUBSAMPLE_PATTERN*/
 	msm_camera_io_w(0xFFFFFFFF,
 		vfe_dev->vfe_base + stats_base + 0x14);
 }
@@ -1296,11 +1296,11 @@ static void msm_vfe40_stats_clear_wm_reg(
 	int stats_idx = STATS_IDX(stream_info->stream_handle);
 	uint32_t stats_base = VFE40_STATS_BASE(stats_idx);
 
-	/*           */
+	/*WR_ADDR_CFG*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + stats_base + 0x8);
-	/*                        */
+	/*WR_IRQ_FRAMEDROP_PATTERN*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + stats_base + 0x10);
-	/*                        */
+	/*WR_IRQ_SUBSAMPLE_PATTERN*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + stats_base + 0x14);
 }
 
@@ -1309,14 +1309,14 @@ static void msm_vfe40_stats_cfg_ub(struct vfe_device *vfe_dev)
 	int i;
 	uint32_t ub_offset = VFE40_UB_SIZE;
 	uint32_t ub_size[VFE40_NUM_STATS_TYPE] = {
-		64, /*                */
-		128, /*                */
-		128, /*                */
-		16, /*                 */
-		8,  /*                */
-		16, /*                */
-		16, /*                   */
-		16, /*                   */
+		64, /*MSM_ISP_STATS_BE*/
+		128, /*MSM_ISP_STATS_BG*/
+		128, /*MSM_ISP_STATS_BF*/
+		16, /*MSM_ISP_STATS_AWB*/
+		8,  /*MSM_ISP_STATS_RS*/
+		16, /*MSM_ISP_STATS_CS*/
+		16, /*MSM_ISP_STATS_IHIST*/
+		16, /*MSM_ISP_STATS_BHIST*/
 	};
 
 	for (i = 0; i < VFE40_NUM_STATS_TYPE; i++) {

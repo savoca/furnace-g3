@@ -25,7 +25,7 @@
 
 *******************************************************************************/
 
-/*                           */
+/* ethtool support for igbvf */
 
 #include <linux/netdevice.h>
 #include <linux/ethtool.h>
@@ -235,7 +235,7 @@ static int igbvf_set_ringparam(struct net_device *netdev,
 
 	if ((new_tx_count == adapter->tx_ring->count) &&
 	    (new_rx_count == adapter->rx_ring->count)) {
-		/*               */
+		/* nothing to do */
 		return 0;
 	}
 
@@ -257,10 +257,10 @@ static int igbvf_set_ringparam(struct net_device *netdev,
 	igbvf_down(adapter);
 
 	/*
-                                                       
-                                                      
-                                  
-  */
+	 * We can't just free everything and then setup again,
+	 * because the ISRs in MSI-X mode get passed pointers
+	 * to the tx and rx ring structs.
+	 */
 	if (new_tx_count != adapter->tx_ring->count) {
 		memcpy(temp_ring, adapter->tx_ring, sizeof(struct igbvf_ring));
 
@@ -315,9 +315,9 @@ static void igbvf_diag_test(struct net_device *netdev,
 	set_bit(__IGBVF_TESTING, &adapter->state);
 
 	/*
-                                                                
-                              
-  */
+	 * Link test performed before hardware reset so autoneg doesn't
+	 * interfere with test result
+	 */
 	if (igbvf_link_test(adapter, &data[0]))
 		eth_test->flags |= ETH_TEST_FL_FAILED;
 
@@ -363,7 +363,7 @@ static int igbvf_set_coalesce(struct net_device *netdev,
 	    (ec->rx_coalesce_usecs == 2))
 		return -EINVAL;
 
-	/*                                     */
+	/* convert to rate of irq's per second */
 	if (ec->rx_coalesce_usecs && ec->rx_coalesce_usecs <= 3) {
 		adapter->current_itr = IGBVF_START_ITR;
 		adapter->requested_itr = ec->rx_coalesce_usecs;

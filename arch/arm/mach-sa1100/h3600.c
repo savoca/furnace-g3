@@ -26,7 +26,7 @@
 #include "generic.h"
 
 /*
-                      
+ * helper for sa1100fb
  */
 static void h3600_lcd_power(int enable)
 {
@@ -91,7 +91,7 @@ static void __init h3600_map_io(void)
 }
 
 /*
-                                                          
+ * This turns the IRDA power on or off on the Compaq H3600
  */
 static int h3600_irda_set_power(struct device *dev, unsigned int state)
 {

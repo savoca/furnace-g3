@@ -6,8 +6,8 @@
 #define _ASM_H8300_CACHEFLUSH_H
 
 /*
-                           
-                                      
+ * Cache handling functions
+ * No Cache memory all dummy functions
  */
 
 #define flush_cache_all()
@@ -37,4 +37,4 @@
 #define copy_from_user_page(vma, page, vaddr, dst, src, len) \
 	memcpy(dst, src, len)
 
-#endif /*                         */
+#endif /* _ASM_H8300_CACHEFLUSH_H */

@@ -1,8 +1,8 @@
 /*
-                                  
-  
-                                        
-  
+ * Picvue PVC160206 display driver
+ *
+ * Brian Murphy <brian.murphy@eicon.com>
+ *
  */
 #include <linux/bug.h>
 #include <linux/kernel.h>

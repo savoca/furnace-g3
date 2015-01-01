@@ -31,72 +31,72 @@ MODULE_AUTHOR("Sebastian Haas <haas@ems-wuensche.com>");
 MODULE_DESCRIPTION("CAN driver for EMS Dr. Thomas Wuensche CAN/USB interfaces");
 MODULE_LICENSE("GPL v2");
 
-/*                                                            */
+/* Control-Values for CPC_Control() Command Subject Selection */
 #define CONTR_CAN_MESSAGE 0x04
 #define CONTR_CAN_STATE   0x0C
 #define CONTR_BUS_ERROR   0x1C
 
-/*                         */
+/* Control Command Actions */
 #define CONTR_CONT_OFF 0
 #define CONTR_CONT_ON  1
 #define CONTR_ONCE     2
 
-/*                         */
-#define CPC_MSG_TYPE_CAN_FRAME       1  /*                */
-#define CPC_MSG_TYPE_RTR_FRAME       8  /*                  */
-#define CPC_MSG_TYPE_CAN_PARAMS      12 /*                       */
-#define CPC_MSG_TYPE_CAN_STATE       14 /*                   */
-#define CPC_MSG_TYPE_EXT_CAN_FRAME   16 /*                         */
-#define CPC_MSG_TYPE_EXT_RTR_FRAME   17 /*                       */
-#define CPC_MSG_TYPE_CONTROL         19 /*                           */
-#define CPC_MSG_TYPE_CONFIRM         20 /*                                */
-#define CPC_MSG_TYPE_OVERRUN         21 /*                */
-#define CPC_MSG_TYPE_CAN_FRAME_ERROR 23 /*                     */
-#define CPC_MSG_TYPE_ERR_COUNTER     25 /*                     */
+/* Messages from CPC to PC */
+#define CPC_MSG_TYPE_CAN_FRAME       1  /* CAN data frame */
+#define CPC_MSG_TYPE_RTR_FRAME       8  /* CAN remote frame */
+#define CPC_MSG_TYPE_CAN_PARAMS      12 /* Actual CAN parameters */
+#define CPC_MSG_TYPE_CAN_STATE       14 /* CAN state message */
+#define CPC_MSG_TYPE_EXT_CAN_FRAME   16 /* Extended CAN data frame */
+#define CPC_MSG_TYPE_EXT_RTR_FRAME   17 /* Extended remote frame */
+#define CPC_MSG_TYPE_CONTROL         19 /* change interface behavior */
+#define CPC_MSG_TYPE_CONFIRM         20 /* command processed confirmation */
+#define CPC_MSG_TYPE_OVERRUN         21 /* overrun events */
+#define CPC_MSG_TYPE_CAN_FRAME_ERROR 23 /* detected bus errors */
+#define CPC_MSG_TYPE_ERR_COUNTER     25 /* RX/TX error counter */
 
-/*                                            */
-#define CPC_CMD_TYPE_CAN_FRAME     1   /*                */
-#define CPC_CMD_TYPE_CONTROL       3   /*                               */
-#define CPC_CMD_TYPE_CAN_PARAMS    6   /*                    */
-#define CPC_CMD_TYPE_RTR_FRAME     13  /*                  */
-#define CPC_CMD_TYPE_CAN_STATE     14  /*                   */
-#define CPC_CMD_TYPE_EXT_CAN_FRAME 15  /*                         */
-#define CPC_CMD_TYPE_EXT_RTR_FRAME 16  /*                           */
-#define CPC_CMD_TYPE_CAN_EXIT      200 /*              */
+/* Messages from the PC to the CPC interface  */
+#define CPC_CMD_TYPE_CAN_FRAME     1   /* CAN data frame */
+#define CPC_CMD_TYPE_CONTROL       3   /* control of interface behavior */
+#define CPC_CMD_TYPE_CAN_PARAMS    6   /* set CAN parameters */
+#define CPC_CMD_TYPE_RTR_FRAME     13  /* CAN remote frame */
+#define CPC_CMD_TYPE_CAN_STATE     14  /* CAN state message */
+#define CPC_CMD_TYPE_EXT_CAN_FRAME 15  /* Extended CAN data frame */
+#define CPC_CMD_TYPE_EXT_RTR_FRAME 16  /* Extended CAN remote frame */
+#define CPC_CMD_TYPE_CAN_EXIT      200 /* exit the CAN */
 
-#define CPC_CMD_TYPE_INQ_ERR_COUNTER 25 /*                                */
-#define CPC_CMD_TYPE_CLEAR_MSG_QUEUE 8  /*                     */
-#define CPC_CMD_TYPE_CLEAR_CMD_QUEUE 28 /*                     */
+#define CPC_CMD_TYPE_INQ_ERR_COUNTER 25 /* request the CAN error counters */
+#define CPC_CMD_TYPE_CLEAR_MSG_QUEUE 8  /* clear CPC_MSG queue */
+#define CPC_CMD_TYPE_CLEAR_CMD_QUEUE 28 /* clear CPC_CMD queue */
 
-#define CPC_CC_TYPE_SJA1000 2 /*                              */
+#define CPC_CC_TYPE_SJA1000 2 /* Philips basic CAN controller */
 
-#define CPC_CAN_ECODE_ERRFRAME 0x01 /*            */
+#define CPC_CAN_ECODE_ERRFRAME 0x01 /* Ecode type */
 
-/*               */
+/* Overrun types */
 #define CPC_OVR_EVENT_CAN       0x01
 #define CPC_OVR_EVENT_CANSTATE  0x02
 #define CPC_OVR_EVENT_BUSERROR  0x04
 
 /*
-                                                                           
-                          
+ * If the CAN controller lost a message we indicate it with the highest bit
+ * set in the count field.
  */
 #define CPC_OVR_HW 0x80
 
-/*                                                    */
+/* Size of the "struct ems_cpc_msg" without the union */
 #define CPC_MSG_HEADER_LEN   11
 #define CPC_CAN_MSG_MIN_SIZE 5
 
-/*                                           */
+/* Define these values to match your devices */
 #define USB_CPCUSB_VENDOR_ID 0x12D6
 
 #define USB_CPCUSB_ARM7_PRODUCT_ID 0x0444
 
-/*                                                  */
+/* Mode register NXP LPC2119/SJA1000 CAN Controller */
 #define SJA1000_MOD_NORMAL 0x00
 #define SJA1000_MOD_RM     0x01
 
-/*                                                 */
+/* ECC register NXP LPC2119/SJA1000 CAN Controller */
 #define SJA1000_ECC_SEG   0x1F
 #define SJA1000_ECC_DIR   0x20
 #define SJA1000_ECC_ERR   0x06
@@ -105,23 +105,23 @@ MODULE_LICENSE("GPL v2");
 #define SJA1000_ECC_STUFF 0x80
 #define SJA1000_ECC_MASK  0xc0
 
-/*                         */
+/* Status register content */
 #define SJA1000_SR_BS 0x80
 #define SJA1000_SR_ES 0x40
 
 #define SJA1000_DEFAULT_OUTPUT_CONTROL 0xDA
 
 /*
-                                                                   
-                                                                   
-              
+ * The device actually uses a 16MHz clock to generate the CAN clock
+ * but it expects SJA1000 bit settings based on 8MHz (is internally
+ * converted).
  */
 #define EMS_USB_ARM7_CLOCK 8000000
 
 /*
-                                                                  
-                                                      
-                                                            
+ * CAN-Message representation in a CPC_MSG. Message object type is
+ * CPC_MSG_TYPE_CAN_FRAME or CPC_MSG_TYPE_RTR_FRAME or
+ * CPC_MSG_TYPE_EXT_CAN_FRAME or CPC_MSG_TYPE_EXT_RTR_FRAME.
  */
 struct cpc_can_msg {
 	u32 id;
@@ -129,7 +129,7 @@ struct cpc_can_msg {
 	u8 msg[8];
 };
 
-/*                                                                 */
+/* Representation of the CAN parameters for the SJA1000 controller */
 struct cpc_sja1000_params {
 	u8 mode;
 	u8 acc_code0;
@@ -145,42 +145,42 @@ struct cpc_sja1000_params {
 	u8 outp_contr;
 };
 
-/*                                   */
+/* CAN params message representation */
 struct cpc_can_params {
 	u8 cc_type;
 
-	/*                                                */
+	/* Will support M16C CAN controller in the future */
 	union {
 		struct cpc_sja1000_params sja1000;
 	} cc_params;
 };
 
-/*                                          */
+/* Structure for confirmed message handling */
 struct cpc_confirm {
-	u8 error; /*            */
+	u8 error; /* error code */
 };
 
-/*                                  */
+/* Structure for overrun conditions */
 struct cpc_overrun {
 	u8 event;
 	u8 count;
 };
 
-/*                                                */
+/* SJA1000 CAN errors (compatible to NXP LPC2119) */
 struct cpc_sja1000_can_error {
 	u8 ecc;
 	u8 rxerr;
 	u8 txerr;
 };
 
-/*                                    */
+/* structure for CAN error conditions */
 struct cpc_can_error {
 	u8 ecode;
 
 	struct {
 		u8 cc_type;
 
-		/*                                                            */
+		/* Other controllers may also provide error code capture regs */
 		union {
 			struct cpc_sja1000_can_error sja1000;
 		} regs;
@@ -188,21 +188,21 @@ struct cpc_can_error {
 };
 
 /*
-                                                                              
-                                                             
+ * Structure containing RX/TX error counter. This structure is used to request
+ * the values of the CAN controllers TX and RX error counter.
  */
 struct cpc_can_err_counter {
 	u8 rx;
 	u8 tx;
 };
 
-/*                                                        */
+/* Main message type used between library and application */
 struct __packed ems_cpc_msg {
-	u8 type;	/*                 */
-	u8 length;	/*                                   */
-	u8 msgid;	/*                     */
-	u32 ts_sec;	/*                      */
-	u32 ts_nsec;	/*                           */
+	u8 type;	/* type of message */
+	u8 length;	/* length of data within union 'msg' */
+	u8 msgid;	/* confirmation handle */
+	u32 ts_sec;	/* timestamp in seconds */
+	u32 ts_nsec;	/* timestamp in nano seconds */
 
 	union {
 		u8 generic[64];
@@ -217,12 +217,12 @@ struct __packed ems_cpc_msg {
 };
 
 /*
-                                              
-                                                              
+ * Table of devices that work with this driver
+ * NOTE: This driver supports only CPC-USB/ARM7 (LPC2119) yet.
  */
 static struct usb_device_id ems_usb_table[] = {
 	{USB_DEVICE(USB_CPCUSB_VENDOR_ID, USB_CPCUSB_ARM7_PRODUCT_ID)},
-	{} /*                   */
+	{} /* Terminating entry */
 };
 
 MODULE_DEVICE_TABLE(usb, ems_usb_table);
@@ -244,7 +244,7 @@ struct ems_tx_urb_context {
 };
 
 struct ems_usb {
-	struct can_priv can; /*                          */
+	struct can_priv can; /* must be the first member */
 	int open_time;
 
 	struct sk_buff *echo_skb[MAX_TX_URBS];
@@ -263,9 +263,9 @@ struct ems_usb {
 	u8 *tx_msg_buffer;
 
 	u8 *intr_in_buffer;
-	unsigned int free_slots; /*                                    */
+	unsigned int free_slots; /* remember number of available slots */
 
-	struct ems_cpc_msg active_params; /*                              */
+	struct ems_cpc_msg active_params; /* active controller parameters */
 };
 
 static void ems_usb_read_interrupt_callback(struct urb *urb)
@@ -282,7 +282,7 @@ static void ems_usb_read_interrupt_callback(struct urb *urb)
 		dev->free_slots = dev->intr_in_buffer[1];
 		break;
 
-	case -ECONNRESET: /*        */
+	case -ECONNRESET: /* unlink */
 	case -ENOENT:
 	case -ESHUTDOWN:
 		return;
@@ -362,7 +362,7 @@ static void ems_usb_rx_err(struct ems_usb *dev, struct ems_cpc_msg *msg)
 		u8 txerr = msg->msg.error.cc.regs.sja1000.txerr;
 		u8 rxerr = msg->msg.error.cc.regs.sja1000.rxerr;
 
-		/*                     */
+		/* bus error interrupt */
 		dev->can.can_stats.bus_error++;
 		stats->rx_errors++;
 
@@ -384,7 +384,7 @@ static void ems_usb_rx_err(struct ems_usb *dev, struct ems_cpc_msg *msg)
 			break;
 		}
 
-		/*                                     */
+		/* Error occurred during transmission? */
 		if ((ecc & SJA1000_ECC_DIR) == 0)
 			cf->data[2] |= CAN_ERR_PROT_TX;
 
@@ -408,7 +408,7 @@ static void ems_usb_rx_err(struct ems_usb *dev, struct ems_cpc_msg *msg)
 }
 
 /*
-                           
+ * callback for bulk IN urb
  */
 static void ems_usb_read_bulk_callback(struct urb *urb)
 {
@@ -422,7 +422,7 @@ static void ems_usb_read_bulk_callback(struct urb *urb)
 		return;
 
 	switch (urb->status) {
-	case 0: /*         */
+	case 0: /* success */
 		break;
 
 	case -ENOENT:
@@ -448,7 +448,7 @@ static void ems_usb_read_bulk_callback(struct urb *urb)
 
 			switch (msg->type) {
 			case CPC_MSG_TYPE_CAN_STATE:
-				/*                           */
+				/* Process CAN state changes */
 				ems_usb_rx_err(dev, msg);
 				break;
 
@@ -460,12 +460,12 @@ static void ems_usb_read_bulk_callback(struct urb *urb)
 				break;
 
 			case CPC_MSG_TYPE_CAN_FRAME_ERROR:
-				/*                    */
+				/* Process errorframe */
 				ems_usb_rx_err(dev, msg);
 				break;
 
 			case CPC_MSG_TYPE_OVERRUN:
-				/*                              */
+				/* Message lost while receiving */
 				ems_usb_rx_err(dev, msg);
 				break;
 			}
@@ -495,7 +495,7 @@ resubmit_urb:
 }
 
 /*
-                           
+ * callback for bulk IN urb
  */
 static void ems_usb_write_bulk_callback(struct urb *urb)
 {
@@ -508,7 +508,7 @@ static void ems_usb_write_bulk_callback(struct urb *urb)
 	dev = context->dev;
 	netdev = dev->netdev;
 
-	/*                              */
+	/* free up our allocated buffer */
 	usb_free_coherent(urb->dev, urb->transfer_buffer_length,
 			  urb->transfer_buffer, urb->transfer_dma);
 
@@ -522,13 +522,13 @@ static void ems_usb_write_bulk_callback(struct urb *urb)
 
 	netdev->trans_start = jiffies;
 
-	/*                                 */
+	/* transmission complete interrupt */
 	netdev->stats.tx_packets++;
 	netdev->stats.tx_bytes += context->dlc;
 
 	can_get_echo_skb(netdev, context->echo_index);
 
-	/*                 */
+	/* Release context */
 	context->echo_index = MAX_TX_URBS;
 
 	if (netif_queue_stopped(netdev))
@@ -536,17 +536,17 @@ static void ems_usb_write_bulk_callback(struct urb *urb)
 }
 
 /*
-                                           
+ * Send the given CPC command synchronously
  */
 static int ems_usb_command_msg(struct ems_usb *dev, struct ems_cpc_msg *msg)
 {
 	int actual_length;
 
-	/*              */
+	/* Copy payload */
 	memcpy(&dev->tx_msg_buffer[CPC_HEADER_SIZE], msg,
 	       msg->length + CPC_MSG_HEADER_LEN);
 
-	/*              */
+	/* Clear header */
 	memset(&dev->tx_msg_buffer[0], 0, CPC_HEADER_SIZE);
 
 	return usb_bulk_msg(dev->udev, usb_sndbulkpipe(dev->udev, 2),
@@ -556,7 +556,7 @@ static int ems_usb_command_msg(struct ems_usb *dev, struct ems_cpc_msg *msg)
 }
 
 /*
-                                        
+ * Change CAN controllers' mode register
  */
 static int ems_usb_write_mode(struct ems_usb *dev, u8 mode)
 {
@@ -566,8 +566,8 @@ static int ems_usb_write_mode(struct ems_usb *dev, u8 mode)
 }
 
 /*
-                                                                               
-                                                         
+ * Send a CPC_Control command to change behaviour when interface receives a CAN
+ * message, bus error or CAN state changed notifications.
  */
 static int ems_usb_control_cmd(struct ems_usb *dev, u8 val)
 {
@@ -584,7 +584,7 @@ static int ems_usb_control_cmd(struct ems_usb *dev, u8 val)
 }
 
 /*
-                  
+ * Start interface
  */
 static int ems_usb_start(struct ems_usb *dev)
 {
@@ -592,13 +592,13 @@ static int ems_usb_start(struct ems_usb *dev)
 	int err, i;
 
 	dev->intr_in_buffer[0] = 0;
-	dev->free_slots = 15; /*              */
+	dev->free_slots = 15; /* initial size */
 
 	for (i = 0; i < MAX_RX_URBS; i++) {
 		struct urb *urb = NULL;
 		u8 *buf = NULL;
 
-		/*                                   */
+		/* create a URB, and a buffer for it */
 		urb = usb_alloc_urb(0, GFP_KERNEL);
 		if (!urb) {
 			netdev_err(netdev, "No memory left for URBs\n");
@@ -629,21 +629,21 @@ static int ems_usb_start(struct ems_usb *dev)
 			break;
 		}
 
-		/*                                                       */
+		/* Drop reference, USB core will take care of freeing it */
 		usb_free_urb(urb);
 	}
 
-	/*                        */
+	/* Did we submit any URBs */
 	if (i == 0) {
 		netdev_warn(netdev, "couldn't setup read URBs\n");
 		return err;
 	}
 
-	/*                                              */
+	/* Warn if we've couldn't transmit all the URBs */
 	if (i < MAX_RX_URBS)
 		netdev_warn(netdev, "rx performance may be slow\n");
 
-	/*                               */
+	/* Setup and start interrupt URB */
 	usb_fill_int_urb(dev->intr_urb, dev->udev,
 			 usb_rcvintpipe(dev->udev, 1),
 			 dev->intr_in_buffer,
@@ -657,17 +657,17 @@ static int ems_usb_start(struct ems_usb *dev)
 		return err;
 	}
 
-	/*                                                */
+	/* CPC-USB will transfer received message to host */
 	err = ems_usb_control_cmd(dev, CONTR_CAN_MESSAGE | CONTR_CONT_ON);
 	if (err)
 		goto failed;
 
-	/*                                                 */
+	/* CPC-USB will transfer CAN state changes to host */
 	err = ems_usb_control_cmd(dev, CONTR_CAN_STATE | CONTR_CONT_ON);
 	if (err)
 		goto failed;
 
-	/*                                          */
+	/* CPC-USB will transfer bus errors to host */
 	err = ems_usb_control_cmd(dev, CONTR_BUS_ERROR | CONTR_CONT_ON);
 	if (err)
 		goto failed;
@@ -710,12 +710,12 @@ static int ems_usb_open(struct net_device *netdev)
 	if (err)
 		return err;
 
-	/*             */
+	/* common open */
 	err = open_candev(netdev);
 	if (err)
 		return err;
 
-	/*                      */
+	/* finally start device */
 	err = ems_usb_start(dev);
 	if (err) {
 		if (err == -ENODEV)
@@ -751,7 +751,7 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
 	if (can_dropped_invalid_skb(netdev, skb))
 		return NETDEV_TX_OK;
 
-	/*                                                                 */
+	/* create a URB, and a buffer for it, and copy the data to the URB */
 	urb = usb_alloc_urb(0, GFP_ATOMIC);
 	if (!urb) {
 		netdev_err(netdev, "No memory left for URBs\n");
@@ -785,7 +785,7 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
 		msg->length = CPC_CAN_MSG_MIN_SIZE + cf->can_dlc;
 	}
 
-	/*                    */
+	/* Respect byte order */
 	msg->msg.can_msg.id = cpu_to_le32(msg->msg.can_msg.id);
 
 	for (i = 0; i < MAX_TX_URBS; i++) {
@@ -796,9 +796,9 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
 	}
 
 	/*
-                                                                   
-                          
-  */
+	 * May never happen! When this happens we'd more URBs in flight as
+	 * allowed (MAX_TX_URBS).
+	 */
 	if (!context) {
 		usb_unanchor_urb(urb);
 		usb_free_coherent(dev->udev, size, buf, urb->transfer_dma);
@@ -841,7 +841,7 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
 	} else {
 		netdev->trans_start = jiffies;
 
-		/*                   */
+		/* Slow down tx path */
 		if (atomic_read(&dev->active_tx_urbs) >= MAX_TX_URBS ||
 		    dev->free_slots < 5) {
 			netif_stop_queue(netdev);
@@ -849,9 +849,9 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
 	}
 
 	/*
-                                                                        
-                
-  */
+	 * Release our reference to this URB, the USB core will eventually free
+	 * it entirely.
+	 */
 	usb_free_urb(urb);
 
 	return NETDEV_TX_OK;
@@ -867,12 +867,12 @@ static int ems_usb_close(struct net_device *netdev)
 {
 	struct ems_usb *dev = netdev_priv(netdev);
 
-	/*              */
+	/* Stop polling */
 	unlink_all_urbs(dev);
 
 	netif_stop_queue(netdev);
 
-	/*                                  */
+	/* Set CAN controller to reset mode */
 	if (ems_usb_write_mode(dev, SJA1000_MOD_RM))
 		netdev_warn(netdev, "couldn't stop device");
 
@@ -955,13 +955,13 @@ static void init_params_sja1000(struct ems_cpc_msg *msg)
 
 	msg->msg.can_params.cc_type = CPC_CC_TYPE_SJA1000;
 
-	/*                        */
+	/* Acceptance filter open */
 	sja1000->acc_code0 = 0x00;
 	sja1000->acc_code1 = 0x00;
 	sja1000->acc_code2 = 0x00;
 	sja1000->acc_code3 = 0x00;
 
-	/*                        */
+	/* Acceptance filter open */
 	sja1000->acc_mask0 = 0xFF;
 	sja1000->acc_mask1 = 0xFF;
 	sja1000->acc_mask2 = 0xFF;
@@ -975,7 +975,7 @@ static void init_params_sja1000(struct ems_cpc_msg *msg)
 }
 
 /*
-                                         
+ * probe function for new CPC-USB devices
  */
 static int ems_usb_probe(struct usb_interface *intf,
 			 const struct usb_device_id *id)
@@ -1004,7 +1004,7 @@ static int ems_usb_probe(struct usb_interface *intf,
 
 	netdev->netdev_ops = &ems_usb_netdev_ops;
 
-	netdev->flags |= IFF_ECHO; /*                       */
+	netdev->flags |= IFF_ECHO; /* we support local echo */
 
 	init_usb_anchor(&dev->rx_submitted);
 
@@ -1069,7 +1069,7 @@ cleanup_candev:
 }
 
 /*
-                                                                    
+ * called by the usb core when the device is removed from the system
  */
 static void ems_usb_disconnect(struct usb_interface *intf)
 {
@@ -1089,7 +1089,7 @@ static void ems_usb_disconnect(struct usb_interface *intf)
 	}
 }
 
-/*                                                                           */
+/* usb specific object needed to register this driver with the usb subsystem */
 static struct usb_driver ems_usb_driver = {
 	.name = "ems_usb",
 	.probe = ems_usb_probe,

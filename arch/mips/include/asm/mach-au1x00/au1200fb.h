@@ -1,5 +1,5 @@
 /*
-                                     
+ * platform data for au1200fb driver.
  */
 
 #ifndef _AU1200FB_PLAT_H_

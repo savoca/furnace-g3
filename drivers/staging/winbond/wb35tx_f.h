@@ -4,9 +4,9 @@
 #include "core.h"
 
 /*
-                                       
-                             
-                                       
+ * ====================================
+ * Interface function declare
+ * ====================================
  */
 unsigned char Wb35Tx_initial(struct hw_data *hw_data);
 void Wb35Tx_destroy(struct hw_data *hw_data);

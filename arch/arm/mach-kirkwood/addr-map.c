@@ -17,7 +17,7 @@
 #include "common.h"
 
 /*
-                                              
+ * Generic Address Decode Windows bit settings
  */
 #define TARGET_DEV_BUS		1
 #define TARGET_SRAM		3
@@ -36,7 +36,7 @@
 #define ATTR_SRAM		0x01
 
 /*
-                                                         
+ * Description of the windows needed by the platform code
  */
 static struct __initdata orion_addr_map_cfg addr_map_cfg = {
 	.num_wins = 8,
@@ -46,8 +46,8 @@ static struct __initdata orion_addr_map_cfg addr_map_cfg = {
 
 static const struct __initdata orion_addr_map_info addr_map_info[] = {
 	/*
-                                  
-  */
+	 * Windows for PCIe IO+MEM space.
+	 */
 	{ 0, KIRKWOOD_PCIE_IO_PHYS_BASE, KIRKWOOD_PCIE_IO_SIZE,
 	  TARGET_PCIE, ATTR_PCIE_IO, KIRKWOOD_PCIE_IO_BUS_BASE
 	},
@@ -61,30 +61,30 @@ static const struct __initdata orion_addr_map_info addr_map_info[] = {
 	  TARGET_PCIE, ATTR_PCIE1_MEM, KIRKWOOD_PCIE1_MEM_BUS_BASE
 	},
 	/*
-                               
-  */
+	 * Window for NAND controller.
+	 */
 	{ 4, KIRKWOOD_NAND_MEM_PHYS_BASE, KIRKWOOD_NAND_MEM_SIZE,
 	  TARGET_DEV_BUS, ATTR_DEV_NAND, -1
 	},
 	/*
-                    
-  */
+	 * Window for SRAM.
+	 */
 	{ 5, KIRKWOOD_SRAM_PHYS_BASE, KIRKWOOD_SRAM_SIZE,
 	  TARGET_SRAM, ATTR_SRAM, -1
 	},
-	/*            */
+	/* End marker */
 	{ -1, 0, 0, 0, 0, 0 }
 };
 
 void __init kirkwood_setup_cpu_mbus(void)
 {
 	/*
-                                         
-  */
+	 * Disable, clear and configure windows.
+	 */
 	orion_config_wins(&addr_map_cfg, addr_map_info);
 
 	/*
-                                
-  */
+	 * Setup MBUS dram target info.
+	 */
 	orion_setup_cpu_mbus_target(&addr_map_cfg, DDR_WINDOW_CPU_BASE);
 }

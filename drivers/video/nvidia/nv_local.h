@@ -51,13 +51,13 @@
 #define __NV_LOCAL_H__
 
 /*
-                                                                              
-                                                                            
-                              
+ * This file includes any environment or machine specific values to access the
+ * HW.  Put all affected includes, typdefs, etc. here so the riva_hw.* files
+ * can stay generic in nature.
  */
 
 /*
-                                                                               
+ * HW access macros.  These assume memory-mapped I/O, and not normal I/O space.
  */
 #define NV_WR08(p,i,d)  (__raw_writeb((d), (void __iomem *)(p) + (i)))
 #define NV_RD08(p,i)    (__raw_readb((void __iomem *)(p) + (i)))
@@ -66,7 +66,7 @@
 #define NV_WR32(p,i,d)  (__raw_writel((d), (void __iomem *)(p) + (i)))
 #define NV_RD32(p,i)    (__raw_readl((void __iomem *)(p) + (i)))
 
-/*                                         */
+/* VGA I/O is now always done through MMIO */
 #define VGA_WR08(p,i,d) (writeb((d), (void __iomem *)(p) + (i)))
 #define VGA_RD08(p,i)   (readb((void __iomem *)(p) + (i)))
 
@@ -109,6 +109,6 @@ do {                            \
 } while(0)
 #else
 #define reverse_order(l) do { } while(0)
-#endif                          /*                 */
+#endif                          /* __LITTLE_ENDIAN */
 
-#endif				/*                */
+#endif				/* __NV_LOCAL_H__ */

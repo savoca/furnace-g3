@@ -1,7 +1,7 @@
 /*
-                                          
-  
-                      
+ * arch/arm/mach-shark/include/mach/irqs.h
+ *
+ * by Alexander Schulz
  */
 
 #define NR_IRQS			16

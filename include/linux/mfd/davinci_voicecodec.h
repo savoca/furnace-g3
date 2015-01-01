@@ -30,7 +30,7 @@
 #include <mach/edma.h>
 
 /*
-                   
+ * Register values.
  */
 #define DAVINCI_VC_PID			0x00
 #define DAVINCI_VC_CTRL			0x04
@@ -46,7 +46,7 @@
 #define DAVINCI_VC_REG09		0xA4
 #define DAVINCI_VC_REG12		0xB0
 
-/*                            */
+/* DAVINCI_VC_CTRL bit fields */
 #define DAVINCI_VC_CTRL_MASK		0x5500
 #define DAVINCI_VC_CTRL_RSTADC		BIT(0)
 #define DAVINCI_VC_CTRL_RSTDAC		BIT(1)
@@ -61,7 +61,7 @@
 #define DAVINCI_VC_CTRL_WFIFOCL		BIT(13)
 #define DAVINCI_VC_CTRL_WFIFOMD_WORD_1	BIT(14)
 
-/*                           */
+/* DAVINCI_VC_INT bit fields */
 #define DAVINCI_VC_INT_MASK		0x3F
 #define DAVINCI_VC_INT_RDRDY_MASK	BIT(0)
 #define DAVINCI_VC_INT_RERROVF_MASK	BIT(1)
@@ -70,14 +70,14 @@
 #define DAVINCI_VC_INT_WERROVF_MASKBIT	BIT(4)
 #define DAVINCI_VC_INT_WERRUDR_MASK	BIT(5)
 
-/*                             */
+/* DAVINCI_VC_REG05 bit fields */
 #define DAVINCI_VC_REG05_PGA_GAIN	0x07
 
-/*                             */
+/* DAVINCI_VC_REG09 bit fields */
 #define DAVINCI_VC_REG09_MUTE		0x40
 #define DAVINCI_VC_REG09_DIG_ATTEN	0x3F
 
-/*                             */
+/* DAVINCI_VC_REG12 bit fields */
 #define DAVINCI_VC_REG12_POWER_ALL_ON	0xFD
 #define DAVINCI_VC_REG12_POWER_ALL_OFF	0x00
 
@@ -105,20 +105,20 @@ struct cq93vc {
 struct davinci_vc;
 
 struct davinci_vc {
-	/*             */
+	/* Device data */
 	struct device *dev;
 	struct platform_device *pdev;
 	struct clk *clk;
 
-	/*                  */
+	/* Memory resources */
 	void __iomem *base;
 	resource_size_t pbase;
 	size_t base_size;
 
-	/*           */
+	/* MFD cells */
 	struct mfd_cell cells[DAVINCI_VC_CELLS];
 
-	/*                */
+	/* Client devices */
 	struct davinci_vcif davinci_vcif;
 	struct cq93vc cq93vc;
 };

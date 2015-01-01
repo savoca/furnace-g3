@@ -29,7 +29,7 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
 
 /*
-                               
+ * Definitions & global arrays.
  */
 
 #define TR_FORMAT_TOUCH_BIT	0x01
@@ -44,7 +44,7 @@ MODULE_LICENSE("GPL");
 #define TR_MAX_YC 0x1ff
 
 /*
-                        
+ * Per-touchscreen data.
  */
 
 struct tr {
@@ -80,7 +80,7 @@ static irqreturn_t tr_interrupt(struct serio *serio,
 }
 
 /*
-                                                  
+ * tr_disconnect() is the opposite of tr_connect()
  */
 
 static void tr_disconnect(struct serio *serio)
@@ -96,9 +96,9 @@ static void tr_disconnect(struct serio *serio)
 }
 
 /*
-                                                                 
-                                                                             
-                   
+ * tr_connect() is the routine that is called when someone adds a
+ * new serio device that supports the Touchright protocol and registers it as
+ * an input device.
  */
 
 static int tr_connect(struct serio *serio, struct serio_driver *drv)
@@ -150,7 +150,7 @@ static int tr_connect(struct serio *serio, struct serio_driver *drv)
 }
 
 /*
-                              
+ * The serio driver structure.
  */
 
 static struct serio_device_id tr_serio_ids[] = {
@@ -177,7 +177,7 @@ static struct serio_driver tr_drv = {
 };
 
 /*
-                                                       
+ * The functions for inserting/removing us as a module.
  */
 
 static int __init tr_init(void)

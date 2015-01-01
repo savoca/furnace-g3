@@ -19,16 +19,16 @@ static const unsigned char rtc_days_in_month[] = {
 };
 
 static const unsigned short rtc_ydays[2][13] = {
-	/*              */
+	/* Normal years */
 	{ 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 },
-	/*            */
+	/* Leap years */
 	{ 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366 }
 };
 
 #define LEAPS_THRU_END_OF(y) ((y)/4 - (y)/100 + (y)/400)
 
 /*
-                                   
+ * The number of days in the month.
  */
 int rtc_month_days(unsigned int month, unsigned int year)
 {
@@ -37,7 +37,7 @@ int rtc_month_days(unsigned int month, unsigned int year)
 EXPORT_SYMBOL(rtc_month_days);
 
 /*
-                                                 
+ * The number of days since January 1. (0 to 365)
  */
 int rtc_year_days(unsigned int day, unsigned int month, unsigned int year)
 {
@@ -46,7 +46,7 @@ int rtc_year_days(unsigned int day, unsigned int month, unsigned int year)
 EXPORT_SYMBOL(rtc_year_days);
 
 /*
-                                                               
+ * Convert seconds since 01-01-1970 00:00:00 to Gregorian date.
  */
 void rtc_time_to_tm(unsigned long time, struct rtc_time *tm)
 {
@@ -56,7 +56,7 @@ void rtc_time_to_tm(unsigned long time, struct rtc_time *tm)
 	days = time / 86400;
 	time -= (unsigned int) days * 86400;
 
-	/*                                            */
+	/* day of the week, 1970-01-01 was a Thursday */
 	tm->tm_wday = (days + 4) % 7;
 
 	year = 1970 + days / 365;
@@ -91,7 +91,7 @@ void rtc_time_to_tm(unsigned long time, struct rtc_time *tm)
 EXPORT_SYMBOL(rtc_time_to_tm);
 
 /*
-                                                 
+ * Does the rtc_time represent a valid date/time?
  */
 int rtc_valid_tm(struct rtc_time *tm)
 {
@@ -109,7 +109,7 @@ int rtc_valid_tm(struct rtc_time *tm)
 EXPORT_SYMBOL(rtc_valid_tm);
 
 /*
-                                                               
+ * Convert Gregorian date to seconds since 01-01-1970 00:00:00.
  */
 int rtc_tm_to_time(struct rtc_time *tm, unsigned long *time)
 {
@@ -120,7 +120,7 @@ int rtc_tm_to_time(struct rtc_time *tm, unsigned long *time)
 EXPORT_SYMBOL(rtc_tm_to_time);
 
 /*
-                            
+ * Convert rtc_time to ktime
  */
 ktime_t rtc_tm_to_ktime(struct rtc_time tm)
 {
@@ -131,7 +131,7 @@ ktime_t rtc_tm_to_ktime(struct rtc_time tm)
 EXPORT_SYMBOL_GPL(rtc_tm_to_ktime);
 
 /*
-                            
+ * Convert ktime to rtc_time
  */
 struct rtc_time rtc_ktime_to_tm(ktime_t kt)
 {
@@ -139,7 +139,7 @@ struct rtc_time rtc_ktime_to_tm(ktime_t kt)
 	struct rtc_time ret;
 
 	ts = ktime_to_timespec(kt);
-	/*                 */
+	/* Round up any ns */
 	if (ts.tv_nsec)
 		ts.tv_sec++;
 	rtc_time_to_tm(ts.tv_sec, &ret);

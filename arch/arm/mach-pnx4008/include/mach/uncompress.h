@@ -33,14 +33,14 @@ static __inline__ void putc(char c)
 }
 
 /*
-                                 
+ * This does not append a newline
  */
 static inline void flush(void)
 {
 }
 
 /*
-                
+ * nothing to do
  */
 #define arch_decomp_setup()
 #define arch_decomp_wdog()

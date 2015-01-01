@@ -5,7 +5,7 @@
 #include <linux/lockdep.h>
 
 /*
-                               
+ * Mutexes - debugging helpers:
  */
 
 #define __DEBUG_MUTEX_INITIALIZER(lockname)				\

@@ -23,8 +23,8 @@
 #include <asm/io.h>
 
 /*
-                                                                        
-                                         
+ * SH7705 uses the same divisors as the generic SH-3 case, it's just the
+ * FRQCR layout that is a bit different..
  */
 static int stc_multipliers[] = { 1, 2, 3, 4, 6, 1, 1, 1 };
 static int ifc_divisors[]    = { 1, 2, 3, 4, 1, 1, 1, 1 };

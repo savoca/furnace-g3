@@ -1,7 +1,7 @@
 /*
-                  
-  
-                              
+ * tsunami_flash.c
+ *
+ * flash chip on alpha ds10...
  */
 #include <asm/io.h>
 #include <asm/core_tsunami.h>
@@ -54,9 +54,9 @@ static void tsunami_flash_copy_to(
 }
 
 /*
-                                                                    
-                                                               
-                                                              
+ * Deliberately don't provide operations wider than 8 bits.  I don't
+ * have then and it scares me to think how you could mess up if
+ * you tried to use them.   Buswidth is correctly so I'm safe.
  */
 static struct map_info tsunami_flash_map = {
 	.name = "flash chip on the Tsunami TIG bus",

@@ -34,7 +34,7 @@ synaptics_img_file := $(wildcard $(srctree)/firmware/synaptics/g3_cn/*)
 else ifdef CONFIG_MACH_MSM8974_G3_CA
 synaptics_img_file := $(wildcard $(srctree)/firmware/synaptics/g3_ca/*)
 else
-synaptics_img_file := $(wildcard $(srctree)/firmware/synaptics/$(TARGET_PRODUCT)/*)
+synaptics_img_file := $(wildcard $(srctree)/firmware/synaptics/g3_tmo_us/*)
 endif
 synaptics_firmware := $(subst $(srctree)/firmware/,,$(synaptics_img_file))
 
@@ -166,7 +166,7 @@ quiet_cmd_ihex  = IHEX    $@
       cmd_ihex  = $(OBJCOPY) -Iihex -Obinary $< $@
 
 quiet_cmd_copy  = COPY    $@
-      cmd_copy  = cp $(srctree)/$@ $@
+      cmd_copy  = cp $(srctree)/$@ $@_
 
 quiet_cmd_ihex2fw  = IHEX2FW $@
       cmd_ihex2fw  = $(objtree)/$(obj)/ihex2fw $< $@

@@ -19,8 +19,8 @@
  */
 
 /*
-                                                                    
-                                                                 
+ * We need the mmu code to access both 32-bit and 64-bit guest ptes,
+ * so the code in this file is compiled twice, once per pte size.
  */
 
 #if PTTYPE == 64
@@ -58,8 +58,8 @@
 #define gpte_to_gfn(pte) gpte_to_gfn_lvl((pte), PT_PAGE_TABLE_LEVEL)
 
 /*
-                                                                        
-                
+ * The guest_walker structure emulates the behavior of the hardware page
+ * table walker.
  */
 struct guest_walker {
 	int level;
@@ -88,7 +88,7 @@ static int FNAME(cmpxchg_gpte)(struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
 	struct page *page;
 
 	npages = get_user_pages_fast((unsigned long)ptep_user, 1, 1, &page);
-	/*                                                   */
+	/* Check if the user is doing something meaningless. */
 	if (unlikely(npages != 1))
 		return -EFAULT;
 
@@ -136,7 +136,7 @@ static bool FNAME(is_last_gpte)(struct guest_walker *walker,
 }
 
 /*
-                                                
+ * Fetch a guest pte for a guest virtual address
  */
 static int FNAME(walk_addr_generic)(struct guest_walker *walker,
 				    struct kvm_vcpu *vcpu, struct kvm_mmu *mmu,
@@ -225,7 +225,7 @@ retry_walk:
 		if (last_gpte) {
 			pte_access = pt_access &
 				     FNAME(gpte_access)(vcpu, pte, true);
-			/*                                                */
+			/* check if the kernel is fetching from user page */
 			if (unlikely(pte_access & PT_USER_MASK) &&
 			    kvm_read_cr4_bits(vcpu, X86_CR4_SMEP))
 				if (fetch_fault && !user_fault)
@@ -377,9 +377,9 @@ static void FNAME(update_pte)(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
 	}
 
 	/*
-                                                                 
-                                                                         
-  */
+	 * we call mmu_set_spte() with host_writable = true because that
+	 * vcpu->arch.update_pte.pfn was fetched from get_user_pages(write = 1).
+	 */
 	mmu_set_spte(vcpu, spte, sp->role.access, pte_access, 0, 0,
 		     NULL, PT_PAGE_TABLE_LEVEL,
 		     gpte_to_gfn(gpte), pfn, true, true);
@@ -461,7 +461,7 @@ static void FNAME(pte_prefetch)(struct kvm_vcpu *vcpu, struct guest_walker *gw,
 }
 
 /*
-                                                                   
+ * Fetch a shadow pte for a specific level in the paging hierarchy.
  */
 static u64 *FNAME(fetch)(struct kvm_vcpu *vcpu, gva_t addr,
 			 struct guest_walker *gw,
@@ -484,11 +484,11 @@ static u64 *FNAME(fetch)(struct kvm_vcpu *vcpu, gva_t addr,
 	if (top_level == PT32E_ROOT_LEVEL)
 		top_level = PT32_ROOT_LEVEL;
 	/*
-                                                                  
-                                                               
-                                                                  
-                                                              
-  */
+	 * Verify that the top-level gpte is still there.  Since the page
+	 * is a root page, it is either write protected (and cannot be
+	 * changed from now on) or it is invalid (in which case, we don't
+	 * really care if it changes underneath us after this point).
+	 */
 	if (FNAME(gpte_changed)(vcpu, gw, top_level))
 		goto out_gpte_changed;
 
@@ -508,9 +508,9 @@ static u64 *FNAME(fetch)(struct kvm_vcpu *vcpu, gva_t addr,
 		}
 
 		/*
-                                                      
-                              
-   */
+		 * Verify that the gpte in the page we've just write
+		 * protected is still there.
+		 */
 		if (FNAME(gpte_changed)(vcpu, gw, it.level - 1))
 			goto out_gpte_changed;
 
@@ -554,18 +554,18 @@ out_gpte_changed:
 }
 
 /*
-                                                                  
-                                               
-                                                                            
-                    
-                                                                              
-                                               
-                                                                           
-                                                                           
-                                  
-  
-                                                                     
-                                       
+ * Page fault handler.  There are several causes for a page fault:
+ *   - there is no shadow pte for the guest pte
+ *   - write access through a shadow pte marked read only so that we can set
+ *     the dirty bit
+ *   - write access to a shadow pte marked read only so we can update the page
+ *     dirty bitmap, when userspace requests it
+ *   - mmio access; in this case we will never install a present shadow pte
+ *   - normal guest page fault due to the guest pte marked not present, not
+ *     writable, or not executable
+ *
+ *  Returns: 1 if we need to emulate the instruction, 0 otherwise, or
+ *           a negative value on error.
  */
 static int FNAME(page_fault)(struct kvm_vcpu *vcpu, gva_t addr, u32 error_code,
 			     bool prefault)
@@ -593,13 +593,13 @@ static int FNAME(page_fault)(struct kvm_vcpu *vcpu, gva_t addr, u32 error_code,
 		return r;
 
 	/*
-                                                   
-  */
+	 * Look up the guest pte for the faulting address.
+	 */
 	r = FNAME(walk_addr)(&walker, vcpu, addr, error_code);
 
 	/*
-                                                                  
-  */
+	 * The page is not mapped by the guest.  Let the guest handle it.
+	 */
 	if (!r) {
 		pgprintk("%s: guest page fault\n", __func__);
 		if (!prefault)
@@ -676,9 +676,9 @@ static void FNAME(invlpg)(struct kvm_vcpu *vcpu, gva_t gva)
 	vcpu_clear_mmio_info(vcpu, gva);
 
 	/*
-                                                          
-                                       
-  */
+	 * No need to check return value here, rmap_can_add() can
+	 * help us to skip pte prefetch later.
+	 */
 	mmu_topup_memory_caches(vcpu);
 
 	spin_lock(&vcpu->kvm->mmu_lock);
@@ -754,17 +754,17 @@ static gpa_t FNAME(gva_to_gpa_nested)(struct kvm_vcpu *vcpu, gva_t vaddr,
 }
 
 /*
-                                                              
-                                                                            
-                                                                  
-  
-        
-                                                                     
-                                                                            
-                                                                              
-                                                                               
-                 
-                                                                      
+ * Using the cached information from sp->gfns is safe because:
+ * - The spte has a reference to the struct page, so the pfn for a given gfn
+ *   can't change unless all sptes pointing to it are nuked first.
+ *
+ * Note:
+ *   We should flush all tlbs if spte is dropped even though guest is
+ *   responsible for it. Since if we don't, kvm_mmu_notifier_invalidate_page
+ *   and kvm_mmu_notifier_invalidate_range_start detect the mapping page isn't
+ *   used by guest then tlbs are not flushed, so guest is allowed to access the
+ *   freed pages.
+ *   And we increase kvm->tlbs_dirty to delay tlbs flush in this case.
  */
 static int FNAME(sync_page)(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp)
 {
@@ -772,7 +772,7 @@ static int FNAME(sync_page)(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp)
 	bool host_writable;
 	gpa_t first_pte_gpa;
 
-	/*                                        */
+	/* direct kvm_mmu_page can not be unsync. */
 	BUG_ON(sp->role.direct);
 
 	first_pte_gpa = FNAME(get_level1_sp_gpa)(sp);

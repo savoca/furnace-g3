@@ -9,7 +9,7 @@
 #define __ASM_MACH_YOSEMITE_CPU_FEATURE_OVERRIDES_H
 
 /*
-                                                       
+ * Momentum Jaguar ATX always has the RM9000 processor.
  */
 #define cpu_has_watch		1
 #define cpu_has_mips16		0
@@ -44,4 +44,4 @@
 #define cpu_has_mips64r1	0
 #define cpu_has_mips64r2	0
 
-#endif /*                                             */
+#endif /* __ASM_MACH_YOSEMITE_CPU_FEATURE_OVERRIDES_H */

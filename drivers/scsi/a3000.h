@@ -1,12 +1,12 @@
 #ifndef A3000_H
 #define A3000_H
 
-/*                                                   
-  
-                                                                    
-  
-                                                                    
-  
+/* $Id: a3000.h,v 1.4 1997/01/19 23:07:10 davem Exp $
+ *
+ * Header file for the Amiga 3000 built-in SCSI controller for Linux
+ *
+ * Written and (C) 1993, Hamish Macdonald, see a3000.c for more info
+ *
  */
 
 #include <linux/types.h>
@@ -20,8 +20,8 @@
 #endif
 
 /*
-                                                                
-                                 
+ * if the transfer address ANDed with this results in a non-zero
+ * result, then we can't use DMA.
  */
 #define A3000_XFER_MASK		(0x00000003)
 
@@ -50,7 +50,7 @@ struct a3000_scsiregs {
 
 #define DAWR_A3000		(3)
 
-/*            */
+/* CNTR bits. */
 #define CNTR_TCEN		(1<<5)
 #define CNTR_PREST		(1<<4)
 #define CNTR_PDMD		(1<<3)
@@ -58,7 +58,7 @@ struct a3000_scsiregs {
 #define CNTR_DDIR		(1<<1)
 #define CNTR_IO_DX		(1<<0)
 
-/*            */
+/* ISTR bits. */
 #define ISTR_INTX		(1<<8)
 #define ISTR_INT_F		(1<<7)
 #define ISTR_INTS		(1<<6)
@@ -69,4 +69,4 @@ struct a3000_scsiregs {
 #define ISTR_FF_FLG		(1<<1)
 #define ISTR_FE_FLG		(1<<0)
 
-#endif /*         */
+#endif /* A3000_H */

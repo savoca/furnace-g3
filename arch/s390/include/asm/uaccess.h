@@ -12,7 +12,7 @@
 #define __S390_UACCESS_H
 
 /*
-                                     
+ * User space memory access functions
  */
 #include <linux/sched.h>
 #include <linux/errno.h>
@@ -23,11 +23,11 @@
 
 
 /*
-                                                                       
-                                                                         
-                                               
-  
-                                                             
+ * The fs value determines whether argument validity checking should be
+ * performed or not.  If get_fs() == USER_DS, checking is performed, with
+ * get_fs() == KERNEL_DS, checking is bypassed.
+ *
+ * For historical reasons, these macros are grossly misnamed.
  */
 
 #define MAKE_MM_SEG(a)  ((mm_segment_t) { (a) })
@@ -59,16 +59,16 @@
 #define access_ok(type, addr, size) __access_ok(addr, size)
 
 /*
-                                                                       
-                                                                        
-                                                                      
-                                                                        
-              
-  
-                                                                     
-                                                                       
-                                                                      
-                               
+ * The exception table consists of pairs of addresses: the first is the
+ * address of an instruction that is allowed to fault, and the second is
+ * the address at which the program should continue.  No registers are
+ * modified, so it is entirely up to the continuation code to figure out
+ * what to do.
+ *
+ * All the routines below use bits of fixup code that are out of line
+ * with the main instruction path.  This means when everything is well,
+ * we don't even have to jump over them.  Further, they do not intrude
+ * on our cache or tlb entries.
  */
 
 struct exception_table_entry
@@ -110,8 +110,8 @@ static inline int __get_user_fn(size_t size, const void __user *ptr, void *x)
 }
 
 /*
-                                                                         
-                                                             
+ * These are the main single-value transfer routines.  They automatically
+ * use the right size if we just have the right pointer type.
  */
 #define __put_user(x, ptr) \
 ({								\
@@ -193,19 +193,19 @@ extern int __get_user_bad(void) __attribute__((noreturn));
 #define __put_user_unaligned __put_user
 #define __get_user_unaligned __get_user
 
-/* 
-                                                                              
-                                             
-                                          
-                                  
-  
-                                                        
-  
-                                                                
-                                                                     
-  
-                                                    
-                                 
+/**
+ * __copy_to_user: - Copy a block of data into user space, with less checking.
+ * @to:   Destination address, in user space.
+ * @from: Source address, in kernel space.
+ * @n:    Number of bytes to copy.
+ *
+ * Context: User context only.  This function may sleep.
+ *
+ * Copy data from kernel space to user space.  Caller must check
+ * the specified block with access_ok() before calling this function.
+ *
+ * Returns number of bytes that could not be copied.
+ * On success, this will be zero.
  */
 static inline unsigned long __must_check
 __copy_to_user(void __user *to, const void *from, unsigned long n)
@@ -219,18 +219,18 @@ __copy_to_user(void __user *to, const void *from, unsigned long n)
 #define __copy_to_user_inatomic __copy_to_user
 #define __copy_from_user_inatomic __copy_from_user
 
-/* 
-                                                        
-                                             
-                                          
-                                  
-  
-                                                        
-  
-                                             
-  
-                                                    
-                                 
+/**
+ * copy_to_user: - Copy a block of data into user space.
+ * @to:   Destination address, in user space.
+ * @from: Source address, in kernel space.
+ * @n:    Number of bytes to copy.
+ *
+ * Context: User context only.  This function may sleep.
+ *
+ * Copy data from kernel space to user space.
+ *
+ * Returns number of bytes that could not be copied.
+ * On success, this will be zero.
  */
 static inline unsigned long __must_check
 copy_to_user(void __user *to, const void *from, unsigned long n)
@@ -241,22 +241,22 @@ copy_to_user(void __user *to, const void *from, unsigned long n)
 	return n;
 }
 
-/* 
-                                                                                
-                                               
-                                        
-                                  
-  
-                                                        
-  
-                                                                
-                                                                     
-  
-                                                    
-                                 
-  
-                                                                      
-                                               
+/**
+ * __copy_from_user: - Copy a block of data from user space, with less checking.
+ * @to:   Destination address, in kernel space.
+ * @from: Source address, in user space.
+ * @n:    Number of bytes to copy.
+ *
+ * Context: User context only.  This function may sleep.
+ *
+ * Copy data from user space to kernel space.  Caller must check
+ * the specified block with access_ok() before calling this function.
+ *
+ * Returns number of bytes that could not be copied.
+ * On success, this will be zero.
+ *
+ * If some data could not be copied, this function will pad the copied
+ * data to the requested size using zero bytes.
  */
 static inline unsigned long __must_check
 __copy_from_user(void *to, const void __user *from, unsigned long n)
@@ -273,21 +273,21 @@ __compiletime_warning("copy_from_user() buffer size is not provably correct")
 #endif
 ;
 
-/* 
-                                                          
-                                               
-                                        
-                                  
-  
-                                                        
-  
-                                             
-  
-                                                    
-                                 
-  
-                                                                      
-                                               
+/**
+ * copy_from_user: - Copy a block of data from user space.
+ * @to:   Destination address, in kernel space.
+ * @from: Source address, in user space.
+ * @n:    Number of bytes to copy.
+ *
+ * Context: User context only.  This function may sleep.
+ *
+ * Copy data from user space to kernel space.
+ *
+ * Returns number of bytes that could not be copied.
+ * On success, this will be zero.
+ *
+ * If some data could not be copied, this function will pad the copied
+ * data to the requested size using zero bytes.
  */
 static inline unsigned long __must_check
 copy_from_user(void *to, const void __user *from, unsigned long n)
@@ -322,7 +322,7 @@ copy_in_user(void __user *to, const void __user *from, unsigned long n)
 }
 
 /*
-                                                
+ * Copy a null terminated string from userspace.
  */
 static inline long __must_check
 strncpy_from_user(char *dst, const char __user *src, long count)
@@ -341,24 +341,24 @@ strnlen_user(const char __user * src, unsigned long n)
 	return uaccess.strnlen_user(n, src);
 }
 
-/* 
-                                                         
-                               
-  
-                                                        
-  
-                                                         
-  
-                                                                
-                           
-  
-                                                                       
-                                         
+/**
+ * strlen_user: - Get the size of a string in user space.
+ * @str: The string to measure.
+ *
+ * Context: User context only.  This function may sleep.
+ *
+ * Get the size of a NUL-terminated string in user space.
+ *
+ * Returns the size of the string INCLUDING the terminating NUL.
+ * On exception, returns 0.
+ *
+ * If there is a limit on the length of a valid string, you may wish to
+ * consider using strnlen_user() instead.
  */
 #define strlen_user(str) strnlen_user(str, ~0UL)
 
 /*
-                 
+ * Zero Userspace
  */
 
 static inline unsigned long __must_check
@@ -381,4 +381,4 @@ extern void copy_to_absolute_zero(void *dest, void *src, size_t count);
 extern int copy_to_user_real(void __user *dest, void *src, size_t count);
 extern int copy_from_user_real(void *dest, void __user *src, size_t count);
 
-#endif /*                  */
+#endif /* __S390_UACCESS_H */

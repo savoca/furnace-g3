@@ -11,7 +11,7 @@
  *
  */
 /*
-                              
+ * DAL remote test device API.
  */
 
 #include <linux/kernel.h>

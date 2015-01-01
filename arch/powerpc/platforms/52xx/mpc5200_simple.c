@@ -32,23 +32,23 @@
 #include <asm/mpc52xx.h>
 
 /*
-                         
+ * Setup the architecture
  */
 static void __init mpc5200_simple_setup_arch(void)
 {
 	if (ppc_md.progress)
 		ppc_md.progress("mpc5200_simple_setup_arch()", 0);
 
-	/*                                                      */
+	/* Map important registers from the internal memory map */
 	mpc52xx_map_common_devices();
 
-	/*                                               */
+	/* Some mpc5200 & mpc5200b related configuration */
 	mpc5200_setup_xlb_arbiter();
 
 	mpc52xx_setup_pci();
 }
 
-/*                              */
+/* list of the supported boards */
 static const char *board[] __initdata = {
 	"anonymous,a4m072",
 	"anon,charon",
@@ -64,7 +64,7 @@ static const char *board[] __initdata = {
 };
 
 /*
-                                                               
+ * Called very early, MMU is off, device-tree isn't unflattened
  */
 static int __init mpc5200_simple_probe(void)
 {

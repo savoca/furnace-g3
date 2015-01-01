@@ -28,7 +28,7 @@ void btcx_calc_skips(int line, int width, int *maxy,
 		     const struct v4l2_clip *clips, unsigned int nclips);
 
 /*
-                   
-                    
-       
+ * Local variables:
+ * c-basic-offset: 8
+ * End:
  */

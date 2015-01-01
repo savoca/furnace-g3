@@ -41,11 +41,11 @@ void __init colibri_pxa3xx_init_eth(struct ax_plat_data *plat_data)
 	u64 serial = ((u64) system_serial_high << 32) | system_serial_low;
 
 	/*
-                                                                   
-                                                                   
-                                                                
-             
-  */
+	 * If the bootloader passed in a serial boot tag, which contains a
+	 * valid ethernet MAC, pass it to the interface. Toradex ships the
+	 * modules with their own bootloader which provides a valid MAC
+	 * this way.
+	 */
 
 	for (i = 0; i < ETHER_ADDR_LEN; i++) {
 		ether_mac_addr[i] = serial & 0xff;
@@ -69,7 +69,7 @@ void __init colibri_pxa3xx_init_eth(struct ax_plat_data *plat_data)
 static int lcd_bl_pin;
 
 /*
-                                
+ * LCD panel (Sharp LQ043T3DX02)
  */
 static void colibri_lcd_backlight(int on)
 {
@@ -116,19 +116,19 @@ static struct mtd_partition colibri_nand_partitions[] = {
 		.name        = "bootloader",
 		.offset      = 0,
 		.size        = SZ_512K,
-		.mask_flags  = MTD_WRITEABLE, /*                 */
+		.mask_flags  = MTD_WRITEABLE, /* force read-only */
 	},
 	{
 		.name        = "kernel",
 		.offset      = MTDPART_OFS_APPEND,
 		.size        = SZ_4M,
-		.mask_flags  = MTD_WRITEABLE, /*                 */
+		.mask_flags  = MTD_WRITEABLE, /* force read-only */
 	},
 	{
 		.name        = "reserved",
 		.offset      = MTDPART_OFS_APPEND,
 		.size        = SZ_1M,
-		.mask_flags  = MTD_WRITEABLE, /*                 */
+		.mask_flags  = MTD_WRITEABLE, /* force read-only */
 	},
 	{
 		.name        = "fs",

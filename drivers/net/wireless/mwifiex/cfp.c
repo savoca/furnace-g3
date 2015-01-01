@@ -24,17 +24,17 @@
 #include "main.h"
 #include "cfg80211.h"
 
-/*       */
+/* 100mW */
 #define MWIFIEX_TX_PWR_DEFAULT     20
-/*       */
+/* 100mW */
 #define MWIFIEX_TX_PWR_US_DEFAULT      20
-/*      */
+/* 50mW */
 #define MWIFIEX_TX_PWR_JP_DEFAULT      16
-/*       */
+/* 100mW */
 #define MWIFIEX_TX_PWR_FR_100MW        20
-/*      */
+/* 10mW */
 #define MWIFIEX_TX_PWR_FR_10MW         10
-/*       */
+/* 100mW */
 #define MWIFIEX_TX_PWR_EMEA_DEFAULT    20
 
 static u8 adhoc_rates_b[B_SUPPORTED_RATES] = { 0x82, 0x84, 0x8b, 0x96, 0 };
@@ -72,30 +72,30 @@ u16 region_code_index[MWIFIEX_MAX_REGION_CODE] = { 0x10, 0x20, 0x30,
 static u8 supported_rates_n[N_SUPPORTED_RATES] = { 0x02, 0x04, 0 };
 
 /*
-                                                            
-                               
+ * This function maps an index in supported rates table into
+ * the corresponding data rate.
  */
 u32 mwifiex_index_to_data_rate(struct mwifiex_private *priv, u8 index,
 							u8 ht_info)
 {
 	/*
-                                                                  
-                                        
-  */
+	 * For every mcs_rate line, the first 8 bytes are for stream 1x1,
+	 * and all 16 bytes are for stream 2x2.
+	 */
 	u16  mcs_rate[4][16] = {
-		/*         */
+		/* LGI 40M */
 		{ 0x1b, 0x36, 0x51, 0x6c, 0xa2, 0xd8, 0xf3, 0x10e,
 		  0x36, 0x6c, 0xa2, 0xd8, 0x144, 0x1b0, 0x1e6, 0x21c },
 
-		/*         */
+		/* SGI 40M */
 		{ 0x1e, 0x3c, 0x5a, 0x78, 0xb4, 0xf0, 0x10e, 0x12c,
 		  0x3c, 0x78, 0xb4, 0xf0, 0x168, 0x1e0, 0x21c, 0x258 },
 
-		/*         */
+		/* LGI 20M */
 		{ 0x0d, 0x1a, 0x27, 0x34, 0x4e, 0x68, 0x75, 0x82,
 		  0x1a, 0x34, 0x4e, 0x68, 0x9c, 0xd0, 0xea, 0x104 },
 
-		/*         */
+		/* SGI 20M */
 		{ 0x0e, 0x1c, 0x2b, 0x39, 0x56, 0x73, 0x82, 0x90,
 		  0x1c, 0x39, 0x56, 0x73, 0xad, 0xe7, 0x104, 0x120 }
 	};
@@ -106,23 +106,23 @@ u32 mwifiex_index_to_data_rate(struct mwifiex_private *priv, u8 index,
 	if (ht_info & BIT(0)) {
 		if (index == MWIFIEX_RATE_BITMAP_MCS0) {
 			if (ht_info & BIT(2))
-				rate = 0x0D;	/*                 */
+				rate = 0x0D;	/* MCS 32 SGI rate */
 			else
-				rate = 0x0C;	/*                 */
+				rate = 0x0C;	/* MCS 32 LGI rate */
 		} else if (index < mcs_num_supp) {
 			if (ht_info & BIT(1)) {
 				if (ht_info & BIT(2))
-					/*          */
+					/* SGI, 40M */
 					rate = mcs_rate[1][index];
 				else
-					/*          */
+					/* LGI, 40M */
 					rate = mcs_rate[0][index];
 			} else {
 				if (ht_info & BIT(2))
-					/*          */
+					/* SGI, 20M */
 					rate = mcs_rate[3][index];
 				else
-					/*          */
+					/* LGI, 20M */
 					rate = mcs_rate[2][index];
 			}
 		} else
@@ -136,8 +136,8 @@ u32 mwifiex_index_to_data_rate(struct mwifiex_private *priv, u8 index,
 }
 
 /*
-                                                                             
-               
+ * This function maps a data rate value into corresponding index in supported
+ * rates table.
  */
 u8 mwifiex_data_rate_to_index(u32 rate)
 {
@@ -153,9 +153,9 @@ u8 mwifiex_data_rate_to_index(u32 rate)
 }
 
 /*
-                                                       
-  
-                                                        
+ * This function returns the current active data rates.
+ *
+ * The result may vary depending upon connection status.
  */
 u32 mwifiex_get_active_data_rates(struct mwifiex_private *priv, u8 *rates)
 {
@@ -168,8 +168,8 @@ u32 mwifiex_get_active_data_rates(struct mwifiex_private *priv, u8 *rates)
 }
 
 /*
-                                                                       
-                                         
+ * This function locates the Channel-Frequency-Power triplet based upon
+ * band and channel/frequency parameters.
  */
 struct mwifiex_chan_freq_power *
 mwifiex_get_cfp(struct mwifiex_private *priv, u8 band, u16 channel, u32 freq)
@@ -203,7 +203,7 @@ mwifiex_get_cfp(struct mwifiex_private *priv, u8 band, u16 channel, u32 freq)
 			if (ch->center_freq == freq)
 				break;
 		} else {
-			/*                      */
+			/* find by valid channel*/
 			if (ch->hw_value == channel ||
 			    channel == FIRST_VALID_CHANNEL)
 				break;
@@ -227,7 +227,7 @@ mwifiex_get_cfp(struct mwifiex_private *priv, u8 band, u16 channel, u32 freq)
 }
 
 /*
-                                                        
+ * This function checks if the data rate is set to auto.
  */
 u8
 mwifiex_is_rate_auto(struct mwifiex_private *priv)
@@ -246,7 +246,7 @@ mwifiex_is_rate_auto(struct mwifiex_private *priv)
 }
 
 /*
-                                                      
+ * This function converts rate bitmap into rate index.
  */
 int mwifiex_get_rate_index(u16 *rate_bitmap, int size)
 {
@@ -260,10 +260,10 @@ int mwifiex_get_rate_index(u16 *rate_bitmap, int size)
 }
 
 /*
-                                               
-  
-                                                                   
-                                     
+ * This function gets the supported data rates.
+ *
+ * The function works in both Ad-Hoc and infra mode by printing the
+ * band and returning the data rates.
  */
 u32 mwifiex_get_supported_rates(struct mwifiex_private *priv, u8 *rates)
 {
@@ -316,7 +316,7 @@ u32 mwifiex_get_supported_rates(struct mwifiex_private *priv, u8 *rates)
 			break;
 		}
 	} else {
-		/*             */
+		/* Ad-hoc mode */
 		switch (adapter->adhoc_start_band) {
 		case BAND_B:
 			dev_dbg(adapter->dev, "info: adhoc B\n");

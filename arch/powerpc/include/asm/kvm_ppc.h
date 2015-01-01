@@ -20,8 +20,8 @@
 #ifndef __POWERPC_KVM_PPC_H__
 #define __POWERPC_KVM_PPC_H__
 
-/*                                                                             
-                 */
+/* This file exists just so we can dereference kvm_vcpu, avoiding nested header
+ * dependencies. */
 
 #include <linux/mutex.h>
 #include <linux/timer.h>
@@ -38,11 +38,11 @@
 #endif
 
 enum emulation_result {
-	EMULATE_DONE,         /*                       */
-	EMULATE_DO_MMIO,      /*                                  */
-	EMULATE_DO_DCR,       /*                                 */
-	EMULATE_FAIL,         /*                                */
-	EMULATE_AGAIN,        /*                                */
+	EMULATE_DONE,         /* no further processing */
+	EMULATE_DO_MMIO,      /* kvm_run filled with MMIO request */
+	EMULATE_DO_DCR,       /* kvm_run filled with DCR request */
+	EMULATE_FAIL,         /* can't emulate this instruction */
+	EMULATE_AGAIN,        /* something went wrong. go again */
 };
 
 extern int kvmppc_vcpu_run(struct kvm_run *kvm_run, struct kvm_vcpu *vcpu);
@@ -69,7 +69,7 @@ extern u32 kvmppc_get_dec(struct kvm_vcpu *vcpu, u64 tb);
 extern void kvmppc_decrementer_func(unsigned long data);
 extern int kvmppc_sanity_check(struct kvm_vcpu *vcpu);
 
-/*                     */
+/* Core-specific hooks */
 
 extern void kvmppc_mmu_map(struct kvm_vcpu *vcpu, u64 gvaddr, gpa_t gpaddr,
                            unsigned int gtlb_idx);
@@ -140,8 +140,8 @@ extern void kvmppc_core_commit_memory_region(struct kvm *kvm,
 				struct kvm_userspace_memory_region *mem);
 
 /*
-                                                      
-                                                                    
+ * Cuts out inst bits with ordering according to spec.
+ * That means the leftmost bit is zero. All given bits are included.
  */
 static inline u32 kvmppc_get_field(u64 inst, int msb, int lsb)
 {
@@ -157,7 +157,7 @@ static inline u32 kvmppc_get_field(u64 inst, int msb, int lsb)
 }
 
 /*
-                                                      
+ * Replaces inst bits with ordering according to spec.
  */
 static inline u32 kvmppc_set_field(u64 inst, int msb, int lsb, int value)
 {
@@ -204,4 +204,4 @@ int kvm_vcpu_ioctl_config_tlb(struct kvm_vcpu *vcpu,
 int kvm_vcpu_ioctl_dirty_tlb(struct kvm_vcpu *vcpu,
 			     struct kvm_dirty_tlb *cfg);
 
-#endif /*                       */
+#endif /* __POWERPC_KVM_PPC_H__ */

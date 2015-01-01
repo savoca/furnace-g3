@@ -31,7 +31,7 @@ EXPORT_PER_CPU_SYMBOL(irq_regs);
 
 int sysctl_panic_on_stackoverflow __read_mostly;
 
-/*                                                                  */
+/* Debugging check for stack overflow: is there less than 1KB free? */
 static int check_stack_overflow(void)
 {
 	long sp;
@@ -56,7 +56,7 @@ static inline void print_stack_overflow(void) { }
 #endif
 
 /*
-                                                               
+ * per-CPU IRQ handling contexts (thread information and stack)
  */
 union irq_ctx {
 	struct thread_info      tinfo;
@@ -87,20 +87,20 @@ execute_on_irq_stack(int overflow, struct irq_desc *desc, int irq)
 	irqctx = __this_cpu_read(hardirq_ctx);
 
 	/*
-                                                                
-                                                                 
-                                                             
-                                                            
-  */
+	 * this is where we switch to the IRQ stack. However, if we are
+	 * already using the IRQ stack (because we interrupted a hardirq
+	 * handler) we can't do that and just have to keep using the
+	 * current stack (which is the irq stack already after all)
+	 */
 	if (unlikely(curctx == irqctx))
 		return 0;
 
-	/*                                        */
+	/* build the stack frame on the IRQ stack */
 	isp = (u32 *) ((char *)irqctx + sizeof(*irqctx));
 	irqctx->tinfo.task = curctx->tinfo.task;
 	irqctx->tinfo.previous_esp = current_stack_pointer;
 
-	/*                                                           */
+	/* Copy the preempt_count so that the [soft]irq checks work. */
 	irqctx->tinfo.preempt_count = curctx->tinfo.preempt_count;
 
 	if (unlikely(overflow))
@@ -117,7 +117,7 @@ execute_on_irq_stack(int overflow, struct irq_desc *desc, int irq)
 }
 
 /*
-                                                                 
+ * allocate per-cpu stacks for hardirq and for softirq processing
  */
 void __cpuinit irq_ctx_init(int cpu)
 {
@@ -167,13 +167,13 @@ asmlinkage void do_softirq(void)
 		irqctx->tinfo.task = curctx->task;
 		irqctx->tinfo.previous_esp = current_stack_pointer;
 
-		/*                                            */
+		/* build the stack frame on the softirq stack */
 		isp = (u32 *) ((char *)irqctx + sizeof(*irqctx));
 
 		call_on_stack(__do_softirq, isp);
 		/*
-                                                           
-   */
+		 * Shouldn't happen, we returned above if in_interrupt():
+		 */
 		WARN_ON_ONCE(softirq_count());
 	}
 

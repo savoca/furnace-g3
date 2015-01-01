@@ -46,17 +46,17 @@ enum lm3697_max_current {
 };
 
 /*
-                                        
-                               
-                                                  
-                                                 
-                                             
-                                                                
+ * struct lm3633_backlight_platform_data
+ * @name: Backlight device name
+ * @bl_string: Bit mask of backlight output string
+ * @imax: Max current for backlight output string
+ * @init_brightness: Initial brightness value
+ * @pwm_period: Platform specific PWM period value. unit is nano
  */
 struct lm3697_backlight_platform_data {
 	const char *name;
 
-	unsigned long bl_string;	/*                              */
+	unsigned long bl_string;	/* bit OR mask of LM3697_HVLEDx */
 #define LM3697_HVLED1		BIT(0)
 #define LM3697_HVLED2		BIT(1)
 #define LM3697_HVLED3		BIT(2)
@@ -64,23 +64,23 @@ struct lm3697_backlight_platform_data {
 	enum lm3697_max_current imax;
 	unsigned int init_brightness;
 
-	/*                                */
+	/* Only valid in case of PWM mode */
 	unsigned int pwm_period;
 
 #ifdef CONFIG_MACH_LGE
-	/*              */
+	/* mapping mode */
 	int mapping_mode;
-	/*               */
+	/* backlight LUT */
 	int blmap_size;
 	u16 *blmap;
 #endif
 };
 
 /*
-                              
-                              
-                                     
-                                               
+ * struct lm3697_platform_data
+ * @en_gpio: GPIO for HWEN pin
+ * @bl_pdata: Backlight platform data
+ * @num_backlights: Number of backlight outputs
  */
 struct lm3697_platform_data {
 	int en_gpio;

@@ -31,7 +31,7 @@
 static unsigned long indydog_alive;
 static DEFINE_SPINLOCK(indydog_lock);
 
-#define WATCHDOG_TIMEOUT 30		/*                        */
+#define WATCHDOG_TIMEOUT 30		/* 30 sec default timeout */
 
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
@@ -70,7 +70,7 @@ static void indydog_ping(void)
 }
 
 /*
-                                        
+ *	Allow only one person to hold it open
  */
 static int indydog_open(struct inode *inode, struct file *file)
 {
@@ -80,7 +80,7 @@ static int indydog_open(struct inode *inode, struct file *file)
 	if (nowayout)
 		__module_get(THIS_MODULE);
 
-	/*                */
+	/* Activate timer */
 	indydog_start();
 	indydog_ping();
 
@@ -91,10 +91,10 @@ static int indydog_open(struct inode *inode, struct file *file)
 
 static int indydog_release(struct inode *inode, struct file *file)
 {
-	/*                    
-                                                           */
+	/* Shut off the timer.
+	 * Lock it in if it's a module and we defined ...NOWAYOUT */
 	if (!nowayout)
-		indydog_stop();		/*                  */
+		indydog_stop();		/* Turn the WDT off */
 	clear_bit(0, &indydog_alive);
 	return 0;
 }
@@ -102,7 +102,7 @@ static int indydog_release(struct inode *inode, struct file *file)
 static ssize_t indydog_write(struct file *file, const char *data,
 						size_t len, loff_t *ppos)
 {
-	/*                    */
+	/* Refresh the timer. */
 	if (len)
 		indydog_ping();
 	return len;
@@ -155,7 +155,7 @@ static int indydog_notify_sys(struct notifier_block *this,
 					unsigned long code, void *unused)
 {
 	if (code == SYS_DOWN || code == SYS_HALT)
-		indydog_stop();		/*                  */
+		indydog_stop();		/* Turn the WDT off */
 
 	return NOTIFY_DONE;
 }

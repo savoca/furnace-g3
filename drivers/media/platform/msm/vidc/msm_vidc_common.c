@@ -529,9 +529,9 @@ static void handle_event_change(enum command_response cmd, void *data)
 				}
 
 				/*
-                                       
-                     
-    */
+				* Get the buffer_info entry for the
+				* device address.
+				*/
 				binfo = device_to_uvaddr(inst,
 					&inst->registered_bufs,
 					(u32)event_notify->packet_buffer);
@@ -542,7 +542,7 @@ static void handle_event_change(enum command_response cmd, void *data)
 					return;
 				}
 
-				/*                                     */
+				/* Fill event data to be sent to client*/
 				buf_event.type =
 					V4L2_EVENT_RELEASE_BUFFER_REFERENCE;
 				ptr = (u32 *)buf_event.u.data;
@@ -554,19 +554,19 @@ static void handle_event_change(enum command_response cmd, void *data)
 					ptr[0], ptr[1]);
 
 				mutex_lock(&inst->sync_lock);
-				/*                                 */
+				/* Decrement buffer reference count*/
 				buf_ref_put(inst, binfo);
 
 				/*
-                                         
-                                
-    */
+				* Release buffer and remove from list
+				* if reference goes to zero.
+				*/
 				if (unmap_and_deregister_buf(inst, binfo))
 					dprintk(VIDC_ERR,
 					"%s: buffer unmap failed\n", __func__);
 				mutex_unlock(&inst->sync_lock);
 
-				/*                    */
+				/*send event to client*/
 				v4l2_event_queue_fh(&inst->event_handler,
 					&buf_event);
 				wake_up(&inst->kernel_event_queue);
@@ -1019,13 +1019,13 @@ int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 
 	if (release_buf) {
 		/*
-                                                           
-                                                               
-           
-   
-                                                                 
-                                                                 
-  */
+		* We can not delete binfo here as we need to set the user
+		* virtual address saved in binfo->uvaddr to the dequeued v4l2
+		* buffer.
+		*
+		* We will set the pending_deletion flag to true here and delete
+		* binfo from registered list in dqbuf after setting the uvaddr.
+		*/
 		dprintk(VIDC_DBG, "fd[0] = %d -> pending_deletion = true\n",
 			binfo->fd[0]);
 		binfo->pending_deletion = true;
@@ -1043,9 +1043,9 @@ static void handle_dynamic_buffer(struct msm_vidc_inst *inst,
 	struct buffer_info *binfo = NULL;
 
 	/*
-                                                                
-                                                  
-  */
+	 * Update reference count and release OR queue back the buffer,
+	 * only when firmware is not holding a reference.
+	 */
 	if (inst->buffer_mode_set[CAPTURE_PORT] == HAL_BUFFER_MODE_DYNAMIC) {
 		binfo = device_to_uvaddr(inst, &inst->registered_bufs,
 				device_addr);
@@ -1201,7 +1201,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 			break;
 		case HAL_FRAME_NOTCODED:
 		case HAL_UNUSED_PICT:
-			/*                                 */
+			/* Do we need to care about these? */
 		case HAL_FRAME_YUV:
 			break;
 		default:
@@ -1226,17 +1226,17 @@ static void handle_fbd(enum command_response cmd, void *data)
 		wake_up(&inst->kernel_event_queue);
 	} else {
 		/*
-           
-                                                               
-                                                                  
-                                                              
-                                   
-    
-                                                            
-                           
-    
-                                                          
-   */
+		 * FIXME:
+		 * Special handling for EOS case: if we sent a 0 length input
+		 * buf with EOS set, Venus doesn't return a valid output buffer.
+		 * So pick up a random buffer that's with us, and send it to
+		 * v4l2 client with EOS flag set.
+		 *
+		 * This would normally be OK unless client decides to send
+		 * frames even after EOS.
+		 *
+		 * This should be fixed in upcoming versions of firmware
+		 */
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS
 			&& fill_buf_done->filled_len1 == 0) {
 			struct buf_queue *q = &inst->bufq[CAPTURE_PORT];
@@ -1421,8 +1421,8 @@ static inline unsigned long get_ocmem_requirement(u32 height, u32 width)
 {
 	int num_mbs = 0;
 	num_mbs = GET_NUM_MBS(height, width);
-	/*                                                 
-                           */
+	/*TODO: This should be changes once the numbers are
+	 * available from firmware*/
 	return 512 * 1024;
 }
 
@@ -1659,10 +1659,10 @@ enum hal_video_codec get_hal_codec_type(int fourcc)
 	case V4L2_PIX_FMT_DIVX:
 		codec = HAL_VIDEO_CODEC_DIVX;
 		break;
-		/*                   
-                         
-                       
-                       */
+		/*HAL_VIDEO_CODEC_MVC
+		  HAL_VIDEO_CODEC_SPARK
+		  HAL_VIDEO_CODEC_VP6
+		  HAL_VIDEO_CODEC_VP7*/
 	case V4L2_PIX_FMT_HEVC:
 		codec = HAL_VIDEO_CODEC_HEVC;
 		break;
@@ -2925,25 +2925,25 @@ void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst)
 		return;
 
 	/*
-                                                       
-                                                              
-  
-                                                               
-                                                                
-                                                  
-  
-                                                                  
-                                                               
-                                                  
-  
-                                                                    
-                                                                     
-                                                               
-                                                               
-                                                           
-                                              
-                                         
- */
+	* dynamic buffer mode:- if flush is called during seek
+	* driver should not queue any new buffer it has been holding.
+	*
+	* Each dynamic o/p buffer can have one of following ref_count:
+	* ref_count : 0 - f/w has released reference and sent fbd back.
+	*		  The buffer has been returned back to client.
+	*
+	* ref_count : 1 - f/w is holding reference. f/w may have released
+	*                 fbd as read_only OR fbd is pending. f/w will
+	*		  release reference before sending flush_done.
+	*
+	* ref_count : 2 - f/w is holding reference, f/w has released fbd as
+	*                 read_only, which client has queued back to driver.
+	*                 driver holds this buffer and will queue back
+	*                 only when f/w releases the reference. During
+	*		  flush_done, f/w will release the reference but driver
+	*		  should not queue back the buffer to f/w.
+	*		  Flush all buffers with ref_count 2.
+	*/
 	mutex_lock(&inst->lock);
 	if (!list_empty(&inst->registered_bufs)) {
 		struct v4l2_event buf_event = {0};
@@ -2966,7 +2966,7 @@ void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst)
 				dprintk(VIDC_DBG,
 					"released buffer held in driver before issuing flush: 0x%x fd[0]: %d\n",
 					binfo->device_addr[0], binfo->fd[0]);
-				/*                    */
+				/*send event to client*/
 				v4l2_event_queue_fh(&inst->event_handler,
 					&buf_event);
 				wake_up(&inst->kernel_event_queue);
@@ -3025,10 +3025,10 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 	mutex_lock(&inst->sync_lock);
 	if (inst->in_reconfig && !ip_flush && op_flush) {
 		if (!list_empty(&inst->pendingq)) {
-			/*                                                  
-                                                
-                                                      
-                                                        */
+			/*Execution can never reach here since port reconfig
+			 * wont happen unless pendingq is emptied out
+			 * (both pendingq and flush being secured with same
+			 * lock). Printing a message here incase this breaks.*/
 			dprintk(VIDC_WARN,
 			"FLUSH BUG: Pending q not empty! It should be empty\n");
 		}
@@ -3041,8 +3041,8 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 
 	} else {
 		if (!list_empty(&inst->pendingq)) {
-			/*                                                    
-                                                    */
+			/*If flush is called after queueing buffers but before
+			 * streamon driver should flush the pending queue*/
 			list_for_each_safe(ptr, next, &inst->pendingq) {
 				temp =
 				list_entry(ptr, struct vb2_buf_entry, list);
@@ -3060,7 +3060,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 			}
 		}
 
-		/*                                           */
+		/*Do not send flush in case of session_error */
 		if (!(inst->state == MSM_VIDC_CORE_INVALID &&
 			  core->state != VIDC_CORE_INVALID))
 			rc = call_hfi_op(hdev, session_flush, inst->session,
@@ -3145,12 +3145,12 @@ int msm_comm_get_domain_partition(struct msm_vidc_inst *inst, u32 flags,
 	hdev = inst->core->device;
 
 	/*
-                                                               
-                                                                
-                                                                
-                                                               
-                                                    
-  */
+	 * TODO: Due to the way in which the underlying smem mechanism
+	 * maps buffer types to corresponding IOMMU domains, we need to
+	 * pass in HAL_BUFFER_OUTPUT for input buffers (and vice versa)
+	 * so that buffers are mapped into the correct domains. In the
+	 * future, we should try to remove this workaround.
+	 */
 	switch (buf_type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		hal_buffer_type = (inst->session_type == MSM_VIDC_ENCODER) ?
@@ -3362,9 +3362,9 @@ int msm_comm_recover_from_session_error(struct msm_vidc_inst *inst)
 	init_completion(&inst->completions[SESSION_MSG_INDEX
 		(SESSION_ABORT_DONE)]);
 
-	/*                                                               
-                                        
-  */
+	/* We have received session_error. Send session_abort to firmware
+	 *  to clean up and release the session
+	 */
 	rc = call_hfi_op(hdev, session_abort, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR, "session_abort failed rc: %d\n", rc);

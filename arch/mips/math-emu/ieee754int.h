@@ -1,6 +1,6 @@
 /*
-                         
-                              
+ * IEEE754 floating point
+ * common internal header file
  */
 /*
  * MIPS floating point support

@@ -62,9 +62,9 @@ int read_porch(unsigned long tmp)
 	return 0;
 }
 
-/*                                                            
-                                               
-                                        
+/* need to check porch value in mdss_fb_register at mdss_fb.c,
+ *  in dsi_panel_device_register at mdss_dsi.c,
+ *  in mdss_edp_edid2pinfo at mdss_edp.c
  */
 static int write_porch(unsigned long tmp)
 {

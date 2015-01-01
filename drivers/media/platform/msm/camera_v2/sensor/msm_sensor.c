@@ -29,7 +29,7 @@
 #endif
 /*                                                                 */
 
-//                                
+//#define CONFIG_MSMB_CAMERA_DEBUG
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
@@ -841,7 +841,7 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 	CDBG("%s qcom,mount-angle %d, rc %d\n", __func__,
 		sensordata->sensor_init_params->sensor_mount_angle, rc);
 	if (rc < 0) {
-		/*                         */
+		/* Set default mount angle */
 		sensordata->sensor_init_params->sensor_mount_angle = 0;
 		rc = 0;
 	}
@@ -860,7 +860,7 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 	CDBG("%s qcom,cci-master %d, rc %d\n", __func__, s_ctrl->cci_i2c_master,
 		rc);
 	if (rc < 0) {
-		/*                      */
+		/* Set default master 0 */
 		s_ctrl->cci_i2c_master = MASTER_0;
 		rc = 0;
 	}
@@ -954,7 +954,7 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 	sensordata->slave_info->sensor_id_reg_addr = id_info[1];
 	sensordata->slave_info->sensor_id = id_info[2];
 
-	/*                                                */
+	/*Optional property, don't return error if absent */
 	ret = of_property_read_string(of_node, "qcom,vdd-cx-name",
 		&sensordata->misc_regulator);
 	CDBG("%s qcom,misc_regulator %s, rc %d\n", __func__,
@@ -1050,9 +1050,9 @@ static struct msm_cam_clk_info cam_8610_clk_info[] = {
 };
 
 static struct msm_cam_clk_info cam_8974_clk_info[] = {
-/*                           
-                                      
-                                                 
+/* To use 24MHz for MSM8974AB
+ * For 19.2MHz, then use below setting
+ *	[SENSOR_CAM_MCLK] = {"cam_src_clk", 19200000},
  */
 	[SENSOR_CAM_MCLK] = {"cam_src_clk", 24000000},
 	[SENSOR_CAM_CLK] = {"cam_clk", 0},
@@ -1184,7 +1184,7 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		}
 	}
 
-	//                            
+	//CDBG("%s exit\n", __func__);
 	pr_err("%s  sensor_name %s exit \n", __func__,s_ctrl->sensordata->sensor_name);
 	return 0;
 power_up_failed:
@@ -1247,7 +1247,7 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	struct msm_camera_sensor_board_info *data = s_ctrl->sensordata;
 	s_ctrl->stop_setting_valid = 0;
 
-	//                                    
+	//CDBG("%s:%d\n", __func__, __LINE__);
 	pr_err("%s:%d sensor_name %s\n", __func__, __LINE__,s_ctrl->sensordata->sensor_name);
 
 	power_setting_array = &s_ctrl->power_setting_array;
@@ -1258,9 +1258,9 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 	for (index = (power_setting_array->size - 1); index >= 0; index--) {
-		//                                       
+		//CDBG("%s index %d\n", __func__, index);
 		power_setting = &power_setting_array->power_setting[index];
-		//                                                        
+		//CDBG("%s type %d\n", __func__, power_setting->seq_type);
 		switch (power_setting->seq_type) {
 		case SENSOR_CLK:
 			msm_cam_clk_enable(s_ctrl->dev,
@@ -1312,7 +1312,7 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	msm_camera_request_gpio_table(
 		data->gpio_conf->cam_gpio_req_tbl,
 		data->gpio_conf->cam_gpio_req_tbl_size, 0);
-	//                            
+	//CDBG("%s exit\n", __func__);
 	pr_err("%s:%d sensor_name %s exit\n", __func__, __LINE__,s_ctrl->sensordata->sensor_name);
 	return 0;
 }
@@ -1345,25 +1345,25 @@ int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 			s_ctrl->sensordata->sensor_name);
 #if 1
 		if(strcmp(s_ctrl->sensordata->sensor_name, "imx135") == 0){
-			chipid = 0x135; //      
-			s_ctrl->sensordata->slave_info->sensor_id = 0x135; //      
+			chipid = 0x135; //imx135
+			s_ctrl->sensordata->slave_info->sensor_id = 0x135; //imx135
 		}
 #endif
 		if(strcmp(s_ctrl->sensordata->sensor_name, "imx132") == 0){
-			chipid = 132; //      
-			s_ctrl->sensordata->slave_info->sensor_id = 132; //      
+			chipid = 132; //imx132
+			s_ctrl->sensordata->slave_info->sensor_id = 132; //imx132
 		}
 
 		if(strcmp(s_ctrl->sensordata->sensor_name, "imx208") == 0){
-			chipid = 0x208; //      
-			s_ctrl->sensordata->slave_info->sensor_id = 0x208; //      
+			chipid = 0x208; //imx208
+			s_ctrl->sensordata->slave_info->sensor_id = 0x208; //imx208
 		}
 		rc = 0;
 
 		pr_err("%s: %s: forcelly mapping the chip ID\n", __func__,
 			s_ctrl->sensordata->sensor_name);
 	}
-#else /*              */
+#else /* QCT original */
 	rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
 			s_ctrl->sensor_i2c_client,
 			s_ctrl->sensordata->slave_info->sensor_id_reg_addr,
@@ -1406,9 +1406,9 @@ static void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 static int msm_sensor_get_af_status(struct msm_sensor_ctrl_t *s_ctrl,
 			void __user *argp)
 {
-	/*                                                                 
-                                                          
-                                                   */
+	/* TO-DO: Need to set AF status register address and expected value
+	We need to check the AF status in the sensor register and
+	set the status in the *status variable accordingly*/
 	return 0;
 }
 
@@ -1443,8 +1443,8 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 	long rc = 0;
 	int32_t i = 0;
 	mutex_lock(s_ctrl->msm_sensor_mutex);
-	//                                                   
-	//                                                  
+	//CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
+	//	s_ctrl->sensordata->sensor_name, cdata->cfgtype);
 	switch (cdata->cfgtype) {
 	case CFG_GET_SENSOR_INFO:
 		memcpy(cdata->cfg.sensor_info.sensor_name,
@@ -1484,17 +1484,17 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			rc = -EFAULT;
 			break;
 		}
-		/*                             */
+		/* Update sensor slave address */
 		if (sensor_slave_info.slave_addr) {
 			s_ctrl->sensor_i2c_client->cci_client->sid =
 				sensor_slave_info.slave_addr >> 1;
 		}
 
-		/*                            */
+		/* Update sensor address type */
 		s_ctrl->sensor_i2c_client->addr_type =
 			sensor_slave_info.addr_type;
 
-		/*                                 */
+		/* Update power up / down sequence */
 		s_ctrl->power_setting_array =
 			sensor_slave_info.power_setting_array;
 		power_setting_array = &s_ctrl->power_setting_array;
@@ -1922,7 +1922,7 @@ int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 	case CFG_GET_PROXY:{
 		struct msm_sensor_proxy_info_t proxy_stat;
 		uint16_t read_proxy_data = 0;
-//                                              
+//		CDBG("%s: CFG_GET_PROXY_INFO!\n", __func__);
 		read_proxy_data = msm_get_proxy(&proxy_stat);
 		cdata->cfg.proxy_data  = read_proxy_data;
 		memcpy(&cdata->cfg.proxy_info,&proxy_stat,sizeof(cdata->cfg.proxy_info));
@@ -2079,7 +2079,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 		pr_err("%s failed line %d\n", __func__, __LINE__);
 		return rc;
 	}
-	/*                      */
+	/* TODO: get CCI subdev */
 	cci_client = s_ctrl->sensor_i2c_client->cci_client;
 	cci_client->cci_subdev = msm_cci_get_subdev();
 	cci_client->cci_i2c_master = s_ctrl->cci_i2c_master;
@@ -2118,7 +2118,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 		(!strcmp(s_ctrl->sensordata->sensor_name, "imx214"))){
 		rc = msm_eeprom_read();
 		if(rc < 0)
-			pr_err("%s: read_eeprom_memory failed\n", __func__);	 //                                  
+			pr_err("%s: read_eeprom_memory failed\n", __func__);	 //although fail, pass the this step.
 		else
 			pr_err("%s: read eeprom success\n", __func__);
 	}
@@ -2154,7 +2154,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 	CDBG("%s:%d\n", __func__, __LINE__);
-//                                
+//	pr_err("%s: EXIT\n", __func__);
 	return rc;
 }
 

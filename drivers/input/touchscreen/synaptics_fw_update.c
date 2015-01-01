@@ -35,7 +35,7 @@
 #define INSIDE_FIRMWARE_UPDATE
 
 #define FW_IMAGE_OFFSET 0x100
-/*                                                      */
+/* 0 to ignore flash block check to speed up flash time */
 #define CHECK_FLASH_BLOCK_STATUS 1
 
 #define REG_MAP (1 << 0)
@@ -120,7 +120,7 @@ static int fwu_wait_for_idle(int timeout_ms);
 struct image_header_data {
 	union {
 		struct {
-			/*           */
+			/* 0x00-0x0F */
 			unsigned char file_checksum[4];
 			unsigned char reserved_04;
 			unsigned char reserved_05;
@@ -130,21 +130,21 @@ struct image_header_data {
 			unsigned char bootloader_version;
 			unsigned char firmware_size[4];
 			unsigned char config_size[4];
-			/*           */
+			/* 0x10-0x1F */
 			unsigned char product_id[SYNAPTICS_RMI4_PRODUCT_ID_SIZE];
 			unsigned char pkg_id_lsb;
 			unsigned char pkg_id_msb;
 			unsigned char pkg_id_rev_lsb;
 			unsigned char pkg_id_rev_msb;
 			unsigned char product_info[SYNAPTICS_RMI4_PRODUCT_INFO_SIZE];
-			/*           */
+			/* 0x20-0x2F */
 			unsigned char reserved_20_2f[0x10];
-			/*           */
+			/* 0x30-0x3F */
 			unsigned char ds_firmware_id[0x10];
-			/*           */
+			/* 0x40-0x4F */
 			unsigned char ds_customize_info[10];
 			unsigned char reserved_4a_4f[6];
-			/*          */
+			/* 0x50-0x53*/
 			unsigned char firmware_id[4];
 		} __packed;
 		unsigned char data[0x54];
@@ -208,13 +208,13 @@ struct f01_device_control {
 
 struct f34_flash_control {
 	union {
-	/*           */
+	/* version 0 */
 		struct {
 			unsigned char command_v0:4;
 			unsigned char status:3;
 			unsigned char program_enabled:1;
 		} __packed;
-	/*           */
+	/* version 1 */
 		struct {
 			unsigned char command_v1:6;
 			unsigned char reserved:2;
@@ -316,7 +316,7 @@ static void synaptics_rmi4_update_debug_info(void)
 	unsigned char pkg_id[4];
 	unsigned int build_id;
 	struct synaptics_rmi4_device_info *rmi;
-	/*                        */
+	/* read device package id */
 	fwu->fn_ptr->read(fwu->rmi4_data,
 				fwu->f01_fd.query_base_addr + 17,
 				pkg_id,
@@ -371,14 +371,14 @@ static void parse_header(void)
 		img->image_size,
 		img->config_size);
 
-	/*                        */
+	/* get UI firmware offset */
 	if (img->image_size)
 		img->firmware_data = fwu->data_buffer + FW_IMAGE_OFFSET;
-	/*                  */
+	/* get config offset*/
 	if (img->config_size)
 		img->config_data = fwu->data_buffer + FW_IMAGE_OFFSET +
 				img->image_size;
-	/*                    */
+	/* get lockdown offset*/
 	switch (img->bootloader_version) {
 	case 3:
 	case 4:
@@ -714,7 +714,7 @@ static enum flash_area fwu_go_nogo(void)
 	}
 
 	if (img->is_contain_build_info) {
-		/*                                                      */
+		/* if package id does not match, do not update firmware */
 		fwu->fn_ptr->read(fwu->rmi4_data,
 					fwu->f01_fd.query_base_addr + 17,
 					pkg_id,
@@ -731,7 +731,7 @@ static enum flash_area fwu_go_nogo(void)
 		}
 	}
 
-	/*                     */
+	/* check firmware size */
 	if (fwu->fw_block_count*fwu->block_size != img->image_size) {
 		dev_err(&i2c_client->dev,
 			"%s: firmware size of device (%d) != .img (%d)\n",
@@ -742,7 +742,7 @@ static enum flash_area fwu_go_nogo(void)
 		goto exit;
 	}
 
-	/*                   */
+	/* check config size */
 	if (fwu->config_block_count*fwu->block_size != img->config_size) {
 		dev_err(&i2c_client->dev,
 			"%s: config size of device (%d) != .img (%d)\n",
@@ -759,7 +759,7 @@ static enum flash_area fwu_go_nogo(void)
 		goto exit;
 	}
 
-	/*                                                         */
+	/* Force update firmware when device is in bootloader mode */
 	if (f01_device_status.flash_prog) {
 		dev_info(&i2c_client->dev,
 			"%s: In flash prog mode\n",
@@ -768,7 +768,7 @@ static enum flash_area fwu_go_nogo(void)
 		goto exit;
 	}
 
-	/*                    */
+	/* device firmware id */
 	retval = fwu->fn_ptr->read(fwu->rmi4_data,
 				fwu->f01_fd.query_base_addr + 18,
 				firmware_id,
@@ -782,7 +782,7 @@ static enum flash_area fwu_go_nogo(void)
 	firmware_id[3] = 0;
 	deviceFirmwareID = extract_uint(firmware_id);
 
-	/*                  */
+	/* .img firmware id */
 	if (img->is_contain_build_info) {
 		dev_err(&i2c_client->dev,
 			"%s: Image option contains build info.\n",
@@ -835,7 +835,7 @@ static enum flash_area fwu_go_nogo(void)
 		goto exit;
 	}
 
-	/*                  */
+	/* device config id */
 	retval = fwu->fn_ptr->read(fwu->rmi4_data,
 				fwu->f34_fd.ctrl_base_addr,
 				config_id,
@@ -853,7 +853,7 @@ static enum flash_area fwu_go_nogo(void)
 		"Device config ID 0x%02X, 0x%02X, 0x%02X, 0x%02X\n",
 		config_id[0], config_id[1], config_id[2], config_id[3]);
 
-	/*                */
+	/* .img config id */
 	dev_dbg(&i2c_client->dev,
 			".img config ID 0x%02X, 0x%02X, 0x%02X, 0x%02X\n",
 			fwu->config_data[0],
@@ -1604,10 +1604,10 @@ static int fwu_start_reflash(void)
 				"%s: Failed to do reflash\n",
 				__func__);
 
-	/*              */
+	/* reset device */
 	fwu_reset_device();
 
-	/*                     */
+	/* check device status */
 	retval = fwu_read_f01_device_status(&f01_device_status);
 	if (retval < 0)
 		goto exit;
@@ -1982,7 +1982,7 @@ static ssize_t fwu_sysfs_config_id_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	unsigned char config_id[4];
-	/*                  */
+	/* device config id */
 	fwu->fn_ptr->read(fwu->rmi4_data,
 				fwu->f34_fd.ctrl_base_addr,
 				config_id,
@@ -1996,7 +1996,7 @@ static ssize_t fwu_sysfs_package_id_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	unsigned char pkg_id[4];
-	/*                        */
+	/* read device package id */
 	fwu->fn_ptr->read(fwu->rmi4_data,
 				fwu->f01_fd.query_base_addr + 17,
 				pkg_id,

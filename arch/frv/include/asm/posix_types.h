@@ -2,9 +2,9 @@
 #define _ASM_POSIX_TYPES_H
 
 /*
-                                                                     
-                                                                      
-                            
+ * This file is generally used by user-level software, so you need to
+ * be a little careful about namespace pollution etc.  Also, we cannot
+ * assume GCC is being used.
  */
 
 typedef unsigned short	__kernel_mode_t;

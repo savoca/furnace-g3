@@ -25,8 +25,8 @@
 #include <scsi/scsi_tcq.h>
 
 /*
-                                                                         
-                                                            
+ * The r00-r01c specs define this version of the SENSE IU data structure.
+ * It's still in use by several different firmware releases.
  */
 struct sense_iu_old {
 	__u8 iu_id;
@@ -46,7 +46,7 @@ struct uas_dev_info {
 	unsigned use_streams:1;
 	unsigned uas_sense_old:1;
 	struct scsi_cmnd *cmnd;
-	struct urb *status_urb; /*                                          */
+	struct urb *status_urb; /* used only if stream support is available */
 };
 
 enum {
@@ -63,19 +63,19 @@ enum {
 	DATA_COMPLETES_CMD	= (1 << 10),
 };
 
-/*                        */
+/* Overrides scsi_pointer */
 struct uas_cmd_info {
 	unsigned int state;
 	unsigned int stream;
 	struct urb *cmd_urb;
-	/*                                                           */
+	/* status_urb is used only if stream support isn't available */
 	struct urb *status_urb;
 	struct urb *data_in_urb;
 	struct urb *data_out_urb;
 	struct list_head list;
 };
 
-/*                                                         */
+/* I hate forward declarations, but I actually have a loop */
 static int uas_submit_urbs(struct scsi_cmnd *cmnd,
 				struct uas_dev_info *devinfo, gfp_t gfp);
 static void uas_do_work(struct work_struct *work);
@@ -389,9 +389,9 @@ static struct urb *uas_alloc_cmd_urb(struct uas_dev_info *devinfo, gfp_t gfp,
 }
 
 /*
-                                                                          
-                                                                          
-              
+ * Why should I request the Status IU before sending the Command IU?  Spec
+ * says to, but also says the device may receive them in any order.  Seems
+ * daft to me.
  */
 
 static int uas_submit_urbs(struct scsi_cmnd *cmnd,
@@ -517,7 +517,7 @@ static int uas_queuecommand_lck(struct scsi_cmnd *cmnd,
 
 	err = uas_submit_urbs(cmnd, devinfo, GFP_ATOMIC);
 	if (err) {
-		/*                                */
+		/* If we did nothing, give up now */
 		if (cmdinfo->state & SUBMIT_STATUS_URB) {
 			usb_free_urb(cmdinfo->status_urb);
 			return SCSI_MLQUEUE_DEVICE_BUSY;
@@ -539,7 +539,7 @@ static int uas_eh_abort_handler(struct scsi_cmnd *cmnd)
 	sdev_printk(KERN_INFO, sdev, "%s tag %d\n", __func__,
 							cmnd->request->tag);
 
-/*                                              */
+/* XXX: Send ABORT TASK Task Management command */
 	return FAILED;
 }
 
@@ -549,7 +549,7 @@ static int uas_eh_device_reset_handler(struct scsi_cmnd *cmnd)
 	sdev_printk(KERN_INFO, sdev, "%s tag %d\n", __func__,
 							cmnd->request->tag);
 
-/*                                                      */
+/* XXX: Send LOGICAL UNIT RESET Task Management command */
 	return FAILED;
 }
 
@@ -559,8 +559,8 @@ static int uas_eh_target_reset_handler(struct scsi_cmnd *cmnd)
 	sdev_printk(KERN_INFO, sdev, "%s tag %d\n", __func__,
 							cmnd->request->tag);
 
-/*                                              
-                                                           
+/* XXX: Can we reset just the one USB interface?
+ * Would calling usb_set_interface() have the right effect?
  */
 	return FAILED;
 }
@@ -604,10 +604,10 @@ static struct scsi_host_template uas_host_template = {
 	.eh_device_reset_handler = uas_eh_device_reset_handler,
 	.eh_target_reset_handler = uas_eh_target_reset_handler,
 	.eh_bus_reset_handler = uas_eh_bus_reset_handler,
-	.can_queue = 65536,	/*                                  */
+	.can_queue = 65536,	/* Is there a limit on the _host_ ? */
 	.this_id = -1,
 	.sg_tablesize = SG_NONE,
-	.cmd_per_lun = 1,	/*                      */
+	.cmd_per_lun = 1,	/* until we override it */
 	.skip_settle_delay = 1,
 	.ordered_tag = 1,
 };
@@ -615,7 +615,7 @@ static struct scsi_host_template uas_host_template = {
 static struct usb_device_id uas_usb_ids[] = {
 	{ USB_INTERFACE_INFO(USB_CLASS_MASS_STORAGE, USB_SC_SCSI, USB_PR_BULK) },
 	{ USB_INTERFACE_INFO(USB_CLASS_MASS_STORAGE, USB_SC_SCSI, USB_PR_UAS) },
-	/*                                                       */
+	/* 0xaa is a prototype device I happen to have access to */
 	{ USB_INTERFACE_INFO(USB_CLASS_MASS_STORAGE, USB_SC_SCSI, 0xaa) },
 	{ }
 };
@@ -688,10 +688,10 @@ static void uas_configure_endpoints(struct uas_dev_info *devinfo)
 	}
 
 	/*
-                                                                  
-                                                                   
-         
-  */
+	 * Assume that if we didn't find a control pipe descriptor, we're
+	 * using a device with old firmware that happens to be set up like
+	 * this.
+	 */
 	if (!eps[0]) {
 		devinfo->cmd_pipe = usb_sndbulkpipe(udev, 1);
 		devinfo->status_pipe = usb_rcvbulkpipe(udev, 1);
@@ -757,10 +757,10 @@ static void uas_free_streams(struct uas_dev_info *devinfo)
 }
 
 /*
-                                                                             
-                                                                          
-                                                                        
-                                          
+ * XXX: What I'd like to do here is register a SCSI host for each USB host in
+ * the system.  Follow usb-storage's design of registering a SCSI host for
+ * each USB device for the moment.  Can implement this by walking up the
+ * USB hierarchy until we find a USB host.
  */
 static int uas_probe(struct usb_interface *intf, const struct usb_device_id *id)
 {
@@ -821,13 +821,13 @@ deconfig_eps:
 
 static int uas_pre_reset(struct usb_interface *intf)
 {
-/*                                                                */
+/* XXX: Need to return 1 if it's not our device in error handling */
 	return 0;
 }
 
 static int uas_post_reset(struct usb_interface *intf)
 {
-/*                                                                */
+/* XXX: Need to return 1 if it's not our device in error handling */
 	return 0;
 }
 
@@ -844,8 +844,8 @@ static void uas_disconnect(struct usb_interface *intf)
 }
 
 /*
-                                                                          
-                    
+ * XXX: Should this plug into libusual so we can auto-upgrade devices from
+ * Bulk-Only to UAS?
  */
 static struct usb_driver uas_driver = {
 	.name = "uas",

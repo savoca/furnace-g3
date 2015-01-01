@@ -1,5 +1,5 @@
 /*
-                                    
+ * CRIS MMU constants and PTE layout
  */
 
 #ifndef _CRIS_MMU_H

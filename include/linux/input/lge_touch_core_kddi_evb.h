@@ -18,7 +18,7 @@
 #ifndef LGE_TOUCH_CORE_H
 #define LGE_TOUCH_CORE_H
 
-//                     
+//#define MT_PROTOCOL_A
 //                            
 #include <linux/earlysuspend.h>
 
@@ -31,24 +31,24 @@
 #endif
 
 #if defined(CONFIG_MACH_APQ8064_GK_KR) || defined(CONFIG_MACH_APQ8064_GKATT) || defined(CONFIG_MACH_APQ8064_GKGLOBAL)
-#define PRESSURE_DIFF	/*                          */
+#define PRESSURE_DIFF	/* pressure_diff_detection  */
 #endif
 #ifdef CUST_G2_TOUCH
-#define REPORT_WAKEUP_GESTURE_ONLY_REG	0x19 //                
-#define WAKEUP_GESTURE_ENABEL_REG	0x1D //      
+#define REPORT_WAKEUP_GESTURE_ONLY_REG	0x19 // offset 2  bit:1
+#define WAKEUP_GESTURE_ENABEL_REG	0x1D // bit:0
 #define DOUBLE_TAP_AREA_REG	0x18
 #define DOZE_INTERVAL_REG	0xF
 #endif
 #ifdef CUST_G2_TOUCH
 #include <mach/board_lge.h>
-//                                                     
+//lcd_maker_id get_panel_maker_id(void); rangkast.jeong
 #define MINIMUM_PEAK_AMPLITUDE_REG    0x15
 #endif
 struct touch_device_caps
 {
 	u8		button_support;
 	u16		y_button_boundary;
-	u32		button_margin;		//             
+	u32		button_margin;		// percentage %
 	u8		number_of_button;
 	u32		button_name[MAX_BUTTON];
 	u8		is_width_supported;
@@ -65,19 +65,19 @@ struct touch_device_caps
 
 struct touch_operation_role
 {
-	u8		operation_mode;	//                             
-	u8		key_type;		//                                              
+	u8		operation_mode;	// interrupt = 1 , polling = 0;
+	u8		key_type;		// none = 0, hard_touch_key = 1, virtual_key = 2
 	u8		report_mode;
 	u8		delta_pos_threshold;
-	u8		orientation;	//                                    
-	u32		report_period;	//   
-	u32		booting_delay;	//   
-	u32		reset_delay;	//   
+	u8		orientation;	// 0' = 0, 90' = 1, 180' = 2, 270' = 3
+	u32		report_period;	// ns
+	u32		booting_delay;	// ms
+	u32		reset_delay;	// ms
 	u8		suspend_pwr;
 	u8		resume_pwr;
-	int		jitter_filter_enable;	//                        
+	int		jitter_filter_enable;	// enable = 1, disable = 0
 	int		jitter_curr_ratio;
-	int		accuracy_filter_enable;	//                        
+	int		accuracy_filter_enable;	// enable = 1, disable = 0
 	int		ghost_finger_solution_enable;
 	unsigned long	irqflags;
 #ifdef CUST_G_TOUCH
@@ -189,8 +189,8 @@ struct touch_fw_info
 {
 	struct fw_upgrade_info	fw_upgrade;
 	struct fw_set_info		fw_setting;
-	u8		ic_fw_identifier[31];	/*        */
-	u8		ic_fw_version[11];		/*        */
+	u8		ic_fw_identifier[31];	/* String */
+	u8		ic_fw_version[11];		/* String */
 #ifdef CUST_G2_TOUCH
 	u8		fw_force_rework;
 	u8		syna_img_fw_version[5];
@@ -468,14 +468,14 @@ enum{
 };
 enum{
 	GHOST_NONE			= 0,
-	GHOST_LONG_PRESS	= (1U << 0),	//  
-	GHOST_FIRST_IRQ		= (1U << 1),	//  
-	GHOST_CALL_STATE	= (1U << 2),	//  
-	GHOST_TA_DEBOUNCE	= (1U << 3),	//  
-	GHOST_PRESSURE		= (1U << 4),	//   
-	GHOST_BUTTON		= (1U << 5),	//   
-	GHOST_TA_RESET		= (1U << 6),	//   
-	GHOST_EDGE_ZONE		= (1U << 7),	//    
+	GHOST_LONG_PRESS	= (1U << 0),	// 1
+	GHOST_FIRST_IRQ		= (1U << 1),	// 2
+	GHOST_CALL_STATE	= (1U << 2),	// 4
+	GHOST_TA_DEBOUNCE	= (1U << 3),	// 8
+	GHOST_PRESSURE		= (1U << 4),	// 16
+	GHOST_BUTTON		= (1U << 5),	// 32
+	GHOST_TA_RESET		= (1U << 6),	// 64
+	GHOST_EDGE_ZONE		= (1U << 7),	// 128
 };
 #endif
 
@@ -507,20 +507,20 @@ enum{
 
 enum{
 	DEBUG_NONE				= 0,
-	DEBUG_BASE_INFO			= (1U << 0),	//  
-	DEBUG_TRACE				= (1U << 1),	//  
-	DEBUG_GET_DATA			= (1U << 2),	//  
-	DEBUG_ABS				= (1U << 3),	//  
-	DEBUG_BUTTON			= (1U << 4),	//   
-	DEBUG_FW_UPGRADE		= (1U << 5), 	//   
-	DEBUG_GHOST				= (1U << 6),	//   
-	DEBUG_IRQ_HANDLE		= (1U << 7),	//    
-	DEBUG_POWER				= (1U << 8),	//    
-	DEBUG_JITTER			= (1U << 9),	//    
-	DEBUG_ACCURACY			= (1U << 10),	//     
-	DEBUG_NOISE				= (1U << 11),	//     
+	DEBUG_BASE_INFO			= (1U << 0),	// 1
+	DEBUG_TRACE				= (1U << 1),	// 2
+	DEBUG_GET_DATA			= (1U << 2),	// 4
+	DEBUG_ABS				= (1U << 3),	// 8
+	DEBUG_BUTTON			= (1U << 4),	// 16
+	DEBUG_FW_UPGRADE		= (1U << 5), 	// 32
+	DEBUG_GHOST				= (1U << 6),	// 64
+	DEBUG_IRQ_HANDLE		= (1U << 7),	// 128
+	DEBUG_POWER				= (1U << 8),	// 256
+	DEBUG_JITTER			= (1U << 9),	// 512
+	DEBUG_ACCURACY			= (1U << 10),	// 1024
+	DEBUG_NOISE				= (1U << 11),	// 2048
 #ifdef PRESSURE_DIFF
-	DEBUG_PRESSURE			= (1U << 12),	//     
+	DEBUG_PRESSURE			= (1U << 12),	// 4096
 #endif
 };
 
@@ -538,12 +538,12 @@ enum{
 
 enum{
 	DEBUG_TIME_PROFILE_NONE			= 0,
-	DEBUG_TIME_INT_INTERVAL			= (1U << 0),	//  
-	DEBUG_TIME_INT_IRQ_DELAY		= (1U << 1),	//  
-	DEBUG_TIME_INT_THREAD_IRQ_DELAY	= (1U << 2),	//  
-	DEBUG_TIME_DATA_HANDLE			= (1U << 3),	//  
-	DEBUG_TIME_FW_UPGRADE			= (1U << 4),	//   
-	DEBUG_TIME_PROFILE_ALL			= (1U << 5),	//   
+	DEBUG_TIME_INT_INTERVAL			= (1U << 0),	// 1
+	DEBUG_TIME_INT_IRQ_DELAY		= (1U << 1),	// 2
+	DEBUG_TIME_INT_THREAD_IRQ_DELAY	= (1U << 2),	// 4
+	DEBUG_TIME_DATA_HANDLE			= (1U << 3),	// 8
+	DEBUG_TIME_FW_UPGRADE			= (1U << 4),	// 16
+	DEBUG_TIME_PROFILE_ALL			= (1U << 5),	// 32
 };
 #endif
 
@@ -581,7 +581,7 @@ enum{
 
 #define LGE_TOUCH_NAME		"lge_touch"
 
-/*                    */
+/* Debug Mask setting */
 #define TOUCH_DEBUG_PRINT   (1)
 #define TOUCH_ERROR_PRINT   (1)
 #define TOUCH_INFO_PRINT   	(1)

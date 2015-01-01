@@ -16,8 +16,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-/*          
-                       
+/* Supports:
+ * Timberdale FPGA GPIO
  */
 
 #include <linux/module.h>
@@ -44,7 +44,7 @@
 
 struct timbgpio {
 	void __iomem		*membase;
-	spinlock_t		lock; /*                  */
+	spinlock_t		lock; /* mutual exclusion */
 	struct gpio_chip	gpio;
 	int			irq_base;
 	unsigned long		last_ier;
@@ -107,7 +107,7 @@ static int timbgpio_to_irq(struct gpio_chip *gpio, unsigned offset)
 }
 
 /*
-           
+ * GPIO IRQ
  */
 static void timbgpio_irq_disable(struct irq_data *d)
 {
@@ -204,9 +204,9 @@ static void timbgpio_irq(unsigned int irq, struct irq_desc *desc)
 	iowrite32(ipr, tgpio->membase + TGPIO_ICR);
 
 	/*
-                                                                     
-                                             
-  */
+	 * Some versions of the hardware trash the IER register if more than
+	 * one interrupt is received simultaneously.
+	 */
 	iowrite32(0, tgpio->membase + TGPIO_IER);
 
 	for_each_set_bit(offset, &ipr, tgpio->gpio.ngpio)
@@ -284,7 +284,7 @@ static int __devinit timbgpio_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, tgpio);
 
-	/*                                 */
+	/* make sure to disable interrupts */
 	iowrite32(0x0, tgpio->membase + TGPIO_IER);
 
 	if (irq < 0 || tgpio->irq_base <= 0)
@@ -357,7 +357,7 @@ static struct platform_driver timbgpio_platform_driver = {
 	.remove		= timbgpio_remove,
 };
 
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 module_platform_driver(timbgpio_platform_driver);
 

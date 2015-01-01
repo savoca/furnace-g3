@@ -56,7 +56,7 @@ static void tx_complete(struct urb *req);
 static void rx_complete(struct urb *req);
 
 /*
-                           
+ * Network device callbacks
  */
 static netdev_tx_t usbpn_xmit(struct sk_buff *skb, struct net_device *dev)
 {
@@ -161,7 +161,7 @@ static void rx_complete(struct urb *req)
 		if (!skb) {
 			skb = pnd->rx_skb = netdev_alloc_skb(dev, 12);
 			if (likely(skb)) {
-				/*                                      */
+				/* Can't use pskb_pull() on page in IRQ */
 				memcpy(skb_put(skb, 1), page_address(page), 1);
 				skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags,
 						page, 1, req->actual_length,
@@ -175,7 +175,7 @@ static void rx_complete(struct urb *req)
 			page = NULL;
 		}
 		if (req->actual_length < PAGE_SIZE)
-			pnd->rx_skb = NULL; /*               */
+			pnd->rx_skb = NULL; /* Last fragment */
 		else
 			skb = NULL;
 		spin_unlock_irqrestore(&pnd->rx_lock, flags);
@@ -309,14 +309,14 @@ static void usbpn_setup(struct net_device *dev)
 }
 
 /*
-                       
+ * USB driver callbacks
  */
 static struct usb_device_id usbpn_ids[] = {
 	{
 		.match_flags = USB_DEVICE_ID_MATCH_VENDOR
 			| USB_DEVICE_ID_MATCH_INT_CLASS
 			| USB_DEVICE_ID_MATCH_INT_SUBCLASS,
-		.idVendor = 0x0421, /*       */
+		.idVendor = 0x0421, /* Nokia */
 		.bInterfaceClass = USB_CLASS_COMM,
 		.bInterfaceSubClass = 0xFE,
 	},
@@ -347,9 +347,9 @@ int usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
 		if (dlen < 3)
 			return -EINVAL;
 
-		/*                 */
+		/* bDescriptorType */
 		if (data[1] == USB_DT_CS_INTERFACE) {
-			/*                    */
+			/* bDescriptorSubType */
 			switch (data[2]) {
 			case USB_CDC_UNION_TYPE:
 				if (union_header || dlen < 5)
@@ -372,7 +372,7 @@ int usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	data_intf = usb_ifnum_to_if(usbdev, union_header->bSlaveInterface0);
 	if (data_intf == NULL)
 		return -ENODEV;
-	/*                                                        */
+	/* Data interface has one inactive and one active setting */
 	if (data_intf->num_altsetting != 2)
 		return -EINVAL;
 	if (data_intf->altsetting[0].desc.bNumEndpoints == 0 &&
@@ -399,7 +399,7 @@ int usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	pnd->data_intf = data_intf;
 	spin_lock_init(&pnd->tx_lock);
 	spin_lock_init(&pnd->rx_lock);
-	/*           */
+	/* Endpoints */
 	if (usb_pipein(data_desc->endpoint[0].desc.bEndpointAddress)) {
 		pnd->rx_pipe = usb_rcvbulkpipe(usbdev,
 			data_desc->endpoint[0].desc.bEndpointAddress);
@@ -417,7 +417,7 @@ int usbpn_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	if (err)
 		goto out;
 
-	/*                                                            */
+	/* Force inactive mode until the network device is brought UP */
 	usb_set_interface(usbdev, union_header->bSlaveInterface0,
 				!pnd->active_setting);
 	usb_set_intfdata(intf, pnd);

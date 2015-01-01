@@ -32,7 +32,7 @@ enum ieee_types_wmm_ecw_bitmasks {
 };
 
 /*
-                                                        
+ * This function retrieves the TID of the given RA list.
  */
 static inline int
 mwifiex_get_tid(struct mwifiex_ra_list_tbl *ptr)
@@ -48,7 +48,7 @@ mwifiex_get_tid(struct mwifiex_ra_list_tbl *ptr)
 }
 
 /*
-                                           
+ * This function gets the length of a list.
  */
 static inline int
 mwifiex_wmm_list_len(struct list_head *head)
@@ -63,7 +63,7 @@ mwifiex_wmm_list_len(struct list_head *head)
 }
 
 /*
-                                                     
+ * This function checks if a RA list is empty or not.
  */
 static inline u8
 mwifiex_wmm_is_ra_list_empty(struct list_head *ra_list_hhead)
@@ -107,4 +107,4 @@ void mwifiex_wmm_setup_ac_downgrade(struct mwifiex_private *priv);
 extern int mwifiex_ret_wmm_get_status(struct mwifiex_private *priv,
 				      const struct host_cmd_ds_command *resp);
 
-#endif /*                  */
+#endif /* !_MWIFIEX_WMM_H_ */

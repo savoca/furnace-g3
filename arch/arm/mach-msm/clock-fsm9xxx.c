@@ -16,7 +16,7 @@
 #include "clock.h"
 
 /*
-         
+ * Clocks
  */
 
 static struct clk_lookup msm_clocks_fsm9xxx[] = {

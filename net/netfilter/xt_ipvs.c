@@ -1,7 +1,7 @@
 /*
-                                                              
-  
-                                         
+ *	xt_ipvs - kernel module to match IPVS connection properties
+ *
+ *	Author: Hannes Eder <heder@google.com>
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -27,7 +27,7 @@ MODULE_LICENSE("GPL");
 MODULE_ALIAS("ipt_ipvs");
 MODULE_ALIAS("ip6t_ipvs");
 
-/*                            */
+/* borrowed from xt_conntrack */
 static bool ipvs_mt_addrcmp(const union nf_inet_addr *kaddr,
 			    const union nf_inet_addr *uaddr,
 			    const union nf_inet_addr *umask,
@@ -48,7 +48,7 @@ static bool
 ipvs_mt(const struct sk_buff *skb, struct xt_action_param *par)
 {
 	const struct xt_ipvs_mtinfo *data = par->matchinfo;
-	/*                                                            */
+	/* ipvs_mt_check ensures that family is only NFPROTO_IPV[46]. */
 	const u_int8_t family = par->family;
 	struct ip_vs_iphdr iph;
 	struct ip_vs_protocol *pp;
@@ -61,7 +61,7 @@ ipvs_mt(const struct sk_buff *skb, struct xt_action_param *par)
 		goto out;
 	}
 
-	/*                                                */
+	/* other flags than XT_IPVS_IPVS_PROPERTY are set */
 	if (!skb->ipvs_property) {
 		match = false;
 		goto out;
@@ -83,18 +83,18 @@ ipvs_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	}
 
 	/*
-                                                    
-  */
-	cp = pp->conn_out_get(family, skb, &iph, iph.len, 1 /*         */);
+	 * Check if the packet belongs to an existing entry
+	 */
+	cp = pp->conn_out_get(family, skb, &iph, iph.len, 1 /* inverse */);
 	if (unlikely(cp == NULL)) {
 		match = false;
 		goto out;
 	}
 
 	/*
-                                                          
-                                                                        
-  */
+	 * We found a connection, i.e. ct != 0, make sure to call
+	 * __ip_vs_conn_put before returning.  In our case jump to out_put_con.
+	 */
 
 	if (data->bitmask & XT_IPVS_VPORT)
 		if ((cp->vport == data->vport) ^

@@ -43,7 +43,7 @@
 struct snd_msndmidi {
 	struct snd_msnd *dev;
 
-	unsigned long mode;		/*                    */
+	unsigned long mode;		/* MSNDMIDI_MODE_XXXX */
 
 	struct snd_rawmidi_substream *substream_input;
 
@@ -51,7 +51,7 @@ struct snd_msndmidi {
 };
 
 /*
-                                                                 
+ * input/output open/close - protected by open_mutex in rawmidi.c
  */
 static int snd_msndmidi_input_open(struct snd_rawmidi_substream *substream)
 {
@@ -91,7 +91,7 @@ static void snd_msndmidi_input_drop(struct snd_msndmidi *mpu)
 }
 
 /*
-                
+ * trigger input
  */
 static void snd_msndmidi_input_trigger(struct snd_rawmidi_substream *substream,
 					int up)
