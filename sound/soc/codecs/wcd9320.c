@@ -6508,10 +6508,6 @@ static const struct wcd9xxx_reg_mask_val taiko_codec_reg_init_val[] = {
 	/* set MAD input MIC to DMIC1 */
 	{TAIKO_A_CDC_CONN_MAD, 0x0F, 0x08},
 
-#ifndef CONFIG_ENABLE_MBHC
-    /* if not CONFIG_ENABLE_MBHC, restore the value from 0x44 */
-    {TAIKO_A_MBHC_HPH, 0x45, 0x45},
-#endif
 };
 
 static void taiko_codec_init_reg(struct snd_soc_codec *codec)

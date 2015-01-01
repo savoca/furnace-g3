@@ -1960,7 +1960,7 @@ static int bq24296_batt_power_get_property(struct power_supply *psy,
 		break;
 #if defined(CONFIG_LGE_PM_BATTERY_ID_CHECKER)
 	case POWER_SUPPLY_PROP_BATTERY_ID_CHECKER:
-		if (is_factory_cable())
+		if (is_factory_cable() && bq24296_is_charger_present(chip))
 			val->intval = 1;
 		else
 			val->intval = chip->batt_id_smem;
