@@ -1,0 +1,5 @@
+/*
+                                         
+ */
+
+#include <plat/smp.h>
