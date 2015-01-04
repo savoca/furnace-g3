@@ -223,6 +223,9 @@ struct regulator *vdd_vreg;
 struct regulator *vdd_io_vreg;
 struct regulator *vdda_vreg;
 int broadcast_enable;
+#ifdef CONFIG_LGE_SHARPENING
+	int sharpening_state;
+#endif
 };
 
 enum {
@@ -290,6 +293,12 @@ struct mdss_hw *dsi_hw;
 struct mdss_panel_recovery *recovery;
 struct dsi_panel_cmds on_cmds;
 struct dsi_panel_cmds off_cmds;
+#ifdef CONFIG_LGE_SHARPENING
+int (*set_sharpening)(struct mdss_dsi_ctrl_pdata *ctrl, int state,
+	void *resuming);
+int (*get_sharpening)(struct mdss_dsi_ctrl_pdata *ctrl);
+int (*queue_sharpening)(struct mdss_dsi_ctrl_pdata *ctrl, int state);
+#endif
 #ifdef CONFIG_MACH_LGE_G3_KDDI_LGD_FHD
 struct dsi_panel_cmds set_address_mode_cmds;
 #endif
@@ -311,6 +320,10 @@ struct mutex cmd_mutex;
 
 struct dsi_buf tx_buf;
 struct dsi_buf rx_buf;
+#ifdef CONFIG_LGE_SHARPENING
+struct dsi_panel_cmds sharpening_on;
+struct dsi_panel_cmds sharpening_off;
+#endif
 };
 
 int dsi_panel_device_register(struct device_node *pan_node,
