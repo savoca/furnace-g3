@@ -45,11 +45,6 @@ config LGE_VSYNC_SKIP
 	---help---
 	This feature provides VSYNC skip scheme.
 
-config LGE_SHARPENING
-	bool "LGE sharpening control"
-	---help---
-	  Allow control of LGE panel sharpening via sysfs node.
-
 config FB_MSM_MDSS_KCAL_CTRL
 	depends on FB_MSM_MDSS
 	bool "MDSS color control"
