@@ -24,6 +24,10 @@
 
 #include "mdss_mdp_kcal_ctrl.h"
 
+#ifdef CONFIG_FURNACE_BOOTMODE
+#include <mach/board_lge.h>
+#endif
+
 struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 	[MDSS_MDP_CSC_RGB2RGB] = {
 		0,
@@ -2000,7 +2004,14 @@ int mdss_mdp_pp_init(struct device *dev)
 
 	if (!ret) {
 		mdss_mdp_pp_argc();
+#ifdef CONFIG_FURNACE_BOOTMODE
+		if (lge_get_android_dlcomplete() == 0)
+			update_preset_lcdc_lut(MAX_KCAL, MAX_KCAL, MAX_KCAL);
+		else
+			update_preset_lcdc_lut(232, 226, 242);
+#else
 		update_preset_lcdc_lut(MAX_KCAL, MAX_KCAL, MAX_KCAL);
+#endif
 	}
 
 	mutex_unlock(&mdss_pp_mutex);
