@@ -25,6 +25,9 @@
 
 static void kcal_apply_values(struct kcal_lut_data *lut_data)
 {
+	/* Continue to save values in case the user re-enables KCAL
+	 * after tuning values, so that they are restored on enable.
+	 */
 	lut_data->red = (lut_data->red < lut_data->minimum) ?
 		lut_data->minimum : lut_data->red;
 	lut_data->green = (lut_data->green < lut_data->minimum) ?
@@ -32,7 +35,9 @@ static void kcal_apply_values(struct kcal_lut_data *lut_data)
 	lut_data->blue = (lut_data->blue < lut_data->minimum) ?
 		lut_data->minimum : lut_data->blue;
 
-	update_preset_lcdc_lut(lut_data->red, lut_data->green, lut_data->blue);
+	if (lut_data->enable)
+		mdss_mdp_pp_kcal_update(lut_data->red, lut_data->green,
+			lut_data->blue);
 }
 
 static ssize_t kcal_store(struct device *dev, struct device_attribute *attr,
@@ -102,8 +107,44 @@ static ssize_t kcal_min_show(struct device *dev,
 	return sprintf(buf, "%d\n", lut_data->minimum);
 }
 
+static ssize_t kcal_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int kcal_enable;
+	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
+
+	if (count != 2)
+		return -EINVAL;
+
+	sscanf(buf, "%d", &kcal_enable);
+
+	if (kcal_enable != 0 && kcal_enable != 1)
+		return -EINVAL;
+
+	if (lut_data->enable == kcal_enable)
+		return -EINVAL;
+
+	lut_data->enable = kcal_enable;
+
+	mdss_mdp_pp_kcal_enable(lut_data->enable ? true : false);
+
+	if (lut_data->enable)
+		kcal_apply_values(lut_data);
+
+	return count;
+}
+
+static ssize_t kcal_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", lut_data->enable);
+}
+
 static DEVICE_ATTR(kcal, 0644, kcal_show, kcal_store);
 static DEVICE_ATTR(kcal_min, 0644, kcal_min_show, kcal_min_store);
+static DEVICE_ATTR(kcal_enable, 0644, kcal_enable_show, kcal_enable_store);
 
 static int __devinit kcal_ctrl_probe(struct platform_device *pdev)
 {
@@ -117,15 +158,17 @@ static int __devinit kcal_ctrl_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	lut_data->red = mdss_mdp_pp_get_kcal(KCAL_DATA_R);
-	lut_data->green = mdss_mdp_pp_get_kcal(KCAL_DATA_G);
-	lut_data->blue = mdss_mdp_pp_get_kcal(KCAL_DATA_B);
+	lut_data->red = mdss_mdp_pp_kcal_get(KCAL_DATA_R);
+	lut_data->green = mdss_mdp_pp_kcal_get(KCAL_DATA_G);
+	lut_data->blue = mdss_mdp_pp_kcal_get(KCAL_DATA_B);
 	lut_data->minimum = 35;
+	lut_data->enable = 1;
 
 	platform_set_drvdata(pdev, lut_data);
 
 	ret = device_create_file(&pdev->dev, &dev_attr_kcal);
 	ret |= device_create_file(&pdev->dev, &dev_attr_kcal_min);
+	ret |= device_create_file(&pdev->dev, &dev_attr_kcal_enable);
 	if (ret)
 		pr_err("%s: unable to create sysfs entries\n", __func__);
 
