@@ -45,13 +45,6 @@ config LGE_VSYNC_SKIP
 	---help---
 	This feature provides VSYNC skip scheme.
 
-config FB_MSM_MDSS_KCAL_CTRL
-	depends on FB_MSM_MDSS
-	bool "MDSS color control"
-	---help---
-	  Enable sysfs for rgb/lut control for mdss-mdp display controllers
-	  in the MDSS sub-system.
-
 config LGE_SHARPENING
 	depends on MACH_LGE
 	bool "LGE display sharpening control"
