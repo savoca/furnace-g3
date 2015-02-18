@@ -33,11 +33,10 @@ struct kcal_lut_data {
 	int green;
 	int blue;
 	int minimum;
-	int enable;
 };
 
-void mdss_mdp_pp_kcal_enable(bool enable);
-void mdss_mdp_pp_kcal_update(int kr, int kg, int kb);
-int mdss_mdp_pp_kcal_get(int data);
+void update_preset_lcdc_lut(int kr, int kg, int kb);
+
+int mdss_mdp_pp_get_kcal(int data);
 
 #endif
