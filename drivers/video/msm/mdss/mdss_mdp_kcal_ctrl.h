@@ -34,7 +34,6 @@ struct kcal_lut_data {
 	int blue;
 	int minimum;
 	int enable;
-	int invert;
 };
 
 void mdss_mdp_pp_kcal_enable(bool enable);
