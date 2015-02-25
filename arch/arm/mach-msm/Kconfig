@@ -3060,12 +3060,4 @@ config KRAIT_REGULATOR
 	 line from the PMIC. This supply line is powered by multiple
 	 regulators running in ganged mode inside the PMIC. Enable
 	 this option to support such configurations.
-
-config FURNACE_BOOTMODE
-	bool "Support Furnace driver configuration via reboot mode"
-	depends on MACH_LGE
-	help
-	  Allow rebooting the device in order to load a custom configuration
-	  in supported drivers by setting a unique reboot code in LK bootloader.
-
 endif
