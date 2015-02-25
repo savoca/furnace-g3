@@ -88,7 +88,6 @@ else ifneq ($(CONFIG_DTS_TARGET),"")
         dtb-$(CONFIG_MACH_MSM8974_G3_VZW)  += msm8974pro-ac-g3-vzw.dtb
         dtb-$(CONFIG_MACH_MSM8974_G3_ATT)  += msm8974pro-g3-att.dtb
         dtb-$(CONFIG_MACH_MSM8974_G3_ATT)  += msm8974pro-ac-g3-att.dtb
-        dtb-$(CONFIG_MACH_MSM8974_G3_TMO_US)  += msm8974pro-g3-tmo_us.dtb
         dtb-$(CONFIG_MACH_MSM8974_G3_TMO_US)  += msm8974pro-ac-g3-tmo_us.dtb
         dtb-$(CONFIG_MACH_MSM8974_G3_SPR_US)  += msm8974pro-g3-spr_us.dtb
         dtb-$(CONFIG_MACH_MSM8974_G3_SPR_US)  += msm8974pro-ac-g3-spr_us.dtb
